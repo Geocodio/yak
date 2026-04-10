@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Channel;
+use App\Http\Controllers\Webhooks\DroneCIWebhookController;
 use App\Http\Controllers\Webhooks\DroneWebhookController;
+use App\Http\Controllers\Webhooks\GitHubCIWebhookController;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
 use App\Http\Controllers\Webhooks\LinearWebhookController;
 use App\Http\Controllers\Webhooks\SentryWebhookController;
@@ -57,6 +59,17 @@ class ChannelServiceProvider extends ServiceProvider
                     Route::post($channel, $controller)->name("webhooks.{$channel}");
                 }
             }
+
+            // CI-specific webhook routes
+            Route::prefix('ci')->group(function (): void {
+                // GitHub CI is always registered
+                Route::post('github', GitHubCIWebhookController::class)->name('webhooks.ci.github');
+
+                // Drone CI only when credentials are present
+                if ((new Channel('drone'))->enabled()) {
+                    Route::post('drone', DroneCIWebhookController::class)->name('webhooks.ci.drone');
+                }
+            });
         });
     }
 }
