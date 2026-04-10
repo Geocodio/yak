@@ -6,6 +6,7 @@ use Database\Factories\ArtifactFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\URL;
 
 class Artifact extends Model
 {
@@ -32,5 +33,14 @@ class Artifact extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(YakTask::class, 'yak_task_id');
+    }
+
+    public function signedUrl(int $expiryDays = 7): string
+    {
+        return URL::temporarySignedRoute(
+            'artifacts.show',
+            now()->addDays($expiryDays),
+            ['task' => $this->yak_task_id, 'filename' => $this->filename]
+        );
     }
 }

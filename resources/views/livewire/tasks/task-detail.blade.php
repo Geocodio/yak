@@ -138,7 +138,7 @@
                 @if($this->isResearchTask() && $this->researchArtifact)
                     <div>
                         <strong>Research Findings:</strong>
-                        <a href="{{ $this->researchArtifact->disk_path }}" target="_blank" class="font-medium text-[#c4744a] hover:text-[#d4915e]" data-testid="research-link">View research artifact</a>
+                        <a href="{{ route('artifacts.viewer', ['task' => $task->id, 'filename' => $this->researchArtifact->filename]) }}" class="font-medium text-[#c4744a] hover:text-[#d4915e]" data-testid="research-link">View research artifact</a>
                     </div>
                 @endif
             </div>
@@ -153,9 +153,9 @@
                 <div class="flex flex-wrap gap-5">
                     @foreach($this->screenshots as $screenshot)
                         <div>
-                            <div class="flex h-[200px] w-[300px] flex-col items-center justify-center gap-2.5 rounded-[14px] border border-dashed border-[#c8b89a] bg-[rgba(200,184,154,0.2)]">
-                                <flux:icon.photo class="!size-8 text-[#c8b89a]" />
-                            </div>
+                            <a href="{{ $screenshot->signedUrl() }}" target="_blank" class="block">
+                                <img src="{{ $screenshot->signedUrl() }}" alt="{{ $screenshot->filename }}" class="h-[200px] w-[300px] rounded-[14px] border border-[rgba(200,184,154,0.4)] object-cover" loading="lazy" />
+                            </a>
                             <div class="mt-2 text-center text-xs text-[#6b8fa3]">{{ $screenshot->filename }}</div>
                         </div>
                     @endforeach
@@ -166,7 +166,7 @@
                     @foreach($this->videos as $video)
                         <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]">
                             <video controls class="w-full max-w-xl">
-                                <source src="{{ $video->disk_path }}" type="video/mp4">
+                                <source src="{{ $video->signedUrl() }}" type="video/mp4">
                             </video>
                             <div class="bg-[#e8e0d2] px-3 py-2 text-xs text-[#6b8fa3]">{{ $video->filename }}</div>
                         </div>

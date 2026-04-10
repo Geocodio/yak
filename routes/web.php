@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Livewire\Tasks\TaskDetail;
 use App\Livewire\Tasks\TaskList;
@@ -17,5 +18,14 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('tasks/{task}', TaskDetail::class)->name('tasks.show');
     Route::view('dashboard', 'dashboard')->name('dashboard');
 });
+
+Route::get('artifacts/{task}/viewer/{filename}', [ArtifactController::class, 'viewer'])
+    ->name('artifacts.viewer')
+    ->middleware('auth')
+    ->where('filename', '.*');
+
+Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
+    ->name('artifacts.show')
+    ->where('filename', '.*');
 
 require __DIR__.'/settings.php';
