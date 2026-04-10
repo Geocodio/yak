@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\ClaudeOutputParser;
 use App\Enums\TaskStatus;
+use App\GitOperations;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -94,12 +95,7 @@ class RunYakJob implements ShouldQueue
 
     private function prepareBranch(Repository $repository): void
     {
-        $defaultBranch = $repository->default_branch;
-        $branchName = 'yak/'.$this->task->external_id;
-
-        Process::path($repository->path)->run("git checkout {$defaultBranch}");
-        Process::path($repository->path)->run('git pull');
-        Process::path($repository->path)->run("git checkout -b {$branchName}");
+        $branchName = GitOperations::createBranch($repository, $this->task->external_id);
 
         $this->task->update(['branch_name' => $branchName]);
     }
@@ -173,8 +169,9 @@ class RunYakJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
         ]);
 
-        Process::path($repository->path)
-            ->run("git push -u origin {$this->task->branch_name}");
+        if ($this->task->branch_name !== null) {
+            GitOperations::pushBranch($repository, $this->task->branch_name);
+        }
     }
 
     private function handleClarification(ClaudeOutputParser $parser): void
@@ -198,7 +195,6 @@ class RunYakJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
-        Process::path($repository->path)
-            ->run("git checkout {$repository->default_branch}");
+        GitOperations::checkoutDefaultBranch($repository);
     }
 }

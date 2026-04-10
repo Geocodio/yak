@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\ClaudeOutputParser;
 use App\Enums\TaskStatus;
+use App\GitOperations;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -85,7 +86,7 @@ class RetryYakJob implements ShouldQueue
     {
         $branchName = 'yak/'.$this->task->external_id;
 
-        Process::path($repository->path)->run("git checkout {$branchName}");
+        GitOperations::checkoutBranch($repository, $branchName);
     }
 
     private function buildRetryPrompt(): string
@@ -136,8 +137,9 @@ class RetryYakJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
         ]);
 
-        Process::path($repository->path)
-            ->run("git push --force origin {$this->task->branch_name}");
+        if ($this->task->branch_name !== null) {
+            GitOperations::forcePushBranch($repository, $this->task->branch_name);
+        }
     }
 
     private function handleError(Repository $repository, string $errorMessage): void
@@ -148,7 +150,6 @@ class RetryYakJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
-        Process::path($repository->path)
-            ->run("git checkout {$repository->default_branch}");
+        GitOperations::checkoutDefaultBranch($repository);
     }
 }

@@ -17,9 +17,9 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull' => Process::result(''),
+        'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
+        'git checkout *' => Process::result(''),
         'claude *' => Process::result(json_encode([
             'result' => 'Fixed the bug successfully',
             'cost_usd' => 2.50,

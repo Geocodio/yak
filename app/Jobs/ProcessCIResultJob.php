@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\TaskStatus;
+use App\GitOperations;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -316,12 +317,6 @@ class ProcessCIResultJob implements ShouldQueue
 
     private function cleanupBranch(Repository $repository): void
     {
-        Process::path($repository->path)
-            ->run("git checkout {$repository->default_branch}");
-
-        if ($this->task->branch_name) {
-            Process::path($repository->path)
-                ->run("git branch -D {$this->task->branch_name}");
-        }
+        GitOperations::cleanup($repository, $this->task->branch_name);
     }
 }
