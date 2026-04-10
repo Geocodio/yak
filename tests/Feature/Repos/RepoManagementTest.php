@@ -5,9 +5,11 @@ use App\Livewire\Repos\RepoList;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    Queue::fake();
     $this->user = User::factory()->create();
     $this->actingAs($this->user);
 });

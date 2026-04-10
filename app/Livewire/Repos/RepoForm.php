@@ -3,6 +3,7 @@
 namespace App\Livewire\Repos;
 
 use App\Enums\TaskMode;
+use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Flux\Flux;
@@ -178,5 +179,7 @@ class RepoForm extends Component
             'setup_task_id' => $task->id,
             'setup_status' => 'pending',
         ]);
+
+        SetupYakJob::dispatch($task);
     }
 }

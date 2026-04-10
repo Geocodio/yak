@@ -29,7 +29,14 @@ class YakPromptBuilder
      */
     public static function taskPrompt(YakTask $task, array $metadata = []): string
     {
-        if ($task->mode === TaskMode::Research->value) {
+        /** @var TaskMode $mode */
+        $mode = $task->mode;
+
+        if ($mode === TaskMode::Setup) {
+            return self::setupPrompt($metadata['repo_name'] ?? $task->repo ?? 'unknown');
+        }
+
+        if ($mode === TaskMode::Research) {
             return self::researchPrompt($task->description ?? '');
         }
 
@@ -41,6 +48,16 @@ class YakPromptBuilder
             'slack' => self::slackFixPrompt($task->description ?? '', $metadata),
             default => self::slackFixPrompt($task->description ?? '', $metadata),
         };
+    }
+
+    /**
+     * Build a setup prompt for repository environment setup.
+     */
+    public static function setupPrompt(string $repoName): string
+    {
+        return self::renderView('prompts.tasks.setup', [
+            'repoName' => $repoName,
+        ]);
     }
 
     /**
