@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Enums\TaskMode;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\View;
 
@@ -28,6 +29,10 @@ class YakPromptBuilder
      */
     public static function taskPrompt(YakTask $task, array $metadata = []): string
     {
+        if ($task->mode === TaskMode::Research->value) {
+            return self::researchPrompt($task->description ?? '');
+        }
+
         return match ($task->source) {
             'sentry' => self::sentryFixPrompt($metadata),
             'flaky-test' => self::flakyTestPrompt($metadata),
