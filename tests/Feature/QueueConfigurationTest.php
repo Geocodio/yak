@@ -10,6 +10,7 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
+use App\Models\YakTask;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,7 +30,7 @@ test('database queue retry_after defaults to 660 seconds', function () {
 
 test('yak-claude jobs dispatch to yak-claude queue', function () {
     $jobs = [
-        new RunYakJob,
+        new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob,
         new ResearchYakJob,
         new SetupYakJob,
@@ -43,7 +44,7 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
 
 test('yak-claude jobs have 600 second timeout', function () {
     $jobs = [
-        new RunYakJob,
+        new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob,
         new ResearchYakJob,
         new SetupYakJob,
@@ -57,7 +58,7 @@ test('yak-claude jobs have 600 second timeout', function () {
 
 test('yak-claude jobs have exponential backoff', function () {
     $jobs = [
-        new RunYakJob,
+        new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob,
         new ResearchYakJob,
         new SetupYakJob,
