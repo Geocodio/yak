@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -105,26 +106,30 @@ class RunYakJob implements ShouldQueue
 
     private function assemblePrompt(): string
     {
-        /** @var array<string, string> */
-        $templates = [
-            'slack' => "Fix the following issue reported via Slack:\n\n%s",
-            'linear' => "Fix the following Linear issue:\n\n%s",
-            'sentry' => "Fix the following Sentry error:\n\n%s",
-            'flaky-test' => "Fix the following flaky test:\n\n%s",
-            'manual' => "Complete the following task:\n\n%s",
-        ];
+        $metadata = self::parseMetadata($this->task->context);
 
-        $source = $this->task->source;
-        $template = $templates[$source] ?? $templates['manual'];
-        $description = $this->task->description;
+        return YakPromptBuilder::taskPrompt($this->task, $metadata);
+    }
 
-        $prompt = sprintf($template, $description);
-
-        if ($this->task->context) {
-            $prompt .= "\n\nAdditional context:\n".$this->task->context;
+    /**
+     * Parse task context as JSON metadata, returning empty array for plain text or null.
+     *
+     * @return array<string, mixed>
+     */
+    private static function parseMetadata(?string $context): array
+    {
+        if ($context === null || $context === '') {
+            return [];
         }
 
-        return $prompt;
+        /** @var array<string, mixed>|null */
+        $decoded = json_decode($context, true);
+
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        return [];
     }
 
     private function invokeClaude(Repository $repository, string $prompt): string
@@ -134,7 +139,7 @@ class RunYakJob implements ShouldQueue
         $model = config('yak.default_model');
         $mcpConfig = config('yak.mcp_config_path');
 
-        $yakPrompt = 'You are Yak, an autonomous coding agent. Complete the task, commit your changes using /commit, and push with /ship.';
+        $systemPrompt = YakPromptBuilder::systemPrompt($this->task);
 
         $command = sprintf(
             'claude -p %s --dangerously-skip-permissions --bare --output-format json --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
@@ -142,7 +147,7 @@ class RunYakJob implements ShouldQueue
             escapeshellarg((string) $model),
             $maxTurns,
             number_format((float) $maxBudget, 2, '.', ''),
-            escapeshellarg($yakPrompt),
+            escapeshellarg($systemPrompt),
         );
 
         if ($mcpConfig) {

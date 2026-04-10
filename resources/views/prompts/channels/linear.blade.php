@@ -1,0 +1,1 @@
+LINEAR MCP: You have access to the Linear MCP integration. Use it to read issue details, post comments on progress, and update issue status. Reference the Linear issue in your commit messages.

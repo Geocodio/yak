@@ -1,0 +1,1 @@
+SENTRY MCP: You have access to the Sentry MCP integration. Use it to look up error details, stacktraces, and event frequency. Cross-reference Sentry data when investigating the root cause.

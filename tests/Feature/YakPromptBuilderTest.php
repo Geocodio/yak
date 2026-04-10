@@ -1,0 +1,321 @@
+<?php
+
+use App\Models\YakTask;
+use App\YakPromptBuilder;
+
+/*
+|--------------------------------------------------------------------------
+| System Prompt - Core Rules
+|--------------------------------------------------------------------------
+*/
+
+test('system prompt contains all required rules', function () {
+    $task = YakTask::factory()->pending()->create(['external_id' => 'TASK-123']);
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    // Verify all 12 rules are present
+    expect($prompt)->toContain('SCOPE')
+        ->toContain('200 lines')
+        ->toContain('MINIMAL CHANGES')
+        ->toContain('UNDERSTAND FIRST')
+        ->toContain('TEST LOCALLY')
+        ->toContain('COMMIT FORMAT')
+        ->toContain('[TASK-123]')
+        ->toContain('VISUAL CAPTURE')
+        ->toContain('SCOPE CHECK')
+        ->toContain('IF STUCK')
+        ->toContain('CONTEXT7')
+        ->toContain('DEV ENVIRONMENT')
+        ->toContain('BRANCH DISCIPLINE')
+        ->toContain('NO SECRETS');
+});
+
+test('system prompt includes task id in commit format rule', function () {
+    $task = YakTask::factory()->pending()->create(['external_id' => 'YAK-42']);
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('[YAK-42] Short description');
+});
+
+test('system prompt uses custom dev environment instructions', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task, 'Run `docker-compose up` before testing.');
+
+    expect($prompt)->toContain('Run `docker-compose up` before testing.');
+});
+
+test('system prompt uses default dev environment instructions when none provided', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('No specific dev environment instructions.');
+});
+
+/*
+|--------------------------------------------------------------------------
+| System Prompt - Channel-Conditional Sections
+|--------------------------------------------------------------------------
+*/
+
+test('system prompt includes linear rules when linear channel enabled', function () {
+    config()->set('yak.channels.linear.api_key', 'test-key');
+    config()->set('yak.channels.linear.webhook_secret', 'test-secret');
+
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('LINEAR MCP');
+});
+
+test('system prompt excludes linear rules when linear channel disabled', function () {
+    config()->set('yak.channels.linear.api_key', null);
+    config()->set('yak.channels.linear.webhook_secret', null);
+
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->not->toContain('LINEAR MCP');
+});
+
+test('system prompt includes sentry rules when sentry channel enabled', function () {
+    config()->set('yak.channels.sentry.auth_token', 'test-token');
+    config()->set('yak.channels.sentry.webhook_secret', 'test-secret');
+    config()->set('yak.channels.sentry.org_slug', 'test-org');
+
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('SENTRY MCP');
+});
+
+test('system prompt excludes sentry rules when sentry channel disabled', function () {
+    config()->set('yak.channels.sentry.auth_token', null);
+    config()->set('yak.channels.sentry.webhook_secret', null);
+    config()->set('yak.channels.sentry.org_slug', null);
+
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->not->toContain('SENTRY MCP');
+});
+
+test('system prompt includes both channel rules when both enabled', function () {
+    config()->set('yak.channels.linear.api_key', 'test-key');
+    config()->set('yak.channels.linear.webhook_secret', 'test-secret');
+    config()->set('yak.channels.sentry.auth_token', 'test-token');
+    config()->set('yak.channels.sentry.webhook_secret', 'test-secret');
+    config()->set('yak.channels.sentry.org_slug', 'test-org');
+
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('LINEAR MCP')
+        ->toContain('SENTRY MCP');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Sentry Fix
+|--------------------------------------------------------------------------
+*/
+
+test('sentry fix prompt includes error, culprit, stacktrace, context, and instructions', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'sentry']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'error' => 'TypeError: Cannot read property of null',
+        'culprit' => 'app/Services/UserService.php',
+        'stacktrace' => "at UserService.php:42\nat Controller.php:15",
+        'context' => 'Occurs during user registration',
+        'instructions' => 'Fix the null reference error',
+    ]);
+
+    expect($prompt)->toContain('TypeError: Cannot read property of null')
+        ->toContain('app/Services/UserService.php')
+        ->toContain('at UserService.php:42')
+        ->toContain('Occurs during user registration')
+        ->toContain('Fix the null reference error');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Flaky Test Fix
+|--------------------------------------------------------------------------
+*/
+
+test('flaky test prompt includes test class, method, failure output, and build url', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'test_class' => 'Tests\\Feature\\UserTest',
+        'test_method' => 'test_user_can_login',
+        'failure_output' => 'Expected 200 but got 500',
+        'build_url' => 'https://ci.example.com/builds/123',
+    ]);
+
+    expect($prompt)->toContain('Tests\\Feature\\UserTest')
+        ->toContain('test_user_can_login')
+        ->toContain('Expected 200 but got 500')
+        ->toContain('https://ci.example.com/builds/123');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Linear Fix
+|--------------------------------------------------------------------------
+*/
+
+test('linear fix prompt includes title, description, instructions, and linear mcp reference', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'linear']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'title' => 'Fix authentication bug',
+        'description' => 'Users cannot login with SSO',
+        'instructions' => 'Check the SAML integration',
+    ]);
+
+    expect($prompt)->toContain('Fix authentication bug')
+        ->toContain('Users cannot login with SSO')
+        ->toContain('Check the SAML integration')
+        ->toContain('Linear MCP');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Research
+|--------------------------------------------------------------------------
+*/
+
+test('research prompt includes description and no-code-changes instruction', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'research',
+        'description' => 'Evaluate caching strategies for API responses',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task);
+
+    expect($prompt)->toContain('Do NOT make any code changes')
+        ->toContain('Evaluate caching strategies for API responses')
+        ->toContain('HTML report')
+        ->toContain('summary');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Slack Fix
+|--------------------------------------------------------------------------
+*/
+
+test('slack fix prompt includes description, requester name, and ambiguity check preamble', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'slack',
+        'description' => 'The checkout page is broken',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'requester_name' => 'Alice',
+    ]);
+
+    expect($prompt)->toContain('The checkout page is broken')
+        ->toContain('Alice')
+        ->toContain('clarification_needed')
+        ->toContain('"options"');
+});
+
+test('slack fix prompt uses default requester name when not provided', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'slack',
+        'description' => 'Fix the bug',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task);
+
+    expect($prompt)->toContain('a team member');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Clarification Reply
+|--------------------------------------------------------------------------
+*/
+
+test('clarification reply prompt includes chosen option', function () {
+    $prompt = YakPromptBuilder::clarificationReplyPrompt('Fix the auth flow');
+
+    expect($prompt)->toContain('Fix the auth flow')
+        ->toContain('Selected option')
+        ->toContain('Do not ask for further clarification');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Retry
+|--------------------------------------------------------------------------
+*/
+
+test('retry prompt includes ci failure output', function () {
+    $prompt = YakPromptBuilder::retryPrompt('Tests failed: 3 failures in UserTest');
+
+    expect($prompt)->toContain('CI pipeline failed')
+        ->toContain('Tests failed: 3 failures in UserTest');
+});
+
+test('retry prompt handles null failure output', function () {
+    $prompt = YakPromptBuilder::retryPrompt(null);
+
+    expect($prompt)->toContain('CI pipeline failed')
+        ->toContain('No CI output was captured');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Default Source
+|--------------------------------------------------------------------------
+*/
+
+test('unknown source falls back to slack fix template', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'manual',
+        'description' => 'Do this manually created task',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'requester_name' => 'Bot',
+    ]);
+
+    expect($prompt)->toContain('Do this manually created task');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Templates are Blade Views
+|--------------------------------------------------------------------------
+*/
+
+test('prompt templates exist as blade views', function () {
+    $views = [
+        'prompts.system',
+        'prompts.tasks.sentry-fix',
+        'prompts.tasks.flaky-test',
+        'prompts.tasks.linear-fix',
+        'prompts.tasks.research',
+        'prompts.tasks.slack-fix',
+        'prompts.tasks.clarification-reply',
+        'prompts.tasks.retry',
+        'prompts.channels.linear',
+        'prompts.channels.sentry',
+    ];
+
+    foreach ($views as $view) {
+        expect(view()->exists($view))->toBeTrue("View {$view} should exist");
+    }
+});

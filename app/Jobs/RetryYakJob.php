@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -89,15 +90,7 @@ class RetryYakJob implements ShouldQueue
 
     private function buildRetryPrompt(): string
     {
-        $prompt = "The CI pipeline failed for this task. Please fix the issues and try again.\n\n";
-
-        if ($this->failureOutput) {
-            $prompt .= "CI failure output:\n\n{$this->failureOutput}";
-        } else {
-            $prompt .= 'No CI output was captured. Please review the code for issues and fix them.';
-        }
-
-        return $prompt;
+        return YakPromptBuilder::retryPrompt($this->failureOutput);
     }
 
     private function invokeClaude(Repository $repository, string $prompt): string
@@ -108,7 +101,7 @@ class RetryYakJob implements ShouldQueue
         $mcpConfig = config('yak.mcp_config_path');
         $sessionId = $this->task->session_id;
 
-        $yakPrompt = 'You are Yak, an autonomous coding agent. Complete the task, commit your changes using /commit, and push with /ship.';
+        $systemPrompt = YakPromptBuilder::systemPrompt($this->task);
 
         $command = sprintf(
             'claude -p %s --resume %s --dangerously-skip-permissions --bare --output-format json --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
@@ -117,7 +110,7 @@ class RetryYakJob implements ShouldQueue
             escapeshellarg((string) $model),
             $maxTurns,
             number_format((float) $maxBudget, 2, '.', ''),
-            escapeshellarg($yakPrompt),
+            escapeshellarg($systemPrompt),
         );
 
         if ($mcpConfig) {
