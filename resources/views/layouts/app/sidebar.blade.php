@@ -15,6 +15,9 @@
                     <flux:sidebar.item icon="clipboard-document-list" :href="route('tasks')" :current="request()->routeIs('tasks')" wire:navigate>
                         {{ __('Tasks') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="code-bracket" :href="route('repos')" :current="request()->routeIs('repos*')" wire:navigate>
+                        {{ __('Repositories') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
