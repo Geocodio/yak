@@ -37,7 +37,7 @@
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse($this->tasks as $task)
-                    <tr wire:key="task-{{ $task->id }}" class="h-14 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <tr wire:key="task-{{ $task->id }}" class="h-14 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" onclick="window.location='{{ route('tasks.show', $task) }}'">
                         <td class="px-5 py-2">
                             <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
                                 {{ str_replace('_', ' ', $task->status->value) }}
