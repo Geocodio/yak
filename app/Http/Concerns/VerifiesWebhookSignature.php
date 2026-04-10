@@ -18,10 +18,11 @@ trait VerifiesWebhookSignature
         string $signatureHeader = 'X-Signature-256',
         string $algorithm = 'sha256',
         string $prefix = 'sha256=',
+        ?string $payload = null,
     ): void {
         $signature = $request->header($signatureHeader, '');
 
-        $expected = $prefix.hash_hmac($algorithm, $request->getContent(), $secret);
+        $expected = $prefix.hash_hmac($algorithm, $payload ?? $request->getContent(), $secret);
 
         if (! hash_equals($expected, $signature)) {
             throw new AccessDeniedHttpException('Invalid webhook signature.');

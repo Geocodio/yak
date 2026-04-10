@@ -34,7 +34,7 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob,
         new SetupYakJob,
-        new ClarificationReplyJob,
+        new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
     ];
 
     foreach ($jobs as $job) {
@@ -48,7 +48,7 @@ test('yak-claude jobs have 600 second timeout', function () {
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob,
         new SetupYakJob,
-        new ClarificationReplyJob,
+        new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
     ];
 
     foreach ($jobs as $job) {
@@ -62,7 +62,7 @@ test('yak-claude jobs have exponential backoff', function () {
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob,
         new SetupYakJob,
-        new ClarificationReplyJob,
+        new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
     ];
 
     foreach ($jobs as $job) {
