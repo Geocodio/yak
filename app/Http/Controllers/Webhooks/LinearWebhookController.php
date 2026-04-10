@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\LinearInputDriver;
 use App\Drivers\LinearNotificationDriver;
+use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
@@ -109,10 +110,7 @@ class LinearWebhookController extends Controller
         ]);
 
         $notification = new LinearNotificationDriver;
-
-        $dashboardLink = url("/tasks/{$task->id}");
-        $notification->postComment($task, "Yak picked up this issue. Track progress: {$dashboardLink}");
-        $notification->updateIssueState($task, 'in-progress');
+        $notification->send($task, NotificationType::Acknowledgment, 'Yak picked up this issue.');
 
         RunYakJob::dispatch($task);
 

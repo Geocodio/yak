@@ -3,31 +3,13 @@
 namespace App\Drivers;
 
 use App\Contracts\NotificationDriver;
+use App\Enums\NotificationType;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 
 class SlackNotificationDriver implements NotificationDriver
 {
-    /**
-     * Post a status update as a threaded reply in Slack.
-     */
-    public function postStatusUpdate(YakTask $task, string $message): void
-    {
-        $this->postThreadedReply($task, $message);
-    }
-
-    /**
-     * Post the final result as a threaded reply in Slack.
-     */
-    public function postResult(YakTask $task, string $summary): void
-    {
-        $this->postThreadedReply($task, $summary);
-    }
-
-    /**
-     * Post a threaded reply to the Slack channel associated with the task.
-     */
-    private function postThreadedReply(YakTask $task, string $message): void
+    public function send(YakTask $task, NotificationType $type, string $message): void
     {
         $token = (string) config('yak.channels.slack.bot_token');
 
@@ -35,11 +17,33 @@ class SlackNotificationDriver implements NotificationDriver
             return;
         }
 
+        $dashboardLink = $this->taskDashboardLink($task);
+        $text = $this->formatMessage($task, $type, $message, $dashboardLink);
+
         Http::withToken($token)
             ->post('https://slack.com/api/chat.postMessage', [
                 'channel' => $task->slack_channel,
                 'thread_ts' => $task->slack_thread_ts,
-                'text' => $message,
+                'text' => $text,
             ]);
+    }
+
+    private function formatMessage(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string
+    {
+        return match ($type) {
+            NotificationType::Acknowledgment => "🤖 Task acknowledged. {$message}\n{$dashboardLink}",
+            NotificationType::Progress => "⏳ {$message}\n{$dashboardLink}",
+            NotificationType::Clarification => "❓ Clarification needed: {$message}\n{$dashboardLink}",
+            NotificationType::Retry => "🔄 {$message}\n{$dashboardLink}",
+            NotificationType::Result => "✅ {$message}\n{$dashboardLink}",
+            NotificationType::Expiry => "⏰ {$message}\n{$dashboardLink}",
+        };
+    }
+
+    private function taskDashboardLink(YakTask $task): string
+    {
+        $baseUrl = rtrim((string) config('app.url'), '/');
+
+        return "{$baseUrl}/tasks/{$task->id}";
     }
 }

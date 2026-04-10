@@ -3,6 +3,7 @@
 namespace App\Drivers;
 
 use App\Contracts\NotificationDriver;
+use App\Enums\NotificationType;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 
@@ -10,54 +11,68 @@ class LinearNotificationDriver implements NotificationDriver
 {
     private const GRAPHQL_ENDPOINT = 'https://api.linear.app/graphql';
 
-    /**
-     * Post a status update as a comment on the Linear issue.
-     */
-    public function postStatusUpdate(YakTask $task, string $message): void
-    {
-        $this->postComment($task, $message);
-    }
-
-    /**
-     * Post the final result as a comment on the Linear issue.
-     */
-    public function postResult(YakTask $task, string $summary): void
-    {
-        $this->postComment($task, $summary);
-    }
-
-    /**
-     * Post a comment on a Linear issue via GraphQL.
-     */
-    public function postComment(YakTask $task, string $body): void
+    public function send(YakTask $task, NotificationType $type, string $message): void
     {
         $apiKey = $this->getApiKey();
-
         $externalId = (string) $task->external_id;
 
         if ($apiKey === '' || $externalId === '') {
             return;
         }
 
+        $dashboardLink = $this->taskDashboardLink($task);
+        $body = $this->formatComment($task, $type, $message, $dashboardLink);
+
+        $this->postComment($apiKey, $externalId, $body);
+
+        if ($type === NotificationType::Result || $type === NotificationType::Expiry) {
+            $this->updateIssueState($apiKey, $externalId, $type);
+        }
+    }
+
+    private function formatComment(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string
+    {
+        return match ($type) {
+            NotificationType::Acknowledgment => "🤖 Task acknowledged. {$message}\n\n[View on Dashboard]({$dashboardLink})",
+            NotificationType::Progress => "⏳ {$message}\n\n[View on Dashboard]({$dashboardLink})",
+            NotificationType::Clarification => "❓ Clarification needed: {$message}\n\n[View on Dashboard]({$dashboardLink})",
+            NotificationType::Retry => "🔄 {$message}\n\n[View on Dashboard]({$dashboardLink})",
+            NotificationType::Result => "✅ {$message}\n\n[View on Dashboard]({$dashboardLink})",
+            NotificationType::Expiry => "⏰ {$message}\n\n[View on Dashboard]({$dashboardLink})",
+        };
+    }
+
+    private function postComment(string $apiKey, string $issueId, string $body): void
+    {
         Http::withHeaders(['Authorization' => $apiKey])
             ->post(self::GRAPHQL_ENDPOINT, [
                 'query' => 'mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }',
                 'variables' => [
-                    'issueId' => $externalId,
+                    'issueId' => $issueId,
                     'body' => $body,
                 ],
             ]);
     }
 
     /**
-     * Update a Linear issue's workflow state via GraphQL.
+     * Update issue state based on notification type.
+     * Uses configured state IDs from yak.channels.linear config.
      */
-    public function updateIssueState(YakTask $task, string $stateId): void
+    private function updateIssueState(string $apiKey, string $issueId, NotificationType $type): void
     {
-        $apiKey = $this->getApiKey();
-        $externalId = (string) $task->external_id;
+        $stateConfigKey = match ($type) {
+            NotificationType::Result => 'done_state_id',
+            NotificationType::Expiry => 'cancelled_state_id',
+            default => null,
+        };
 
-        if ($apiKey === '' || $externalId === '') {
+        if ($stateConfigKey === null) {
+            return;
+        }
+
+        $stateId = (string) config("yak.channels.linear.{$stateConfigKey}");
+
+        if ($stateId === '') {
             return;
         }
 
@@ -65,10 +80,17 @@ class LinearNotificationDriver implements NotificationDriver
             ->post(self::GRAPHQL_ENDPOINT, [
                 'query' => 'mutation($issueId: String!, $stateId: String!) { issueUpdate(id: $issueId, input: { stateId: $stateId }) { success } }',
                 'variables' => [
-                    'issueId' => $externalId,
+                    'issueId' => $issueId,
                     'stateId' => $stateId,
                 ],
             ]);
+    }
+
+    private function taskDashboardLink(YakTask $task): string
+    {
+        $baseUrl = rtrim((string) config('app.url'), '/');
+
+        return "{$baseUrl}/tasks/{$task->id}";
     }
 
     private function getApiKey(): string

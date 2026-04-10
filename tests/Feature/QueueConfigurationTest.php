@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\CleanupJob;
 use App\Jobs\CreatePullRequestJob;
@@ -81,7 +82,7 @@ test('default queue jobs dispatch to default queue', function () {
         new ProcessCIResultJob(YakTask::factory()->awaitingCi()->make(), true),
         new ProcessWebhookJob,
         new CreatePullRequestJob(YakTask::factory()->awaitingCi()->make()),
-        new SendNotificationJob,
+        new SendNotificationJob(YakTask::factory()->pending()->make(), NotificationType::Progress, 'test'),
         new CleanupJob,
     ];
 
@@ -95,7 +96,7 @@ test('default queue jobs have 30 second timeout', function () {
         new ProcessCIResultJob(YakTask::factory()->awaitingCi()->make(), true),
         new ProcessWebhookJob,
         new CreatePullRequestJob(YakTask::factory()->awaitingCi()->make()),
-        new SendNotificationJob,
+        new SendNotificationJob(YakTask::factory()->pending()->make(), NotificationType::Progress, 'test'),
         new CleanupJob,
     ];
 
@@ -109,7 +110,7 @@ test('default queue jobs have exponential backoff', function () {
         new ProcessCIResultJob(YakTask::factory()->awaitingCi()->make(), true),
         new ProcessWebhookJob,
         new CreatePullRequestJob(YakTask::factory()->awaitingCi()->make()),
-        new SendNotificationJob,
+        new SendNotificationJob(YakTask::factory()->pending()->make(), NotificationType::Progress, 'test'),
         new CleanupJob,
     ];
 

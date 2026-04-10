@@ -1,6 +1,7 @@
 <?php
 
 use App\Drivers\LinearNotificationDriver;
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
@@ -349,7 +350,7 @@ it('posts acknowledgment comment with task URL on pickup', function () {
     assertLinearComment("/tasks/{$task->id}");
 });
 
-it('moves Linear issue to In Progress on pickup', function () {
+it('posts acknowledgment comment on pickup', function () {
     $secret = enableLinearChannel();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
@@ -367,7 +368,7 @@ it('moves Linear issue to In Progress on pickup', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    assertLinearStateUpdate('in-progress');
+    assertLinearComment('Task acknowledged');
 });
 
 /*
@@ -387,7 +388,7 @@ it('LinearNotificationDriver posts comments to Linear issues', function () {
     ]);
 
     $driver = new LinearNotificationDriver;
-    $driver->postStatusUpdate($task, 'Working on this issue now...');
+    $driver->send($task, NotificationType::Progress, 'Working on this issue now...');
 
     assertLinearComment('Working on this issue now...');
 });
@@ -403,7 +404,7 @@ it('LinearNotificationDriver posts result to Linear issues', function () {
     ]);
 
     $driver = new LinearNotificationDriver;
-    $driver->postResult($task, 'PR created: https://github.com/org/repo/pull/42');
+    $driver->send($task, NotificationType::Result, 'PR created: https://github.com/org/repo/pull/42');
 
     assertLinearComment('PR created');
 });
@@ -419,9 +420,10 @@ it('LinearNotificationDriver updates issue state', function () {
     ]);
 
     $driver = new LinearNotificationDriver;
-    $driver->updateIssueState($task, 'done');
+    config()->set('yak.channels.linear.done_state_id', 'done-state-uuid');
+    $driver->send($task, NotificationType::Result, 'Done!');
 
-    assertLinearStateUpdate('done');
+    assertLinearStateUpdate('done-state-uuid');
 });
 
 it('LinearNotificationDriver skips when API key is missing', function () {
@@ -435,7 +437,7 @@ it('LinearNotificationDriver skips when API key is missing', function () {
     ]);
 
     $driver = new LinearNotificationDriver;
-    $driver->postStatusUpdate($task, 'should not be sent');
+    $driver->send($task, NotificationType::Progress, 'should not be sent');
 
     Http::assertNothingSent();
 });

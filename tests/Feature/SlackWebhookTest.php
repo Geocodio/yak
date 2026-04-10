@@ -1,6 +1,7 @@
 <?php
 
 use App\Drivers\SlackNotificationDriver;
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
@@ -416,7 +417,7 @@ it('SlackNotificationDriver posts threaded replies', function () {
     ]);
 
     $driver = new SlackNotificationDriver;
-    $driver->postStatusUpdate($task, 'I found the issue... Fixing now and adding a test');
+    $driver->send($task, NotificationType::Progress, 'I found the issue... Fixing now and adding a test');
 
     assertSlackThreadReply('C_NOTIFY_CHAN', '2222222222.222222', 'I found the issue');
 });
@@ -433,7 +434,7 @@ it('SlackNotificationDriver posts result to thread', function () {
     ]);
 
     $driver = new SlackNotificationDriver;
-    $driver->postResult($task, 'PR created: https://github.com/org/repo/pull/42');
+    $driver->send($task, NotificationType::Result, 'PR created: https://github.com/org/repo/pull/42');
 
     assertSlackThreadReply('C_RESULT_CHAN', '3333333333.333333', 'PR created');
 });
@@ -450,7 +451,7 @@ it('SlackNotificationDriver skips when bot token is missing', function () {
     ]);
 
     $driver = new SlackNotificationDriver;
-    $driver->postStatusUpdate($task, 'should not be sent');
+    $driver->send($task, NotificationType::Progress, 'should not be sent');
 
     Http::assertNothingSent();
 });

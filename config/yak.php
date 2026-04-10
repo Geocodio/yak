@@ -73,6 +73,8 @@ return [
             'driver' => 'linear',
             'api_key' => env('YAK_LINEAR_API_KEY'),
             'webhook_secret' => env('YAK_LINEAR_WEBHOOK_SECRET'),
+            'done_state_id' => env('YAK_LINEAR_DONE_STATE_ID'),
+            'cancelled_state_id' => env('YAK_LINEAR_CANCELLED_STATE_ID'),
         ],
 
         'sentry' => [

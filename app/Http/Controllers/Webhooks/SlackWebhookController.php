@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\SlackInputDriver;
 use App\Drivers\SlackNotificationDriver;
+use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
@@ -80,9 +81,8 @@ class SlackWebhookController extends Controller
             'slack_thread_ts' => $description->metadata['slack_thread_ts'],
         ]);
 
-        $dashboardLink = url("/tasks/{$task->id}");
         $notification = new SlackNotificationDriver;
-        $notification->postStatusUpdate($task, "Got it! I'm on it. Track progress: {$dashboardLink}");
+        $notification->send($task, NotificationType::Acknowledgment, "I'm on it.");
 
         RunYakJob::dispatch($task);
 

@@ -5,6 +5,7 @@ use App\Contracts\InputDriver;
 use App\Contracts\NotificationDriver;
 use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\TaskDescription;
+use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Webhooks\DroneWebhookController;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
@@ -58,24 +59,18 @@ test('CIDriver interface defines parse method returning BuildResult', function (
 |--------------------------------------------------------------------------
 */
 
-test('NotificationDriver interface defines postStatusUpdate and postResult methods', function () {
+test('NotificationDriver interface defines send method', function () {
     $reflection = new ReflectionClass(NotificationDriver::class);
 
     expect($reflection->isInterface())->toBeTrue();
-    expect($reflection->hasMethod('postStatusUpdate'))->toBeTrue();
-    expect($reflection->hasMethod('postResult'))->toBeTrue();
+    expect($reflection->hasMethod('send'))->toBeTrue();
 
-    $statusMethod = $reflection->getMethod('postStatusUpdate');
-    expect($statusMethod->getNumberOfParameters())->toBe(2);
-    expect($statusMethod->getParameters()[0]->getType()?->getName())->toBe(YakTask::class);
-    expect($statusMethod->getParameters()[1]->getType()?->getName())->toBe('string');
-    expect($statusMethod->getReturnType()?->getName())->toBe('void');
-
-    $resultMethod = $reflection->getMethod('postResult');
-    expect($resultMethod->getNumberOfParameters())->toBe(2);
-    expect($resultMethod->getParameters()[0]->getType()?->getName())->toBe(YakTask::class);
-    expect($resultMethod->getParameters()[1]->getType()?->getName())->toBe('string');
-    expect($resultMethod->getReturnType()?->getName())->toBe('void');
+    $method = $reflection->getMethod('send');
+    expect($method->getNumberOfParameters())->toBe(3);
+    expect($method->getParameters()[0]->getType()?->getName())->toBe(YakTask::class);
+    expect($method->getParameters()[1]->getType()?->getName())->toBe(NotificationType::class);
+    expect($method->getParameters()[2]->getType()?->getName())->toBe('string');
+    expect($method->getReturnType()?->getName())->toBe('void');
 });
 
 /*
