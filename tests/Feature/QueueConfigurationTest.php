@@ -80,7 +80,7 @@ test('default queue jobs dispatch to default queue', function () {
     $jobs = [
         new ProcessCIResultJob(YakTask::factory()->awaitingCi()->make(), true),
         new ProcessWebhookJob,
-        new CreatePullRequestJob,
+        new CreatePullRequestJob(YakTask::factory()->awaitingCi()->make()),
         new SendNotificationJob,
         new CleanupJob,
     ];
@@ -94,7 +94,7 @@ test('default queue jobs have 30 second timeout', function () {
     $jobs = [
         new ProcessCIResultJob(YakTask::factory()->awaitingCi()->make(), true),
         new ProcessWebhookJob,
-        new CreatePullRequestJob,
+        new CreatePullRequestJob(YakTask::factory()->awaitingCi()->make()),
         new SendNotificationJob,
         new CleanupJob,
     ];
@@ -108,7 +108,7 @@ test('default queue jobs have exponential backoff', function () {
     $jobs = [
         new ProcessCIResultJob(YakTask::factory()->awaitingCi()->make(), true),
         new ProcessWebhookJob,
-        new CreatePullRequestJob,
+        new CreatePullRequestJob(YakTask::factory()->awaitingCi()->make()),
         new SendNotificationJob,
         new CleanupJob,
     ];

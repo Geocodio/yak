@@ -45,13 +45,15 @@ class ProcessCIResultJob implements ShouldQueue
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
-        $artifacts = $this->collectArtifacts($repository);
-        $signedUrls = $this->generateSignedUrls($artifacts);
+        $this->collectArtifacts($repository);
 
         $loc = $this->countLinesOfCode($repository);
         $isLargeChange = $loc > (int) config('yak.large_change_threshold');
 
-        $prUrl = $this->createPullRequest($repository, $signedUrls, $isLargeChange);
+        CreatePullRequestJob::dispatchSync($this->task, $isLargeChange);
+
+        $this->task->refresh();
+        $prUrl = $this->task->pr_url ?? '';
 
         $this->postToSource("PR created: {$prUrl}");
 
@@ -61,7 +63,6 @@ class ProcessCIResultJob implements ShouldQueue
 
         $this->task->update([
             'status' => TaskStatus::Success,
-            'pr_url' => $prUrl,
             'completed_at' => now(),
         ]);
 
@@ -133,28 +134,6 @@ class ProcessCIResultJob implements ShouldQueue
         };
     }
 
-    /**
-     * @param  array<int, Artifact>  $artifacts
-     * @return array<int, array{filename: string, url: string}>
-     */
-    private function generateSignedUrls(array $artifacts): array
-    {
-        $signedUrls = [];
-
-        foreach ($artifacts as $artifact) {
-            $expires = now()->addDays(7)->timestamp;
-            $payload = "{$artifact->id}:{$expires}";
-            $signature = hash_hmac('sha256', $payload, (string) config('app.key'));
-
-            $signedUrls[] = [
-                'filename' => $artifact->filename,
-                'url' => url("/artifacts/{$artifact->id}?expires={$expires}&signature={$signature}"),
-            ];
-        }
-
-        return $signedUrls;
-    }
-
     private function countLinesOfCode(Repository $repository): int
     {
         $result = Process::path($repository->path)
@@ -176,83 +155,6 @@ class ProcessCIResultJob implements ShouldQueue
         }
 
         return $added + $removed;
-    }
-
-    /**
-     * @param  array<int, array{filename: string, url: string}>  $signedUrls
-     */
-    private function createPullRequest(Repository $repository, array $signedUrls, bool $isLargeChange): string
-    {
-        $token = $this->getGitHubToken();
-        $body = $this->buildPrBody($signedUrls);
-        $title = $this->buildPrTitle();
-
-        $response = Http::withToken($token)
-            ->post("https://api.github.com/repos/{$repository->slug}/pulls", [
-                'title' => $title,
-                'head' => $this->task->branch_name,
-                'base' => $repository->default_branch,
-                'body' => $body,
-            ]);
-
-        /** @var int $prNumber */
-        $prNumber = $response->json('number');
-        /** @var string $prUrl */
-        $prUrl = $response->json('html_url');
-
-        $labels = ['yak'];
-        if ($isLargeChange) {
-            $labels[] = 'yak-large-change';
-        }
-
-        Http::withToken($token)
-            ->post("https://api.github.com/repos/{$repository->slug}/issues/{$prNumber}/labels", [
-                'labels' => $labels,
-            ]);
-
-        return $prUrl;
-    }
-
-    private function buildPrTitle(): string
-    {
-        $description = $this->task->description;
-
-        if (strlen($description) > 60) {
-            $description = substr($description, 0, 57).'...';
-        }
-
-        return "[Yak] {$description}";
-    }
-
-    /**
-     * @param  array<int, array{filename: string, url: string}>  $signedUrls
-     */
-    private function buildPrBody(array $signedUrls): string
-    {
-        $parts = [
-            '## Yak Automated PR',
-            '',
-            "**Source:** {$this->task->source}",
-            "**Repository:** {$this->task->repo}",
-            '',
-            '### Summary',
-            $this->task->result_summary ?? 'No summary available',
-        ];
-
-        if (count($signedUrls) > 0) {
-            $parts[] = '';
-            $parts[] = '### Artifacts';
-            foreach ($signedUrls as $artifact) {
-                $parts[] = "- [{$artifact['filename']}]({$artifact['url']})";
-            }
-        }
-
-        return implode("\n", $parts);
-    }
-
-    private function getGitHubToken(): string
-    {
-        return (string) config('yak.channels.github.private_key');
     }
 
     private function postToSource(string $message): void

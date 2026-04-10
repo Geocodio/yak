@@ -4,11 +4,21 @@ use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Models\Artifact;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+
+beforeEach(function () {
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create([
+        'installation_id' => 99999,
+        'token' => 'ghs_test_token',
+        'expires_at' => now()->addHour(),
+    ]);
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -27,12 +37,12 @@ test('green path creates PR and marks task as success', function () {
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 3 files changed, 50 insertions(+), 10 deletions(-)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
 
-    config()->set('yak.channels.github.private_key', 'test-github-token');
     config()->set('yak.channels.slack.bot_token', 'test-slack-token');
 
     $repository = Repository::factory()->create([
@@ -71,12 +81,11 @@ test('green path creates PR via GitHub API with correct payload', function () {
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
-
-    config()->set('yak.channels.github.private_key', 'gh-token');
 
     $repository = Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -99,7 +108,7 @@ test('green path creates PR via GitHub API with correct payload', function () {
         return str_contains($request->url(), 'api.github.com/repos/org/my-repo/pulls')
             && $request['head'] === 'yak/FIX-99'
             && $request['base'] === 'main'
-            && str_contains($request['title'], '[Yak]');
+            && str_contains($request['title'], 'Yak Fix:');
     });
 });
 
@@ -119,12 +128,11 @@ test('PR body contains source, repo, and result summary', function () {
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
-
-    config()->set('yak.channels.github.private_key', 'gh-token');
 
     Repository::factory()->create([
         'slug' => 'org/test-repo',
@@ -171,12 +179,11 @@ test('green path applies yak label to PR', function () {
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 2 files changed, 30 insertions(+), 5 deletions(-)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
-
-    config()->set('yak.channels.github.private_key', 'gh-token');
 
     Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -209,12 +216,12 @@ test('green path applies yak-large-change label when LOC exceeds threshold', fun
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 15 files changed, 180 insertions(+), 50 deletions(-)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
 
-    config()->set('yak.channels.github.private_key', 'gh-token');
     config()->set('yak.large_change_threshold', 200);
 
     Repository::factory()->create([
@@ -249,12 +256,12 @@ test('green path does not apply large-change label when LOC is under threshold',
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 2 files changed, 30 insertions(+), 10 deletions(-)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
 
-    config()->set('yak.channels.github.private_key', 'gh-token');
     config()->set('yak.large_change_threshold', 200);
 
     Repository::factory()->create([
@@ -294,12 +301,11 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
-
-    config()->set('yak.channels.github.private_key', 'gh-token');
 
     $tempDir = sys_get_temp_dir().'/yak-test-'.uniqid();
     $artifactsDir = $tempDir.'/.yak-artifacts';
@@ -347,12 +353,11 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
-
-    config()->set('yak.channels.github.private_key', 'gh-token');
 
     $tempDir = sys_get_temp_dir().'/yak-test-'.uniqid();
     $artifactsDir = $tempDir.'/.yak-artifacts';
@@ -416,12 +421,11 @@ test('green path checks out default branch and deletes task branch', function ()
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
-
-    config()->set('yak.channels.github.private_key', 'gh-token');
 
     Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -459,12 +463,12 @@ test('green path posts PR link to Slack thread', function () {
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
 
-    config()->set('yak.channels.github.private_key', 'gh-token');
     config()->set('yak.channels.slack.bot_token', 'slack-token');
 
     Repository::factory()->create([
@@ -502,12 +506,12 @@ test('green path posts PR link as Linear comment and moves issue to In Review', 
     ]);
 
     Process::fake([
+        'git diff --name-only *' => Process::result(''),
         'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
         'git checkout *' => Process::result(''),
         'git branch -D *' => Process::result(''),
     ]);
 
-    config()->set('yak.channels.github.private_key', 'gh-token');
     config()->set('yak.channels.linear.api_key', 'linear-key');
 
     Repository::factory()->create([
