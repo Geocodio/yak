@@ -72,8 +72,14 @@ function assertLinearStateUpdate(?string $stateId = null): void
             return false;
         }
 
-        if ($stateId !== null && ! str_contains($request['query'], $stateId)) {
-            return false;
+        if ($stateId !== null) {
+            // Check both inline query and variables for the stateId
+            $inQuery = str_contains($request['query'], $stateId);
+            $inVariables = ($request['variables']['stateId'] ?? '') === $stateId;
+
+            if (! $inQuery && ! $inVariables) {
+                return false;
+            }
         }
 
         return true;
