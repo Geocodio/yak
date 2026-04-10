@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Livewire\Tasks\TaskList;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -11,6 +12,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
+    Route::livewire('tasks', TaskList::class)->name('tasks');
     Route::view('dashboard', 'dashboard')->name('dashboard');
 });
 
