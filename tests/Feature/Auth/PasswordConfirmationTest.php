@@ -1,11 +1,4 @@
 <?php
 
-use App\Models\User;
-
-test('confirm password screen can be rendered', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user)->get(route('password.confirm'));
-
-    $response->assertOk();
-});
+test('password confirmation is not needed with google oauth')
+    ->skip('Password confirmation removed — auth via Google OAuth only');

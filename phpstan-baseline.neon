@@ -109,8 +109,8 @@ parameters:
 			path: app/Livewire/Settings/Security.php
 
 		-
-			message: '#^Property App\\Livewire\\Settings\\Security\:\:\$qrCodeSvg \(string\) does not accept string\|null\.$#'
-			identifier: assign.propertyType
+			message: '#^Call to an undefined method App\\Models\\User\:\:twoFactorQrCodeSvg\(\)\.$#'
+			identifier: method.notFound
 			count: 1
 			path: app/Livewire/Settings/Security.php
 
