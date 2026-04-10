@@ -18,6 +18,10 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
 
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->in('Contract');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations
@@ -35,16 +39,14 @@ expect()->extend('toBeOne', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Functions
+| Helpers
 |--------------------------------------------------------------------------
 |
-| While Pest is very powerful out-of-the-box, you may have some testing code specific to your
-| project that you don't want to repeat in every file. Here you can also expose helpers as
-| global functions to help you to reduce the number of lines of code in your test files.
+| Test helpers are loaded from the tests/Helpers directory. These provide
+| reusable functions for common test operations like faking Claude CLI
+| responses and asserting external API interactions.
 |
 */
 
-function something()
-{
-    // ..
-}
+require_once __DIR__.'/Helpers/ClaudeHelpers.php';
+require_once __DIR__.'/Helpers/AssertionHelpers.php';
