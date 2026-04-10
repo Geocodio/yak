@@ -1,0 +1,133 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Method App\\Livewire\\Actions\\Logout\:\:__invoke\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Livewire/Actions/Logout.php
+
+		-
+			message: '#^Cannot call method delete\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/DeleteUserForm.php
+
+		-
+			message: '#^Cannot access property \$email on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot access property \$email_verified_at on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot access property \$id on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot access property \$name on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot call method fill\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot call method hasVerifiedEmail\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot call method isDirty\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot call method save\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot call method sendEmailVerificationNotification\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Instanceof between App\\Models\\User&Illuminate\\Contracts\\Auth\\MustVerifyEmail and Illuminate\\Contracts\\Auth\\MustVerifyEmail will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: app/Livewire/Settings/Profile.php
+
+		-
+			message: '#^Cannot access property \$two_factor_confirmed_at on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Cannot access property \$two_factor_secret on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Cannot call method hasEnabledTwoFactorAuthentication\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 3
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Cannot call method update\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Method App\\Livewire\\Settings\\Security\:\:getModalConfigProperty\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Parameter \#1 \$value of function decrypt expects string, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Property App\\Livewire\\Settings\\Security\:\:\$qrCodeSvg \(string\) does not accept string\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
+			message: '#^Cannot access property \$two_factor_recovery_codes on App\\Models\\User\|null\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: app/Livewire/Settings/TwoFactor/RecoveryCodes.php
+
+		-
+			message: '#^Cannot call method hasEnabledTwoFactorAuthentication\(\) on App\\Models\\User\|null\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Livewire/Settings/TwoFactor/RecoveryCodes.php
+
+		-
+			message: '#^Property App\\Livewire\\Settings\\TwoFactor\\RecoveryCodes\:\:\$recoveryCodes type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Livewire/Settings/TwoFactor/RecoveryCodes.php

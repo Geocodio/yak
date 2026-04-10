@@ -1,0 +1,44 @@
+<?php
+
+namespace App\Enums;
+
+use ArtisanBuild\FatEnums\StateMachine\CanTransitionTo;
+use ArtisanBuild\FatEnums\StateMachine\FinalState;
+use ArtisanBuild\FatEnums\StateMachine\IsStateMachine;
+use ArtisanBuild\FatEnums\StateMachine\StateMachine;
+
+enum TaskStatus: string implements StateMachine
+{
+    use IsStateMachine;
+
+    public const DEFAULT = self::Pending;
+
+    #[CanTransitionTo([self::Running])]
+    case Pending = 'pending';
+
+    #[CanTransitionTo([
+        self::AwaitingCi,
+        self::AwaitingClarification,
+        self::Success,
+        self::Failed,
+    ])]
+    case Running = 'running';
+
+    #[CanTransitionTo([self::Running, self::Expired])]
+    case AwaitingClarification = 'awaiting_clarification';
+
+    #[CanTransitionTo([self::Success, self::Retrying, self::Failed])]
+    case AwaitingCi = 'awaiting_ci';
+
+    #[CanTransitionTo([self::AwaitingCi, self::Failed])]
+    case Retrying = 'retrying';
+
+    #[FinalState]
+    case Success = 'success';
+
+    #[FinalState]
+    case Failed = 'failed';
+
+    #[FinalState]
+    case Expired = 'expired';
+}
