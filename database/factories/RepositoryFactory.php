@@ -25,7 +25,7 @@ class RepositoryFactory extends Factory
             'is_default' => false,
             'is_active' => true,
             'setup_status' => 'ready',
-            'path' => '/home/yak/repos/'.$slug,
+            'path' => '/home/yak/repos/' . $slug,
             'default_branch' => 'main',
             'ci_system' => fake()->randomElement(['github_actions', 'drone']),
         ];

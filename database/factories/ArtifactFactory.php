@@ -18,13 +18,13 @@ class ArtifactFactory extends Factory
      */
     public function definition(): array
     {
-        $filename = fake()->slug(2).'.png';
+        $filename = fake()->slug(2) . '.png';
 
         return [
             'yak_task_id' => YakTask::factory(),
             'type' => 'screenshot',
             'filename' => $filename,
-            'disk_path' => '/home/yak/artifacts/'.$filename,
+            'disk_path' => '/home/yak/artifacts/' . $filename,
             'size_bytes' => fake()->numberBetween(10000, 5000000),
             'created_at' => now(),
         ];
@@ -33,12 +33,12 @@ class ArtifactFactory extends Factory
     public function screenshot(): static
     {
         return $this->state(function (): array {
-            $filename = fake()->slug(2).'.png';
+            $filename = fake()->slug(2) . '.png';
 
             return [
                 'type' => 'screenshot',
                 'filename' => $filename,
-                'disk_path' => '/home/yak/artifacts/'.$filename,
+                'disk_path' => '/home/yak/artifacts/' . $filename,
                 'size_bytes' => fake()->numberBetween(50000, 2000000),
             ];
         });
@@ -47,12 +47,12 @@ class ArtifactFactory extends Factory
     public function video(): static
     {
         return $this->state(function (): array {
-            $filename = fake()->slug(2).'.mp4';
+            $filename = fake()->slug(2) . '.mp4';
 
             return [
                 'type' => 'video',
                 'filename' => $filename,
-                'disk_path' => '/home/yak/artifacts/'.$filename,
+                'disk_path' => '/home/yak/artifacts/' . $filename,
                 'size_bytes' => fake()->numberBetween(1000000, 50000000),
             ];
         });

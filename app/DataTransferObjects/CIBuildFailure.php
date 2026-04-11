@@ -16,6 +16,6 @@ readonly class CIBuildFailure
      */
     public function externalId(): string
     {
-        return 'flaky-test:'.md5($this->testName);
+        return 'flaky-test:' . md5($this->testName);
     }
 }

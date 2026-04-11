@@ -16,7 +16,7 @@ test('signedUrl generates a temporary signed route', function () {
     $url = $artifact->signedUrl();
 
     expect($url)
-        ->toContain('/artifacts/'.$task->id.'/'.$artifact->filename)
+        ->toContain('/artifacts/' . $task->id . '/' . $artifact->filename)
         ->toContain('signature=')
         ->toContain('expires=');
 });
@@ -73,7 +73,7 @@ test('valid signed URL serves artifact without authentication', function () {
     Storage::disk('local')->put($artifact->disk_path, 'fake-png-content');
 
     $url = $artifact->signedUrl();
-    $path = parse_url($url, PHP_URL_PATH).'?'.parse_url($url, PHP_URL_QUERY);
+    $path = parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY);
 
     $response = $this->get($path);
     $response->assertOk();
@@ -92,7 +92,7 @@ test('expired signed URL is rejected', function () {
         now()->subDay(),
         ['task' => $task->id, 'filename' => $artifact->filename]
     );
-    $path = parse_url($url, PHP_URL_PATH).'?'.parse_url($url, PHP_URL_QUERY);
+    $path = parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY);
 
     $response = $this->get($path);
     $response->assertStatus(403);
@@ -104,7 +104,7 @@ test('tampered signed URL is rejected', function () {
 
     $url = $artifact->signedUrl();
     $tamperedUrl = str_replace('signature=', 'signature=tampered', $url);
-    $path = parse_url($tamperedUrl, PHP_URL_PATH).'?'.parse_url($tamperedUrl, PHP_URL_QUERY);
+    $path = parse_url($tamperedUrl, PHP_URL_PATH) . '?' . parse_url($tamperedUrl, PHP_URL_QUERY);
 
     $response = $this->get($path);
     $response->assertStatus(403);
@@ -153,7 +153,7 @@ test('research artifact viewer renders iframe for authenticated users', function
 
     $response = $this->get(route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename]));
     $response->assertOk();
-    $response->assertSee('Back to Task #'.$task->id);
+    $response->assertSee('Back to Task #' . $task->id);
     $response->assertSee($artifact->filename);
     $response->assertSee('artifact-iframe', false);
 });

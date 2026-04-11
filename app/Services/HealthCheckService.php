@@ -82,7 +82,7 @@ class HealthCheckService
 
         return [
             'healthy' => false,
-            'detail' => "{$fetchable}/{$total} OK — failed: ".implode(', ', $failures),
+            'detail' => "{$fetchable}/{$total} OK — failed: " . implode(', ', $failures),
         ];
     }
 

@@ -66,7 +66,7 @@ class CreatePullRequestJob implements ShouldQueue
         $description = $this->task->description;
 
         if (strlen($description) > 60) {
-            $description = substr($description, 0, 57).'...';
+            $description = substr($description, 0, 57) . '...';
         }
 
         return "{$prefix}: {$description}";

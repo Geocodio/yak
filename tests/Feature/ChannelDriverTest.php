@@ -155,7 +155,7 @@ test('verifyWebhookSignature passes with valid signature', function () {
     $controller = new GitHubWebhookController;
     $secret = 'test-secret';
     $payload = '{"action":"opened"}';
-    $signature = 'sha256='.hash_hmac('sha256', $payload, $secret);
+    $signature = 'sha256=' . hash_hmac('sha256', $payload, $secret);
 
     config()->set('yak.channels.github.webhook_secret', $secret);
 
@@ -198,7 +198,7 @@ test('verifyWebhookSignature supports custom prefix', function () {
     $controller = new SlackWebhookController;
     $secret = 'slack-secret';
     $payload = 'v0:1234567890:body-content';
-    $signature = 'v0='.hash_hmac('sha256', $payload, $secret);
+    $signature = 'v0=' . hash_hmac('sha256', $payload, $secret);
 
     $request = Request::create('/webhooks/slack', 'POST', content: $payload);
     $request->headers->set('X-Slack-Signature', $signature);

@@ -92,7 +92,7 @@ class RepoDetector
         $foundSlugs = [];
 
         foreach ($activeRepos as $repo) {
-            if (preg_match('/\b'.preg_quote($repo->slug, '/').'\b/i', $text)) {
+            if (preg_match('/\b' . preg_quote($repo->slug, '/') . '\b/i', $text)) {
                 $foundSlugs[] = $repo->slug;
             }
         }

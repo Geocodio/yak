@@ -247,11 +247,11 @@ test('assembles prompt based on task source', function () {
             '*' => Process::result(''),
         ]);
 
-        $repository = Repository::factory()->create(['path' => '/home/yak/repos/repo-'.$source]);
+        $repository = Repository::factory()->create(['path' => '/home/yak/repos/repo-' . $source]);
         $task = YakTask::factory()->pending()->create([
             'repo' => $repository->slug,
             'source' => $source,
-            'description' => 'Test description for '.$source,
+            'description' => 'Test description for ' . $source,
         ]);
 
         $job = new RunYakJob($task);

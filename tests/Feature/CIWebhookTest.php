@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Queue;
  */
 function signGitHubPayload(array $payload, string $secret): string
 {
-    return 'sha256='.hash_hmac('sha256', json_encode($payload), $secret);
+    return 'sha256=' . hash_hmac('sha256', json_encode($payload), $secret);
 }
 
 /**
@@ -25,7 +25,7 @@ function signGitHubPayload(array $payload, string $secret): string
  */
 function signDronePayload(array $payload, string $secret): string
 {
-    return 'sha256='.hash_hmac('sha256', json_encode($payload), $secret);
+    return 'sha256=' . hash_hmac('sha256', json_encode($payload), $secret);
 }
 
 /*

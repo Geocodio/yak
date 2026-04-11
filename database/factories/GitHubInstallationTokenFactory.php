@@ -19,7 +19,7 @@ class GitHubInstallationTokenFactory extends Factory
     {
         return [
             'installation_id' => fake()->unique()->numberBetween(10000, 99999),
-            'token' => 'ghs_'.fake()->sha256(),
+            'token' => 'ghs_' . fake()->sha256(),
             'expires_at' => now()->addHour(),
         ];
     }

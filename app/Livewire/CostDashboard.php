@@ -53,7 +53,7 @@ class CostDashboard extends Component
             'total_cost' => number_format((float) ($stats->total_cost ?? 0), 2),
             'task_count' => (int) $stats->task_count,
             'avg_cost' => number_format((float) ($stats->avg_cost ?? 0), 2),
-            'avg_duration' => $minutes > 0 ? $minutes.'m' : '0m',
+            'avg_duration' => $minutes > 0 ? $minutes . 'm' : '0m',
         ];
     }
 

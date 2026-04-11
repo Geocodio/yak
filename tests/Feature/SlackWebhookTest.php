@@ -21,7 +21,7 @@ function signSlackPayload(string $body, string $secret, ?string $timestamp = nul
 {
     $timestamp = $timestamp ?? (string) time();
     $basestring = "v0:{$timestamp}:{$body}";
-    $signature = 'v0='.hash_hmac('sha256', $basestring, $secret);
+    $signature = 'v0=' . hash_hmac('sha256', $basestring, $secret);
 
     return [
         'X-Slack-Request-Timestamp' => $timestamp,
@@ -40,7 +40,7 @@ function slackMentionPayload(string $text = 'fix the login bug', array $override
         'type' => 'event_callback',
         'event' => array_merge([
             'type' => 'app_mention',
-            'text' => '<@U_BOT_ID> '.$text,
+            'text' => '<@U_BOT_ID> ' . $text,
             'channel' => 'C12345678',
             'ts' => '1234567890.123456',
             'user' => 'U_USER_ID',

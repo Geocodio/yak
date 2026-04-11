@@ -33,7 +33,7 @@ test('research findings link opens viewer with iframe and back navigation works'
         ->assertPresent('[data-testid="artifact-iframe"]')
         ->assertPresent('[data-testid="back-to-task"]')
         ->click('[data-testid="back-to-task"]')
-        ->assertPathIs('/tasks/'.$task->id)
+        ->assertPathIs('/tasks/' . $task->id)
         ->assertSee('Found 3 key insights');
 });
 

@@ -29,7 +29,7 @@ class GitHubActionsBuildScanner implements CIBuildScanner
             ->get("https://api.github.com/repos/{$repository->slug}/actions/runs", [
                 'branch' => $repository->default_branch,
                 'status' => 'failure',
-                'created' => '>='.$cutoff,
+                'created' => '>=' . $cutoff,
                 'per_page' => 10,
             ])
             ->json();

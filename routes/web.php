@@ -37,4 +37,4 @@ Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
     ->name('artifacts.show')
     ->where('filename', '.*');
 
-require __DIR__.'/settings.php';
+require __DIR__ . '/settings.php';

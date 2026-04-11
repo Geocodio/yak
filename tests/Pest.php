@@ -52,5 +52,5 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-require_once __DIR__.'/Helpers/ClaudeHelpers.php';
-require_once __DIR__.'/Helpers/AssertionHelpers.php';
+require_once __DIR__ . '/Helpers/ClaudeHelpers.php';
+require_once __DIR__ . '/Helpers/AssertionHelpers.php';

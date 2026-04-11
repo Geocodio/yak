@@ -102,7 +102,7 @@ class ProcessCIResultJob implements ShouldQueue
      */
     private function collectArtifacts(Repository $repository): array
     {
-        $artifactsPath = $repository->path.'/.yak-artifacts';
+        $artifactsPath = $repository->path . '/.yak-artifacts';
 
         if (! File::isDirectory($artifactsPath)) {
             return [];

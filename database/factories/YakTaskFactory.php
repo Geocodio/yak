@@ -22,7 +22,7 @@ class YakTaskFactory extends Factory
         return [
             'source' => fake()->randomElement(['sentry', 'slack', 'linear', 'manual']),
             'repo' => fake()->slug(2),
-            'external_id' => strtoupper(fake()->lexify('???')).'-'.fake()->unique()->numberBetween(1000, 9999),
+            'external_id' => strtoupper(fake()->lexify('???')) . '-' . fake()->unique()->numberBetween(1000, 9999),
             'external_url' => fake()->url(),
             'description' => fake()->sentence(),
             'status' => TaskStatus::Pending,
@@ -43,7 +43,7 @@ class YakTaskFactory extends Factory
             'status' => TaskStatus::Running,
             'started_at' => now(),
             'model_used' => 'opus',
-            'branch_name' => 'yak/'.fake()->slug(2),
+            'branch_name' => 'yak/' . fake()->slug(2),
         ]);
     }
 
@@ -53,7 +53,7 @@ class YakTaskFactory extends Factory
             'status' => TaskStatus::AwaitingClarification,
             'source' => 'slack',
             'started_at' => now(),
-            'slack_channel' => 'C'.fake()->numerify('##########'),
+            'slack_channel' => 'C' . fake()->numerify('##########'),
             'slack_thread_ts' => fake()->numerify('##########.######'),
             'clarification_options' => ['Option A', 'Option B', 'Option C'],
             'clarification_expires_at' => now()->addDays(3),
@@ -66,7 +66,7 @@ class YakTaskFactory extends Factory
             'status' => TaskStatus::AwaitingCi,
             'started_at' => now(),
             'model_used' => 'opus',
-            'branch_name' => 'yak/'.fake()->slug(2),
+            'branch_name' => 'yak/' . fake()->slug(2),
         ]);
     }
 
@@ -77,7 +77,7 @@ class YakTaskFactory extends Factory
             'started_at' => now(),
             'attempts' => 1,
             'model_used' => 'opus',
-            'branch_name' => 'yak/'.fake()->slug(2),
+            'branch_name' => 'yak/' . fake()->slug(2),
         ]);
     }
 

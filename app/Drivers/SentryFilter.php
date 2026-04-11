@@ -68,7 +68,7 @@ class SentryFilter
      */
     public static function isTransientError(string $culprit, string $title): bool
     {
-        $combined = $culprit.' '.$title;
+        $combined = $culprit . ' ' . $title;
 
         foreach (self::TRANSIENT_PATTERNS as $pattern) {
             if (stripos($combined, $pattern) !== false) {

@@ -29,7 +29,7 @@ test('it renders task info', function () {
 test('it is accessible at /tasks/{id} route', function () {
     $task = YakTask::factory()->success()->create();
 
-    $response = $this->get('/tasks/'.$task->id);
+    $response = $this->get('/tasks/' . $task->id);
 
     $response->assertOk();
     $response->assertSeeLivewire(TaskDetail::class);
@@ -40,7 +40,7 @@ test('it requires authentication', function () {
 
     $task = YakTask::factory()->create();
 
-    $this->get('/tasks/'.$task->id)->assertRedirect(route('login'));
+    $this->get('/tasks/' . $task->id)->assertRedirect(route('login'));
 });
 
 test('it shows pr link for completed fix tasks', function () {

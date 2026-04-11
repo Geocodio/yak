@@ -9,7 +9,7 @@ test('screenshot accessible via signed url without auth', function () {
     Storage::fake('local');
     Storage::disk('local')->put(
         'artifacts/screenshot.png',
-        file_get_contents(__DIR__.'/../Fixtures/1x1.png')
+        file_get_contents(__DIR__ . '/../Fixtures/1x1.png')
     );
 
     $task = YakTask::factory()->success()->create();
@@ -29,7 +29,7 @@ test('expired signed url shows error', function () {
     Storage::fake('local');
     Storage::disk('local')->put(
         'artifacts/screenshot.png',
-        file_get_contents(__DIR__.'/../Fixtures/1x1.png')
+        file_get_contents(__DIR__ . '/../Fixtures/1x1.png')
     );
 
     $task = YakTask::factory()->success()->create();
@@ -55,7 +55,7 @@ test('tampered signed url is rejected', function () {
     Storage::fake('local');
     Storage::disk('local')->put(
         'artifacts/screenshot.png',
-        file_get_contents(__DIR__.'/../Fixtures/1x1.png')
+        file_get_contents(__DIR__ . '/../Fixtures/1x1.png')
     );
 
     $task = YakTask::factory()->success()->create();

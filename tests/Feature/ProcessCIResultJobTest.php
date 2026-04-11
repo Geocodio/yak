@@ -307,11 +307,11 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
         'git branch -D *' => Process::result(''),
     ]);
 
-    $tempDir = sys_get_temp_dir().'/yak-test-'.uniqid();
-    $artifactsDir = $tempDir.'/.yak-artifacts';
+    $tempDir = sys_get_temp_dir() . '/yak-test-' . uniqid();
+    $artifactsDir = $tempDir . '/.yak-artifacts';
     mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir.'/screenshot.png', 'fake-png-data');
-    file_put_contents($artifactsDir.'/report.html', '<html>report</html>');
+    file_put_contents($artifactsDir . '/screenshot.png', 'fake-png-data');
+    file_put_contents($artifactsDir . '/report.html', '<html>report</html>');
 
     $repository = Repository::factory()->create([
         'slug' => 'org/art-repo',
@@ -339,7 +339,7 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
         ->and($report->type)->toBe('research');
 
     // Cleanup temp directory
-    array_map('unlink', glob($artifactsDir.'/*'));
+    array_map('unlink', glob($artifactsDir . '/*'));
     rmdir($artifactsDir);
     rmdir($tempDir);
 });
@@ -359,10 +359,10 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
         'git branch -D *' => Process::result(''),
     ]);
 
-    $tempDir = sys_get_temp_dir().'/yak-test-'.uniqid();
-    $artifactsDir = $tempDir.'/.yak-artifacts';
+    $tempDir = sys_get_temp_dir() . '/yak-test-' . uniqid();
+    $artifactsDir = $tempDir . '/.yak-artifacts';
     mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir.'/capture.png', 'fake-png');
+    file_put_contents($artifactsDir . '/capture.png', 'fake-png');
 
     $repository = Repository::factory()->create([
         'slug' => 'org/sig-repo',
@@ -401,7 +401,7 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
     expect(strlen($expectedSignature))->toBe(64); // SHA-256 hex digest
 
     // Cleanup
-    array_map('unlink', glob($artifactsDir.'/*'));
+    array_map('unlink', glob($artifactsDir . '/*'));
     rmdir($artifactsDir);
     rmdir($tempDir);
 });

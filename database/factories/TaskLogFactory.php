@@ -38,7 +38,7 @@ class TaskLogFactory extends Factory
     {
         return $this->state(fn (): array => [
             'level' => 'warning',
-            'message' => 'Warning: '.fake()->sentence(),
+            'message' => 'Warning: ' . fake()->sentence(),
         ]);
     }
 
@@ -46,7 +46,7 @@ class TaskLogFactory extends Factory
     {
         return $this->state(fn (): array => [
             'level' => 'error',
-            'message' => 'Error: '.fake()->sentence(),
+            'message' => 'Error: ' . fake()->sentence(),
             'metadata' => ['trace' => fake()->text(200)],
         ]);
     }

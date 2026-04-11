@@ -22,7 +22,7 @@ trait VerifiesWebhookSignature
     ): void {
         $signature = $request->header($signatureHeader, '');
 
-        $expected = $prefix.hash_hmac($algorithm, $payload ?? $request->getContent(), $secret);
+        $expected = $prefix . hash_hmac($algorithm, $payload ?? $request->getContent(), $secret);
 
         if (! hash_equals($expected, $signature)) {
             throw new AccessDeniedHttpException('Invalid webhook signature.');

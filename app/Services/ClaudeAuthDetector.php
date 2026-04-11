@@ -30,7 +30,7 @@ class ClaudeAuthDetector
             return false;
         }
 
-        $output = strtolower($result->output().' '.$result->errorOutput());
+        $output = strtolower($result->output() . ' ' . $result->errorOutput());
 
         foreach (self::AUTH_ERROR_PATTERNS as $pattern) {
             if (str_contains($output, $pattern)) {

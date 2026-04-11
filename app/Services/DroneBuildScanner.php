@@ -72,7 +72,7 @@ class DroneBuildScanner implements CIBuildScanner
                 ->json();
 
             foreach ($stageLog as $line) {
-                $logs .= $line['out']."\n";
+                $logs .= $line['out'] . "\n";
             }
         }
 
@@ -101,10 +101,10 @@ class DroneBuildScanner implements CIBuildScanner
                 }
 
                 $currentTest = trim($matches[1]);
-                $currentOutput = $line."\n";
+                $currentOutput = $line . "\n";
                 $inFailure = true;
             } elseif ($inFailure) {
-                $currentOutput .= $line."\n";
+                $currentOutput .= $line . "\n";
             }
         }
 

@@ -75,7 +75,7 @@ test('creates tasks for detected flaky tests with source=flaky-test', function (
     expect($task)->not->toBeNull();
     expect($task->description)->toContain('flaky test');
     expect($task->source)->toBe('flaky-test');
-    expect($task->external_id)->toBe('flaky-test:'.md5('Tests\Feature\LoginTest > it logs in'));
+    expect($task->external_id)->toBe('flaky-test:' . md5('Tests\Feature\LoginTest > it logs in'));
     expect($task->external_url)->toBe('https://github.com/org/repo/actions/runs/123');
 
     Queue::assertPushed(RunYakJob::class);
@@ -85,7 +85,7 @@ test('deduplicates using external_id and repo constraint', function () {
     Repository::factory()->create(['slug' => 'dup-repo', 'ci_system' => 'github_actions']);
 
     $testName = 'Tests\Feature\LoginTest > it logs in';
-    $externalId = 'flaky-test:'.md5($testName);
+    $externalId = 'flaky-test:' . md5($testName);
 
     YakTask::factory()->pending()->create([
         'repo' => 'dup-repo',

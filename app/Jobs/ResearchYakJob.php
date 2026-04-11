@@ -162,7 +162,7 @@ class ResearchYakJob implements ShouldQueue
 
     private function collectHtmlArtifact(Repository $repository): ?Artifact
     {
-        $artifactPath = $repository->path.'/.yak-artifacts/research.html';
+        $artifactPath = $repository->path . '/.yak-artifacts/research.html';
 
         if (! File::exists($artifactPath)) {
             return null;

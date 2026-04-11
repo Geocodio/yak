@@ -28,7 +28,7 @@ class SetupRepoCommand extends Command
 
         $task = YakTask::create([
             'repo' => $repository->slug,
-            'external_id' => 'setup-'.Str::random(8),
+            'external_id' => 'setup-' . Str::random(8),
             'mode' => TaskMode::Setup,
             'description' => "Setup repository: {$repository->name}",
             'source' => 'cli',

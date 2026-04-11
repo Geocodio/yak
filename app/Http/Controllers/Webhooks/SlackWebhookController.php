@@ -76,7 +76,7 @@ class SlackWebhookController extends Controller
                 $task = YakTask::create([
                     'source' => 'slack',
                     'repo' => $repo->slug,
-                    'external_id' => $description->externalId.'-'.$repo->slug,
+                    'external_id' => $description->externalId . '-' . $repo->slug,
                     'description' => $description->body,
                     'mode' => $description->metadata['mode'] ?? 'fix',
                     'slack_channel' => $description->metadata['slack_channel'],

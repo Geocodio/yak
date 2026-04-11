@@ -102,7 +102,7 @@ class ClarificationReplyJob implements ShouldQueue
 
     private function checkoutTaskBranch(Repository $repository): void
     {
-        $branchName = 'yak/'.$this->task->external_id;
+        $branchName = 'yak/' . $this->task->external_id;
 
         GitOperations::checkoutBranch($repository, $branchName);
     }

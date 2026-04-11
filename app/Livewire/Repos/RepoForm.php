@@ -169,7 +169,7 @@ class RepoForm extends Component
 
         $task = YakTask::create([
             'repo' => $this->repository->slug,
-            'external_id' => 'setup-'.Str::random(8),
+            'external_id' => 'setup-' . Str::random(8),
             'mode' => TaskMode::Setup,
             'description' => "Setup repository: {$this->repository->name}",
             'source' => 'dashboard',

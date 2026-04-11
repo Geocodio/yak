@@ -54,7 +54,7 @@ class HealthCheckCommand extends Command
             $failures
         );
 
-        $text = ":warning: *Yak Health Check Failed*\n".implode("\n", $lines);
+        $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines);
 
         $config = $slack->config();
         /** @var string $token */
