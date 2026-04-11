@@ -15,7 +15,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(\App\Contracts\AgentRunner::class, function () {
+            $driver = config('yak.agent_runner', 'claude_code');
+
+            return match ($driver) {
+                'claude_code' => new \App\Agents\ClaudeCodeRunner(),
+                default => throw new \InvalidArgumentException("Unknown Yak agent runner: {$driver}"),
+            };
+        });
     }
 
     /**
