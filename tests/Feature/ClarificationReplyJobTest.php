@@ -3,6 +3,7 @@
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\CleanupDevEnvironment;
+use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
@@ -309,6 +310,7 @@ test('ClarificationReplyJob has CleanupDevEnvironment middleware', function () {
     $job = new ClarificationReplyJob($task, 'test reply');
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(1)
-        ->and($middleware[0])->toBeInstanceOf(CleanupDevEnvironment::class);
+    expect($middleware)->toHaveCount(2)
+        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class)
+        ->and($middleware[1])->toBeInstanceOf(CleanupDevEnvironment::class);
 });

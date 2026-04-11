@@ -5,6 +5,8 @@ namespace App\Jobs;
 use App\ClaudeOutputParser;
 use App\Enums\TaskStatus;
 use App\GitOperations;
+use App\Jobs\Middleware\EnsureDailyBudget;
+use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\YakPromptBuilder;
@@ -37,6 +39,7 @@ class SetupYakJob implements ShouldQueue
         $repoPath = $repository !== null ? $repository->path : '';
 
         return [
+            new EnsureDailyBudget,
             new Middleware\CleanupDevEnvironment($repoPath),
         ];
     }
@@ -140,6 +143,8 @@ class SetupYakJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
             'completed_at' => now(),
         ]);
+
+        DailyCost::accumulate($parser->costUsd());
 
         $repository->update(['setup_status' => 'ready']);
     }

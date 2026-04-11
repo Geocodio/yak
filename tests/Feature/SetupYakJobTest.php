@@ -3,6 +3,7 @@
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
+use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\SetupYakJob;
 use App\Livewire\Repos\RepoForm;
 use App\Models\Repository;
@@ -268,8 +269,9 @@ test('SetupYakJob has CleanupDevEnvironment middleware', function () {
     $job = new SetupYakJob($task);
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(1)
-        ->and($middleware[0])->toBeInstanceOf(CleanupDevEnvironment::class);
+    expect($middleware)->toHaveCount(2)
+        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class)
+        ->and($middleware[1])->toBeInstanceOf(CleanupDevEnvironment::class);
 });
 
 /*

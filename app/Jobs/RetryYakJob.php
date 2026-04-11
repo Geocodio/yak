@@ -6,6 +6,8 @@ use App\ClaudeOutputParser;
 use App\Enums\TaskStatus;
 use App\GitOperations;
 use App\Jobs\Middleware\CleanupDevEnvironment;
+use App\Jobs\Middleware\EnsureDailyBudget;
+use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\YakPromptBuilder;
@@ -39,6 +41,7 @@ class RetryYakJob implements ShouldQueue
         $repoPath = $repository !== null ? $repository->path : '';
 
         return [
+            new EnsureDailyBudget,
             new CleanupDevEnvironment($repoPath),
         ];
     }
@@ -136,6 +139,8 @@ class RetryYakJob implements ShouldQueue
             'duration_ms' => $this->task->duration_ms + $parser->durationMs(),
             'model_used' => config('yak.default_model'),
         ]);
+
+        DailyCost::accumulate($parser->costUsd());
 
         if ($this->task->branch_name !== null) {
             GitOperations::forcePushBranch($repository, $this->task->branch_name);

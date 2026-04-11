@@ -5,7 +5,9 @@ namespace App\Jobs;
 use App\ClaudeOutputParser;
 use App\Enums\TaskStatus;
 use App\GitOperations;
+use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Artifact;
+use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\YakPromptBuilder;
@@ -29,6 +31,16 @@ class ResearchYakJob implements ShouldQueue
         public YakTask $task,
     ) {
         $this->onQueue('yak-claude');
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    public function middleware(): array
+    {
+        return [
+            new EnsureDailyBudget,
+        ];
     }
 
     public function handle(): void
@@ -119,6 +131,8 @@ class ResearchYakJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
             'completed_at' => now(),
         ]);
+
+        DailyCost::accumulate($parser->costUsd());
 
         $notificationMessage = $artifactUrl !== null
             ? "{$summary}\n\nFindings: {$artifactUrl}"
