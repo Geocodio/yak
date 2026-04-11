@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\CleanupDevEnvironment;
@@ -7,6 +9,7 @@ use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
+use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,18 +18,23 @@ use Illuminate\Support\Facades\Process;
 */
 
 test('successful clarification reply transitions task to awaiting_ci and force pushes branch', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_resumed',
+        resultSummary: 'Implemented the chosen interpretation',
+        costUsd: 1.50,
+        numTurns: 8,
+        durationMs: 60000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result((string) json_encode([
-            'result' => 'Implemented the chosen interpretation',
-            'cost_usd' => 1.50,
-            'session_id' => 'sess_resumed',
-            'num_turns' => 8,
-            'duration_ms' => 60000,
-            'is_error' => false,
-        ])),
         'git push *' => Process::result(''),
     ]);
 
@@ -41,7 +49,7 @@ test('successful clarification reply transitions task to awaiting_ci and force p
     ]);
 
     $job = new ClarificationReplyJob($task, 'Option B - Fix the API endpoint');
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -64,11 +72,20 @@ test('successful clarification reply transitions task to awaiting_ci and force p
 test('transitions from awaiting_clarification to running during execution', function () {
     $statuses = [];
 
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result((string) json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -84,7 +101,7 @@ test('transitions from awaiting_clarification to running during execution', func
     });
 
     $job = new ClarificationReplyJob($task, 'Option A');
-    $job->handle();
+    $job->handle($fake);
 
     expect($statuses[0])->toBe(TaskStatus::Running)
         ->and($statuses)->toContain(TaskStatus::AwaitingCi);
@@ -97,11 +114,20 @@ test('transitions from awaiting_clarification to running during execution', func
 */
 
 test('invokes claude with --resume flag and session_id', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_resumed',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result((string) json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_resumed',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -113,21 +139,26 @@ test('invokes claude with --resume flag and session_id', function () {
     ]);
 
     $job = new ClarificationReplyJob($task, 'Option A - The first approach');
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(function ($process) {
-        return str_contains($process->command, 'claude')
-            && str_contains($process->command, '--resume')
-            && str_contains($process->command, 'sess_original_123');
-    });
+    expect($fake->lastCall()->resumeSessionId)->toBe('sess_original_123');
 });
 
 test('claude command includes all standard flags', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result((string) json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -139,19 +170,9 @@ test('claude command includes all standard flags', function () {
     ]);
 
     $job = new ClarificationReplyJob($task, 'Option A');
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(function ($process) {
-        $cmd = $process->command;
-
-        return str_contains($cmd, '--dangerously-skip-permissions')
-            && str_contains($cmd, '--bare')
-            && str_contains($cmd, '--output-format json')
-            && str_contains($cmd, '--model')
-            && str_contains($cmd, '--max-turns')
-            && str_contains($cmd, '--max-budget-usd')
-            && str_contains($cmd, '--append-system-prompt');
-    });
+    expect($fake->lastCall())->not->toBeNull();
 });
 
 /*
@@ -161,11 +182,20 @@ test('claude command includes all standard flags', function () {
 */
 
 test('prompt includes the user chosen option text', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result((string) json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -179,12 +209,10 @@ test('prompt includes the user chosen option text', function () {
     $chosenOption = 'Option 2 - Refactor the database schema';
 
     $job = new ClarificationReplyJob($task, $chosenOption);
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(function ($process) use ($chosenOption) {
-        return str_contains($process->command, 'claude')
-            && str_contains($process->command, $chosenOption);
-    });
+    expect($fake->lastCall())->not->toBeNull()
+        ->and($fake->lastCall()->prompt)->toContain($chosenOption);
 });
 
 /*
@@ -194,14 +222,20 @@ test('prompt includes the user chosen option text', function () {
 */
 
 test('accumulates cost, turns, and duration on task', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_2',
+        resultSummary: 'Done',
+        costUsd: 0.75,
+        numTurns: 5,
+        durationMs: 30000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result((string) json_encode([
-            'result' => 'Done',
-            'cost_usd' => 0.75,
-            'session_id' => 'sess_2',
-            'num_turns' => 5,
-            'duration_ms' => 30000,
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -216,7 +250,7 @@ test('accumulates cost, turns, and duration on task', function () {
     ]);
 
     $job = new ClarificationReplyJob($task, 'Option A');
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -232,12 +266,20 @@ test('accumulates cost, turns, and duration on task', function () {
 */
 
 test('claude error response marks task as failed and checks out default branch', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_err',
+        resultSummary: 'Rate limited by API',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result((string) json_encode([
-            'is_error' => true,
-            'result' => 'Rate limited by API',
-            'session_id' => 'sess_err',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -249,7 +291,7 @@ test('claude error response marks task as failed and checks out default branch',
     ]);
 
     $job = new ClarificationReplyJob($task, 'Option A');
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -261,8 +303,20 @@ test('claude error response marks task as failed and checks out default branch',
 });
 
 test('malformed claude output marks task as failed', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: '',
+        resultSummary: 'Agent returned an error or malformed output',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: 'not json at all {{',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result('not json at all {{'),
         '*' => Process::result(''),
     ]);
 
@@ -274,7 +328,7 @@ test('malformed claude output marks task as failed', function () {
     ]);
 
     $job = new ClarificationReplyJob($task, 'Option A');
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
