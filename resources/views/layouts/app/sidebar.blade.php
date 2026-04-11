@@ -25,8 +25,8 @@
                             <flux:icon.clipboard-document-list class="size-5" />
                             {{ __('Tasks') }}
                         </a>
-                        <a href="{{ route('dashboard') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('dashboard') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                        <a href="{{ route('costs') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('costs') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate>
                             <flux:icon.currency-dollar class="size-5" />
                             {{ __('Costs') }}
