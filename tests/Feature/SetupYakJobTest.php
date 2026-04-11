@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
@@ -12,6 +14,7 @@ use App\Models\YakTask;
 use App\YakPromptBuilder;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,13 +23,23 @@ use Illuminate\Support\Facades\Queue;
 */
 
 test('successful setup transitions task to success and repo to ready', function () {
-    fakeClaudeRun([
-        'result' => 'Repository environment set up successfully',
-        'cost_usd' => 3.00,
-        'session_id' => 'sess_setup_ok',
-        'num_turns' => 20,
-        'duration_ms' => 180000,
-    ], [
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_setup_ok',
+        resultSummary: 'Repository environment set up successfully',
+        costUsd: 3.00,
+        numTurns: 20,
+        durationMs: 180000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    Process::fake([
+        'docker-compose stop' => Process::result(''),
+        'lsof *' => Process::result(''),
+        'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
     ]);
 
@@ -42,7 +55,7 @@ test('successful setup transitions task to success and repo to ready', function 
     ]);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
     $repository->refresh();
@@ -58,15 +71,24 @@ test('successful setup transitions task to success and repo to ready', function 
 });
 
 test('setup transitions repo setup_status through running to ready on success', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
     ]);
 
     $repository = Repository::factory()->create([
@@ -87,14 +109,32 @@ test('setup transitions repo setup_status through running to ready on success', 
     });
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     expect($capturedStatuses)->toContain('running')
         ->toContain('ready');
 });
 
 test('setup increments attempts', function () {
-    fakeClaudeRun(extraFakes: ['git pull *' => Process::result('')]);
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    Process::fake([
+        'docker-compose stop' => Process::result(''),
+        'lsof *' => Process::result(''),
+        'git checkout *' => Process::result(''),
+        'git pull *' => Process::result(''),
+    ]);
 
     $repository = Repository::factory()->create([
         'slug' => 'att-repo',
@@ -107,7 +147,7 @@ test('setup increments attempts', function () {
     ]);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
     expect($task->attempts)->toBe(1);
@@ -120,7 +160,25 @@ test('setup increments attempts', function () {
 */
 
 test('setup checks out default branch and pulls latest', function () {
-    fakeClaudeRun(extraFakes: ['git pull *' => Process::result('')]);
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    Process::fake([
+        'docker-compose stop' => Process::result(''),
+        'lsof *' => Process::result(''),
+        'git checkout *' => Process::result(''),
+        'git pull *' => Process::result(''),
+    ]);
 
     $repository = Repository::factory()->create([
         'slug' => 'branch-repo',
@@ -133,7 +191,7 @@ test('setup checks out default branch and pulls latest', function () {
     ]);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout develop'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'git pull origin develop'));
@@ -146,7 +204,25 @@ test('setup checks out default branch and pulls latest', function () {
 */
 
 test('preflight runs docker-compose stop and kills dev ports', function () {
-    fakeClaudeRun(extraFakes: ['git pull *' => Process::result('')]);
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    Process::fake([
+        'docker-compose stop' => Process::result(''),
+        'lsof *' => Process::result(''),
+        'git checkout *' => Process::result(''),
+        'git pull *' => Process::result(''),
+    ]);
 
     $repository = Repository::factory()->create([
         'slug' => 'pf-repo',
@@ -158,7 +234,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
     ]);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Process::assertRan(fn ($process) => $process->command === 'docker-compose stop');
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
@@ -173,21 +249,24 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 */
 
 test('claude error marks task failed and repo setup_status failed', function () {
-    fakeClaudeError('Docker compose failed to start');
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_err',
+        resultSummary: 'Docker compose failed to start',
+        costUsd: 0.25,
+        numTurns: 1,
+        durationMs: 5000,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'is_error' => true,
-            'result' => 'Docker compose failed to start',
-            'session_id' => 'sess_err',
-            'cost_usd' => 0.25,
-            'num_turns' => 1,
-            'duration_ms' => 5000,
-        ])),
     ]);
 
     $repository = Repository::factory()->create([
@@ -201,7 +280,7 @@ test('claude error marks task failed and repo setup_status failed', function () 
     ]);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
     $repository->refresh();
@@ -213,12 +292,24 @@ test('claude error marks task failed and repo setup_status failed', function () 
 });
 
 test('malformed claude output marks task as failed', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: '',
+        resultSummary: 'Agent returned an error or malformed output',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: 'not valid json',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result('not valid json'),
     ]);
 
     $repository = Repository::factory()->create([
@@ -231,7 +322,7 @@ test('malformed claude output marks task as failed', function () {
     ]);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
     $repository->refresh();
