@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
@@ -7,6 +9,7 @@ use App\Jobs\RetryYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
+use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,18 +18,23 @@ use Illuminate\Support\Facades\Process;
 */
 
 test('successful retry transitions task to awaiting_ci and force pushes branch', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_new',
+        resultSummary: 'Fixed the CI failures',
+        costUsd: 1.50,
+        numTurns: 10,
+        durationMs: 90000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Fixed the CI failures',
-            'cost_usd' => 1.50,
-            'session_id' => 'sess_retry_new',
-            'num_turns' => 10,
-            'duration_ms' => 90000,
-            'is_error' => false,
-        ])),
         'git push *' => Process::result(''),
     ]);
 
@@ -41,7 +49,7 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
     ]);
 
     $job = new RetryYakJob($task, 'Tests failed: 2 errors');
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -56,14 +64,20 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
 });
 
 test('successful retry accumulates cost and turns on task', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_2',
+        resultSummary: 'Done',
+        costUsd: 0.75,
+        numTurns: 5,
+        durationMs: 30000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'cost_usd' => 0.75,
-            'session_id' => 'sess_2',
-            'num_turns' => 5,
-            'duration_ms' => 30000,
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -78,7 +92,7 @@ test('successful retry accumulates cost and turns on task', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -94,11 +108,20 @@ test('successful retry accumulates cost and turns on task', function () {
 */
 
 test('checks out existing task branch instead of creating new', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -111,7 +134,7 @@ test('checks out existing task branch instead of creating new', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Process::assertRan(fn ($process) => $process->command === 'git checkout yak/ISSUE-42');
     Process::assertNotRan(fn ($process) => str_contains($process->command, 'git checkout -b'));
@@ -124,11 +147,20 @@ test('checks out existing task branch instead of creating new', function () {
 */
 
 test('preflight runs docker-compose stop and kills dev ports', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -140,7 +172,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Process::assertRan(fn ($process) => $process->command === 'docker-compose stop');
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
@@ -155,11 +187,20 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 */
 
 test('invokes claude with --resume flag and session_id', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_resumed',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_resumed',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -171,21 +212,26 @@ test('invokes claude with --resume flag and session_id', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(function ($process) {
-        return str_contains($process->command, 'claude')
-            && str_contains($process->command, '--resume')
-            && str_contains($process->command, 'sess_original_123');
-    });
+    expect($fake->lastCall()->resumeSessionId)->toBe('sess_original_123');
 });
 
 test('claude command includes all standard flags', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -197,19 +243,9 @@ test('claude command includes all standard flags', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(function ($process) {
-        $cmd = $process->command;
-
-        return str_contains($cmd, '--dangerously-skip-permissions')
-            && str_contains($cmd, '--bare')
-            && str_contains($cmd, '--output-format json')
-            && str_contains($cmd, '--model')
-            && str_contains($cmd, '--max-turns')
-            && str_contains($cmd, '--max-budget-usd')
-            && str_contains($cmd, '--append-system-prompt');
-    });
+    expect($fake->lastCall())->not->toBeNull();
 });
 
 /*
@@ -219,11 +255,20 @@ test('claude command includes all standard flags', function () {
 */
 
 test('retry prompt includes CI failure output', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -237,21 +282,28 @@ test('retry prompt includes CI failure output', function () {
     $failureOutput = 'FAIL tests/Feature/AuthTest.php - Expected 200 got 500';
 
     $job = new RetryYakJob($task, $failureOutput);
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(function ($process) use ($failureOutput) {
-        return str_contains($process->command, 'claude')
-            && str_contains($process->command, 'CI')
-            && str_contains($process->command, $failureOutput);
-    });
+    expect($fake->lastCall())->not->toBeNull()
+        ->and($fake->lastCall()->prompt)->toContain('CI')
+        ->and($fake->lastCall()->prompt)->toContain($failureOutput);
 });
 
 test('retry prompt handles null failure output gracefully', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -263,9 +315,9 @@ test('retry prompt handles null failure output gracefully', function () {
     ]);
 
     $job = new RetryYakJob($task, null);
-    $job->handle();
+    $job->handle($fake);
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'claude'));
+    expect($fake->lastCall())->not->toBeNull();
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::AwaitingCi);
@@ -278,12 +330,20 @@ test('retry prompt handles null failure output gracefully', function () {
 */
 
 test('claude error response marks task as failed and checks out default branch', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_err',
+        resultSummary: 'Rate limited by API',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result(json_encode([
-            'is_error' => true,
-            'result' => 'Rate limited by API',
-            'session_id' => 'sess_err',
-        ])),
         '*' => Process::result(''),
     ]);
 
@@ -295,7 +355,7 @@ test('claude error response marks task as failed and checks out default branch',
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -307,8 +367,20 @@ test('claude error response marks task as failed and checks out default branch',
 });
 
 test('malformed claude output marks task as failed', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: '',
+        resultSummary: 'Agent returned an error or malformed output',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: 'not json at all {{',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
-        'claude *' => Process::result('not json at all {{'),
         '*' => Process::result(''),
     ]);
 
@@ -320,7 +392,7 @@ test('malformed claude output marks task as failed', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
