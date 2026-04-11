@@ -8,8 +8,8 @@ use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
-use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\RepoDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -96,13 +96,16 @@ class LinearWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $repository = $description->repository !== null
-            ? Repository::where('slug', $description->repository)->first()
-            : Repository::where('is_default', true)->first();
+        $detector = new RepoDetector;
+        $detection = $detector->detect($description);
+
+        $repoSlug = $detection->resolved
+            ? $detection->firstRepository()->slug
+            : ($description->repository ?? 'unknown');
 
         $task = YakTask::create([
             'source' => 'linear',
-            'repo' => $repository !== null ? $repository->slug : ($description->repository ?? 'unknown'),
+            'repo' => $repoSlug,
             'external_id' => $description->externalId,
             'external_url' => $description->metadata['linear_issue_url'] ?? null,
             'description' => $description->body,

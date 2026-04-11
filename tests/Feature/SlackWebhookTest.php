@@ -266,7 +266,7 @@ it('detects explicit repo from in {repo}: syntax', function () {
     expect($task->description)->toBe('fix the auth middleware');
 });
 
-it('falls back to default repo when no repo specified', function () {
+it('enters awaiting_clarification when no repo specified and multiple active repos (slack)', function () {
     $secret = enableSlackChannel();
     Queue::fake();
     Http::fake(['*' => Http::response(['ok' => true])]);
@@ -285,7 +285,34 @@ it('falls back to default repo when no repo specified', function () {
 
     $task = YakTask::first();
     expect($task)->not->toBeNull();
-    expect($task->repo)->toBe('default-repo');
+    expect($task->repo)->toBe('unknown');
+    expect($task->status->value)->toBe('awaiting_clarification');
+    expect($task->clarification_options)->toBeArray()->toHaveCount(2);
+
+    Queue::assertNothingPushed();
+});
+
+it('uses single active repo without clarification for slack', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->create(['slug' => 'only-repo']);
+
+    $body = slackMentionPayload('fix something');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+
+    $task = YakTask::first();
+    expect($task)->not->toBeNull();
+    expect($task->repo)->toBe('only-repo');
+
+    Queue::assertPushed(RunYakJob::class);
 });
 
 /*

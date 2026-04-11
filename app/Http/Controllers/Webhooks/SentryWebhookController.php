@@ -7,6 +7,7 @@ use App\Drivers\SentryInputDriver;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
+use App\Services\RepoDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -52,14 +53,19 @@ class SentryWebhookController extends Controller
         $driver = new SentryInputDriver;
         $description = $driver->parse($request);
 
+        $detector = new RepoDetector;
+        $detection = $detector->detect($description);
+
         // Repo must be resolved (sentry_project mapped to an active repository)
-        if ($description->repository === null) {
+        if (! $detection->resolved) {
             return response()->json(['ok' => true, 'filtered' => 'unknown_project']);
         }
 
+        $resolvedSlug = $detection->firstRepository()->slug;
+
         // Deduplication: same external_id + repo = conflict
         $existingTask = YakTask::where('external_id', $description->externalId)
-            ->where('repo', $description->repository)
+            ->where('repo', $resolvedSlug)
             ->first();
 
         if ($existingTask !== null) {
@@ -68,7 +74,7 @@ class SentryWebhookController extends Controller
 
         $task = YakTask::create([
             'source' => 'sentry',
-            'repo' => $description->repository,
+            'repo' => $resolvedSlug,
             'external_id' => $description->externalId,
             'description' => $description->body,
             'mode' => 'fix',

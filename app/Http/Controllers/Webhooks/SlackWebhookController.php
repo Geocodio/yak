@@ -9,8 +9,8 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
-use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\RepoDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -67,13 +67,71 @@ class SlackWebhookController extends Controller
         $driver = new SlackInputDriver;
         $description = $driver->parse($request);
 
-        $repository = $description->repository !== null
-            ? Repository::where('slug', $description->repository)->first()
-            : Repository::where('is_default', true)->first();
+        $detector = new RepoDetector;
+        $detection = $detector->detect($description);
+
+        // Multi-repo: create one task per repo
+        if ($detection->isMultiRepo()) {
+            foreach ($detection->repositories as $repo) {
+                $task = YakTask::create([
+                    'source' => 'slack',
+                    'repo' => $repo->slug,
+                    'external_id' => $description->externalId.'-'.$repo->slug,
+                    'description' => $description->body,
+                    'mode' => $description->metadata['mode'] ?? 'fix',
+                    'slack_channel' => $description->metadata['slack_channel'],
+                    'slack_thread_ts' => $description->metadata['slack_thread_ts'],
+                ]);
+
+                RunYakJob::dispatch($task);
+            }
+
+            $notification = new SlackNotificationDriver;
+            $repoList = $detection->repositories->pluck('slug')->implode(', ');
+            $dummyTask = YakTask::where('source', 'slack')
+                ->where('slack_channel', $description->metadata['slack_channel'])
+                ->where('slack_thread_ts', $description->metadata['slack_thread_ts'])
+                ->first();
+
+            if ($dummyTask !== null) {
+                $notification->send($dummyTask, NotificationType::Acknowledgment, "I'm on it — working across: {$repoList}");
+            }
+
+            return response()->json(['ok' => true]);
+        }
+
+        // Low-confidence: needs clarification
+        if ($detection->needsClarification) {
+            $repoOptions = $detection->options->pluck('slug')->values()->all();
+
+            $task = YakTask::create([
+                'source' => 'slack',
+                'repo' => 'unknown',
+                'external_id' => $description->externalId,
+                'description' => $description->body,
+                'mode' => $description->metadata['mode'] ?? 'fix',
+                'status' => 'awaiting_clarification',
+                'slack_channel' => $description->metadata['slack_channel'],
+                'slack_thread_ts' => $description->metadata['slack_thread_ts'],
+                'clarification_options' => $repoOptions,
+                'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
+            ]);
+
+            $notification = new SlackNotificationDriver;
+            $optionList = implode(', ', $repoOptions);
+            $notification->send($task, NotificationType::Acknowledgment, "Which repo should I work in? Options: {$optionList}");
+
+            return response()->json(['ok' => true]);
+        }
+
+        // Single resolved repo or unresolved
+        $repoSlug = $detection->resolved
+            ? $detection->firstRepository()->slug
+            : ($description->repository ?? 'unknown');
 
         $task = YakTask::create([
             'source' => 'slack',
-            'repo' => $repository !== null ? $repository->slug : ($description->repository ?? 'unknown'),
+            'repo' => $repoSlug,
             'external_id' => $description->externalId,
             'description' => $description->body,
             'mode' => $description->metadata['mode'] ?? 'fix',
