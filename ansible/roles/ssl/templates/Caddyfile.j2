@@ -1,0 +1,9 @@
+{{ yak_domain }} {
+    reverse_proxy localhost:8080
+    tls {
+        protocols tls1.2 tls1.3
+    }
+    log {
+        output file /var/log/caddy/access.log
+    }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Yak ({{ github_org }})",
+  "url": "https://{{ yak_domain }}",
+  "hook_attributes": {
+    "url": "https://{{ yak_domain }}/webhooks/ci/github",
+    "active": true
+  },
+  "redirect_url": "https://{{ yak_domain }}",
+  "public": false,
+  "default_permissions": {
+    "contents": "write",
+    "pull_requests": "write",
+    "issues": "read",
+    "checks": "read",
+    "metadata": "read"
+  },
+  "default_events": [
+    "check_suite",
+    "pull_request_review"
+  ]
+}

@@ -1,0 +1,15 @@
+---
+yak_user: yak
+yak_home: /home/yak
+yak_repo_path: /home/yak/repos
+yak_data_path: /home/yak/data
+yak_claude_path: /home/yak/.claude
+yak_app_path: /home/yak/yak
+yak_container_name: yak
+
+swap_size_mb: 4096
+
+ufw_allowed_ports:
+  - "22"
+  - "80"
+  - "443"

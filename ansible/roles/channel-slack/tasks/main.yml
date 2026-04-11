@@ -1,0 +1,16 @@
+---
+- name: Verify Slack credentials are configured
+  ansible.builtin.assert:
+    that:
+      - slack_bot_token is defined and slack_bot_token | length > 0
+      - slack_signing_secret is defined and slack_signing_secret | length > 0
+    fail_msg: "Slack bot_token and signing_secret are required for the Slack channel."
+
+- name: Display Slack webhook configuration reminder
+  ansible.builtin.debug:
+    msg: |
+      Slack channel enabled.
+      Ensure your Slack app Event Subscriptions URL is set to:
+        https://{{ yak_domain }}/webhooks/slack
+      Required bot events: app_mention, message.channels
+      Required scopes: chat:write, app_mentions:read, channels:history

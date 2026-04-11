@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    }{% if linear_api_key is defined and linear_api_key | length > 0 %},
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "mcp-linear"],
+      "env": {
+        "LINEAR_API_KEY": "{{ linear_api_key }}"
+      }
+    }{% endif %}{% if sentry_auth_token is defined and sentry_auth_token | length > 0 %},
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server"],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "{{ sentry_auth_token }}",
+        "SENTRY_ORG_SLUG": "{{ sentry_org_slug | default('') }}"
+      }
+    }{% endif %}{% if github_app_id is defined and github_app_id | length > 0 %},
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{{ github_app_private_key }}"
+      }
+    }{% endif %}
+  }
+}

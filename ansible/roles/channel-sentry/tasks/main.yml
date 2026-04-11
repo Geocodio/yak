@@ -1,0 +1,16 @@
+---
+- name: Verify Sentry credentials are configured
+  ansible.builtin.assert:
+    that:
+      - sentry_auth_token is defined and sentry_auth_token | length > 0
+      - sentry_webhook_secret is defined and sentry_webhook_secret | length > 0
+      - sentry_org_slug is defined and sentry_org_slug | length > 0
+    fail_msg: "Sentry auth_token, webhook_secret, and org_slug are required for the Sentry channel."
+
+- name: Display Sentry webhook configuration reminder
+  ansible.builtin.debug:
+    msg: |
+      Sentry channel enabled.
+      Ensure your Sentry internal integration webhook URL is set to:
+        https://{{ yak_domain }}/webhooks/sentry
+      Create alert rules tagged 'yak-eligible' for issues Yak should handle.

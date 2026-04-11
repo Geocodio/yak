@@ -1,0 +1,8 @@
+---
+- name: Template MCP config
+  ansible.builtin.template:
+    src: mcp-config.json.j2
+    dest: "{{ yak_home }}/mcp-config.json"
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0644"

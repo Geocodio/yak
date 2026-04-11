@@ -1,0 +1,15 @@
+---
+- name: Verify Drone credentials are configured
+  ansible.builtin.assert:
+    that:
+      - drone_url is defined and drone_url | length > 0
+      - drone_token is defined and drone_token | length > 0
+    fail_msg: "Drone url and token are required for the Drone CI channel."
+
+- name: Display Drone webhook configuration reminder
+  ansible.builtin.debug:
+    msg: |
+      Drone CI channel enabled.
+      Configure a webhook on each Drone-CI repo pointing to:
+        https://{{ yak_domain }}/webhooks/ci/drone
+      Set ci_system: drone on repos that use Drone CI.

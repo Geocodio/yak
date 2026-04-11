@@ -1,0 +1,34 @@
+---
+- name: Clone repositories
+  ansible.builtin.git:
+    repo: "{{ item.git_url }}"
+    dest: "{{ yak_repo_path }}/{{ item.slug }}"
+    version: "{{ item.default_branch }}"
+    accept_hostkey: true
+    update: false
+  become: true
+  become_user: "{{ yak_user }}"
+  loop: "{{ yak_repos }}"
+  loop_control:
+    label: "{{ item.slug }}"
+
+- name: Seed repositories into database
+  ansible.builtin.command:
+    cmd: >
+      docker exec {{ yak_container_name }} php artisan tinker --execute
+      'App\Models\Repository::firstOrCreate(
+        ["slug" => "{{ item.slug }}"],
+        [
+          "name" => "{{ item.name }}",
+          "git_url" => "{{ item.git_url }}",
+          "path" => "{{ yak_repo_path }}/{{ item.slug }}",
+          "default_branch" => "{{ item.default_branch }}",
+          "ci_system" => "{{ item.ci_system | default("github_actions") }}",
+          "is_default" => {{ item.is_default | default(false) | ternary("true", "false") }},
+          "sentry_project" => {{ item.sentry_project | default("") | ternary("\"" + (item.sentry_project | default("")) + "\"", "null") }}
+        ]
+      );'
+  loop: "{{ yak_repos }}"
+  loop_control:
+    label: "{{ item.slug }}"
+  changed_when: true

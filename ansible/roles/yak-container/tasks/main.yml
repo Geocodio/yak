@@ -1,0 +1,44 @@
+---
+- name: Copy Yak application to server
+  ansible.builtin.synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ yak_app_path }}"
+    delete: true
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=node_modules"
+      - "--exclude=vendor"
+      - "--exclude=ansible/vault/secrets.yml"
+
+- name: Template .env file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ yak_app_path }}/.env"
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0600"
+
+- name: Build Yak Docker image
+  community.docker.docker_image:
+    name: yak
+    tag: latest
+    source: build
+    build:
+      path: "{{ yak_app_path }}"
+    force_source: true
+
+- name: Run Yak container
+  community.docker.docker_container:
+    name: "{{ yak_container_name }}"
+    image: yak:latest
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "8080:443"
+    volumes:
+      - "{{ yak_repo_path }}:/home/yak/repos"
+      - "{{ yak_data_path }}:/app/database"
+      - "{{ yak_claude_path }}:/home/yak/.claude"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    env_file: "{{ yak_app_path }}/.env"
+    recreate: true

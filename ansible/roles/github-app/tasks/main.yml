@@ -1,0 +1,32 @@
+---
+- name: Generate webhook secret for GitHub App
+  ansible.builtin.set_fact:
+    github_webhook_secret: "{{ lookup('password', '/dev/null length=40 chars=ascii_letters,digits') }}"
+  when: github_webhook_secret is not defined or github_webhook_secret | length == 0
+
+- name: Create GitHub App manifest
+  ansible.builtin.template:
+    src: app-manifest.json.j2
+    dest: "{{ yak_home }}/github-app-manifest.json"
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0600"
+
+- name: Print GitHub App creation instructions
+  ansible.builtin.debug:
+    msg: |
+      ╔══════════════════════════════════════════════════════════════╗
+      ║  GitHub App must be created manually via the manifest flow. ║
+      ║                                                             ║
+      ║  1. Visit: https://github.com/organizations/{{ github_org }}/settings/apps/new
+      ║  2. Create an App with the permissions in the manifest.     ║
+      ║  3. Install the App on your organization.                   ║
+      ║  4. Update ansible/vault/secrets.yml with:                  ║
+      ║     - github_app_id                                         ║
+      ║     - github_app_private_key                                ║
+      ║     - github_webhook_secret                                 ║
+      ║  5. Re-run the playbook.                                    ║
+      ╚══════════════════════════════════════════════════════════════╝
+
+      The app manifest has been written to {{ yak_home }}/github-app-manifest.json
+      for reference.

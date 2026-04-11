@@ -1,0 +1,16 @@
+---
+- name: Verify Linear credentials are configured
+  ansible.builtin.assert:
+    that:
+      - linear_api_key is defined and linear_api_key | length > 0
+      - linear_webhook_secret is defined and linear_webhook_secret | length > 0
+    fail_msg: "Linear api_key and webhook_secret are required for the Linear channel."
+
+- name: Display Linear webhook configuration reminder
+  ansible.builtin.debug:
+    msg: |
+      Linear channel enabled.
+      Ensure your Linear webhook URL is set to:
+        https://{{ yak_domain }}/webhooks/linear
+      Subscribe to: Issue label events
+      Create a 'yak' label in your workspace.

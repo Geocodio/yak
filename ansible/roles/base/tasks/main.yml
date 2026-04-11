@@ -1,0 +1,108 @@
+---
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+      - git
+      - curl
+      - unzip
+      - htop
+      - python3-pip
+      - acl
+    state: present
+
+- name: Create yak user
+  ansible.builtin.user:
+    name: "{{ yak_user }}"
+    shell: /bin/bash
+    create_home: true
+    groups: sudo
+    append: true
+
+- name: Allow yak user passwordless sudo
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers.d/yak
+    line: "{{ yak_user }} ALL=(ALL) NOPASSWD:ALL"
+    create: true
+    mode: "0440"
+    validate: "visudo -cf %s"
+
+- name: Configure UFW defaults
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Allow UFW ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ ufw_allowed_ports }}"
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+- name: Configure fail2ban
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = 5
+
+      [sshd]
+      enabled = true
+      port = ssh
+      filter = sshd
+      logpath = /var/log/auth.log
+    mode: "0644"
+  notify: restart fail2ban
+
+- name: Enable fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+
+- name: Check if swap exists
+  ansible.builtin.command: swapon --show
+  register: swap_check
+  changed_when: false
+
+- name: Create swap file
+  ansible.builtin.command: "{{ item }}"
+  loop:
+    - fallocate -l {{ swap_size_mb }}M /swapfile
+    - chmod 600 /swapfile
+    - mkswap /swapfile
+    - swapon /swapfile
+  when: swap_check.stdout | length == 0
+  changed_when: true
+
+- name: Persist swap in fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "/swapfile none swap sw 0 0"
+    state: present
+  when: swap_check.stdout | length == 0
+
+- name: Create required directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0755"
+  loop:
+    - "{{ yak_repo_path }}"
+    - "{{ yak_data_path }}"
+    - "{{ yak_claude_path }}"
+    - "{{ yak_home }}/yak"

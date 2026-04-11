@@ -1,0 +1,75 @@
+---
+- name: Provision Yak server
+  hosts: all
+  become: true
+  vars_files:
+    - vault/secrets.yml
+    - group_vars/yak.yml
+    - group_vars/repos.yml
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - yak_domain is defined and yak_domain | length > 0
+          - yak_app_key is defined and yak_app_key | length > 0
+          - anthropic_api_key is defined and anthropic_api_key | length > 0
+          - github_org is defined and github_org | length > 0
+          - google_oauth_client_id is defined and google_oauth_client_id | length > 0
+          - google_oauth_client_secret is defined and google_oauth_client_secret | length > 0
+          - google_oauth_allowed_domains is defined and google_oauth_allowed_domains | length > 0
+        fail_msg: "Required variables are missing. Check vault/secrets.yml."
+      tags: always
+
+  roles:
+    - role: base
+      tags: [base]
+
+    - role: docker
+      tags: [docker]
+
+    - role: ssl
+      tags: [ssl]
+
+    - role: github-app
+      tags: [github-app]
+      when: github_app_id is not defined or github_app_id | length == 0
+
+    - role: repos
+      tags: [repos]
+
+    - role: mcp-config
+      tags: [mcp-config, yak-app, secrets]
+
+    - role: channel-slack
+      tags: [channel-slack]
+      when: slack_bot_token is defined and slack_bot_token | length > 0
+
+    - role: channel-linear
+      tags: [channel-linear]
+      when: linear_api_key is defined and linear_api_key | length > 0
+
+    - role: channel-sentry
+      tags: [channel-sentry]
+      when: sentry_auth_token is defined and sentry_auth_token | length > 0
+
+    - role: channel-drone
+      tags: [channel-drone]
+      when: drone_url is defined and drone_url | length > 0
+
+    - role: yak-container
+      tags: [yak-container, yak-app, secrets]
+
+    - role: claude-code-config
+      tags: [claude-code-config, yak-app]
+
+  post_tasks:
+    - name: Dispatch setup tasks for each repo
+      ansible.builtin.command:
+        cmd: >
+          docker exec yak php artisan yak:setup-repo {{ item.slug }} --no-interaction
+      loop: "{{ yak_repos }}"
+      loop_control:
+        label: "{{ item.slug }}"
+      tags: [repos]
+      changed_when: true
