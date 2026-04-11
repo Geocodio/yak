@@ -26,3 +26,7 @@ yarn-error.log
 spec/
 .chief
 
+/ansible/vault/secrets.yml
+/ansible/inventory/hosts.yml
+/ansible/group_vars/repos.yml
+
