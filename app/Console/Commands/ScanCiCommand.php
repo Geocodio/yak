@@ -10,6 +10,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\DroneBuildScanner;
 use App\Services\GitHubActionsBuildScanner;
+use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -91,6 +92,7 @@ class ScanCiCommand extends Command
                 'source' => 'flaky-test',
             ]);
 
+            TaskLogger::info($task, 'Task created', ['source' => 'flaky-test', 'repo' => $repository->slug]);
             RunYakJob::dispatch($task);
             $tasksCreated++;
 

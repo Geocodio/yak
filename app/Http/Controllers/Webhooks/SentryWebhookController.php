@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
+use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -80,6 +81,7 @@ class SentryWebhookController extends Controller
             'mode' => 'fix',
         ]);
 
+        TaskLogger::info($task, 'Task created', ['source' => 'sentry', 'repo' => $resolvedSlug]);
         RunYakJob::dispatch($task);
 
         return response()->json(['ok' => true, 'task_id' => $task->id], 201);

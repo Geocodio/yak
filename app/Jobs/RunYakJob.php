@@ -13,6 +13,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
+use App\Services\TaskLogger;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -58,6 +59,8 @@ class RunYakJob implements ShouldQueue
             'attempts' => $this->task->attempts + 1,
         ]);
 
+        TaskLogger::info($this->task, 'Picked up by worker', ['attempt' => $this->task->attempts + 1]);
+
         try {
             $this->preflight($repository);
             $this->prepareBranch($repository);
@@ -71,6 +74,8 @@ class RunYakJob implements ShouldQueue
 
                 return;
             }
+
+            TaskLogger::info($this->task, 'Assessment complete');
 
             if ($parser->isClarification() && $this->task->source === 'slack') {
                 $this->handleClarification($parser);
@@ -191,6 +196,7 @@ class RunYakJob implements ShouldQueue
 
         if ($this->task->branch_name !== null) {
             GitOperations::pushBranch($repository, $this->task->branch_name);
+            TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }
     }
 
@@ -207,6 +213,8 @@ class RunYakJob implements ShouldQueue
         ]);
 
         DailyCost::accumulate($parser->costUsd());
+
+        TaskLogger::info($this->task, 'Clarification posted');
     }
 
     private function handleError(Repository $repository, string $errorMessage): void
@@ -217,6 +225,7 @@ class RunYakJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
+        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
         GitOperations::checkoutDefaultBranch($repository);
     }
 }

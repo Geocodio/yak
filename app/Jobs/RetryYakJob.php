@@ -13,6 +13,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
+use App\Services\TaskLogger;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -52,6 +53,8 @@ class RetryYakJob implements ShouldQueue
     public function handle(): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
+
+        TaskLogger::info($this->task, 'Picked up by worker — retry', ['attempt' => $this->task->attempts]);
 
         try {
             $this->preflight($repository);
@@ -159,6 +162,7 @@ class RetryYakJob implements ShouldQueue
 
         if ($this->task->branch_name !== null) {
             GitOperations::forcePushBranch($repository, $this->task->branch_name);
+            TaskLogger::info($this->task, 'Fix pushed — retry', ['branch' => $this->task->branch_name]);
         }
     }
 
@@ -170,6 +174,7 @@ class RetryYakJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
+        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
         GitOperations::checkoutDefaultBranch($repository);
     }
 }

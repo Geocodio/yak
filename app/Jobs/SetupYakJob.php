@@ -12,6 +12,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
+use App\Services\TaskLogger;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -57,6 +58,7 @@ class SetupYakJob implements ShouldQueue
             'attempts' => $this->task->attempts + 1,
         ]);
 
+        TaskLogger::info($this->task, 'Picked up by worker — setup');
         $repository->update(['setup_status' => 'running']);
 
         try {
@@ -161,6 +163,7 @@ class SetupYakJob implements ShouldQueue
 
         DailyCost::accumulate($parser->costUsd());
 
+        TaskLogger::info($this->task, 'Task completed');
         $repository->update(['setup_status' => 'ready']);
     }
 
@@ -172,6 +175,7 @@ class SetupYakJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
+        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
         $repository->update(['setup_status' => 'failed']);
     }
 }

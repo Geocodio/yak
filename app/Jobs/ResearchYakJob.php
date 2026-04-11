@@ -13,6 +13,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
+use App\Services\TaskLogger;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -55,6 +56,8 @@ class ResearchYakJob implements ShouldQueue
             'started_at' => now(),
             'attempts' => $this->task->attempts + 1,
         ]);
+
+        TaskLogger::info($this->task, 'Picked up by worker — research');
 
         try {
             $this->ensureDefaultBranch($repository);
@@ -149,6 +152,8 @@ class ResearchYakJob implements ShouldQueue
 
         DailyCost::accumulate($parser->costUsd());
 
+        TaskLogger::info($this->task, 'Task completed');
+
         $notificationMessage = $artifactUrl !== null
             ? "{$summary}\n\nFindings: {$artifactUrl}"
             : $summary;
@@ -188,6 +193,8 @@ class ResearchYakJob implements ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
+        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
+
         $this->task->update([
             'status' => TaskStatus::Failed,
             'error_log' => $errorMessage,

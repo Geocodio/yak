@@ -7,6 +7,7 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -48,6 +49,8 @@ class RunCommand extends Command
             'context' => $context,
             'source' => 'cli',
         ]);
+
+        TaskLogger::info($task, 'Task created', ['source' => 'cli', 'repo' => $repository->slug]);
 
         $job = $isResearch
             ? new ResearchYakJob($task)

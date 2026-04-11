@@ -31,7 +31,7 @@ class CostDashboard extends Component
     }
 
     /**
-     * @return array{total_cost: string, task_count: int, avg_cost: string, avg_duration: string}
+     * @return array{total_cost: string, task_count: int, avg_cost: string, avg_duration: string, success_rate: string, clarification_rate: string}
      */
     #[Computed]
     public function summary(): array
@@ -43,17 +43,26 @@ class CostDashboard extends Component
             ->when($this->repo !== '', fn ($q) => $q->where('repo', $this->repo))
             ->when($this->source !== '', fn ($q) => $q->where('source', $this->source));
 
-        /** @var object{total_cost: string|null, task_count: int, avg_cost: string|null, avg_duration: float|null} $stats */
-        $stats = $query->selectRaw('SUM(cost_usd) as total_cost, COUNT(*) as task_count, AVG(cost_usd) as avg_cost, AVG(duration_ms) as avg_duration')->first();
+        /** @var object{total_cost: string|null, task_count: int, avg_cost: string|null, avg_duration: float|null, success_count: int, clarification_count: int} $stats */
+        $stats = $query->selectRaw(
+            'SUM(cost_usd) as total_cost, COUNT(*) as task_count, AVG(cost_usd) as avg_cost, AVG(duration_ms) as avg_duration, ' .
+            "SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success_count, " .
+            "SUM(CASE WHEN status IN ('awaiting_clarification', 'expired') THEN 1 ELSE 0 END) as clarification_count"
+        )->first();
 
         $avgDurationMs = (int) round((float) ($stats->avg_duration ?? 0));
         $minutes = (int) round($avgDurationMs / 60000);
+        $taskCount = (int) $stats->task_count;
+        $successRate = $taskCount > 0 ? round(((int) $stats->success_count / $taskCount) * 100) : 0;
+        $clarificationRate = $taskCount > 0 ? round(((int) $stats->clarification_count / $taskCount) * 100) : 0;
 
         return [
             'total_cost' => number_format((float) ($stats->total_cost ?? 0), 2),
-            'task_count' => (int) $stats->task_count,
+            'task_count' => $taskCount,
             'avg_cost' => number_format((float) ($stats->avg_cost ?? 0), 2),
             'avg_duration' => $minutes > 0 ? $minutes . 'm' : '0m',
+            'success_rate' => $successRate . '%',
+            'clarification_rate' => $clarificationRate . '%',
         ];
     }
 

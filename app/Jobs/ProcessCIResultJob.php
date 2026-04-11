@@ -7,6 +7,7 @@ use App\GitOperations;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\TaskLogger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
@@ -32,6 +33,8 @@ class ProcessCIResultJob implements ShouldQueue
 
     public function handle(): void
     {
+        TaskLogger::info($this->task, 'CI result received', ['passed' => $this->passed]);
+
         if ($this->passed) {
             $this->handleGreenPath();
         } elseif ($this->task->attempts < (int) config('yak.max_attempts')) {
@@ -55,6 +58,7 @@ class ProcessCIResultJob implements ShouldQueue
         $this->task->refresh();
         $prUrl = $this->task->pr_url ?? '';
 
+        TaskLogger::info($this->task, 'PR created', ['pr_url' => $prUrl]);
         $this->postToSource("PR created: {$prUrl}");
 
         if ($this->task->source === 'linear') {
@@ -66,6 +70,7 @@ class ProcessCIResultJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
+        TaskLogger::info($this->task, 'Task completed');
         $this->cleanupBranch($repository);
     }
 
@@ -94,6 +99,7 @@ class ProcessCIResultJob implements ShouldQueue
             'error_log' => $failureSummary,
         ]);
 
+        TaskLogger::error($this->task, 'Task failed', ['error' => $failureSummary]);
         $this->cleanupBranch($repository);
     }
 

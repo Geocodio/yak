@@ -13,6 +13,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
+use App\Services\TaskLogger;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -56,6 +57,8 @@ class ClarificationReplyJob implements ShouldQueue
         $this->task->update([
             'status' => TaskStatus::Running,
         ]);
+
+        TaskLogger::info($this->task, 'Picked up by worker — clarification reply');
 
         try {
             $this->preflight($repository);
@@ -158,6 +161,7 @@ class ClarificationReplyJob implements ShouldQueue
 
         if ($this->task->branch_name !== null) {
             GitOperations::forcePushBranch($repository, $this->task->branch_name);
+            TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }
     }
 
@@ -169,6 +173,7 @@ class ClarificationReplyJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
+        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
         GitOperations::checkoutDefaultBranch($repository);
     }
 }

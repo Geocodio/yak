@@ -6,6 +6,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
+use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -26,6 +27,8 @@ class CleanupExpiredClarificationsCommand extends Command
                 'status' => TaskStatus::Expired,
                 'completed_at' => now(),
             ]);
+
+            TaskLogger::warning($task, 'Task expired');
 
             SendNotificationJob::dispatch(
                 $task,

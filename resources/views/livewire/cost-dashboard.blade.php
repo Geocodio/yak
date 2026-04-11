@@ -33,7 +33,7 @@
 
     {{-- Stat Cards --}}
     @php $summary = $this->summary; @endphp
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 mb-8">
         <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center">
             <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Total Cost</div>
             <div class="text-[28px] font-semibold text-yak-slate mb-1">${{ $summary['total_cost'] }}</div>
@@ -53,6 +53,16 @@
             <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Avg Duration</div>
             <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $summary['avg_duration'] }}</div>
             <div class="text-xs text-yak-blue">per task</div>
+        </div>
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Success Rate</div>
+            <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $summary['success_rate'] }}</div>
+            <div class="text-xs text-yak-blue">of tasks</div>
+        </div>
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Clarification Rate</div>
+            <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $summary['clarification_rate'] }}</div>
+            <div class="text-xs text-yak-blue">of tasks</div>
         </div>
     </div>
 

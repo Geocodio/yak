@@ -142,3 +142,46 @@ test('guests cannot access cost dashboard', function () {
     auth()->logout();
     $this->get('/costs')->assertRedirect('/auth/google');
 });
+
+test('success rate is calculated correctly', function () {
+    YakTask::factory()->create([
+        'status' => 'success',
+        'created_at' => now(),
+    ]);
+
+    YakTask::factory()->create([
+        'status' => 'failed',
+        'created_at' => now(),
+    ]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $summary = $component->get('summary');
+    expect($summary['success_rate'])->toBe('50%');
+});
+
+test('clarification rate is calculated correctly', function () {
+    YakTask::factory()->create([
+        'status' => 'awaiting_clarification',
+        'created_at' => now(),
+    ]);
+
+    YakTask::factory()->count(3)->create([
+        'status' => 'success',
+        'created_at' => now(),
+    ]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $summary = $component->get('summary');
+    expect($summary['clarification_rate'])->toBe('25%');
+});
+
+test('dashboard shows success and clarification rate cards', function () {
+    YakTask::factory()->create([
+        'status' => 'success',
+        'created_at' => now(),
+    ]);
+
+    Livewire::test(CostDashboard::class)
+        ->assertSee('Success Rate')
+        ->assertSee('Clarification Rate');
+});

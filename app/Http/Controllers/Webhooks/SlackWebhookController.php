@@ -11,6 +11,7 @@ use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
+use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -83,6 +84,7 @@ class SlackWebhookController extends Controller
                     'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                 ]);
 
+                TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repo->slug]);
                 RunYakJob::dispatch($task);
             }
 
@@ -117,6 +119,7 @@ class SlackWebhookController extends Controller
                 'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
             ]);
 
+            TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
             $notification = new SlackNotificationDriver;
             $optionList = implode(', ', $repoOptions);
             $notification->send($task, NotificationType::Acknowledgment, "Which repo should I work in? Options: {$optionList}");
@@ -139,6 +142,7 @@ class SlackWebhookController extends Controller
             'slack_thread_ts' => $description->metadata['slack_thread_ts'],
         ]);
 
+        TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repoSlug]);
         $notification = new SlackNotificationDriver;
         $notification->send($task, NotificationType::Acknowledgment, "I'm on it.");
 
@@ -167,6 +171,7 @@ class SlackWebhookController extends Controller
             ->first();
 
         if ($task !== null) {
+            TaskLogger::info($task, 'Clarification received');
             ClarificationReplyJob::dispatch($task, $event['text'] ?? '');
         }
 
