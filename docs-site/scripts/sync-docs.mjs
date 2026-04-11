@@ -22,6 +22,11 @@ const __dirname = dirname(__filename);
 const SOURCE_DIR = resolve(__dirname, '../../docs');
 const TARGET_DIR = resolve(__dirname, '../src/content/docs');
 
+// Must match `base` in astro.config.mjs. Internal `<a href>` in Markdown
+// is NOT auto-prefixed with Astro's base, so links must be written with
+// the prefix baked in. Kept here as a single source of truth for the sync.
+const SITE_BASE = '/yak';
+
 // Sidebar grouping and order. Files not listed here are synced but excluded
 // from explicit ordering — they'll appear alphabetically if included.
 const PAGES = [
@@ -61,11 +66,11 @@ function buildFrontmatter(page) {
 }
 
 function rewriteRelativeLinks(content) {
-  // Convert [text](other.md) to [text](/other/) for Starlight's routing.
+  // Convert [text](other.md) to [text](/yak/other/) for Starlight's routing.
   // Only applies to bare .md filenames — leave anchors and full URLs alone.
   return content.replace(
     /\[([^\]]+)\]\(([a-z0-9-]+)\.md(#[a-z0-9-]+)?\)/gi,
-    (_, text, slug, anchor) => `[${text}](/${slug}/${anchor ?? ''})`,
+    (_, text, slug, anchor) => `[${text}](${SITE_BASE}/${slug}/${anchor ?? ''})`,
   );
 }
 
