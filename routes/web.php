@@ -3,6 +3,7 @@
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Livewire\CostDashboard;
+use App\Livewire\Health;
 use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
 use App\Livewire\Tasks\TaskDetail;
@@ -23,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('repos', RepoList::class)->name('repos');
     Route::livewire('repos/create', RepoForm::class)->name('repos.create');
     Route::livewire('repos/{repository}/edit', RepoForm::class)->name('repos.edit');
+    Route::livewire('health', Health::class)->name('health');
     Route::view('dashboard', 'dashboard')->name('dashboard');
 });
 
