@@ -18,7 +18,7 @@ use Tests\Support\FakeAgentRunner;
 */
 
 test('successful retry transitions task to awaiting_ci and force pushes branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_retry_new',
         resultSummary: 'Fixed the CI failures',
         costUsd: 1.50,
@@ -64,7 +64,7 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
 });
 
 test('successful retry accumulates cost and turns on task', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_2',
         resultSummary: 'Done',
         costUsd: 0.75,
@@ -108,7 +108,7 @@ test('successful retry accumulates cost and turns on task', function () {
 */
 
 test('checks out existing task branch instead of creating new', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -147,7 +147,7 @@ test('checks out existing task branch instead of creating new', function () {
 */
 
 test('preflight runs docker-compose stop and kills dev ports', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -187,7 +187,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 */
 
 test('invokes claude with --resume flag and session_id', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_resumed',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -218,7 +218,7 @@ test('invokes claude with --resume flag and session_id', function () {
 });
 
 test('claude command includes all standard flags', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -255,7 +255,7 @@ test('claude command includes all standard flags', function () {
 */
 
 test('retry prompt includes CI failure output', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -290,7 +290,7 @@ test('retry prompt includes CI failure output', function () {
 });
 
 test('retry prompt handles null failure output gracefully', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -330,7 +330,7 @@ test('retry prompt handles null failure output gracefully', function () {
 */
 
 test('claude error response marks task as failed and checks out default branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_err',
         resultSummary: 'Rate limited by API',
         costUsd: 0.0,
@@ -367,7 +367,7 @@ test('claude error response marks task as failed and checks out default branch',
 });
 
 test('malformed claude output marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: '',
         resultSummary: 'Agent returned an error or malformed output',
         costUsd: 0.0,

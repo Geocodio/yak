@@ -35,14 +35,13 @@ it('invokes claude -p for a fresh run and returns an AgentRunResult', function (
         ])),
     ]);
 
-    $result = (new ClaudeCodeRunner())->run(makeRequest());
+    $result = (new ClaudeCodeRunner)->run(makeRequest());
 
     expect($result->sessionId)->toBe('sess_fresh')
         ->and($result->costUsd)->toBe(1.25)
         ->and($result->isError)->toBeFalse();
 
-    Process::assertRan(fn ($p) =>
-        str_contains($p->command, 'claude -p')
+    Process::assertRan(fn ($p) => str_contains($p->command, 'claude -p')
         && str_contains($p->command, '--dangerously-skip-permissions')
         && str_contains($p->command, '--bare')
         && str_contains($p->command, '--output-format json')
@@ -60,10 +59,9 @@ it('passes --resume when a session id is supplied', function () {
         ])),
     ]);
 
-    (new ClaudeCodeRunner())->run(makeRequest(['resumeSessionId' => 'sess_resumed']));
+    (new ClaudeCodeRunner)->run(makeRequest(['resumeSessionId' => 'sess_resumed']));
 
-    Process::assertRan(fn ($p) =>
-        str_contains($p->command, '--resume')
+    Process::assertRan(fn ($p) => str_contains($p->command, '--resume')
         && str_contains($p->command, 'sess_resumed')
     );
 });
@@ -77,10 +75,9 @@ it('includes --mcp-config when an mcp config path is supplied', function () {
         ])),
     ]);
 
-    (new ClaudeCodeRunner())->run(makeRequest(['mcpConfigPath' => '/etc/yak/mcp.json']));
+    (new ClaudeCodeRunner)->run(makeRequest(['mcpConfigPath' => '/etc/yak/mcp.json']));
 
-    Process::assertRan(fn ($p) =>
-        str_contains($p->command, '--mcp-config')
+    Process::assertRan(fn ($p) => str_contains($p->command, '--mcp-config')
         && str_contains($p->command, '/etc/yak/mcp.json')
     );
 });
@@ -94,7 +91,7 @@ it('throws ClaudeAuthException when Claude returns an auth error', function () {
         ),
     ]);
 
-    (new ClaudeCodeRunner())->run(makeRequest());
+    (new ClaudeCodeRunner)->run(makeRequest());
 })->throws(ClaudeAuthException::class);
 
 it('returns a failure result for malformed output without throwing', function () {
@@ -102,7 +99,7 @@ it('returns a failure result for malformed output without throwing', function ()
         'claude *' => Process::result('not json at all'),
     ]);
 
-    $result = (new ClaudeCodeRunner())->run(makeRequest());
+    $result = (new ClaudeCodeRunner)->run(makeRequest());
 
     expect($result->isError)->toBeTrue()
         ->and($result->rawOutput)->toBe('not json at all');
@@ -117,7 +114,7 @@ it('runs the process from the working directory with the request timeout', funct
         ])),
     ]);
 
-    (new ClaudeCodeRunner())->run(makeRequest([
+    (new ClaudeCodeRunner)->run(makeRequest([
         'workingDirectory' => '/tmp/custom-repo',
         'timeoutSeconds' => 300,
     ]));

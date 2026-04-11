@@ -23,7 +23,7 @@ use Tests\Support\FakeAgentRunner;
 */
 
 test('successful setup transitions task to success and repo to ready', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_setup_ok',
         resultSummary: 'Repository environment set up successfully',
         costUsd: 3.00,
@@ -71,7 +71,7 @@ test('successful setup transitions task to success and repo to ready', function 
 });
 
 test('setup transitions repo setup_status through running to ready on success', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -116,7 +116,7 @@ test('setup transitions repo setup_status through running to ready on success', 
 });
 
 test('setup increments attempts', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -160,7 +160,7 @@ test('setup increments attempts', function () {
 */
 
 test('setup checks out default branch and pulls latest', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -204,7 +204,7 @@ test('setup checks out default branch and pulls latest', function () {
 */
 
 test('preflight runs docker-compose stop and kills dev ports', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -249,7 +249,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 */
 
 test('claude error marks task failed and repo setup_status failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_err',
         resultSummary: 'Docker compose failed to start',
         costUsd: 0.25,
@@ -292,7 +292,7 @@ test('claude error marks task failed and repo setup_status failed', function () 
 });
 
 test('malformed claude output marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: '',
         resultSummary: 'Agent returned an error or malformed output',
         costUsd: 0.0,

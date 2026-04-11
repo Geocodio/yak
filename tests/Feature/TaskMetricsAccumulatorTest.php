@@ -3,8 +3,9 @@
 use App\DataTransferObjects\AgentRunResult;
 use App\Models\YakTask;
 use App\Services\TaskMetricsAccumulator;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 
-uses(\Illuminate\Foundation\Testing\RefreshDatabase::class);
+uses(RefreshDatabase::class);
 
 function makeResult(float $cost, int $turns, int $duration, string $session = 'sess_1'): AgentRunResult
 {

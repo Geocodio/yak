@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Agents\ClaudeCodeRunner;
+use App\Contracts\AgentRunner;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -15,11 +17,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(\App\Contracts\AgentRunner::class, function () {
+        $this->app->bind(AgentRunner::class, function () {
             $driver = config('yak.agent_runner', 'claude_code');
 
             return match ($driver) {
-                'claude_code' => new \App\Agents\ClaudeCodeRunner(),
+                'claude_code' => new ClaudeCodeRunner,
                 default => throw new \InvalidArgumentException("Unknown Yak agent runner: {$driver}"),
             };
         });

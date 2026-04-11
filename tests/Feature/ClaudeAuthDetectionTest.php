@@ -116,7 +116,7 @@ test('formats auth error message with details', function () {
 test('RunYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
-    $fake = (new FakeAgentRunner())->queueException(
+    $fake = (new FakeAgentRunner)->queueException(
         new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
     );
     $this->app->instance(AgentRunner::class, $fake);
@@ -157,7 +157,7 @@ test('RunYakJob detects auth error and fails task with notification', function (
 test('RetryYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
-    $fake = (new FakeAgentRunner())->queueException(
+    $fake = (new FakeAgentRunner)->queueException(
         new ClaudeAuthException('Claude CLI authentication error: token expired')
     );
     $this->app->instance(AgentRunner::class, $fake);
@@ -198,7 +198,7 @@ test('RetryYakJob detects auth error and fails task with notification', function
 test('ResearchYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
-    $fake = (new FakeAgentRunner())->queueException(
+    $fake = (new FakeAgentRunner)->queueException(
         new ClaudeAuthException('Claude CLI authentication error: authentication_error: invalid_api_key')
     );
     $this->app->instance(AgentRunner::class, $fake);
@@ -233,7 +233,7 @@ test('ResearchYakJob detects auth error and fails task with notification', funct
 test('SetupYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
-    $fake = (new FakeAgentRunner())->queueException(
+    $fake = (new FakeAgentRunner)->queueException(
         new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
     );
     $this->app->instance(AgentRunner::class, $fake);
@@ -270,7 +270,7 @@ test('SetupYakJob detects auth error and fails task with notification', function
 test('ClarificationReplyJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
-    $fake = (new FakeAgentRunner())->queueException(
+    $fake = (new FakeAgentRunner)->queueException(
         new ClaudeAuthException('Claude CLI authentication error: session expired, please login again')
     );
     $this->app->instance(AgentRunner::class, $fake);

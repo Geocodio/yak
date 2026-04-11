@@ -193,7 +193,7 @@ test('all claude jobs include EnsureDailyBudget middleware', function () {
 */
 
 test('successful run accumulates daily cost', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 3.25,

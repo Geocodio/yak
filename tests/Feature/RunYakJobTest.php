@@ -18,7 +18,7 @@ use Tests\Support\FakeAgentRunner;
 */
 
 test('successful run transitions task to awaiting_ci and pushes branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_success123',
         resultSummary: 'Fixed the bug successfully',
         costUsd: 2.50,
@@ -60,7 +60,7 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
 });
 
 test('successful run creates branch with yak/{external_id} naming', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -94,7 +94,7 @@ test('successful run creates branch with yak/{external_id} naming', function () 
 });
 
 test('successful run increments attempts', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -128,7 +128,7 @@ test('successful run increments attempts', function () {
 */
 
 test('preflight runs docker-compose stop and kills dev ports', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -164,7 +164,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 */
 
 test('clarification from slack source sets awaiting_clarification status', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_clarify',
         resultSummary: '',
         costUsd: 0.75,
@@ -198,7 +198,7 @@ test('clarification from slack source sets awaiting_clarification status', funct
 });
 
 test('clarification from non-slack source is treated as success', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_linear_clarify',
         resultSummary: '',
         costUsd: 0.50,
@@ -233,7 +233,7 @@ test('clarification from non-slack source is treated as success', function () {
 */
 
 test('claude error response marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_err',
         resultSummary: 'Rate limited by API',
         costUsd: 0.0,
@@ -266,7 +266,7 @@ test('claude error response marks task as failed', function () {
 });
 
 test('malformed claude output marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: '',
         resultSummary: 'Agent returned an error or malformed output',
         costUsd: 0.0,
@@ -305,7 +305,7 @@ test('assembles prompt based on task source', function () {
     $sources = ['slack', 'linear', 'sentry', 'flaky-test', 'manual'];
 
     foreach ($sources as $source) {
-        $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
             sessionId: 'sess_prompt',
             resultSummary: 'Done',
             costUsd: 0.0,

@@ -19,7 +19,7 @@ use Tests\Support\FakeAgentRunner;
 */
 
 test('successful research transitions task to success with result_summary and completed_at', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_research_1',
         resultSummary: 'Found 3 key areas for improvement',
         costUsd: 1.25,
@@ -61,7 +61,7 @@ test('successful research transitions task to success with result_summary and co
 });
 
 test('research ensures repo is on default branch and pulls latest', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -96,7 +96,7 @@ test('research ensures repo is on default branch and pulls latest', function () 
 });
 
 test('research does not create any branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -135,7 +135,7 @@ test('research does not create any branch', function () {
 */
 
 test('collects HTML artifact from .yak-artifacts/research.html', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_artifact',
         resultSummary: 'Research complete',
         costUsd: 0.0,
@@ -177,7 +177,7 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
 });
 
 test('handles missing HTML artifact gracefully', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_no_artifact',
         resultSummary: 'Research complete',
         costUsd: 0.0,
@@ -218,7 +218,7 @@ test('handles missing HTML artifact gracefully', function () {
 */
 
 test('posts summary and findings URL as Linear comment', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_linear',
         resultSummary: 'Codebase audit complete',
         costUsd: 0.0,
@@ -274,7 +274,7 @@ test('posts summary and findings URL as Linear comment', function () {
 });
 
 test('moves Linear issue to Done state', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_linear_done',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -326,7 +326,7 @@ test('moves Linear issue to Done state', function () {
 */
 
 test('posts summary and findings URL as Slack thread reply', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_slack',
         resultSummary: 'Analysis shows three bottlenecks',
         costUsd: 0.0,
@@ -386,7 +386,7 @@ test('posts summary and findings URL as Slack thread reply', function () {
 */
 
 test('Claude error response marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: '',
         resultSummary: 'Rate limited by API',
         costUsd: 0.0,

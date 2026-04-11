@@ -18,12 +18,14 @@ class FakeAgentRunner implements AgentRunner
     public function queueResult(AgentRunResult $result): self
     {
         $this->queue[] = $result;
+
         return $this;
     }
 
     public function queueException(\Throwable $exception): self
     {
         $this->queue[] = $exception;
+
         return $this;
     }
 

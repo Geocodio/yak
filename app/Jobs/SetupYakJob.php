@@ -84,6 +84,7 @@ class SetupYakJob implements ShouldQueue
                     $repository,
                     $result->resultSummary ?: 'Agent returned an error or malformed output',
                 );
+
                 return;
             }
 

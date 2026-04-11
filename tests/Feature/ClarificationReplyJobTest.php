@@ -18,7 +18,7 @@ use Tests\Support\FakeAgentRunner;
 */
 
 test('successful clarification reply transitions task to awaiting_ci and force pushes branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_resumed',
         resultSummary: 'Implemented the chosen interpretation',
         costUsd: 1.50,
@@ -72,7 +72,7 @@ test('successful clarification reply transitions task to awaiting_ci and force p
 test('transitions from awaiting_clarification to running during execution', function () {
     $statuses = [];
 
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -114,7 +114,7 @@ test('transitions from awaiting_clarification to running during execution', func
 */
 
 test('invokes claude with --resume flag and session_id', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_resumed',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -145,7 +145,7 @@ test('invokes claude with --resume flag and session_id', function () {
 });
 
 test('claude command includes all standard flags', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -182,7 +182,7 @@ test('claude command includes all standard flags', function () {
 */
 
 test('prompt includes the user chosen option text', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
         costUsd: 0.0,
@@ -222,7 +222,7 @@ test('prompt includes the user chosen option text', function () {
 */
 
 test('accumulates cost, turns, and duration on task', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_2',
         resultSummary: 'Done',
         costUsd: 0.75,
@@ -266,7 +266,7 @@ test('accumulates cost, turns, and duration on task', function () {
 */
 
 test('claude error response marks task as failed and checks out default branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_err',
         resultSummary: 'Rate limited by API',
         costUsd: 0.0,
@@ -303,7 +303,7 @@ test('claude error response marks task as failed and checks out default branch',
 });
 
 test('malformed claude output marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: '',
         resultSummary: 'Agent returned an error or malformed output',
         costUsd: 0.0,

@@ -20,7 +20,7 @@ function claudeContractRequest(string $prompt, ?string $resume = null): AgentRun
 }
 
 it('returns a populated AgentRunResult from the real Claude Code CLI', function () {
-    $result = (new ClaudeCodeRunner())->run(claudeContractRequest('Respond with: hello'));
+    $result = (new ClaudeCodeRunner)->run(claudeContractRequest('Respond with: hello'));
 
     expect($result->isError)->toBeFalse()
         ->and($result->sessionId)->toBeString()->not->toBeEmpty()
@@ -31,18 +31,18 @@ it('returns a populated AgentRunResult from the real Claude Code CLI', function 
 });
 
 it('resumes a Claude Code session via resumeSessionId', function () {
-    $first = (new ClaudeCodeRunner())->run(claudeContractRequest('Say exactly: first'));
+    $first = (new ClaudeCodeRunner)->run(claudeContractRequest('Say exactly: first'));
 
     expect($first->isError)->toBeFalse()->and($first->sessionId)->not->toBeEmpty();
 
-    $resumed = (new ClaudeCodeRunner())->run(claudeContractRequest('Say exactly: resumed', $first->sessionId));
+    $resumed = (new ClaudeCodeRunner)->run(claudeContractRequest('Say exactly: resumed', $first->sessionId));
 
     expect($resumed->isError)->toBeFalse()
         ->and($resumed->sessionId)->toBeString()->not->toBeEmpty();
 });
 
 it('keeps costs within the requested budget', function () {
-    $result = (new ClaudeCodeRunner())->run(new AgentRunRequest(
+    $result = (new ClaudeCodeRunner)->run(new AgentRunRequest(
         prompt: 'Respond with: budget test',
         systemPrompt: '',
         workingDirectory: sys_get_temp_dir(),
