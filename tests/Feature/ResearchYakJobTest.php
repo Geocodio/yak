@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ResearchYakJob;
 use App\Models\Artifact;
@@ -8,6 +10,7 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,17 +19,22 @@ use Illuminate\Support\Facades\Process;
 */
 
 test('successful research transitions task to success with result_summary and completed_at', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_research_1',
+        resultSummary: 'Found 3 key areas for improvement',
+        costUsd: 1.25,
+        numTurns: 10,
+        durationMs: 90000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Found 3 key areas for improvement',
-            'cost_usd' => 1.25,
-            'session_id' => 'sess_research_1',
-            'num_turns' => 10,
-            'duration_ms' => 90000,
-            'is_error' => false,
-        ])),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -39,7 +47,7 @@ test('successful research transitions task to success with result_summary and co
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -53,13 +61,22 @@ test('successful research transitions task to success with result_summary and co
 });
 
 test('research ensures repo is on default branch and pulls latest', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -72,20 +89,29 @@ test('research ensures repo is on default branch and pulls latest', function () 
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'git pull origin main'));
 });
 
 test('research does not create any branch', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_1',
-        ])),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -94,7 +120,7 @@ test('research does not create any branch', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
     expect($task->branch_name)->toBeNull();
@@ -109,13 +135,22 @@ test('research does not create any branch', function () {
 */
 
 test('collects HTML artifact from .yak-artifacts/research.html', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_artifact',
+        resultSummary: 'Research complete',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Research complete',
-            'session_id' => 'sess_artifact',
-        ])),
     ]);
     Http::fake();
 
@@ -130,7 +165,7 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $artifact = Artifact::where('yak_task_id', $task->id)->first();
 
@@ -142,13 +177,22 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
 });
 
 test('handles missing HTML artifact gracefully', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_no_artifact',
+        resultSummary: 'Research complete',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Research complete',
-            'session_id' => 'sess_no_artifact',
-        ])),
     ]);
     Http::fake();
 
@@ -160,7 +204,7 @@ test('handles missing HTML artifact gracefully', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Success);
@@ -174,13 +218,22 @@ test('handles missing HTML artifact gracefully', function () {
 */
 
 test('posts summary and findings URL as Linear comment', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_linear',
+        resultSummary: 'Codebase audit complete',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Codebase audit complete',
-            'session_id' => 'sess_linear',
-        ])),
     ]);
     Http::fake();
 
@@ -201,7 +254,7 @@ test('posts summary and findings URL as Linear comment', function () {
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Http::assertSent(function ($request) {
         if ($request->url() !== 'https://api.linear.app/graphql') {
@@ -221,13 +274,22 @@ test('posts summary and findings URL as Linear comment', function () {
 });
 
 test('moves Linear issue to Done state', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_linear_done',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'session_id' => 'sess_linear_done',
-        ])),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -242,7 +304,7 @@ test('moves Linear issue to Done state', function () {
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Http::assertSent(function ($request) {
         if ($request->url() !== 'https://api.linear.app/graphql') {
@@ -264,13 +326,22 @@ test('moves Linear issue to Done state', function () {
 */
 
 test('posts summary and findings URL as Slack thread reply', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_slack',
+        resultSummary: 'Analysis shows three bottlenecks',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Analysis shows three bottlenecks',
-            'session_id' => 'sess_slack',
-        ])),
     ]);
     Http::fake();
 
@@ -292,7 +363,7 @@ test('posts summary and findings URL as Slack thread reply', function () {
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     Http::assertSent(function ($request) {
         if ($request->url() !== 'https://slack.com/api/chat.postMessage') {
@@ -315,13 +386,22 @@ test('posts summary and findings URL as Slack thread reply', function () {
 */
 
 test('Claude error response marks task as failed', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: '',
+        resultSummary: 'Rate limited by API',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'is_error' => true,
-            'result' => 'Rate limited by API',
-        ])),
     ]);
     Http::fake();
 
@@ -329,7 +409,7 @@ test('Claude error response marks task as failed', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo']);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 

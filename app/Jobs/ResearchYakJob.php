@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
-use App\ClaudeOutputParser;
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunRequest;
+use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
@@ -12,8 +14,8 @@ use App\Models\Artifact;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\ClaudeAuthDetector;
 use App\Services\TaskLogger;
+use App\Services\TaskMetricsAccumulator;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -47,7 +49,7 @@ class ResearchYakJob implements ShouldQueue
         ];
     }
 
-    public function handle(): void
+    public function handle(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
@@ -62,17 +64,25 @@ class ResearchYakJob implements ShouldQueue
         try {
             $this->ensureDefaultBranch($repository);
 
-            $prompt = YakPromptBuilder::taskPrompt($this->task);
-            $result = $this->invokeClaude($repository, $prompt);
-            $parser = new ClaudeOutputParser($result);
+            $result = $agent->run(new AgentRunRequest(
+                prompt: YakPromptBuilder::taskPrompt($this->task),
+                systemPrompt: YakPromptBuilder::systemPrompt($this->task),
+                workingDirectory: $repository->path,
+                timeoutSeconds: $this->timeout - 30,
+                maxBudgetUsd: (float) config('yak.max_budget_per_task'),
+                maxTurns: (int) config('yak.max_turns'),
+                model: (string) config('yak.default_model'),
+                resumeSessionId: null,
+                mcpConfigPath: config('yak.mcp_config_path'),
+            ));
 
-            if ($parser->isError() || ! $parser->isValid()) {
-                $this->handleError($parser->resultSummary() ?: 'Claude returned an error or malformed output');
+            if ($result->isError) {
+                $this->handleError($result->resultSummary ?: 'Agent returned an error or malformed output');
 
                 return;
             }
 
-            $this->handleSuccess($repository, $parser);
+            $this->handleSuccess($repository, $result);
         } catch (ClaudeAuthException $e) {
             Log::error('ResearchYakJob auth failure', [
                 'task_id' => $this->task->id,
@@ -99,58 +109,23 @@ class ResearchYakJob implements ShouldQueue
             ->run("git pull origin {$repository->default_branch}");
     }
 
-    private function invokeClaude(Repository $repository, string $prompt): string
+    private function handleSuccess(Repository $repository, AgentRunResult $result): void
     {
-        $maxTurns = config('yak.max_turns');
-        $maxBudget = config('yak.max_budget_per_task');
-        $model = config('yak.default_model');
-        $mcpConfig = config('yak.mcp_config_path');
-
-        $systemPrompt = YakPromptBuilder::systemPrompt($this->task);
-
-        $command = sprintf(
-            'claude -p %s --dangerously-skip-permissions --bare --output-format json --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
-            escapeshellarg($prompt),
-            escapeshellarg((string) $model),
-            $maxTurns,
-            number_format((float) $maxBudget, 2, '.', ''),
-            escapeshellarg($systemPrompt),
-        );
-
-        if ($mcpConfig) {
-            $command .= sprintf(' --mcp-config %s', escapeshellarg((string) $mcpConfig));
-        }
-
-        $result = Process::path($repository->path)
-            ->timeout($this->timeout - 30)
-            ->run($command);
-
-        if (ClaudeAuthDetector::isAuthError($result)) {
-            throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));
-        }
-
-        return $result->output();
-    }
-
-    private function handleSuccess(Repository $repository, ClaudeOutputParser $parser): void
-    {
-        $summary = $parser->resultSummary();
+        $summary = $result->resultSummary;
 
         $artifact = $this->collectHtmlArtifact($repository);
         $artifactUrl = $artifact !== null ? $this->generateSignedUrl($artifact) : null;
 
+        TaskMetricsAccumulator::applyFresh($this->task, $result);
+
         $this->task->update([
             'status' => TaskStatus::Success,
             'result_summary' => $summary,
-            'cost_usd' => $parser->costUsd(),
-            'num_turns' => $parser->numTurns(),
-            'duration_ms' => $parser->durationMs(),
-            'session_id' => $parser->sessionId(),
             'model_used' => config('yak.default_model'),
             'completed_at' => now(),
         ]);
 
-        DailyCost::accumulate($parser->costUsd());
+        DailyCost::accumulate($result->costUsd);
 
         TaskLogger::info($this->task, 'Task completed');
 
