@@ -1,5 +1,7 @@
 <?php
 
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunResult;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\ResearchYakJob;
@@ -10,6 +12,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
+use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -190,20 +193,25 @@ test('all claude jobs include EnsureDailyBudget middleware', function () {
 */
 
 test('successful run accumulates daily cost', function () {
+    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 3.25,
+        numTurns: 10,
+        durationMs: 60000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result(json_encode([
-            'result' => 'Done',
-            'cost_usd' => 3.25,
-            'session_id' => 'sess_1',
-            'num_turns' => 10,
-            'duration_ms' => 60000,
-            'is_error' => false,
-        ])),
         'git push *' => Process::result(''),
     ]);
 
@@ -211,7 +219,7 @@ test('successful run accumulates daily cost', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
 
     $job = new RunYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $record = DailyCost::whereDate('date', now()->toDateString())->first();
 

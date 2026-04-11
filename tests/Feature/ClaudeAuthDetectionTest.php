@@ -1,7 +1,9 @@
 <?php
 
+use App\Contracts\AgentRunner;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Exceptions\ClaudeAuthException;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -14,6 +16,7 @@ use App\Services\ClaudeAuthDetector;
 use App\Services\HealthCheckService;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -113,24 +116,24 @@ test('formats auth error message with details', function () {
 test('RunYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
+    $fake = (new FakeAgentRunner())->queueException(
+        new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
+    );
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result(
-            output: '',
-            errorOutput: 'Error: Not authenticated. Please run `claude login`.',
-            exitCode: 1,
-        ),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'auth-repo', 'source' => 'slack']);
 
     $job = new RunYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -154,15 +157,15 @@ test('RunYakJob detects auth error and fails task with notification', function (
 test('RetryYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
+    $fake = (new FakeAgentRunner())->queueException(
+        new ClaudeAuthException('Claude CLI authentication error: token expired')
+    );
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result(
-            output: '',
-            errorOutput: 'Error: token expired',
-            exitCode: 1,
-        ),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
@@ -174,7 +177,7 @@ test('RetryYakJob detects auth error and fails task with notification', function
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -195,21 +198,21 @@ test('RetryYakJob detects auth error and fails task with notification', function
 test('ResearchYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
+    $fake = (new FakeAgentRunner())->queueException(
+        new ClaudeAuthException('Claude CLI authentication error: authentication_error: invalid_api_key')
+    );
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(
-            output: '',
-            errorOutput: 'authentication_error: invalid_api_key',
-            exitCode: 1,
-        ),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'research-repo', 'path' => '/home/yak/repos/research-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'research-repo', 'source' => 'slack']);
 
     $job = new ResearchYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -230,23 +233,23 @@ test('ResearchYakJob detects auth error and fails task with notification', funct
 test('SetupYakJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
+    $fake = (new FakeAgentRunner())->queueException(
+        new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
+    );
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
         'git pull *' => Process::result(''),
-        'claude *' => Process::result(
-            output: '',
-            errorOutput: 'Not authenticated. Please run `claude login`.',
-            exitCode: 1,
-        ),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'setup-repo', 'path' => '/home/yak/repos/setup-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'setup-repo', 'source' => 'slack']);
 
     $job = new SetupYakJob($task);
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
@@ -267,15 +270,15 @@ test('SetupYakJob detects auth error and fails task with notification', function
 test('ClarificationReplyJob detects auth error and fails task with notification', function () {
     Queue::fake([SendNotificationJob::class]);
 
+    $fake = (new FakeAgentRunner())->queueException(
+        new ClaudeAuthException('Claude CLI authentication error: session expired, please login again')
+    );
+    $this->app->instance(AgentRunner::class, $fake);
+
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result(
-            output: '',
-            errorOutput: 'Error: session expired, please login again',
-            exitCode: 1,
-        ),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'clarify-repo', 'path' => '/home/yak/repos/clarify-repo']);
@@ -287,7 +290,7 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
     ]);
 
     $job = new ClarificationReplyJob($task, 'Use option A');
-    $job->handle();
+    $job->handle($fake);
 
     $task->refresh();
 
