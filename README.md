@@ -11,7 +11,7 @@
 <p align="center">
   <a href="LICENSE">MIT License</a> &middot;
   <a href="CONTRIBUTING.md">Contributing</a> &middot;
-  <a href="docs/">Documentation</a>
+  <a href="https://geocodio.github.io/yak/">Documentation</a>
 </p>
 
 ---
@@ -25,57 +25,13 @@
 
 ## How It Works
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                        Channels                               │
-│   Slack  ·  Linear  ·  Sentry  ·  GitHub  ·  (more...)      │
-└──────────┬──────────┬──────────┬──────────┬──────────────────┘
-           │          │          │          │
-           ▼          ▼          ▼          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                     Webhook Controllers                       │
-│              Signature verification · Filtering               │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-                           ▼
-┌──────────────────────────────────────────────────────────────┐
-│                     Task Pipeline                             │
-│   RepoDetector → YakTask → State Machine → Job Dispatch      │
-└──────────────────────────┬───────────────────────────────────┘
-                           │
-              ┌────────────┼────────────┐
-              ▼            ▼            ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │  Claude   │ │   Git    │ │   CI     │
-        │  (LLM)   │ │  Ops     │ │  Scanner │
-        └────┬─────┘ └────┬─────┘ └────┬─────┘
-             │             │             │
-             ▼             ▼             ▼
-┌──────────────────────────────────────────────────────────────┐
-│                     Notifications                             │
-│         GitHub PR · Slack · Linear · Dashboard                │
-└──────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/what-yak-does.jpg" alt="Yak picks up tasks from Slack, Linear, and Sentry and delivers pull requests" width="720">
+</p>
 
 ## Quick Start
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/geocodio/yak.git && cd yak
-
-# 2. Install dependencies
-composer install && npm install
-
-# 3. Configure environment
-cp .env.example .env
-php artisan key:generate
-
-# 4. Run migrations
-php artisan migrate
-
-# 5. Start the dev server
-composer run dev
-```
+See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a fresh server with Ansible, or the [Development Guide](https://geocodio.github.io/yak/development/) for running Yak locally.
 
 ## Channel Support
 
@@ -86,11 +42,6 @@ composer run dev
 | Sentry   | Yes                   | --                           |
 | GitHub   | --                    | Yes (PR comments)            |
 
-## Dashboard
-
-<!-- TODO: Add dashboard screenshot -->
-![Dashboard screenshot](docs/dashboard-screenshot.png)
-
 ## Design Philosophy
 
 - **Laravel-native** -- built on Laravel 13, Livewire 4, and Flux UI. No custom frontend frameworks.
@@ -100,13 +51,15 @@ composer run dev
 
 ## Documentation
 
-- [Setup Guide](docs/setup.md)
-- [Channels](docs/channels.md)
-- [Repositories](docs/repositories.md)
-- [Architecture](docs/architecture.md)
-- [Prompting](docs/prompting.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Development](docs/development.md)
+Full documentation is hosted at **[geocodio.github.io/yak](https://geocodio.github.io/yak/)**.
+
+- [Setup](https://geocodio.github.io/yak/setup/)
+- [Channels](https://geocodio.github.io/yak/channels/)
+- [Repositories](https://geocodio.github.io/yak/repositories/)
+- [Architecture](https://geocodio.github.io/yak/architecture/)
+- [Prompting](https://geocodio.github.io/yak/prompting/)
+- [Troubleshooting](https://geocodio.github.io/yak/troubleshooting/)
+- [Development](https://geocodio.github.io/yak/development/)
 
 ## Contributing
 
