@@ -9,58 +9,199 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    /* Core Palette */
+    --color-yak-slate: #3d4f5f;
+    --color-yak-brown: #5c4a3a;
+    --color-yak-blue: #6b8fa3;
+    --color-yak-blue-light: #8fb3c4;
+    --color-yak-green: #7a8c5e;
+    --color-yak-green-muted: #9aaa7e;
+    --color-yak-orange: #c4744a;
+    --color-yak-orange-warm: #d4915e;
+    --color-yak-tan: #c8b89a;
+    --color-yak-cream: #f5f0e8;
+    --color-yak-cream-dark: #e8e0d2;
+    --color-yak-danger: #b85450;
 
-    --color-zinc-50: #fafafa;
-    --color-zinc-100: #f5f5f5;
-    --color-zinc-200: #e5e5e5;
-    --color-zinc-300: #d4d4d4;
-    --color-zinc-400: #a3a3a3;
-    --color-zinc-500: #737373;
-    --color-zinc-600: #525252;
-    --color-zinc-700: #404040;
-    --color-zinc-800: #262626;
-    --color-zinc-900: #171717;
-    --color-zinc-950: #0a0a0a;
+    /* Fonts */
+    --font-sans: 'Outfit', sans-serif;
+    --font-serif: 'Instrument Serif', serif;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
-    --color-accent-foreground: var(--color-white);
+    /* Border Radius */
+    --radius-btn: 14px;
+    --radius-card: 28px;
+    --radius-sm: 8px;
+
+    /* Elevation Shadows */
+    --shadow-elevation-1: 0 4px 6px rgba(61, 79, 95, 0.03), 0 12px 24px rgba(61, 79, 95, 0.06);
+    --shadow-elevation-2: 0 4px 6px rgba(61, 79, 95, 0.03), 0 12px 24px rgba(61, 79, 95, 0.06), 0 32px 64px rgba(61, 79, 95, 0.08);
+
+    /* Flux overrides */
+    --color-accent: var(--color-yak-orange);
+    --color-accent-content: var(--color-yak-slate);
+    --color-accent-foreground: white;
 }
 
-@layer theme {
-    .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
-    }
+/* Semantic Color Aliases */
+:root {
+    --color-bg: var(--color-yak-cream);
+    --color-surface: rgba(255, 255, 255, 0.75);
+    --color-surface-inset: var(--color-yak-cream-dark);
+    --color-text: var(--color-yak-slate);
+    --color-text-muted: var(--color-yak-blue);
+    --color-text-faint: var(--color-yak-tan);
+    --color-accent-hover: var(--color-yak-orange-warm);
+    --color-border: var(--color-yak-tan);
+    --color-success: var(--color-yak-green);
+    --color-info: var(--color-yak-blue-light);
+    --color-warning: var(--color-yak-orange-warm);
+    --color-danger: #b85450;
+    --color-neutral: var(--color-yak-blue);
 }
 
 @layer base {
-
     *,
     ::after,
     ::before,
     ::backdrop,
     ::file-selector-button {
-        border-color: var(--color-gray-200, currentColor);
+        border-color: var(--color-yak-tan, currentColor);
     }
 }
 
+/* Glass effect for cards */
+.glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(40px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 28px;
+}
+
+/* Elevation levels */
+.elevation-1 {
+    box-shadow: var(--shadow-elevation-1);
+}
+
+.elevation-2 {
+    box-shadow: var(--shadow-elevation-2);
+}
+
+/* Button base */
+.btn {
+    border-radius: 14px;
+    padding: 14px 24px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: var(--color-yak-slate);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--color-yak-slate), var(--color-yak-blue), var(--color-yak-green), var(--color-yak-orange));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevation-2);
+}
+
+.btn-accent {
+    background-color: var(--color-yak-orange);
+    color: white;
+}
+
+.btn-accent:hover {
+    background-color: var(--color-yak-orange-warm);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--color-yak-blue);
+}
+
+.btn-ghost:hover {
+    background-color: var(--color-yak-cream-dark);
+}
+
+/* Status badges */
+.badge-success {
+    background: color-mix(in srgb, var(--color-yak-green) 12%, transparent);
+    color: var(--color-yak-green);
+}
+
+.badge-info {
+    background: color-mix(in srgb, var(--color-yak-blue-light) 12%, transparent);
+    color: var(--color-yak-blue-light);
+}
+
+.badge-warning {
+    background: color-mix(in srgb, var(--color-yak-orange-warm) 12%, transparent);
+    color: var(--color-yak-orange-warm);
+}
+
+.badge-danger {
+    background: color-mix(in srgb, #b85450 12%, transparent);
+    color: #b85450;
+}
+
+.badge-neutral {
+    background: color-mix(in srgb, var(--color-yak-blue) 12%, transparent);
+    color: var(--color-yak-blue);
+}
+
+.badge-faint {
+    background: color-mix(in srgb, var(--color-yak-tan) 12%, transparent);
+    color: var(--color-yak-tan);
+}
+
+/* Table styling */
+.yak-table thead th {
+    background-color: var(--color-yak-cream-dark);
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--color-yak-blue);
+    letter-spacing: 0.08em;
+    font-weight: 500;
+}
+
+.yak-table tbody tr {
+    background-color: white;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-yak-tan) 40%, transparent);
+}
+
+.yak-table tbody tr:hover {
+    background-color: var(--color-yak-cream);
+}
+
+/* Noise texture for dashboard background */
+.bg-noise {
+    position: relative;
+}
+
+.bg-noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Flux component overrides */
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
 }
 
 [data-flux-label] {
-    @apply  !mb-0 !leading-tight;
+    @apply !mb-0 !leading-tight;
 }
 
 input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+    @apply outline-hidden ring-2 ring-yak-orange ring-offset-2;
 }
-
-/* \[:where(&)\]:size-4 {
-    @apply size-4;
-} */

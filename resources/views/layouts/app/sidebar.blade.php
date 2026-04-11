@@ -1,100 +1,131 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
-            <flux:sidebar.header>
-                <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
-                <flux:sidebar.collapse class="lg:hidden" />
-            </flux:sidebar.header>
+    <body class="min-h-screen bg-yak-cream bg-noise text-yak-slate">
+        <div class="flex min-h-screen">
+            {{-- Sidebar --}}
+            <aside class="hidden lg:flex lg:w-60 lg:flex-col lg:fixed lg:inset-y-0 bg-yak-cream-dark border-r border-yak-tan/40">
+                <div class="flex flex-col h-full">
+                    {{-- Brand Wordmark --}}
+                    <div class="px-6 py-6">
+                        <a href="{{ route('dashboard') }}" wire:navigate>
+                            <h1 class="font-serif text-[42px] text-yak-slate tracking-tight leading-none">
+                                Y<span class="italic text-yak-orange">a</span>k
+                            </h1>
+                        </a>
+                    </div>
 
-            <flux:sidebar.nav>
-                <flux:sidebar.group :heading="__('Platform')" class="grid">
-                    <flux:sidebar.item icon="clipboard-document-list" :href="route('tasks')" :current="request()->routeIs('tasks')" wire:navigate>
-                        {{ __('Tasks') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="code-bracket" :href="route('repos')" :current="request()->routeIs('repos*')" wire:navigate>
-                        {{ __('Repositories') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-            </flux:sidebar.nav>
+                    {{-- Navigation --}}
+                    <nav class="flex-1 px-3 space-y-1">
+                        <a href="{{ route('tasks') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('tasks*') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           wire:navigate>
+                            <flux:icon.clipboard-document-list class="size-5" />
+                            {{ __('Tasks') }}
+                        </a>
+                        <a href="{{ route('dashboard') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('dashboard') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           wire:navigate>
+                            <flux:icon.currency-dollar class="size-5" />
+                            {{ __('Costs') }}
+                        </a>
+                        <a href="{{ route('repos') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('repos*') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           wire:navigate>
+                            <flux:icon.code-bracket class="size-5" />
+                            {{ __('Repositories') }}
+                        </a>
+                        <a href="{{ route('dashboard') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors text-yak-slate hover:bg-yak-cream"
+                           wire:navigate>
+                            <flux:icon.heart class="size-5" />
+                            {{ __('Health') }}
+                        </a>
+                    </nav>
 
-            <flux:spacer />
-
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
-                </flux:sidebar.item>
-
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
-
-            <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
-        </flux:sidebar>
-
-        <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden">
-            <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
-
-            <flux:spacer />
-
-            <flux:dropdown position="top" align="end">
-                <flux:profile
-                    :initials="auth()->user()->initials()"
-                    icon-trailing="chevron-down"
-                />
-
-                <flux:menu>
-                    <flux:menu.radio.group>
-                        <div class="p-0 text-sm font-normal">
-                            <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
+                    {{-- User Menu --}}
+                    <div class="px-3 py-4 border-t border-yak-tan/40">
+                        <flux:dropdown position="top" align="start">
+                            <button class="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-btn hover:bg-yak-cream transition-colors">
                                 <flux:avatar
                                     :name="auth()->user()->name"
                                     :initials="auth()->user()->initials()"
+                                    size="sm"
                                 />
+                                <span class="truncate text-yak-slate">{{ auth()->user()->name }}</span>
+                            </button>
 
-                                <div class="grid flex-1 text-start text-sm leading-tight">
-                                    <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>
-                                    <flux:text class="truncate">{{ auth()->user()->email }}</flux:text>
-                                </div>
-                            </div>
-                        </div>
-                    </flux:menu.radio.group>
+                            <flux:menu>
+                                <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
+                                    {{ __('Settings') }}
+                                </flux:menu.item>
 
-                    <flux:menu.separator />
+                                <flux:menu.separator />
 
-                    <flux:menu.radio.group>
+                                <form method="POST" action="{{ route('logout') }}" class="w-full">
+                                    @csrf
+                                    <flux:menu.item
+                                        as="button"
+                                        type="submit"
+                                        icon="arrow-right-start-on-rectangle"
+                                        class="w-full cursor-pointer"
+                                        data-test="logout-button"
+                                    >
+                                        {{ __('Log out') }}
+                                    </flux:menu.item>
+                                </form>
+                            </flux:menu>
+                        </flux:dropdown>
+                    </div>
+                </div>
+            </aside>
+
+            {{-- Mobile Header --}}
+            <div class="lg:hidden fixed top-0 inset-x-0 z-50 bg-yak-cream-dark border-b border-yak-tan/40 px-4 py-3 flex items-center justify-between">
+                <a href="{{ route('dashboard') }}" wire:navigate>
+                    <span class="font-serif text-2xl text-yak-slate tracking-tight">
+                        Y<span class="italic text-yak-orange">a</span>k
+                    </span>
+                </a>
+
+                <flux:dropdown position="bottom" align="end">
+                    <flux:profile
+                        :initials="auth()->user()->initials()"
+                        icon-trailing="chevron-down"
+                    />
+
+                    <flux:menu>
                         <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
                             {{ __('Settings') }}
                         </flux:menu.item>
-                    </flux:menu.radio.group>
 
-                    <flux:menu.separator />
+                        <flux:menu.separator />
 
-                    <form method="POST" action="{{ route('logout') }}" class="w-full">
-                        @csrf
-                        <flux:menu.item
-                            as="button"
-                            type="submit"
-                            icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer"
-                            data-test="logout-button"
-                        >
-                            {{ __('Log out') }}
-                        </flux:menu.item>
-                    </form>
-                </flux:menu>
-            </flux:dropdown>
-        </flux:header>
+                        <form method="POST" action="{{ route('logout') }}" class="w-full">
+                            @csrf
+                            <flux:menu.item
+                                as="button"
+                                type="submit"
+                                icon="arrow-right-start-on-rectangle"
+                                class="w-full cursor-pointer"
+                                data-test="logout-button"
+                            >
+                                {{ __('Log out') }}
+                            </flux:menu.item>
+                        </form>
+                    </flux:menu>
+                </flux:dropdown>
+            </div>
 
-        {{ $slot }}
+            {{-- Main Content --}}
+            <main class="flex-1 lg:ml-60 pt-16 lg:pt-0">
+                <div class="p-6 lg:p-8 relative z-10">
+                    {{ $slot }}
+                </div>
+            </main>
+        </div>
 
         @persist('toast')
             <flux:toast.group>

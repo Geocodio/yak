@@ -1,26 +1,32 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-neutral-100 antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
-        <div class="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+    <body class="min-h-screen bg-yak-cream antialiased">
+        {{-- Background with geometric blobs and noise --}}
+        <div class="fixed inset-0 overflow-hidden">
+            <div class="absolute inset-0 bg-yak-cream"></div>
+            <div class="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] rounded-full bg-yak-blue/[0.07] blur-3xl"></div>
+            <div class="absolute bottom-[-10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-yak-orange/[0.08] blur-3xl"></div>
+            <div class="absolute top-[30%] right-[10%] w-[25%] h-[25%] rounded-full bg-yak-green/[0.06] blur-3xl"></div>
+            <div class="absolute inset-0 bg-noise"></div>
+        </div>
+
+        <div class="relative flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
             <div class="flex w-full max-w-md flex-col gap-6">
-                <a href="{{ route('home') }}" class="flex flex-col items-center gap-2 font-medium" wire:navigate>
-                    <span class="flex h-9 w-9 items-center justify-center rounded-md">
-                        <x-app-logo-icon class="size-9 fill-current text-black dark:text-white" />
-                    </span>
+                <div class="flex flex-col items-center">
+                    <h1 class="font-serif text-[42px] text-yak-slate tracking-tight leading-none">
+                        Y<span class="italic text-yak-orange">a</span>k
+                    </h1>
+                </div>
 
-                    <span class="sr-only">{{ config('app.name', 'Laravel') }}</span>
-                </a>
-
-                <div class="flex flex-col gap-6">
-                    <div class="rounded-xl border bg-white dark:bg-stone-950 dark:border-stone-800 text-stone-800 shadow-xs">
-                        <div class="px-10 py-8">{{ $slot }}</div>
-                    </div>
+                <div class="glass elevation-2">
+                    <div class="px-10 py-8">{{ $slot }}</div>
                 </div>
             </div>
         </div>
+
         @persist('toast')
             <flux:toast.group>
                 <flux:toast />
