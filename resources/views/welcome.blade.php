@@ -29,6 +29,6 @@
     </a>
 
     <p class="mt-6 text-xs text-yak-blue">
-        Team access only &middot; <a href="https://geocod.io" class="font-medium text-yak-orange transition-colors hover:text-yak-brown">Geocodio</a>
+        Team access only
     </p>
 </x-layouts::auth.simple>
