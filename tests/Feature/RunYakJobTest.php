@@ -1,7 +1,5 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
@@ -9,7 +7,6 @@ use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
-use Tests\Support\FakeAgentRunner;
 
 /*
 |--------------------------------------------------------------------------
@@ -18,25 +15,20 @@ use Tests\Support\FakeAgentRunner;
 */
 
 test('successful run transitions task to awaiting_ci and pushes branch', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_success123',
-        resultSummary: 'Fixed the bug successfully',
-        costUsd: 2.50,
-        numTurns: 15,
-        durationMs: 120000,
-        isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),
+        'claude *' => Process::result(json_encode([
+            'result' => 'Fixed the bug successfully',
+            'cost_usd' => 2.50,
+            'session_id' => 'sess_success123',
+            'num_turns' => 15,
+            'duration_ms' => 120000,
+            'is_error' => false,
+        ])),
         'git push *' => Process::result(''),
     ]);
 
@@ -44,7 +36,7 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
 
@@ -60,21 +52,12 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
 });
 
 test('successful run creates branch with yak/{external_id} naming', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
         '*' => Process::result(''),
+        'claude *' => Process::result(json_encode([
+            'result' => 'Done',
+            'session_id' => 'sess_1',
+        ])),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'my-repo', 'path' => '/home/yak/repos/my-repo']);
@@ -84,7 +67,7 @@ test('successful run creates branch with yak/{external_id} naming', function () 
     ]);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
 
@@ -94,28 +77,19 @@ test('successful run creates branch with yak/{external_id} naming', function () 
 });
 
 test('successful run increments attempts', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
         '*' => Process::result(''),
+        'claude *' => Process::result(json_encode([
+            'result' => 'Done',
+            'session_id' => 'sess_1',
+        ])),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'my-repo', 'path' => '/home/yak/repos/my-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'my-repo', 'attempts' => 0]);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
     expect($task->attempts)->toBe(1);
@@ -128,28 +102,19 @@ test('successful run increments attempts', function () {
 */
 
 test('preflight runs docker-compose stop and kills dev ports', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 0.0,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
         '*' => Process::result(''),
+        'claude *' => Process::result(json_encode([
+            'result' => 'Done',
+            'session_id' => 'sess_1',
+        ])),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'my-repo', 'path' => '/home/yak/repos/my-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'my-repo']);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     Process::assertRan(fn ($process) => $process->command === 'docker-compose stop');
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
@@ -164,20 +129,15 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 */
 
 test('clarification from slack source sets awaiting_clarification status', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_clarify',
-        resultSummary: '',
-        costUsd: 0.75,
-        numTurns: 5,
-        durationMs: 30000,
-        isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Fix the auth flow', 'Fix the API endpoint', 'Both'],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
+        'claude *' => Process::result(json_encode([
+            'clarification_needed' => true,
+            'options' => ['Fix the auth flow', 'Fix the API endpoint', 'Both'],
+            'session_id' => 'sess_clarify',
+            'cost_usd' => 0.75,
+            'num_turns' => 5,
+            'duration_ms' => 30000,
+        ])),
         '*' => Process::result(''),
     ]);
 
@@ -185,7 +145,7 @@ test('clarification from slack source sets awaiting_clarification status', funct
     $task = YakTask::factory()->pending()->create(['repo' => 'my-repo', 'source' => 'slack']);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
 
@@ -198,20 +158,14 @@ test('clarification from slack source sets awaiting_clarification status', funct
 });
 
 test('clarification from non-slack source is treated as success', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_linear_clarify',
-        resultSummary: '',
-        costUsd: 0.50,
-        numTurns: 3,
-        durationMs: 15000,
-        isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Option A'],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
+        'claude *' => Process::result(json_encode([
+            'clarification_needed' => true,
+            'options' => ['Option A'],
+            'session_id' => 'sess_linear_clarify',
+            'cost_usd' => 0.50,
+            'num_turns' => 3,
+        ])),
         '*' => Process::result(''),
     ]);
 
@@ -219,7 +173,7 @@ test('clarification from non-slack source is treated as success', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'my-repo', 'source' => 'linear']);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
 
@@ -233,20 +187,12 @@ test('clarification from non-slack source is treated as success', function () {
 */
 
 test('claude error response marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: 'sess_err',
-        resultSummary: 'Rate limited by API',
-        costUsd: 0.0,
-        numTurns: 0,
-        durationMs: 0,
-        isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
+        'claude *' => Process::result(json_encode([
+            'is_error' => true,
+            'result' => 'Rate limited by API',
+            'session_id' => 'sess_err',
+        ])),
         '*' => Process::result(''),
     ]);
 
@@ -254,7 +200,7 @@ test('claude error response marks task as failed', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'my-repo']);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
 
@@ -266,20 +212,8 @@ test('claude error response marks task as failed', function () {
 });
 
 test('malformed claude output marks task as failed', function () {
-    $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-        sessionId: '',
-        resultSummary: 'Agent returned an error or malformed output',
-        costUsd: 0.0,
-        numTurns: 0,
-        durationMs: 0,
-        isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: 'not json at all {{',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
     Process::fake([
+        'claude *' => Process::result('not json at all {{'),
         '*' => Process::result(''),
     ]);
 
@@ -287,7 +221,7 @@ test('malformed claude output marks task as failed', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'my-repo']);
 
     $job = new RunYakJob($task);
-    $job->handle($fake);
+    $job->handle();
 
     $task->refresh();
 
@@ -305,20 +239,11 @@ test('assembles prompt based on task source', function () {
     $sources = ['slack', 'linear', 'sentry', 'flaky-test', 'manual'];
 
     foreach ($sources as $source) {
-        $fake = (new FakeAgentRunner())->queueResult(new AgentRunResult(
-            sessionId: 'sess_prompt',
-            resultSummary: 'Done',
-            costUsd: 0.0,
-            numTurns: 1,
-            durationMs: 1000,
-            isError: false,
-            clarificationNeeded: false,
-            clarificationOptions: [],
-            rawOutput: '{}',
-        ));
-        $this->app->instance(AgentRunner::class, $fake);
-
         Process::fake([
+            'claude *' => Process::result(json_encode([
+                'result' => 'Done',
+                'session_id' => 'sess_prompt',
+            ])),
             '*' => Process::result(''),
         ]);
 
@@ -330,9 +255,9 @@ test('assembles prompt based on task source', function () {
         ]);
 
         $job = new RunYakJob($task);
-        $job->handle($fake);
+        $job->handle();
 
-        expect($fake->lastCall())->not->toBeNull();
+        Process::assertRan(fn ($process) => str_contains($process->command, 'claude'));
     }
 });
 
