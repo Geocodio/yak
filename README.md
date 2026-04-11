@@ -5,7 +5,7 @@
 <h1 align="center">Yak</h1>
 
 <p align="center">
-  <strong>AI-powered task automation that integrates with your existing developer workflow.</strong>
+  <strong>Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.</strong>
 </p>
 
 <p align="center">

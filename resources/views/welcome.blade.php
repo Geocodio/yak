@@ -6,7 +6,7 @@
     </div>
 
     <p class="mb-8 text-sm font-normal uppercase tracking-[0.08em] text-yak-blue">
-        Autonomous Coding Agent
+        Papercuts, handled.
     </p>
 
     <div class="mb-7 flex items-center gap-4">
