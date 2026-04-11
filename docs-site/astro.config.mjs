@@ -17,7 +17,7 @@ export default defineConfig({
       title: 'Yak',
       description: 'Autonomous coding agent for papercuts.',
       logo: {
-        src: './src/assets/mascot.jpg',
+        src: './src/assets/mascot.png',
         alt: 'Yak mascot',
         replacesTitle: false,
       },

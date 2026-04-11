@@ -33,7 +33,7 @@ Edit the markdown files in `../docs/`. Run `npm run dev` here to see changes liv
 - **Sidebar and top nav** — `astro.config.mjs`
 - **Homepage** — `src/content/docs-static/index.mdx` (uses Starlight's splash template)
 - **Favicon and OG image** — `public/favicon.png`, `public/og-image.png`
-- **Logo** — `src/assets/mascot.jpg`
+- **Logo** — `src/assets/mascot.png`
 - **Sidebar order** — the `PAGES` array in `scripts/sync-docs.mjs`
 
 ## Commands
