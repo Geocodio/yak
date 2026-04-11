@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
-use App\ClaudeOutputParser;
+use App\Contracts\AgentRunner;
+use App\DataTransferObjects\AgentRunRequest;
+use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
@@ -12,8 +14,8 @@ use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\ClaudeAuthDetector;
 use App\Services\TaskLogger;
+use App\Services\TaskMetricsAccumulator;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -49,7 +51,7 @@ class RunYakJob implements ShouldQueue
         ];
     }
 
-    public function handle(): void
+    public function handle(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
@@ -66,24 +68,34 @@ class RunYakJob implements ShouldQueue
             $this->prepareBranch($repository);
 
             $prompt = $this->assemblePrompt();
-            $result = $this->invokeClaude($repository, $prompt);
-            $parser = new ClaudeOutputParser($result);
 
-            if ($parser->isError() || ! $parser->isValid()) {
-                $this->handleError($repository, $parser->resultSummary() ?: 'Claude returned an error or malformed output');
+            $result = $agent->run(new AgentRunRequest(
+                prompt: $prompt,
+                systemPrompt: YakPromptBuilder::systemPrompt($this->task),
+                workingDirectory: $repository->path,
+                timeoutSeconds: $this->timeout - 30,
+                maxBudgetUsd: (float) config('yak.max_budget_per_task'),
+                maxTurns: (int) config('yak.max_turns'),
+                model: (string) config('yak.default_model'),
+                resumeSessionId: null,
+                mcpConfigPath: config('yak.mcp_config_path'),
+            ));
+
+            if ($result->isError) {
+                $this->handleError($repository, $result->resultSummary ?: 'Agent returned an error or malformed output');
 
                 return;
             }
 
             TaskLogger::info($this->task, 'Assessment complete');
 
-            if ($parser->isClarification() && $this->task->source === 'slack') {
-                $this->handleClarification($parser);
+            if ($result->clarificationNeeded && $this->task->source === 'slack') {
+                $this->handleClarification($result);
 
                 return;
             }
 
-            $this->handleSuccess($repository, $parser);
+            $this->handleSuccess($repository, $result);
         } catch (ClaudeAuthException $e) {
             Log::error('RunYakJob auth failure', [
                 'task_id' => $this->task->id,
@@ -147,52 +159,17 @@ class RunYakJob implements ShouldQueue
         return [];
     }
 
-    private function invokeClaude(Repository $repository, string $prompt): string
+    private function handleSuccess(Repository $repository, AgentRunResult $result): void
     {
-        $maxTurns = config('yak.max_turns');
-        $maxBudget = config('yak.max_budget_per_task');
-        $model = config('yak.default_model');
-        $mcpConfig = config('yak.mcp_config_path');
+        TaskMetricsAccumulator::applyFresh($this->task, $result);
 
-        $systemPrompt = YakPromptBuilder::systemPrompt($this->task);
-
-        $command = sprintf(
-            'claude -p %s --dangerously-skip-permissions --bare --output-format json --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
-            escapeshellarg($prompt),
-            escapeshellarg((string) $model),
-            $maxTurns,
-            number_format((float) $maxBudget, 2, '.', ''),
-            escapeshellarg($systemPrompt),
-        );
-
-        if ($mcpConfig) {
-            $command .= sprintf(' --mcp-config %s', escapeshellarg((string) $mcpConfig));
-        }
-
-        $result = Process::path($repository->path)
-            ->timeout($this->timeout - 30)
-            ->run($command);
-
-        if (ClaudeAuthDetector::isAuthError($result)) {
-            throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));
-        }
-
-        return $result->output();
-    }
-
-    private function handleSuccess(Repository $repository, ClaudeOutputParser $parser): void
-    {
         $this->task->update([
             'status' => TaskStatus::AwaitingCi,
-            'session_id' => $parser->sessionId(),
-            'result_summary' => $parser->resultSummary(),
-            'cost_usd' => $parser->costUsd(),
-            'num_turns' => $parser->numTurns(),
-            'duration_ms' => $parser->durationMs(),
+            'result_summary' => $result->resultSummary,
             'model_used' => config('yak.default_model'),
         ]);
 
-        DailyCost::accumulate($parser->costUsd());
+        DailyCost::accumulate($result->costUsd);
 
         if ($this->task->branch_name !== null) {
             GitOperations::pushBranch($repository, $this->task->branch_name);
@@ -200,19 +177,17 @@ class RunYakJob implements ShouldQueue
         }
     }
 
-    private function handleClarification(ClaudeOutputParser $parser): void
+    private function handleClarification(AgentRunResult $result): void
     {
+        TaskMetricsAccumulator::applyFresh($this->task, $result);
+
         $this->task->update([
             'status' => TaskStatus::AwaitingClarification,
-            'session_id' => $parser->sessionId(),
-            'clarification_options' => $parser->clarificationOptions(),
+            'clarification_options' => $result->clarificationOptions,
             'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days')),
-            'cost_usd' => $parser->costUsd(),
-            'num_turns' => $parser->numTurns(),
-            'duration_ms' => $parser->durationMs(),
         ]);
 
-        DailyCost::accumulate($parser->costUsd());
+        DailyCost::accumulate($result->costUsd);
 
         TaskLogger::info($this->task, 'Clarification posted');
     }
