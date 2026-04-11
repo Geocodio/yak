@@ -37,6 +37,7 @@ class SlackNotificationDriver implements NotificationDriver
             NotificationType::Retry => "🔄 {$message}\n{$dashboardLink}",
             NotificationType::Result => "✅ {$message}\n{$dashboardLink}",
             NotificationType::Expiry => "⏰ {$message}\n{$dashboardLink}",
+            NotificationType::Error => "🚨 {$message}\n{$dashboardLink}",
         };
     }
 

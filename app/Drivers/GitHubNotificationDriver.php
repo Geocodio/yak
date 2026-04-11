@@ -48,6 +48,7 @@ class GitHubNotificationDriver implements NotificationDriver
             NotificationType::Retry => '🔄 Retry:',
             NotificationType::Result => '✅ Result:',
             NotificationType::Expiry => '⏰ Expired:',
+            NotificationType::Error => '🚨 Error:',
         };
 
         return "{$prefix} {$message}\n\n[View on Dashboard]({$dashboardLink})";

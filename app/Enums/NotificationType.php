@@ -10,4 +10,5 @@ enum NotificationType: string
     case Retry = 'retry';
     case Result = 'result';
     case Expiry = 'expiry';
+    case Error = 'error';
 }

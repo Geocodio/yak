@@ -3,13 +3,16 @@
 namespace App\Jobs;
 
 use App\ClaudeOutputParser;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ClaudeAuthDetector;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -65,6 +68,14 @@ class RetryYakJob implements ShouldQueue
             }
 
             $this->handleSuccess($repository, $parser);
+        } catch (ClaudeAuthException $e) {
+            Log::error('RetryYakJob auth failure', [
+                'task_id' => $this->task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->handleError($repository, $e->getMessage());
+            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('RetryYakJob failed', [
                 'task_id' => $this->task->id,
@@ -124,6 +135,10 @@ class RetryYakJob implements ShouldQueue
         $result = Process::path($repository->path)
             ->timeout($this->timeout - 30)
             ->run($command);
+
+        if (ClaudeAuthDetector::isAuthError($result)) {
+            throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));
+        }
 
         return $result->output();
     }

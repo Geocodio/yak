@@ -39,6 +39,7 @@ class LinearNotificationDriver implements NotificationDriver
             NotificationType::Retry => "🔄 {$message}\n\n[View on Dashboard]({$dashboardLink})",
             NotificationType::Result => "✅ {$message}\n\n[View on Dashboard]({$dashboardLink})",
             NotificationType::Expiry => "⏰ {$message}\n\n[View on Dashboard]({$dashboardLink})",
+            NotificationType::Error => "🚨 {$message}\n\n[View on Dashboard]({$dashboardLink})",
         };
     }
 

@@ -3,13 +3,16 @@
 namespace App\Jobs;
 
 use App\ClaudeOutputParser;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Artifact;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ClaudeAuthDetector;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -67,6 +70,14 @@ class ResearchYakJob implements ShouldQueue
             }
 
             $this->handleSuccess($repository, $parser);
+        } catch (ClaudeAuthException $e) {
+            Log::error('ResearchYakJob auth failure', [
+                'task_id' => $this->task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->handleError($e->getMessage());
+            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('ResearchYakJob failed', [
                 'task_id' => $this->task->id,
@@ -110,6 +121,10 @@ class ResearchYakJob implements ShouldQueue
         $result = Process::path($repository->path)
             ->timeout($this->timeout - 30)
             ->run($command);
+
+        if (ClaudeAuthDetector::isAuthError($result)) {
+            throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));
+        }
 
         return $result->output();
     }

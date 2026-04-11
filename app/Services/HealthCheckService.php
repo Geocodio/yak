@@ -105,6 +105,20 @@ class HealthCheckService
     /**
      * @return array{healthy: bool, detail: string}
      */
+    public function checkClaudeAuth(): array
+    {
+        $result = Process::timeout(15)->run('claude auth status');
+
+        if ($result->successful()) {
+            return ['healthy' => true, 'detail' => 'Authenticated'];
+        }
+
+        return ['healthy' => false, 'detail' => 'Claude CLI not authenticated — run `claude login` to re-authenticate'];
+    }
+
+    /**
+     * @return array{healthy: bool, detail: string}
+     */
     public function checkMcpServers(): array
     {
         $configPath = config('yak.mcp_config_path');
@@ -149,6 +163,7 @@ class HealthCheckService
             ['name' => 'Last Task Completed', 'method' => 'checkLastTaskCompleted'],
             ['name' => 'Repositories Fetchable', 'method' => 'checkRepositories'],
             ['name' => 'Claude CLI', 'method' => 'checkClaudeCli'],
+            ['name' => 'Claude CLI Auth', 'method' => 'checkClaudeAuth'],
             ['name' => 'MCP Servers', 'method' => 'checkMcpServers'],
         ];
 
