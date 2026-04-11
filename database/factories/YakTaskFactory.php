@@ -96,6 +96,20 @@ class YakTaskFactory extends Factory
         ]);
     }
 
+    public function merged(): static
+    {
+        return $this->success()->state(fn (): array => [
+            'pr_merged_at' => now(),
+        ]);
+    }
+
+    public function closedWithoutMerge(): static
+    {
+        return $this->success()->state(fn (): array => [
+            'pr_closed_at' => now(),
+        ]);
+    }
+
     public function failed(): static
     {
         return $this->state(fn (): array => [

@@ -143,6 +143,46 @@ class CostDashboard extends Component
     }
 
     /**
+     * @return Collection<int, stdClass>
+     */
+    #[Computed]
+    public function mergeRate(): Collection
+    {
+        $range = $this->dateRange();
+
+        return YakTask::query()
+            ->select([
+                'repo',
+                DB::raw('COUNT(*) as total_prs'),
+                DB::raw('SUM(CASE WHEN pr_merged_at IS NOT NULL THEN 1 ELSE 0 END) as merged_count'),
+                DB::raw('SUM(CASE WHEN pr_closed_at IS NOT NULL THEN 1 ELSE 0 END) as closed_count'),
+            ])
+            ->whereNotNull('pr_url')
+            ->whereBetween('created_at', [$range['start'], $range['end']])
+            ->when($this->repo !== '', fn ($q) => $q->where('repo', $this->repo))
+            ->groupBy('repo')
+            ->orderByDesc('total_prs')
+            ->get()
+            ->map(function ($row) {
+                $totalPrs = (int) $row->getAttribute('total_prs');
+                $mergedCount = (int) $row->getAttribute('merged_count');
+                $closedCount = (int) $row->getAttribute('closed_count');
+
+                $obj = new stdClass;
+                $obj->repo = $row->getAttribute('repo');
+                $obj->total_prs = $totalPrs;
+                $obj->merged_count = $mergedCount;
+                $obj->closed_count = $closedCount;
+                $obj->pending_count = $totalPrs - $mergedCount - $closedCount;
+                $obj->merge_rate = $totalPrs > 0
+                    ? round(($mergedCount / $totalPrs) * 100)
+                    : 0;
+
+                return $obj;
+            });
+    }
+
+    /**
      * @return array<int, string>
      */
     #[Computed]

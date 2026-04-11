@@ -49,6 +49,8 @@ class YakTask extends Model
             'cost_usd' => 'decimal:4',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'pr_merged_at' => 'datetime',
+            'pr_closed_at' => 'datetime',
         ];
     }
 

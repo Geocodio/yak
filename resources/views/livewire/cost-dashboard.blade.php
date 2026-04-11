@@ -161,6 +161,38 @@
         </table>
     </div>
 
+    {{-- PR Merge Rate --}}
+    @php $mergeRate = $this->mergeRate; @endphp
+    @if ($mergeRate->isNotEmpty())
+        <div class="bg-white border border-yak-tan/40 rounded-[28px] shadow-yak p-8 mt-8">
+            <h2 class="text-lg font-medium text-yak-slate mb-6">PR Merge Rate</h2>
+            <table class="w-full text-sm border-collapse">
+                <thead>
+                    <tr>
+                        <th class="bg-yak-cream-dark px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40 first:rounded-tl-[14px]">Repo</th>
+                        <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40">Total PRs</th>
+                        <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40">Merged</th>
+                        <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40">Closed</th>
+                        <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40">Pending</th>
+                        <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40 last:rounded-tr-[14px]">Merge Rate</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($mergeRate as $row)
+                        <tr class="hover:bg-yak-cream/50">
+                            <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate font-medium">{{ $row->repo }}</td>
+                            <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right text-yak-slate">{{ $row->total_prs }}</td>
+                            <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right text-yak-slate">{{ $row->merged_count }}</td>
+                            <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right text-yak-slate">{{ $row->closed_count }}</td>
+                            <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right text-yak-slate">{{ $row->pending_count }}</td>
+                            <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right font-semibold text-yak-slate">{{ $row->merge_rate }}%</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
     {{-- Note about Claude Code costs --}}
     <p class="mt-4 text-xs text-yak-blue/70 text-center">
         Costs reflect routing layer API usage (Haiku/Sonnet). Claude Code usage is tracked for monitoring but covered by subscription.
