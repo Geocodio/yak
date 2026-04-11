@@ -6,12 +6,19 @@ use ArtisanBuild\FatEnums\StateMachine\CanTransitionTo;
 use ArtisanBuild\FatEnums\StateMachine\FinalState;
 use ArtisanBuild\FatEnums\StateMachine\IsStateMachine;
 use ArtisanBuild\FatEnums\StateMachine\StateMachine;
+use ReflectionClassConstant;
 
 enum TaskStatus: string implements StateMachine
 {
     use IsStateMachine;
 
     public const DEFAULT = self::Pending;
+
+    public function isFinal(): bool
+    {
+        return (new ReflectionClassConstant(self::class, $this->name))
+            ->getAttributes(FinalState::class) !== [];
+    }
 
     #[CanTransitionTo([self::Running])]
     case Pending = 'pending';

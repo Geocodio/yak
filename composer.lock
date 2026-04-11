@@ -4,8 +4,94 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9b27f0da1e82374999dc84b465b999fb",
+    "content-hash": "9a7f90cd78438f6a12d1ffa11844d81a",
     "packages": [
+        {
+            "name": "artisan-build/fat-enums",
+            "version": "1.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/artisan-build/fat-enums.git",
+                "reference": "24780879ad5faf11a69809f0f5d27bf910280eb9"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/artisan-build/fat-enums/zipball/24780879ad5faf11a69809f0f5d27bf910280eb9",
+                "reference": "24780879ad5faf11a69809f0f5d27bf910280eb9",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "^11.36|^12.0|^13.3",
+                "php": "^8.4"
+            },
+            "require-dev": {
+                "calebporzio/sushi": "^2.5.2",
+                "larastan/larastan": "^v3.0.2",
+                "laravel/pint": "^1.19.0",
+                "orchestra/testbench": "^9.9|^10.0|^11.0",
+                "pestphp/pest": "^v3.7.1",
+                "phpstan/phpstan": "^2.1.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "ArtisanBuild\\FatEnums\\Providers\\FatEnumsServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "ArtisanBuild\\FatEnums\\": "src/",
+                    "ArtisanBuild\\FatEnums\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "post-autoload-dump": [
+                    "@composer run prepare"
+                ],
+                "clear": [
+                    "@php vendor/bin/testbench package:purge-bench --ansi"
+                ],
+                "prepare": [
+                    "@php vendor/bin/testbench package:discover --ansi"
+                ],
+                "build": [
+                    "@composer run prepare",
+                    "@php vendor/bin/testbench workbench:build --ansi"
+                ],
+                "start": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@composer run build",
+                    "@php vendor/bin/testbench serve"
+                ],
+                "test": [
+                    "vendor/bin/pest"
+                ],
+                "test-coverage": [
+                    "vendor/bin/pest --coverage"
+                ],
+                "lint": [
+                    "vendor/bin/pint"
+                ],
+                "stan": [
+                    "vendor/bin/phpstan analyse --memory-limit=-1"
+                ],
+                "ready": [
+                    "@composer lint",
+                    "@composer stan",
+                    "@composer test"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Utilities to super-charge your boring enums.",
+            "support": {
+                "source": "https://github.com/artisan-build/fat-enums/tree/1.0.0"
+            },
+            "time": "2026-04-03T20:44:39+00:00"
+        },
         {
             "name": "bacon/bacon-qr-code",
             "version": "v3.1.1",
