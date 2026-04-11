@@ -250,7 +250,7 @@ h1#_top {
 }
 
 .expressive-code .frame pre {
-  border-radius: 14px !important;
+  border-radius: 0 0 14px 14px !important;
 }
 
 /* ---------- Tables ---------- */
