@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('yak:refresh-repos')->everyThirtyMinutes();
+Schedule::command('yak:cleanup')->daily();
