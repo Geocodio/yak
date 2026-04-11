@@ -22,6 +22,10 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Contract');
 
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->in('Browser');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations
