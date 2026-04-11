@@ -16,25 +16,19 @@
             <div class="absolute inset-0 bg-noise"></div>
         </div>
 
-        <div class="relative flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
-            <div class="flex w-full max-w-sm flex-col gap-6">
-                {{-- Brand wordmark --}}
-                <div class="flex flex-col items-center">
-                    <h1 class="font-serif text-[42px] text-yak-slate tracking-tight leading-none">
-                        Y<span class="italic text-yak-orange">a</span>k
-                    </h1>
-                </div>
-
+        <div class="relative flex min-h-svh flex-col items-center justify-center p-6 md:p-10">
+            <div class="w-full max-w-[460px]">
                 {{-- Login card with glass effect --}}
-                <div class="glass elevation-2">
+                <div class="glass elevation-2 overflow-hidden">
                     {{-- Mascot video --}}
-                    <div class="overflow-hidden rounded-t-[28px]">
-                        <video autoplay loop muted playsinline class="w-full h-48 object-cover">
+                    <div class="relative aspect-video overflow-hidden bg-yak-cream">
+                        <video autoplay loop muted playsinline class="h-full w-full object-cover">
                             <source src="{{ asset('videos/yak-v3-hair-lift-1.mp4') }}" type="video/mp4">
                         </video>
+                        <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[60px] bg-gradient-to-t from-white/75 to-transparent"></div>
                     </div>
 
-                    <div class="px-8 py-8">
+                    <div class="px-9 pt-8 pb-10 text-center">
                         {{ $slot }}
                     </div>
                 </div>

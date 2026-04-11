@@ -10,7 +10,13 @@ use App\Livewire\Tasks\TaskDetail;
 use App\Livewire\Tasks\TaskList;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', function () {
+    if (auth()->check()) {
+        return redirect()->route('tasks');
+    }
+
+    return view('welcome');
+})->name('home');
 
 Route::middleware('guest')->group(function () {
     Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('login');
