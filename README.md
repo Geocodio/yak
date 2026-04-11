@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/mascot.png" alt="Yak mascot" width="120">
+  <img src="docs/mascot.png" alt="Yak mascot" width="512">
 </p>
 
 <h1 align="center">Yak</h1>
@@ -26,7 +26,7 @@
 ## How It Works
 
 <p align="center">
-  <img src="docs/what-yak-does.jpg" alt="Yak picks up tasks from Slack, Linear, and Sentry and delivers pull requests" width="720">
+  <img src="docs/what-yak-does.png" alt="Yak picks up tasks from Slack, Linear, and Sentry and delivers pull requests" width="720">
 </p>
 
 ## Quick Start
@@ -44,7 +44,7 @@ See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a 
 
 ## Design Philosophy
 
-- **Laravel-native** -- built on Laravel 13, Livewire 4, and Flux UI. No custom frontend frameworks.
+- **Laravel-native** -- built on Laravel 13, Livewire 4, and Flux UI.
 - **Channel-agnostic** -- driver-based architecture makes it easy to add new input and notification channels.
 - **State machine driven** -- every task follows a defined lifecycle with explicit transitions.
 - **AI-assisted, human-supervised** -- tasks are automated but observable through the dashboard and notifications.

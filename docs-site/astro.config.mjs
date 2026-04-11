@@ -35,9 +35,6 @@ export default defineConfig({
           attrs: { name: 'twitter:card', content: 'summary_large_image' },
         },
       ],
-      editLink: {
-        baseUrl: 'https://github.com/geocodio/yak/edit/main/docs/',
-      },
       lastUpdated: true,
       customCss: [
         './src/styles/yak-theme.css',
