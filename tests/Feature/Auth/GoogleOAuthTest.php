@@ -5,7 +5,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
 test('unauthenticated users are redirected to google oauth', function () {
-    $this->get(route('dashboard'))
+    $this->get(route('tasks'))
         ->assertRedirect(route('login'));
 });
 
@@ -29,7 +29,7 @@ test('oauth callback creates user and authenticates', function () {
     Socialite::fake('google', $socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('tasks'));
 
     $this->assertAuthenticated();
     $this->assertDatabaseHas('users', [
@@ -56,7 +56,7 @@ test('oauth callback updates existing user', function () {
     Socialite::fake('google', $socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('tasks'));
 
     $this->assertAuthenticated();
     expect($user->fresh()->name)->toBe('Jane Doe');
@@ -95,7 +95,7 @@ test('oauth callback supports multiple allowed domains', function () {
     Socialite::fake('google', $socialiteUser);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('tasks'));
 
     $this->assertAuthenticated();
 });
@@ -147,7 +147,7 @@ test('session persists across page navigation after oauth login', function () {
     $this->get(route('auth.google.callback'));
     $this->assertAuthenticated();
 
-    $this->get(route('dashboard'))->assertOk();
+    $this->get(route('tasks'))->assertOk();
     $this->get(route('profile.edit'))->assertOk();
     $this->assertAuthenticated();
 });

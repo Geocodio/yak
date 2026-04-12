@@ -10,7 +10,7 @@
                 <div class="flex flex-col h-full">
                     {{-- Brand Wordmark --}}
                     <div class="px-6 py-6">
-                        <a href="{{ route('dashboard') }}" wire:navigate>
+                        <a href="{{ route('tasks') }}" wire:navigate>
                             <h1 class="font-serif text-[42px] text-yak-slate tracking-tight leading-none">
                                 Y<span class="italic text-yak-orange">a</span>k
                             </h1>
@@ -84,7 +84,7 @@
 
             {{-- Mobile Header --}}
             <div class="lg:hidden fixed top-0 inset-x-0 z-50 bg-yak-cream-dark border-b border-yak-tan/40 px-4 py-3 flex items-center justify-between">
-                <a href="{{ route('dashboard') }}" wire:navigate>
+                <a href="{{ route('tasks') }}" wire:navigate>
                     <span class="font-serif text-2xl text-yak-slate tracking-tight">
                         Y<span class="italic text-yak-orange">a</span>k
                     </span>

@@ -59,7 +59,6 @@ test('dashboard pages have no javascript errors', function () {
     YakTask::factory()->success()->create();
 
     $pages = visit([
-        route('dashboard'),
         route('tasks'),
         route('costs'),
         route('repos'),

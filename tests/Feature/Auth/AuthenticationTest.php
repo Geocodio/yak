@@ -3,7 +3,7 @@
 use App\Models\User;
 
 test('unauthenticated users are redirected to login', function () {
-    $response = $this->get(route('dashboard'));
+    $response = $this->get(route('tasks'));
 
     $response->assertRedirect(route('login'));
 });

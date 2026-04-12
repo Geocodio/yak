@@ -31,7 +31,6 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('repos/create', RepoForm::class)->name('repos.create');
     Route::livewire('repos/{repository}/edit', RepoForm::class)->name('repos.edit');
     Route::livewire('health', Health::class)->name('health');
-    Route::view('dashboard', 'dashboard')->name('dashboard');
 });
 
 Route::get('artifacts/{task}/viewer/{filename}', [ArtifactController::class, 'viewer'])
