@@ -26,6 +26,11 @@ class ClaudeCodeRunner implements AgentRunner
         $command = $this->buildCommand($request, streaming: true);
         $handler = new StreamEventHandler($request->task);
 
+        Log::channel('yak')->info('Claude stream starting', [
+            'task_id' => $request->task?->id,
+            'command_length' => strlen($command),
+        ]);
+
         $descriptors = [
             0 => ['pipe', 'r'],  // stdin
             1 => ['pipe', 'w'],  // stdout
@@ -40,77 +45,23 @@ class ClaudeCodeRunner implements AgentRunner
 
         fclose($pipes[0]); // Close stdin
 
-        stream_set_blocking($pipes[1], false);
-        stream_set_blocking($pipes[2], false);
-
-        $buffer = '';
+        // Use blocking reads — simpler and more reliable than stream_select
+        // Each fgets blocks until a full line arrives or the pipe closes
         $lineCount = 0;
-        $startTime = time();
-        $timeout = $request->timeoutSeconds;
+        $stdout = $pipes[1];
+        $stderr = $pipes[2];
 
-        while (true) {
-            $status = proc_get_status($process);
-
-            if (! $status['running']) {
-                // Read any remaining output
-                $remaining = stream_get_contents($pipes[1]);
-                if ($remaining !== false) {
-                    $buffer .= $remaining;
-                }
-
-                break;
-            }
-
-            if ((time() - $startTime) > $timeout) {
-                proc_terminate($process, 9);
-                fclose($pipes[1]);
-                fclose($pipes[2]);
-                proc_close($process);
-
-                return AgentRunResult::failure(
-                    "Claude process timed out after {$timeout}s",
-                    '',
-                );
-            }
-
-            $read = [$pipes[1]];
-            $write = null;
-            $except = null;
-
-            if (stream_select($read, $write, $except, 1) > 0) {
-                $chunk = fread($pipes[1], 65536);
-                if ($chunk !== false && $chunk !== '') {
-                    $buffer .= $chunk;
-
-                    while (($pos = strpos($buffer, "\n")) !== false) {
-                        $line = substr($buffer, 0, $pos);
-                        $buffer = substr($buffer, $pos + 1);
-                        $lineCount++;
-
-                        $this->processLine($line, $handler);
-                    }
-                }
-            }
-        }
-
-        // Process any remaining buffer
-        while (($pos = strpos($buffer, "\n")) !== false) {
-            $line = substr($buffer, 0, $pos);
-            $buffer = substr($buffer, $pos + 1);
+        // Read stdout line by line (blocking)
+        while (($line = fgets($stdout)) !== false) {
             $lineCount++;
             $this->processLine($line, $handler);
         }
 
-        if (trim($buffer) !== '') {
-            $this->processLine($buffer, $handler);
-            $lineCount++;
-        }
+        // Read any stderr after process ends
+        $stderrOutput = stream_get_contents($stderr) ?: '';
 
-        // Read stderr
-        $stderr = stream_get_contents($pipes[2]) ?: '';
-
-        fclose($pipes[1]);
-        fclose($pipes[2]);
+        fclose($stdout);
+        fclose($stderr);
 
         $exitCode = proc_close($process);
 
@@ -119,7 +70,7 @@ class ClaudeCodeRunner implements AgentRunner
             'lines' => $lineCount,
             'exit_code' => $exitCode,
             'has_result' => $handler->getResultEvent() !== null,
-            'stderr_length' => strlen($stderr),
+            'stderr_length' => strlen($stderrOutput),
         ]);
 
         $resultEvent = $handler->getResultEvent();
@@ -128,13 +79,13 @@ class ClaudeCodeRunner implements AgentRunner
             return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR));
         }
 
-        if ($stderr !== '') {
+        if ($stderrOutput !== '') {
             Log::channel('yak')->warning('Claude stream stderr', [
                 'task_id' => $request->task?->id,
-                'stderr' => substr($stderr, 0, 500),
+                'stderr' => substr($stderrOutput, 0, 500),
             ]);
 
-            return AgentRunResult::failure($stderr, '');
+            return AgentRunResult::failure($stderrOutput, '');
         }
 
         return AgentRunResult::failure(
