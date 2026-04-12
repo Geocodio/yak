@@ -45,16 +45,47 @@ class ClaudeCodeRunner implements AgentRunner
 
         fclose($pipes[0]); // Close stdin
 
-        // Use blocking reads — simpler and more reliable than stream_select
-        // Each fgets blocks until a full line arrives or the pipe closes
         $lineCount = 0;
         $stdout = $pipes[1];
         $stderr = $pipes[2];
 
-        // Read stdout line by line (blocking)
-        while (($line = fgets($stdout)) !== false) {
-            $lineCount++;
-            $this->processLine($line, $handler);
+        // Read stdout line by line using stream_select + fgets
+        // Pure blocking fgets hangs in the queue worker due to Laravel's
+        // pcntl signal handlers interfering with the blocking read syscall
+        stream_set_blocking($stdout, false);
+
+        while (true) {
+            $read = [$stdout];
+            $write = null;
+            $except = null;
+
+            // Wait up to 5 seconds for data, then check if process is alive
+            $ready = @stream_select($read, $write, $except, 5);
+
+            if ($ready === false) {
+                // stream_select was interrupted (e.g. by a signal), retry
+                continue;
+            }
+
+            if ($ready > 0) {
+                $line = fgets($stdout);
+                if ($line === false) {
+                    break; // pipe closed
+                }
+                $lineCount++;
+                $this->processLine($line, $handler);
+            } else {
+                // Timeout — check if process is still running
+                $status = proc_get_status($process);
+                if (! $status['running']) {
+                    // Drain remaining output
+                    while (($line = fgets($stdout)) !== false) {
+                        $lineCount++;
+                        $this->processLine($line, $handler);
+                    }
+                    break;
+                }
+            }
         }
 
         // Read any stderr after process ends
