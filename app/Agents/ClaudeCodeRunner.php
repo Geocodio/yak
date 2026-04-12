@@ -7,6 +7,7 @@ use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Exceptions\ClaudeAuthException;
 use App\Services\ClaudeAuthDetector;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Symfony\Component\Process\Process as SymfonyProcess;
 
@@ -30,6 +31,7 @@ class ClaudeCodeRunner implements AgentRunner
         $process->setTimeout($request->timeoutSeconds);
 
         $buffer = '';
+        $lineCount = 0;
 
         $process->start();
 
@@ -43,6 +45,7 @@ class ClaudeCodeRunner implements AgentRunner
             while (($pos = strpos($buffer, "\n")) !== false) {
                 $line = substr($buffer, 0, $pos);
                 $buffer = substr($buffer, $pos + 1);
+                $lineCount++;
 
                 $this->processLine($line, $handler);
             }
@@ -51,9 +54,18 @@ class ClaudeCodeRunner implements AgentRunner
         // Process remaining buffer
         if (trim($buffer) !== '') {
             $this->processLine($buffer, $handler);
+            $lineCount++;
         }
 
         $process->wait();
+        $exitCode = $process->getExitCode();
+
+        Log::channel('yak')->info('Claude stream completed', [
+            'task_id' => $request->task?->id,
+            'lines' => $lineCount,
+            'exit_code' => $exitCode,
+            'has_result' => $handler->getResultEvent() !== null,
+        ]);
 
         $resultEvent = $handler->getResultEvent();
 
@@ -61,20 +73,22 @@ class ClaudeCodeRunner implements AgentRunner
             return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR));
         }
 
-        // Fallback: try full output
-        $fullOutput = trim($process->getOutput());
-
-        if ($fullOutput !== '' && str_starts_with($fullOutput, '{')) {
-            return ClaudeCodeOutputParser::parse($fullOutput);
-        }
-
+        // If we got lines but no result event, something went wrong with parsing
         $errorOutput = trim($process->getErrorOutput());
 
         if ($errorOutput !== '') {
-            return AgentRunResult::failure($errorOutput, $fullOutput);
+            Log::channel('yak')->warning('Claude stream error output', [
+                'task_id' => $request->task?->id,
+                'stderr' => substr($errorOutput, 0, 500),
+            ]);
+
+            return AgentRunResult::failure($errorOutput, '');
         }
 
-        return AgentRunResult::failure('Claude Code returned no output', '');
+        return AgentRunResult::failure(
+            "Claude Code stream ended without result event (lines={$lineCount}, exit={$exitCode})",
+            '',
+        );
     }
 
     private function runBatch(AgentRunRequest $request): AgentRunResult
