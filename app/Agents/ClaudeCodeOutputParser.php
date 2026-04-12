@@ -20,7 +20,7 @@ class ClaudeCodeOutputParser
         return new AgentRunResult(
             sessionId: (string) ($decoded['session_id'] ?? ''),
             resultSummary: (string) ($decoded['result'] ?? $decoded['result_summary'] ?? ''),
-            costUsd: (float) ($decoded['cost_usd'] ?? 0),
+            costUsd: (float) ($decoded['total_cost_usd'] ?? $decoded['cost_usd'] ?? 0),
             numTurns: (int) ($decoded['num_turns'] ?? 0),
             durationMs: (int) ($decoded['duration_ms'] ?? 0),
             isError: ($decoded['is_error'] ?? false) === true,

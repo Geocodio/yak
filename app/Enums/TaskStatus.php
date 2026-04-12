@@ -24,6 +24,7 @@ enum TaskStatus: string implements StateMachine
     case Pending = 'pending';
 
     #[CanTransitionTo([
+        self::Pending,
         self::AwaitingCi,
         self::AwaitingClarification,
         self::Success,
