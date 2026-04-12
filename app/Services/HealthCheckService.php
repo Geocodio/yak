@@ -67,7 +67,7 @@ class HealthCheckService
         $failures = [];
 
         foreach ($repos as $repo) {
-            $result = Process::path($this->repoPath($repo))
+            $result = Process::path($repo->path)
                 ->run('git ls-remote --exit-code origin HEAD');
 
             if ($result->successful()) {
@@ -207,10 +207,5 @@ class HealthCheckService
         }
 
         return $names;
-    }
-
-    private function repoPath(Repository $repo): string
-    {
-        return base_path("repos/{$repo->slug}");
     }
 }
