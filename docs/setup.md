@@ -17,7 +17,7 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 | **Server** | Dedicated box with 32GB+ RAM, 500GB+ disk. Hetzner AX-series, bare metal, or VM. Ubuntu 24.04 or Debian 12+. Public IP for inbound webhooks. |
 | **Domain** | DNS A record pointing to the server. Used for dashboard and webhook endpoints. |
 | **Claude** | Max subscription (for Claude Code CLI) plus an Anthropic API key (for the routing layer). |
-| **GitHub** | Account with push access to target repos. The Ansible provisioner creates the GitHub App automatically. |
+| **GitHub** | Organization account. The Ansible provisioner creates a GitHub App automatically — repos are cloned via HTTPS using the App's installation token (no SSH keys needed). |
 | **Google OAuth** | Google Cloud project with OAuth credentials. Used for dashboard authentication. |
 | **Ansible** | 2.15+ on your local machine (`pip install ansible`). |
 
@@ -66,6 +66,7 @@ anthropic_api_key: sk-ant-...
 github_org: your-org
 github_app_id: ""
 github_app_private_key: ""
+github_installation_id: ""
 github_webhook_secret: ""
 
 # Dashboard auth
@@ -116,7 +117,7 @@ cp ansible/group_vars/repos.example.yml ansible/group_vars/repos.yml
 yak_repos:
   - slug: my-app
     name: My App
-    git_url: git@github.com:your-org/my-app.git
+    git_url: https://github.com/your-org/my-app.git
     default_branch: main
     ci_system: github_actions    # github_actions or drone
     is_default: true             # exactly one repo must be default
@@ -124,7 +125,7 @@ yak_repos:
 
   - slug: api
     name: API Service
-    git_url: git@github.com:your-org/api.git
+    git_url: https://github.com/your-org/api.git
     default_branch: main
     ci_system: github_actions
     sentry_project: api-service
@@ -140,15 +141,15 @@ ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml --ask-vault
 
 This single command runs the following roles in order:
 
-1. **base** — creates the `yak` user, configures UFW, fail2ban, and swap
+1. **base** — creates the `yak` user, configures UFW, fail2ban, swap, and automatic security updates
 2. **docker** — installs Docker Engine and Compose
-3. **ssl** — provisions a Let's Encrypt certificate via Caddy
+3. **ssl** — provisions a Let's Encrypt certificate via Caddy, configures log rotation
 4. **github-app** — creates and installs the GitHub App on your org (skipped if already provisioned)
-5. **repos** — clones repositories, seeds the `repositories` table
-6. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
+5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
+6. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
 7. **yak-container** — builds the Docker image, starts the container with the correct env vars
-8. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
-9. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
+8. **repos** — configures the git credential helper, clones repositories via HTTPS using the GitHub App, seeds the `repositories` table
+9. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
 
 Total time: about 10 minutes for provisioning, plus 5–15 minutes per repo for setup tasks.
 

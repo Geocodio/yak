@@ -14,7 +14,7 @@ Edit `ansible/group_vars/repos.yml`:
 yak_repos:
   - slug: my-app
     name: My App
-    git_url: git@github.com:your-org/my-app.git
+    git_url: https://github.com/your-org/my-app.git
     default_branch: main
     ci_system: github_actions    # github_actions or drone
     is_default: true             # exactly one repo must be default
@@ -22,7 +22,7 @@ yak_repos:
 
   - slug: api
     name: API Service
-    git_url: git@github.com:your-org/api.git
+    git_url: https://github.com/your-org/api.git
     default_branch: main
     ci_system: github_actions
     sentry_project: api-service

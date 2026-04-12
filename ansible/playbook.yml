@@ -35,9 +35,6 @@
       tags: [github-app]
       when: github_app_id is not defined or github_app_id | length == 0
 
-    - role: repos
-      tags: [repos]
-
     - role: mcp-config
       tags: [mcp-config, yak-app, secrets]
 
@@ -59,6 +56,9 @@
 
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
+
+    - role: repos
+      tags: [repos]
 
     - role: claude-code-config
       tags: [claude-code-config, yak-app]
