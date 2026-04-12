@@ -33,11 +33,9 @@ class ClaudeCodeRunner implements AgentRunner
         $buffer = '';
         $lineCount = 0;
 
-        $process->start();
-
-        foreach ($process as $type => $data) {
+        $process->run(function (string $type, string $data) use ($handler, &$buffer, &$lineCount): void {
             if ($type !== SymfonyProcess::OUT) {
-                continue;
+                return;
             }
 
             $buffer .= $data;
@@ -49,15 +47,13 @@ class ClaudeCodeRunner implements AgentRunner
 
                 $this->processLine($line, $handler);
             }
-        }
+        });
 
         // Process remaining buffer
         if (trim($buffer) !== '') {
             $this->processLine($buffer, $handler);
             $lineCount++;
         }
-
-        $process->wait();
         $exitCode = $process->getExitCode();
 
         Log::channel('yak')->info('Claude stream completed', [
