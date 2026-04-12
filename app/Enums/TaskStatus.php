@@ -43,9 +43,9 @@ enum TaskStatus: string implements StateMachine
     #[FinalState]
     case Success = 'success';
 
-    #[FinalState]
+    #[CanTransitionTo([self::Pending])]
     case Failed = 'failed';
 
-    #[FinalState]
+    #[CanTransitionTo([self::Pending])]
     case Expired = 'expired';
 }

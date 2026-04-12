@@ -93,29 +93,35 @@ test('Success is a final state', function () {
     expect(TaskStatus::Success->isFinal())->toBeTrue();
 });
 
-test('Failed is a final state', function () {
-    expect(TaskStatus::Failed->isFinal())->toBeTrue();
+test('Failed can only transition to Pending for retry', function () {
+    expect(TaskStatus::Failed->canTransitionTo(TaskStatus::Pending))->toBeTrue();
+
+    $nonRetryStates = array_filter(
+        TaskStatus::cases(),
+        fn (TaskStatus $s) => $s !== TaskStatus::Pending,
+    );
+
+    foreach ($nonRetryStates as $state) {
+        expect(TaskStatus::Failed->canTransitionTo($state))->toBeFalse();
+    }
 });
 
-test('Expired is a final state', function () {
-    expect(TaskStatus::Expired->isFinal())->toBeTrue();
+test('Expired can only transition to Pending for retry', function () {
+    expect(TaskStatus::Expired->canTransitionTo(TaskStatus::Pending))->toBeTrue();
+
+    $nonRetryStates = array_filter(
+        TaskStatus::cases(),
+        fn (TaskStatus $s) => $s !== TaskStatus::Pending,
+    );
+
+    foreach ($nonRetryStates as $state) {
+        expect(TaskStatus::Expired->canTransitionTo($state))->toBeFalse();
+    }
 });
 
 test('Success rejects all outbound transitions', function () {
     foreach (TaskStatus::cases() as $state) {
         expect(TaskStatus::Success->canTransitionTo($state))->toBeFalse();
-    }
-});
-
-test('Failed rejects all outbound transitions', function () {
-    foreach (TaskStatus::cases() as $state) {
-        expect(TaskStatus::Failed->canTransitionTo($state))->toBeFalse();
-    }
-});
-
-test('Expired rejects all outbound transitions', function () {
-    foreach (TaskStatus::cases() as $state) {
-        expect(TaskStatus::Expired->canTransitionTo($state))->toBeFalse();
     }
 });
 
