@@ -51,6 +51,14 @@ ansible-vault encrypt ansible/vault/secrets.yml
 ansible-vault edit ansible/vault/secrets.yml
 ```
 
+Optionally, save your vault password to a file so you don't have to type `--ask-vault-pass` on every run:
+
+```bash
+echo 'your-vault-password' > ansible/vault/.vault_pass
+```
+
+This file is gitignored and referenced automatically by `ansible.cfg`.
+
 Channels you are not using can be left blank — Ansible skips disabled channels automatically.
 
 ```yaml
@@ -189,7 +197,7 @@ all:
 ### 4. Provision
 
 ```bash
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml --ask-vault-pass
+ansible-playbook ansible/playbook.yml
 ```
 
 This single command runs the following roles in order:
@@ -263,7 +271,7 @@ Check `https://{your-domain}/tasks` — each event should create a task row.
 ```bash
 cd yak
 git pull
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml --tags yak-app
+ansible-playbook ansible/playbook.yml --tags yak-app
 ```
 
 The Docker image is rebuilt and the container restarts. Active tasks finish before the worker restarts.
@@ -271,7 +279,7 @@ The Docker image is rebuilt and the container restarts. Active tasks finish befo
 ### Adding a New Channel
 
 1. Add the channel's credentials to `ansible/vault/secrets.yml`
-2. Re-run Ansible: `ansible-playbook ... --ask-vault-pass`
+2. Re-run Ansible: `ansible-playbook ansible/playbook.yml`
 3. Ansible regenerates the MCP config, updates env vars, restarts the container
 4. Configure the external service's webhook URL — see [channels.md](channels.md)
 
@@ -283,7 +291,7 @@ Clear the channel's credentials in vault (set them to empty strings) and re-run 
 
 ```bash
 ansible-vault edit ansible/vault/secrets.yml
-ansible-playbook ... --tags secrets
+ansible-playbook ansible/playbook.yml --tags secrets
 ```
 
 ## Updating Repos

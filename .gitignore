@@ -27,6 +27,7 @@ spec/
 .chief
 
 /ansible/vault/secrets.yml
+/ansible/vault/.vault_pass
 /ansible/inventory/hosts.yml
 /ansible/group_vars/repos.yml
 
