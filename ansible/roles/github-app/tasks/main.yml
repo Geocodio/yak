@@ -20,12 +20,15 @@
       ║                                                             ║
       ║  1. Visit: https://github.com/organizations/{{ github_org }}/settings/apps/new
       ║  2. Create an App with the permissions in the manifest.     ║
-      ║  3. Install the App on your organization.                   ║
-      ║  4. Update ansible/vault/secrets.yml with:                  ║
+      ║  3. Install the App on your organization's repositories.    ║
+      ║  4. Note the installation ID from the URL:                  ║
+      ║     github.com/orgs/{org}/settings/installations/{ID}      ║
+      ║  5. Update ansible/vault/secrets.yml with:                  ║
       ║     - github_app_id                                         ║
       ║     - github_app_private_key                                ║
+      ║     - github_installation_id                                ║
       ║     - github_webhook_secret                                 ║
-      ║  5. Re-run the playbook.                                    ║
+      ║  6. Re-run the playbook.                                    ║
       ╚══════════════════════════════════════════════════════════════╝
 
       The app manifest has been written to {{ yak_home }}/github-app-manifest.json

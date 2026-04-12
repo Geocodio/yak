@@ -30,6 +30,25 @@
     mode: "0644"
   notify: restart caddy
 
+- name: Configure Caddy log rotation
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/caddy
+    content: |
+      /var/log/caddy/*.log {
+          daily
+          rotate 14
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 0640 caddy caddy
+          sharedscripts
+          postrotate
+              kill -USR1 $(cat /run/caddy.pid 2>/dev/null) 2>/dev/null || true
+          endscript
+      }
+    mode: "0644"
+
 - name: Enable and start Caddy
   ansible.builtin.systemd:
     name: caddy

@@ -39,6 +39,7 @@
       - "{{ yak_repo_path }}:/home/yak/repos"
       - "{{ yak_data_path }}:/app/database"
       - "{{ yak_claude_path }}:/home/yak/.claude"
+      - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
       - "/var/run/docker.sock:/var/run/docker.sock"
     env_file: "{{ yak_app_path }}/.env"
     recreate: true
