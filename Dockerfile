@@ -43,7 +43,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @anthropic-ai/claude-code @anthropic-ai/agent-browser
+RUN npm install -g @anthropic-ai/claude-code agent-browser
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -54,6 +54,9 @@ RUN useradd -m -s /bin/bash yak \
 FROM base AS build
 
 WORKDIR /app
+
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --no-progress --no-scripts
 
 COPY package.json package-lock.json* ./
 RUN npm ci --include=optional
