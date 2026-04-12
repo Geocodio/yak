@@ -99,11 +99,11 @@ class RepoForm extends Component
 
         $query = strtolower($this->github_search);
 
-        return array_values(array_slice(array_filter(
+        return array_slice(array_filter(
             $this->github_repos,
             fn (array $repo): bool => str_contains(strtolower($repo['name']), $query)
                 || str_contains(strtolower($repo['full_name']), $query),
-        ), 0, 10));
+        ), 0, 10);
     }
 
     public function selectGitHubRepo(string $fullName): void

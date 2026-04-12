@@ -26,8 +26,11 @@ class SentryService
             return [];
         }
 
+        /** @var array<int, mixed> $json */
+        $json = $response->json();
+
         /** @var array<int, array{slug: string, name: string}> $projects */
-        $projects = collect($response->json())
+        $projects = collect($json)
             ->map(fn (array $project): array => [
                 'slug' => $project['slug'],
                 'name' => $project['name'],
