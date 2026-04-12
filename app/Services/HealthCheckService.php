@@ -8,6 +8,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Process;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 
 class HealthCheckService
 {
@@ -91,7 +92,11 @@ class HealthCheckService
      */
     public function checkClaudeCli(): array
     {
-        $result = Process::timeout(15)->run('claude --version');
+        try {
+            $result = Process::timeout(15)->run('claude --version');
+        } catch (ProcessTimedOutException) {
+            return ['healthy' => false, 'detail' => 'Timed out'];
+        }
 
         if ($result->successful()) {
             $version = trim($result->output());
@@ -107,7 +112,11 @@ class HealthCheckService
      */
     public function checkClaudeAuth(): array
     {
-        $result = Process::timeout(15)->run('claude auth status');
+        try {
+            $result = Process::timeout(15)->run('claude auth status');
+        } catch (ProcessTimedOutException) {
+            return ['healthy' => false, 'detail' => 'Timed out'];
+        }
 
         if ($result->successful()) {
             return ['healthy' => true, 'detail' => 'Authenticated'];

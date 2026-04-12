@@ -16,6 +16,7 @@ use App\Services\ClaudeAuthDetector;
 use App\Services\HealthCheckService;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Tests\Support\FakeAgentRunner;
 
 /*
@@ -335,6 +336,38 @@ test('health check reports unhealthy when claude auth fails', function () {
 
     expect($result['healthy'])->toBeFalse()
         ->and($result['detail'])->toContain('not authenticated');
+});
+
+test('health check reports unhealthy when claude auth times out', function () {
+    Process::shouldReceive('timeout')->with(15)->andReturnSelf();
+    Process::shouldReceive('run')->with('claude auth status')->andThrow(
+        new ProcessTimedOutException(
+            new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
+            ProcessTimedOutException::TYPE_GENERAL,
+        )
+    );
+
+    $service = new HealthCheckService;
+    $result = $service->checkClaudeAuth();
+
+    expect($result['healthy'])->toBeFalse()
+        ->and($result['detail'])->toBe('Timed out');
+});
+
+test('health check reports unhealthy when claude cli times out', function () {
+    Process::shouldReceive('timeout')->with(15)->andReturnSelf();
+    Process::shouldReceive('run')->with('claude --version')->andThrow(
+        new ProcessTimedOutException(
+            new Symfony\Component\Process\Process(['claude', '--version']),
+            ProcessTimedOutException::TYPE_GENERAL,
+        )
+    );
+
+    $service = new HealthCheckService;
+    $result = $service->checkClaudeCli();
+
+    expect($result['healthy'])->toBeFalse()
+        ->and($result['detail'])->toBe('Timed out');
 });
 
 test('health check includes claude auth check in runAll', function () {
