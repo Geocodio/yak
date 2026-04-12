@@ -31,6 +31,15 @@
     mode: "0644"
   notify: restart caddy
 
+- name: Ensure Caddy log directory exists with correct ownership
+  ansible.builtin.file:
+    path: /var/log/caddy
+    state: directory
+    owner: caddy
+    group: caddy
+    mode: "0755"
+    recurse: true
+
 - name: Configure Caddy log rotation
   ansible.builtin.copy:
     dest: /etc/logrotate.d/caddy
