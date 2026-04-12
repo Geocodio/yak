@@ -22,6 +22,8 @@ class RepoForm extends Component
 
     public string $name = '';
 
+    public string $git_url = '';
+
     public string $path = '';
 
     public string $default_branch = 'main';
@@ -42,6 +44,7 @@ class RepoForm extends Component
             $this->repository = $repository;
             $this->slug = $repository->slug;
             $this->name = $repository->name;
+            $this->git_url = $repository->git_url ?? '';
             $this->path = $repository->path;
             $this->default_branch = $repository->default_branch;
             $this->is_active = $repository->is_active;
@@ -56,6 +59,7 @@ class RepoForm extends Component
     {
         if (! $this->repository) {
             $this->slug = str($this->name)->slug()->toString();
+            $this->path = '/home/yak/repos/' . $this->slug;
         }
     }
 
@@ -85,6 +89,7 @@ class RepoForm extends Component
         return [
             'slug' => ['required', 'string', 'max:255', Rule::unique('repositories', 'slug')->ignore($repositoryId)],
             'name' => ['required', 'string', 'max:255'],
+            'git_url' => ['required', 'string', 'max:500', 'url:https'],
             'path' => ['required', 'string', 'max:500', 'starts_with:/'],
             'default_branch' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
@@ -110,6 +115,7 @@ class RepoForm extends Component
         $data = [
             'slug' => $this->slug,
             'name' => $this->name,
+            'git_url' => $this->git_url,
             'path' => $this->path,
             'default_branch' => $this->default_branch,
             'is_active' => $this->is_active,

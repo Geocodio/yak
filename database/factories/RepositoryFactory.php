@@ -26,6 +26,7 @@ class RepositoryFactory extends Factory
             'is_active' => true,
             'setup_status' => 'ready',
             'path' => '/home/yak/repos/' . $slug,
+            'git_url' => 'https://github.com/acme/' . $slug . '.git',
             'default_branch' => 'main',
             'ci_system' => fake()->randomElement(['github_actions', 'drone']),
         ];

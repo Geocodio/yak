@@ -5,7 +5,6 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 ## What You End Up With
 
 - A dedicated server running the Yak Docker container (Laravel app, queue workers, scheduler, nginx)
-- Your repositories cloned and ready for Claude Code to work on
 - Webhook endpoints for whichever channels you have enabled
 - A dashboard at `https://{your-domain}` behind Google OAuth
 - Claude Code CLI configured with MCP servers matching your enabled channels
@@ -57,22 +56,20 @@ Channels you are not using can be left blank — Ansible skips disabled channels
 ```yaml
 # === Required ===
 yak_domain: yak.yourcompany.com
-yak_app_key: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters,digits') }}"
-
-# Claude (routing layer API calls)
 anthropic_api_key: sk-ant-...
-
-# GitHub App (Ansible creates this automatically if the ID is empty)
 github_org: your-org
-github_app_id: ""
-github_app_private_key: ""
-github_installation_id: ""
-github_webhook_secret: ""
 
 # Dashboard auth
 google_oauth_client_id: "..."
 google_oauth_client_secret: "..."
 google_oauth_allowed_domains: "yourcompany.com"  # required, comma-separated
+
+# === Auto-provisioned (leave blank) ===
+yak_app_key: ""
+github_app_id: ""
+github_app_private_key: ""
+github_installation_id: ""
+github_webhook_secret: ""
 
 # === Channels (leave blank to disable) ===
 
@@ -107,33 +104,7 @@ all:
       ansible_python_interpreter: /usr/bin/python3
 ```
 
-### 4. Define Your Repositories
-
-```bash
-cp ansible/group_vars/repos.example.yml ansible/group_vars/repos.yml
-```
-
-```yaml
-yak_repos:
-  - slug: my-app
-    name: My App
-    git_url: https://github.com/your-org/my-app.git
-    default_branch: main
-    ci_system: github_actions    # github_actions or drone
-    is_default: true             # exactly one repo must be default
-    sentry_project: my-app       # optional, maps Sentry alerts to this repo
-
-  - slug: api
-    name: API Service
-    git_url: https://github.com/your-org/api.git
-    default_branch: main
-    ci_system: github_actions
-    sentry_project: api-service
-```
-
-See [repositories.md](repositories.md) for the full repo field reference.
-
-### 5. Provision
+### 4. Provision
 
 ```bash
 ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml --ask-vault-pass
@@ -148,12 +119,11 @@ This single command runs the following roles in order:
 5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
 6. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
 7. **yak-container** — builds the Docker image, starts the container with the correct env vars
-8. **repos** — configures the git credential helper, clones repositories via HTTPS using the GitHub App, seeds the `repositories` table
-9. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
+8. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
 
-Total time: about 10 minutes for provisioning, plus 5–15 minutes per repo for setup tasks.
+Total time: about 10 minutes.
 
-### 6. Log In To Claude Code
+### 5. Log In To Claude Code
 
 Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
 
@@ -164,6 +134,12 @@ docker exec -it yak claude login
 Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
 
 The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
+
+### 6. Add Your Repositories
+
+Repositories are managed through the dashboard — not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
+
+See [repositories.md](repositories.md) for the full field reference and how setup tasks work.
 
 ## Verifying the Installation
 

@@ -61,6 +61,7 @@ test('create repo with valid data', function () {
     Livewire::test(RepoForm::class)
         ->set('name', 'My New Repo')
         ->set('slug', 'my-new-repo')
+        ->set('git_url', 'https://github.com/acme/my-new-repo.git')
         ->set('path', '/home/yak/repos/my-new-repo')
         ->set('default_branch', 'main')
         ->set('ci_system', 'github_actions')
@@ -70,6 +71,7 @@ test('create repo with valid data', function () {
     expect(Repository::where('slug', 'my-new-repo')->exists())->toBeTrue();
     $repo = Repository::where('slug', 'my-new-repo')->first();
     expect($repo->name)->toBe('My New Repo');
+    expect($repo->git_url)->toBe('https://github.com/acme/my-new-repo.git');
     expect($repo->path)->toBe('/home/yak/repos/my-new-repo');
 });
 
@@ -77,6 +79,7 @@ test('create repo dispatches setup task', function () {
     Livewire::test(RepoForm::class)
         ->set('name', 'Setup Test')
         ->set('slug', 'setup-test')
+        ->set('git_url', 'https://github.com/acme/setup-test.git')
         ->set('path', '/home/yak/repos/setup-test')
         ->call('save')
         ->assertHasNoErrors();
@@ -156,6 +159,7 @@ test('default toggle clears previous default', function () {
     Livewire::test(RepoForm::class)
         ->set('name', 'New Default')
         ->set('slug', 'new-default')
+        ->set('git_url', 'https://github.com/acme/new-default.git')
         ->set('path', '/home/yak/repos/new-default')
         ->set('is_default', true)
         ->call('save')

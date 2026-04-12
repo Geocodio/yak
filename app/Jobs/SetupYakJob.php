@@ -109,11 +109,30 @@ class SetupYakJob implements ShouldQueue
 
     private function preflight(Repository $repository): void
     {
+        if (! is_dir($repository->path)) {
+            $this->cloneRepository($repository);
+        }
+
         Process::path($repository->path)->run('docker-compose stop');
 
         $devPorts = [8000, 5173, 3000];
         foreach ($devPorts as $port) {
             Process::run("lsof -ti:{$port} | xargs kill -9 2>/dev/null || true");
+        }
+    }
+
+    private function cloneRepository(Repository $repository): void
+    {
+        if (empty($repository->git_url)) {
+            throw new \RuntimeException("Repository {$repository->slug} has no git_url configured.");
+        }
+
+        TaskLogger::info($this->task, "Cloning {$repository->git_url} to {$repository->path}");
+
+        $result = Process::run("git clone {$repository->git_url} {$repository->path}");
+
+        if (! $result->successful()) {
+            throw new \RuntimeException("Failed to clone repository: {$result->errorOutput()}");
         }
     }
 

@@ -239,6 +239,7 @@ test('SetupYakJob detects auth error and fails task with notification', function
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
+        'git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         'git checkout *' => Process::result(''),

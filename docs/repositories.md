@@ -4,47 +4,13 @@ Every Yak task targets exactly one repository. This guide covers how to add repo
 
 ## Adding A Repository
 
-There are two ways to add a repo. Use Ansible for your initial setup, and the dashboard for day-to-day additions.
-
-### Via Ansible (initial setup)
-
-Edit `ansible/group_vars/repos.yml`:
-
-```yaml
-yak_repos:
-  - slug: my-app
-    name: My App
-    git_url: https://github.com/your-org/my-app.git
-    default_branch: main
-    ci_system: github_actions    # github_actions or drone
-    is_default: true             # exactly one repo must be default
-    sentry_project: my-app       # optional, maps Sentry alerts to this repo
-
-  - slug: api
-    name: API Service
-    git_url: https://github.com/your-org/api.git
-    default_branch: main
-    ci_system: github_actions
-    sentry_project: api-service
-```
-
-Then re-run Ansible with the `repos` tag:
-
-```bash
-ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml --tags repos
-```
-
-This clones new repos (skipping any that already exist), seeds the `repositories` database table, and dispatches setup tasks for each new repo.
-
-### Via Dashboard (day-to-day)
-
-Go to `https://{your-domain}/repos/create` and fill in the form. Yak automatically dispatches a setup task — Claude Code reads the repo's README and `CLAUDE.md`, sets up the dev environment, and verifies everything works.
+Go to `https://{your-domain}/repos/create` and fill in the form. Yak clones the repo using the GitHub App's installation token and automatically dispatches a setup task — Claude Code reads the repo's README and `CLAUDE.md`, sets up the dev environment, and verifies everything works.
 
 The form has three sections:
 
 | Section | Fields |
 |---|---|
-| **Basics** | Slug (auto-generated from name, editable), display name, path on disk, default branch, active toggle, default toggle |
+| **Basics** | Slug (auto-generated from name, editable), display name, Git URL (HTTPS clone URL), path on disk (auto-filled from slug), default branch, active toggle, default toggle |
 | **Integration** | CI system (`github_actions` or `drone`), Sentry project slug (optional) |
 | **Notes** | Free-text operational notes. Shown only in the dashboard — never sent to Claude. |
 

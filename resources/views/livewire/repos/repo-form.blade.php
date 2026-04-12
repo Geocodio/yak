@@ -15,7 +15,10 @@
                 <flux:input wire:model="slug" label="Slug" description="Auto-generated from name. Must be unique." />
                 <flux:input wire:model.live.debounce.300ms="name" label="Display Name" />
                 <div class="md:col-span-2">
-                    <flux:input wire:model="path" label="Path" placeholder="/home/yak/repos/my-project" />
+                    <flux:input wire:model="git_url" label="Git URL" placeholder="https://github.com/your-org/my-project.git" description="HTTPS clone URL. Authenticated via the GitHub App." />
+                </div>
+                <div class="md:col-span-2">
+                    <flux:input wire:model="path" label="Path" placeholder="/home/yak/repos/my-project" description="Auto-filled from slug. The repo will be cloned here." />
                 </div>
                 <flux:input wire:model="default_branch" label="Default Branch" />
                 <div>

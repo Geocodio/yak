@@ -5,14 +5,60 @@
   vars_files:
     - vault/secrets.yml
     - group_vars/yak.yml
-    - group_vars/repos.yml
 
   pre_tasks:
+    - name: Check for existing APP_KEY on server
+      ansible.builtin.stat:
+        path: /etc/yak/app_key
+      register: app_key_file
+      when: yak_app_key is not defined or yak_app_key | length == 0
+      tags: always
+
+    - name: Read existing APP_KEY from server
+      ansible.builtin.slurp:
+        src: /etc/yak/app_key
+      register: app_key_contents
+      when:
+        - yak_app_key is not defined or yak_app_key | length == 0
+        - app_key_file.stat.exists | default(false)
+      tags: always
+
+    - name: Use existing APP_KEY from server
+      ansible.builtin.set_fact:
+        yak_app_key: "{{ app_key_contents.content | b64decode | trim }}"
+      when:
+        - yak_app_key is not defined or yak_app_key | length == 0
+        - app_key_contents.content is defined
+      tags: always
+
+    - name: Generate new APP_KEY
+      ansible.builtin.set_fact:
+        yak_app_key: "{{ lookup('pipe', 'openssl rand -base64 32') }}"
+      when: yak_app_key is not defined or yak_app_key | length == 0
+      tags: always
+
+    - name: Ensure /etc/yak directory exists
+      ansible.builtin.file:
+        path: /etc/yak
+        state: directory
+        mode: "0700"
+        owner: root
+        group: root
+      tags: always
+
+    - name: Persist APP_KEY to server
+      ansible.builtin.copy:
+        content: "{{ yak_app_key }}"
+        dest: /etc/yak/app_key
+        mode: "0600"
+        owner: root
+        group: root
+      tags: always
+
     - name: Validate required variables
       ansible.builtin.assert:
         that:
           - yak_domain is defined and yak_domain | length > 0
-          - yak_app_key is defined and yak_app_key | length > 0
           - anthropic_api_key is defined and anthropic_api_key | length > 0
           - github_org is defined and github_org | length > 0
           - google_oauth_client_id is defined and google_oauth_client_id | length > 0
@@ -57,19 +103,5 @@
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
 
-    - role: repos
-      tags: [repos]
-
     - role: claude-code-config
       tags: [claude-code-config, yak-app]
-
-  post_tasks:
-    - name: Dispatch setup tasks for each repo
-      ansible.builtin.command:
-        cmd: >
-          docker exec yak php artisan yak:setup-repo {{ item.slug }} --no-interaction
-      loop: "{{ yak_repos }}"
-      loop_control:
-        label: "{{ item.slug }}"
-      tags: [repos]
-      changed_when: true
