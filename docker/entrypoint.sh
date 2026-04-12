@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-if [ ! -f /app/database/database.sqlite ]; then
-    touch /app/database/database.sqlite
+if [ ! -f /data/database.sqlite ]; then
+    touch /data/database.sqlite
 fi
 
-chown -R www-data:www-data /app/database /app/storage /app/bootstrap/cache
+chown -R www-data:www-data /data /app/storage /app/bootstrap/cache
 
 if [ ! -f /app/.env ]; then
     cp /app/.env.example /app/.env

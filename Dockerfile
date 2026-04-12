@@ -82,12 +82,12 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache
 
-RUN mkdir -p /app/database \
-    && chown -R www-data:www-data /app/database
+RUN mkdir -p /data \
+    && chown -R www-data:www-data /data
 
 EXPOSE 80
 
-VOLUME ["/home/yak/repos", "/app/database", "/home/yak/.claude"]
+VOLUME ["/home/yak/repos", "/data", "/home/yak/.claude"]
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/yak.conf"]
