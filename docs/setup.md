@@ -128,10 +128,11 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
    - `app_mentions:read`
    - `channels:history`
 4. Click **Install to Workspace** and authorize
-5. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
-6. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
-7. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
-8. Subscribe to bot events: `app_mention` and `message.channels`
+5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon
+6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
+7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
+8. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
+9. Subscribe to bot events: `app_mention` and `message.channels`
 
 See [channels.md](channels.md#slack-optional) for usage and gotchas.
 
