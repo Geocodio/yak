@@ -127,6 +127,8 @@ class SetupYakJob implements ShouldQueue
             throw new \RuntimeException("Repository {$repository->slug} has no git_url configured.");
         }
 
+        GitOperations::ensureCredentials();
+
         TaskLogger::info($this->task, "Cloning {$repository->git_url} to {$repository->path}");
 
         $result = Process::run("git clone {$repository->git_url} {$repository->path}");

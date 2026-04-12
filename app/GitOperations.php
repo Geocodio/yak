@@ -3,10 +3,43 @@
 namespace App;
 
 use App\Models\Repository;
+use App\Services\GitHubAppService;
 use Illuminate\Support\Facades\Process;
 
 class GitOperations
 {
+    private static bool $credentialsConfigured = false;
+
+    /**
+     * Configure git credentials using the GitHub App installation token.
+     *
+     * Writes a credential helper script and sets it globally so all git
+     * operations (clone, fetch, push) authenticate automatically. Only
+     * runs once per process.
+     */
+    public static function ensureCredentials(): void
+    {
+        if (self::$credentialsConfigured) {
+            return;
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if (! $installationId) {
+            return;
+        }
+
+        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+
+        $helperPath = '/tmp/git-credential-yak';
+        file_put_contents($helperPath, "#!/bin/sh\necho username=x-access-token\necho password={$token}\n");
+        chmod($helperPath, 0700);
+
+        Process::run("git config --global credential.https://github.com.helper {$helperPath}");
+
+        self::$credentialsConfigured = true;
+    }
+
     /**
      * Generate a safe git branch name from an external ID.
      *
@@ -49,6 +82,8 @@ class GitOperations
      */
     public static function createBranch(Repository $repository, string $externalId): string
     {
+        self::ensureCredentials();
+
         $branchName = self::branchName($externalId);
         $defaultBranch = $repository->default_branch;
 
@@ -66,6 +101,8 @@ class GitOperations
      */
     public static function pushBranch(Repository $repository, string $branchName): void
     {
+        self::ensureCredentials();
+
         Process::path($repository->path)
             ->run("git push origin {$branchName}");
     }
@@ -75,6 +112,8 @@ class GitOperations
      */
     public static function forcePushBranch(Repository $repository, string $branchName): void
     {
+        self::ensureCredentials();
+
         Process::path($repository->path)
             ->run("git push --force origin {$branchName}");
     }
@@ -116,6 +155,8 @@ class GitOperations
      */
     public static function refreshRepo(Repository $repository): void
     {
+        self::ensureCredentials();
+
         Process::path($repository->path)
             ->run("git fetch origin {$repository->default_branch}");
     }
