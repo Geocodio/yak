@@ -15,16 +15,9 @@
     group: root
     mode: "0600"
 
-- name: Log in to GitHub Container Registry
-  community.docker.docker_login:
-    registry: ghcr.io
-    username: "{{ github_org }}"
-    password: "{{ ghcr_token }}"
-  when: ghcr_token is defined and ghcr_token | length > 0
-
 - name: Pull Yak Docker image
   community.docker.docker_image:
-    name: "ghcr.io/geocodio/yak"
+    name: "geocodio/yak"
     tag: "{{ yak_image_tag | default('latest') }}"
     source: pull
     force_source: true
@@ -32,7 +25,7 @@
 - name: Run Yak container
   community.docker.docker_container:
     name: "{{ yak_container_name }}"
-    image: "ghcr.io/geocodio/yak:{{ yak_image_tag | default('latest') }}"
+    image: "geocodio/yak:{{ yak_image_tag | default('latest') }}"
     state: started
     restart_policy: unless-stopped
     ports:
