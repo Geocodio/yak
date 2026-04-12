@@ -117,7 +117,7 @@ class SetupYakJob implements ShouldQueue
         }
 
         TaskLogger::info($this->task, 'Preflight: stopping docker-compose');
-        Process::path($repository->path)->run('docker-compose stop 2>&1 || true');
+        Process::path($repository->path)->run('docker-compose stop');
 
         TaskLogger::info($this->task, 'Preflight: killing dev ports');
         $devPorts = [8000, 5173, 3000];

@@ -9,7 +9,6 @@ use App\Exceptions\ClaudeAuthException;
 use App\Services\ClaudeAuthDetector;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
-use Symfony\Component\Process\Process as SymfonyProcess;
 
 class ClaudeCodeRunner implements AgentRunner
 {
@@ -27,44 +26,100 @@ class ClaudeCodeRunner implements AgentRunner
         $command = $this->buildCommand($request, streaming: true);
         $handler = new StreamEventHandler($request->task);
 
-        $process = SymfonyProcess::fromShellCommandline($command, $request->workingDirectory);
-        $process->setTimeout($request->timeoutSeconds);
+        $descriptors = [
+            0 => ['pipe', 'r'],  // stdin
+            1 => ['pipe', 'w'],  // stdout
+            2 => ['pipe', 'w'],  // stderr
+        ];
 
-        if (SymfonyProcess::isPtySupported()) {
-            $process->setPty(true);
+        $process = proc_open($command, $descriptors, $pipes, $request->workingDirectory);
+
+        if (! is_resource($process)) {
+            return AgentRunResult::failure('Failed to start Claude process', '');
         }
+
+        fclose($pipes[0]); // Close stdin
+
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
 
         $buffer = '';
         $lineCount = 0;
+        $startTime = time();
+        $timeout = $request->timeoutSeconds;
 
-        $process->run(function (string $type, string $data) use ($handler, &$buffer, &$lineCount): void {
-            if ($type !== SymfonyProcess::OUT) {
-                return;
+        while (true) {
+            $status = proc_get_status($process);
+
+            if (! $status['running']) {
+                // Read any remaining output
+                $remaining = stream_get_contents($pipes[1]);
+                if ($remaining !== false) {
+                    $buffer .= $remaining;
+                }
+
+                break;
             }
 
-            $buffer .= $data;
+            if ((time() - $startTime) > $timeout) {
+                proc_terminate($process, 9);
+                fclose($pipes[1]);
+                fclose($pipes[2]);
+                proc_close($process);
 
-            while (($pos = strpos($buffer, "\n")) !== false) {
-                $line = substr($buffer, 0, $pos);
-                $buffer = substr($buffer, $pos + 1);
-                $lineCount++;
-
-                $this->processLine($line, $handler);
+                return AgentRunResult::failure(
+                    "Claude process timed out after {$timeout}s",
+                    '',
+                );
             }
-        });
 
-        // Process remaining buffer
+            $read = [$pipes[1]];
+            $write = null;
+            $except = null;
+
+            if (stream_select($read, $write, $except, 1) > 0) {
+                $chunk = fread($pipes[1], 65536);
+                if ($chunk !== false && $chunk !== '') {
+                    $buffer .= $chunk;
+
+                    while (($pos = strpos($buffer, "\n")) !== false) {
+                        $line = substr($buffer, 0, $pos);
+                        $buffer = substr($buffer, $pos + 1);
+                        $lineCount++;
+
+                        $this->processLine($line, $handler);
+                    }
+                }
+            }
+        }
+
+        // Process any remaining buffer
+        while (($pos = strpos($buffer, "\n")) !== false) {
+            $line = substr($buffer, 0, $pos);
+            $buffer = substr($buffer, $pos + 1);
+            $lineCount++;
+            $this->processLine($line, $handler);
+        }
+
         if (trim($buffer) !== '') {
             $this->processLine($buffer, $handler);
             $lineCount++;
         }
-        $exitCode = $process->getExitCode();
+
+        // Read stderr
+        $stderr = stream_get_contents($pipes[2]) ?: '';
+
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $exitCode = proc_close($process);
 
         Log::channel('yak')->info('Claude stream completed', [
             'task_id' => $request->task?->id,
             'lines' => $lineCount,
             'exit_code' => $exitCode,
             'has_result' => $handler->getResultEvent() !== null,
+            'stderr_length' => strlen($stderr),
         ]);
 
         $resultEvent = $handler->getResultEvent();
@@ -73,16 +128,13 @@ class ClaudeCodeRunner implements AgentRunner
             return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR));
         }
 
-        // If we got lines but no result event, something went wrong with parsing
-        $errorOutput = trim($process->getErrorOutput());
-
-        if ($errorOutput !== '') {
-            Log::channel('yak')->warning('Claude stream error output', [
+        if ($stderr !== '') {
+            Log::channel('yak')->warning('Claude stream stderr', [
                 'task_id' => $request->task?->id,
-                'stderr' => substr($errorOutput, 0, 500),
+                'stderr' => substr($stderr, 0, 500),
             ]);
 
-            return AgentRunResult::failure($errorOutput, '');
+            return AgentRunResult::failure($stderr, '');
         }
 
         return AgentRunResult::failure(
