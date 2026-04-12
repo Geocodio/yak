@@ -91,6 +91,85 @@ drone_token: ""
 
 The `google_oauth_allowed_domains` field is **required**. Login is rejected for any email whose domain is not in the list.
 
+### Where to get credentials
+
+#### Anthropic API key
+
+1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
+2. Click **Create Key**
+3. Copy the key (`sk-ant-...`) into `anthropic_api_key`
+
+This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI authenticates separately via a Max subscription — see step 5 below.
+
+#### Google OAuth (required — dashboard authentication)
+
+1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project (or select an existing one)
+2. Go to **APIs & Services → OAuth consent screen**
+3. Set user type to **Internal** (restricts login to your Google Workspace org — no app review needed)
+4. Fill in the app name (e.g. "Yak") and your support email, then save
+5. Go to **APIs & Services → Credentials**
+6. Click **Create Credentials → OAuth client ID**
+7. Application type: **Web application**
+8. Add an authorized redirect URI: `https://{your-domain}/auth/google/callback`
+9. Copy the **Client ID** into `google_oauth_client_id`
+10. Copy the **Client Secret** into `google_oauth_client_secret`
+11. Set `google_oauth_allowed_domains` to your domain (e.g. `yourcompany.com`)
+
+#### GitHub
+
+No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow — you fill in the resulting credentials and re-run.
+
+#### Slack (optional)
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click **Create New App → From scratch**
+2. Name it (e.g. "Yak") and select your workspace
+3. Go to **OAuth & Permissions** and add these bot token scopes:
+   - `chat:write`
+   - `app_mentions:read`
+   - `channels:history`
+4. Click **Install to Workspace** and authorize
+5. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
+6. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
+7. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
+8. Subscribe to bot events: `app_mention` and `message.channels`
+
+See [channels.md](channels.md#slack-optional) for usage and gotchas.
+
+#### Linear (optional)
+
+1. Go to [linear.app/settings](https://linear.app/settings) → **API** → **Personal API keys**
+2. Create a new key and copy it into `linear_api_key`
+3. Go to **API** → **Webhooks** and create a webhook:
+   - URL: `https://{your-domain}/webhooks/linear`
+   - Subscribe to **Issue label** events
+4. Copy the webhook's **Signing secret** into `linear_webhook_secret`
+5. Create a `yak` label in your workspace (and optionally a `research` label)
+
+See [channels.md](channels.md#linear-optional) for usage and gotchas.
+
+#### Sentry (optional)
+
+1. In your Sentry org, go to **Settings → Developer Settings → Custom Integrations**
+2. Click **Create New Integration** → **Internal Integration**
+3. Set permissions: **Project: Read**, **Issue & Event: Read**
+4. Set the webhook URL to `https://{your-domain}/webhooks/sentry`
+5. Copy the **Token** into `sentry_auth_token`
+6. Copy the **Webhook Signing Secret** (under "Webhook Secret" in the integration's Client Secret section) into `sentry_webhook_secret`
+7. Set `sentry_org_slug` to your Sentry organization slug
+8. Create an alert rule tagged `yak-eligible` for the issues you want Yak to pick up
+9. Map Sentry projects to repos via the `sentry_project` field on each repo in the dashboard
+
+See [channels.md](channels.md#sentry-optional) for filtering rules and gotchas.
+
+#### Drone CI (optional)
+
+1. Go to your Drone instance at `https://{drone-url}/account`
+2. Copy the **Personal Token** into `drone_token`
+3. Set `drone_url` to your Drone instance URL (e.g. `https://drone.yourcompany.com`)
+4. After provisioning, configure a webhook on each Drone repo pointing to `https://{your-domain}/webhooks/ci/drone`
+
+See [channels.md](channels.md#drone-ci-optional) for usage and gotchas.
+
 ### 3. Configure Inventory
 
 ```bash
