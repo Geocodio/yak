@@ -66,7 +66,6 @@ Channels you are not using can be left blank — Ansible skips disabled channels
 yak_domain: yak.yourcompany.com
 anthropic_api_key: sk-ant-...
 github_org: your-org
-ghcr_token: ghp_...
 
 # Dashboard auth
 google_oauth_client_id: "..."
@@ -101,14 +100,6 @@ drone_token: ""
 The `google_oauth_allowed_domains` field is **required**. Login is rejected for any email whose domain is not in the list.
 
 ### Where to get credentials
-
-#### GitHub Container Registry token
-
-1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) and click **Generate new token (classic)**
-2. Select the `read:packages` scope
-3. Copy the token into `ghcr_token`
-
-This token allows the server to pull the pre-built Docker image from `ghcr.io/geocodio/yak`. The image is built automatically by GitHub Actions on every push to `main`.
 
 #### Anthropic API key
 

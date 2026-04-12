@@ -61,7 +61,6 @@
           - yak_domain is defined and yak_domain | length > 0
           - anthropic_api_key is defined and anthropic_api_key | length > 0
           - github_org is defined and github_org | length > 0
-          - ghcr_token is defined and ghcr_token | length > 0
           - google_oauth_client_id is defined and google_oauth_client_id | length > 0
           - google_oauth_client_secret is defined and google_oauth_client_secret | length > 0
           - google_oauth_allowed_domains is defined and google_oauth_allowed_domains | length > 0

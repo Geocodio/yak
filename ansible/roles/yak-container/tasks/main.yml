@@ -20,6 +20,7 @@
     registry: ghcr.io
     username: "{{ github_org }}"
     password: "{{ ghcr_token }}"
+  when: ghcr_token is defined and ghcr_token | length > 0
 
 - name: Pull Yak Docker image
   community.docker.docker_image:
