@@ -117,7 +117,7 @@ it('rejects requests with invalid Sentry signature', function () {
     $this->call('POST', '/webhooks/sentry', content: $body, server: [
         'HTTP_Sentry-Hook-Signature' => 'invalid_signature',
         'CONTENT_TYPE' => 'application/json',
-    ])->assertUnauthorized();
+    ])->assertForbidden();
 });
 
 it('rejects requests with missing Sentry signature', function () {
@@ -126,7 +126,7 @@ it('rejects requests with missing Sentry signature', function () {
 
     $this->call('POST', '/webhooks/sentry', content: $body, server: [
         'CONTENT_TYPE' => 'application/json',
-    ])->assertUnauthorized();
+    ])->assertForbidden();
 });
 
 /*
