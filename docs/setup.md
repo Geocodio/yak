@@ -14,7 +14,7 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 
 | Requirement | Notes |
 |---|---|
-| **Server** | Dedicated box with 32GB+ RAM, 500GB+ disk. Hetzner AX-series, bare metal, or VM. Ubuntu 24.04. Public IP for inbound webhooks. |
+| **Server** | Dedicated box with 32GB+ RAM, 500GB+ disk. Hetzner AX-series, bare metal, or VM. Ubuntu 24.04 or Debian 12+. Public IP for inbound webhooks. |
 | **Domain** | DNS A record pointing to the server. Used for dashboard and webhook endpoints. |
 | **Claude** | Max subscription (for Claude Code CLI) plus an Anthropic API key (for the routing layer). |
 | **GitHub** | Account with push access to target repos. The Ansible provisioner creates the GitHub App automatically. |
@@ -140,7 +140,7 @@ ansible-playbook -i ansible/inventory/hosts.yml ansible/playbook.yml --ask-vault
 
 This single command runs the following roles in order:
 
-1. **base** — creates the `yak` user, configures UFW, fail2ban, and swap on Ubuntu 24.04
+1. **base** — creates the `yak` user, configures UFW, fail2ban, and swap
 2. **docker** — installs Docker Engine and Compose
 3. **ssl** — provisions a Let's Encrypt certificate via Caddy
 4. **github-app** — creates and installs the GitHub App on your org (skipped if already provisioned)
