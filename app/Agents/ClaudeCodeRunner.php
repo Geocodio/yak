@@ -115,8 +115,12 @@ class ClaudeCodeRunner implements AgentRunner
         $outputFormat = $streaming ? 'stream-json' : 'json';
         $verboseFlag = $streaming ? ' --verbose' : '';
 
+        // stdbuf -oL forces line buffering so streaming output arrives promptly
+        $stdbuf = $streaming ? 'stdbuf -oL ' : '';
+
         $command = sprintf(
-            'claude -p %s --dangerously-skip-permissions --bare --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            '%sclaude -p %s --dangerously-skip-permissions --bare --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            $stdbuf,
             escapeshellarg($request->prompt),
             $outputFormat,
             $verboseFlag,
