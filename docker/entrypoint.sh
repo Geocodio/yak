@@ -6,6 +6,7 @@ if [ ! -f /data/database.sqlite ]; then
 fi
 
 chown -R www-data:www-data /data /app/storage /app/bootstrap/cache
+chmod -R g+w /data /app/storage
 
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env
