@@ -66,6 +66,7 @@ Channels you are not using can be left blank — Ansible skips disabled channels
 yak_domain: yak.yourcompany.com
 anthropic_api_key: sk-ant-...
 github_org: your-org
+ghcr_token: ghp_...
 
 # Dashboard auth
 google_oauth_client_id: "..."
@@ -100,6 +101,14 @@ drone_token: ""
 The `google_oauth_allowed_domains` field is **required**. Login is rejected for any email whose domain is not in the list.
 
 ### Where to get credentials
+
+#### GitHub Container Registry token
+
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) and click **Generate new token (classic)**
+2. Select the `read:packages` scope
+3. Copy the token into `ghcr_token`
+
+This token allows the server to pull the pre-built Docker image from `ghcr.io/geocodio/yak`. The image is built automatically by GitHub Actions on every push to `main`.
 
 #### Anthropic API key
 
@@ -208,7 +217,7 @@ This single command runs the following roles in order:
 4. **github-app** — creates and installs the GitHub App on your org (skipped if already provisioned)
 5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
 6. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
-7. **yak-container** — builds the Docker image, starts the container with the correct env vars
+7. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
 8. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
 
 Total time: about 10 minutes.
@@ -268,13 +277,17 @@ Check `https://{your-domain}/tasks` — each event should create a task row.
 
 ### Application Updates
 
+Push to `main` triggers a GitHub Actions build that pushes a new image to `ghcr.io/geocodio/yak`. Then pull and deploy:
+
 ```bash
-cd yak
-git pull
-ansible-playbook ansible/playbook.yml --tags yak-app
+ansible-playbook ansible/playbook.yml --tags yak-container
 ```
 
-The Docker image is rebuilt and the container restarts. Active tasks finish before the worker restarts.
+To deploy a specific version:
+
+```bash
+ansible-playbook ansible/playbook.yml --tags yak-container -e yak_image_tag=abc1234
+```
 
 ### Adding a New Channel
 

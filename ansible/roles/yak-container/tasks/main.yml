@@ -1,36 +1,37 @@
 ---
-- name: Copy Yak application to server
-  ansible.builtin.synchronize:
-    src: "{{ playbook_dir }}/../"
-    dest: "{{ yak_app_path }}"
-    delete: true
-    rsync_opts:
-      - "--exclude=.git"
-      - "--exclude=node_modules"
-      - "--exclude=vendor"
-      - "--exclude=ansible/vault/secrets.yml"
+- name: Ensure /etc/yak directory exists
+  ansible.builtin.file:
+    path: /etc/yak
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
 
-- name: Template .env file
+- name: Template env file
   ansible.builtin.template:
     src: env.j2
-    dest: "{{ yak_app_path }}/.env"
-    owner: "{{ yak_user }}"
-    group: "{{ yak_user }}"
+    dest: /etc/yak/env
+    owner: root
+    group: root
     mode: "0600"
 
-- name: Build Yak Docker image
+- name: Log in to GitHub Container Registry
+  community.docker.docker_login:
+    registry: ghcr.io
+    username: "{{ github_org }}"
+    password: "{{ ghcr_token }}"
+
+- name: Pull Yak Docker image
   community.docker.docker_image:
-    name: yak
-    tag: latest
-    source: build
-    build:
-      path: "{{ yak_app_path }}"
+    name: "ghcr.io/geocodio/yak"
+    tag: "{{ yak_image_tag | default('latest') }}"
+    source: pull
     force_source: true
 
 - name: Run Yak container
   community.docker.docker_container:
     name: "{{ yak_container_name }}"
-    image: yak:latest
+    image: "ghcr.io/geocodio/yak:{{ yak_image_tag | default('latest') }}"
     state: started
     restart_policy: unless-stopped
     ports:
@@ -41,5 +42,5 @@
       - "{{ yak_claude_path }}:/home/yak/.claude"
       - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
       - "/var/run/docker.sock:/var/run/docker.sock"
-    env_file: "{{ yak_app_path }}/.env"
+    env_file: /etc/yak/env
     recreate: true
