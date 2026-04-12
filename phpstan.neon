@@ -5,5 +5,4 @@ includes:
 parameters:
     paths:
         - app/
-        - lib/
     level: 8

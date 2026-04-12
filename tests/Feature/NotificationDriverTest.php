@@ -121,7 +121,7 @@ it('Slack: all notifications include dashboard link', function () {
         (new SlackNotificationDriver)->send($task, $type, 'test message');
     }
 
-    Http::assertSentCount(6);
+    Http::assertSentCount(count(NotificationType::cases()));
 
     Http::assertSent(function ($request) use ($task) {
         if (! str_contains($request->url(), 'slack.com/api/chat.postMessage')) {

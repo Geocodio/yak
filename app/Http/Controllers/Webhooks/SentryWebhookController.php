@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\SentryFilter;
 use App\Drivers\SentryInputDriver;
+use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
@@ -14,9 +15,16 @@ use Illuminate\Http\Request;
 
 class SentryWebhookController extends Controller
 {
+    use VerifiesWebhookSignature;
+
     public function __invoke(Request $request): JsonResponse
     {
-        $this->verifySentrySignature($request);
+        $this->verifyWebhookSignature(
+            $request,
+            (string) config('yak.channels.sentry.webhook_secret'),
+            signatureHeader: 'Sentry-Hook-Signature',
+            prefix: '',
+        );
 
         // Only handle triggered issue alert events
         if ($request->input('action') !== 'triggered') {
@@ -85,22 +93,6 @@ class SentryWebhookController extends Controller
         RunYakJob::dispatch($task);
 
         return response()->json(['ok' => true, 'task_id' => $task->id], 201);
-    }
-
-    /**
-     * Verify the Sentry webhook HMAC-SHA256 signature.
-     *
-     * Sentry sends a raw hex digest in the Sentry-Hook-Signature header (no prefix).
-     */
-    private function verifySentrySignature(Request $request): void
-    {
-        $signature = $request->header('Sentry-Hook-Signature', '');
-        $secret = (string) config('yak.channels.sentry.webhook_secret');
-        $expected = hash_hmac('sha256', $request->getContent(), $secret);
-
-        if (! hash_equals($expected, $signature)) {
-            abort(401, 'Invalid webhook signature.');
-        }
     }
 
     /**
