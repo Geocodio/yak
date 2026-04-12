@@ -21,6 +21,44 @@ class GitHubAppService
     }
 
     /**
+     * @return array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string}>
+     */
+    public function listInstallationRepositories(int $installationId): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $repos = [];
+        $page = 1;
+
+        do {
+            $response = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get('https://api.github.com/installation/repositories', [
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $data = $response->json();
+            $fetched = $data['repositories'] ?? [];
+
+            foreach ($fetched as $repo) {
+                $repos[] = [
+                    'full_name' => $repo['full_name'],
+                    'name' => $repo['name'],
+                    'default_branch' => $repo['default_branch'],
+                    'clone_url' => $repo['clone_url'],
+                    'pushed_at' => $repo['pushed_at'] ?? null,
+                ];
+            }
+
+            $total = $data['total_count'] ?? 0;
+            $page++;
+        } while (count($repos) < $total);
+
+        return $repos;
+    }
+
+    /**
      * @param  array<string, mixed>  $prData
      * @return array{number: int, html_url: string}
      */

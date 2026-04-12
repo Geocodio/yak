@@ -6,7 +6,10 @@ use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
+use App\Services\SentryService;
 use Flux\Flux;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -18,13 +21,9 @@ class RepoForm extends Component
 {
     public ?Repository $repository = null;
 
-    public string $slug = '';
-
     public string $name = '';
 
     public string $git_url = '';
-
-    public string $path = '';
 
     public string $default_branch = 'main';
 
@@ -36,7 +35,21 @@ class RepoForm extends Component
 
     public string $sentry_project = '';
 
-    public string $notes = '';
+    // GitHub repo picker (create mode only)
+    public string $github_search = '';
+
+    public string $selected_github_repo = '';
+
+    /** @var array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string}> */
+    public array $github_repos = [];
+
+    /** @var array<int, array{slug: string, name: string}> */
+    public array $sentry_projects = [];
+
+    // Keep for edit mode compatibility
+    public string $slug = '';
+
+    public string $path = '';
 
     public function mount(?Repository $repository = null): void
     {
@@ -51,16 +64,11 @@ class RepoForm extends Component
             $this->is_default = $repository->is_default;
             $this->ci_system = $repository->ci_system;
             $this->sentry_project = $repository->sentry_project ?? '';
-            $this->notes = $repository->notes ?? '';
+        } else {
+            $this->loadGitHubRepos();
         }
-    }
 
-    public function updatedName(): void
-    {
-        if (! $this->repository) {
-            $this->slug = str($this->name)->slug()->toString();
-            $this->path = '/home/yak/repos/' . $this->slug;
-        }
+        $this->loadSentryProjects();
     }
 
     #[Computed]
@@ -80,29 +88,82 @@ class RepoForm extends Component
     }
 
     /**
+     * @return array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string}>
+     */
+    #[Computed]
+    public function filteredGitHubRepos(): array
+    {
+        if (empty($this->github_search)) {
+            return array_slice($this->github_repos, 0, 10);
+        }
+
+        $query = strtolower($this->github_search);
+
+        return array_values(array_slice(array_filter(
+            $this->github_repos,
+            fn (array $repo): bool => str_contains(strtolower($repo['name']), $query)
+                || str_contains(strtolower($repo['full_name']), $query),
+        ), 0, 10));
+    }
+
+    public function selectGitHubRepo(string $fullName): void
+    {
+        $repo = collect($this->github_repos)->firstWhere('full_name', $fullName);
+
+        if (! $repo) {
+            return;
+        }
+
+        $this->selected_github_repo = $repo['full_name'];
+        $this->name = $repo['name'];
+        $this->git_url = $repo['clone_url'];
+        $this->default_branch = $repo['default_branch'];
+        $this->github_search = '';
+    }
+
+    public function clearSelectedRepo(): void
+    {
+        $this->selected_github_repo = '';
+        $this->name = '';
+        $this->git_url = '';
+        $this->default_branch = 'main';
+        $this->github_search = '';
+    }
+
+    /**
      * @return array<string, mixed>
      */
     protected function rules(): array
     {
         $repositoryId = $this->repository?->id;
 
-        return [
-            'slug' => ['required', 'string', 'max:255', Rule::unique('repositories', 'slug')->ignore($repositoryId)],
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'git_url' => ['required', 'string', 'max:500', 'url:https'],
-            'path' => ['required', 'string', 'max:500', 'starts_with:/'],
             'default_branch' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
             'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone'])],
             'sentry_project' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string', 'max:5000'],
         ];
+
+        if ($this->repository) {
+            $rules['slug'] = ['required', 'string', 'max:255', Rule::unique('repositories', 'slug')->ignore($repositoryId)];
+            $rules['path'] = ['required', 'string', 'max:500', 'starts_with:/'];
+        }
+
+        return $rules;
     }
 
     public function save(): void
     {
         $this->validate();
+
+        // Auto-generate slug and path for new repositories
+        if (! $this->repository) {
+            $this->slug = $this->generateUniqueSlug($this->name);
+            $this->path = '/home/yak/repos/' . $this->slug;
+        }
 
         if ($this->is_default) {
             $query = Repository::query()->where('is_default', true);
@@ -122,7 +183,6 @@ class RepoForm extends Component
             'is_default' => $this->is_default,
             'ci_system' => $this->ci_system,
             'sentry_project' => $this->sentry_project ?: null,
-            'notes' => $this->notes ?: null,
         ];
 
         if ($this->repository) {
@@ -187,5 +247,47 @@ class RepoForm extends Component
         ]);
 
         SetupYakJob::dispatch($task);
+    }
+
+    protected function loadGitHubRepos(): void
+    {
+        try {
+            $installationId = (int) config('yak.channels.github.installation_id');
+
+            if (! $installationId) {
+                return;
+            }
+
+            $this->github_repos = Cache::remember('github-installation-repos', 300, function () use ($installationId): array {
+                return app(GitHubAppService::class)->listInstallationRepositories($installationId);
+            });
+        } catch (\Throwable) {
+            $this->github_repos = [];
+        }
+    }
+
+    protected function loadSentryProjects(): void
+    {
+        try {
+            $this->sentry_projects = Cache::remember('sentry-projects', 300, function (): array {
+                return app(SentryService::class)->listProjects();
+            });
+        } catch (\Throwable) {
+            $this->sentry_projects = [];
+        }
+    }
+
+    protected function generateUniqueSlug(string $name): string
+    {
+        $baseSlug = str($name)->slug()->toString();
+        $slug = $baseSlug;
+        $counter = 1;
+
+        while (Repository::where('slug', $slug)->exists()) {
+            $slug = "{$baseSlug}-{$counter}";
+            $counter++;
+        }
+
+        return $slug;
     }
 }

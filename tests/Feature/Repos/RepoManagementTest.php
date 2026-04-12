@@ -5,6 +5,7 @@ use App\Livewire\Repos\RepoList;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -12,6 +13,10 @@ beforeEach(function () {
     Queue::fake();
     $this->user = User::factory()->create();
     $this->actingAs($this->user);
+
+    // Prevent external API calls during tests
+    Cache::put('github-installation-repos', [], 300);
+    Cache::put('sentry-projects', [], 300);
 });
 
 test('repo list renders with repositories', function () {
@@ -57,30 +62,43 @@ test('repo list shows default star', function () {
         ->assertSee('Regular Repo');
 });
 
-test('create repo with valid data', function () {
+test('create repo with valid data auto-generates slug and path', function () {
     Livewire::test(RepoForm::class)
         ->set('name', 'My New Repo')
-        ->set('slug', 'my-new-repo')
         ->set('git_url', 'https://github.com/acme/my-new-repo.git')
-        ->set('path', '/home/yak/repos/my-new-repo')
         ->set('default_branch', 'main')
         ->set('ci_system', 'github_actions')
         ->call('save')
         ->assertHasNoErrors();
 
-    expect(Repository::where('slug', 'my-new-repo')->exists())->toBeTrue();
-    $repo = Repository::where('slug', 'my-new-repo')->first();
-    expect($repo->name)->toBe('My New Repo');
-    expect($repo->git_url)->toBe('https://github.com/acme/my-new-repo.git');
+    $repo = Repository::where('name', 'My New Repo')->first();
+    expect($repo)->not->toBeNull();
+    expect($repo->slug)->toBe('my-new-repo');
     expect($repo->path)->toBe('/home/yak/repos/my-new-repo');
+    expect($repo->git_url)->toBe('https://github.com/acme/my-new-repo.git');
+});
+
+test('create repo generates unique slug when duplicate exists', function () {
+    Repository::factory()->create(['slug' => 'my-project']);
+
+    Livewire::test(RepoForm::class)
+        ->set('name', 'My Project')
+        ->set('git_url', 'https://github.com/acme/my-project.git')
+        ->set('default_branch', 'main')
+        ->set('ci_system', 'github_actions')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $repo = Repository::where('name', 'My Project')->latest('id')->first();
+    expect($repo->slug)->toBe('my-project-1');
+    expect($repo->path)->toBe('/home/yak/repos/my-project-1');
 });
 
 test('create repo dispatches setup task', function () {
     Livewire::test(RepoForm::class)
         ->set('name', 'Setup Test')
-        ->set('slug', 'setup-test')
         ->set('git_url', 'https://github.com/acme/setup-test.git')
-        ->set('path', '/home/yak/repos/setup-test')
+        ->set('default_branch', 'main')
         ->call('save')
         ->assertHasNoErrors();
 
@@ -89,68 +107,115 @@ test('create repo dispatches setup task', function () {
     expect(YakTask::where('repo', 'setup-test')->where('source', 'dashboard')->exists())->toBeTrue();
 });
 
-test('slug auto-generates from name', function () {
+test('select github repo fills form fields', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'acme/cool-project',
+            'name' => 'cool-project',
+            'default_branch' => 'develop',
+            'clone_url' => 'https://github.com/acme/cool-project.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+        ],
+    ], 300);
+
     Livewire::test(RepoForm::class)
-        ->set('name', 'My Cool Project')
-        ->assertSet('slug', 'my-cool-project');
+        ->call('selectGitHubRepo', 'acme/cool-project')
+        ->assertSet('selected_github_repo', 'acme/cool-project')
+        ->assertSet('name', 'cool-project')
+        ->assertSet('git_url', 'https://github.com/acme/cool-project.git')
+        ->assertSet('default_branch', 'develop');
 });
 
-test('slug does not auto-generate on edit', function () {
-    $repo = Repository::factory()->create(['slug' => 'original-slug', 'name' => 'Original']);
+test('clear selected repo resets form fields', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'acme/cool-project',
+            'name' => 'cool-project',
+            'default_branch' => 'develop',
+            'clone_url' => 'https://github.com/acme/cool-project.git',
+            'pushed_at' => null,
+        ],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->call('selectGitHubRepo', 'acme/cool-project')
+        ->call('clearSelectedRepo')
+        ->assertSet('selected_github_repo', '')
+        ->assertSet('name', '')
+        ->assertSet('git_url', '')
+        ->assertSet('default_branch', 'main');
+});
+
+test('github repo search filters results', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'acme/website',
+            'name' => 'website',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/website.git',
+            'pushed_at' => null,
+        ],
+        [
+            'full_name' => 'acme/api-server',
+            'name' => 'api-server',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/api-server.git',
+            'pushed_at' => null,
+        ],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->set('github_search', 'web')
+        ->assertSee('website')
+        ->assertDontSee('api-server');
+});
+
+test('validation requires name on create', function () {
+    Livewire::test(RepoForm::class)
+        ->set('name', '')
+        ->set('git_url', 'https://github.com/acme/test.git')
+        ->call('save')
+        ->assertHasErrors(['name' => 'required']);
+});
+
+test('validation requires git url on create', function () {
+    Livewire::test(RepoForm::class)
+        ->set('name', 'Test')
+        ->set('git_url', '')
+        ->call('save')
+        ->assertHasErrors(['git_url' => 'required']);
+});
+
+test('validation requires valid ci system', function () {
+    Livewire::test(RepoForm::class)
+        ->set('name', 'Test')
+        ->set('git_url', 'https://github.com/acme/test.git')
+        ->set('ci_system', 'invalid')
+        ->call('save')
+        ->assertHasErrors(['ci_system']);
+});
+
+test('edit form validates slug uniqueness', function () {
+    Repository::factory()->create(['slug' => 'taken-slug']);
+    $repo = Repository::factory()->create(['slug' => 'my-slug']);
 
     Livewire::test(RepoForm::class, ['repository' => $repo])
-        ->set('name', 'Updated Name')
-        ->assertSet('slug', 'original-slug');
-});
-
-test('validation requires slug', function () {
-    Livewire::test(RepoForm::class)
-        ->set('name', 'Test')
-        ->set('slug', '')
-        ->set('path', '/home/test')
-        ->call('save')
-        ->assertHasErrors(['slug' => 'required']);
-});
-
-test('validation requires unique slug', function () {
-    Repository::factory()->create(['slug' => 'taken-slug']);
-
-    Livewire::test(RepoForm::class)
-        ->set('name', 'Test')
         ->set('slug', 'taken-slug')
-        ->set('path', '/home/test')
         ->call('save')
         ->assertHasErrors(['slug' => 'unique']);
 });
 
-test('validation allows same slug on edit', function () {
+test('edit form allows same slug', function () {
     $repo = Repository::factory()->create(['slug' => 'my-slug']);
 
     Livewire::test(RepoForm::class, ['repository' => $repo])
         ->set('slug', 'my-slug')
         ->set('name', 'Updated')
-        ->set('path', '/home/test')
         ->call('save')
         ->assertHasNoErrors(['slug']);
-});
-
-test('validation requires absolute path', function () {
-    Livewire::test(RepoForm::class)
-        ->set('slug', 'test')
-        ->set('name', 'Test')
-        ->set('path', 'relative/path')
-        ->call('save')
-        ->assertHasErrors(['path']);
-});
-
-test('validation requires valid ci system', function () {
-    Livewire::test(RepoForm::class)
-        ->set('slug', 'test')
-        ->set('name', 'Test')
-        ->set('path', '/home/test')
-        ->set('ci_system', 'invalid')
-        ->call('save')
-        ->assertHasErrors(['ci_system']);
 });
 
 test('default toggle clears previous default', function () {
@@ -158,9 +223,8 @@ test('default toggle clears previous default', function () {
 
     Livewire::test(RepoForm::class)
         ->set('name', 'New Default')
-        ->set('slug', 'new-default')
         ->set('git_url', 'https://github.com/acme/new-default.git')
-        ->set('path', '/home/yak/repos/new-default')
+        ->set('default_branch', 'main')
         ->set('is_default', true)
         ->call('save')
         ->assertHasNoErrors();
@@ -190,7 +254,6 @@ test('edit form pre-fills repository data', function () {
         'default_branch' => 'develop',
         'ci_system' => 'drone',
         'sentry_project' => 'my-sentry',
-        'notes' => 'Some notes',
         'is_active' => true,
         'is_default' => true,
     ]);
@@ -202,7 +265,6 @@ test('edit form pre-fills repository data', function () {
         ->assertSet('default_branch', 'develop')
         ->assertSet('ci_system', 'drone')
         ->assertSet('sentry_project', 'my-sentry')
-        ->assertSet('notes', 'Some notes')
         ->assertSet('is_active', true)
         ->assertSet('is_default', true);
 });
@@ -252,4 +314,17 @@ test('rerun setup dispatches new task', function () {
 
     expect($repo->refresh()->setup_task_id)->not->toBeNull();
     expect(YakTask::where('repo', 'rerun-test')->exists())->toBeTrue();
+});
+
+test('sentry projects load as dropdown options', function () {
+    Cache::put('sentry-projects', [
+        ['slug' => 'my-app', 'name' => 'My App'],
+        ['slug' => 'api', 'name' => 'API Service'],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->assertSet('sentry_projects', [
+            ['slug' => 'my-app', 'name' => 'My App'],
+            ['slug' => 'api', 'name' => 'API Service'],
+        ]);
 });

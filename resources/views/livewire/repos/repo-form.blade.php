@@ -8,44 +8,109 @@
     <flux:heading size="xl" class="mb-6">{{ $this->isEditing ? 'Edit Repository' : 'Add Repository' }}</flux:heading>
 
     <form wire:submit="save">
-        {{-- Basics --}}
-        <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <flux:heading size="lg" class="mb-4">{{ __('Basics') }}</flux:heading>
-            <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
-                <flux:input wire:model="slug" label="Slug" description="Auto-generated from name. Must be unique." />
-                <flux:input wire:model.live.debounce.300ms="name" label="Display Name" />
-                <div class="md:col-span-2">
-                    <flux:input wire:model="git_url" label="Git URL" placeholder="https://github.com/your-org/my-project.git" description="HTTPS clone URL. Authenticated via the GitHub App." />
-                </div>
-                <div class="md:col-span-2">
-                    <flux:input wire:model="path" label="Path" placeholder="/home/yak/repos/my-project" description="Auto-filled from slug. The repo will be cloned here." />
-                </div>
-                <flux:input wire:model="default_branch" label="Default Branch" />
-                <div>
-                    <flux:switch wire:model="is_active" label="Active" description="Enabled" />
-                </div>
-                <div>
-                    <flux:switch wire:model="is_default" label="Default Repository" description="Only one repository can be the default." />
-                </div>
-            </div>
-        </div>
+        @unless($this->isEditing)
+            {{-- GitHub Repository Picker (create mode) --}}
+            <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <flux:heading size="lg" class="mb-4">{{ __('GitHub Repository') }}</flux:heading>
 
-        {{-- Integration --}}
+                @if($selected_github_repo)
+                    <div class="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800">
+                        <div class="flex items-center gap-3">
+                            <flux:icon name="folder" variant="mini" class="text-zinc-500" />
+                            <div>
+                                <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selected_github_repo }}</p>
+                                <p class="text-sm text-zinc-500">{{ $default_branch }} branch</p>
+                            </div>
+                        </div>
+                        <flux:button variant="ghost" size="sm" wire:click="clearSelectedRepo">{{ __('Change') }}</flux:button>
+                    </div>
+                @else
+                    <div x-data="{ open: false, highlightedIndex: -1 }" @click.away="open = false" class="relative">
+                        <flux:input
+                            wire:model.live.debounce.300ms="github_search"
+                            placeholder="Search your GitHub repositories..."
+                            icon="magnifying-glass"
+                            @focus="open = true"
+                            @keydown.escape="open = false"
+                            @keydown.arrow-down.prevent="highlightedIndex = Math.min(highlightedIndex + 1, {{ count($this->filteredGitHubRepos) - 1 }})"
+                            @keydown.arrow-up.prevent="highlightedIndex = Math.max(highlightedIndex - 1, 0)"
+                            @keydown.enter.prevent="if (highlightedIndex >= 0) { $refs['repo-' + highlightedIndex]?.click() }"
+                        />
+                        @if(count($this->filteredGitHubRepos) > 0)
+                            <div
+                                x-show="open"
+                                x-cloak
+                                class="absolute z-20 mt-1 w-full rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+                            >
+                                <ul class="max-h-64 overflow-y-auto py-1">
+                                    @foreach($this->filteredGitHubRepos as $index => $repo)
+                                        <li>
+                                            <button
+                                                type="button"
+                                                x-ref="repo-{{ $index }}"
+                                                wire:click="selectGitHubRepo('{{ $repo['full_name'] }}')"
+                                                @click="open = false"
+                                                :class="highlightedIndex === {{ $index }} ? 'bg-zinc-100 dark:bg-zinc-700' : ''"
+                                                @mouseenter="highlightedIndex = {{ $index }}"
+                                                class="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                            >
+                                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $repo['name'] }}</span>
+                                                @if($repo['pushed_at'])
+                                                    <span class="text-xs text-zinc-400">{{ \Carbon\Carbon::parse($repo['pushed_at'])->diffForHumans() }}</span>
+                                                @endif
+                                            </button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <div class="border-t border-zinc-200 px-4 py-2 dark:border-zinc-700">
+                                    <p class="text-xs text-zinc-400">Can't find your repository? Ensure it's authorized in <a href="https://github.com/settings/installations" target="_blank" class="text-accent underline">GitHub</a>.</p>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
+        @endunless
+
+        {{-- Configuration --}}
         <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <flux:heading size="lg" class="mb-4">{{ __('Integration') }}</flux:heading>
+            <flux:heading size="lg" class="mb-4">{{ $this->isEditing ? __('Basics') : __('Configuration') }}</flux:heading>
             <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+                @if($this->isEditing)
+                    <div>
+                        <flux:input wire:model="slug" label="Slug" disabled description="Auto-generated. Cannot be changed." />
+                    </div>
+                @endif
+                <flux:input wire:model="name" label="Display Name" />
+                @if($this->isEditing)
+                    <div class="md:col-span-2">
+                        <flux:input wire:model="git_url" label="Git URL" description="HTTPS clone URL. Authenticated via the GitHub App." />
+                    </div>
+                @endif
+                <flux:input wire:model="default_branch" label="Default Branch" />
                 <flux:select wire:model="ci_system" label="CI System">
                     <flux:select.option value="github_actions">GitHub Actions</flux:select.option>
                     <flux:select.option value="drone">Drone</flux:select.option>
                 </flux:select>
-                <flux:input wire:model="sentry_project" label="Sentry Project Slug" placeholder="my-project" description="Maps incoming Sentry webhooks to this repository." />
+                @if(count($sentry_projects) > 0)
+                    <flux:select wire:model="sentry_project" label="Sentry Project" placeholder="None">
+                        <flux:select.option value="">None</flux:select.option>
+                        @foreach($sentry_projects as $project)
+                            <flux:select.option value="{{ $project['slug'] }}">{{ $project['name'] }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                @else
+                    <flux:input wire:model="sentry_project" label="Sentry Project Slug" placeholder="my-project" description="Maps incoming Sentry webhooks to this repository." />
+                @endif
+                <div>
+                    <flux:switch wire:model="is_default" label="Default Repository" description="Only one repository can be the default." />
+                </div>
+                @if($this->isEditing)
+                    <div>
+                        <flux:switch wire:model="is_active" label="Active" description="Enabled" />
+                    </div>
+                @endif
             </div>
-        </div>
-
-        {{-- Notes --}}
-        <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-            <flux:heading size="lg" class="mb-4">{{ __('Notes') }}</flux:heading>
-            <flux:textarea wire:model="notes" label="Notes" placeholder="Operational context, infrastructure requirements, gotchas..." description="Shown in the dashboard only. Never sent to Claude." rows="4" />
         </div>
 
         @unless($this->isEditing)
@@ -59,7 +124,7 @@
         {{-- Actions --}}
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <flux:button variant="primary" type="submit">{{ __('Save Repository') }}</flux:button>
+                <flux:button variant="primary" type="submit">{{ $this->isEditing ? __('Save Repository') : __('Add Repository') }}</flux:button>
 
                 @if($this->isEditing)
                     <flux:button variant="filled" wire:click.prevent="rerunSetup">{{ __('Re-run Setup') }}</flux:button>
