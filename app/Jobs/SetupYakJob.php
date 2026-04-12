@@ -67,6 +67,8 @@ class SetupYakJob implements ShouldQueue
             $this->preflight($repository);
             $this->ensureDefaultBranch($repository);
 
+            TaskLogger::info($this->task, 'Starting Claude agent');
+
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::setupPrompt($repository->name),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
@@ -114,12 +116,16 @@ class SetupYakJob implements ShouldQueue
             $this->cloneRepository($repository);
         }
 
-        Process::path($repository->path)->run('docker-compose stop');
+        TaskLogger::info($this->task, 'Preflight: stopping docker-compose');
+        Process::path($repository->path)->run('docker-compose stop 2>&1 || true');
 
+        TaskLogger::info($this->task, 'Preflight: killing dev ports');
         $devPorts = [8000, 5173, 3000];
         foreach ($devPorts as $port) {
             Process::run("lsof -ti:{$port} | xargs kill -9 2>/dev/null || true");
         }
+
+        TaskLogger::info($this->task, 'Preflight: complete');
     }
 
     private function cloneRepository(Repository $repository): void
@@ -141,10 +147,14 @@ class SetupYakJob implements ShouldQueue
 
     private function ensureDefaultBranch(Repository $repository): void
     {
+        TaskLogger::info($this->task, 'Ensuring default branch');
         GitOperations::checkoutDefaultBranch($repository);
 
+        TaskLogger::info($this->task, 'Pulling latest from origin');
         Process::path($repository->path)
             ->run("git pull origin {$repository->default_branch}");
+
+        TaskLogger::info($this->task, 'Branch ready');
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result): void
