@@ -21,7 +21,7 @@
     dest: /etc/yak/github-app.pem
     owner: root
     group: root
-    mode: "0600"
+    mode: "0644"
   when: github_app_private_key | default('') | length > 0
 
 - name: Pull Yak Docker image

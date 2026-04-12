@@ -33,9 +33,11 @@ class GitOperations
 
         $helperPath = '/tmp/git-credential-yak';
         file_put_contents($helperPath, "#!/bin/sh\necho username=x-access-token\necho password={$token}\n");
-        chmod($helperPath, 0700);
+        chmod($helperPath, 0755);
 
-        Process::run("git config --global credential.https://github.com.helper {$helperPath}");
+        $home = posix_getpwuid(posix_geteuid())['dir'] ?? '/tmp';
+        Process::env(['HOME' => $home])
+            ->run("git config --global credential.https://github.com.helper {$helperPath}");
 
         self::$credentialsConfigured = true;
     }

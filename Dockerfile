@@ -83,8 +83,11 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache
 
+RUN usermod -aG www-data yak
+
 RUN mkdir -p /data \
-    && chown -R www-data:www-data /data
+    && chown -R www-data:www-data /data \
+    && chmod -R 775 /data
 
 EXPOSE 80
 
