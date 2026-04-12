@@ -98,7 +98,9 @@ return [
         'github' => [
             'driver' => 'github',
             'app_id' => env('YAK_GITHUB_APP_ID'),
-            'private_key' => env('YAK_GITHUB_PRIVATE_KEY'),
+            'private_key' => env('YAK_GITHUB_PRIVATE_KEY_PATH') && file_exists((string) env('YAK_GITHUB_PRIVATE_KEY_PATH'))
+                ? file_get_contents((string) env('YAK_GITHUB_PRIVATE_KEY_PATH'))
+                : env('YAK_GITHUB_PRIVATE_KEY', ''),
             'installation_id' => (int) env('YAK_GITHUB_INSTALLATION_ID'),
             'webhook_secret' => env('YAK_GITHUB_WEBHOOK_SECRET'),
         ],

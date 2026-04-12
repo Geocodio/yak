@@ -15,6 +15,15 @@
     group: root
     mode: "0600"
 
+- name: Write GitHub App private key
+  ansible.builtin.copy:
+    content: "{{ github_app_private_key | default('') }}"
+    dest: /etc/yak/github-app.pem
+    owner: root
+    group: root
+    mode: "0600"
+  when: github_app_private_key | default('') | length > 0
+
 - name: Pull Yak Docker image
   community.docker.docker_image:
     name: "geocodio/yak"
@@ -34,6 +43,7 @@
       - "{{ yak_repo_path }}:/home/yak/repos"
       - "{{ yak_data_path }}:/data"
       - "{{ yak_claude_path }}:/home/yak/.claude"
+      - "/etc/yak/github-app.pem:/etc/yak/github-app.pem:ro"
       - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
       - "/var/run/docker.sock:/var/run/docker.sock"
     env_file: /etc/yak/env
