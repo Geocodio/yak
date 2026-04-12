@@ -8,6 +8,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Exceptions\ClaudeAuthException;
 use App\Services\ClaudeAuthDetector;
 use Illuminate\Support\Facades\Process;
+use Symfony\Component\Process\Process as SymfonyProcess;
 
 class ClaudeCodeRunner implements AgentRunner
 {
@@ -25,42 +26,34 @@ class ClaudeCodeRunner implements AgentRunner
         $command = $this->buildCommand($request, streaming: true);
         $handler = new StreamEventHandler($request->task);
 
-        $process = Process::path($request->workingDirectory)
-            ->timeout($request->timeoutSeconds)
-            ->start($command);
+        $process = SymfonyProcess::fromShellCommandline($command, $request->workingDirectory);
+        $process->setTimeout($request->timeoutSeconds);
 
         $buffer = '';
 
-        while ($process->running()) {
-            $output = $process->latestOutput();
+        $process->start();
 
-            if ($output !== '') {
-                $buffer .= $output;
-
-                // Process complete lines
-                while (($pos = strpos($buffer, "\n")) !== false) {
-                    $line = substr($buffer, 0, $pos);
-                    $buffer = substr($buffer, $pos + 1);
-
-                    $this->processLine($line, $handler);
-                }
+        foreach ($process as $type => $data) {
+            if ($type !== SymfonyProcess::OUT) {
+                continue;
             }
 
-            usleep(50000); // 50ms
+            $buffer .= $data;
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = substr($buffer, 0, $pos);
+                $buffer = substr($buffer, $pos + 1);
+
+                $this->processLine($line, $handler);
+            }
         }
 
-        // Process any remaining buffer
+        // Process remaining buffer
         if (trim($buffer) !== '') {
             $this->processLine($buffer, $handler);
         }
 
-        // Also check for any final output after process ends
-        $finalOutput = $process->latestOutput();
-        if ($finalOutput !== '') {
-            foreach (explode("\n", $finalOutput) as $line) {
-                $this->processLine($line, $handler);
-            }
-        }
+        $process->wait();
 
         $resultEvent = $handler->getResultEvent();
 
@@ -68,14 +61,20 @@ class ClaudeCodeRunner implements AgentRunner
             return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR));
         }
 
-        // Fallback: try to parse the full output
-        $fullOutput = trim($process->output());
+        // Fallback: try full output
+        $fullOutput = trim($process->getOutput());
 
-        if (ClaudeAuthDetector::isAuthError($process)) {
-            throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($process));
+        if ($fullOutput !== '' && str_starts_with($fullOutput, '{')) {
+            return ClaudeCodeOutputParser::parse($fullOutput);
         }
 
-        return ClaudeCodeOutputParser::parse($fullOutput);
+        $errorOutput = trim($process->getErrorOutput());
+
+        if ($errorOutput !== '') {
+            return AgentRunResult::failure($errorOutput, $fullOutput);
+        }
+
+        return AgentRunResult::failure('Claude Code returned no output', '');
     }
 
     private function runBatch(AgentRunRequest $request): AgentRunResult
