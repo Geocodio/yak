@@ -8,9 +8,9 @@
 
 - name: Display Linear webhook configuration reminder
   ansible.builtin.debug:
-    msg: |
-      Linear channel enabled.
-      Ensure your Linear webhook URL is set to:
-        https://{{ yak_domain }}/webhooks/linear
-      Subscribe to: Issue label events
-      Create a 'yak' label in your workspace.
+    msg:
+      - "Linear channel enabled."
+      - "Ensure your Linear webhook URL is set to:"
+      - "  https://{{ yak_domain }}/webhooks/linear"
+      - "Subscribe to: Issue label events"
+      - "Create a 'yak' label in your workspace."

@@ -8,8 +8,8 @@
 
 - name: Display Drone webhook configuration reminder
   ansible.builtin.debug:
-    msg: |
-      Drone CI channel enabled.
-      Configure a webhook on each Drone-CI repo pointing to:
-        https://{{ yak_domain }}/webhooks/ci/drone
-      Set ci_system: drone on repos that use Drone CI.
+    msg:
+      - "Drone CI channel enabled."
+      - "Configure a webhook on each Drone-CI repo pointing to:"
+      - "  https://{{ yak_domain }}/webhooks/ci/drone"
+      - "Set ci_system: drone on repos that use Drone CI."

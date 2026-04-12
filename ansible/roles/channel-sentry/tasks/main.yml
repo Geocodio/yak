@@ -9,8 +9,8 @@
 
 - name: Display Sentry webhook configuration reminder
   ansible.builtin.debug:
-    msg: |
-      Sentry channel enabled.
-      Ensure your Sentry internal integration webhook URL is set to:
-        https://{{ yak_domain }}/webhooks/sentry
-      Create alert rules tagged 'yak-eligible' for issues Yak should handle.
+    msg:
+      - "Sentry channel enabled."
+      - "Ensure your Sentry internal integration webhook URL is set to:"
+      - "  https://{{ yak_domain }}/webhooks/sentry"
+      - "Create alert rules tagged 'yak-eligible' for issues Yak should handle."
