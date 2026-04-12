@@ -37,12 +37,8 @@ class ClaudeCodeRunner implements AgentRunner
             2 => ['pipe', 'w'],  // stderr
         ];
 
-        $env = array_merge($_ENV, $_SERVER, [
-            'HOME' => '/home/yak',
-        ]);
-
-        // Filter out non-string values that proc_open can't handle
-        $env = array_filter($env, fn ($v) => is_string($v) || is_numeric($v));
+        $env = getenv();
+        $env['HOME'] = '/home/yak';
 
         $process = proc_open($command, $descriptors, $pipes, $request->workingDirectory, $env);
 
