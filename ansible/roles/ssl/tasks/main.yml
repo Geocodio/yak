@@ -7,14 +7,15 @@
       - apt-transport-https
     state: present
 
-- name: Add Caddy GPG key
-  ansible.builtin.apt_key:
+- name: Download Caddy GPG key
+  ansible.builtin.get_url:
     url: https://dl.cloudsmith.io/public/caddy/stable/gpg.key
-    state: present
+    dest: /etc/apt/keyrings/caddy.asc
+    mode: "0644"
 
 - name: Add Caddy repository
   ansible.builtin.apt_repository:
-    repo: "deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
+    repo: "deb [signed-by=/etc/apt/keyrings/caddy.asc] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main"
     state: present
 
 - name: Install Caddy
