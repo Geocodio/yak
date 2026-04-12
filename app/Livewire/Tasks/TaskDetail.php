@@ -4,9 +4,12 @@ namespace App\Livewire\Tasks;
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\RunYakJob;
+use App\Jobs\SetupYakJob;
 use App\Models\Artifact;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Livewire\Attributes\Computed;
@@ -28,6 +31,42 @@ class TaskDetail extends Component
     public function mount(YakTask $task): void
     {
         $this->task = $task;
+    }
+
+    public function retry(): void
+    {
+        if (! $this->canRetry()) {
+            return;
+        }
+
+        $this->task->update([
+            'status' => TaskStatus::Pending,
+            'error_log' => null,
+            'result_summary' => null,
+            'cost_usd' => 0,
+            'duration_ms' => 0,
+            'num_turns' => 0,
+            'started_at' => null,
+            'completed_at' => null,
+        ]);
+
+        $job = match ($this->task->mode) {
+            TaskMode::Setup => new SetupYakJob($this->task),
+            default => new RunYakJob($this->task),
+        };
+
+        dispatch($job);
+
+        Flux::toast('Task re-queued.');
+    }
+
+    #[Computed]
+    public function canRetry(): bool
+    {
+        return in_array($this->task->status, [
+            TaskStatus::Failed,
+            TaskStatus::Expired,
+        ]);
     }
 
     public function toggleDebug(): void

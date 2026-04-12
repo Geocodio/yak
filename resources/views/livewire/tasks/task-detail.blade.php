@@ -17,6 +17,9 @@
                     {{ str_replace('_', ' ', $task->status->value) }}
                 </span>
                 <span class="text-xs text-[#6b8fa3]">#{{ $task->id }}</span>
+                @if($this->canRetry)
+                    <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
+                @endif
             </div>
             <h1 class="text-lg font-medium leading-snug text-[#3d4f5f]">{{ $task->description }}</h1>
             <div class="mt-1 flex flex-wrap gap-4">
