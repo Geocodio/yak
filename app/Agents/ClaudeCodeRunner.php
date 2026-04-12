@@ -37,7 +37,14 @@ class ClaudeCodeRunner implements AgentRunner
             2 => ['pipe', 'w'],  // stderr
         ];
 
-        $process = proc_open($command, $descriptors, $pipes, $request->workingDirectory);
+        $env = array_merge($_ENV, $_SERVER, [
+            'HOME' => '/home/yak',
+        ]);
+
+        // Filter out non-string values that proc_open can't handle
+        $env = array_filter($env, fn ($v) => is_string($v) || is_numeric($v));
+
+        $process = proc_open($command, $descriptors, $pipes, $request->workingDirectory, $env);
 
         if (! is_resource($process)) {
             return AgentRunResult::failure('Failed to start Claude process', '');
@@ -130,6 +137,7 @@ class ClaudeCodeRunner implements AgentRunner
         $command = $this->buildCommand($request, streaming: false);
 
         $result = Process::path($request->workingDirectory)
+            ->env(['HOME' => '/home/yak'])
             ->timeout($request->timeoutSeconds)
             ->run($command);
 
