@@ -79,7 +79,9 @@
 
     - role: github-app
       tags: [github-app]
-      when: github_app_id is not defined or github_app_id | length == 0
+      when: not (github_app_id | default(''))
+            or not (github_app_private_key | default(''))
+            or not (github_installation_id | default(''))
 
     - role: mcp-config
       tags: [mcp-config, yak-app, secrets]

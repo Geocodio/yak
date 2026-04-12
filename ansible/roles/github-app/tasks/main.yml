@@ -2,7 +2,7 @@
 - name: Generate webhook secret for GitHub App
   ansible.builtin.set_fact:
     github_webhook_secret: "{{ lookup('password', '/dev/null length=40 chars=ascii_letters,digits') }}"
-  when: github_webhook_secret is not defined or github_webhook_secret | length == 0
+  when: not (github_webhook_secret | default(''))
 
 - name: Create GitHub App manifest
   ansible.builtin.template:
@@ -15,18 +15,63 @@
 - name: Print GitHub App creation instructions
   ansible.builtin.debug:
     msg:
-      - "GitHub App must be created manually via the manifest flow."
+      - "============================================================"
+      - "  GitHub App Setup Required"
+      - "============================================================"
       - ""
-      - "1. Visit: https://github.com/organizations/{{ github_org }}/settings/apps/new"
-      - "2. Create an App with the permissions in the manifest."
-      - "3. Install the App on your organization's repositories."
-      - "4. Note the installation ID from the URL:"
-      - "   github.com/orgs/{{ github_org }}/settings/installations/{ID}"
-      - "5. Update ansible/vault/secrets.yml with:"
-      - "   - github_app_id"
-      - "   - github_app_private_key"
-      - "   - github_installation_id"
-      - "   - github_webhook_secret: {{ github_webhook_secret }}"
-      - "6. Re-run the playbook."
+      - "Yak needs a GitHub App to clone repos and open PRs."
+      - "Follow these steps to create one:"
       - ""
-      - "The app manifest has been written to {{ yak_home }}/github-app-manifest.json"
+      - "1. Go to: https://github.com/organizations/{{ github_org }}/settings/apps/new"
+      - ""
+      - "2. Fill in the form:"
+      - "   - GitHub App name: Yak ({{ github_org }})"
+      - "   - Homepage URL: https://{{ yak_domain }}"
+      - "   - Webhook URL: https://{{ yak_domain }}/webhooks/ci/github"
+      - "   - Webhook secret: {{ github_webhook_secret }}"
+      - ""
+      - "3. Set these Repository permissions:"
+      - "   - Contents: Read & write"
+      - "   - Pull requests: Read & write"
+      - "   - Issues: Read-only"
+      - "   - Checks: Read-only"
+      - "   - Metadata: Read-only"
+      - ""
+      - "4. Subscribe to events:"
+      - "   - Check suite"
+      - "   - Pull request review"
+      - ""
+      - "5. Set 'Where can this GitHub App be installed?' to:"
+      - "   - Only on this account"
+      - ""
+      - "6. Click 'Create GitHub App'"
+      - ""
+      - "7. On the next page, note the App ID (shown at the top)"
+      - ""
+      - "8. Scroll to 'Private keys' and click 'Generate a private key'"
+      - "   - A .pem file will download"
+      - ""
+      - "9. Click 'Install App' in the sidebar, then install it on {{ github_org }}"
+      - "   - Choose 'All repositories' or select specific repos"
+      - "   - Note the installation ID from the URL after installing:"
+      - "     github.com/orgs/{{ github_org }}/settings/installations/{ID}"
+      - ""
+      - "10. Update ansible/vault/secrets.yml with:"
+      - "    github_app_id: <App ID from step 7>"
+      - "    github_installation_id: <ID from step 9>"
+      - "    github_webhook_secret: {{ github_webhook_secret }}"
+      - "    github_app_private_key: |"
+      - "      -----BEGIN RSA PRIVATE KEY-----"
+      - "      <paste .pem contents here, indented 2 spaces>"
+      - "      -----END RSA PRIVATE KEY-----"
+      - ""
+      - "11. Re-run the playbook."
+      - ""
+      - "============================================================"
+
+- name: Wait for user to complete GitHub App setup
+  ansible.builtin.pause:
+    prompt: >-
+      Press Enter after you have updated ansible/vault/secrets.yml with the
+      GitHub App credentials, then re-run the playbook. Or press Ctrl+C then 'A'
+      to abort and come back later.
