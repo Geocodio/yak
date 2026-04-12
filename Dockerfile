@@ -74,6 +74,7 @@ COPY --from=build /app /app
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress
 
 COPY docker/nginx.conf /etc/nginx/sites-available/default
+COPY docker/php.ini /usr/local/etc/php/conf.d/zz-production.ini
 COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-yak.conf
 COPY docker/supervisord.conf /etc/supervisor/conf.d/yak.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
