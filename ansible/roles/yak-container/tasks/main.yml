@@ -34,7 +34,7 @@
     state: started
     restart_policy: unless-stopped
     ports:
-      - "8080:443"
+      - "8080:80"
     volumes:
       - "{{ yak_repo_path }}:/home/yak/repos"
       - "{{ yak_data_path }}:/app/database"

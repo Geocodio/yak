@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-mkdir -p /etc/nginx/ssl
-
-if [ ! -f /etc/nginx/ssl/self-signed.crt ]; then
-    openssl req -x509 -nodes -days 3650 \
-        -newkey rsa:2048 \
-        -keyout /etc/nginx/ssl/self-signed.key \
-        -out /etc/nginx/ssl/self-signed.crt \
-        -subj "/CN=yak"
-fi
-
 if [ ! -f /app/database/database.sqlite ]; then
     touch /app/database/database.sqlite
 fi

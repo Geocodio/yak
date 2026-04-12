@@ -85,7 +85,7 @@ RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
 RUN mkdir -p /app/database \
     && chown -R www-data:www-data /app/database
 
-EXPOSE 443
+EXPOSE 80
 
 VOLUME ["/home/yak/repos", "/app/database", "/home/yak/.claude"]
 
