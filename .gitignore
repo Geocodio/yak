@@ -31,3 +31,5 @@ spec/
 /ansible/inventory/hosts.yml
 /ansible/group_vars/repos.yml
 
+deploy.sh
+

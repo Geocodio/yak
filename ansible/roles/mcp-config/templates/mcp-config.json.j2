@@ -18,12 +18,12 @@
         "SENTRY_AUTH_TOKEN": "{{ sentry_auth_token }}",
         "SENTRY_ORG_SLUG": "{{ sentry_org_slug | default('') }}"
       }
-    }{% endif %}{% if github_app_id is defined and github_app_id | length > 0 %},
+    }{% endif %}{% if github_personal_access_token is defined and github_personal_access_token | length > 0 %},
     "github": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "{{ github_app_private_key }}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "{{ github_personal_access_token }}"
       }
     }{% endif %}
   }
