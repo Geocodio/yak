@@ -30,6 +30,10 @@ class ClaudeCodeRunner implements AgentRunner
         $process = SymfonyProcess::fromShellCommandline($command, $request->workingDirectory);
         $process->setTimeout($request->timeoutSeconds);
 
+        if (SymfonyProcess::isPtySupported()) {
+            $process->setPty(true);
+        }
+
         $buffer = '';
         $lineCount = 0;
 
@@ -125,12 +129,8 @@ class ClaudeCodeRunner implements AgentRunner
         $outputFormat = $streaming ? 'stream-json' : 'json';
         $verboseFlag = $streaming ? ' --verbose' : '';
 
-        // stdbuf -oL forces line buffering so streaming output arrives promptly
-        $stdbuf = $streaming ? 'stdbuf -oL ' : '';
-
         $command = sprintf(
-            '%sclaude -p %s --dangerously-skip-permissions --bare --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
-            $stdbuf,
+            'claude -p %s --dangerously-skip-permissions --bare --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
             escapeshellarg($request->prompt),
             $outputFormat,
             $verboseFlag,
