@@ -96,6 +96,12 @@ class TaskDetail extends Component
         };
     }
 
+    #[Computed]
+    public function pollInterval(): string
+    {
+        return $this->isActiveStatus() ? '5s' : '15s';
+    }
+
     public function isActiveStatus(): bool
     {
         /** @var TaskStatus $status */

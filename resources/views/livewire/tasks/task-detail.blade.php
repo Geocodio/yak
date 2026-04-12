@@ -1,4 +1,4 @@
-<div wire:poll.15s>
+<div wire:poll.{{ $this->pollInterval }}>
     {{-- Breadcrumb --}}
     <div class="mb-6 text-sm">
         <a href="{{ route('tasks') }}" class="font-medium text-[#c4744a] hover:text-[#d4915e]">Tasks</a>
@@ -253,17 +253,52 @@
                 </span>
             </div>
             @foreach($this->logs as $index => $log)
+                @php
+                    $logType = $log->metadata['type'] ?? null;
+                    $isToolUse = $logType === 'tool_use';
+                    $isAssistant = $logType === 'assistant';
+                    $hasOutput = $isToolUse && isset($log->metadata['output']);
+                    $isError = $log->metadata['is_error'] ?? false;
+                    $hasExpandableContent = $hasOutput || $log->metadata;
+                @endphp
                 <div class="mb-2 overflow-hidden rounded-xl border border-[rgba(200,184,154,0.3)] bg-white" wire:key="log-{{ $log->id }}">
                     <button wire:click="toggleLog({{ $index }})" class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)]">
-                        <flux:icon.chevron-right class="!size-3.5 shrink-0 text-[#c8b89a] transition-transform duration-150 {{ ($expandedLogs[$index] ?? false) ? 'rotate-90' : '' }}" />
+                        @if($hasExpandableContent)
+                            <flux:icon.chevron-right class="!size-3.5 shrink-0 text-[#c8b89a] transition-transform duration-150 {{ ($expandedLogs[$index] ?? false) ? 'rotate-90' : '' }}" />
+                        @else
+                            <span class="size-3.5 shrink-0"></span>
+                        @endif
                         <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.1)] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#6b8fa3]">{{ $index + 1 }}</span>
-                        <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $log->level === 'error' ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : ($log->level === 'warning' ? 'bg-[rgba(212,145,94,0.15)] text-[#d4915e]' : 'bg-[rgba(143,179,196,0.15)] text-[#5a8da5]') }}">{{ $log->level }}</span>
-                        <span class="min-w-0 flex-1 truncate text-[13px] text-[#3d4f5f]">{{ $log->message }}</span>
+                        @if($isToolUse)
+                            <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $isError ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : 'bg-[rgba(122,140,94,0.15)] text-[#7a8c5e]' }}">
+                                {{ $log->metadata['tool'] ?? 'tool' }}
+                            </span>
+                        @elseif($isAssistant)
+                            <span class="shrink-0 rounded-md bg-[rgba(196,116,74,0.12)] px-2 py-0.5 font-mono text-[11px] font-medium text-[#c4744a]">
+                                assistant
+                            </span>
+                        @else
+                            <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $log->level === 'error' ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : ($log->level === 'warning' ? 'bg-[rgba(212,145,94,0.15)] text-[#d4915e]' : 'bg-[rgba(143,179,196,0.15)] text-[#5a8da5]') }}">
+                                {{ $log->level }}
+                            </span>
+                        @endif
+                        <span class="min-w-0 flex-1 truncate text-[13px] {{ $isAssistant ? 'italic text-[#6b8fa3]' : 'text-[#3d4f5f]' }}">{{ $log->message }}</span>
+                        @if($hasOutput)
+                            <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.08)] px-1.5 py-0.5 font-mono text-[10px] text-[#6b8fa3]">
+                                {{ $log->metadata['output_lines'] ?? '?' }} lines
+                            </span>
+                        @endif
                         <span class="shrink-0 font-mono text-[11px] text-[#c8b89a]">{{ $log->created_at->format('g:i:s A') }}</span>
                     </button>
                     @if($expandedLogs[$index] ?? false)
                         <div class="border-t border-[rgba(200,184,154,0.25)] bg-[#2b3640] p-4">
-                            <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->message }}@if($log->metadata){{ "\n\n" }}{{ json_encode($log->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}@endif</pre>
+                            @if($hasOutput)
+                                <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['output'] }}</pre>
+                            @elseif($log->metadata)
+                                <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->message }}
+
+{{ json_encode($log->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                            @endif
                         </div>
                     @endif
                 </div>

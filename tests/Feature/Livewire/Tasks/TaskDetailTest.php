@@ -138,8 +138,15 @@ test('it shows timeline from task logs', function () {
         ->assertSee('Assessment complete');
 });
 
-test('it uses polling for live updates', function () {
+test('it uses fast polling for running tasks', function () {
     $task = YakTask::factory()->running()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('wire:poll.5s');
+});
+
+test('it uses slow polling for completed tasks', function () {
+    $task = YakTask::factory()->success()->create();
 
     Livewire::test(TaskDetail::class, ['task' => $task])
         ->assertSeeHtml('wire:poll.15s');

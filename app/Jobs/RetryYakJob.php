@@ -72,6 +72,7 @@ class RetryYakJob implements ShouldQueue
                 model: (string) config('yak.default_model'),
                 resumeSessionId: $this->task->session_id,
                 mcpConfigPath: config('yak.mcp_config_path'),
+                task: $this->task,
             ));
 
             if ($result->isError) {

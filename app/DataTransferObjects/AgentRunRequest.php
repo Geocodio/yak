@@ -2,6 +2,8 @@
 
 namespace App\DataTransferObjects;
 
+use App\Models\YakTask;
+
 final readonly class AgentRunRequest
 {
     public function __construct(
@@ -14,6 +16,7 @@ final readonly class AgentRunRequest
         public string $model,
         public ?string $resumeSessionId = null,
         public ?string $mcpConfigPath = null,
+        public ?YakTask $task = null,
     ) {}
 
     public function isResume(): bool

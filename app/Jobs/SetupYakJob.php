@@ -77,6 +77,7 @@ class SetupYakJob implements ShouldQueue
                 model: (string) config('yak.default_model'),
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
+                task: $this->task,
             ));
 
             if ($result->isError) {
