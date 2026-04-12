@@ -11,15 +11,12 @@
 
 - name: Print Claude CLI login instructions
   ansible.builtin.debug:
-    msg: |
-      ╔══════════════════════════════════════════════════════════════╗
-      ║  Claude Code CLI requires interactive login.                ║
-      ║                                                             ║
-      ║  SSH into the server and run:                               ║
-      ║    docker exec -it {{ yak_container_name }} claude login                         ║
-      ║                                                             ║
-      ║  Follow the browser-based OAuth flow. The session token     ║
-      ║  persists in the mounted /home/yak/.claude volume.          ║
-      ║  This only needs to be done once (or when the token         ║
-      ║  expires/is revoked).                                       ║
-      ╚══════════════════════════════════════════════════════════════╝
+    msg:
+      - "Claude Code CLI requires interactive login."
+      - ""
+      - "SSH into the server and run:"
+      - "  docker exec -it {{ yak_container_name }} claude login"
+      - ""
+      - "Follow the browser-based OAuth flow. The session token"
+      - "persists in the mounted /home/yak/.claude volume."
+      - "This only needs to be done once (or when the token expires)."
