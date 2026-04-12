@@ -64,8 +64,10 @@ google_oauth_client_id: "..."
 google_oauth_client_secret: "..."
 google_oauth_allowed_domains: "yourcompany.com"  # required, comma-separated
 
-# === Auto-provisioned (leave blank) ===
+# === Auto-generated (leave blank) ===
 yak_app_key: ""
+
+# GitHub App (filled after guided setup on first run, then re-run)
 github_app_id: ""
 github_app_private_key: ""
 github_installation_id: ""
