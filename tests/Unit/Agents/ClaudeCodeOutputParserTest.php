@@ -82,6 +82,48 @@ it('accepts result_summary as an alias for result', function () {
     expect($result->resultSummary)->toBe('Alternate key');
 });
 
+it('extracts clarification from embedded JSON in the result text', function () {
+    $embeddedJson = json_encode([
+        'clarification_needed' => true,
+        'options' => [
+            'Add confetti on page load',
+            'Add confetti on button click',
+            'Add confetti as background animation',
+        ],
+    ]);
+
+    $json = json_encode([
+        'result' => "```json\n{$embeddedJson}\n```",
+        'session_id' => 'sess_embedded',
+        'total_cost_usd' => 0.06,
+        'num_turns' => 1,
+        'duration_ms' => 5000,
+        'is_error' => false,
+    ]);
+
+    $result = ClaudeCodeOutputParser::parse($json);
+
+    expect($result->clarificationNeeded)->toBeTrue()
+        ->and($result->clarificationOptions)->toHaveCount(3)
+        ->and($result->clarificationOptions[0])->toBe('Add confetti on page load')
+        ->and($result->isError)->toBeFalse();
+});
+
+it('prefers top-level clarification over embedded', function () {
+    $json = json_encode([
+        'result' => '{"clarification_needed": true, "options": ["embedded option"]}',
+        'session_id' => 'sess_toplevel',
+        'is_error' => false,
+        'clarification_needed' => true,
+        'options' => ['top-level option'],
+    ]);
+
+    $result = ClaudeCodeOutputParser::parse($json);
+
+    expect($result->clarificationNeeded)->toBeTrue()
+        ->and($result->clarificationOptions)->toBe(['top-level option']);
+});
+
 it('defaults missing numeric fields to zero', function () {
     $json = json_encode([
         'result' => 'ok',
