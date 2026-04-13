@@ -32,7 +32,7 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git push *' => Process::result(''),
@@ -146,7 +146,7 @@ test('checks out existing task branch instead of creating new', function () {
 |--------------------------------------------------------------------------
 */
 
-test('preflight runs docker-compose stop and kills dev ports', function () {
+test('preflight runs docker compose stop and kills dev ports', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
@@ -174,7 +174,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
     $job = new RetryYakJob($task);
     $job->handle($fake);
 
-    Process::assertRan(fn ($process) => $process->command === 'docker-compose stop');
+    Process::assertRan(fn ($process) => $process->command === 'docker compose stop');
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:5173'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:3000'));

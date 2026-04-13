@@ -32,7 +32,7 @@ test('successful clarification reply transitions task to awaiting_ci and force p
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git push *' => Process::result(''),

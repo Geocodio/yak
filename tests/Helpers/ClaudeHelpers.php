@@ -23,7 +23,7 @@ function fakeClaudeRun(array $result = [], array $extraFakes = []): void
     $output = json_encode(array_merge($defaults, $result));
 
     Process::fake(array_merge([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git fetch *' => Process::result(''),
         '*git checkout -b *' => Process::result(''),
@@ -53,7 +53,7 @@ function fakeClaudeClarification(array $options = ['Option A', 'Option B', 'Opti
     $output = json_encode(array_merge($defaults, $result));
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git fetch *' => Process::result(''),
         '*git checkout -b *' => Process::result(''),
@@ -83,7 +83,7 @@ function fakeClaudeError(string $message = 'Claude encountered an error', array 
     $output = json_encode(array_merge($defaults, $result));
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git fetch *' => Process::result(''),
         '*git checkout -b *' => Process::result(''),

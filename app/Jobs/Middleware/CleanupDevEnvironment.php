@@ -19,7 +19,7 @@ class CleanupDevEnvironment
         try {
             $next($job);
         } finally {
-            Process::path($this->repoPath)->run('docker-compose stop');
+            Process::path($this->repoPath)->run('docker compose stop');
         }
     }
 }

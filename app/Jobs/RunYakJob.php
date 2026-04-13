@@ -129,7 +129,7 @@ class RunYakJob implements ShouldQueue
 
     private function preflight(Repository $repository): void
     {
-        Process::path($repository->path)->run('docker-compose stop');
+        Process::path($repository->path)->run('docker compose stop');
 
         $devPorts = [8000, 5173, 3000];
         foreach ($devPorts as $port) {

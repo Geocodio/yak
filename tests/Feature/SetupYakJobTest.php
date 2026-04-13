@@ -38,7 +38,7 @@ test('successful setup transitions task to success and repo to ready', function 
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -87,7 +87,7 @@ test('setup transitions repo setup_status through running to ready on success', 
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -133,7 +133,7 @@ test('setup increments attempts', function () {
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -178,7 +178,7 @@ test('setup checks out default branch and pulls latest', function () {
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -207,7 +207,7 @@ test('setup checks out default branch and pulls latest', function () {
 |--------------------------------------------------------------------------
 */
 
-test('preflight runs docker-compose stop and kills dev ports', function () {
+test('preflight runs docker compose stop and kills dev ports', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
@@ -223,7 +223,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -241,7 +241,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
     $job = new SetupYakJob($task);
     $job->handle($fake);
 
-    Process::assertRan(fn ($process) => $process->command === 'docker-compose stop');
+    Process::assertRan(fn ($process) => $process->command === 'docker compose stop');
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:5173'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:3000'));
@@ -269,7 +269,7 @@ test('claude error marks task failed and repo setup_status failed', function () 
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -313,7 +313,7 @@ test('malformed claude output marks task as failed', function () {
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),

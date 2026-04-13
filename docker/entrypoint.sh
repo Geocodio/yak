@@ -20,6 +20,15 @@ usermod -aG yak www-data 2>/dev/null || true
 chown yak:yak /home/yak
 chmod 770 /home/yak
 
+# Allow yak to use the Docker socket (for docker-compose in repos)
+if [ -S /var/run/docker.sock ]; then
+    DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
+    if ! getent group docker > /dev/null 2>&1; then
+        groupadd -g "$DOCKER_GID" docker
+    fi
+    usermod -aG docker yak 2>/dev/null || true
+fi
+
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env
 

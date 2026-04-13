@@ -207,7 +207,7 @@ test('successful run accumulates daily cost', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git reset --hard' => Process::result(''),
         '*git clean -fd' => Process::result(''),

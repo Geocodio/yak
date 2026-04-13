@@ -32,7 +32,7 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git reset --hard' => Process::result(''),
         '*git clean -fd' => Process::result(''),
@@ -129,7 +129,7 @@ test('successful run increments attempts', function () {
 |--------------------------------------------------------------------------
 */
 
-test('preflight runs docker-compose stop and kills dev ports', function () {
+test('preflight runs docker compose stop and kills dev ports', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
@@ -153,7 +153,7 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
     $job = new RunYakJob($task);
     $job->handle($fake);
 
-    Process::assertRan(fn ($process) => $process->command === 'docker-compose stop');
+    Process::assertRan(fn ($process) => $process->command === 'docker compose stop');
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:5173'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:3000'));

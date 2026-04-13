@@ -123,7 +123,7 @@ test('RunYakJob detects auth error and fails task with notification', function (
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git reset --hard' => Process::result(''),
         '*git clean -fd' => Process::result(''),
@@ -166,7 +166,7 @@ test('RetryYakJob detects auth error and fails task with notification', function
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
     ]);
@@ -243,7 +243,7 @@ test('SetupYakJob detects auth error and fails task with notification', function
 
     Process::fake([
         '*git clone *' => Process::result(''),
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git pull *' => Process::result(''),
@@ -280,7 +280,7 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'docker-compose stop' => Process::result(''),
+        'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
     ]);
