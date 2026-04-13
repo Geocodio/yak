@@ -68,7 +68,9 @@ class VideoProcessor
             ]);
 
             // Replace original with processed version
-            rename($outputPath, $inputPath);
+            // Use copy+unlink instead of rename to handle cross-device moves
+            copy($outputPath, $inputPath);
+            @unlink($outputPath);
 
             return $inputPath;
         }
@@ -131,6 +133,8 @@ class VideoProcessor
 
     /**
      * Find the timestamp of the first meaningful visual activity.
+     * Start just before the first scene change — the idle detection will handle
+     * any gap between this and the next activity cluster.
      */
     private static function findFirstActivity(array $sceneTimestamps): float
     {
@@ -138,19 +142,6 @@ class VideoProcessor
             return 0.0;
         }
 
-        // Find the first cluster of scene changes (real activity, not a single flash)
-        for ($i = 0; $i < count($sceneTimestamps); $i++) {
-            $ts = $sceneTimestamps[$i];
-
-            // Check if there's another change within a reasonable window
-            if (isset($sceneTimestamps[$i + 1])
-                && ($sceneTimestamps[$i + 1] - $ts) < self::MIN_START_ACTIVITY_SECONDS * 4) {
-                // Start slightly before the first activity
-                return max(0, $ts - 0.5);
-            }
-        }
-
-        // Only isolated changes — start from the first one
         return max(0, $sceneTimestamps[0] - 0.5);
     }
 
@@ -164,6 +155,7 @@ class VideoProcessor
     {
         $segments = [];
         $currentPos = $trimStart;
+        $seenActivity = false;
 
         // Group scene changes to find idle gaps
         $lastActivityEnd = $trimStart;
@@ -185,15 +177,20 @@ class VideoProcessor
                     ];
                 }
 
-                // Idle segment (sped up)
-                $segments[] = [
-                    'start' => $lastActivityEnd,
-                    'end' => $ts,
-                    'speed' => self::IDLE_SPEED,
-                ];
+                if ($seenActivity) {
+                    // Idle segment (sped up) — only after we've seen real activity
+                    $segments[] = [
+                        'start' => $lastActivityEnd,
+                        'end' => $ts,
+                        'speed' => self::IDLE_SPEED,
+                    ];
+                }
 
+                // Jump to where activity resumes (trims initial idle, speeds up later idle)
                 $currentPos = $ts;
             }
+
+            $seenActivity = true;
 
             // Look ahead to find end of this activity cluster
             $clusterEnd = $ts + 1.0;
@@ -246,6 +243,8 @@ class VideoProcessor
      */
     private static function buildAndRunFfmpeg(string $inputPath, string $outputPath, array $segments): bool
     {
+        $hasDrawtext = self::hasDrawtextFilter();
+
         // Build a complex filter that processes each segment
         $filterParts = [];
         $concatInputs = [];
@@ -281,14 +280,19 @@ class VideoProcessor
                     $label,
                 );
 
-                // Add speed overlay text
-                $filterParts[] = sprintf(
-                    "[%sv_fast]drawtext=text='%dx':fontsize=28:fontcolor=white:borderw=2:bordercolor=black:"
-                    . 'x=w-tw-20:y=20[%sv]',
-                    $label,
-                    $speed,
-                    $label,
-                );
+                if ($hasDrawtext) {
+                    // Semi-transparent pill background + white text overlay
+                    $filterParts[] = sprintf(
+                        '[%sv_fast]drawbox=x=w-100:y=12:w=80:h=36:color=black@0.5:t=fill,'
+                        . "drawtext=text=' %dx':fontfile=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+                        . ':fontsize=22:fontcolor=white:x=w-94:y=18[%sv]',
+                        $label,
+                        $speed,
+                        $label,
+                    );
+                } else {
+                    $filterParts[] = sprintf('[%sv_fast]copy[%sv]', $label, $label);
+                }
             } else {
                 $filterParts[] = sprintf('[%sv_trimmed]copy[%sv]', $label, $label);
             }
@@ -335,6 +339,13 @@ class VideoProcessor
         }
 
         return true;
+    }
+
+    private static function hasDrawtextFilter(): bool
+    {
+        $result = Process::run('ffmpeg -filters 2>&1');
+
+        return str_contains($result->output(), 'drawtext');
     }
 
     private static function generateOutputPath(string $inputPath): string

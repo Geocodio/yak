@@ -33,3 +33,6 @@ spec/
 
 deploy.sh
 
+# Large test fixtures (e2e video processing tests)
+tests/Fixtures/*.webm
+
