@@ -99,11 +99,30 @@ class GitOperations
     }
 
     /**
+     * Reset the working tree to a clean state: discard uncommitted changes,
+     * checkout the default branch, and remove any leftover task branches.
+     */
+    public static function resetWorkingTree(Repository $repository): void
+    {
+        $env = ['HOME' => self::homeDir()];
+
+        Process::path($repository->path)->env($env)
+            ->run('git reset --hard');
+
+        Process::path($repository->path)->env($env)
+            ->run('git clean -fd');
+
+        Process::path($repository->path)->env($env)
+            ->run("git checkout {$repository->default_branch}");
+    }
+
+    /**
      * Create a new branch from origin/{default_branch}.
      */
     public static function createBranch(Repository $repository, string $externalId): string
     {
         self::ensureCredentials();
+        self::resetWorkingTree($repository);
 
         $branchName = self::branchName($externalId);
         $defaultBranch = $repository->default_branch;

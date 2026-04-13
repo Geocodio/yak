@@ -34,6 +34,8 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
+        'git reset --hard' => Process::result(''),
+        'git clean -fd' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),

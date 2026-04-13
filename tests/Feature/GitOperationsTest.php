@@ -13,8 +13,11 @@ use Illuminate\Support\Facades\Process;
 
 test('createBranch fetches origin and creates branch from origin/default_branch', function () {
     Process::fake([
+        'git reset --hard' => Process::result(''),
+        'git clean -fd' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
+        'git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -33,8 +36,11 @@ test('createBranch fetches origin and creates branch from origin/default_branch'
 
 test('createBranch uses repository default_branch for origin ref', function () {
     Process::fake([
+        'git reset --hard' => Process::result(''),
+        'git clean -fd' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
+        'git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -51,8 +57,11 @@ test('createBranch uses repository default_branch for origin ref', function () {
 
 test('createBranch sanitizes special characters in external id', function () {
     Process::fake([
+        'git reset --hard' => Process::result(''),
+        'git clean -fd' => Process::result(''),
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
+        'git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
