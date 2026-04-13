@@ -107,6 +107,15 @@ test('it toggles debug section', function () {
         ->assertSee('12');
 });
 
+test('it shows error prominently in status header for failed tasks', function () {
+    $task = YakTask::factory()->failed()->create([
+        'error_log' => 'Fatal error: something went wrong',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSee('Fatal error: something went wrong');
+});
+
 test('it shows debug error log', function () {
     $task = YakTask::factory()->failed()->create([
         'error_log' => 'Fatal error: something went wrong',

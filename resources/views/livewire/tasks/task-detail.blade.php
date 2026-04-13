@@ -22,6 +22,12 @@
                 @endif
             </div>
             <h1 class="text-lg font-medium leading-snug text-[#3d4f5f]">{{ $task->description }}</h1>
+            @if($task->status === \App\Enums\TaskStatus::Failed && $task->error_log)
+                <div class="mt-2 rounded-xl border border-[rgba(184,84,80,0.2)] bg-[rgba(184,84,80,0.06)] px-4 py-3">
+                    <span class="text-xs font-medium uppercase tracking-wider text-[#b85450]">Error</span>
+                    <p class="mt-1 text-sm leading-relaxed text-[#3d4f5f]">{{ $task->error_log }}</p>
+                </div>
+            @endif
             <div class="mt-1 flex flex-wrap gap-4">
                 <span class="inline-flex items-center gap-1.5 text-xs text-[#6b8fa3]">
                     <flux:icon.wrench-screwdriver class="!size-3.5" />
