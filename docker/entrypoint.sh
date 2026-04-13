@@ -29,6 +29,14 @@ if [ -S /var/run/docker.sock ]; then
     usermod -aG docker yak 2>/dev/null || true
 fi
 
+# Pre-create log files so supervisor doesn't create them as root
+touch /app/storage/logs/yak-claude-worker.log \
+      /app/storage/logs/yak-claude-worker-error.log \
+      /app/storage/logs/default-worker.log \
+      /app/storage/logs/scheduler.log \
+      /app/storage/logs/yak.log
+chown www-data:www-data /app/storage/logs/*.log
+
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env
 
