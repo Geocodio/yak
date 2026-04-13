@@ -50,6 +50,8 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 RUN useradd -m -s /bin/bash yak \
     && mkdir -p /home/yak/repos /home/yak/.claude
 
+ENV HOME=/home/yak
+
 # ── Build frontend assets ────────────────────────────────────────────
 FROM base AS build
 
