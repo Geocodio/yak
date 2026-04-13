@@ -5,22 +5,23 @@ if [ ! -f /data/database.sqlite ]; then
     touch /data/database.sqlite
 fi
 
-chown -R www-data:www-data /data /app/bootstrap/cache
-chown -R www-data:www-data /app/storage
-chmod -R g+w /data /app/storage
+# /data is owned by www-data only — yak user must NOT write here
+chown -R www-data:www-data /data
+chmod -R 750 /data
 
-# Add www-data to yak group so log files created by either user are writable by both
-usermod -aG yak www-data 2>/dev/null || true
-usermod -aG www-data yak 2>/dev/null || true
-
-# Allow www-data (via yak group) to traverse /home/yak for artifact serving
-chmod 750 /home/yak
-
-# Ensure log files are group-writable regardless of which process created them
-chmod -R 664 /app/storage/logs/*.log 2>/dev/null || true
+chown -R www-data:www-data /app/bootstrap/cache /app/storage
+chmod -R 775 /app/storage
 
 # Ensure yak user owns its home directory contents
-chown -R yak:yak /home/yak/repos /home/yak/.claude
+chown -R yak:yak /home/yak/repos /home/yak/.claude /home/yak/.cache /home/yak/.config
+
+# Allow yak to access app logs and storage via group membership
+usermod -aG www-data yak 2>/dev/null || true
+# Allow www-data to read /home/yak/repos for artifact collection
+usermod -aG yak www-data 2>/dev/null || true
+
+# Allow www-data to traverse /home/yak for artifact serving
+chmod 750 /home/yak
 
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env

@@ -41,7 +41,8 @@ class ClaudeCodeRunner implements AgentRunner
         $env['HOME'] = '/home/yak';
         unset($env['ANTHROPIC_API_KEY']);
 
-        $process = proc_open($command, $descriptors, $pipes, $request->workingDirectory, $env);
+        $wrappedCommand = sprintf('sudo runuser -u yak -- bash -c %s', escapeshellarg($command));
+        $process = proc_open($wrappedCommand, $descriptors, $pipes, $request->workingDirectory, $env);
 
         if (! is_resource($process)) {
             return AgentRunResult::failure('Failed to start Claude process', '');
@@ -143,13 +144,15 @@ class ClaudeCodeRunner implements AgentRunner
     {
         $command = $this->buildCommand($request, streaming: false);
 
+        $wrappedCommand = sprintf('sudo runuser -u yak -- bash -c %s', escapeshellarg($command));
+
         $result = Process::path($request->workingDirectory)
             ->env([
                 'HOME' => '/home/yak',
                 'ANTHROPIC_API_KEY' => '',
             ])
             ->timeout($request->timeoutSeconds)
-            ->run($command);
+            ->run($wrappedCommand);
 
         if (ClaudeAuthDetector::isAuthError($result)) {
             throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));

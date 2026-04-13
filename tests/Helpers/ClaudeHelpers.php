@@ -28,7 +28,7 @@ function fakeClaudeRun(array $result = [], array $extraFakes = []): void
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result($output),
+        'sudo *' => Process::result($output),
         'git push *' => Process::result(''),
     ], $extraFakes));
 }
@@ -58,7 +58,7 @@ function fakeClaudeClarification(array $options = ['Option A', 'Option B', 'Opti
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result($output),
+        'sudo *' => Process::result($output),
         'git push *' => Process::result(''),
     ]);
 }
@@ -88,7 +88,7 @@ function fakeClaudeError(string $message = 'Claude encountered an error', array 
         'git fetch *' => Process::result(''),
         'git checkout -b *' => Process::result(''),
         'git checkout *' => Process::result(''),
-        'claude *' => Process::result($output),
+        'sudo *' => Process::result($output),
         'git push *' => Process::result(''),
     ]);
 }

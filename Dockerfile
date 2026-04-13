@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
+    sudo \
     unzip \
     zip \
     libzip-dev \
@@ -53,6 +54,10 @@ RUN useradd -m -s /bin/bash yak \
         /home/yak/.cache /home/yak/.config/chromium \
         /home/yak/.local/share/pki/nssdb \
     && chown -R yak:yak /home/yak
+
+# Allow www-data to drop privileges to yak user for Claude Code execution
+RUN echo 'www-data ALL=(root) NOPASSWD: /usr/sbin/runuser' > /etc/sudoers.d/yak-sandbox \
+    && chmod 440 /etc/sudoers.d/yak-sandbox
 
 ENV HOME=/home/yak
 ENV CLAUDE_CONFIG_DIR=/home/yak/.claude

@@ -25,7 +25,7 @@ function makeRequest(array $overrides = []): AgentRunRequest
 
 it('invokes claude -p for a fresh run and returns an AgentRunResult', function () {
     Process::fake([
-        'claude *' => Process::result(json_encode([
+        'sudo *' => Process::result(json_encode([
             'result' => 'done',
             'session_id' => 'sess_fresh',
             'cost_usd' => 1.25,
@@ -41,9 +41,9 @@ it('invokes claude -p for a fresh run and returns an AgentRunResult', function (
         ->and($result->costUsd)->toBe(1.25)
         ->and($result->isError)->toBeFalse();
 
-    Process::assertRan(fn ($p) => str_contains($p->command, 'claude -p')
+    Process::assertRan(fn ($p) => str_contains($p->command, 'sudo runuser -u yak')
+        && str_contains($p->command, 'claude -p')
         && str_contains($p->command, '--dangerously-skip-permissions')
-
         && str_contains($p->command, '--output-format json')
         && str_contains($p->command, '--model')
         && ! str_contains($p->command, '--resume')
@@ -52,7 +52,7 @@ it('invokes claude -p for a fresh run and returns an AgentRunResult', function (
 
 it('passes --resume when a session id is supplied', function () {
     Process::fake([
-        'claude *' => Process::result(json_encode([
+        'sudo *' => Process::result(json_encode([
             'result' => 'retried',
             'session_id' => 'sess_resumed',
             'is_error' => false,
@@ -68,7 +68,7 @@ it('passes --resume when a session id is supplied', function () {
 
 it('includes --mcp-config when an mcp config path is supplied', function () {
     Process::fake([
-        'claude *' => Process::result(json_encode([
+        'sudo *' => Process::result(json_encode([
             'result' => 'ok',
             'session_id' => 's',
             'is_error' => false,
@@ -84,7 +84,7 @@ it('includes --mcp-config when an mcp config path is supplied', function () {
 
 it('throws ClaudeAuthException when Claude returns an auth error', function () {
     Process::fake([
-        'claude *' => Process::result(
+        'sudo *' => Process::result(
             output: '',
             errorOutput: 'Error: not authenticated. Please run `claude login`',
             exitCode: 1,
@@ -96,7 +96,7 @@ it('throws ClaudeAuthException when Claude returns an auth error', function () {
 
 it('returns a failure result for malformed output without throwing', function () {
     Process::fake([
-        'claude *' => Process::result('not json at all'),
+        'sudo *' => Process::result('not json at all'),
     ]);
 
     $result = (new ClaudeCodeRunner)->run(makeRequest());
@@ -107,7 +107,7 @@ it('returns a failure result for malformed output without throwing', function ()
 
 it('runs the process from the working directory with the request timeout', function () {
     Process::fake([
-        'claude *' => Process::result(json_encode([
+        'sudo *' => Process::result(json_encode([
             'result' => 'ok',
             'session_id' => 's',
             'is_error' => false,
