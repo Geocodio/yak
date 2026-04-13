@@ -39,9 +39,6 @@ class ClaudeCodeRunner implements AgentRunner
 
         $env = getenv();
         $env['HOME'] = '/home/yak';
-
-        // Remove ANTHROPIC_API_KEY so Claude Code uses the Max subscription
-        // auth instead. The API key is for the Laravel routing layer only.
         unset($env['ANTHROPIC_API_KEY']);
 
         $process = proc_open($command, $descriptors, $pipes, $request->workingDirectory, $env);
@@ -175,7 +172,7 @@ class ClaudeCodeRunner implements AgentRunner
         $verboseFlag = $streaming ? ' --verbose' : '';
 
         $command = sprintf(
-            'claude -p %s --dangerously-skip-permissions --bare --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            'claude -p %s --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
             escapeshellarg($request->prompt),
             $outputFormat,
             $verboseFlag,
