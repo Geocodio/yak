@@ -218,7 +218,7 @@ Total time: about 10 minutes.
 Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
 
 ```bash
-docker exec -it yak claude login
+docker exec -u yak -it yak claude login
 ```
 
 Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.

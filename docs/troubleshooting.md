@@ -132,8 +132,8 @@ Symptoms: you `@yak` in Slack (or add a Linear label, or trigger a Sentry alert)
 ### CLI Not Found Or Not Responding
 
 ```bash
-docker exec yak claude --version
-docker exec yak claude -p "Say hello" --output-format json
+docker exec -u yak yak claude --version
+docker exec -u yak yak claude -p "Say hello" --output-format json
 ```
 
 If the first command fails, the CLI isn't installed in the container — rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic — check network connectivity.
@@ -147,7 +147,7 @@ Claude Code authenticates via an interactive `claude login` session token stored
 **Resolution:**
 
 ```bash
-docker exec -it yak claude login
+docker exec -u yak -it yak claude login
 ```
 
 Follow the browser-based OAuth flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
@@ -221,7 +221,7 @@ The `/health` page (and the scheduled `yak:healthcheck` command) runs these chec
 | **Last task completed within N hours** | No traffic, or workers hung on a stuck task |
 | **All repos fetchable** | Git auth issue — re-run `yak:refresh-repos` manually, check SSH key |
 | **Claude CLI responding** | See [Claude CLI errors](#claude-cli-errors) above |
-| **Claude CLI authenticated** | Token expired — run `docker exec -it yak claude login` |
+| **Claude CLI authenticated** | Token expired — run `docker exec -u yak -it yak claude login` |
 | **Enabled channel MCP servers reachable** | Network issue or external service down |
 
 Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.
