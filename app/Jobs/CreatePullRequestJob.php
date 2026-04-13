@@ -124,7 +124,8 @@ class CreatePullRequestJob implements ShouldQueue
             $parts[] = '';
             $parts[] = '### Screenshots';
             foreach ($screenshots as $screenshot) {
-                $parts[] = "- [{$screenshot['filename']}]({$screenshot['url']})";
+                $parts[] = "![{$screenshot['filename']}]({$screenshot['url']})";
+                $parts[] = '';
             }
         }
 
