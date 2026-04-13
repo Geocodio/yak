@@ -194,6 +194,16 @@ class RunYakJob implements ShouldQueue
 
         DailyCost::accumulate($result->costUsd);
 
+        $numberedOptions = collect($result->clarificationOptions)
+            ->map(fn (string $option, int $i) => ($i + 1) . '. ' . $option)
+            ->implode("\n");
+
+        SendNotificationJob::dispatch(
+            $this->task,
+            NotificationType::Clarification,
+            "I need some direction before I can continue. Reply with your choice:\n{$numberedOptions}",
+        );
+
         TaskLogger::info($this->task, 'Clarification posted');
     }
 
