@@ -49,6 +49,12 @@ class GitOperations
         Process::env(['HOME' => self::homeDir()])
             ->run("git config --global credential.https://github.com.helper {$helperPath}");
 
+        Process::env(['HOME' => self::homeDir()])
+            ->run('git config --global user.name "Yak"');
+
+        Process::env(['HOME' => self::homeDir()])
+            ->run('git config --global user.email "yak@geocod.io"');
+
         self::$credentialsConfigured = true;
     }
 

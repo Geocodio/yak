@@ -178,7 +178,7 @@ class RunYakJob implements ShouldQueue
         }
 
         if ($repository->ci_system === 'none') {
-            ProcessCIResultJob::dispatch($this->task, passed: true);
+            ProcessCIResultJob::dispatchSync($this->task, passed: true);
         }
     }
 
