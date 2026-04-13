@@ -63,6 +63,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            'permission' => 0664,
         ],
 
         'yak' => [
@@ -70,6 +71,7 @@ return [
             'path' => storage_path('logs/yak.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            'permission' => 0664,
         ],
 
         'daily' => [

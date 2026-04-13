@@ -5,8 +5,16 @@ if [ ! -f /data/database.sqlite ]; then
     touch /data/database.sqlite
 fi
 
-chown -R www-data:www-data /data /app/storage /app/bootstrap/cache
+chown -R www-data:www-data /data /app/bootstrap/cache
+chown -R www-data:www-data /app/storage
 chmod -R g+w /data /app/storage
+
+# Add www-data to yak group so log files created by either user are writable by both
+usermod -aG yak www-data 2>/dev/null || true
+usermod -aG www-data yak 2>/dev/null || true
+
+# Ensure log files are group-writable regardless of which process created them
+chmod -R 664 /app/storage/logs/*.log 2>/dev/null || true
 
 # Ensure yak user owns its home directory contents
 chown -R yak:yak /home/yak/repos /home/yak/.claude

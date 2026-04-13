@@ -14,6 +14,7 @@ use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class SlackWebhookController extends Controller
 {
@@ -33,6 +34,12 @@ class SlackWebhookController extends Controller
 
         // Ignore bot messages to prevent loops
         if (isset($event['bot_id']) || ($event['subtype'] ?? null) === 'bot_message') {
+            return response()->json(['ok' => true]);
+        }
+
+        // Deduplicate Slack event retries using the event_id
+        $eventId = $request->input('event_id', '');
+        if ($eventId !== '' && ! Cache::add("slack-event:{$eventId}", true, 300)) {
             return response()->json(['ok' => true]);
         }
 

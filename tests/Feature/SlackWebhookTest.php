@@ -11,6 +11,7 @@ use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 
 /**
  * Sign a Slack webhook payload using the v0:timestamp:body format.
@@ -38,6 +39,7 @@ function slackMentionPayload(string $text = 'fix the login bug', array $override
 {
     $payload = array_merge([
         'type' => 'event_callback',
+        'event_id' => $overrides['event_id'] ?? 'Ev' . Str::random(10),
         'event' => array_merge([
             'type' => 'app_mention',
             'text' => '<@U_BOT_ID> ' . $text,
@@ -45,7 +47,7 @@ function slackMentionPayload(string $text = 'fix the login bug', array $override
             'ts' => '1234567890.123456',
             'user' => 'U_USER_ID',
         ], $overrides['event'] ?? []),
-    ], array_diff_key($overrides, ['event' => true]));
+    ], array_diff_key($overrides, ['event' => true, 'event_id' => true]));
 
     return (string) json_encode($payload);
 }
@@ -59,6 +61,7 @@ function slackThreadReplyPayload(string $text, string $channel, string $threadTs
 {
     $payload = array_merge([
         'type' => 'event_callback',
+        'event_id' => $overrides['event_id'] ?? 'Ev' . Str::random(10),
         'event' => array_merge([
             'type' => 'message',
             'text' => $text,
@@ -67,7 +70,7 @@ function slackThreadReplyPayload(string $text, string $channel, string $threadTs
             'ts' => '1234567899.999999',
             'user' => 'U_REPLY_USER',
         ], $overrides['event'] ?? []),
-    ], array_diff_key($overrides, ['event' => true]));
+    ], array_diff_key($overrides, ['event' => true, 'event_id' => true]));
 
     return (string) json_encode($payload);
 }
@@ -424,6 +427,41 @@ it('ignores bot messages to prevent loops', function () {
 
     Queue::assertNotPushed(RunYakJob::class);
     expect(YakTask::count())->toBe(0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Event Deduplication
+|--------------------------------------------------------------------------
+*/
+
+it('deduplicates Slack event retries using event_id', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackMentionPayload('fix the login bug', ['event_id' => 'Ev_DUPLICATE_TEST']);
+    $headers = signSlackPayload($body, $secret);
+
+    $server = [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ];
+
+    // First request — creates a task
+    $this->call('POST', '/webhooks/slack', content: $body, server: $server)->assertSuccessful();
+    expect(YakTask::count())->toBe(1);
+
+    // Retry with same event_id — should be ignored
+    $this->call('POST', '/webhooks/slack', content: $body, server: $server)->assertSuccessful();
+    expect(YakTask::count())->toBe(1);
+
+    // Third retry — still ignored
+    $this->call('POST', '/webhooks/slack', content: $body, server: $server)->assertSuccessful();
+    expect(YakTask::count())->toBe(1);
 });
 
 /*
