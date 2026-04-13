@@ -124,9 +124,9 @@ class ProcessCIResultJob implements ShouldQueue
         $artifacts = [];
 
         foreach ($files as $file) {
-            $storagePath = "artifacts/{$this->task->id}/{$file->getFilename()}";
+            $storagePath = "{$this->task->id}/{$file->getFilename()}";
 
-            Storage::disk('local')->put(
+            Storage::disk('artifacts')->put(
                 $storagePath,
                 File::get($file->getPathname()),
             );

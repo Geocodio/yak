@@ -66,11 +66,11 @@ test('signedUrl is valid according to Laravel URL validator', function () {
 // ---- Signed URL Access (serves file) ----
 
 test('valid signed URL serves artifact without authentication', function () {
-    Storage::fake('local');
+    Storage::fake('artifacts');
     $task = YakTask::factory()->create();
     $artifact = Artifact::factory()->screenshot()->create(['yak_task_id' => $task->id]);
 
-    Storage::disk('local')->put($artifact->disk_path, 'fake-png-content');
+    Storage::disk('artifacts')->put($artifact->disk_path, 'fake-png-content');
 
     $url = $artifact->signedUrl();
     $path = parse_url($url, PHP_URL_PATH) . '?' . parse_url($url, PHP_URL_QUERY);
@@ -111,12 +111,12 @@ test('tampered signed URL is rejected', function () {
 });
 
 test('authenticated users can access artifacts without signed URL', function () {
-    Storage::fake('local');
+    Storage::fake('artifacts');
     $user = User::factory()->create();
     $task = YakTask::factory()->create();
     $artifact = Artifact::factory()->screenshot()->create(['yak_task_id' => $task->id]);
 
-    Storage::disk('local')->put($artifact->disk_path, 'fake-png-content');
+    Storage::disk('artifacts')->put($artifact->disk_path, 'fake-png-content');
 
     $this->actingAs($user);
 

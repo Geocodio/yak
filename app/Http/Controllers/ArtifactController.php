@@ -21,12 +21,12 @@ class ArtifactController extends Controller
             abort(403, 'Invalid or expired signed URL.');
         }
 
-        abort_unless(Storage::disk('local')->exists($artifact->disk_path), 404, 'Artifact file not found.');
+        abort_unless(Storage::disk('artifacts')->exists($artifact->disk_path), 404, 'Artifact file not found.');
 
         $mimeType = $this->guessMimeType($filename);
 
         return response()->file(
-            Storage::disk('local')->path($artifact->disk_path),
+            Storage::disk('artifacts')->path($artifact->disk_path),
             ['Content-Type' => $mimeType],
         );
     }

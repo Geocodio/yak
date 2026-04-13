@@ -9,9 +9,9 @@ test('research findings link opens viewer with iframe and back navigation works'
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    Storage::fake('local');
-    Storage::disk('local')->put(
-        'artifacts/research.html',
+    Storage::fake('artifacts');
+    Storage::disk('artifacts')->put(
+        'research.html',
         '<html><body><h1>Research Results</h1></body></html>'
     );
 
@@ -22,7 +22,7 @@ test('research findings link opens viewer with iframe and back navigation works'
 
     Artifact::factory()->research()->create([
         'yak_task_id' => $task->id,
-        'disk_path' => 'artifacts/research.html',
+        'disk_path' => 'research.html',
     ]);
 
     $page = visit(route('tasks.show', $task));
@@ -41,9 +41,9 @@ test('artifact viewer page displays correct artifact filename', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    Storage::fake('local');
-    Storage::disk('local')->put(
-        'artifacts/research.html',
+    Storage::fake('artifacts');
+    Storage::disk('artifacts')->put(
+        'research.html',
         '<html><body>Content</body></html>'
     );
 
@@ -53,7 +53,7 @@ test('artifact viewer page displays correct artifact filename', function () {
 
     Artifact::factory()->research()->create([
         'yak_task_id' => $task->id,
-        'disk_path' => 'artifacts/research.html',
+        'disk_path' => 'research.html',
     ]);
 
     $page = visit(route('artifacts.viewer', ['task' => $task->id, 'filename' => 'research.html']));

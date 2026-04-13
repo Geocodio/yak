@@ -24,7 +24,7 @@ class ArtifactFactory extends Factory
             'yak_task_id' => YakTask::factory(),
             'type' => 'screenshot',
             'filename' => $filename,
-            'disk_path' => '/home/yak/artifacts/' . $filename,
+            'disk_path' => $filename,
             'size_bytes' => fake()->numberBetween(10000, 5000000),
             'created_at' => now(),
         ];
@@ -38,7 +38,7 @@ class ArtifactFactory extends Factory
             return [
                 'type' => 'screenshot',
                 'filename' => $filename,
-                'disk_path' => '/home/yak/artifacts/' . $filename,
+                'disk_path' => $filename,
                 'size_bytes' => fake()->numberBetween(50000, 2000000),
             ];
         });
@@ -52,7 +52,7 @@ class ArtifactFactory extends Factory
             return [
                 'type' => 'video',
                 'filename' => $filename,
-                'disk_path' => '/home/yak/artifacts/' . $filename,
+                'disk_path' => $filename,
                 'size_bytes' => fake()->numberBetween(1000000, 50000000),
             ];
         });
@@ -63,7 +63,7 @@ class ArtifactFactory extends Factory
         return $this->state(fn (): array => [
             'type' => 'research',
             'filename' => 'research.html',
-            'disk_path' => '/home/yak/artifacts/research.html',
+            'disk_path' => 'research.html',
             'size_bytes' => fake()->numberBetween(5000, 100000),
         ]);
     }

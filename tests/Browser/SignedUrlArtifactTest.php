@@ -6,9 +6,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
 test('screenshot accessible via signed url without auth', function () {
-    Storage::fake('local');
-    Storage::disk('local')->put(
-        'artifacts/screenshot.png',
+    Storage::fake('artifacts');
+    Storage::disk('artifacts')->put(
+        'screenshot.png',
         file_get_contents(__DIR__ . '/../Fixtures/1x1.png')
     );
 
@@ -17,7 +17,7 @@ test('screenshot accessible via signed url without auth', function () {
     $artifact = Artifact::factory()->screenshot()->create([
         'yak_task_id' => $task->id,
         'filename' => 'screenshot.png',
-        'disk_path' => 'artifacts/screenshot.png',
+        'disk_path' => 'screenshot.png',
     ]);
 
     $signedUrl = $artifact->signedUrl();
@@ -26,9 +26,9 @@ test('screenshot accessible via signed url without auth', function () {
 });
 
 test('expired signed url shows error', function () {
-    Storage::fake('local');
-    Storage::disk('local')->put(
-        'artifacts/screenshot.png',
+    Storage::fake('artifacts');
+    Storage::disk('artifacts')->put(
+        'screenshot.png',
         file_get_contents(__DIR__ . '/../Fixtures/1x1.png')
     );
 
@@ -37,7 +37,7 @@ test('expired signed url shows error', function () {
     Artifact::factory()->screenshot()->create([
         'yak_task_id' => $task->id,
         'filename' => 'screenshot.png',
-        'disk_path' => 'artifacts/screenshot.png',
+        'disk_path' => 'screenshot.png',
     ]);
 
     $expiredUrl = URL::temporarySignedRoute(
@@ -52,9 +52,9 @@ test('expired signed url shows error', function () {
 });
 
 test('tampered signed url is rejected', function () {
-    Storage::fake('local');
-    Storage::disk('local')->put(
-        'artifacts/screenshot.png',
+    Storage::fake('artifacts');
+    Storage::disk('artifacts')->put(
+        'screenshot.png',
         file_get_contents(__DIR__ . '/../Fixtures/1x1.png')
     );
 
@@ -63,7 +63,7 @@ test('tampered signed url is rejected', function () {
     Artifact::factory()->screenshot()->create([
         'yak_task_id' => $task->id,
         'filename' => 'screenshot.png',
-        'disk_path' => 'artifacts/screenshot.png',
+        'disk_path' => 'screenshot.png',
     ]);
 
     $signedUrl = URL::temporarySignedRoute(

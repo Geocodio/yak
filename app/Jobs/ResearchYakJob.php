@@ -152,9 +152,9 @@ class ResearchYakJob implements ShouldQueue
             return null;
         }
 
-        $storagePath = "artifacts/{$this->task->id}/research.html";
+        $storagePath = "{$this->task->id}/research.html";
 
-        Storage::disk('local')->put($storagePath, File::get($sourcePath));
+        Storage::disk('artifacts')->put($storagePath, File::get($sourcePath));
 
         return Artifact::create([
             'yak_task_id' => $this->task->id,
