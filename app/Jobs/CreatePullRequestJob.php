@@ -40,6 +40,11 @@ class CreatePullRequestJob implements ShouldQueue
             'body' => $this->buildPrBody($repository, $signedUrls),
         ]);
 
+        if (! isset($prResponse['number'], $prResponse['html_url'])) {
+            $error = $prResponse['message'] ?? json_encode($prResponse);
+            throw new \RuntimeException("GitHub PR creation failed: {$error}");
+        }
+
         $prNumber = $prResponse['number'];
         $prUrl = $prResponse['html_url'];
 
