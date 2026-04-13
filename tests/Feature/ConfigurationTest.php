@@ -24,8 +24,8 @@ test('max_attempts defaults to 2', function () {
     expect(config('yak.max_attempts'))->toBe(2);
 });
 
-test('max_turns defaults to 40', function () {
-    expect(config('yak.max_turns'))->toBe(40);
+test('max_turns defaults to 150', function () {
+    expect(config('yak.max_turns'))->toBe(150);
 });
 
 test('default_model defaults to opus', function () {

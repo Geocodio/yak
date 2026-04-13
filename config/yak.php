@@ -20,7 +20,7 @@ return [
 
     'max_attempts' => (int) env('YAK_MAX_ATTEMPTS', 2),
 
-    'max_turns' => (int) env('YAK_MAX_TURNS', 40),
+    'max_turns' => (int) env('YAK_MAX_TURNS', 150),
 
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
