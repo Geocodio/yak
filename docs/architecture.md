@@ -287,6 +287,7 @@ Claude Code runs with `--dangerously-skip-permissions` on every invocation. No t
 - **No production access.** No production databases, no customer data, no deployment pipelines.
 - **Network allowlist.** Only GitHub, Anthropic, npm, and the enabled channel APIs are reachable.
 - **Process isolation.** Claude Code runs as the `yak` user, which has no write access outside `/home/yak/repos/` and `/home/yak/.claude/`. The database, artifacts, and application files are owned by `www-data` and inaccessible to the agent process.
+- **Environment isolation.** Container env vars (DB credentials, API keys, etc.) are stripped by the `sudo runuser` sandbox. Only explicitly allowlisted vars are forwarded — configure via `agent_extra_env` in Ansible (see [setup.md](setup.md#agent-environment-variables)).
 
 Claude can do anything it wants inside that sandbox. The walls are physical, not logical.
 

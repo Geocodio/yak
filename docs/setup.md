@@ -100,7 +100,27 @@ sentry_org_slug: ""
 
 drone_url: ""
 drone_token: ""
+
+# === Extra Agent Environment Variables ===
+# agent_extra_env:
+#   NODE_AUTH_TOKEN: "ghp_..."
+#   NPM_TOKEN: "..."
 ```
+
+#### Agent Environment Variables
+
+Repos that need tokens at build time (e.g. private npm registries) can have those tokens forwarded to the agent process. Add them to `agent_extra_env` in your vault:
+
+```yaml
+agent_extra_env:
+  NODE_AUTH_TOKEN: "ghp_..."
+```
+
+This does two things automatically:
+1. Sets `NODE_AUTH_TOKEN=ghp_...` as a container env var (available to `npm install`)
+2. Sets `YAK_AGENT_PASSTHROUGH_ENV=NODE_AUTH_TOKEN` so the sandboxed agent process receives it
+
+Only vars listed here are forwarded — app secrets like `DB_PASSWORD` and `APP_KEY` are never exposed to the agent.
 
 The `google_oauth_allowed_domains` field is **required**. Login is rejected for any email whose domain is not in the list.
 

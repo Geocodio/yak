@@ -62,7 +62,7 @@ Symptoms: adding a new repo via the dashboard or Ansible, and the repo's `setup_
 
 - **Missing system dependencies** — the repo's dev environment needs a tool that isn't in the Yak Docker image (e.g., a specific Node version, or `pg_config`).
 - **Docker-in-Docker issues** — the repo's `docker-compose.yml` references services that need privileged mode or specific network configuration.
-- **Private package registry auth** — the repo uses a private composer/npm registry and the credentials aren't reachable.
+- **Private package registry auth** — the repo uses a private npm/composer registry and the token isn't configured. See [Agent Environment Variables](#agent-environment-variables-not-visible) below.
 - **`CLAUDE.md` missing or misleading** — Claude couldn't figure out the correct setup commands from the README alone.
 
 ### Diagnosis
@@ -225,6 +225,39 @@ The `/health` page (and the scheduled `yak:healthcheck` command) runs these chec
 | **Enabled channel MCP servers reachable** | Network issue or external service down |
 
 Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.
+
+## Agent Environment Variables Not Visible
+
+Symptoms: the agent can't find a token that's set in the container (e.g. `npm install` fails with 401 on a private registry even though `NODE_AUTH_TOKEN` is in the container env).
+
+### Cause
+
+The agent runs as a sandboxed `yak` user via `sudo runuser`. This strips all environment variables for security — app secrets like `DB_PASSWORD` are never exposed to the agent. Only explicitly allowlisted vars are forwarded.
+
+### Resolution
+
+Add the token to `agent_extra_env` in your Ansible vault:
+
+```yaml
+agent_extra_env:
+  NODE_AUTH_TOKEN: "ghp_..."
+```
+
+Then redeploy. The template automatically:
+1. Sets the token as a container env var
+2. Adds it to `YAK_AGENT_PASSTHROUGH_ENV` so the agent receives it through the sandbox
+
+To verify it's working after deploy:
+
+```bash
+docker exec yak sudo runuser -u yak -- env | grep NODE_AUTH_TOKEN
+```
+
+If the var appears, the agent can see it. If not, check that `YAK_AGENT_PASSTHROUGH_ENV` is set in the container:
+
+```bash
+docker exec yak printenv YAK_AGENT_PASSTHROUGH_ENV
+```
 
 ## Emergency: Kill Everything And Restart
 
