@@ -1,0 +1,27 @@
+services:
+  mariadb:
+    image: mariadb:11
+    ports:
+      - "127.0.0.1:3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: yak
+      MARIADB_USER: yak
+      MARIADB_PASSWORD: yak
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  mariadb-test:
+    image: mariadb:11
+    ports:
+      - "127.0.0.1:3307:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: yak_test
+      MARIADB_USER: yak
+      MARIADB_PASSWORD: yak
+    tmpfs:
+      - /var/lib/mysql
+
+volumes:
+  mariadb-data:
