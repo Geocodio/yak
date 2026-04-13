@@ -51,6 +51,7 @@ RUN useradd -m -s /bin/bash yak \
     && mkdir -p /home/yak/repos /home/yak/.claude
 
 ENV HOME=/home/yak
+ENV CLAUDE_CONFIG_DIR=/home/yak/.claude
 
 # ── Build frontend assets ────────────────────────────────────────────
 FROM base AS build
