@@ -26,7 +26,4 @@ php artisan migrate --force --no-interaction
 php artisan route:cache --no-interaction
 php artisan view:cache --no-interaction
 
-# Install agent-browser skill for Claude Code (idempotent)
-su -s /bin/bash yak -c 'npx skills add vercel-labs/agent-browser 2>/dev/null || true'
-
 exec "$@"

@@ -49,3 +49,17 @@
       - "/var/run/docker.sock:/var/run/docker.sock"
     env_file: /etc/yak/env
     recreate: true
+
+- name: Install Claude Code skills
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    user: yak
+    command: "npx skills add {{ item }}"
+  loop:
+    - vercel-labs/agent-browser
+    - vercel-labs/agent-skills/vercel-react-best-practices
+    - anthropics/skills/frontend-design
+    - vercel-labs/agent-skills/web-design-guidelines
+    - remotion-dev/skills/remotion-best-practices
+    - nextlevelbuilder/ui-ux-pro-max-skill/ui-ux-pro-max
+    - pbakaus/impeccable/polish
