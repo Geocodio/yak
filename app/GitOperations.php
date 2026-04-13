@@ -42,7 +42,7 @@ class GitOperations
 
         $token = app(GitHubAppService::class)->getInstallationToken($installationId);
 
-        $helperPath = '/tmp/git-credential-yak';
+        $helperPath = self::homeDir() . '/.git-credential-yak';
         file_put_contents($helperPath, "#!/bin/sh\necho username=x-access-token\necho password={$token}\n");
         chmod($helperPath, 0755);
 
