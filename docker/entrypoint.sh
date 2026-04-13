@@ -13,6 +13,9 @@ chmod -R g+w /data /app/storage
 usermod -aG yak www-data 2>/dev/null || true
 usermod -aG www-data yak 2>/dev/null || true
 
+# Allow www-data (via yak group) to traverse /home/yak for artifact serving
+chmod 750 /home/yak
+
 # Ensure log files are group-writable regardless of which process created them
 chmod -R 664 /app/storage/logs/*.log 2>/dev/null || true
 

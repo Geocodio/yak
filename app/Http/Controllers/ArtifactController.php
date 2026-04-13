@@ -13,14 +13,6 @@ class ArtifactController extends Controller
 {
     public function show(Request $request, YakTask $task, string $filename): BinaryFileResponse|StreamedResponse
     {
-        \Log::info('ArtifactController::show', [
-            'task_id' => $task->id,
-            'filename' => $filename,
-            'artifact_count' => $task->artifacts()->count(),
-            'scheme' => $request->getScheme(),
-            'url' => $request->fullUrl(),
-        ]);
-
         $artifact = $task->artifacts()
             ->where('filename', $filename)
             ->firstOrFail();
@@ -31,6 +23,12 @@ class ArtifactController extends Controller
 
         $path = $artifact->disk_path;
 
+        if (file_exists($path)) {
+            $mimeType = $this->guessMimeType($filename);
+
+            return response()->file($path, ['Content-Type' => $mimeType]);
+        }
+
         if (Storage::disk('local')->exists($path)) {
             $mimeType = $this->guessMimeType($filename);
 
@@ -38,12 +36,6 @@ class ArtifactController extends Controller
                 Storage::disk('local')->path($path),
                 ['Content-Type' => $mimeType]
             );
-        }
-
-        if (file_exists($path)) {
-            $mimeType = $this->guessMimeType($filename);
-
-            return response()->file($path, ['Content-Type' => $mimeType]);
         }
 
         abort(404, 'Artifact file not found.');
