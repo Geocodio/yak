@@ -140,26 +140,38 @@ class GitOperations
 
     /**
      * Push a branch to origin.
+     *
+     * @throws \RuntimeException if the push fails
      */
     public static function pushBranch(Repository $repository, string $branchName): void
     {
         self::ensureCredentials();
 
-        Process::path($repository->path)
+        $result = Process::path($repository->path)
             ->env(['HOME' => self::homeDir()])
             ->run("git push origin {$branchName}");
+
+        if ($result->exitCode() !== 0) {
+            throw new \RuntimeException("Git push failed: {$result->errorOutput()}");
+        }
     }
 
     /**
      * Force push a branch to origin (used on retry).
+     *
+     * @throws \RuntimeException if the push fails
      */
     public static function forcePushBranch(Repository $repository, string $branchName): void
     {
         self::ensureCredentials();
 
-        Process::path($repository->path)
+        $result = Process::path($repository->path)
             ->env(['HOME' => self::homeDir()])
             ->run("git push --force origin {$branchName}");
+
+        if ($result->exitCode() !== 0) {
+            throw new \RuntimeException("Git force push failed: {$result->errorOutput()}");
+        }
     }
 
     /**

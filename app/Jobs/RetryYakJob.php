@@ -135,7 +135,7 @@ class RetryYakJob implements ShouldQueue
         }
 
         if ($repository->ci_system === 'none') {
-            ProcessCIResultJob::dispatchSync($this->task, passed: true);
+            ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         }
     }
 
