@@ -37,6 +37,16 @@ touch /app/storage/logs/yak-claude-worker.log \
       /app/storage/logs/yak.log
 chown www-data:www-data /app/storage/logs/*.log
 
+# Restore Claude config if missing (lost on container restart since /home/yak is not a volume)
+if [ ! -f /home/yak/.claude.json ] && [ -d /home/yak/.claude/backups ]; then
+    LATEST_BACKUP=$(ls -t /home/yak/.claude/backups/.claude.json.backup.* 2>/dev/null | head -1)
+    if [ -n "$LATEST_BACKUP" ]; then
+        cp "$LATEST_BACKUP" /home/yak/.claude.json
+        chown yak:yak /home/yak/.claude.json
+        echo "Restored Claude config from $LATEST_BACKUP"
+    fi
+fi
+
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env
 
