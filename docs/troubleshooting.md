@@ -133,7 +133,7 @@ Symptoms: you `@yak` in Slack (or add a Linear label, or trigger a Sentry alert)
 
 ```bash
 docker exec yak claude --version
-docker exec yak claude -p "Say hello" --output-format json --bare
+docker exec yak claude -p "Say hello" --output-format json
 ```
 
 If the first command fails, the CLI isn't installed in the container — rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic — check network connectivity.

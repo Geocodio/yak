@@ -43,7 +43,7 @@ it('invokes claude -p for a fresh run and returns an AgentRunResult', function (
 
     Process::assertRan(fn ($p) => str_contains($p->command, 'claude -p')
         && str_contains($p->command, '--dangerously-skip-permissions')
-        && str_contains($p->command, '--bare')
+
         && str_contains($p->command, '--output-format json')
         && str_contains($p->command, '--model')
         && ! str_contains($p->command, '--resume')

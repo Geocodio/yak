@@ -21,7 +21,6 @@ The exact invocation for every task:
 ```bash
 claude -p "$TASK_PROMPT" \
     --dangerously-skip-permissions \
-    --bare \
     --output-format json \
     --model opus \
     --max-turns 40 \
@@ -33,7 +32,6 @@ claude -p "$TASK_PROMPT" \
 | Flag | Why |
 |---|---|
 | `--dangerously-skip-permissions` | Isolated server, no production access. Machine is the boundary. |
-| `--bare` | No user-level hooks or plugins. `CLAUDE.md` still loads from the repo. |
 | `--output-format json` | Parseable result with cost, session_id, success/failure |
 | `--model opus` | Implementation always uses Opus |
 | `--max-turns 40` | Enough for read → plan → edit → test → fix → commit. Not infinite. |
