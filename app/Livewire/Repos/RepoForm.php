@@ -161,8 +161,10 @@ class RepoForm extends Component
 
         // Auto-generate slug and path for new repositories
         if (! $this->repository) {
-            $this->slug = $this->generateUniqueSlug($this->name);
-            $this->path = '/home/yak/repos/' . $this->slug;
+            $this->slug = $this->selected_github_repo !== ''
+                ? $this->selected_github_repo
+                : $this->generateUniqueSlug($this->name);
+            $this->path = '/home/yak/repos/' . str($this->name)->slug();
         }
 
         if ($this->is_default) {
