@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\SlackInputDriver;
 use App\Enums\NotificationType;
+use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
@@ -225,6 +226,7 @@ class SlackWebhookController extends Controller
 
         $task->update([
             'repo' => $repository->slug,
+            'status' => TaskStatus::Pending,
             'clarification_options' => null,
             'clarification_expires_at' => null,
         ]);

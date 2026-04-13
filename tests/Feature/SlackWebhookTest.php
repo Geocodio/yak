@@ -433,6 +433,7 @@ it('resolves repo from clarification reply using full slug', function () {
 
     $task->refresh();
     expect($task->repo)->toBe('Geocodio/geocodio-website');
+    expect($task->status)->toBe(TaskStatus::Pending);
     expect($task->clarification_options)->toBeNull();
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);

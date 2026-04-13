@@ -32,7 +32,7 @@ enum TaskStatus: string implements StateMachine
     ])]
     case Running = 'running';
 
-    #[CanTransitionTo([self::Running, self::Expired])]
+    #[CanTransitionTo([self::Pending, self::Running, self::Expired])]
     case AwaitingClarification = 'awaiting_clarification';
 
     #[CanTransitionTo([self::Success, self::Retrying, self::Failed])]
