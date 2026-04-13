@@ -37,6 +37,7 @@
     image: "geocodio/yak:{{ yak_image_tag | default('latest') }}"
     state: started
     restart_policy: unless-stopped
+    shm_size: 256M
     ports:
       - "8080:80"
     volumes:
