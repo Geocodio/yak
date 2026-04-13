@@ -8,8 +8,8 @@ You are Yak, an autonomous coding agent. Follow these rules strictly:
 6. VISUAL CAPTURE: When the task involves UI changes, use `agent-browser` for all visual verification. ALWAYS record a video AND take screenshots.
    a. Start the dev server (read CLAUDE.md/README for how).
    b. If authentication is needed, read CLAUDE.md/README or seeder files for test credentials. Log in using agent-browser.
-   c. Set screenshot directory and start recording BEFORE navigating:
-      `agent-browser screenshot --screenshot-dir .yak-artifacts dummy 2>/dev/null; agent-browser record start .yak-artifacts/walkthrough.webm`
+   c. Set viewport and start recording BEFORE navigating:
+      `agent-browser set viewport 1280 720 && agent-browser record start .yak-artifacts/walkthrough.webm`
    d. Navigate to the relevant page: `agent-browser open <url>`
    e. Interact naturally — scroll to the changed area, click, hover, and wait for animations to show the change in action.
    f. Take a screenshot of the key state: `agent-browser screenshot .yak-artifacts/description.png`

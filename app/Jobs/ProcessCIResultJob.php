@@ -9,6 +9,7 @@ use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
+use App\Services\VideoProcessor;
 use App\Services\YakPersonality;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -125,18 +126,25 @@ class ProcessCIResultJob implements ShouldQueue
 
         foreach ($files as $file) {
             $storagePath = "{$this->task->id}/{$file->getFilename()}";
+            $type = $this->detectArtifactType($file->getExtension());
 
             Storage::disk('artifacts')->put(
                 $storagePath,
                 File::get($file->getPathname()),
             );
 
+            // Post-process video walkthroughs (trim dead start, speed up idle sections)
+            if ($type === 'video') {
+                $fullPath = Storage::disk('artifacts')->path($storagePath);
+                VideoProcessor::process($fullPath);
+            }
+
             $artifacts[] = Artifact::create([
                 'yak_task_id' => $this->task->id,
-                'type' => $this->detectArtifactType($file->getExtension()),
+                'type' => $type,
                 'filename' => $file->getFilename(),
                 'disk_path' => $storagePath,
-                'size_bytes' => $file->getSize(),
+                'size_bytes' => Storage::disk('artifacts')->size($storagePath),
             ]);
         }
 
