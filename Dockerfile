@@ -48,7 +48,10 @@ RUN npm install -g @anthropic-ai/claude-code agent-browser
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 RUN useradd -m -s /bin/bash yak \
-    && mkdir -p /home/yak/repos /home/yak/.claude
+    && mkdir -p /home/yak/repos /home/yak/.claude \
+        /home/yak/.cache /home/yak/.config/chromium \
+        /home/yak/.local/share/pki/nssdb \
+    && chown -R yak:yak /home/yak
 
 ENV HOME=/home/yak
 ENV CLAUDE_CONFIG_DIR=/home/yak/.claude
