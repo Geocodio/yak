@@ -3,16 +3,15 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\SlackInputDriver;
-use App\Drivers\SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
-use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -104,8 +103,7 @@ class SlackWebhookController extends Controller
                 ->first();
 
             if ($dummyTask !== null) {
-                $message = YakPersonality::generate(NotificationType::Acknowledgment, "Working across repos: {$repoList}");
-                $notification->send($dummyTask, NotificationType::Acknowledgment, $message);
+                SendNotificationJob::dispatch($dummyTask, NotificationType::Acknowledgment, "Working across repos: {$repoList}");
             }
 
             return response()->json(['ok' => true]);
@@ -129,10 +127,8 @@ class SlackWebhookController extends Controller
             ]);
 
             TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
-            $notification = new SlackNotificationDriver;
             $optionList = implode(', ', $repoOptions);
-            $message = YakPersonality::generate(NotificationType::Clarification, "Which repo should I work in? Options: {$optionList}");
-            $notification->send($task, NotificationType::Clarification, $message);
+            SendNotificationJob::dispatch($task, NotificationType::Clarification, "Which repo should I work in? Options: {$optionList}");
 
             return response()->json(['ok' => true]);
         }
@@ -153,9 +149,7 @@ class SlackWebhookController extends Controller
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repoSlug]);
-        $notification = new SlackNotificationDriver;
-        $message = YakPersonality::generate(NotificationType::Acknowledgment, "Task: {$task->description}");
-        $notification->send($task, NotificationType::Acknowledgment, $message);
+        SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Task: {$task->description}");
 
         RunYakJob::dispatch($task);
 

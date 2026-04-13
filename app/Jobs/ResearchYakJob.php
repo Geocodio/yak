@@ -92,8 +92,7 @@ class ResearchYakJob implements ShouldQueue
             ]);
 
             $this->handleError($e->getMessage());
-            $message = YakPersonality::generate(NotificationType::Error, $e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $message);
+            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('ResearchYakJob failed', [
                 'task_id' => $this->task->id,

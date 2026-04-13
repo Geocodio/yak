@@ -5,6 +5,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
@@ -327,10 +328,9 @@ it('ignores non-yak label changes', function () {
 |--------------------------------------------------------------------------
 */
 
-it('posts acknowledgment comment with task URL on pickup', function () {
+it('dispatches acknowledgment notification on pickup', function () {
     $secret = enableLinearChannel();
     Queue::fake();
-    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->default()->create();
 
@@ -345,30 +345,9 @@ it('posts acknowledgment comment with task URL on pickup', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    $task = YakTask::first();
-
-    assertLinearComment("/tasks/{$task->id}");
-});
-
-it('posts acknowledgment comment on pickup', function () {
-    $secret = enableLinearChannel();
-    Queue::fake();
-    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-
-    Repository::factory()->default()->create();
-
-    $body = linearLabelPayload([
-        'issueId' => 'issue-uuid-008',
-        'previousLabelIds' => [],
-    ]);
-    $signature = signLinearPayload($body, $secret);
-
-    $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
-        'CONTENT_TYPE' => 'application/json',
-    ])->assertSuccessful();
-
-    assertLinearComment('On it!');  // Falls back to personality fallback when no API key
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Acknowledgment;
+    });
 });
 
 /*

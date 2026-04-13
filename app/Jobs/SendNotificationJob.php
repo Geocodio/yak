@@ -9,6 +9,7 @@ use App\Drivers\LinearNotificationDriver;
 use App\Drivers\SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
+use App\Services\YakPersonality;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -37,7 +38,8 @@ class SendNotificationJob implements ShouldQueue
             return;
         }
 
-        $driver->send($this->task, $this->type, $this->message);
+        $personalizedMessage = YakPersonality::generate($this->type, $this->message);
+        $driver->send($this->task, $this->type, $personalizedMessage);
     }
 
     private function resolveDriver(): ?NotificationDriver

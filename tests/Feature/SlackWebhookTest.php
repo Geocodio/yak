@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
@@ -292,7 +293,10 @@ it('enters awaiting_clarification when no repo specified and multiple active rep
     expect($task->status->value)->toBe('awaiting_clarification');
     expect($task->clarification_options)->toBeArray()->toHaveCount(2);
 
-    Queue::assertNothingPushed();
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Clarification;
+    });
 });
 
 it('uses single active repo without clarification for slack', function () {
@@ -324,10 +328,9 @@ it('uses single active repo without clarification for slack', function () {
 |--------------------------------------------------------------------------
 */
 
-it('posts acknowledgment to Slack thread with dashboard link', function () {
+it('dispatches acknowledgment notification on task pickup', function () {
     $secret = enableSlackChannel();
     Queue::fake();
-    Http::fake(['*' => Http::response(['ok' => true])]);
 
     Repository::factory()->default()->create();
 
@@ -340,9 +343,9 @@ it('posts acknowledgment to Slack thread with dashboard link', function () {
         'CONTENT_TYPE' => 'application/json',
     ]);
 
-    $task = YakTask::first();
-
-    assertSlackThreadReply('C12345678', '1234567890.123456', "/tasks/{$task->id}");
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Acknowledgment;
+    });
 });
 
 /*
