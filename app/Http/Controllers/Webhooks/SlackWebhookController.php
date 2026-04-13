@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
@@ -176,10 +177,59 @@ class SlackWebhookController extends Controller
             ->first();
 
         if ($task !== null) {
+            $replyText = $event['text'] ?? '';
             TaskLogger::info($task, 'Clarification received');
-            ClarificationReplyJob::dispatch($task, $event['text'] ?? '');
+
+            if ($task->repo === 'unknown' && $task->session_id === null) {
+                $this->handleRepoClarification($task, $replyText);
+            } else {
+                ClarificationReplyJob::dispatch($task, $replyText);
+            }
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Handle a repo clarification reply — match the reply text to one of the
+     * offered repo options, update the task, and dispatch RunYakJob.
+     */
+    private function handleRepoClarification(YakTask $task, string $replyText): void
+    {
+        $options = $task->clarification_options ?? [];
+        $replyNormalized = str($replyText)->lower()->trim()->replaceMatches('/[\s\-_]+/', '-');
+
+        // Match against the offered repo slugs (e.g. "Geocodio/geocodio-website")
+        // Normalizes spaces/hyphens/underscores so "geocodio website" matches "geocodio-website"
+        $matchedSlug = collect($options)->first(function (string $slug) use ($replyNormalized) {
+            $fullNorm = str($slug)->lower()->replaceMatches('/[\s\-_]+/', '-');
+            $nameNorm = str($slug)->afterLast('/')->lower()->replaceMatches('/[\s\-_]+/', '-');
+
+            return $replyNormalized->contains($fullNorm) || $replyNormalized->contains($nameNorm);
+        });
+
+        if ($matchedSlug === null) {
+            TaskLogger::warning($task, 'Could not match repo from reply', ['reply' => $replyText, 'options' => $options]);
+            SendNotificationJob::dispatch($task, NotificationType::Clarification, "I didn't recognise that repo. Options: " . implode(', ', $options));
+
+            return;
+        }
+
+        $repository = Repository::where('slug', $matchedSlug)->where('is_active', true)->first();
+
+        if ($repository === null) {
+            TaskLogger::error($task, "Matched repo slug '{$matchedSlug}' not found or inactive");
+
+            return;
+        }
+
+        $task->update([
+            'repo' => $repository->slug,
+            'clarification_options' => null,
+            'clarification_expires_at' => null,
+        ]);
+
+        TaskLogger::info($task, "Repo resolved to {$repository->slug}");
+        RunYakJob::dispatch($task);
     }
 }

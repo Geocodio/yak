@@ -401,6 +401,168 @@ it('ignores thread reply when no task is awaiting clarification', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Repo Clarification Reply
+|--------------------------------------------------------------------------
+*/
+
+it('resolves repo from clarification reply using full slug', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'Geocodio/geocodio-website', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'status' => TaskStatus::AwaitingClarification,
+        'session_id' => null,
+        'slack_channel' => 'C_REPO_CLAR',
+        'slack_thread_ts' => '5555555555.555555',
+        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $body = slackThreadReplyPayload('Geocodio/geocodio-website', 'C_REPO_CLAR', '5555555555.555555');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task->refresh();
+    expect($task->repo)->toBe('Geocodio/geocodio-website');
+    expect($task->clarification_options)->toBeNull();
+
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(ClarificationReplyJob::class);
+});
+
+it('resolves repo from clarification reply using partial name', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'Geocodio/geocodio-website', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'status' => TaskStatus::AwaitingClarification,
+        'session_id' => null,
+        'slack_channel' => 'C_REPO_PART',
+        'slack_thread_ts' => '6666666666.666666',
+        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $body = slackThreadReplyPayload('geocodio-website', 'C_REPO_PART', '6666666666.666666');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task->refresh();
+    expect($task->repo)->toBe('Geocodio/geocodio-website');
+
+    Queue::assertPushed(RunYakJob::class);
+    Queue::assertNotPushed(ClarificationReplyJob::class);
+});
+
+it('resolves repo from clarification reply with spaces instead of hyphens', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'Geocodio/geocodio-website', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'status' => TaskStatus::AwaitingClarification,
+        'session_id' => null,
+        'slack_channel' => 'C_REPO_FUZZY',
+        'slack_thread_ts' => '9999999999.999999',
+        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $body = slackThreadReplyPayload('geocodio website', 'C_REPO_FUZZY', '9999999999.999999');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task->refresh();
+    expect($task->repo)->toBe('Geocodio/geocodio-website');
+
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('re-prompts when repo clarification reply does not match any option', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'status' => TaskStatus::AwaitingClarification,
+        'session_id' => null,
+        'slack_channel' => 'C_REPO_BAD',
+        'slack_thread_ts' => '7777777777.777777',
+        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $body = slackThreadReplyPayload('something unrelated', 'C_REPO_BAD', '7777777777.777777');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task->refresh();
+    expect($task->repo)->toBe('unknown');
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification);
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertNotPushed(ClarificationReplyJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Clarification);
+});
+
+it('dispatches ClarificationReplyJob for agent clarification (not repo)', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    $task = YakTask::factory()->awaitingClarification()->create([
+        'repo' => 'my-repo',
+        'session_id' => 'sess_existing',
+        'slack_channel' => 'C_AGENT_CLAR',
+        'slack_thread_ts' => '8888888888.888888',
+    ]);
+
+    $body = slackThreadReplyPayload('Option A', 'C_AGENT_CLAR', '8888888888.888888');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Queue::assertPushed(ClarificationReplyJob::class);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+/*
+|--------------------------------------------------------------------------
 | Bot Message Filtering
 |--------------------------------------------------------------------------
 */
