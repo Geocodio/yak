@@ -83,7 +83,19 @@ class RunYakJob implements ShouldQueue
             ));
 
             if ($result->isError) {
-                $this->handleError($repository, $result->resultSummary ?: 'Agent returned an error or malformed output');
+                TaskMetricsAccumulator::applyFresh($this->task, $result);
+
+                $errorMessage = $result->resultSummary ?: 'Agent returned an error or malformed output';
+
+                Log::channel('yak')->error('Agent error details', [
+                    'task_id' => $this->task->id,
+                    'error' => $errorMessage,
+                    'num_turns' => $result->numTurns,
+                    'cost_usd' => $result->costUsd,
+                    'duration_ms' => $result->durationMs,
+                ]);
+
+                $this->handleError($repository, $errorMessage);
 
                 return;
             }

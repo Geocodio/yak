@@ -108,18 +108,28 @@ class ClaudeCodeRunner implements AgentRunner
             'stderr_length' => strlen($stderrOutput),
         ]);
 
+        if ($stderrOutput !== '') {
+            Log::channel('yak')->warning('Claude stream stderr', [
+                'task_id' => $request->task?->id,
+                'stderr' => substr($stderrOutput, 0, 2000),
+            ]);
+        }
+
         $resultEvent = $handler->getResultEvent();
 
         if ($resultEvent !== null) {
+            Log::channel('yak')->info('Claude result event', [
+                'task_id' => $request->task?->id,
+                'is_error' => $resultEvent['is_error'] ?? false,
+                'result' => substr((string) ($resultEvent['result'] ?? ''), 0, 500),
+                'num_turns' => $resultEvent['num_turns'] ?? null,
+                'total_cost_usd' => $resultEvent['total_cost_usd'] ?? null,
+            ]);
+
             return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR));
         }
 
         if ($stderrOutput !== '') {
-            Log::channel('yak')->warning('Claude stream stderr', [
-                'task_id' => $request->task?->id,
-                'stderr' => substr($stderrOutput, 0, 500),
-            ]);
-
             return AgentRunResult::failure($stderrOutput, '');
         }
 
