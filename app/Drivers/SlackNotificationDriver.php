@@ -30,7 +30,21 @@ class SlackNotificationDriver implements NotificationDriver
 
     private function formatMessage(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string
     {
-        return "{$message}\n{$dashboardLink}";
+        return $this->markdownToSlack($message) . "\n{$dashboardLink}";
+    }
+
+    /**
+     * Convert common Markdown formatting to Slack mrkdwn.
+     */
+    private function markdownToSlack(string $text): string
+    {
+        // **bold** → *bold*
+        $text = (string) preg_replace('/\*\*(.+?)\*\*/', '*$1*', $text);
+
+        // [text](url) → <url|text>
+        $text = (string) preg_replace('/\[(.+?)\]\((.+?)\)/', '<$2|$1>', $text);
+
+        return $text;
     }
 
     private function taskDashboardLink(YakTask $task): string
