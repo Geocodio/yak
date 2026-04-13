@@ -116,7 +116,7 @@ test('forcePushBranch runs git push --force origin with branch name', function (
 
     GitOperations::forcePushBranch($repository, 'yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => $process->command === 'git push --force origin yak/ISSUE-42');
+    Process::assertRan(fn ($process) => $process->command === 'git push --force-with-lease origin yak/ISSUE-42');
 });
 
 /*

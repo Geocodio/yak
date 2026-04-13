@@ -167,10 +167,10 @@ class GitOperations
 
         $result = Process::path($repository->path)
             ->env(['HOME' => self::homeDir()])
-            ->run("git push --force origin {$branchName}");
+            ->run("git push --force-with-lease origin {$branchName}");
 
         if ($result->exitCode() !== 0) {
-            throw new \RuntimeException("Git force push failed: {$result->errorOutput()}");
+            throw new \RuntimeException("Git push --force-with-lease failed: {$result->errorOutput()}");
         }
     }
 
