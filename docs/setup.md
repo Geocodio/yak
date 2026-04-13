@@ -5,6 +5,7 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 ## What You End Up With
 
 - A dedicated server running the Yak Docker container (Laravel app, queue workers, scheduler, nginx)
+- A MariaDB container with persistent storage for the application database
 - Webhook endpoints for whichever channels you have enabled
 - A dashboard at `https://{your-domain}` behind Google OAuth
 - Claude Code CLI configured with MCP servers matching your enabled channels
@@ -74,6 +75,10 @@ google_oauth_allowed_domains: "yourcompany.com"  # required, comma-separated
 
 # === Auto-generated (leave blank) ===
 yak_app_key: ""
+
+# Database (auto-provisioned MariaDB container)
+mariadb_root_password: ""
+mariadb_password: ""
 
 # GitHub App (filled after guided setup on first run, then re-run)
 github_app_id: ""
@@ -207,9 +212,10 @@ This single command runs the following roles in order:
 3. **ssl** — provisions a Let's Encrypt certificate via Caddy, configures log rotation
 4. **github-app** — creates and installs the GitHub App on your org (skipped if already provisioned)
 5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
-6. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
-7. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
-8. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
+6. **mariadb** — runs a MariaDB 11 container with persistent storage on a Docker network
+7. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
+8. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
+9. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
 
 Total time: about 10 minutes.
 

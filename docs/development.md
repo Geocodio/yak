@@ -8,12 +8,12 @@ This page is for people working on Yak itself — fixing bugs in the Laravel app
 
 | Tool | Version | Notes |
 |---|---|---|
-| **PHP** | 8.4+ | With `sqlite3` and `pdo_sqlite` extensions |
+| **PHP** | 8.4+ | With `pdo_mysql` extension |
 | **Composer** | 2.x | `composer --version` to verify |
 | **Node** | 20+ | For building frontend assets and running Playwright |
-| **SQLite** | 3.x | `sqlite3 --version` |
+| **Docker** | 24+ | For MariaDB via docker-compose |
 
-You do NOT need Claude Code CLI, Docker, Chromium, or Ansible to develop on Yak. Those are runtime dependencies for a production Yak instance — tests fake all external process calls via Laravel's `Process::fake()` and `Http::fake()`.
+You do NOT need Claude Code CLI, Chromium, or Ansible to develop on Yak. Those are runtime dependencies for a production Yak instance — tests fake all external process calls via Laravel's `Process::fake()` and `Http::fake()`.
 
 ### Getting Started
 
@@ -28,12 +28,14 @@ composer install
 npm install
 npm run build
 
+# Start MariaDB
+docker compose up -d
+
 # Set up the environment
 cp .env.example .env
 php artisan key:generate
 
-# Create the SQLite database and run migrations
-touch database/database.sqlite
+# Run migrations
 php artisan migrate --seed
 ```
 
@@ -322,7 +324,7 @@ Http::fake([
 
 ### Database
 
-All feature tests use SQLite in-memory via `RefreshDatabase` (configured globally in `tests/Pest.php`). No test database to manage, no shared state between tests.
+All feature tests use SQLite in-memory via `RefreshDatabase` (configured globally in `tests/Pest.php`). The application uses MariaDB in development and production, but tests use SQLite in-memory for speed — no test database container needed.
 
 ### Naming
 

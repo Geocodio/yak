@@ -241,7 +241,7 @@ docker start yak
 docker exec yak php artisan yak:healthcheck
 ```
 
-SQLite data, repo clones, and the Claude session token all persist across restarts via mounted volumes. Nothing is lost.
+MariaDB runs as a separate container (`yak-mariadb`) and is unaffected by Yak container restarts. Repo clones and the Claude session token persist via mounted volumes. Nothing is lost.
 
 If supervisord itself is wedged, restart the container outright:
 
@@ -249,7 +249,37 @@ If supervisord itself is wedged, restart the container outright:
 docker restart yak
 ```
 
-This is safe — the queues are SQLite-backed and any in-flight jobs will be retried on the next worker boot (with the caveat that tasks mid-`claude -p` session may be left in `running` and need manual reset per the earlier section).
+This is safe — the queues are MariaDB-backed and any in-flight jobs will be retried on the next worker boot (with the caveat that tasks mid-`claude -p` session may be left in `running` and need manual reset per the earlier section).
+
+## MariaDB Issues
+
+### Container Not Starting
+
+```bash
+docker logs yak-mariadb --tail 50
+```
+
+Common causes: data directory permissions, port 3306 already in use, or corrupted InnoDB tablespace.
+
+### Connection Refused From Yak
+
+Verify both containers are on the same Docker network:
+
+```bash
+docker network inspect yak
+```
+
+Both `yak` and `yak-mariadb` should appear. If not, re-run Ansible.
+
+### Resetting The Database
+
+```bash
+docker stop yak-mariadb
+rm -rf /home/yak/mariadb-data/*
+docker start yak-mariadb
+# Wait for init, then re-run migrations
+docker exec yak php artisan migrate --force
+```
 
 ## Collecting Diagnostics For A Bug Report
 

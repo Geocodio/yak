@@ -236,7 +236,7 @@ This is the single biggest cost optimization in Yak. A fresh session starting fr
 
 ## The Data Model
 
-Five tables, deliberately minimal. SQLite is the backing store — single file, no separate database server, no Redis.
+Five tables, deliberately minimal. MariaDB is the backing store, running as a separate Docker container with its own persistent volume.
 
 ### `tasks`
 
@@ -286,6 +286,7 @@ Claude Code runs with `--dangerously-skip-permissions` on every invocation. No t
 - **Dedicated server.** Completely separate from production. No VPN, no Tailscale, no shared network.
 - **No production access.** No production databases, no customer data, no deployment pipelines.
 - **Network allowlist.** Only GitHub, Anthropic, npm, and the enabled channel APIs are reachable.
+- **Process isolation.** Claude Code runs as the `yak` user, which has no write access outside `/home/yak/repos/` and `/home/yak/.claude/`. The database, artifacts, and application files are owned by `www-data` and inaccessible to the agent process.
 
 Claude can do anything it wants inside that sandbox. The walls are physical, not logical.
 
@@ -327,4 +328,4 @@ Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed UR
 - **Not horizontally scaled.** One queue worker for Claude Code, one server. The architecture supports future scaling but doesn't need it.
 - **Not a long-running agent.** Every task is one-shot. No back-and-forth refinement. If a task needs iterative discussion, use a normal Claude session.
 - **Not a frontend framework.** Dashboard is Livewire (server-rendered) with Livewire polling for live updates. No SPA, no websockets.
-- **Not Kubernetes-anything.** Single Docker container on a dedicated server. Laravel's database queue driver. Boring stack.
+- **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) on a dedicated server. Laravel's database queue driver. Boring stack.
