@@ -30,15 +30,7 @@ class SlackNotificationDriver implements NotificationDriver
 
     private function formatMessage(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string
     {
-        return match ($type) {
-            NotificationType::Acknowledgment => "🤖 Task acknowledged. {$message}\n{$dashboardLink}",
-            NotificationType::Progress => "⏳ {$message}\n{$dashboardLink}",
-            NotificationType::Clarification => "❓ Clarification needed: {$message}\n{$dashboardLink}",
-            NotificationType::Retry => "🔄 {$message}\n{$dashboardLink}",
-            NotificationType::Result => "✅ {$message}\n{$dashboardLink}",
-            NotificationType::Expiry => "⏰ {$message}\n{$dashboardLink}",
-            NotificationType::Error => "🚨 {$message}\n{$dashboardLink}",
-        };
+        return "{$message}\n{$dashboardLink}";
     }
 
     private function taskDashboardLink(YakTask $task): string

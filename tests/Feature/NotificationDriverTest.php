@@ -25,9 +25,9 @@ it('Slack: posts acknowledgment with dashboard link', function () {
         'slack_thread_ts' => '1111111111.111111',
     ]);
 
-    (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, "I'm on it.");
+    (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Horns down, hooves moving — on it! 🐃');
 
-    assertSlackThreadReply('C_ACK', '1111111111.111111', 'Task acknowledged');
+    assertSlackThreadReply('C_ACK', '1111111111.111111', 'Horns down, hooves moving');
     assertSlackThreadReply(textContains: "/tasks/{$task->id}");
 });
 
@@ -56,10 +56,9 @@ it('Slack: posts clarification options', function () {
         'slack_thread_ts' => '3333333333.333333',
     ]);
 
-    (new SlackNotificationDriver)->send($task, NotificationType::Clarification, 'Which approach should I use?');
+    (new SlackNotificationDriver)->send($task, NotificationType::Clarification, 'Which approach should I use? ❓');
 
-    assertSlackThreadReply('C_CLAR', '3333333333.333333', 'Clarification needed');
-    assertSlackThreadReply(textContains: 'Which approach should I use?');
+    assertSlackThreadReply('C_CLAR', '3333333333.333333', 'Which approach should I use?');
 });
 
 it('Slack: posts retry notification', function () {
@@ -147,9 +146,9 @@ it('Linear: posts acknowledgment comment with dashboard link', function () {
         'external_id' => 'issue-ack-uuid',
     ]);
 
-    (new LinearNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Yak picked up this issue.');
+    (new LinearNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Horns down — trotting over to this issue! 🐃');
 
-    assertLinearComment('Task acknowledged');
+    assertLinearComment('Horns down');
     assertLinearComment("/tasks/{$task->id}");
 });
 

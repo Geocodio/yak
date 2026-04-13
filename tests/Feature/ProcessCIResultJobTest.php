@@ -621,7 +621,7 @@ test('first failure posts CI failed retrying to source', function () {
 
     Http::assertSent(function ($request) {
         return str_contains($request->url(), 'slack.com/api/chat.postMessage')
-            && str_contains($request['text'], 'CI failed, retrying');
+            && str_contains($request['text'], 'Retrying.');  // Personality fallback
     });
 });
 

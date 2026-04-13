@@ -11,6 +11,7 @@ use App\Jobs\RunYakJob;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
+use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -115,7 +116,8 @@ class LinearWebhookController extends Controller
 
         TaskLogger::info($task, 'Task created', ['source' => 'linear', 'repo' => $repoSlug]);
         $notification = new LinearNotificationDriver;
-        $notification->send($task, NotificationType::Acknowledgment, 'Yak picked up this issue.');
+        $message = YakPersonality::generate(NotificationType::Acknowledgment, "Issue: {$description->body}");
+        $notification->send($task, NotificationType::Acknowledgment, $message);
 
         RunYakJob::dispatch($task);
 

@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
+use App\Services\YakPersonality;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -32,11 +33,11 @@ class TimeoutAwaitingCiCommand extends Command
 
             TaskLogger::warning($task, 'Task failed — CI timeout');
 
-            SendNotificationJob::dispatch(
-                $task,
+            $message = YakPersonality::generate(
                 NotificationType::Error,
                 "CI timed out after {$timeoutMinutes} minutes. You can retry from the dashboard.",
             );
+            SendNotificationJob::dispatch($task, NotificationType::Error, $message);
 
             $this->components->info("Timed out task #{$task->id}");
         }

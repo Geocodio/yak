@@ -2,12 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\GitOperations;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
+use App\Services\YakPersonality;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
@@ -59,7 +61,8 @@ class ProcessCIResultJob implements ShouldQueue
         $prUrl = $this->task->pr_url ?? '';
 
         TaskLogger::info($this->task, 'PR created', ['pr_url' => $prUrl]);
-        $this->postToSource("PR created: {$prUrl}");
+        $message = YakPersonality::generate(NotificationType::Result, "PR created: {$prUrl}");
+        $this->postToSource($message);
 
         if ($this->task->source === 'linear') {
             $this->moveLinearToInReview();
@@ -76,7 +79,8 @@ class ProcessCIResultJob implements ShouldQueue
 
     private function handleRetry(): void
     {
-        $this->postToSource('CI failed, retrying');
+        $message = YakPersonality::generate(NotificationType::Retry, 'CI failed, retrying');
+        $this->postToSource($message);
 
         $this->task->update([
             'status' => TaskStatus::Retrying,
@@ -91,7 +95,8 @@ class ProcessCIResultJob implements ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
         $failureSummary = $this->output ?? 'CI failed after maximum attempts';
-        $this->postToSource("CI failed: {$failureSummary}");
+        $message = YakPersonality::generate(NotificationType::Error, "CI failed: {$failureSummary}");
+        $this->postToSource($message);
 
         $this->task->update([
             'status' => TaskStatus::Failed,

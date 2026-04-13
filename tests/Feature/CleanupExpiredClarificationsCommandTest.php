@@ -25,7 +25,7 @@ test('expires tasks past their clarification_expires_at', function () {
     Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) use ($task) {
         return $job->task->id === $task->id
             && $job->type === NotificationType::Expiry
-            && str_contains($job->message, 'Closing this');
+            && str_contains($job->message, 'timed out');  // Personality fallback
     });
 });
 

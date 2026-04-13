@@ -41,17 +41,7 @@ class GitHubNotificationDriver implements NotificationDriver
 
     private function formatComment(NotificationType $type, string $message, string $dashboardLink): string
     {
-        $prefix = match ($type) {
-            NotificationType::Acknowledgment => '🤖 Task acknowledged.',
-            NotificationType::Progress => '⏳ Progress:',
-            NotificationType::Clarification => '❓ Clarification needed:',
-            NotificationType::Retry => '🔄 Retry:',
-            NotificationType::Result => '✅ Result:',
-            NotificationType::Expiry => '⏰ Expired:',
-            NotificationType::Error => '🚨 Error:',
-        };
-
-        return "{$prefix} {$message}\n\n[View on Dashboard]({$dashboardLink})";
+        return "{$message}\n\n[View on Dashboard]({$dashboardLink})";
     }
 
     private function extractPrNumber(string $prUrl): ?int

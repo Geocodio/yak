@@ -12,6 +12,7 @@ use App\Jobs\RunYakJob;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
+use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -103,7 +104,8 @@ class SlackWebhookController extends Controller
                 ->first();
 
             if ($dummyTask !== null) {
-                $notification->send($dummyTask, NotificationType::Acknowledgment, "I'm on it — working across: {$repoList}");
+                $message = YakPersonality::generate(NotificationType::Acknowledgment, "Working across repos: {$repoList}");
+                $notification->send($dummyTask, NotificationType::Acknowledgment, $message);
             }
 
             return response()->json(['ok' => true]);
@@ -129,7 +131,8 @@ class SlackWebhookController extends Controller
             TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
             $notification = new SlackNotificationDriver;
             $optionList = implode(', ', $repoOptions);
-            $notification->send($task, NotificationType::Acknowledgment, "Which repo should I work in? Options: {$optionList}");
+            $message = YakPersonality::generate(NotificationType::Clarification, "Which repo should I work in? Options: {$optionList}");
+            $notification->send($task, NotificationType::Clarification, $message);
 
             return response()->json(['ok' => true]);
         }
@@ -151,7 +154,8 @@ class SlackWebhookController extends Controller
 
         TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repoSlug]);
         $notification = new SlackNotificationDriver;
-        $notification->send($task, NotificationType::Acknowledgment, "I'm on it.");
+        $message = YakPersonality::generate(NotificationType::Acknowledgment, "Task: {$task->description}");
+        $notification->send($task, NotificationType::Acknowledgment, $message);
 
         RunYakJob::dispatch($task);
 

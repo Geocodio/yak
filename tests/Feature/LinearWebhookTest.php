@@ -368,7 +368,7 @@ it('posts acknowledgment comment on pickup', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    assertLinearComment('Task acknowledged');
+    assertLinearComment('On it!');  // Falls back to personality fallback when no API key
 });
 
 /*

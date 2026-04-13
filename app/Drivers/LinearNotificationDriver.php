@@ -32,15 +32,7 @@ class LinearNotificationDriver implements NotificationDriver
 
     private function formatComment(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string
     {
-        return match ($type) {
-            NotificationType::Acknowledgment => "🤖 Task acknowledged. {$message}\n\n[View on Dashboard]({$dashboardLink})",
-            NotificationType::Progress => "⏳ {$message}\n\n[View on Dashboard]({$dashboardLink})",
-            NotificationType::Clarification => "❓ Clarification needed: {$message}\n\n[View on Dashboard]({$dashboardLink})",
-            NotificationType::Retry => "🔄 {$message}\n\n[View on Dashboard]({$dashboardLink})",
-            NotificationType::Result => "✅ {$message}\n\n[View on Dashboard]({$dashboardLink})",
-            NotificationType::Expiry => "⏰ {$message}\n\n[View on Dashboard]({$dashboardLink})",
-            NotificationType::Error => "🚨 {$message}\n\n[View on Dashboard]({$dashboardLink})",
-        };
+        return "{$message}\n\n[View on Dashboard]({$dashboardLink})";
     }
 
     private function postComment(string $apiKey, string $issueId, string $body): void

@@ -16,6 +16,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\YakPersonality;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -104,7 +105,8 @@ class RunYakJob implements ShouldQueue
             ]);
 
             $this->handleError($repository, $e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
+            $message = YakPersonality::generate(NotificationType::Error, $e->getMessage());
+            SendNotificationJob::dispatch($this->task, NotificationType::Error, $message);
         } catch (\Throwable $e) {
             Log::error('RunYakJob failed', [
                 'task_id' => $this->task->id,

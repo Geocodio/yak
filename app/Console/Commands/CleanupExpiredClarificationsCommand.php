@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
+use App\Services\YakPersonality;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -30,11 +31,11 @@ class CleanupExpiredClarificationsCommand extends Command
 
             TaskLogger::warning($task, 'Task expired');
 
-            SendNotificationJob::dispatch(
-                $task,
+            $message = YakPersonality::generate(
                 NotificationType::Expiry,
-                'Closing this -- mention me again if you still need it',
+                'Clarification expired — no response received',
             );
+            SendNotificationJob::dispatch($task, NotificationType::Expiry, $message);
 
             $this->components->info("Expired task #{$task->id}");
         }

@@ -16,6 +16,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\YakPersonality;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -91,7 +92,8 @@ class ResearchYakJob implements ShouldQueue
             ]);
 
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
+            $message = YakPersonality::generate(NotificationType::Error, $e->getMessage());
+            SendNotificationJob::dispatch($this->task, NotificationType::Error, $message);
         } catch (\Throwable $e) {
             Log::error('ResearchYakJob failed', [
                 'task_id' => $this->task->id,
@@ -130,10 +132,11 @@ class ResearchYakJob implements ShouldQueue
 
         TaskLogger::info($this->task, 'Task completed');
 
-        $notificationMessage = $artifactUrl !== null
-            ? "{$summary}\n\nFindings: {$artifactUrl}"
-            : $summary;
+        $context = $artifactUrl !== null
+            ? "Research complete: {$summary}\n\nFindings: {$artifactUrl}"
+            : "Research complete: {$summary}";
 
+        $notificationMessage = YakPersonality::generate(NotificationType::Result, $context);
         $this->postToSource($notificationMessage);
 
         if ($this->task->source === 'linear') {
