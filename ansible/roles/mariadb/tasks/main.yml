@@ -1,0 +1,31 @@
+---
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: yak
+    state: present
+
+- name: Ensure MariaDB data directory exists
+  ansible.builtin.file:
+    path: "{{ mariadb_data_path }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Run MariaDB container
+  community.docker.docker_container:
+    name: "{{ mariadb_container_name }}"
+    image: "mariadb:11"
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - "{{ mariadb_data_path }}:/var/lib/mysql"
+    env:
+      MARIADB_ROOT_PASSWORD: "{{ mariadb_root_password }}"
+      MARIADB_DATABASE: "yak"
+      MARIADB_USER: "yak"
+      MARIADB_PASSWORD: "{{ mariadb_password }}"
+    networks:
+      - name: yak

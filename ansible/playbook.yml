@@ -102,6 +102,9 @@
       tags: [channel-drone]
       when: drone_url is defined and drone_url | length > 0
 
+    - role: mariadb
+      tags: [mariadb]
+
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
 

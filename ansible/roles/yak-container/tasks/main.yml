@@ -49,6 +49,8 @@
       - "/var/run/docker.sock:/var/run/docker.sock"
     env_file: /etc/yak/env
     recreate: true
+    networks:
+      - name: yak
 
 - name: Install Claude Code skills
   community.docker.docker_container_exec:

@@ -12,3 +12,6 @@ ufw_allowed_ports:
   - "22"
   - "80"
   - "443"
+
+mariadb_container_name: yak-mariadb
+mariadb_data_path: /home/yak/mariadb-data
