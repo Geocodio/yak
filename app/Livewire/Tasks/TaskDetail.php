@@ -194,38 +194,25 @@ class TaskDetail extends Component
     #[Computed]
     public function milestoneSteps(): array
     {
-        $logs = $this->logs;
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
 
-        // Only match system milestone logs (not agent assistant/tool output)
-        $milestoneMessages = $logs
-            ->filter(fn (TaskLog $log) => ! isset($log->metadata['type']))
-            ->pluck('message')
-            ->implode("\n");
+        // Map status to how far along the pipeline we are (0-6)
+        $reachedStep = match ($status) {
+            TaskStatus::Pending => 0,
+            TaskStatus::Running, TaskStatus::AwaitingClarification, TaskStatus::Retrying => 2,
+            TaskStatus::AwaitingCi => 4,
+            TaskStatus::Success => 6,
+            TaskStatus::Failed, TaskStatus::Expired => $this->task->pr_url ? 5 : ($this->task->branch_name ? 3 : 2),
+        };
 
-        $hasToolUse = $logs->contains(fn (TaskLog $log) => ($log->metadata['type'] ?? null) === 'tool_use');
+        $labels = ['Created', 'Picked up', 'Working', 'Fix pushed', 'CI', 'PR created', 'Done'];
 
-        $steps = [
-            ['label' => 'Created', 'check' => str_contains($milestoneMessages, 'Task created')],
-            ['label' => 'Picked up', 'check' => str_contains($milestoneMessages, 'Picked up by worker')],
-            ['label' => 'Working', 'check' => $hasToolUse || str_contains($milestoneMessages, 'Assessment complete')],
-            ['label' => 'Fix pushed', 'check' => str_contains($milestoneMessages, 'Fix pushed')],
-            ['label' => 'CI', 'check' => str_contains($milestoneMessages, 'CI result received')],
-            ['label' => 'PR created', 'check' => str_contains($milestoneMessages, 'PR created')],
-            ['label' => 'Done', 'check' => $this->task->status === TaskStatus::Success],
-        ];
-
-        $highestCompleted = -1;
-        foreach ($steps as $index => $step) {
-            if ($step['check']) {
-                $highestCompleted = $index;
-            }
-        }
-
-        return array_map(fn (array $step, int $index) => [
-            'label' => $step['label'],
-            'completed' => $step['check'],
-            'active' => $index === $highestCompleted,
-        ], $steps, array_keys($steps));
+        return array_map(fn (string $label, int $index) => [
+            'label' => $label,
+            'completed' => $index <= $reachedStep,
+            'active' => $index === $reachedStep,
+        ], $labels, array_keys($labels));
     }
 
     /**
