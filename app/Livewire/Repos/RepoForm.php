@@ -143,7 +143,7 @@ class RepoForm extends Component
             'default_branch' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
-            'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone'])],
+            'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone', 'none'])],
             'sentry_project' => ['nullable', 'string', 'max:255'],
         ];
 

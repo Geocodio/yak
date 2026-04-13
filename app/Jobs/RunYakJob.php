@@ -176,6 +176,10 @@ class RunYakJob implements ShouldQueue
             GitOperations::pushBranch($repository, $this->task->branch_name);
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }
+
+        if ($repository->ci_system === 'none') {
+            ProcessCIResultJob::dispatch($this->task, passed: true);
+        }
     }
 
     private function handleClarification(AgentRunResult $result): void

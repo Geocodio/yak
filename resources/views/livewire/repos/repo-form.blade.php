@@ -89,6 +89,7 @@
                 @endif
                 <flux:input wire:model="default_branch" label="Default Branch" />
                 <flux:select wire:model="ci_system" label="CI System">
+                    <flux:select.option value="none">None</flux:select.option>
                     <flux:select.option value="github_actions">GitHub Actions</flux:select.option>
                     <flux:select.option value="drone">Drone</flux:select.option>
                 </flux:select>
