@@ -30,6 +30,10 @@ return [
 
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
 
+    'git_user_name' => env('YAK_GIT_USER_NAME', 'Yak'),
+
+    'git_user_email' => env('YAK_GIT_USER_EMAIL', 'yak@noreply.github.com'),
+
     /*
     |--------------------------------------------------------------------------
     | MCP Configuration

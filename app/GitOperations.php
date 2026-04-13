@@ -49,11 +49,14 @@ class GitOperations
         Process::env(['HOME' => self::homeDir()])
             ->run("git config --global credential.https://github.com.helper {$helperPath}");
 
-        Process::env(['HOME' => self::homeDir()])
-            ->run('git config --global user.name "Yak"');
+        $gitName = config('yak.git_user_name', 'Yak');
+        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
 
         Process::env(['HOME' => self::homeDir()])
-            ->run('git config --global user.email "yak@geocod.io"');
+            ->run(sprintf('git config --global user.name %s', escapeshellarg($gitName)));
+
+        Process::env(['HOME' => self::homeDir()])
+            ->run(sprintf('git config --global user.email %s', escapeshellarg($gitEmail)));
 
         self::$credentialsConfigured = true;
     }
