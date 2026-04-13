@@ -34,8 +34,8 @@ test('successful research transitions task to success with result_summary and co
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -76,8 +76,8 @@ test('research ensures repo is on default branch and pulls latest', function () 
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -111,8 +111,8 @@ test('research does not create any branch', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -150,8 +150,8 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
 
@@ -198,8 +198,8 @@ test('handles missing HTML artifact gracefully', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
 
@@ -239,8 +239,8 @@ test('posts summary and findings URL as Linear comment', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
 
@@ -299,8 +299,8 @@ test('moves Linear issue to Done state', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
@@ -351,8 +351,8 @@ test('posts summary and findings URL as Slack thread reply', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
 
@@ -415,8 +415,8 @@ test('Claude error response marks task as failed', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
     Http::fake();
 

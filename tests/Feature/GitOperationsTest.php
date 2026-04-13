@@ -13,11 +13,11 @@ use Illuminate\Support\Facades\Process;
 
 test('createBranch fetches origin and creates branch from origin/default_branch', function () {
     Process::fake([
-        'git reset --hard' => Process::result(''),
-        'git clean -fd' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git reset --hard' => Process::result(''),
+        '*git clean -fd' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -30,17 +30,17 @@ test('createBranch fetches origin and creates branch from origin/default_branch'
 
     expect($branchName)->toBe('yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => $process->command === 'git fetch origin main');
-    Process::assertRan(fn ($process) => $process->command === 'git checkout -b yak/ISSUE-42 origin/main');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/ISSUE-42 origin/main'));
 });
 
 test('createBranch uses repository default_branch for origin ref', function () {
     Process::fake([
-        'git reset --hard' => Process::result(''),
-        'git clean -fd' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git reset --hard' => Process::result(''),
+        '*git clean -fd' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -51,17 +51,17 @@ test('createBranch uses repository default_branch for origin ref', function () {
 
     GitOperations::createBranch($repository, 'FIX-99');
 
-    Process::assertRan(fn ($process) => $process->command === 'git fetch origin develop');
-    Process::assertRan(fn ($process) => $process->command === 'git checkout -b yak/FIX-99 origin/develop');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin develop'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/FIX-99 origin/develop'));
 });
 
 test('createBranch sanitizes special characters in external id', function () {
     Process::fake([
-        'git reset --hard' => Process::result(''),
-        'git clean -fd' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git reset --hard' => Process::result(''),
+        '*git clean -fd' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -74,7 +74,7 @@ test('createBranch sanitizes special characters in external id', function () {
 
     expect($branchName)->toBe('yak/fix-auth-bug');
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout -b yak/fix-auth-bug origin/main');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/fix-auth-bug origin/main'));
 });
 
 /*
@@ -85,7 +85,7 @@ test('createBranch sanitizes special characters in external id', function () {
 
 test('pushBranch runs git push origin with branch name', function () {
     Process::fake([
-        'git push *' => Process::result(''),
+        '*git push *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -95,7 +95,7 @@ test('pushBranch runs git push origin with branch name', function () {
 
     GitOperations::pushBranch($repository, 'yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => $process->command === 'git push origin yak/ISSUE-42');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git push origin yak/ISSUE-42'));
 });
 
 /*
@@ -106,7 +106,7 @@ test('pushBranch runs git push origin with branch name', function () {
 
 test('forcePushBranch runs git push --force origin with branch name', function () {
     Process::fake([
-        'git push *' => Process::result(''),
+        '*git push *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -116,7 +116,55 @@ test('forcePushBranch runs git push --force origin with branch name', function (
 
     GitOperations::forcePushBranch($repository, 'yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => $process->command === 'git push --force-with-lease origin yak/ISSUE-42');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git push --force-with-lease origin yak/ISSUE-42'));
+});
+
+/*
+|--------------------------------------------------------------------------
+| Clone
+|--------------------------------------------------------------------------
+*/
+
+test('cloneRepo runs git clone as yak user', function () {
+    Process::fake([
+        '*git clone *' => Process::result(''),
+    ]);
+
+    GitOperations::cloneRepo('https://github.com/org/repo.git', '/home/yak/repos/repo');
+
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git clone https://github.com/org/repo.git /home/yak/repos/repo')
+        && str_contains($process->command, 'sudo runuser -u yak'));
+});
+
+test('cloneRepo throws on failure', function () {
+    Process::fake([
+        '*git clone *' => Process::result(exitCode: 128, errorOutput: 'fatal: repository not found'),
+    ]);
+
+    GitOperations::cloneRepo('https://github.com/org/repo.git', '/home/yak/repos/repo');
+})->throws(RuntimeException::class, 'Failed to clone repository');
+
+/*
+|--------------------------------------------------------------------------
+| Pull
+|--------------------------------------------------------------------------
+*/
+
+test('pullDefaultBranch runs git pull as yak user', function () {
+    Process::fake([
+        '*git pull *' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'pull-repo',
+        'path' => '/home/yak/repos/pull-repo',
+        'default_branch' => 'main',
+    ]);
+
+    GitOperations::pullDefaultBranch($repository);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git pull origin main')
+        && str_contains($process->command, 'sudo runuser -u yak'));
 });
 
 /*
@@ -127,8 +175,8 @@ test('forcePushBranch runs git push --force origin with branch name', function (
 
 test('cleanup checks out default branch and deletes task branch', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git branch *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git branch *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -139,13 +187,13 @@ test('cleanup checks out default branch and deletes task branch', function () {
 
     GitOperations::cleanup($repository, 'yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout main');
-    Process::assertRan(fn ($process) => $process->command === 'git branch -D yak/ISSUE-42');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D yak/ISSUE-42'));
 });
 
 test('cleanup skips branch deletion when branch name is null', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -156,13 +204,13 @@ test('cleanup skips branch deletion when branch name is null', function () {
 
     GitOperations::cleanup($repository, null);
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout main');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
     Process::assertNotRan(fn ($process) => str_contains($process->command, 'git branch -D'));
 });
 
 test('cleanup skips branch deletion when branch name is empty string', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -173,7 +221,7 @@ test('cleanup skips branch deletion when branch name is empty string', function 
 
     GitOperations::cleanup($repository, '');
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout main');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
     Process::assertNotRan(fn ($process) => str_contains($process->command, 'git branch -D'));
 });
 
@@ -185,7 +233,7 @@ test('cleanup skips branch deletion when branch name is empty string', function 
 
 test('checkoutBranch runs git checkout with given branch name', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -195,12 +243,12 @@ test('checkoutBranch runs git checkout with given branch name', function () {
 
     GitOperations::checkoutBranch($repository, 'yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout yak/ISSUE-42');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout yak/ISSUE-42'));
 });
 
 test('checkoutDefaultBranch runs git checkout with default branch', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -211,7 +259,7 @@ test('checkoutDefaultBranch runs git checkout with default branch', function () 
 
     GitOperations::checkoutDefaultBranch($repository);
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout develop');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout develop'));
 });
 
 /*
@@ -222,7 +270,7 @@ test('checkoutDefaultBranch runs git checkout with default branch', function () 
 
 test('refreshRepo runs git fetch origin with default branch', function () {
     Process::fake([
-        'git fetch *' => Process::result(''),
+        '*git fetch *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -233,7 +281,29 @@ test('refreshRepo runs git fetch origin with default branch', function () {
 
     GitOperations::refreshRepo($repository);
 
-    Process::assertRan(fn ($process) => $process->command === 'git fetch origin main');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin main'));
+});
+
+/*
+|--------------------------------------------------------------------------
+| Commands run as yak user
+|--------------------------------------------------------------------------
+*/
+
+test('all git commands run via sudo runuser as yak user', function () {
+    Process::fake([
+        '*git *' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'yak-user-repo',
+        'path' => '/home/yak/repos/yak-user-repo',
+        'default_branch' => 'main',
+    ]);
+
+    GitOperations::checkoutDefaultBranch($repository);
+
+    Process::assertRan(fn ($process) => str_starts_with($process->command, 'sudo runuser -u yak -- env HOME=/home/yak git checkout main'));
 });
 
 /*
@@ -244,7 +314,7 @@ test('refreshRepo runs git fetch origin with default branch', function () {
 
 test('yak:refresh-repos fetches all active repositories', function () {
     Process::fake([
-        'git fetch *' => Process::result(''),
+        '*git fetch *' => Process::result(''),
     ]);
 
     Repository::factory()->create([
@@ -263,13 +333,13 @@ test('yak:refresh-repos fetches all active repositories', function () {
 
     $this->artisan('yak:refresh-repos')->assertExitCode(0);
 
-    Process::assertRan(fn ($process) => $process->command === 'git fetch origin main');
-    Process::assertRan(fn ($process) => $process->command === 'git fetch origin develop');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin develop'));
 });
 
 test('yak:refresh-repos skips inactive repositories', function () {
     Process::fake([
-        'git fetch *' => Process::result(''),
+        '*git fetch *' => Process::result(''),
     ]);
 
     Repository::factory()->create([
@@ -287,7 +357,7 @@ test('yak:refresh-repos skips inactive repositories', function () {
 
     $this->artisan('yak:refresh-repos')->assertExitCode(0);
 
-    Process::assertRan(fn ($process) => $process->command === 'git fetch origin main');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin main'));
     // Only one fetch should have run (for the active repo)
     Process::assertRanTimes(fn ($process) => str_contains($process->command, 'git fetch'), 1);
 });

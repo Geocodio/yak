@@ -34,8 +34,8 @@ test('successful clarification reply transitions task to awaiting_ci and force p
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git push *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git push *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);

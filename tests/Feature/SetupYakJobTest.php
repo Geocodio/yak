@@ -37,11 +37,11 @@ test('successful setup transitions task to success and repo to ready', function 
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -86,11 +86,11 @@ test('setup transitions repo setup_status through running to ready on success', 
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -132,11 +132,11 @@ test('setup increments attempts', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -177,11 +177,11 @@ test('setup checks out default branch and pulls latest', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -222,11 +222,11 @@ test('preflight runs docker-compose stop and kills dev ports', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -268,11 +268,11 @@ test('claude error marks task failed and repo setup_status failed', function () 
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -312,11 +312,11 @@ test('malformed claude output marks task as failed', function () {
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([

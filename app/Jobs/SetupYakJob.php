@@ -134,18 +134,9 @@ class SetupYakJob implements ShouldQueue
             throw new \RuntimeException("Repository {$repository->slug} has no git_url configured.");
         }
 
-        GitOperations::ensureCredentials();
-
         TaskLogger::info($this->task, "Cloning {$repository->git_url} to {$repository->path}");
 
-        $home = posix_getpwuid(posix_geteuid())['dir'] ?? '/tmp';
-
-        $result = Process::env(['HOME' => $home])
-            ->run("git clone {$repository->git_url} {$repository->path}");
-
-        if (! $result->successful()) {
-            throw new \RuntimeException("Failed to clone repository: {$result->errorOutput()}");
-        }
+        GitOperations::cloneRepo($repository->git_url, $repository->path);
     }
 
     private function ensureDefaultBranch(Repository $repository): void
@@ -154,8 +145,7 @@ class SetupYakJob implements ShouldQueue
         GitOperations::checkoutDefaultBranch($repository);
 
         TaskLogger::info($this->task, 'Pulling latest from origin');
-        Process::path($repository->path)
-            ->run("git pull origin {$repository->default_branch}");
+        GitOperations::pullDefaultBranch($repository);
 
         TaskLogger::info($this->task, 'Branch ready');
     }

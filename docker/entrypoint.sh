@@ -16,8 +16,9 @@ usermod -aG www-data yak 2>/dev/null || true
 # Allow www-data to read /home/yak/repos for artifact collection
 usermod -aG yak www-data 2>/dev/null || true
 
-# Allow www-data to traverse /home/yak for artifact serving
-chmod 750 /home/yak
+# www-data (queue worker) needs to write git credentials and config in /home/yak
+chown yak:yak /home/yak
+chmod 770 /home/yak
 
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env

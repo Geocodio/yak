@@ -37,10 +37,10 @@ test('green path creates PR and marks task as success', function () {
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 3 files changed, 50 insertions(+), 10 deletions(-)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 3 files changed, 50 insertions(+), 10 deletions(-)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.channels.slack.bot_token', 'test-slack-token');
@@ -81,10 +81,10 @@ test('green path creates PR via GitHub API with correct payload', function () {
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -128,10 +128,10 @@ test('PR body contains source, repo, and result summary', function () {
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     Repository::factory()->create([
@@ -179,10 +179,10 @@ test('green path applies yak label to PR', function () {
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 2 files changed, 30 insertions(+), 5 deletions(-)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 2 files changed, 30 insertions(+), 5 deletions(-)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     Repository::factory()->create([
@@ -216,10 +216,10 @@ test('green path applies yak-large-change label when LOC exceeds threshold', fun
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 15 files changed, 180 insertions(+), 50 deletions(-)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 15 files changed, 180 insertions(+), 50 deletions(-)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.large_change_threshold', 200);
@@ -256,10 +256,10 @@ test('green path does not apply large-change label when LOC is under threshold',
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 2 files changed, 30 insertions(+), 10 deletions(-)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 2 files changed, 30 insertions(+), 10 deletions(-)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.large_change_threshold', 200);
@@ -301,10 +301,10 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     $tempDir = sys_get_temp_dir() . '/yak-test-' . uniqid();
@@ -353,10 +353,10 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     $tempDir = sys_get_temp_dir() . '/yak-test-' . uniqid();
@@ -421,10 +421,10 @@ test('green path checks out default branch and deletes task branch', function ()
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     Repository::factory()->create([
@@ -443,8 +443,8 @@ test('green path checks out default branch and deletes task branch', function ()
     $job = new ProcessCIResultJob($task, true);
     $job->handle();
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout main');
-    Process::assertRan(fn ($process) => $process->command === 'git branch -D yak/FIX-CLEANUP');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D yak/FIX-CLEANUP'));
 });
 
 /*
@@ -463,10 +463,10 @@ test('green path posts PR link to Slack thread', function () {
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.channels.slack.bot_token', 'slack-token');
@@ -506,10 +506,10 @@ test('green path posts PR link as Linear comment and moves issue to In Review', 
     ]);
 
     Process::fake([
-        'git diff --name-only *' => Process::result(''),
-        'git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.channels.linear.api_key', 'linear-key');
@@ -633,8 +633,8 @@ test('first failure posts CI failed retrying to source', function () {
 
 test('second failure marks task as failed', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.max_attempts', 2);
@@ -664,8 +664,8 @@ test('second failure marks task as failed', function () {
 
 test('second failure cleans up branch', function () {
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.max_attempts', 2);
@@ -686,8 +686,8 @@ test('second failure cleans up branch', function () {
     $job = new ProcessCIResultJob($task, false, 'Final failure');
     $job->handle();
 
-    Process::assertRan(fn ($process) => $process->command === 'git checkout main');
-    Process::assertRan(fn ($process) => $process->command === 'git branch -D yak/FIX-CLEANUP2');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D yak/FIX-CLEANUP2'));
 });
 
 test('second failure posts failure summary to source', function () {
@@ -696,8 +696,8 @@ test('second failure posts failure summary to source', function () {
     ]);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.max_attempts', 2);
@@ -731,8 +731,8 @@ test('second failure does not dispatch RetryYakJob', function () {
     Queue::fake();
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git branch -D *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     config()->set('yak.max_attempts', 2);

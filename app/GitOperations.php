@@ -4,21 +4,32 @@ namespace App;
 
 use App\Models\Repository;
 use App\Services\GitHubAppService;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 
 class GitOperations
 {
     private static bool $credentialsConfigured = false;
 
+    private const YAK_HOME = '/home/yak';
+
     /**
-     * Get the home directory for the current effective user.
+     * Run a command as the yak user.
      *
-     * Supervisor sets user=yak but inherits HOME=/root from the container
-     * environment, so we resolve it from the passwd entry instead.
+     * The queue worker runs as www-data, but all git/repo filesystem
+     * operations must run as yak (the sandboxed repo owner).
      */
-    private static function homeDir(): string
+    private static function runAsYak(string $command, ?string $path = null): ProcessResult
     {
-        return posix_getpwuid(posix_geteuid())['dir'] ?? '/tmp';
+        $wrapped = sprintf(
+            'sudo runuser -u yak -- env HOME=%s %s',
+            self::YAK_HOME,
+            $command,
+        );
+
+        return $path
+            ? Process::path($path)->run($wrapped)
+            : Process::run($wrapped);
     }
 
     /**
@@ -42,21 +53,17 @@ class GitOperations
 
         $token = app(GitHubAppService::class)->getInstallationToken($installationId);
 
-        $helperPath = self::homeDir() . '/.git-credential-yak';
+        $helperPath = self::YAK_HOME . '/.git-credential-yak';
         file_put_contents($helperPath, "#!/bin/sh\necho username=x-access-token\necho password={$token}\n");
         chmod($helperPath, 0755);
 
-        Process::env(['HOME' => self::homeDir()])
-            ->run("git config --global credential.https://github.com.helper {$helperPath}");
+        self::runAsYak("git config --global credential.https://github.com.helper {$helperPath}");
 
         $gitName = config('yak.git_user_name', 'Yak');
         $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
 
-        Process::env(['HOME' => self::homeDir()])
-            ->run(sprintf('git config --global user.name %s', escapeshellarg($gitName)));
-
-        Process::env(['HOME' => self::homeDir()])
-            ->run(sprintf('git config --global user.email %s', escapeshellarg($gitEmail)));
+        self::runAsYak(sprintf('git config --global user.name %s', escapeshellarg($gitName)));
+        self::runAsYak(sprintf('git config --global user.email %s', escapeshellarg($gitEmail)));
 
         self::$credentialsConfigured = true;
     }
@@ -99,21 +106,38 @@ class GitOperations
     }
 
     /**
+     * Clone a repository into the target path.
+     *
+     * @throws \RuntimeException if the clone fails
+     */
+    public static function cloneRepo(string $gitUrl, string $targetPath): void
+    {
+        self::ensureCredentials();
+
+        $result = self::runAsYak("git clone {$gitUrl} {$targetPath}");
+
+        if (! $result->successful()) {
+            throw new \RuntimeException("Failed to clone repository: {$result->errorOutput()}");
+        }
+    }
+
+    /**
+     * Pull the latest changes from origin on the default branch.
+     */
+    public static function pullDefaultBranch(Repository $repository): void
+    {
+        self::runAsYak("git pull origin {$repository->default_branch}", $repository->path);
+    }
+
+    /**
      * Reset the working tree to a clean state: discard uncommitted changes,
      * checkout the default branch, and remove any leftover task branches.
      */
     public static function resetWorkingTree(Repository $repository): void
     {
-        $env = ['HOME' => self::homeDir()];
-
-        Process::path($repository->path)->env($env)
-            ->run('git reset --hard');
-
-        Process::path($repository->path)->env($env)
-            ->run('git clean -fd');
-
-        Process::path($repository->path)->env($env)
-            ->run("git checkout {$repository->default_branch}");
+        self::runAsYak('git reset --hard', $repository->path);
+        self::runAsYak('git clean -fd', $repository->path);
+        self::runAsYak("git checkout {$repository->default_branch}", $repository->path);
     }
 
     /**
@@ -127,13 +151,8 @@ class GitOperations
         $branchName = self::branchName($externalId);
         $defaultBranch = $repository->default_branch;
 
-        Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git fetch origin {$defaultBranch}");
-
-        Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git checkout -b {$branchName} origin/{$defaultBranch}");
+        self::runAsYak("git fetch origin {$defaultBranch}", $repository->path);
+        self::runAsYak("git checkout -b {$branchName} origin/{$defaultBranch}", $repository->path);
 
         return $branchName;
     }
@@ -147,9 +166,7 @@ class GitOperations
     {
         self::ensureCredentials();
 
-        $result = Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git push origin {$branchName}");
+        $result = self::runAsYak("git push origin {$branchName}", $repository->path);
 
         if ($result->exitCode() !== 0) {
             throw new \RuntimeException("Git push failed: {$result->errorOutput()}");
@@ -165,9 +182,7 @@ class GitOperations
     {
         self::ensureCredentials();
 
-        $result = Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git push --force-with-lease origin {$branchName}");
+        $result = self::runAsYak("git push --force-with-lease origin {$branchName}", $repository->path);
 
         if ($result->exitCode() !== 0) {
             throw new \RuntimeException("Git push --force-with-lease failed: {$result->errorOutput()}");
@@ -179,14 +194,10 @@ class GitOperations
      */
     public static function cleanup(Repository $repository, ?string $branchName): void
     {
-        Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git checkout {$repository->default_branch}");
+        self::runAsYak("git checkout {$repository->default_branch}", $repository->path);
 
         if ($branchName !== null && $branchName !== '') {
-            Process::path($repository->path)
-                ->env(['HOME' => self::homeDir()])
-                ->run("git branch -D {$branchName}");
+            self::runAsYak("git branch -D {$branchName}", $repository->path);
         }
     }
 
@@ -195,9 +206,7 @@ class GitOperations
      */
     public static function checkoutBranch(Repository $repository, string $branchName): void
     {
-        Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git checkout {$branchName}");
+        self::runAsYak("git checkout {$branchName}", $repository->path);
     }
 
     /**
@@ -205,9 +214,7 @@ class GitOperations
      */
     public static function checkoutDefaultBranch(Repository $repository): void
     {
-        Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git checkout {$repository->default_branch}");
+        self::runAsYak("git checkout {$repository->default_branch}", $repository->path);
     }
 
     /**
@@ -217,8 +224,6 @@ class GitOperations
     {
         self::ensureCredentials();
 
-        Process::path($repository->path)
-            ->env(['HOME' => self::homeDir()])
-            ->run("git fetch origin {$repository->default_branch}");
+        self::runAsYak("git fetch origin {$repository->default_branch}", $repository->path);
     }
 }

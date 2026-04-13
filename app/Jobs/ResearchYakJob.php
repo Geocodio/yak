@@ -23,7 +23,6 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 
 class ResearchYakJob implements ShouldQueue
@@ -107,9 +106,7 @@ class ResearchYakJob implements ShouldQueue
     private function ensureDefaultBranch(Repository $repository): void
     {
         GitOperations::checkoutDefaultBranch($repository);
-
-        Process::path($repository->path)
-            ->run("git pull origin {$repository->default_branch}");
+        GitOperations::pullDefaultBranch($repository);
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result): void

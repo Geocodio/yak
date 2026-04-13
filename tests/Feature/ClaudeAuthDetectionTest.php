@@ -125,11 +125,11 @@ test('RunYakJob detects auth error and fails task with notification', function (
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git reset --hard' => Process::result(''),
-        'git clean -fd' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git reset --hard' => Process::result(''),
+        '*git clean -fd' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
@@ -168,7 +168,7 @@ test('RetryYakJob detects auth error and fails task with notification', function
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
@@ -207,8 +207,8 @@ test('ResearchYakJob detects auth error and fails task with notification', funct
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'research-repo', 'path' => '/home/yak/repos/research-repo']);
@@ -242,11 +242,11 @@ test('SetupYakJob detects auth error and fails task with notification', function
     $this->app->instance(AgentRunner::class, $fake);
 
     Process::fake([
-        'git clone *' => Process::result(''),
+        '*git clone *' => Process::result(''),
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git pull *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git pull *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'setup-repo', 'path' => '/home/yak/repos/setup-repo']);
@@ -282,7 +282,7 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'clarify-repo', 'path' => '/home/yak/repos/clarify-repo']);

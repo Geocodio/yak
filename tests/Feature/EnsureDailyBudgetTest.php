@@ -209,12 +209,12 @@ test('successful run accumulates daily cost', function () {
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git reset --hard' => Process::result(''),
-        'git clean -fd' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
-        'git push *' => Process::result(''),
+        '*git reset --hard' => Process::result(''),
+        '*git clean -fd' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git push *' => Process::result(''),
     ]);
 
     Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);

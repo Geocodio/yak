@@ -25,11 +25,11 @@ function fakeClaudeRun(array $result = [], array $extraFakes = []): void
     Process::fake(array_merge([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git push *' => Process::result(''),
         'sudo *' => Process::result($output),
-        'git push *' => Process::result(''),
     ], $extraFakes));
 }
 
@@ -55,11 +55,11 @@ function fakeClaudeClarification(array $options = ['Option A', 'Option B', 'Opti
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git push *' => Process::result(''),
         'sudo *' => Process::result($output),
-        'git push *' => Process::result(''),
     ]);
 }
 
@@ -85,10 +85,10 @@ function fakeClaudeError(string $message = 'Claude encountered an error', array 
     Process::fake([
         'docker-compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
-        'git fetch *' => Process::result(''),
-        'git checkout -b *' => Process::result(''),
-        'git checkout *' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git checkout -b *' => Process::result(''),
+        '*git checkout *' => Process::result(''),
+        '*git push *' => Process::result(''),
         'sudo *' => Process::result($output),
-        'git push *' => Process::result(''),
     ]);
 }
