@@ -52,6 +52,8 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    'ci_timeout_minutes' => (int) env('YAK_CI_TIMEOUT_MINUTES', 30),
+
     'ci_scan' => [
         'scan_interval_minutes' => (int) env('YAK_SCAN_INTERVAL_MINUTES', 120),
         'max_failure_age_hours' => (int) env('YAK_MAX_FAILURE_AGE_HOURS', 48),

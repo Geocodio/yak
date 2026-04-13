@@ -10,5 +10,6 @@ Artisan::command('inspire', function () {
 
 Schedule::command('yak:refresh-repos')->everyThirtyMinutes();
 Schedule::command('yak:cleanup')->daily();
+Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours();
