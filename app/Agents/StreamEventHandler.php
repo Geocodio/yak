@@ -15,6 +15,9 @@ class StreamEventHandler
     /** @var array<string, mixed>|null */
     private ?array $resultEvent = null;
 
+    /** @var array<string, string> Maps tool_use ID to tool name for correlating tool_result events */
+    private array $pendingToolIds = [];
+
     public function __construct(
         private readonly YakTask $task,
     ) {}
@@ -50,6 +53,31 @@ class StreamEventHandler
      */
     private function handleAssistant(array $event): void
     {
+        $message = $event['message'] ?? [];
+
+        if (! is_array($message)) {
+            return;
+        }
+
+        /** @var array<int, array<string, mixed>> $contentBlocks */
+        $contentBlocks = $message['content'] ?? [];
+
+        foreach ($contentBlocks as $block) {
+            $blockType = $block['type'] ?? '';
+
+            if ($blockType === 'tool_use') {
+                $toolUseEvent = [
+                    'name' => $block['name'] ?? 'unknown',
+                    'input' => $block['input'] ?? [],
+                    'id' => $block['id'] ?? null,
+                ];
+                $this->handleToolUse($toolUseEvent);
+
+                continue;
+            }
+        }
+
+        // Extract text content after processing tool_use blocks
         $content = $this->extractAssistantText($event);
 
         if ($content === '') {
@@ -81,6 +109,12 @@ class StreamEventHandler
             'tool' => $toolName,
             'input' => $this->truncateInput($toolName, $input),
         ]);
+
+        // Track tool ID for correlating with tool_result events
+        $toolId = $event['id'] ?? null;
+        if ($toolId !== null && $this->pendingToolLog !== null) {
+            $this->pendingToolIds[(string) $toolId] = $toolName;
+        }
     }
 
     /**
@@ -88,6 +122,12 @@ class StreamEventHandler
      */
     private function handleToolResult(array $event): void
     {
+        // Look up pending tool by tool_use_id if no direct pending log
+        $toolUseId = $event['tool_use_id'] ?? null;
+        if (! $this->pendingToolLog && $toolUseId !== null && isset($this->pendingToolIds[(string) $toolUseId])) {
+            unset($this->pendingToolIds[(string) $toolUseId]);
+        }
+
         if (! $this->pendingToolLog) {
             return;
         }

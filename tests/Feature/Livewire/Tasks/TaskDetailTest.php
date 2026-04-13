@@ -158,16 +158,17 @@ test('it shows activity log with expandable entries', function () {
 
     TaskLog::factory()->create([
         'yak_task_id' => $task->id,
-        'message' => 'Searching for CSV export handling',
-        'metadata' => ['tool' => 'grep', 'duration' => '1.2s'],
+        'message' => '🔍 Searching for `TODO`',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Grep', 'input' => ['pattern' => 'TODO'], 'output' => 'src/app.php:12: // TODO fix this'],
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
         ->assertSee('Activity')
         ->assertDontSee('Session Log')
-        ->assertSee('Searching for CSV export handling')
+        ->assertSee('Searching for')
+        ->assertSee('Grep')
         ->call('toggleLog', 0)
-        ->assertSee('grep');
+        ->assertSee('TODO fix this');
 });
 
 test('milestone logs get milestone styling', function () {
@@ -341,4 +342,149 @@ test('it does not show active indicator for completed tasks', function () {
 
     $component = Livewire::test(TaskDetail::class, ['task' => $task]);
     $component->assertDontSeeHtml('animate-pulse');
+});
+
+test('consecutive assistant entries are collapsed into a group', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'I will look at the code structure.',
+        'metadata' => ['type' => 'assistant'],
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Let me read the main file.',
+        'metadata' => ['type' => 'assistant'],
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Now I understand the architecture.',
+        'metadata' => ['type' => 'assistant'],
+        'created_at' => now()->subMinute(),
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    expect($html)->toContain('3 thinking steps');
+    expect($html)->toContain('Now I understand the architecture.');
+});
+
+test('filter buttons are displayed in activity section', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create(['yak_task_id' => $task->id]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    expect($html)->toContain('data-testid="log-filters"');
+    expect($html)->toContain('data-testid="filter-all"');
+    expect($html)->toContain('data-testid="filter-actions"');
+    expect($html)->toContain('data-testid="filter-milestones"');
+});
+
+test('actions filter shows only tool_use entries', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Task created',
+        'metadata' => [],
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => '📄 Reading `/app/README.md`',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Read'],
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('setFilter', 'actions');
+
+    $html = $component->html();
+
+    expect($html)->toContain('Reading');
+    expect($html)->not->toContain('Task created');
+});
+
+test('milestone stepper is displayed', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Task created from Slack message',
+        'created_at' => now()->subMinutes(5),
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    expect($html)->toContain('data-testid="milestone-stepper"');
+    expect($html)->toContain('Created');
+    expect($html)->toContain('Working');
+    expect($html)->toContain('Done');
+});
+
+test('relative timestamps shown for active tasks', function () {
+    $task = YakTask::factory()->running()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Starting work',
+        'metadata' => [],
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    expect($html)->toContain('ago');
+});
+
+test('absolute timestamps shown for completed tasks', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Task completed',
+        'metadata' => [],
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    // Completed tasks show absolute time format like "2:07:04 PM" (contains AM or PM)
+    expect(str_contains($html, 'AM') || str_contains($html, 'PM'))->toBeTrue();
+    expect($html)->not->toContain('ago');
+});
+
+test('error tool results are auto-expanded', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => '⚡ `npm test` → exit 1',
+        'level' => 'warning',
+        'metadata' => [
+            'type' => 'tool_use',
+            'tool' => 'Bash',
+            'output' => 'Error: test suite failed',
+            'is_error' => true,
+        ],
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    // Error tool results should be auto-expanded (output visible without toggling)
+    expect($html)->toContain('Error: test suite failed');
 });

@@ -211,3 +211,74 @@ test('handles mcp tool calls', function () {
     expect($log->message)->toContain('MCP:');
     expect($log->metadata['tool'])->toBe('mcp__context7__query-docs');
 });
+
+test('extracts tool_use blocks from assistant messages', function () {
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => [
+            'content' => [
+                [
+                    'type' => 'tool_use',
+                    'name' => 'Glob',
+                    'input' => ['pattern' => 'src/**'],
+                    'id' => 'toolu_abc123',
+                ],
+            ],
+        ],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log)->not->toBeNull();
+    expect($log->message)->toBe('📂 Finding files: `src/**`');
+    expect($log->metadata['type'])->toBe('tool_use');
+    expect($log->metadata['tool'])->toBe('Glob');
+});
+
+test('extracts tool_use alongside text from assistant messages', function () {
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => [
+            'content' => [
+                ['type' => 'text', 'text' => 'Let me check the files.'],
+                [
+                    'type' => 'tool_use',
+                    'name' => 'Read',
+                    'input' => ['file_path' => '/app/config.php'],
+                    'id' => 'toolu_def456',
+                ],
+            ],
+        ],
+    ]);
+
+    $logs = TaskLog::where('yak_task_id', $this->task->id)->orderBy('id')->get();
+    expect($logs)->toHaveCount(2);
+    expect($logs[0]->metadata['type'])->toBe('tool_use');
+    expect($logs[0]->metadata['tool'])->toBe('Read');
+    expect($logs[1]->metadata['type'])->toBe('assistant');
+    expect($logs[1]->message)->toBe('Let me check the files.');
+});
+
+test('tool_result works after tool_use extracted from assistant message', function () {
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => [
+            'content' => [
+                [
+                    'type' => 'tool_use',
+                    'name' => 'Bash',
+                    'input' => ['command' => 'echo hello', 'description' => 'Say hello'],
+                    'id' => 'toolu_ghi789',
+                ],
+            ],
+        ],
+    ]);
+
+    $this->handler->handle([
+        'type' => 'tool_result',
+        'content' => 'hello',
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toContain('→ exit 0');
+    expect($log->metadata['output'])->toBe('hello');
+});

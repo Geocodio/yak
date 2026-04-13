@@ -23,10 +23,17 @@ class TaskDetail extends Component
 
     public bool $showDebug = false;
 
+    public string $logFilter = 'all';
+
     /**
      * @var array<int, bool>
      */
     public array $expandedLogs = [];
+
+    /**
+     * @var array<int, bool>
+     */
+    public array $expandedGroups = [];
 
     public function mount(YakTask $task): void
     {
@@ -79,6 +86,16 @@ class TaskDetail extends Component
         $this->expandedLogs[$index] = ! ($this->expandedLogs[$index] ?? false);
     }
 
+    public function toggleGroup(int $groupIndex): void
+    {
+        $this->expandedGroups[$groupIndex] = ! ($this->expandedGroups[$groupIndex] ?? false);
+    }
+
+    public function setFilter(string $filter): void
+    {
+        $this->logFilter = $filter;
+    }
+
     /**
      * @return Collection<int, TaskLog>
      */
@@ -86,6 +103,159 @@ class TaskDetail extends Component
     public function logs(): Collection
     {
         return $this->task->logs()->orderBy('created_at')->get();
+    }
+
+    /**
+     * Groups consecutive assistant log entries and applies the active filter.
+     *
+     * Each element is either:
+     * - ['type' => 'single', 'log' => TaskLog, 'index' => int]
+     * - ['type' => 'group', 'logs' => TaskLog[], 'indices' => int[], 'count' => int, 'last' => TaskLog, 'groupIndex' => int]
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    #[Computed]
+    public function groupedLogs(): array
+    {
+        $logs = $this->logs;
+        $grouped = [];
+        $currentAssistantGroup = [];
+        $currentAssistantIndices = [];
+        $groupCounter = 0;
+
+        $flushGroup = function () use (&$grouped, &$currentAssistantGroup, &$currentAssistantIndices, &$groupCounter): void {
+            if (count($currentAssistantGroup) === 0) {
+                return;
+            }
+
+            if (count($currentAssistantGroup) === 1) {
+                $grouped[] = [
+                    'type' => 'single',
+                    'log' => $currentAssistantGroup[0],
+                    'index' => $currentAssistantIndices[0],
+                ];
+            } else {
+                $grouped[] = [
+                    'type' => 'group',
+                    'logs' => $currentAssistantGroup,
+                    'indices' => $currentAssistantIndices,
+                    'count' => count($currentAssistantGroup),
+                    'last' => end($currentAssistantGroup),
+                    'groupIndex' => $groupCounter,
+                ];
+                $groupCounter++;
+            }
+
+            $currentAssistantGroup = [];
+            $currentAssistantIndices = [];
+        };
+
+        foreach ($logs as $index => $log) {
+            $logType = $log->metadata['type'] ?? null;
+            $isAssistant = $logType === 'assistant';
+            $isToolUse = $logType === 'tool_use';
+
+            // Apply filter
+            if ($this->logFilter === 'actions' && ! $isToolUse) {
+                $flushGroup();
+
+                continue;
+            }
+
+            if ($this->logFilter === 'milestones' && ! self::isMilestone($log)) {
+                $flushGroup();
+
+                continue;
+            }
+
+            if ($isAssistant && $log->level === 'info') {
+                $currentAssistantGroup[] = $log;
+                $currentAssistantIndices[] = $index;
+            } else {
+                $flushGroup();
+                $grouped[] = [
+                    'type' => 'single',
+                    'log' => $log,
+                    'index' => $index,
+                ];
+            }
+        }
+
+        $flushGroup();
+
+        return $grouped;
+    }
+
+    /**
+     * Returns milestone steps with their completion status.
+     *
+     * @return array<int, array{label: string, completed: bool, active: bool}>
+     */
+    #[Computed]
+    public function milestoneSteps(): array
+    {
+        $logs = $this->logs;
+
+        $steps = [
+            ['label' => 'Created', 'pattern' => '/created|queued|received/i'],
+            ['label' => 'Picked up', 'pattern' => '/picked up|starting|assessment|cloned/i'],
+            ['label' => 'Working', 'pattern' => '/tool_use/'],
+            ['label' => 'Fix pushed', 'pattern' => '/push|commit|branch/i'],
+            ['label' => 'CI', 'pattern' => '/ci|test|pipeline|checks/i'],
+            ['label' => 'PR created', 'pattern' => '/pull request|pr created|pr url/i'],
+            ['label' => 'Done', 'pattern' => '/completed|success|done|finished/i'],
+        ];
+
+        $completedSteps = [];
+
+        foreach ($logs as $log) {
+            $message = strtolower($log->message);
+            $type = $log->metadata['type'] ?? null;
+
+            foreach ($steps as $stepIndex => $step) {
+                if (isset($completedSteps[$stepIndex])) {
+                    continue;
+                }
+
+                // Special case: "Working" is matched by tool_use type
+                if ($step['label'] === 'Working' && $type === 'tool_use') {
+                    $completedSteps[$stepIndex] = true;
+
+                    continue;
+                }
+
+                if (preg_match($step['pattern'], $message)) {
+                    $completedSteps[$stepIndex] = true;
+                }
+            }
+        }
+
+        // Also mark steps based on task status
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+        if (in_array($status, [TaskStatus::Success])) {
+            $completedSteps[6] = true; // Done
+        }
+
+        // Find the highest completed step
+        $highestCompleted = -1;
+        foreach ($completedSteps as $idx => $val) {
+            if ($val && $idx > $highestCompleted) {
+                $highestCompleted = $idx;
+            }
+        }
+
+        $result = [];
+        foreach ($steps as $index => $step) {
+            $completed = isset($completedSteps[$index]);
+            $result[] = [
+                'label' => $step['label'],
+                'completed' => $completed,
+                'active' => $index === $highestCompleted,
+            ];
+        }
+
+        return $result;
     }
 
     /**
