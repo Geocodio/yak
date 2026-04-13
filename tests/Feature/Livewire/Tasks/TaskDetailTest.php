@@ -117,7 +117,7 @@ test('it shows debug error log', function () {
         ->assertSee('Fatal error: something went wrong');
 });
 
-test('it shows timeline from task logs', function () {
+test('it shows activity log with task logs', function () {
     $task = YakTask::factory()->success()->create();
 
     TaskLog::factory()->create([
@@ -133,7 +133,8 @@ test('it shows timeline from task logs', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSee('Timeline')
+        ->assertSee('Activity')
+        ->assertDontSee('Timeline')
         ->assertSee('Task created from Slack message')
         ->assertSee('Assessment complete');
 });
@@ -152,7 +153,7 @@ test('it uses slow polling for completed tasks', function () {
         ->assertSeeHtml('wire:poll.15s');
 });
 
-test('it shows session log with expandable entries', function () {
+test('it shows activity log with expandable entries', function () {
     $task = YakTask::factory()->success()->create();
 
     TaskLog::factory()->create([
@@ -162,10 +163,128 @@ test('it shows session log with expandable entries', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSee('Session Log')
+        ->assertSee('Activity')
+        ->assertDontSee('Session Log')
         ->assertSee('Searching for CSV export handling')
         ->call('toggleLog', 0)
         ->assertSee('grep');
+});
+
+test('milestone logs get milestone styling', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Task created from Slack message',
+        'metadata' => ['source' => 'slack'],
+    ]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Searching for CSV export handling',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'grep'],
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    expect($html)->toContain('data-testid="milestone-log"');
+    expect($html)->toContain('data-testid="log-entry"');
+});
+
+test('warning and error logs are milestones regardless of type', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'level' => 'warning',
+        'message' => 'Test suite failed',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'bash'],
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    expect($html)->toContain('data-testid="milestone-log"');
+    expect($html)->not->toContain('data-testid="log-entry"');
+});
+
+test('follow button is visible for active tasks', function () {
+    $task = YakTask::factory()->running()->create();
+
+    TaskLog::factory()->create(['yak_task_id' => $task->id]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+
+    expect($component->html())->toContain('data-testid="follow-button"');
+});
+
+test('follow button is hidden for completed tasks', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create(['yak_task_id' => $task->id]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+
+    expect($component->html())->not->toContain('data-testid="follow-button"');
+});
+
+test('isMilestone returns true for logs without tool_use or assistant type', function () {
+    $log = TaskLog::factory()->make(['metadata' => ['source' => 'slack']]);
+    expect(TaskDetail::isMilestone($log))->toBeTrue();
+
+    $log = TaskLog::factory()->make(['metadata' => null]);
+    expect(TaskDetail::isMilestone($log))->toBeTrue();
+
+    $log = TaskLog::factory()->make(['metadata' => []]);
+    expect(TaskDetail::isMilestone($log))->toBeTrue();
+});
+
+test('isMilestone returns false for tool_use and assistant logs', function () {
+    $log = TaskLog::factory()->make(['metadata' => ['type' => 'tool_use', 'tool' => 'grep']]);
+    expect(TaskDetail::isMilestone($log))->toBeFalse();
+
+    $log = TaskLog::factory()->make(['metadata' => ['type' => 'assistant']]);
+    expect(TaskDetail::isMilestone($log))->toBeFalse();
+});
+
+test('isMilestone returns true for error or warning regardless of type', function () {
+    $log = TaskLog::factory()->make([
+        'level' => 'error',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'bash'],
+    ]);
+    expect(TaskDetail::isMilestone($log))->toBeTrue();
+
+    $log = TaskLog::factory()->make([
+        'level' => 'warning',
+        'metadata' => ['type' => 'assistant'],
+    ]);
+    expect(TaskDetail::isMilestone($log))->toBeTrue();
+});
+
+test('activity section is hidden when no logs exist', function () {
+    $task = YakTask::factory()->success()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSee('Activity');
+});
+
+test('milestone logs do not show expand chevron', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => 'Task completed',
+        'metadata' => [],
+    ]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $html = $component->html();
+
+    // Milestone entry should not contain a chevron icon
+    // Find the milestone log entry and check it has the spacer span instead
+    expect($html)->toContain('data-testid="milestone-log"');
+    expect($html)->not->toContain('chevron-right');
 });
 
 test('it shows screenshots section', function () {

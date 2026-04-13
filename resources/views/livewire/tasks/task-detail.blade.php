@@ -105,27 +105,6 @@
         </div>
     @endif
 
-    {{-- Section 4: Timeline --}}
-    @if($this->logs->isNotEmpty())
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
-            <h2 class="mb-4 text-lg font-medium text-[#3d4f5f]">Timeline</h2>
-            <div class="relative pl-[100px]">
-                <div class="absolute bottom-1.5 left-[89px] top-1.5 w-0.5 bg-[#c8b89a]"></div>
-                @foreach($this->logs as $index => $log)
-                    <div class="relative {{ $loop->last ? '' : 'pb-5' }} pl-6">
-                        <span class="absolute -left-1.5 top-0.5 z-[1] size-2.5 rounded-full {{ $loop->last ? '!-left-2 !top-0 !size-3.5' : '' }}" style="background: {{ \App\Livewire\Tasks\TaskDetail::logLevelColor($log->level) }};"></span>
-                        <span class="absolute -left-[100px] top-0 w-[76px] text-right text-xs text-[#6b8fa3]">
-                            {{ $log->created_at->format('g:i A') }}
-                        </span>
-                        <div class="text-sm leading-relaxed text-[#3d4f5f]">
-                            {{ $log->message }}
-                        </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    @endif
-
     {{-- Section 5: Result Summary --}}
     @if($task->result_summary)
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
@@ -243,69 +222,124 @@
         @endif
     </div>
 
-    {{-- Section 8: Session Log (Collapsible log entries as CI-style steps) --}}
+    {{-- Section 8: Activity (Unified log with milestone highlighting) --}}
     @if($this->logs->isNotEmpty())
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
             <div class="mb-5 flex items-center justify-between">
-                <h2 class="text-lg font-medium text-[#3d4f5f]">Session Log</h2>
-                <span class="text-xs text-[#6b8fa3]">
-                    {{ $this->logs->count() }} entries
-                    @if($task->num_turns) &middot; {{ $task->num_turns }} turns @endif
-                    @if($task->duration_ms) &middot; {{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }} @endif
-                    @if($task->cost_usd) &middot; ${{ number_format((float) $task->cost_usd, 2) }} @endif
-                </span>
+                <h2 class="text-lg font-medium text-[#3d4f5f]">Activity</h2>
+                <div class="flex items-center gap-3">
+                    @if($this->isActiveStatus())
+                        <button
+                            x-data
+                            @click="$dispatch('toggle-follow')"
+                            x-text="$store.follow.active ? 'Following' : 'Follow'"
+                            class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition-colors"
+                            :class="$store.follow.active ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-[#7a8c5e]' : 'border-[rgba(200,184,154,0.4)] bg-white text-[#6b8fa3]'"
+                            data-testid="follow-button"
+                        >
+                            <span class="size-1.5 rounded-full bg-current" :class="$store.follow.active && 'animate-pulse'"></span>
+                        </button>
+                    @endif
+                    <span class="text-xs text-[#6b8fa3]">
+                        {{ $this->logs->count() }} entries
+                        @if($task->num_turns) &middot; {{ $task->num_turns }} turns @endif
+                        @if($task->duration_ms) &middot; {{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }} @endif
+                        @if($task->cost_usd) &middot; ${{ number_format((float) $task->cost_usd, 2) }} @endif
+                    </span>
+                </div>
             </div>
-            @foreach($this->logs as $index => $log)
-                @php
-                    $logType = $log->metadata['type'] ?? null;
-                    $isToolUse = $logType === 'tool_use';
-                    $isAssistant = $logType === 'assistant';
-                    $hasOutput = $isToolUse && isset($log->metadata['output']);
-                    $isError = $log->metadata['is_error'] ?? false;
-                    $hasExpandableContent = $hasOutput || $log->metadata;
-                @endphp
-                <div class="mb-2 overflow-hidden rounded-xl border border-[rgba(200,184,154,0.3)] bg-white" wire:key="log-{{ $log->id }}">
-                    <button wire:click="toggleLog({{ $index }})" class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)]">
-                        @if($hasExpandableContent)
-                            <flux:icon.chevron-right class="!size-3.5 shrink-0 text-[#c8b89a] transition-transform duration-150 {{ ($expandedLogs[$index] ?? false) ? 'rotate-90' : '' }}" />
-                        @else
-                            <span class="size-3.5 shrink-0"></span>
-                        @endif
-                        <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.1)] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#6b8fa3]">{{ $index + 1 }}</span>
-                        @if($isToolUse)
-                            <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $isError ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : 'bg-[rgba(122,140,94,0.15)] text-[#7a8c5e]' }}">
-                                {{ $log->metadata['tool'] ?? 'tool' }}
-                            </span>
-                        @elseif($isAssistant)
-                            <span class="shrink-0 rounded-md bg-[rgba(196,116,74,0.12)] px-2 py-0.5 font-mono text-[11px] font-medium text-[#c4744a]">
-                                assistant
-                            </span>
-                        @else
-                            <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $log->level === 'error' ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : ($log->level === 'warning' ? 'bg-[rgba(212,145,94,0.15)] text-[#d4915e]' : 'bg-[rgba(143,179,196,0.15)] text-[#5a8da5]') }}">
-                                {{ $log->level }}
-                            </span>
-                        @endif
-                        <span class="min-w-0 flex-1 truncate text-[13px] {{ $isAssistant ? 'italic text-[#6b8fa3]' : 'text-[#3d4f5f]' }}">{{ $log->message }}</span>
-                        @if($hasOutput)
-                            <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.08)] px-1.5 py-0.5 font-mono text-[10px] text-[#6b8fa3]">
-                                {{ $log->metadata['output_lines'] ?? '?' }} lines
-                            </span>
-                        @endif
-                        <span class="shrink-0 font-mono text-[11px] text-[#c8b89a]">{{ $log->created_at->format('g:i:s A') }}</span>
-                    </button>
-                    @if($expandedLogs[$index] ?? false)
-                        <div class="border-t border-[rgba(200,184,154,0.25)] bg-[#2b3640] p-4">
+            <div
+                x-data="{
+                    init() {
+                        Alpine.store('follow', { active: {{ $this->isActiveStatus() ? 'true' : 'false' }} });
+                        this.scrollToBottom();
+                    },
+                    scrollToBottom() {
+                        if (Alpine.store('follow').active) {
+                            this.$nextTick(() => {
+                                this.$refs.logList.scrollTo({ top: this.$refs.logList.scrollHeight, behavior: 'smooth' });
+                            });
+                        }
+                    },
+                    handleScroll() {
+                        const el = this.$refs.logList;
+                        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+                        if (!atBottom && Alpine.store('follow').active) {
+                            Alpine.store('follow').active = false;
+                        }
+                    },
+                    toggleFollow() {
+                        Alpine.store('follow').active = !Alpine.store('follow').active;
+                        if (Alpine.store('follow').active) {
+                            this.scrollToBottom();
+                        }
+                    }
+                }"
+                x-ref="logList"
+                x-on:toggle-follow.window="toggleFollow()"
+                wire:poll.{{ $this->pollInterval }}="$refresh"
+                x-effect="scrollToBottom()"
+                class="max-h-[600px] overflow-y-auto"
+                @scroll="handleScroll()"
+            >
+                @foreach($this->logs as $index => $log)
+                    @php
+                        $logType = $log->metadata['type'] ?? null;
+                        $isToolUse = $logType === 'tool_use';
+                        $isAssistant = $logType === 'assistant';
+                        $hasOutput = $isToolUse && isset($log->metadata['output']);
+                        $isError = $log->metadata['is_error'] ?? false;
+                        $hasExpandableContent = $hasOutput || $log->metadata;
+                        $isMilestone = \App\Livewire\Tasks\TaskDetail::isMilestone($log);
+                    @endphp
+                    <div
+                        class="mb-2 overflow-hidden rounded-xl border border-[rgba(200,184,154,0.3)] bg-white {{ $isMilestone ? 'border-l-[3px]' : '' }}"
+                        @if($isMilestone) style="border-left-color: {{ \App\Livewire\Tasks\TaskDetail::logLevelColor($log->level) }};" @endif
+                        wire:key="log-{{ $log->id }}"
+                        data-testid="{{ $isMilestone ? 'milestone-log' : 'log-entry' }}"
+                    >
+                        <button wire:click="toggleLog({{ $index }})" class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)] {{ $isMilestone ? 'bg-[rgba(245,240,232,0.3)]' : '' }}">
+                            @if($hasExpandableContent && !$isMilestone)
+                                <flux:icon.chevron-right class="!size-3.5 shrink-0 text-[#c8b89a] transition-transform duration-150 {{ ($expandedLogs[$index] ?? false) ? 'rotate-90' : '' }}" />
+                            @else
+                                <span class="size-3.5 shrink-0"></span>
+                            @endif
+                            <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.1)] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#6b8fa3]">{{ $index + 1 }}</span>
+                            @if($isToolUse)
+                                <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $isError ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : 'bg-[rgba(122,140,94,0.15)] text-[#7a8c5e]' }}">
+                                    {{ $log->metadata['tool'] ?? 'tool' }}
+                                </span>
+                            @elseif($isAssistant)
+                                <span class="shrink-0 rounded-md bg-[rgba(196,116,74,0.12)] px-2 py-0.5 font-mono text-[11px] font-medium text-[#c4744a]">
+                                    assistant
+                                </span>
+                            @else
+                                <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $log->level === 'error' ? 'bg-[rgba(184,84,80,0.15)] text-[#b85450]' : ($log->level === 'warning' ? 'bg-[rgba(212,145,94,0.15)] text-[#d4915e]' : 'bg-[rgba(143,179,196,0.15)] text-[#5a8da5]') }}">
+                                    {{ $log->level }}
+                                </span>
+                            @endif
+                            <span class="min-w-0 flex-1 truncate text-[13px] {{ $isAssistant ? 'italic text-[#6b8fa3]' : 'text-[#3d4f5f]' }} {{ $isMilestone ? 'font-semibold' : '' }}">{{ $log->message }}</span>
                             @if($hasOutput)
-                                <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['output'] }}</pre>
-                            @elseif($log->metadata)
-                                <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->message }}
+                                <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.08)] px-1.5 py-0.5 font-mono text-[10px] text-[#6b8fa3]">
+                                    {{ $log->metadata['output_lines'] ?? '?' }} lines
+                                </span>
+                            @endif
+                            <span class="shrink-0 font-mono text-[11px] text-[#c8b89a]">{{ $log->created_at->format('g:i:s A') }}</span>
+                        </button>
+                        @if($expandedLogs[$index] ?? false)
+                            <div class="border-t border-[rgba(200,184,154,0.25)] bg-[#2b3640] p-4">
+                                @if($hasOutput)
+                                    <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['output'] }}</pre>
+                                @elseif($log->metadata)
+                                    <pre class="max-h-80 overflow-auto font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->message }}
 
 {{ json_encode($log->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                            @endif
-                        </div>
-                    @endif
-                </div>
-            @endforeach
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
         </div>
     @endif
 </div>

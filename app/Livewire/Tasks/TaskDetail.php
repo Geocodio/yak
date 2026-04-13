@@ -135,6 +135,17 @@ class TaskDetail extends Component
         };
     }
 
+    public static function isMilestone(TaskLog $log): bool
+    {
+        $type = $log->metadata['type'] ?? null;
+
+        if ($type !== 'tool_use' && $type !== 'assistant') {
+            return true;
+        }
+
+        return in_array($log->level, ['error', 'warning']);
+    }
+
     #[Computed]
     public function pollInterval(): string
     {
