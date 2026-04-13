@@ -10,6 +10,7 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakeAgentRunner;
 
 /*
@@ -157,9 +158,13 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
     File::shouldReceive('exists')
         ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
         ->andReturn(true);
+    File::shouldReceive('get')
+        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
+        ->andReturn('<html>research</html>');
     File::shouldReceive('size')
         ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
         ->andReturn(4096);
+    Storage::fake('local');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
@@ -172,8 +177,10 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
     expect($artifact)->not->toBeNull()
         ->and($artifact->type)->toBe('research')
         ->and($artifact->filename)->toBe('research.html')
-        ->and($artifact->disk_path)->toBe('/home/yak/repos/test-repo/.yak-artifacts/research.html')
+        ->and($artifact->disk_path)->toBe("artifacts/{$task->id}/research.html")
         ->and($artifact->size_bytes)->toBe(4096);
+
+    Storage::disk('local')->assertExists("artifacts/{$task->id}/research.html");
 });
 
 test('handles missing HTML artifact gracefully', function () {
@@ -240,9 +247,13 @@ test('posts summary and findings URL as Linear comment', function () {
     File::shouldReceive('exists')
         ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
         ->andReturn(true);
+    File::shouldReceive('get')
+        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
+        ->andReturn('<html>research</html>');
     File::shouldReceive('size')
         ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
         ->andReturn(2048);
+    Storage::fake('local');
 
     config(['yak.channels.linear.api_key' => 'lin_api_test_key']);
 
@@ -348,9 +359,13 @@ test('posts summary and findings URL as Slack thread reply', function () {
     File::shouldReceive('exists')
         ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
         ->andReturn(true);
+    File::shouldReceive('get')
+        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
+        ->andReturn('<html>research</html>');
     File::shouldReceive('size')
         ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
         ->andReturn(1024);
+    Storage::fake('local');
 
     config(['yak.channels.slack.bot_token' => 'xoxb-test-token']);
 

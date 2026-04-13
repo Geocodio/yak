@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 class ResearchYakJob implements ShouldQueue
 {
@@ -145,18 +146,22 @@ class ResearchYakJob implements ShouldQueue
 
     private function collectHtmlArtifact(Repository $repository): ?Artifact
     {
-        $artifactPath = $repository->path . '/.yak-artifacts/research.html';
+        $sourcePath = $repository->path . '/.yak-artifacts/research.html';
 
-        if (! File::exists($artifactPath)) {
+        if (! File::exists($sourcePath)) {
             return null;
         }
+
+        $storagePath = "artifacts/{$this->task->id}/research.html";
+
+        Storage::disk('local')->put($storagePath, File::get($sourcePath));
 
         return Artifact::create([
             'yak_task_id' => $this->task->id,
             'type' => 'research',
             'filename' => 'research.html',
-            'disk_path' => $artifactPath,
-            'size_bytes' => File::size($artifactPath),
+            'disk_path' => $storagePath,
+            'size_bytes' => File::size($sourcePath),
         ]);
     }
 

@@ -21,24 +21,14 @@ class ArtifactController extends Controller
             abort(403, 'Invalid or expired signed URL.');
         }
 
-        $path = $artifact->disk_path;
+        abort_unless(Storage::disk('local')->exists($artifact->disk_path), 404, 'Artifact file not found.');
 
-        if (file_exists($path)) {
-            $mimeType = $this->guessMimeType($filename);
+        $mimeType = $this->guessMimeType($filename);
 
-            return response()->file($path, ['Content-Type' => $mimeType]);
-        }
-
-        if (Storage::disk('local')->exists($path)) {
-            $mimeType = $this->guessMimeType($filename);
-
-            return response()->file(
-                Storage::disk('local')->path($path),
-                ['Content-Type' => $mimeType]
-            );
-        }
-
-        abort(404, 'Artifact file not found.');
+        return response()->file(
+            Storage::disk('local')->path($artifact->disk_path),
+            ['Content-Type' => $mimeType],
+        );
     }
 
     public function viewer(Request $request, YakTask $task, string $filename): Response

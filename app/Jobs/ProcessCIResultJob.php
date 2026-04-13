@@ -15,6 +15,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 class ProcessCIResultJob implements ShouldQueue
 {
@@ -123,11 +124,18 @@ class ProcessCIResultJob implements ShouldQueue
         $artifacts = [];
 
         foreach ($files as $file) {
+            $storagePath = "artifacts/{$this->task->id}/{$file->getFilename()}";
+
+            Storage::disk('local')->put(
+                $storagePath,
+                File::get($file->getPathname()),
+            );
+
             $artifacts[] = Artifact::create([
                 'yak_task_id' => $this->task->id,
                 'type' => $this->detectArtifactType($file->getExtension()),
                 'filename' => $file->getFilename(),
-                'disk_path' => $file->getPathname(),
+                'disk_path' => $storagePath,
                 'size_bytes' => $file->getSize(),
             ]);
         }
