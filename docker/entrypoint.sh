@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-if [ ! -f /data/database.sqlite ]; then
-    touch /data/database.sqlite
-fi
-
-# /data is owned by www-data only — yak user must NOT write here
+# /data is used for artifacts — owned by www-data only (yak must NOT write here)
 chown -R www-data:www-data /data
 chmod -R 750 /data
 
@@ -25,6 +21,13 @@ chmod 750 /home/yak
 
 # Remove any .env so Laravel reads from environment variables directly
 rm -f /app/.env
+
+# Wait for MariaDB to be ready before running migrations
+echo "Waiting for database..."
+for i in $(seq 1 30); do
+    php artisan db:monitor --databases=mariadb > /dev/null 2>&1 && break
+    sleep 2
+done
 
 php artisan migrate --force --no-interaction
 php artisan route:cache --no-interaction
