@@ -11,6 +11,17 @@ class GitOperations
     private static bool $credentialsConfigured = false;
 
     /**
+     * Get the home directory for the current effective user.
+     *
+     * Supervisor sets user=yak but inherits HOME=/root from the container
+     * environment, so we resolve it from the passwd entry instead.
+     */
+    private static function homeDir(): string
+    {
+        return posix_getpwuid(posix_geteuid())['dir'] ?? '/tmp';
+    }
+
+    /**
      * Configure git credentials using the GitHub App installation token.
      *
      * Writes a credential helper script and sets it globally so all git
@@ -35,8 +46,7 @@ class GitOperations
         file_put_contents($helperPath, "#!/bin/sh\necho username=x-access-token\necho password={$token}\n");
         chmod($helperPath, 0755);
 
-        $home = posix_getpwuid(posix_geteuid())['dir'] ?? '/tmp';
-        Process::env(['HOME' => $home])
+        Process::env(['HOME' => self::homeDir()])
             ->run("git config --global credential.https://github.com.helper {$helperPath}");
 
         self::$credentialsConfigured = true;
@@ -90,9 +100,11 @@ class GitOperations
         $defaultBranch = $repository->default_branch;
 
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git fetch origin {$defaultBranch}");
 
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git checkout -b {$branchName} origin/{$defaultBranch}");
 
         return $branchName;
@@ -106,6 +118,7 @@ class GitOperations
         self::ensureCredentials();
 
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git push origin {$branchName}");
     }
 
@@ -117,6 +130,7 @@ class GitOperations
         self::ensureCredentials();
 
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git push --force origin {$branchName}");
     }
 
@@ -126,10 +140,12 @@ class GitOperations
     public static function cleanup(Repository $repository, ?string $branchName): void
     {
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git checkout {$repository->default_branch}");
 
         if ($branchName !== null && $branchName !== '') {
             Process::path($repository->path)
+                ->env(['HOME' => self::homeDir()])
                 ->run("git branch -D {$branchName}");
         }
     }
@@ -140,6 +156,7 @@ class GitOperations
     public static function checkoutBranch(Repository $repository, string $branchName): void
     {
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git checkout {$branchName}");
     }
 
@@ -149,6 +166,7 @@ class GitOperations
     public static function checkoutDefaultBranch(Repository $repository): void
     {
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git checkout {$repository->default_branch}");
     }
 
@@ -160,6 +178,7 @@ class GitOperations
         self::ensureCredentials();
 
         Process::path($repository->path)
+            ->env(['HOME' => self::homeDir()])
             ->run("git fetch origin {$repository->default_branch}");
     }
 }

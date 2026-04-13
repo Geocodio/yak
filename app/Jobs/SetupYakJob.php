@@ -138,7 +138,10 @@ class SetupYakJob implements ShouldQueue
 
         TaskLogger::info($this->task, "Cloning {$repository->git_url} to {$repository->path}");
 
-        $result = Process::run("git clone {$repository->git_url} {$repository->path}");
+        $home = posix_getpwuid(posix_geteuid())['dir'] ?? '/tmp';
+
+        $result = Process::env(['HOME' => $home])
+            ->run("git clone {$repository->git_url} {$repository->path}");
 
         if (! $result->successful()) {
             throw new \RuntimeException("Failed to clone repository: {$result->errorOutput()}");
