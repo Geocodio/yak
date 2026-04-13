@@ -13,6 +13,14 @@ class ArtifactController extends Controller
 {
     public function show(Request $request, YakTask $task, string $filename): BinaryFileResponse|StreamedResponse
     {
+        \Log::info('ArtifactController::show', [
+            'task_id' => $task->id,
+            'filename' => $filename,
+            'artifact_count' => $task->artifacts()->count(),
+            'scheme' => $request->getScheme(),
+            'url' => $request->fullUrl(),
+        ]);
+
         $artifact = $task->artifacts()
             ->where('filename', $filename)
             ->firstOrFail();
