@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     supervisor \
     cron \
     chromium \
+    ffmpeg \
     ca-certificates \
     gnupg \
     openssl \
