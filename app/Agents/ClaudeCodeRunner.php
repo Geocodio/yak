@@ -37,12 +37,8 @@ class ClaudeCodeRunner implements AgentRunner
             2 => ['pipe', 'w'],  // stderr
         ];
 
-        $env = getenv();
-        $env['HOME'] = '/home/yak';
-        unset($env['ANTHROPIC_API_KEY']);
-
-        $wrappedCommand = sprintf('sudo runuser -u yak -- bash -c %s', escapeshellarg($command));
-        $process = proc_open($wrappedCommand, $descriptors, $pipes, $request->workingDirectory, $env);
+        $wrappedCommand = $this->wrapCommand($command);
+        $process = proc_open($wrappedCommand, $descriptors, $pipes, $request->workingDirectory);
 
         if (! is_resource($process)) {
             return AgentRunResult::failure('Failed to start Claude process', '');
@@ -144,13 +140,9 @@ class ClaudeCodeRunner implements AgentRunner
     {
         $command = $this->buildCommand($request, streaming: false);
 
-        $wrappedCommand = sprintf('sudo runuser -u yak -- bash -c %s', escapeshellarg($command));
+        $wrappedCommand = $this->wrapCommand($command);
 
         $result = Process::path($request->workingDirectory)
-            ->env([
-                'HOME' => '/home/yak',
-                'ANTHROPIC_API_KEY' => '',
-            ])
             ->timeout($request->timeoutSeconds)
             ->run($wrappedCommand);
 
@@ -177,6 +169,33 @@ class ClaudeCodeRunner implements AgentRunner
         }
 
         $handler->handle($event);
+    }
+
+    /**
+     * Build the sudo runuser wrapper with allowlisted env vars.
+     *
+     * Only HOME and explicitly configured passthrough vars are forwarded
+     * to the sandboxed agent — app secrets (DB_PASSWORD, APP_KEY, etc.)
+     * are NOT exposed.
+     */
+    private function wrapCommand(string $command): string
+    {
+        $envParts = ['HOME=/home/yak'];
+
+        $passthrough = config('yak.agent_passthrough_env', '');
+        foreach (array_filter(explode(',', $passthrough)) as $name) {
+            $name = trim($name);
+            $value = getenv($name);
+            if ($value !== false) {
+                $envParts[] = sprintf('%s=%s', $name, escapeshellarg($value));
+            }
+        }
+
+        return sprintf(
+            'sudo runuser -u yak -- env %s bash -c %s',
+            implode(' ', $envParts),
+            escapeshellarg($command),
+        );
     }
 
     private function buildCommand(AgentRunRequest $request, bool $streaming): string

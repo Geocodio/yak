@@ -105,6 +105,56 @@ it('returns a failure result for malformed output without throwing', function ()
         ->and($result->rawOutput)->toBe('not json at all');
 });
 
+it('includes HOME in the env prefix', function () {
+    Process::fake([
+        'sudo *' => Process::result(json_encode([
+            'result' => 'ok',
+            'session_id' => 's',
+            'is_error' => false,
+        ])),
+    ]);
+
+    (new ClaudeCodeRunner)->run(makeRequest());
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'env HOME=/home/yak bash -c'));
+});
+
+it('forwards configured passthrough env vars to the agent', function () {
+    Process::fake([
+        'sudo *' => Process::result(json_encode([
+            'result' => 'ok',
+            'session_id' => 's',
+            'is_error' => false,
+        ])),
+    ]);
+
+    putenv('NODE_AUTH_TOKEN=ghp_test123');
+    config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN');
+
+    (new ClaudeCodeRunner)->run(makeRequest());
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "NODE_AUTH_TOKEN='ghp_test123'"));
+
+    putenv('NODE_AUTH_TOKEN'); // cleanup
+});
+
+it('skips passthrough vars that are not set in the environment', function () {
+    Process::fake([
+        'sudo *' => Process::result(json_encode([
+            'result' => 'ok',
+            'session_id' => 's',
+            'is_error' => false,
+        ])),
+    ]);
+
+    putenv('UNSET_VAR'); // ensure not set
+    config()->set('yak.agent_passthrough_env', 'UNSET_VAR');
+
+    (new ClaudeCodeRunner)->run(makeRequest());
+
+    Process::assertRan(fn ($p) => ! str_contains($p->command, 'UNSET_VAR'));
+});
+
 it('runs the process from the working directory with the request timeout', function () {
     Process::fake([
         'sudo *' => Process::result(json_encode([

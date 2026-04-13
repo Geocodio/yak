@@ -34,6 +34,10 @@ return [
 
     'git_user_email' => env('YAK_GIT_USER_EMAIL', 'yak@noreply.github.com'),
 
+    // Env vars to forward from the container to the sandboxed agent process.
+    // Comma-separated list of var names (e.g. "NODE_AUTH_TOKEN,NPM_TOKEN").
+    'agent_passthrough_env' => env('YAK_AGENT_PASSTHROUGH_ENV', ''),
+
     /*
     |--------------------------------------------------------------------------
     | MCP Configuration
