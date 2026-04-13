@@ -54,12 +54,12 @@
   community.docker.docker_container_exec:
     container: "{{ yak_container_name }}"
     user: yak
-    command: "npx skills add {{ item }}"
+    command: "npx skills add {{ item.repo }} --skill {{ item.skill }}"
   loop:
-    - vercel-labs/agent-browser
-    - vercel-labs/agent-skills/vercel-react-best-practices
-    - anthropics/skills/frontend-design
-    - vercel-labs/agent-skills/web-design-guidelines
-    - remotion-dev/skills/remotion-best-practices
-    - nextlevelbuilder/ui-ux-pro-max-skill/ui-ux-pro-max
-    - pbakaus/impeccable/polish
+    - { repo: "https://github.com/vercel-labs/agent-browser", skill: "agent-browser" }
+    - { repo: "https://github.com/vercel-labs/agent-skills", skill: "vercel-react-best-practices" }
+    - { repo: "https://github.com/anthropics/skills", skill: "frontend-design" }
+    - { repo: "https://github.com/vercel-labs/agent-skills", skill: "web-design-guidelines" }
+    - { repo: "https://github.com/remotion-dev/skills", skill: "remotion-best-practices" }
+    - { repo: "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill", skill: "ui-ux-pro-max" }
+    - { repo: "https://github.com/pbakaus/impeccable", skill: "polish" }
