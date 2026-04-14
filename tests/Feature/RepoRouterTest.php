@@ -1,22 +1,22 @@
 <?php
 
+use App\Ai\Agents\RepoRoutingAgent;
 use App\Models\Repository;
 use App\Services\RepoRouter;
-use Illuminate\Support\Facades\Http;
+use Laravel\Ai\Ai;
 
 beforeEach(function (): void {
-    config(['yak.anthropic_api_key' => 'sk-ant-test']);
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
 });
 
 test('returns null when no API key is configured', function (): void {
-    config(['yak.anthropic_api_key' => '']);
+    config(['ai.providers.anthropic.key' => '']);
 
     $repos = collect([Repository::factory()->create(['slug' => 'repo-a'])]);
 
     $result = (new RepoRouter)->route('fix the deployer', $repos);
 
     expect($result)->toBeNull();
-    Http::assertNothingSent();
 });
 
 test('returns null when repo list is empty', function (): void {
@@ -25,12 +25,8 @@ test('returns null when repo list is empty', function (): void {
     expect($result)->toBeNull();
 });
 
-test('resolves repo from natural language when Haiku returns confident match', function (): void {
-    Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'acme/deployer']],
-        ]),
-    ]);
+test('resolves repo from natural language when agent returns confident match', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, ['acme/deployer']);
 
     $repos = collect([
         Repository::factory()->create(['slug' => 'acme/api']),
@@ -46,12 +42,8 @@ test('resolves repo from natural language when Haiku returns confident match', f
     expect($result->slug)->toBe('acme/deployer');
 });
 
-test('returns null when Haiku returns UNKNOWN', function (): void {
-    Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'UNKNOWN']],
-        ]),
-    ]);
+test('returns null when agent returns UNKNOWN', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, ['UNKNOWN']);
 
     $repos = collect([
         Repository::factory()->create(['slug' => 'repo-a']),
@@ -63,12 +55,8 @@ test('returns null when Haiku returns UNKNOWN', function (): void {
     expect($result)->toBeNull();
 });
 
-test('returns null when Haiku returns a slug not in the list', function (): void {
-    Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'some-other-repo']],
-        ]),
-    ]);
+test('returns null when agent returns a slug not in the list', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, ['some-other-repo']);
 
     $repos = collect([Repository::factory()->create(['slug' => 'repo-a'])]);
 
@@ -77,10 +65,10 @@ test('returns null when Haiku returns a slug not in the list', function (): void
     expect($result)->toBeNull();
 });
 
-test('returns null when API call fails', function (): void {
-    Http::fake([
-        'api.anthropic.com/*' => Http::response([], 500),
-    ]);
+test('returns null when agent call fails', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, function () {
+        throw new RuntimeException('API down');
+    });
 
     $repos = collect([Repository::factory()->create(['slug' => 'repo-a'])]);
 
@@ -89,27 +77,27 @@ test('returns null when API call fails', function (): void {
     expect($result)->toBeNull();
 });
 
-test('includes repo notes in the routing prompt', function (): void {
-    Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'my-repo']],
-        ]),
-    ]);
+test('includes repo description and notes in the routing prompt', function (): void {
+    $captured = null;
+
+    Ai::fakeAgent(RepoRoutingAgent::class, function ($prompt) use (&$captured) {
+        $captured = $prompt;
+
+        return 'my-repo';
+    });
 
     $repos = collect([
         Repository::factory()->create([
             'slug' => 'my-repo',
-            'notes' => 'Handles customer signup and billing',
+            'description' => 'Customer signup and billing service',
+            'notes' => 'Uses Stripe webhooks',
         ]),
     ]);
 
     (new RepoRouter)->route('fix the signup flow', $repos);
 
-    Http::assertSent(function ($request) {
-        $body = json_decode($request->body(), true);
-        $prompt = $body['messages'][0]['content'];
-
-        return str_contains($prompt, 'Handles customer signup and billing')
-            && str_contains($prompt, 'my-repo');
-    });
+    expect($captured)->not->toBeNull();
+    expect((string) $captured)->toContain('my-repo');
+    expect((string) $captured)->toContain('Customer signup and billing service');
+    expect((string) $captured)->toContain('Uses Stripe webhooks');
 });

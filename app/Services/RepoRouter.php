@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
+use App\Ai\Agents\RepoRoutingAgent;
 use App\Models\Repository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Uses Haiku to pick the best-matching repository from a natural language
- * task description when no explicit repo was mentioned.
+ * Uses Haiku (via Laravel AI) to pick the best-matching repository from a
+ * natural language task description when no explicit repo was mentioned.
  */
 class RepoRouter
 {
@@ -21,56 +21,33 @@ class RepoRouter
      */
     public function route(string $description, Collection $activeRepos): ?Repository
     {
-        $apiKey = (string) config('yak.anthropic_api_key');
+        $apiKey = (string) config('ai.providers.anthropic.key');
 
         if ($apiKey === '' || $activeRepos->isEmpty()) {
             return null;
         }
 
         $repoList = $activeRepos->map(function (Repository $repo): string {
+            $details = array_filter([$repo->description, $repo->notes]);
             $line = "- {$repo->slug}";
-            if ($repo->notes) {
-                $line .= ": {$repo->notes}";
+            if (! empty($details)) {
+                $line .= ': ' . implode(' | ', $details);
             }
 
             return $line;
         })->implode("\n");
 
         $prompt = <<<PROMPT
-You are a routing classifier. Given a task description and a list of repositories, pick the single repository the task belongs to.
-
 Repositories:
 {$repoList}
 
 Task description:
 {$description}
-
-Respond with ONLY the repository slug (e.g. "acme/api") on a single line, with no other text. If you cannot confidently determine the correct repository, respond with ONLY the word "UNKNOWN".
 PROMPT;
 
         try {
-            $response = Http::withHeaders([
-                'x-api-key' => $apiKey,
-                'anthropic-version' => '2023-06-01',
-            ])
-                ->timeout(10)
-                ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => 'claude-haiku-4-5-20251001',
-                    'max_tokens' => 50,
-                    'messages' => [
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                ]);
-
-            if (! $response->successful()) {
-                Log::warning('RepoRouter: API returned unsuccessful response', [
-                    'status' => $response->status(),
-                ]);
-
-                return null;
-            }
-
-            $slug = trim($response->json('content.0.text', ''));
+            $response = RepoRoutingAgent::make()->prompt($prompt);
+            $slug = trim((string) $response);
 
             if ($slug === '' || $slug === 'UNKNOWN') {
                 return null;
@@ -91,7 +68,7 @@ PROMPT;
 
             return $match;
         } catch (\Throwable $e) {
-            Log::warning('RepoRouter: API call failed', [
+            Log::warning('RepoRouter: routing call failed', [
                 'error' => $e->getMessage(),
             ]);
 

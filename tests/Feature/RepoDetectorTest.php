@@ -1,9 +1,10 @@
 <?php
 
+use App\Ai\Agents\RepoRoutingAgent;
 use App\DataTransferObjects\TaskDescription;
 use App\Models\Repository;
 use App\Services\RepoDetector;
-use Illuminate\Support\Facades\Http;
+use Laravel\Ai\Ai;
 
 beforeEach(function (): void {
     $this->detector = new RepoDetector;
@@ -158,12 +159,8 @@ test('single active repo is always used without clarification', function (): voi
 });
 
 test('multi-repo with natural language routes via Haiku before clarification', function (): void {
-    config(['yak.anthropic_api_key' => 'sk-ant-test']);
-    Http::fake([
-        'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'acme/deployer']],
-        ]),
-    ]);
+    config(['ai.providers.anthropic.key' => 'sk-ant-test']);
+    Ai::fakeAgent(RepoRoutingAgent::class, ['acme/deployer']);
 
     Repository::factory()->create(['slug' => 'acme/api']);
     Repository::factory()->create(['slug' => 'acme/deployer']);

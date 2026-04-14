@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
+use App\Ai\Agents\PersonalityAgent;
 use App\Enums\NotificationType;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\View;
 
 class YakPersonality
 {
@@ -22,46 +21,19 @@ class YakPersonality
 
     public static function generate(NotificationType $type, string $context): string
     {
-        $prompt = View::make('prompts.personality', [
-            'type' => $type->value,
-            'context' => $context,
-        ])->render();
-
-        $apiKey = (string) config('yak.anthropic_api_key');
+        $apiKey = (string) config('ai.providers.anthropic.key');
 
         if ($apiKey === '') {
             return self::fallback($type, $context);
         }
 
         try {
-            $response = Http::withHeaders([
-                'x-api-key' => $apiKey,
-                'anthropic-version' => '2023-06-01',
-            ])
-                ->timeout(10)
-                ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => 'claude-haiku-4-5-20251001',
-                    'max_tokens' => 150,
-                    'messages' => [
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                ]);
+            $response = PersonalityAgent::make($type->value, $context)->prompt('Generate the notification message.');
+            $text = trim((string) $response);
 
-            if ($response->successful()) {
-                $text = trim($response->json('content.0.text', ''));
-
-                if ($text !== '') {
-                    return $text;
-                }
-            }
-
-            Log::warning('YakPersonality: API returned unsuccessful response', [
-                'status' => $response->status(),
-            ]);
-
-            return self::fallback($type, $context);
+            return $text !== '' ? $text : self::fallback($type, $context);
         } catch (\Throwable $e) {
-            Log::warning('YakPersonality: API call failed', [
+            Log::warning('YakPersonality: agent call failed', [
                 'error' => $e->getMessage(),
             ]);
 
