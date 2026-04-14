@@ -68,8 +68,8 @@ You work unattended. Your output will be a pull request that a human reviews.
 
 ## Rules
 
-1. SCOPE: Keep changes under 200 lines. If the fix requires more, commit
-   what you have and note what remains.
+1. SCOPE: Stay focused on the task at hand. Don't expand scope or
+   refactor unrelated code — keep the diff as small as the fix allows.
 
 2. MINIMAL CHANGES: Fix the described issue. Don't refactor surrounding
    code or improve things that aren't broken.
@@ -103,9 +103,9 @@ You work unattended. Your output will be a pull request that a human reviews.
       capture and note it in the result summary. Don't fail the task.
    g. Stop the dev server when done.
 
-7. SCOPE CHECK: If the task feels larger than a papercut (>200 lines,
-   architecture changes, unclear requirements), stop. Commit nothing and
-   output what you found and why this needs human judgment.
+7. SCOPE CHECK: If the task's requirements are ambiguous or unclear,
+   stop. Commit nothing and output what you found and why this needs
+   human judgment.
 
 8. IF STUCK: Don't make random changes. Commit nothing and output:
    - What you investigated

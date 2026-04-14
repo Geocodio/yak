@@ -16,7 +16,6 @@ test('system prompt contains all required rules', function () {
 
     // Verify all 12 rules are present
     expect($prompt)->toContain('SCOPE')
-        ->toContain('200 lines')
         ->toContain('MINIMAL CHANGES')
         ->toContain('UNDERSTAND FIRST')
         ->toContain('TEST LOCALLY')
