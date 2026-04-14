@@ -138,9 +138,13 @@
         </div>
 
         @unless($this->isEditing)
-            <div class="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-                <p class="text-sm text-zinc-700 dark:text-zinc-300">
-                    <strong class="text-blue-600 dark:text-blue-400">After saving,</strong> Yak automatically dispatches a setup task — Claude Code reads the repo's README and CLAUDE.md, sets up the dev environment, and verifies everything works.
+            <div class="mb-6 flex items-start gap-3 rounded-[20px] border border-yak-tan/40 bg-yak-cream-dark/60 p-4">
+                <div class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-yak-orange/15 text-yak-orange">
+                    <flux:icon.sparkles variant="mini" class="size-4" />
+                </div>
+                <p class="text-sm leading-relaxed text-yak-slate">
+                    <span class="font-medium text-yak-orange">After saving,</span>
+                    Yak dispatches a setup task — Claude Code reads your README and CLAUDE.md, prepares the dev environment, and verifies everything works.
                 </p>
             </div>
         @endunless
