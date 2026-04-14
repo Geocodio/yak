@@ -32,7 +32,7 @@ class MarketplaceReader
 
     /**
      * @param  array<string, mixed>  $info
-     * @return list<MarketplacePlugin>
+     * @return array<int, MarketplacePlugin>
      */
     private function readMarketplace(string $name, array $info): array
     {

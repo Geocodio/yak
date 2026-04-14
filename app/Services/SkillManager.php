@@ -25,7 +25,6 @@ class SkillManager
             return collect();
         }
 
-        /** @var array{version?: int, plugins?: array<string, array<int, array<string, mixed>>>}|null $data */
         $data = json_decode((string) file_get_contents($path), true);
 
         if (! is_array($data) || ! isset($data['plugins']) || ! is_array($data['plugins'])) {

@@ -228,3 +228,97 @@ textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-yak-orange ring-offset-2;
 }
+
+/* Skills page */
+.plugin-card {
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--color-yak-tan) 40%, transparent);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+
+.plugin-card:hover {
+    border-color: var(--color-yak-tan);
+    box-shadow: var(--shadow-elevation-1);
+    transform: translateY(-1px);
+}
+
+.skills-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+}
+
+.skills-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 28px 0 14px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-yak-blue);
+}
+
+.skills-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: color-mix(in srgb, var(--color-yak-tan) 35%, transparent);
+}
+
+.skills-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-yak-tan);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.yak-toggle {
+    position: relative;
+    width: 28px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--color-yak-tan) 60%, transparent);
+    transition: background 0.15s;
+}
+
+.yak-toggle.on {
+    background: var(--color-yak-green);
+}
+
+.yak-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: left 0.15s;
+}
+
+.yak-toggle.on::after {
+    left: 14px;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 999px;
+}

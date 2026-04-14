@@ -3,6 +3,7 @@
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\LinearConnection;
 use App\Livewire\Settings\Profile;
+use App\Livewire\Settings\Skills;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -11,4 +12,5 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('settings/profile', Profile::class)->name('profile.edit');
     Route::livewire('settings/appearance', Appearance::class)->name('appearance.edit');
     Route::livewire('settings/linear', LinearConnection::class)->name('settings.linear');
+    Route::livewire('settings/skills', Skills::class)->name('settings.skills');
 });
