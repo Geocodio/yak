@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class SentryService
 {
@@ -23,6 +25,14 @@ class SentryService
             ->get("{$regionUrl}/api/0/organizations/{$orgSlug}/projects/");
 
         if (! $response->successful()) {
+            Log::warning('Sentry listProjects failed', [
+                'status' => $response->status(),
+                'body' => Str::limit($response->body(), 200),
+                'hint' => $response->status() === 403
+                    ? 'Sentry auth token likely missing org:read / project:read scope'
+                    : null,
+            ]);
+
             return [];
         }
 

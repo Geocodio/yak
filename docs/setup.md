@@ -185,7 +185,7 @@ See [channels.md](channels.md#linear-optional) for usage and gotchas.
 
 1. In your Sentry org, go to **Settings → Developer Settings → Custom Integrations**
 2. Click **Create New Integration** → **Internal Integration**
-3. Set permissions: **Project: Read**, **Issue & Event: Read**
+3. Set permissions: **Organization: Read**, **Project: Read**, **Issue & Event: Read** (the first two are required for the Add Repository form to populate the Sentry project dropdown)
 4. Set the webhook URL to `https://{your-domain}/webhooks/sentry`
 5. Copy the **Token** into `sentry_auth_token`
 6. Copy the **Webhook Signing Secret** (under "Webhook Secret" in the integration's Client Secret section) into `sentry_webhook_secret`

@@ -83,6 +83,19 @@ class RepoForm extends Component
     }
 
     #[Computed]
+    public function sentryProjectHint(): string
+    {
+        $configured = (bool) config('yak.channels.sentry.auth_token')
+            && (bool) config('yak.channels.sentry.org_slug');
+
+        if ($configured && empty($this->sentry_projects)) {
+            return 'Could not load Sentry projects — make sure the auth token has the org:read and project:read scopes. Enter the slug manually in the meantime.';
+        }
+
+        return 'Maps incoming Sentry webhooks to this repository.';
+    }
+
+    #[Computed]
     public function canDelete(): bool
     {
         if (! $this->repository) {

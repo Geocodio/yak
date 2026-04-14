@@ -215,7 +215,7 @@ Linear projects are not mapped to repos — issues frequently span projects, so 
 ### Setup
 
 1. Create an internal integration at **Settings → Developer Settings → Internal Integrations**
-2. Permissions required: **Project: Read**, **Issue & Event: Read**
+2. Permissions required: **Organization: Read**, **Project: Read**, **Issue & Event: Read**. Organization+Project read are what lets the Add Repository form populate the Sentry project dropdown — skip them and the form silently falls back to a plain slug text input.
 3. Set the webhook URL: `https://{your-domain}/webhooks/sentry`
 4. Create an alert rule tagged `yak-eligible` for the issues you want Yak to pick up
 5. Map Sentry projects to repositories via the `sentry_project` field on each repo (see [repositories.md](repositories.md))

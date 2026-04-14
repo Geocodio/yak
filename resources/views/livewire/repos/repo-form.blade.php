@@ -124,7 +124,12 @@
                         @endforeach
                     </flux:select>
                 @else
-                    <flux:input wire:model="sentry_project" label="Sentry Project Slug" placeholder="my-project" description="Maps incoming Sentry webhooks to this repository." />
+                    <flux:input
+                        wire:model="sentry_project"
+                        label="Sentry Project Slug"
+                        placeholder="my-project"
+                        :description="$this->sentryProjectHint"
+                    />
                 @endif
                 <div>
                     <flux:switch wire:model="is_default" label="Default Repository" description="Only one repository can be the default." />
