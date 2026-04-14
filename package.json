@@ -7,8 +7,16 @@
         "dev": "vite"
     },
     "dependencies": {
+        "@codemirror/autocomplete": "^6.20.1",
+        "@codemirror/commands": "^6.10.3",
+        "@codemirror/language": "^6.12.3",
+        "@codemirror/lint": "^6.9.5",
+        "@codemirror/merge": "^6.12.1",
+        "@codemirror/state": "^6.6.0",
+        "@codemirror/view": "^6.41.0",
         "@tailwindcss/vite": "^4.1.11",
         "autoprefixer": "^10.4.20",
+        "codemirror": "^6.0.2",
         "concurrently": "^9.0.1",
         "laravel-vite-plugin": "^3.0.0",
         "playwright": "^1.59.1",

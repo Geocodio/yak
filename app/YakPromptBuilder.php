@@ -3,8 +3,8 @@
 namespace App;
 
 use App\Enums\TaskMode;
+use App\Facades\Prompts;
 use App\Models\YakTask;
-use Illuminate\Support\Facades\View;
 
 class YakPromptBuilder
 {
@@ -15,7 +15,7 @@ class YakPromptBuilder
     {
         $channelRules = self::buildChannelRules();
 
-        return self::renderView('prompts.system', [
+        return Prompts::render('system', [
             'taskId' => $task->external_id,
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
@@ -55,7 +55,7 @@ class YakPromptBuilder
      */
     public static function setupPrompt(string $repoName): string
     {
-        return self::renderView('prompts.tasks.setup', [
+        return Prompts::render('tasks-setup', [
             'repoName' => $repoName,
         ]);
     }
@@ -65,7 +65,7 @@ class YakPromptBuilder
      */
     public static function clarificationReplyPrompt(string $chosenOption): string
     {
-        return self::renderView('prompts.tasks.clarification-reply', [
+        return Prompts::render('tasks-clarification-reply', [
             'chosenOption' => $chosenOption,
         ]);
     }
@@ -75,7 +75,7 @@ class YakPromptBuilder
      */
     public static function retryPrompt(?string $failureOutput): string
     {
-        return self::renderView('prompts.tasks.retry', [
+        return Prompts::render('tasks-retry', [
             'failureOutput' => $failureOutput,
         ]);
     }
@@ -93,7 +93,7 @@ class YakPromptBuilder
 
         $sentry = new Channel('sentry');
         if ($sentry->enabled()) {
-            $rules[] = self::renderView('prompts.channels.sentry');
+            $rules[] = Prompts::render('channels-sentry');
         }
 
         return implode("\n", $rules);
@@ -104,7 +104,7 @@ class YakPromptBuilder
      */
     private static function sentryFixPrompt(array $metadata): string
     {
-        return self::renderView('prompts.tasks.sentry-fix', [
+        return Prompts::render('tasks-sentry-fix', [
             'error' => (string) ($metadata['error'] ?? ''),
             'culprit' => (string) ($metadata['culprit'] ?? ''),
             'stacktrace' => (string) ($metadata['stacktrace'] ?? ''),
@@ -118,7 +118,7 @@ class YakPromptBuilder
      */
     private static function flakyTestPrompt(array $metadata): string
     {
-        return self::renderView('prompts.tasks.flaky-test', [
+        return Prompts::render('tasks-flaky-test', [
             'testClass' => (string) ($metadata['test_class'] ?? ''),
             'testMethod' => (string) ($metadata['test_method'] ?? ''),
             'failureOutput' => (string) ($metadata['failure_output'] ?? ''),
@@ -142,7 +142,7 @@ class YakPromptBuilder
             $description = $parts[1] ?? '';
         }
 
-        return self::renderView('prompts.tasks.linear-fix', [
+        return Prompts::render('tasks-linear-fix', [
             'title' => $title,
             'description' => $description,
             'identifier' => (string) ($metadata['linear_issue_identifier'] ?? ''),
@@ -153,7 +153,7 @@ class YakPromptBuilder
 
     private static function researchPrompt(string $description): string
     {
-        return self::renderView('prompts.tasks.research', [
+        return Prompts::render('tasks-research', [
             'description' => $description,
         ]);
     }
@@ -163,19 +163,9 @@ class YakPromptBuilder
      */
     private static function slackFixPrompt(string $description, array $metadata): string
     {
-        return self::renderView('prompts.tasks.slack-fix', [
+        return Prompts::render('tasks-slack-fix', [
             'description' => $description,
             'requesterName' => (string) ($metadata['requester_name'] ?? 'a team member'),
         ]);
-    }
-
-    /**
-     * Render a Blade view to a string, trimming trailing whitespace.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private static function renderView(string $view, array $data = []): string
-    {
-        return trim(View::make($view, $data)->render());
     }
 }
