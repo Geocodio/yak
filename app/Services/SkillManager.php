@@ -5,6 +5,8 @@ namespace App\Services;
 use App\ClaudeCli;
 use App\DataTransferObjects\BundledSkill;
 use App\DataTransferObjects\InstalledPlugin;
+use App\DataTransferObjects\Marketplace;
+use App\Exceptions\ClaudeCliException;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -84,6 +86,70 @@ class SkillManager
                 );
             })
             ->values();
+    }
+
+    /**
+     * @return Collection<int, Marketplace>
+     */
+    public function listMarketplaces(): Collection
+    {
+        $path = config('yak.plugins_dir') . '/known_marketplaces.json';
+
+        if (! is_file($path)) {
+            return collect();
+        }
+
+        $data = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($data)) {
+            return collect();
+        }
+
+        /** @var array<string, array<string, mixed>> $data */
+        return collect($data)
+            ->map(function (array $info, string $name) {
+                $source = $info['source'] ?? null;
+
+                $sourceString = '';
+                if (is_array($source) && isset($source['repo'])) {
+                    $sourceString = (string) $source['repo'];
+                } elseif (is_string($source)) {
+                    $sourceString = $source;
+                }
+
+                return new Marketplace(
+                    name: $name,
+                    source: $sourceString,
+                    lastUpdated: isset($info['lastUpdated']) ? Carbon::parse((string) $info['lastUpdated']) : null,
+                );
+            })
+            ->values();
+    }
+
+    public function addMarketplace(string $source): void
+    {
+        $this->runOrThrow('plugins marketplace add ' . escapeshellarg($source), timeout: 120);
+    }
+
+    public function removeMarketplace(string $name): void
+    {
+        $this->runOrThrow('plugins marketplace remove ' . escapeshellarg($name));
+    }
+
+    public function refreshMarketplaces(): void
+    {
+        $this->runOrThrow('plugins marketplace update', timeout: 120);
+    }
+
+    private function runOrThrow(string $args, int $timeout = 60): void
+    {
+        $result = $this->cli->exec($args, $timeout);
+
+        if (! $result->successful()) {
+            $message = trim($result->errorOutput() ?: $result->output());
+
+            throw new ClaudeCliException("claude {$args} failed: {$message}");
+        }
     }
 
     private function extractFrontMatterField(string $markdown, string $field): ?string

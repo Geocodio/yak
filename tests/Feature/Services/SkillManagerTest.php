@@ -1,8 +1,10 @@
 <?php
 
 use App\DataTransferObjects\InstalledPlugin;
+use App\Exceptions\ClaudeCliException;
 use App\Services\SkillManager;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
     $this->tmp = sys_get_temp_dir() . '/yak-skills-' . uniqid();
@@ -90,4 +92,43 @@ it('lists bundled skills from the skills directory', function () {
 it('returns empty when skills dir is missing', function () {
     config()->set('yak.skills_dir', $this->tmp . '/no-such-dir');
     expect(app(SkillManager::class)->listBundledSkills())->toHaveCount(0);
+});
+
+it('lists marketplaces from known_marketplaces.json', function () {
+    File::put($this->tmp . '/known_marketplaces.json', json_encode([
+        'acme' => [
+            'source' => ['source' => 'github', 'repo' => 'acme/plugins'],
+            'installLocation' => $this->tmp . '/marketplaces/acme',
+            'lastUpdated' => '2026-04-12T10:00:00Z',
+        ],
+    ]));
+
+    $list = app(SkillManager::class)->listMarketplaces();
+
+    expect($list)->toHaveCount(1)
+        ->and($list->first()->name)->toBe('acme')
+        ->and($list->first()->source)->toBe('acme/plugins')
+        ->and($list->first()->lastUpdated?->toIso8601String())->toBe('2026-04-12T10:00:00+00:00');
+});
+
+it('adds, removes, and refreshes marketplaces via the CLI', function () {
+    Process::fake(['*' => Process::result(output: 'ok', exitCode: 0)]);
+
+    app(SkillManager::class)->addMarketplace('github:acme/plugins');
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins marketplace add')
+        && str_contains($p->command, 'github:acme/plugins'));
+
+    app(SkillManager::class)->removeMarketplace('acme');
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins marketplace remove')
+        && str_contains($p->command, 'acme'));
+
+    app(SkillManager::class)->refreshMarketplaces();
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins marketplace update'));
+});
+
+it('throws a ClaudeCliException when the CLI exits non-zero', function () {
+    Process::fake(['*' => Process::result(errorOutput: 'boom', exitCode: 1)]);
+
+    expect(fn () => app(SkillManager::class)->addMarketplace('bad'))
+        ->toThrow(ClaudeCliException::class, 'boom');
 });
