@@ -66,6 +66,8 @@ test('creates tasks for detected flaky tests with source=flaky-test', function (
             output: 'Expected status 200, got 500',
             buildUrl: 'https://github.com/org/repo/actions/runs/123',
             buildId: '123',
+            branch: 'main',
+            commitSha: 'sha-a',
         ),
     );
 
@@ -99,6 +101,8 @@ test('deduplicates using external_id and repo constraint', function () {
             output: 'Error detail',
             buildUrl: 'https://github.com/org/repo/actions/runs/456',
             buildId: '456',
+            branch: 'main',
+            commitSha: 'sha-a',
         ),
     );
 
@@ -151,6 +155,8 @@ test('creates tasks with mode=fix', function () {
             output: 'Failed assertion',
             buildUrl: 'https://drone.example.com/org/repo/42',
             buildId: '42',
+            branch: 'main',
+            commitSha: 'sha-a',
         ),
     );
 
@@ -169,6 +175,8 @@ test('stores context as JSON with test metadata', function () {
             output: 'Connection refused',
             buildUrl: 'https://github.com/org/repo/actions/runs/789',
             buildId: '789',
+            branch: 'main',
+            commitSha: 'sha-a',
         ),
     );
 
@@ -208,6 +216,8 @@ test('dry-run reports detected failures without creating tasks or dispatching jo
             output: 'Expected 200, got 500',
             buildUrl: 'https://example.com/runs/42',
             buildId: '42',
+            branch: 'main',
+            commitSha: 'sha-a',
         ),
     );
 
@@ -218,6 +228,161 @@ test('dry-run reports detected failures without creating tasks or dispatching jo
 
     expect(YakTask::where('repo', 'dry-repo')->count())->toBe(0);
     Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('flaky threshold: single failure on a feature branch does NOT create a task', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://example.com/runs/1',
+            buildId: '1',
+            branch: 'feature/foo',
+            commitSha: 'sha-a',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])
+        ->assertSuccessful()
+        ->expectsOutputToContain('Below flaky threshold');
+
+    expect(YakTask::where('repo', 'thresh-repo')->count())->toBe(0);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('flaky threshold: two failures from the SAME commit on a feature branch do NOT create a task', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://example.com/runs/1',
+            buildId: '1',
+            branch: 'feature/foo',
+            commitSha: 'sha-a',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://example.com/runs/2',
+            buildId: '2',
+            branch: 'feature/foo',
+            commitSha: 'sha-a',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])->assertSuccessful();
+
+    expect(YakTask::where('repo', 'thresh-repo')->count())->toBe(0);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('flaky threshold: two failures from DIFFERENT commits on a feature branch DO create a task', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://example.com/runs/1',
+            buildId: '1',
+            branch: 'feature/foo',
+            commitSha: 'sha-a',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://example.com/runs/2',
+            buildId: '2',
+            branch: 'feature/foo',
+            commitSha: 'sha-b',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])->assertSuccessful();
+
+    expect(YakTask::where('repo', 'thresh-repo')->count())->toBe(1);
+    Queue::assertPushed(RunYakJob::class);
+});
+
+test('flaky threshold: a single failure on the default branch DOES create a task', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky on master',
+            buildUrl: 'https://example.com/runs/42',
+            buildId: '42',
+            branch: 'main',
+            commitSha: 'sha-a',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])->assertSuccessful();
+
+    $task = YakTask::where('repo', 'thresh-repo')->first();
+    expect($task)->not->toBeNull();
+    Queue::assertPushed(RunYakJob::class);
+
+    $context = json_decode($task->context, true);
+    expect($context)->toHaveKey('failure_count', 1);
+    expect($context['distinct_commits'])->toBe(['sha-a']);
+});
+
+test('flaky threshold: truncated test names dedup via trailing-ellipsis stripping', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    // Pest truncates long test names with a trailing `…`. Two builds that
+    // produce the same truncated name on different commits should collapse
+    // to one task. Our external_id is md5(normalizeTestName), and
+    // normalizeTestName strips the trailing ellipsis so an inadvertent
+    // extra trailing `…` (or whitespace around it) still hashes the same.
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Browser\LoginTest > it can access change pa…',
+            output: '',
+            buildUrl: 'https://example.com/runs/1',
+            buildId: '1',
+            branch: 'feature/foo',
+            commitSha: 'sha-a',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Browser\LoginTest > it can access change pa… ',
+            output: '',
+            buildUrl: 'https://example.com/runs/2',
+            buildId: '2',
+            branch: 'feature/foo',
+            commitSha: 'sha-b',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])->assertSuccessful();
+
+    expect(YakTask::where('repo', 'thresh-repo')->count())->toBe(1);
 });
 
 test('scan-ci command is scheduled every two hours', function () {

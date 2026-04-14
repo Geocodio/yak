@@ -174,6 +174,96 @@ test('pollBranchStatus ignores builds started before the cutoff (retry race)', f
         ->toBeNull();
 });
 
+test('parser rejects FAILED lines without a Class > description shape', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/app', 'ci_system' => 'drone']);
+
+    Http::fake([
+        'drone.example.com/api/repos/acme/app/builds' => Http::response([
+            [
+                'number' => 7,
+                'status' => 'failure',
+                'source' => 'master',
+                'started' => now()->subMinute()->timestamp,
+                'link' => 'https://drone.example.com/acme/app/7',
+            ],
+        ]),
+        'drone.example.com/api/repos/acme/app/builds/7' => Http::response([
+            'stages' => [['number' => 1, 'steps' => [['number' => 1, 'status' => 'failure']]]],
+        ]),
+        // Realistic log: one genuine FAILED plus some noise.
+        'drone.example.com/api/repos/acme/app/builds/7/logs/1/1' => Http::response([
+            ['out' => 'Build step "deploy" FAILED'],
+            ['out' => '   FAILED  Tests\\LoginTest > it logs in'],
+            ['out' => '  AssertionError: expected true'],
+            ['out' => 'Tests:    1 failed, 8 skipped, 64 passed'],
+            ['out' => 'FAILED pipeline'],
+        ]),
+    ]);
+
+    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+
+    expect($failures)->toHaveCount(1);
+    expect($failures->first()->testName)->toBe('Tests\\LoginTest > it logs in');
+    expect($failures->first()->output)->toContain('AssertionError');
+    expect($failures->first()->output)->not->toContain('Tests:'); // summary line stops capture
+});
+
+test('parser strips ANSI colour codes before matching', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/app', 'ci_system' => 'drone']);
+
+    Http::fake([
+        'drone.example.com/api/repos/acme/app/builds' => Http::response([
+            [
+                'number' => 8,
+                'status' => 'failure',
+                'source' => 'master',
+                'started' => now()->subMinute()->timestamp,
+                'link' => 'https://drone.example.com/acme/app/8',
+            ],
+        ]),
+        'drone.example.com/api/repos/acme/app/builds/8' => Http::response([
+            'stages' => [['number' => 1, 'steps' => [['number' => 1, 'status' => 'failure']]]],
+        ]),
+        'drone.example.com/api/repos/acme/app/builds/8/logs/1/1' => Http::response([
+            // Pest with colour on: FAILED header is wrapped in escape sequences.
+            ['out' => "   \e[41;1m FAILED \e[49;22m \e[1mTests\\LoginTest\e[22m \e[90m>\e[39m it logs in"],
+        ]),
+    ]);
+
+    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+
+    expect($failures)->toHaveCount(1);
+    expect($failures->first()->testName)->toBe('Tests\\LoginTest > it logs in');
+});
+
+test('scanner populates branch and commit sha from the Drone build payload', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/app', 'ci_system' => 'drone']);
+
+    Http::fake([
+        'drone.example.com/api/repos/acme/app/builds' => Http::response([
+            [
+                'number' => 9,
+                'status' => 'failure',
+                'source' => 'feature/xyz',
+                'after' => 'commit-sha-9',
+                'started' => now()->subMinute()->timestamp,
+                'link' => 'https://drone.example.com/acme/app/9',
+            ],
+        ]),
+        'drone.example.com/api/repos/acme/app/builds/9' => Http::response([
+            'stages' => [['number' => 1, 'steps' => [['number' => 1, 'status' => 'failure']]]],
+        ]),
+        'drone.example.com/api/repos/acme/app/builds/9/logs/1/1' => Http::response([
+            ['out' => '   FAILED  Tests\\LoginTest > it logs in'],
+        ]),
+    ]);
+
+    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+
+    expect($failures->first()->branch)->toBe('feature/xyz');
+    expect($failures->first()->commitSha)->toBe('commit-sha-9');
+});
+
 test('skips builds older than the cutoff', function () {
     $repo = Repository::factory()->create([
         'slug' => 'acme/app',

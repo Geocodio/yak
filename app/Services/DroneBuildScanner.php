@@ -25,7 +25,7 @@ class DroneBuildScanner implements CIBuildScanner
         // Scan all branches — flaky tests surface on PR branches first, so
         // restricting to default_branch misses them. Dedup by test name in
         // the caller keeps task volume sane.
-        /** @var array<int, array{number: int, status: string, source: string, started: int, link: string}> $builds */
+        /** @var array<int, array{number: int, status: string, source: string, started: int, link: string, after?: string}> $builds */
         $builds = Http::withToken($droneToken)
             ->get("{$droneUrl}/api/repos/{$repository->slug}/builds")
             ->json();
@@ -52,6 +52,8 @@ class DroneBuildScanner implements CIBuildScanner
                     output: $failure['output'],
                     buildUrl: $buildUrl,
                     buildId: (string) $build['number'],
+                    branch: $build['source'] ?? null,
+                    commitSha: $build['after'] ?? null,
                 ));
             }
         }
@@ -152,40 +154,61 @@ class DroneBuildScanner implements CIBuildScanner
     }
 
     /**
+     * Parses Pest's `FAILED` markers from a build log. Only lines matching
+     * the `Class\\Path > it does something` shape are accepted — bare
+     * `FAILED` banners (e.g. build summaries, parallel runner stats) are
+     * ignored so we don't emit blank test names.
+     *
      * @return array<int, array{test: string, output: string}>
      */
     private function parseTestFailures(string $output): array
     {
+        // Drone interleaves ANSI colour codes; strip them so the regex
+        // doesn't match "FAILED<esc>[0m" and capture garbage.
+        $output = preg_replace('/\e\[[0-9;]*[A-Za-z]/', '', $output) ?? $output;
+
         $failures = [];
         $lines = explode("\n", $output);
 
         $currentTest = null;
         $currentOutput = '';
-        $inFailure = false;
+
+        $flush = function () use (&$failures, &$currentTest, &$currentOutput): void {
+            if ($currentTest !== null) {
+                $failures[] = [
+                    'test' => $currentTest,
+                    'output' => trim($currentOutput),
+                ];
+            }
+            $currentTest = null;
+            $currentOutput = '';
+        };
 
         foreach ($lines as $line) {
-            if (preg_match('/FAILED\s+(.+)/', $line, $matches)) {
-                if ($currentTest !== null) {
-                    $failures[] = [
-                        'test' => $currentTest,
-                        'output' => trim($currentOutput),
-                    ];
-                }
-
+            // Pest's FAILED header: `   FAILED  Tests\Foo > it does something`.
+            // Require the ` > ` separator so bare `FAILED` banners don't count.
+            if (preg_match('/^\s*FAILED\s+(\S.*?\s>\s.+?)\s*$/', $line, $matches)) {
+                $flush();
                 $currentTest = trim($matches[1]);
                 $currentOutput = $line . "\n";
-                $inFailure = true;
-            } elseif ($inFailure) {
+
+                continue;
+            }
+
+            // Pest summary line ends the failure block:
+            //   `Tests:    1 failed, 8 skipped, 64 passed (225 assertions)`
+            if (preg_match('/^\s*Tests:\s+\d+\s+failed/', $line)) {
+                $flush();
+
+                continue;
+            }
+
+            if ($currentTest !== null) {
                 $currentOutput .= $line . "\n";
             }
         }
 
-        if ($currentTest !== null) {
-            $failures[] = [
-                'test' => $currentTest,
-                'output' => trim($currentOutput),
-            ];
-        }
+        $flush();
 
         return $failures;
     }

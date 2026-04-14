@@ -14,6 +14,7 @@ use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('yak:scan-ci {--repo=} {--dry-run : Report detected failures without creating tasks or dispatching jobs}')]
@@ -75,15 +76,42 @@ class ScanCiCommand extends Command
 
         $tasksCreated = 0;
 
-        foreach ($failures as $failure) {
-            if ($this->isDuplicate($repository, $failure)) {
-                $this->components->warn("Skipping {$failure->testName} — task already exists.");
+        // Group by normalized test name, then apply the flaky threshold:
+        //   - default branch:      any single failure counts
+        //   - other branches:      need >=2 failures from >=2 distinct commits
+        // (Same-commit reruns are the PR author's problem, not a flake.)
+        $grouped = $failures->groupBy(
+            fn (CIBuildFailure $f): string => CIBuildFailure::normalizeTestName($f->testName),
+        );
+
+        foreach ($grouped as $testName => $occurrences) {
+            /** @var Collection<int, CIBuildFailure> $occurrences */
+            if ($testName === '') {
+                continue;
+            }
+
+            if (! $this->meetsFlakyThreshold($repository, $occurrences)) {
+                $commitCount = $occurrences->pluck('commitSha')->filter()->unique()->count();
+                $this->components->info(
+                    "Below flaky threshold: {$testName} ({$occurrences->count()} failure(s), {$commitCount} distinct commit(s))"
+                );
+
+                continue;
+            }
+
+            // Use the most recent failure as the canonical representative.
+            $canonical = $occurrences->sortByDesc('buildId')->first();
+
+            if ($this->isDuplicate($repository, $canonical)) {
+                $this->components->warn("Skipping {$canonical->testName} — task already exists.");
 
                 continue;
             }
 
             if ($dryRun) {
-                $this->components->info("Would create task for: {$failure->testName} (build {$failure->buildId})");
+                $this->components->info(
+                    "Would create task for: {$canonical->testName} (build {$canonical->buildId}, {$occurrences->count()} failure(s))"
+                );
                 $tasksCreated++;
 
                 continue;
@@ -91,15 +119,17 @@ class ScanCiCommand extends Command
 
             $task = YakTask::create([
                 'repo' => $repository->slug,
-                'external_id' => $failure->externalId(),
-                'external_url' => $failure->buildUrl,
+                'external_id' => $canonical->externalId(),
+                'external_url' => $canonical->buildUrl,
                 'mode' => TaskMode::Fix,
-                'description' => "Fix flaky test: {$failure->testName}",
+                'description' => "Fix flaky test: {$canonical->testName}",
                 'context' => json_encode([
-                    'test_name' => $failure->testName,
-                    'failure_output' => $failure->output,
-                    'build_url' => $failure->buildUrl,
-                    'build_id' => $failure->buildId,
+                    'test_name' => $canonical->testName,
+                    'failure_output' => $canonical->output,
+                    'build_url' => $canonical->buildUrl,
+                    'build_id' => $canonical->buildId,
+                    'failure_count' => $occurrences->count(),
+                    'distinct_commits' => $occurrences->pluck('commitSha')->filter()->unique()->values()->all(),
                 ]),
                 'source' => 'flaky-test',
             ]);
@@ -108,10 +138,35 @@ class ScanCiCommand extends Command
             RunYakJob::dispatch($task);
             $tasksCreated++;
 
-            $this->components->info("Created task #{$task->id} for flaky test: {$failure->testName}");
+            $this->components->info("Created task #{$task->id} for flaky test: {$canonical->testName}");
         }
 
         return $tasksCreated;
+    }
+
+    /**
+     * A test crosses the flaky threshold when it has either:
+     *   - failed on the repo's default branch (any single failure counts), or
+     *   - failed in >=2 builds from >=2 distinct commits on other branches.
+     *
+     * Same-commit failures on a feature branch are not flakes — they're a
+     * broken PR that the author should fix.
+     *
+     * @param  Collection<int, CIBuildFailure>  $occurrences
+     */
+    private function meetsFlakyThreshold(Repository $repository, Collection $occurrences): bool
+    {
+        $defaultBranch = $repository->default_branch;
+
+        if ($defaultBranch !== null && $occurrences->contains(
+            fn (CIBuildFailure $f): bool => $f->branch === $defaultBranch,
+        )) {
+            return true;
+        }
+
+        $distinctCommits = $occurrences->pluck('commitSha')->filter()->unique();
+
+        return $distinctCommits->count() >= 2;
     }
 
     private function resolveScanner(Repository $repository): ?CIBuildScanner
