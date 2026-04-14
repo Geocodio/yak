@@ -79,7 +79,7 @@ vendor/bin/pest --exclude-group=contract
 php artisan test --compact
 
 # A single file
-php artisan test --compact tests/Feature/Jobs/RunYakJobTest.php
+php artisan test --compact tests/Feature/RunYakJobTest.php
 
 # A single test by name filter
 php artisan test --compact --filter="creates a task when a valid Sentry webhook arrives"
@@ -149,19 +149,21 @@ Not enforced. Developers can run Pint on save or set up a git pre-commit hook. C
 
 See the [Architecture](architecture.md) page for the full system design. For contributors, the shortest version:
 
-- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`. Each one is a single-responsibility queue job.
+- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each one is a single-responsibility queue job.
 - **`app/Jobs/Middleware/`** — `CleanupDevEnvironment`, `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
+- **`app/Agents/`** — `ClaudeCodeRunner` (the default `AgentRunner` implementation), `ClaudeCodeOutputParser`, `StreamEventHandler`. The agent runner is bound via `yak.agent_runner` config.
 - **`app/Drivers/`** — channel driver implementations. Each channel has an input driver, a notification driver, or both.
-- **`app/Contracts/`** — the three driver interfaces (`InputDriver`, `CIDriver`, `NotificationDriver`) plus `CIBuildScanner`.
-- **`app/Http/Controllers/Webhooks/`** — one invokable controller per webhook endpoint. Uses the `VerifiesWebhookSignature` trait.
-- **`app/Livewire/`** — dashboard components. `Tasks/TaskList`, `Tasks/TaskDetail`, `Repos/RepoList`, `Repos/RepoForm`, `CostDashboard`, `Health`.
-- **`app/Models/`** — `YakTask` (note: `$table = 'tasks'`), `TaskLog`, `Artifact`, `Repository`, `DailyCost`.
-- **`app/Enums/`** — `TaskStatus` (the state machine), `TaskMode`, `NotificationType`.
-- **`app/Services/`** — external API integrations (GitHub, Linear, Slack, Sentry) and detection logic.
-- **`app/YakPromptBuilder.php`** — Blade-based prompt assembly for Claude Code.
+- **`app/Contracts/`** — the driver interfaces (`InputDriver`, `CIDriver`, `NotificationDriver`) plus `CIBuildScanner` and `AgentRunner`.
+- **`app/Http/Controllers/Webhooks/`** — one invokable controller per webhook endpoint. Uses the `VerifiesWebhookSignature` trait. Note: there is no Drone CI webhook — Drone is polled via `yak:poll-drone-ci` instead.
+- **`app/Livewire/`** — dashboard components. `Tasks/TaskList`, `Tasks/TaskDetail`, `Repos/RepoList`, `Repos/RepoForm`, `CostDashboard`, `Health`, `HealthRow`, `Skills`, `PromptEditor`, plus `Settings/*` and `Actions/*`.
+- **`app/Models/`** — `YakTask` (note: `$table = 'tasks'`), `TaskLog`, `Artifact`, `Repository`, `DailyCost`, `AiUsage`, `Prompt`, `PromptVersion`, `GitHubInstallationToken`, `LinearOauthConnection`.
+- **`app/Enums/`** — `TaskStatus` (the state machine), `TaskMode`, `NotificationType`. The state machine uses the `artisan-build/fat-enums` composer package.
+- **`app/Services/`** — external API integrations (GitHub, Linear, Slack, Sentry), detection logic (`RepoDetector`, `RepoRouter`), and the `PromptResolver` that renders prompts with DB overrides.
+- **`app/Prompts/`** — `PromptDefinitions` (metadata for every prompt slug) and `PromptFixtures` (sample data used by the in-app editor preview).
+- **`app/YakPromptBuilder.php`** — entry point for task/system prompt assembly. Delegates rendering to the `Prompts` facade → `PromptResolver`, which prefers DB-stored overrides (edited via the `/prompts` page) and falls back to the canonical Blade template.
 - **`app/GitOperations.php`** — centralized git commands via the `Process` facade.
-- **`lib/fat-enums/`** — local package for the state machine. **Do not restructure without approval.**
-- **`resources/views/prompts/`** — Blade templates for task prompts, one per source.
+- **`app/Providers/ChannelServiceProvider.php`** — registers webhook routes conditionally based on which channels have credentials configured.
+- **`resources/views/prompts/`** — Blade templates. These are the **defaults** for every prompt slug; the in-app editor persists overrides to the `prompts` table.
 - **`docker/`** — production Docker configuration. The root `Dockerfile` builds from it.
 
 ## Adding A New Channel Driver
@@ -229,13 +231,18 @@ interface NotificationDriver
 
 4. **Register the route conditionally**
 
-   Add to `app/Providers/RouteServiceProvider.php` (or wherever channels are resolved at boot):
+   Add the channel to the `CHANNEL_CONTROLLERS` map in `app/Providers/ChannelServiceProvider.php`:
 
    ```php
-   if (Channel::enabled('jira')) {
-       Route::post('/webhooks/jira', JiraWebhookController::class);
-   }
+   private const CHANNEL_CONTROLLERS = [
+       'slack'  => SlackWebhookController::class,
+       'linear' => LinearWebhookController::class,
+       'sentry' => SentryWebhookController::class,
+       'jira'   => JiraWebhookController::class,
+   ];
    ```
+
+   The provider auto-registers `POST /webhooks/{channel}` only when `(new Channel($channel))->enabled()` returns true.
 
 5. **Add a notification driver** (optional but recommended)
 
@@ -243,17 +250,19 @@ interface NotificationDriver
 
 6. **Create a prompt template**
 
-   Add `resources/views/prompts/jira-fix.blade.php` following the pattern of `linear-fix.blade.php`. Keep it short.
+   Add `resources/views/prompts/tasks/jira-fix.blade.php` following the pattern of `tasks/linear-fix.blade.php`. Keep it short. This is the **default**; operators can override it at runtime via the in-app Prompts editor (the `prompts` table).
 
-7. **Update `YakPromptBuilder`**
+7. **Register the slug and wire up rendering**
 
-   Wire the new source to its template in `app/YakPromptBuilder.php`.
+   - Add an entry for `tasks-jira-fix` to `app/Prompts/PromptDefinitions.php` (view path, label, category, variables).
+   - Add a sample fixture for the editor preview to `app/Prompts/PromptFixtures.php`.
+   - Add a render helper in `app/YakPromptBuilder.php` and route the `jira` source to it in `taskPrompt()`.
 
 8. **Write tests**
 
    - `tests/Unit/JiraInputDriverTest.php` — parses sample webhook payloads, returns expected task description, rejects invalid payloads
-   - `tests/Feature/Webhooks/JiraWebhookTest.php` — full controller test: valid payload creates task, invalid signature rejected, duplicate external_id rejected
-   - `tests/Feature/Notifications/JiraNotificationTest.php` — uses `Http::fake()` to assert correct API payloads
+   - `tests/Feature/JiraWebhookTest.php` — full controller test: valid payload creates task, invalid signature rejected, duplicate external_id rejected
+   - `tests/Feature/JiraNotificationTest.php` — uses `Http::fake()` to assert correct API payloads
 
 9. **Add Ansible support** (for production deployment)
 
@@ -265,7 +274,7 @@ interface NotificationDriver
 
 ### Adding A New CI Driver
 
-Same pattern, but implement `CIDriver` instead of `InputDriver`. See `app/Drivers/` for the Drone and GitHub Actions implementations. The repo's `ci_system` column is the authority on which driver to use for a given repo.
+Same pattern, but implement `CIDriver` (or `CIBuildScanner` for pull-based systems) instead of `InputDriver`. GitHub Actions posts check-run results to `POST /webhooks/ci/github`. Drone has no outbound webhook, so its results are polled by the `yak:poll-drone-ci` scheduled command (see `app/Console/Commands/PollDroneCiCommand.php` and `app/Services/DroneBuildScanner.php`). The repo's `ci_system` column is the authority on which driver to use for a given repo.
 
 ## Testing Conventions
 
@@ -354,7 +363,6 @@ it('detects clarification JSON and pauses for user reply', function () { ... });
 
 ### What Not To Touch Without Approval
 
-- `lib/fat-enums/` — local package, do not restructure
 - `phpstan-baseline.neon` — pre-existing errors, do not clear
 - `docker/supervisord.conf` — production config
 - `.chief/` — local working files, never commit

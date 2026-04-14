@@ -10,20 +10,24 @@ Claude Code receives three distinct prompt inputs on every task. Each one lives 
 |---|---|---|---|
 | **`CLAUDE.md`** | Root of the target repo | Per-repo conventions, test patterns, do-not-touch lists | The team that owns that repo |
 | **`--append-system-prompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself — the "Yak persona" |
-| **`-p` prompt** | Assembled from Blade templates per task | Task description, source-specific context, instructions | Yak assembles at runtime from source + template |
+| **`-p` prompt** | Assembled from Blade templates (with optional DB overrides) per task | Task description, source-specific context, instructions | Yak assembles at runtime from source + template |
 
 These stack: `CLAUDE.md` is loaded by Claude Code itself from the repo, the system prompt is appended to Claude's built-in prompt via `--append-system-prompt`, and the `-p` prompt is the task-specific instructions.
+
+> **Every prompt — both the system prompt and the task prompts — can be tweaked live from the dashboard at `/prompts` without a redeploy.** See [Editing prompts in the dashboard](#editing-prompts-in-the-dashboard) below.
 
 ## CLI Invocation
 
 The exact invocation for every task:
 
+The CLI command is built by `ClaudeCodeRunner` (the default `AgentRunner` implementation in `app/Agents/`):
+
 ```bash
 claude -p "$TASK_PROMPT" \
     --dangerously-skip-permissions \
-    --output-format json \
+    --output-format stream-json --verbose \
     --model opus \
-    --max-turns 40 \
+    --max-turns 300 \
     --max-budget-usd 5.00 \
     --append-system-prompt "$YAK_SYSTEM_PROMPT" \
     --mcp-config /home/yak/mcp-config.json
@@ -32,14 +36,16 @@ claude -p "$TASK_PROMPT" \
 | Flag | Why |
 |---|---|
 | `--dangerously-skip-permissions` | Isolated server, no production access. Machine is the boundary. |
-| `--output-format json` | Parseable result with cost, session_id, success/failure |
-| `--model opus` | Implementation always uses Opus |
-| `--max-turns 40` | Enough for read → plan → edit → test → fix → commit. Not infinite. |
-| `--max-budget-usd 5.00` | Per-task runaway guardrail |
+| `--output-format stream-json` | Incremental events streamed back to the task log in real time (falls back to `json` when the caller doesn't need streaming). |
+| `--model opus` | Implementation always uses Opus. Configurable via `YAK_DEFAULT_MODEL`. |
+| `--max-turns 300` | Large enough to cover long read → plan → edit → test → fix → commit loops, including retries. Configurable via `YAK_MAX_TURNS`. |
+| `--max-budget-usd 5.00` | Per-task runaway guardrail. Configurable via `YAK_MAX_BUDGET_PER_TASK`. |
 | `--append-system-prompt` | Yak persona. Appends, doesn't replace Claude's built-in prompt. |
 | `--mcp-config` | Context7 and GitHub always; Linear and Sentry conditionally |
 
 Retries and clarification replies add `--resume $session_id` to continue the original session — see [Architecture → Session Continuity](architecture.md#session-continuity).
+
+The whole command is wrapped by `sudo runuser` so the agent runs as the sandboxed `yak` user rather than root — `ClaudeCli::buildWrappedCommand()` handles that, plus explicit env-var passthrough (app secrets like `DB_PASSWORD` and `APP_KEY` are NOT forwarded).
 
 ## Model Selection
 
@@ -158,13 +164,15 @@ are already inlined in the task prompt at creation time.)
 
 ### Customizing The System Prompt
 
-The system prompt lives in the `YakPromptBuilder` class (`app/YakPromptBuilder.php`). If you want to add team-wide rules — "always use Conventional Commits," "never introduce new npm dependencies," "prefer pure functions" — add them there.
+Open **Prompts** in the sidebar and pick **System Rules**. Saved edits go into the `prompts` table and take effect on the next task — no redeploy. This is where team-wide rules ("always use Conventional Commits," "never introduce new npm dependencies," "prefer pure functions") belong.
+
+Once a prompt is customized in the DB, the Blade file at `resources/views/prompts/system.blade.php` is no longer rendered for that deployment — so there's no reason to edit it on disk unless you're changing the default that ships upstream to all Yak installations. Structural changes (new channel-conditional blocks, new variables) still require a code change: the variable wiring lives in `app/YakPromptBuilder.php` and the slug metadata in `app/Prompts/PromptDefinitions.php`.
 
 Be careful with scope creep: the system prompt applies to every task. Rules that apply to only one repo belong in that repo's `CLAUDE.md`, not the system prompt.
 
 ## Task Prompt Templates
 
-Task prompts are Blade templates in `resources/views/prompts/`. Yak picks the template based on the task's `source` field and renders it with source-specific variables.
+Task prompts start as Blade templates in `resources/views/prompts/tasks/`. At render time every prompt flows through `PromptResolver`: if the slug has a customized row in the `prompts` table (set via the in-app editor), that content is rendered; otherwise the Blade file on disk is used. Yak picks the slug based on the task's `source` field and mode, then renders with source-specific variables declared in `app/Prompts/PromptDefinitions.php`.
 
 ### Sentry Fix
 
@@ -318,7 +326,21 @@ CI failed after your previous push. Here's the failure output:
 
 ### Customizing Templates
 
-Edit the Blade views in `resources/views/prompts/`. Variables come from the task row and the source-specific context parser. Keep templates short — Claude Code is the one doing the heavy lifting, and long templates crowd out context.
+Use the in-app editor at `/prompts`. Pick a slug, edit, preview against the stored sample fixture, save. Each save creates a `PromptVersion` row so history is preserved and you can roll back. Edits take effect on the next task with no redeploy.
+
+The Blade files in `resources/views/prompts/tasks/` are the defaults that ship with the code. Editing them on disk only makes sense if you're contributing a default change back to Yak itself — on a running deployment, any prompt you've customized in the editor ignores the file entirely. Adding a **new** slug or a **new** variable does require code: wire it up in `app/YakPromptBuilder.php` and declare it in `app/Prompts/PromptDefinitions.php` (plus a sample fixture in `PromptFixtures`). Everything else belongs in the editor.
+
+Variables are declared per-slug in `PromptDefinitions` and come from the task row plus the source-specific context parser. Keep templates short — Claude Code is the one doing the heavy lifting, and long templates crowd out context.
+
+### Editing prompts in the dashboard
+
+The in-app editor at `/prompts` is the primary customization surface. It covers:
+
+- **System Rules** (`system`) and **Personality** (`personality`, used for notifications) — the two "high touch" prompts most teams want to tune.
+- Per-source task prompts: **Sentry Fix**, **Linear Fix**, **Slack Fix**, **Flaky Test**.
+- Advanced prompts used by the pipeline itself: **Setup**, **Research**, **Retry**, **Clarification Reply**, **Channel: Sentry** (the channel-conditional block appended to the system prompt), and the internal **Repo Routing** agent prompt used by `RepoRouter`.
+
+Each prompt ships with a sample fixture so the **Preview** tab shows the exact string Claude would receive. Saves are validated: Blade must compile against the fixture, and directives that pull external state or execute arbitrary PHP (`@include`, `@extends`, `@component`, `@php`, …) are rejected. If a saved prompt ever fails to render at runtime, `PromptResolver` logs a warning and falls back to the Blade file on disk — a bad save never breaks the task pipeline.
 
 ## Visual Capture
 
@@ -423,10 +445,15 @@ When you want to change Yak's behavior, pick the right layer:
 ```
 Is the change specific to one repo?
 ├─ YES → Edit that repo's CLAUDE.md
-└─ NO → Is the change about task templates or source handling?
-        ├─ YES → Edit the Blade templates in resources/views/prompts/
-        └─ NO → Is the change about Yak's operating rules (always-apply)?
-                ├─ YES → Edit YakPromptBuilder (app/YakPromptBuilder.php)
+└─ NO → Is it content that fits an existing prompt slug
+        (wording, added rules, different phrasing)?
+        ├─ YES → Edit it at /prompts in the dashboard. No redeploy.
+        └─ NO → Does it need a new variable, new slug, or new
+                channel-conditional block?
+                ├─ YES → Code change: app/YakPromptBuilder.php +
+                │        app/Prompts/PromptDefinitions.php (+
+                │        the Blade template as the default). Then
+                │        fine-tune at /prompts.
                 └─ NO → It's probably a configuration concern — edit
                         config/yak.php or the vault variables
 ```
