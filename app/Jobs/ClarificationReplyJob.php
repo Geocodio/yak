@@ -135,6 +135,9 @@ class ClarificationReplyJob implements ShouldQueue
         DailyCost::accumulate($result->costUsd);
 
         if ($this->task->branch_name !== null) {
+            // Refuse to push if the agent ended up on the default branch
+            GitOperations::assertNotOnDefaultBranch($repository);
+
             GitOperations::forcePushBranch($repository, $this->task->branch_name);
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }

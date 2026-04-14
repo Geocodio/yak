@@ -35,6 +35,8 @@ test('successful clarification reply transitions task to awaiting_ci and force p
         'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
         '*git push *' => Process::result(''),
     ]);
 

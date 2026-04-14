@@ -4,6 +4,48 @@ use Illuminate\Process\FakeProcessResult;
 use Illuminate\Support\Facades\Process;
 
 /**
+ * Build the standard set of git/docker fakes used across job tests.
+ *
+ * Uses a stateful closure so `git rev-parse --abbrev-ref HEAD` returns
+ * the branch name from the most recent `git checkout` call — lets the
+ * pre-push assertOnBranch check succeed without per-test branch config.
+ *
+ * @param  string  $claudeOutput  JSON output for sudo (Claude) calls
+ * @param  array<string, FakeProcessResult>  $extraFakes  Additional Process::fake patterns
+ */
+function fakeYakProcess(string $claudeOutput, array $extraFakes = []): void
+{
+    $currentBranch = 'main';
+
+    Process::fake(array_merge([
+        'docker compose stop' => Process::result(''),
+        'lsof *' => Process::result(''),
+        '*git reset --hard' => Process::result(''),
+        '*git clean -fd' => Process::result(''),
+        '*git fetch *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+        '*git push *' => Process::result(''),
+        '*git pull *' => Process::result(''),
+        '*git checkout -b *' => function ($process) use (&$currentBranch) {
+            if (preg_match("/checkout -b '?([^' ]+)/", (string) $process->command, $m)) {
+                $currentBranch = $m[1];
+            }
+
+            return Process::result('');
+        },
+        '*git checkout *' => function ($process) use (&$currentBranch) {
+            if (preg_match("/git checkout '?([^' ]+)/", (string) $process->command, $m)) {
+                $currentBranch = $m[1];
+            }
+
+            return Process::result('');
+        },
+        '*git rev-parse *' => fn () => Process::result(output: $currentBranch),
+        'sudo *' => Process::result($claudeOutput),
+    ], $extraFakes));
+}
+
+/**
  * Fake a successful Claude CLI run with configurable result.
  *
  * @param  array<string, mixed>  $result  Override fields in the Claude JSON output
@@ -20,17 +62,7 @@ function fakeClaudeRun(array $result = [], array $extraFakes = []): void
         'is_error' => false,
     ];
 
-    $output = json_encode(array_merge($defaults, $result));
-
-    Process::fake(array_merge([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git push *' => Process::result(''),
-        'sudo *' => Process::result($output),
-    ], $extraFakes));
+    fakeYakProcess((string) json_encode(array_merge($defaults, $result)), $extraFakes);
 }
 
 /**
@@ -50,17 +82,7 @@ function fakeClaudeClarification(array $options = ['Option A', 'Option B', 'Opti
         'duration_ms' => 30000,
     ];
 
-    $output = json_encode(array_merge($defaults, $result));
-
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git push *' => Process::result(''),
-        'sudo *' => Process::result($output),
-    ]);
+    fakeYakProcess((string) json_encode(array_merge($defaults, $result)));
 }
 
 /**
@@ -80,15 +102,5 @@ function fakeClaudeError(string $message = 'Claude encountered an error', array 
         'duration_ms' => 5000,
     ];
 
-    $output = json_encode(array_merge($defaults, $result));
-
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git push *' => Process::result(''),
-        'sudo *' => Process::result($output),
-    ]);
+    fakeYakProcess((string) json_encode(array_merge($defaults, $result)));
 }

@@ -444,7 +444,7 @@ test('green path checks out default branch and deletes task branch', function ()
     $job->handle();
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D yak/FIX-CLEANUP'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D') && str_contains($process->command, 'yak/FIX-CLEANUP'));
 });
 
 /*
@@ -687,7 +687,7 @@ test('second failure cleans up branch', function () {
     $job->handle();
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D yak/FIX-CLEANUP2'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D') && str_contains($process->command, 'yak/FIX-CLEANUP2'));
 });
 
 test('second failure posts failure summary to source', function () {

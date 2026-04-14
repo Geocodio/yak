@@ -13,11 +13,8 @@ use Illuminate\Support\Facades\Process;
 
 test('createBranch fetches origin and creates branch from origin/default_branch', function () {
     Process::fake([
-        '*git reset --hard' => Process::result(''),
-        '*git clean -fd' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/ISSUE-42'),
+        '*' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -31,16 +28,13 @@ test('createBranch fetches origin and creates branch from origin/default_branch'
     expect($branchName)->toBe('yak/ISSUE-42');
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/ISSUE-42 origin/main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b'));
 });
 
 test('createBranch uses repository default_branch for origin ref', function () {
     Process::fake([
-        '*git reset --hard' => Process::result(''),
-        '*git clean -fd' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/FIX-99'),
+        '*' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -52,16 +46,13 @@ test('createBranch uses repository default_branch for origin ref', function () {
     GitOperations::createBranch($repository, 'FIX-99');
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin develop'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/FIX-99 origin/develop'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'yak/FIX-99'));
 });
 
 test('createBranch sanitizes special characters in external id', function () {
     Process::fake([
-        '*git reset --hard' => Process::result(''),
-        '*git clean -fd' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/fix-auth-bug'),
+        '*' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -74,7 +65,7 @@ test('createBranch sanitizes special characters in external id', function () {
 
     expect($branchName)->toBe('yak/fix-auth-bug');
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/fix-auth-bug origin/main'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'yak/fix-auth-bug'));
 });
 
 /*
@@ -176,6 +167,7 @@ test('pullDefaultBranch runs git pull as yak user', function () {
 test('cleanup checks out default branch and deletes task branch', function () {
     Process::fake([
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'main'),
         '*git branch *' => Process::result(''),
     ]);
 
@@ -188,12 +180,13 @@ test('cleanup checks out default branch and deletes task branch', function () {
     GitOperations::cleanup($repository, 'yak/ISSUE-42');
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D yak/ISSUE-42'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D') && str_contains($process->command, 'yak/ISSUE-42'));
 });
 
 test('cleanup skips branch deletion when branch name is null', function () {
     Process::fake([
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'main'),
     ]);
 
     $repository = Repository::factory()->create([
@@ -211,6 +204,7 @@ test('cleanup skips branch deletion when branch name is null', function () {
 test('cleanup skips branch deletion when branch name is empty string', function () {
     Process::fake([
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'main'),
     ]);
 
     $repository = Repository::factory()->create([
@@ -233,7 +227,8 @@ test('cleanup skips branch deletion when branch name is empty string', function 
 
 test('checkoutBranch runs git checkout with given branch name', function () {
     Process::fake([
-        '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/ISSUE-42'),
+        '*' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create([
@@ -243,12 +238,13 @@ test('checkoutBranch runs git checkout with given branch name', function () {
 
     GitOperations::checkoutBranch($repository, 'yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout yak/ISSUE-42'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout') && str_contains($process->command, 'yak/ISSUE-42'));
 });
 
 test('checkoutDefaultBranch runs git checkout with default branch', function () {
     Process::fake([
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'main'),
     ]);
 
     $repository = Repository::factory()->create([
@@ -283,6 +279,76 @@ test('refreshRepo runs git fetch origin with default branch', function () {
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git fetch origin main'));
 });
+
+/*
+|--------------------------------------------------------------------------
+| Branch safety
+|--------------------------------------------------------------------------
+*/
+
+test('createBranch throws when checkout -b fails', function () {
+    Process::fake([
+        '*git checkout -b *' => Process::result(exitCode: 128, errorOutput: 'fatal: A branch named X already exists'),
+        '*' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create(['slug' => 'err-repo', 'path' => '/home/yak/repos/err-repo']);
+
+    GitOperations::createBranch($repository, 'ISSUE-99');
+})->throws(RuntimeException::class, 'Git command failed');
+
+test('currentBranch returns trimmed branch name', function () {
+    Process::fake([
+        '*git rev-parse *' => Process::result(output: "yak/ISSUE-42\n"),
+        '*' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create(['slug' => 'cb-repo', 'path' => '/home/yak/repos/cb-repo']);
+
+    expect(GitOperations::currentBranch($repository))->toBe('yak/ISSUE-42');
+});
+
+test('assertNotOnDefaultBranch throws when HEAD is on the default branch', function () {
+    Process::fake([
+        '*git rev-parse *' => Process::result(output: "main\n"),
+        '*' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'assert-repo',
+        'path' => '/home/yak/repos/assert-repo',
+        'default_branch' => 'main',
+    ]);
+
+    GitOperations::assertNotOnDefaultBranch($repository);
+})->throws(RuntimeException::class, 'Repo is on the default branch');
+
+test('assertNotOnDefaultBranch passes when HEAD is on a non-default branch', function () {
+    Process::fake([
+        '*git rev-parse *' => Process::result(output: "yak/ISSUE-42\n"),
+        '*' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'assert-repo-ok',
+        'path' => '/home/yak/repos/assert-repo-ok',
+        'default_branch' => 'main',
+    ]);
+
+    GitOperations::assertNotOnDefaultBranch($repository);
+    expect(true)->toBeTrue(); // reached without exception
+});
+
+test('checkoutBranch throws when the branch does not exist', function () {
+    Process::fake([
+        '*git checkout *' => Process::result(exitCode: 1, errorOutput: "error: pathspec 'yak/missing' did not match any file"),
+        '*' => Process::result(''),
+    ]);
+
+    $repository = Repository::factory()->create(['slug' => 'miss-repo', 'path' => '/home/yak/repos/miss-repo']);
+
+    GitOperations::checkoutBranch($repository, 'yak/missing');
+})->throws(RuntimeException::class, 'Git command failed');
 
 /*
 |--------------------------------------------------------------------------

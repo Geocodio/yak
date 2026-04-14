@@ -42,6 +42,8 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
         '*git fetch *' => Process::result(''),
         '*git checkout -b *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
         '*git push *' => Process::result(''),
     ]);
 
@@ -153,7 +155,7 @@ test('successful run creates branch with yak/{external_id} naming', function () 
 
     expect($task->branch_name)->toBe('yak/ISSUE-42');
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b yak/ISSUE-42'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b') && str_contains($process->command, 'yak/ISSUE-42'));
 });
 
 test('successful run increments attempts', function () {

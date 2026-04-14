@@ -6,6 +6,7 @@ use App\Models\Repository;
 use App\Services\GitHubAppService;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
+use RuntimeException;
 
 class GitOperations
 {
@@ -30,6 +31,47 @@ class GitOperations
         return $path
             ? Process::path($path)->run($wrapped)
             : Process::run($wrapped);
+    }
+
+    /**
+     * Run a git command and throw if it fails.
+     */
+    private static function mustRunAsYak(string $command, ?string $path = null): ProcessResult
+    {
+        $result = self::runAsYak($command, $path);
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException("Git command failed: {$command}\n{$result->errorOutput()}");
+        }
+
+        return $result;
+    }
+
+    /**
+     * Return the currently checked-out branch name for a repository.
+     */
+    public static function currentBranch(Repository $repository): string
+    {
+        $result = self::mustRunAsYak('git rev-parse --abbrev-ref HEAD', $repository->path);
+
+        return trim($result->output());
+    }
+
+    /**
+     * Assert that the repository is NOT on the default branch.
+     *
+     * Primary safety check before pushing — prevents commits to master from
+     * being picked up if something went sideways during agent execution.
+     *
+     * @throws RuntimeException if HEAD is on the default branch
+     */
+    public static function assertNotOnDefaultBranch(Repository $repository): void
+    {
+        $current = self::currentBranch($repository);
+
+        if ($current === $repository->default_branch) {
+            throw new RuntimeException("Repo is on the default branch '{$current}'. Refusing to proceed to prevent committing to the wrong branch.");
+        }
     }
 
     /**
@@ -108,7 +150,7 @@ class GitOperations
     /**
      * Clone a repository into the target path.
      *
-     * @throws \RuntimeException if the clone fails
+     * @throws RuntimeException if the clone fails
      */
     public static function cloneRepo(string $gitUrl, string $targetPath): void
     {
@@ -117,7 +159,7 @@ class GitOperations
         $result = self::runAsYak("git clone {$gitUrl} {$targetPath}");
 
         if (! $result->successful()) {
-            throw new \RuntimeException("Failed to clone repository: {$result->errorOutput()}");
+            throw new RuntimeException("Failed to clone repository: {$result->errorOutput()}");
         }
     }
 
@@ -126,22 +168,30 @@ class GitOperations
      */
     public static function pullDefaultBranch(Repository $repository): void
     {
-        self::runAsYak("git pull origin {$repository->default_branch}", $repository->path);
+        self::mustRunAsYak("git pull origin {$repository->default_branch}", $repository->path);
     }
 
     /**
      * Reset the working tree to a clean state: discard uncommitted changes,
      * checkout the default branch, and remove any leftover task branches.
+     *
+     * @throws RuntimeException if any step fails
      */
     public static function resetWorkingTree(Repository $repository): void
     {
-        self::runAsYak('git reset --hard', $repository->path);
-        self::runAsYak('git clean -fd', $repository->path);
-        self::runAsYak("git checkout {$repository->default_branch}", $repository->path);
+        self::mustRunAsYak('git reset --hard', $repository->path);
+        self::mustRunAsYak('git clean -fd', $repository->path);
+        self::mustRunAsYak("git checkout {$repository->default_branch}", $repository->path);
     }
 
     /**
      * Create a new branch from origin/{default_branch}.
+     *
+     * If a branch with the same name already exists locally, deletes it first
+     * to guarantee a clean state — prevents silent failures that could leave
+     * HEAD on the default branch.
+     *
+     * @throws RuntimeException if any step fails
      */
     public static function createBranch(Repository $repository, string $externalId): string
     {
@@ -151,8 +201,12 @@ class GitOperations
         $branchName = self::branchName($externalId);
         $defaultBranch = $repository->default_branch;
 
-        self::runAsYak("git fetch origin {$defaultBranch}", $repository->path);
-        self::runAsYak("git checkout -b {$branchName} origin/{$defaultBranch}", $repository->path);
+        self::mustRunAsYak("git fetch origin {$defaultBranch}", $repository->path);
+
+        // Delete any stale local branch so `checkout -b` cannot silently fail
+        self::runAsYak(sprintf('git branch -D %s', escapeshellarg($branchName)), $repository->path);
+
+        self::mustRunAsYak(sprintf('git checkout -b %s origin/%s', escapeshellarg($branchName), escapeshellarg($defaultBranch)), $repository->path);
 
         return $branchName;
     }
@@ -160,7 +214,7 @@ class GitOperations
     /**
      * Push a branch to origin.
      *
-     * @throws \RuntimeException if the push fails
+     * @throws RuntimeException if the push fails
      */
     public static function pushBranch(Repository $repository, string $branchName): void
     {
@@ -169,14 +223,14 @@ class GitOperations
         $result = self::runAsYak("git push origin {$branchName}", $repository->path);
 
         if ($result->exitCode() !== 0) {
-            throw new \RuntimeException("Git push failed: {$result->errorOutput()}");
+            throw new RuntimeException("Git push failed: {$result->errorOutput()}");
         }
     }
 
     /**
      * Force push a branch to origin (used on retry).
      *
-     * @throws \RuntimeException if the push fails
+     * @throws RuntimeException if the push fails
      */
     public static function forcePushBranch(Repository $repository, string $branchName): void
     {
@@ -185,7 +239,7 @@ class GitOperations
         $result = self::runAsYak("git push --force-with-lease origin {$branchName}", $repository->path);
 
         if ($result->exitCode() !== 0) {
-            throw new \RuntimeException("Git push --force-with-lease failed: {$result->errorOutput()}");
+            throw new RuntimeException("Git push --force-with-lease failed: {$result->errorOutput()}");
         }
     }
 
@@ -194,19 +248,21 @@ class GitOperations
      */
     public static function cleanup(Repository $repository, ?string $branchName): void
     {
-        self::runAsYak("git checkout {$repository->default_branch}", $repository->path);
+        self::mustRunAsYak("git checkout {$repository->default_branch}", $repository->path);
 
         if ($branchName !== null && $branchName !== '') {
-            self::runAsYak("git branch -D {$branchName}", $repository->path);
+            self::runAsYak(sprintf('git branch -D %s', escapeshellarg($branchName)), $repository->path);
         }
     }
 
     /**
      * Checkout an existing branch.
+     *
+     * @throws RuntimeException if the branch does not exist or checkout fails
      */
     public static function checkoutBranch(Repository $repository, string $branchName): void
     {
-        self::runAsYak("git checkout {$branchName}", $repository->path);
+        self::mustRunAsYak(sprintf('git checkout %s', escapeshellarg($branchName)), $repository->path);
     }
 
     /**
@@ -214,7 +270,7 @@ class GitOperations
      */
     public static function checkoutDefaultBranch(Repository $repository): void
     {
-        self::runAsYak("git checkout {$repository->default_branch}", $repository->path);
+        self::mustRunAsYak("git checkout {$repository->default_branch}", $repository->path);
     }
 
     /**
@@ -224,6 +280,6 @@ class GitOperations
     {
         self::ensureCredentials();
 
-        self::runAsYak("git fetch origin {$repository->default_branch}", $repository->path);
+        self::mustRunAsYak("git fetch origin {$repository->default_branch}", $repository->path);
     }
 }

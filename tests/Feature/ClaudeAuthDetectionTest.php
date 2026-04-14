@@ -130,6 +130,8 @@ test('RunYakJob detects auth error and fails task with notification', function (
         '*git fetch *' => Process::result(''),
         '*git checkout -b *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
@@ -169,6 +171,8 @@ test('RetryYakJob detects auth error and fails task with notification', function
         'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
@@ -208,6 +212,8 @@ test('ResearchYakJob detects auth error and fails task with notification', funct
 
     Process::fake([
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
         '*git pull *' => Process::result(''),
     ]);
 
@@ -246,6 +252,8 @@ test('SetupYakJob detects auth error and fails task with notification', function
         'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
         '*git pull *' => Process::result(''),
     ]);
 
@@ -283,6 +291,8 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
         'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'clarify-repo', 'path' => '/home/yak/repos/clarify-repo']);

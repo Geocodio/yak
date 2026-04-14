@@ -35,6 +35,8 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
         'docker compose stop' => Process::result(''),
         'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
         '*git push *' => Process::result(''),
     ]);
 
@@ -136,7 +138,7 @@ test('checks out existing task branch instead of creating new', function () {
     $job = new RetryYakJob($task);
     $job->handle($fake);
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout yak/ISSUE-42'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout') && str_contains($process->command, 'yak/ISSUE-42'));
     Process::assertNotRan(fn ($process) => str_contains($process->command, 'git checkout -b'));
 });
 

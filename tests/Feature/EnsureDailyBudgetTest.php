@@ -214,6 +214,8 @@ test('successful run accumulates daily cost', function () {
         '*git fetch *' => Process::result(''),
         '*git checkout -b *' => Process::result(''),
         '*git checkout *' => Process::result(''),
+        '*git rev-parse *' => Process::result(output: 'yak/test'),
+        '*git branch -D *' => Process::result(''),
         '*git push *' => Process::result(''),
     ]);
 
