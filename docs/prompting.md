@@ -90,7 +90,8 @@ You work unattended. Your output will be a pull request that a human reviews.
    Automated fix by Yak
 
 6. VISUAL CAPTURE: When the task involves UI changes (frontend, CSS,
-   forms, pages, layouts), capture screenshots of the affected area.
+   forms, pages, layouts), record a video walkthrough AND take
+   screenshots of the affected area.
    a. Start the dev server (read CLAUDE.md/README for how).
    b. If authentication is needed, read CLAUDE.md/README or seeder files
       for test credentials. Log in using agent-browser.
@@ -99,9 +100,28 @@ You work unattended. Your output will be a pull request that a human reviews.
       Save to .yak-artifacts/
    e. For video (multi-step flows): agent-browser record start
       .yak-artifacts/walkthrough.webm — walk through, then stop.
-   f. If the dev server can't start or the page errors, skip visual
-      capture and note it in the result summary. Don't fail the task.
-   g. Stop the dev server when done.
+   f. If something blocks a *full* capture (dev server won't start, auth
+      can't be bypassed, an external dependency like a deploy trigger or
+      payment API can't be reached), do a PARTIAL capture — record
+      whatever state you CAN reach. Never skip silently.
+   g. TEMPORARY HELPERS (must be reverted before committing): You MAY
+      add short-lived scaffolding to make a capture possible — seed a
+      test user via `php artisan tinker`, stub out an external call
+      (e.g. comment out a Drone CI dispatch, fake a payment gateway),
+      add a dev-only route, or bypass auth for the test URL. These
+      changes MUST be reverted before `git commit`. Run
+      `git diff --stat` immediately before committing and confirm only
+      the files you intended to change are staged. After committing,
+      run `git show --stat HEAD` and re-read the diff to verify no
+      temporary scaffolding slipped through.
+   h. Stop the dev server when done.
+   i. REQUIRED STATUS LINE: End the result summary with exactly one of
+      these lines — no exceptions:
+      - `Visual capture: done`
+      - `Visual capture: partial — <what was captured and what wasn't>`
+      - `Visual capture: skipped — <specific reason>`
+      A missing line is a task violation. Silent skipping is not
+      allowed.
 
 7. SCOPE CHECK: If the task's requirements are ambiguous or unclear,
    stop. Commit nothing and output what you found and why this needs
@@ -302,12 +322,11 @@ Edit the Blade views in `resources/views/prompts/`. Variables come from the task
 
 ## Visual Capture
 
-Visual capture is driven by rule 6 in the system prompt. Claude reads the task description and its own changes to decide whether screenshots or video would be useful:
+Visual capture is driven by rule 6 in the system prompt. Claude records a video walkthrough AND takes screenshots whenever a task touches UI:
 
 - **Research tasks** — no capture (nothing to show)
 - **Setup tasks** — no capture
-- **Code changes touching UI files** — screenshots
-- **Multi-step flow changes** — screenshots + video walkthrough
+- **Code changes touching UI files** — screenshots + video walkthrough
 
 No special prompt block is appended. Claude follows rule 6 and reads `CLAUDE.md`/`README.md` to find:
 
@@ -316,6 +335,20 @@ No special prompt block is appended. Claude follows rule 6 and reads `CLAUDE.md`
 - Test credentials (from `CLAUDE.md`, `README.md`, or seeder files)
 
 Visual capture is flexible by design — different repos have different setups, and Claude adapts to what it finds rather than relying on stored configuration. The cost of this flexibility is that `CLAUDE.md` needs to be accurate about how to run the dev server.
+
+### Partial captures and temporary helpers
+
+If something blocks a full capture (dev server won't start, an external dependency like a deploy trigger or payment API can't be reached, a feature fires only after an event that requires real infrastructure), Claude records a partial capture rather than skipping. Claude may also add short-lived scaffolding — seeding a test user via tinker, stubbing out an external call, adding a dev-only route, bypassing auth — and MUST revert it before committing. A `git diff --stat` pre-commit and a `git show --stat HEAD` post-commit check are both part of the prompt.
+
+### Required status line
+
+Every task result summary must end with one of:
+
+- `Visual capture: done`
+- `Visual capture: partial — <what was and wasn't captured>`
+- `Visual capture: skipped — <specific reason>`
+
+This turns silent skips into loud ones — reviewers can see at a glance whether visual verification happened.
 
 ### agent-browser
 
