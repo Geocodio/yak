@@ -113,6 +113,7 @@ test('select github repo fills form fields', function () {
         [
             'full_name' => 'acme/cool-project',
             'name' => 'cool-project',
+            'description' => 'A cool project that does cool things.',
             'default_branch' => 'develop',
             'clone_url' => 'https://github.com/acme/cool-project.git',
             'pushed_at' => '2026-04-10T12:00:00Z',
@@ -123,6 +124,7 @@ test('select github repo fills form fields', function () {
         ->call('selectGitHubRepo', 'acme/cool-project')
         ->assertSet('selected_github_repo', 'acme/cool-project')
         ->assertSet('name', 'cool-project')
+        ->assertSet('description', 'A cool project that does cool things.')
         ->assertSet('git_url', 'https://github.com/acme/cool-project.git')
         ->assertSet('default_branch', 'develop');
 });
