@@ -70,7 +70,7 @@ it('claude cli check fails when not responding', function () {
 
 it('claude auth check succeeds when authenticated', function () {
     Process::fake([
-        'claude auth status' => Process::result(output: 'Logged in'),
+        '*claude auth status*' => Process::result(output: 'Logged in'),
     ]);
 
     $result = (new ClaudeAuthCheck)->run();
@@ -81,12 +81,23 @@ it('claude auth check succeeds when authenticated', function () {
 
 it('claude auth check fails when not authenticated', function () {
     Process::fake([
-        'claude auth status' => Process::result(exitCode: 1),
+        '*claude auth status*' => Process::result(exitCode: 1),
     ]);
 
     $result = (new ClaudeAuthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error);
+});
+
+it('claude auth check runs as yak user via sudo runuser', function () {
+    Process::fake([
+        '*claude auth status*' => Process::result(output: 'Logged in'),
+    ]);
+
+    (new ClaudeAuthCheck)->run();
+
+    Process::assertRan(fn ($process) => str_contains((string) $process->command, 'sudo runuser -u yak')
+        && str_contains((string) $process->command, 'claude auth status'));
 });
 
 it('webhook signatures check passes when no failures', function () {

@@ -25,8 +25,13 @@ class ClaudeAuthCheck implements HealthCheck
 
     public function run(): HealthResult
     {
+        // Run as the yak user — credentials live at /home/yak/.claude and are
+        // not readable by www-data, so invoking `claude auth status` directly
+        // from php-fpm hangs instead of failing fast.
+        $command = 'sudo runuser -u yak -- env HOME=/home/yak claude auth status';
+
         try {
-            $result = Process::timeout(15)->run('claude auth status');
+            $result = Process::timeout(15)->run($command);
         } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
             return HealthResult::error('Timed out');
         }
