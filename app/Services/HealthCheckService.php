@@ -7,9 +7,10 @@ use App\Enums\TaskStatus;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Carbon\Carbon;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException as SymfonyProcessTimedOutException;
 
 class HealthCheckService
 {
@@ -24,7 +25,7 @@ class HealthCheckService
     {
         try {
             $result = Process::timeout(5)->run('pgrep -f "artisan queue:work"');
-        } catch (ProcessTimedOutException) {
+        } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
             return ['healthy' => false, 'detail' => 'Timed out checking worker'];
         }
 
@@ -80,7 +81,7 @@ class HealthCheckService
                 $result = Process::path($repo->path)
                     ->timeout(10)
                     ->run('git ls-remote --exit-code origin HEAD');
-            } catch (ProcessTimedOutException) {
+            } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
                 $failures[] = $repo->slug;
 
                 continue;
@@ -110,7 +111,7 @@ class HealthCheckService
     {
         try {
             $result = Process::timeout(15)->run('claude --version');
-        } catch (ProcessTimedOutException) {
+        } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
             return ['healthy' => false, 'detail' => 'Timed out'];
         }
 
@@ -130,7 +131,7 @@ class HealthCheckService
     {
         try {
             $result = Process::timeout(15)->run('claude auth status');
-        } catch (ProcessTimedOutException) {
+        } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
             return ['healthy' => false, 'detail' => 'Timed out'];
         }
 

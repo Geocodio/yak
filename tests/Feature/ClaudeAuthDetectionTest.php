@@ -14,6 +14,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
 use App\Services\HealthCheckService;
+use Illuminate\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -356,6 +357,27 @@ test('health check reports unhealthy when claude auth times out', function () {
         new ProcessTimedOutException(
             new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
             ProcessTimedOutException::TYPE_GENERAL,
+        )
+    );
+
+    $service = new HealthCheckService;
+    $result = $service->checkClaudeAuth();
+
+    expect($result['healthy'])->toBeFalse()
+        ->and($result['detail'])->toBe('Timed out');
+});
+
+test('health check handles Laravel-wrapped timeout exception on claude auth', function () {
+    Process::shouldReceive('timeout')->with(15)->andReturnSelf();
+    Process::shouldReceive('run')->with('claude auth status')->andThrow(
+        new Illuminate\Process\Exceptions\ProcessTimedOutException(
+            new ProcessTimedOutException(
+                new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
+                ProcessTimedOutException::TYPE_GENERAL,
+            ),
+            new ProcessResult(
+                new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
+            ),
         )
     );
 
