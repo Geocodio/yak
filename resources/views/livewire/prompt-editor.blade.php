@@ -1,9 +1,6 @@
 <div class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
         <h1 class="text-2xl font-semibold text-yak-slate">Prompts</h1>
-        <div class="text-sm text-yak-blue">
-            Editor for the prompts driving Yak.
-        </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-[16rem_minmax(0,1fr)] gap-6">
@@ -45,7 +42,7 @@
         {{-- Editor + preview --}}
         @if ($selectedSlug)
             @php($def = \App\Prompts\PromptDefinitions::for($selectedSlug))
-            <div class="flex flex-col gap-4" x-data="promptEditor()" x-init="$nextTick(() => init())">
+            <div class="flex flex-col gap-4" wire:key="prompt-editor-{{ $selectedSlug }}" x-data="promptEditor()" x-init="$nextTick(() => init())">
                 {{-- Toolbar --}}
                 <div class="flex flex-wrap items-center justify-between gap-3 bg-white border border-yak-tan/40 rounded-[28px] shadow-yak px-5 py-3">
                     <div class="flex items-center gap-3">
@@ -97,11 +94,11 @@
                         </div>
 
                         <div class="flex flex-col gap-3">
-                            <div class="flex items-center justify-between px-2">
+                            <div class="flex items-center justify-between gap-4 px-2">
                                 <span class="text-xs text-yak-blue/80 font-medium uppercase tracking-wide">Preview</span>
 
                                 @if (count($this->fixtures) > 1)
-                                    <flux:select size="sm" wire:model.live="fixtureIndex" data-test="fixture-select" aria-label="Change sample">
+                                    <flux:select size="sm" wire:model.live="fixtureIndex" data-test="fixture-select" aria-label="Change sample" class="!w-auto">
                                         @foreach ($this->fixtures as $index => $fixture)
                                             <flux:select.option value="{{ $index }}">{{ $fixture['label'] }}</flux:select.option>
                                         @endforeach
