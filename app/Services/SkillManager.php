@@ -126,6 +126,40 @@ class SkillManager
             ->values();
     }
 
+    public function install(string $plugin, ?string $marketplace = null): void
+    {
+        $target = $marketplace !== null && $marketplace !== ''
+            ? "{$plugin}@{$marketplace}"
+            : $plugin;
+
+        $this->runOrThrow('plugins install ' . escapeshellarg($target), timeout: 180);
+    }
+
+    public function installFromUrl(string $urlOrPath): void
+    {
+        $this->runOrThrow('plugins install ' . escapeshellarg($urlOrPath), timeout: 180);
+    }
+
+    public function uninstall(string $plugin): void
+    {
+        $this->runOrThrow('plugins uninstall ' . escapeshellarg($plugin));
+    }
+
+    public function enable(string $plugin): void
+    {
+        $this->runOrThrow('plugins enable ' . escapeshellarg($plugin));
+    }
+
+    public function disable(string $plugin): void
+    {
+        $this->runOrThrow('plugins disable ' . escapeshellarg($plugin));
+    }
+
+    public function update(string $plugin): void
+    {
+        $this->runOrThrow('plugins update ' . escapeshellarg($plugin), timeout: 180);
+    }
+
     public function addMarketplace(string $source): void
     {
         $this->runOrThrow('plugins marketplace add ' . escapeshellarg($source), timeout: 120);

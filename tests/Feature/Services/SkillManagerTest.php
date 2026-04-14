@@ -132,3 +132,49 @@ it('throws a ClaudeCliException when the CLI exits non-zero', function () {
     expect(fn () => app(SkillManager::class)->addMarketplace('bad'))
         ->toThrow(ClaudeCliException::class, 'boom');
 });
+
+it('installs a plugin scoped to a marketplace', function () {
+    Process::fake(['*' => Process::result(output: 'ok', exitCode: 0)]);
+    app(SkillManager::class)->install('code-review', 'claude-plugins-official');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins install')
+        && str_contains($p->command, 'code-review@claude-plugins-official'));
+});
+
+it('installs a plugin without marketplace', function () {
+    Process::fake(['*' => Process::result(output: '', exitCode: 0)]);
+    app(SkillManager::class)->install('code-review');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins install')
+        && str_contains($p->command, 'code-review')
+        && ! str_contains($p->command, 'code-review@'));
+});
+
+it('installs a plugin from a URL or path', function () {
+    Process::fake(['*' => Process::result(output: '', exitCode: 0)]);
+    app(SkillManager::class)->installFromUrl('https://github.com/acme/plugin.git');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins install')
+        && str_contains($p->command, 'github.com/acme/plugin.git'));
+});
+
+it('uninstalls, enables, disables, and updates', function () {
+    Process::fake(['*' => Process::result(output: '', exitCode: 0)]);
+    $manager = app(SkillManager::class);
+
+    $manager->uninstall('code-review');
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins uninstall')
+        && str_contains($p->command, 'code-review'));
+
+    $manager->enable('code-review');
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins enable')
+        && str_contains($p->command, 'code-review'));
+
+    $manager->disable('code-review');
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins disable')
+        && str_contains($p->command, 'code-review'));
+
+    $manager->update('code-review');
+    Process::assertRan(fn ($p) => str_contains($p->command, 'plugins update')
+        && str_contains($p->command, 'code-review'));
+});
