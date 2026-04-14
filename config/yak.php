@@ -48,6 +48,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Claude Code plugin / skill paths
+    |--------------------------------------------------------------------------
+    |
+    | Paths inside the Yak container where Claude Code stores user-scoped
+    | plugin state and Ansible-provisioned skills. Both sit under
+    | CLAUDE_CONFIG_DIR and follow Claude Code's conventions.
+    */
+
+    'plugins_dir' => env('YAK_PLUGINS_DIR', env('CLAUDE_CONFIG_DIR', '/home/yak/.claude') . '/plugins'),
+
+    'skills_dir' => env('YAK_SKILLS_DIR', env('CLAUDE_CONFIG_DIR', '/home/yak/.claude') . '/skills'),
+
+    /*
+    |--------------------------------------------------------------------------
     | API Keys
     |--------------------------------------------------------------------------
     */

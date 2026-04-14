@@ -2,6 +2,7 @@
 
 namespace App\Agents;
 
+use App\ClaudeCli;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -182,22 +183,18 @@ class ClaudeCodeRunner implements AgentRunner
      */
     private function wrapCommand(string $command): string
     {
-        $envParts = ['HOME=/home/yak'];
+        $extraEnv = [];
 
         $passthrough = config('yak.agent_passthrough_env', '');
         foreach (array_filter(explode(',', $passthrough)) as $name) {
             $name = trim($name);
             $value = getenv($name);
             if ($value !== false) {
-                $envParts[] = sprintf('%s=%s', $name, escapeshellarg($value));
+                $extraEnv[$name] = $value;
             }
         }
 
-        return sprintf(
-            'sudo runuser -u yak -- env %s bash -c %s',
-            implode(' ', $envParts),
-            escapeshellarg($command),
-        );
+        return app(ClaudeCli::class)->buildWrappedCommand($command, $extraEnv);
     }
 
     private function buildCommand(AgentRunRequest $request, bool $streaming): string
