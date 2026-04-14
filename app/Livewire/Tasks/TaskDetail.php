@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Jobs\SetupYakJob;
+use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\TaskLog;
 use App\Models\YakTask;
@@ -251,6 +252,14 @@ class TaskDetail extends Component
     public function researchArtifact(): ?Artifact
     {
         return $this->task->artifacts()->where('type', 'research')->first();
+    }
+
+    #[Computed]
+    public function apiSpendUsd(): float
+    {
+        return (float) AiUsage::query()
+            ->where('yak_task_id', $this->task->id)
+            ->sum('cost_usd');
     }
 
     public static function statusDotColor(TaskStatus $status): string

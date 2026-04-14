@@ -15,6 +15,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -51,6 +52,17 @@ class SetupYakJob implements ShouldQueue
     }
 
     public function handle(AgentRunner $agent): void
+    {
+        TaskContext::set($this->task);
+
+        try {
+            $this->runSetup($agent);
+        } finally {
+            TaskContext::clear();
+        }
+    }
+
+    private function runSetup(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 

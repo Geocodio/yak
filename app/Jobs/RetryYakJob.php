@@ -17,6 +17,7 @@ use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\YakPersonality;
+use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -54,6 +55,17 @@ class RetryYakJob implements ShouldQueue
     }
 
     public function handle(AgentRunner $agent): void
+    {
+        TaskContext::set($this->task);
+
+        try {
+            $this->runRetry($agent);
+        } finally {
+            TaskContext::clear();
+        }
+    }
+
+    private function runRetry(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 

@@ -32,12 +32,20 @@
     </div>
 
     {{-- Stat Cards --}}
-    @php $summary = $this->summary; @endphp
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5 mb-8">
-        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center">
-            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Total Cost</div>
+    @php
+        $summary = $this->summary;
+        $apiSpend = $this->apiSpendSummary;
+    @endphp
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-5 mb-8">
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center" title="List-price token cost reported by Claude Code. Covered by subscription — not a direct bill.">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Claude Code (est.)</div>
             <div class="text-[28px] font-semibold text-yak-slate mb-1">${{ $summary['total_cost'] }}</div>
             <div class="text-xs text-yak-blue">{{ $summary['task_count'] }} tasks</div>
+        </div>
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center" title="Actual Anthropic API usage (notification copy, repo routing). Appears on your invoice.">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">API-billed spend</div>
+            <div class="text-[28px] font-semibold text-yak-slate mb-1">${{ $apiSpend['total_cost'] }}</div>
+            <div class="text-xs text-yak-blue">{{ $apiSpend['call_count'] }} calls</div>
         </div>
         <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center">
             <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Task Count</div>
@@ -124,7 +132,10 @@
     {{-- Breakdown Table --}}
     @php $breakdown = $this->breakdown; @endphp
     <div class="bg-white border border-yak-tan/40 rounded-[28px] shadow-yak p-8">
-        <h2 class="text-lg font-medium text-yak-slate mb-6">Daily Breakdown</h2>
+        <div class="flex items-baseline justify-between mb-6">
+            <h2 class="text-lg font-medium text-yak-slate">Claude Code — Daily Breakdown</h2>
+            <span class="text-xs text-yak-blue/80">est. token cost (subscription)</span>
+        </div>
         <table class="w-full text-sm border-collapse">
             <thead>
                 <tr>
@@ -155,6 +166,37 @@
                 @empty
                     <tr>
                         <td colspan="6" class="px-4 py-12 text-center text-yak-blue">No cost data for this period.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    {{-- API Spend Breakdown --}}
+    @php $apiBreakdown = $this->apiSpendBreakdown; @endphp
+    <div class="bg-white border border-yak-tan/40 rounded-[28px] shadow-yak p-8 mt-8" data-testid="api-spend-breakdown">
+        <div class="flex items-baseline justify-between mb-6">
+            <h2 class="text-lg font-medium text-yak-slate">API Spend — Daily Breakdown</h2>
+            <span class="text-xs text-yak-blue/80">actual Anthropic billing</span>
+        </div>
+        <table class="w-full text-sm border-collapse">
+            <thead>
+                <tr>
+                    <th class="bg-yak-cream-dark px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40 first:rounded-tl-[14px]">Date</th>
+                    <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40">Calls</th>
+                    <th class="bg-yak-cream-dark px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-yak-blue border-b border-yak-tan/40 last:rounded-tr-[14px]">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($apiBreakdown as $row)
+                    <tr class="hover:bg-yak-cream/50">
+                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate">{{ \Carbon\Carbon::parse($row->date)->format('M j') }}</td>
+                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right text-yak-slate">{{ $row->call_count }}</td>
+                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right font-semibold text-yak-slate">${{ number_format($row->total_cost, 4) }}</td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="3" class="px-4 py-12 text-center text-yak-blue">No API calls recorded for this period.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -193,8 +235,9 @@
         </div>
     @endif
 
-    {{-- Note about Claude Code costs --}}
+    {{-- Note about cost streams --}}
     <p class="mt-4 text-xs text-yak-blue/70 text-center">
-        Costs reflect routing layer API usage (Haiku/Sonnet). Claude Code usage is tracked for monitoring but covered by subscription.
+        Claude Code cost is a list-price estimate from the agent; it's covered by the Team subscription and does not bill the API key.
+        API-billed spend covers notification copy and repo routing via the AI SDK and is what appears on your Anthropic invoice.
     </p>
 </div>

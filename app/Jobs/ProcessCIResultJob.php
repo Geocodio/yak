@@ -12,6 +12,7 @@ use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\VideoProcessor;
 use App\Services\YakPersonality;
+use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
@@ -38,14 +39,20 @@ class ProcessCIResultJob implements ShouldQueue
 
     public function handle(): void
     {
-        TaskLogger::info($this->task, 'CI result received', ['passed' => $this->passed]);
+        TaskContext::set($this->task);
 
-        if ($this->passed) {
-            $this->handleGreenPath();
-        } elseif ($this->task->attempts < (int) config('yak.max_attempts')) {
-            $this->handleRetry();
-        } else {
-            $this->handleFinalFailure();
+        try {
+            TaskLogger::info($this->task, 'CI result received', ['passed' => $this->passed]);
+
+            if ($this->passed) {
+                $this->handleGreenPath();
+            } elseif ($this->task->attempts < (int) config('yak.max_attempts')) {
+                $this->handleRetry();
+            } else {
+                $this->handleFinalFailure();
+            }
+        } finally {
+            TaskContext::clear();
         }
     }
 

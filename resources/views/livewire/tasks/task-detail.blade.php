@@ -194,9 +194,13 @@
                         <span class="text-sm text-[#3d4f5f]">{{ $task->num_turns }}</span>
                     </div>
                 @endif
-                <div class="flex flex-col gap-0.5">
-                    <span class="text-xs font-medium uppercase tracking-wider text-[#6b8fa3]">Cost</span>
+                <div class="flex flex-col gap-0.5" title="List-price token cost reported by Claude Code. Covered by subscription — not billed.">
+                    <span class="text-xs font-medium uppercase tracking-wider text-[#6b8fa3]">Claude Code cost (est.)</span>
                     <span class="text-sm text-[#3d4f5f]">${{ number_format((float) $task->cost_usd, 2) }}</span>
+                </div>
+                <div class="flex flex-col gap-0.5" title="Actual Anthropic API usage for this task (notification copy, routing).">
+                    <span class="text-xs font-medium uppercase tracking-wider text-[#6b8fa3]">API-billed spend</span>
+                    <span class="text-sm text-[#3d4f5f]" data-testid="api-spend">${{ number_format($this->apiSpendUsd, 4) }}</span>
                 </div>
                 @if($task->branch_name)
                     <div class="flex flex-col gap-0.5">

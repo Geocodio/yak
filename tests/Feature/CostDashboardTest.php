@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\CostDashboard;
+use App\Models\AiUsage;
 use App\Models\DailyCost;
 use App\Models\User;
 use App\Models\YakTask;
@@ -184,4 +185,64 @@ test('dashboard shows success and clarification rate cards', function () {
     Livewire::test(CostDashboard::class)
         ->assertSee('Success Rate')
         ->assertSee('Clarification Rate');
+});
+
+test('api spend summary sums only in range', function () {
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0015,
+        'created_at' => now(),
+    ]);
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0025,
+        'created_at' => now(),
+    ]);
+    AiUsage::factory()->create([
+        'cost_usd' => 100.00,
+        'created_at' => now()->subDays(40),
+    ]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $apiSpend = $component->get('apiSpendSummary');
+
+    expect((float) $apiSpend['total_cost'])->toBe(0.004);
+    expect($apiSpend['call_count'])->toBe(2);
+});
+
+test('api spend respects source filter via task join', function () {
+    $slackTask = YakTask::factory()->create(['source' => 'slack']);
+    $linearTask = YakTask::factory()->create(['source' => 'linear']);
+    $orphan = null;
+
+    AiUsage::factory()->create([
+        'yak_task_id' => $slackTask->id,
+        'cost_usd' => 0.0010,
+        'created_at' => now(),
+    ]);
+    AiUsage::factory()->create([
+        'yak_task_id' => $linearTask->id,
+        'cost_usd' => 0.0050,
+        'created_at' => now(),
+    ]);
+    AiUsage::factory()->create([
+        'yak_task_id' => $orphan,
+        'cost_usd' => 0.9999,
+        'created_at' => now(),
+    ]);
+
+    $component = Livewire::test(CostDashboard::class, ['source' => 'slack']);
+    $apiSpend = $component->get('apiSpendSummary');
+
+    expect((float) $apiSpend['total_cost'])->toBe(0.001);
+    expect($apiSpend['call_count'])->toBe(1);
+});
+
+test('api spend breakdown groups by date', function () {
+    AiUsage::factory()->count(2)->create(['cost_usd' => 0.0010, 'created_at' => now()]);
+    AiUsage::factory()->create(['cost_usd' => 0.0040, 'created_at' => now()->subDay()]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $breakdown = $component->get('apiSpendBreakdown');
+
+    expect($breakdown)->toHaveCount(2);
+    expect($breakdown[0]->call_count + $breakdown[1]->call_count)->toBe(3);
 });

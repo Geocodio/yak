@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\AiUsage;
 use App\Models\DailyCost;
 use App\Models\YakTask;
 use Carbon\CarbonImmutable;
@@ -122,6 +123,82 @@ class CostDashboard extends Component
             $obj->task_count = $totalCount;
             $obj->sources = $sources;
             $obj->total = $totalCost;
+
+            return $obj;
+        })->values();
+    }
+
+    /**
+     * Actual Anthropic API spend (PersonalityAgent / RepoRoutingAgent),
+     * scoped to the same date range + filters as the main summary.
+     *
+     * @return array{total_cost: string, call_count: int, top_model: ?string}
+     */
+    #[Computed]
+    public function apiSpendSummary(): array
+    {
+        $range = $this->dateRange();
+
+        $query = AiUsage::query()
+            ->whereBetween('ai_usages.created_at', [$range['start'], $range['end']]);
+
+        if ($this->repo !== '' || $this->source !== '') {
+            $query->join('tasks', 'ai_usages.yak_task_id', '=', 'tasks.id')
+                ->when($this->repo !== '', fn ($q) => $q->where('tasks.repo', $this->repo))
+                ->when($this->source !== '', fn ($q) => $q->where('tasks.source', $this->source));
+        }
+
+        /** @var object{total_cost: string|null, call_count: int} $stats */
+        $stats = (clone $query)->selectRaw(
+            'SUM(ai_usages.cost_usd) as total_cost, COUNT(*) as call_count'
+        )->first();
+
+        /** @var object{model: string}|null $top */
+        $top = (clone $query)->select('ai_usages.model')
+            ->selectRaw('COUNT(*) as model_count')
+            ->groupBy('ai_usages.model')
+            ->orderByDesc('model_count')
+            ->first();
+
+        return [
+            'total_cost' => number_format((float) ($stats->total_cost ?? 0), 4),
+            'call_count' => (int) $stats->call_count,
+            'top_model' => $top?->model,
+        ];
+    }
+
+    /**
+     * @return Collection<int, stdClass>
+     */
+    #[Computed]
+    public function apiSpendBreakdown(): Collection
+    {
+        $range = $this->dateRange();
+
+        $query = AiUsage::query()
+            ->select([
+                DB::raw('DATE(ai_usages.created_at) as date'),
+                DB::raw('COUNT(*) as call_count'),
+                DB::raw('SUM(ai_usages.cost_usd) as total_cost'),
+            ])
+            ->whereBetween('ai_usages.created_at', [$range['start'], $range['end']]);
+
+        if ($this->repo !== '' || $this->source !== '') {
+            $query->join('tasks', 'ai_usages.yak_task_id', '=', 'tasks.id')
+                ->when($this->repo !== '', fn ($q) => $q->where('tasks.repo', $this->repo))
+                ->when($this->source !== '', fn ($q) => $q->where('tasks.source', $this->source));
+        }
+
+        $rows = $query
+            ->groupBy(DB::raw('DATE(ai_usages.created_at)'))
+            ->orderByDesc(DB::raw('DATE(ai_usages.created_at)'))
+            ->get();
+
+        return $rows->map(function ($row) {
+            $obj = new stdClass;
+            $obj->date = (string) $row->getAttribute('date');
+            $obj->call_count = (int) $row->getAttribute('call_count');
+            $obj->total_cost = (float) $row->getAttribute('total_cost');
 
             return $obj;
         })->values();
