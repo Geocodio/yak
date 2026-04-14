@@ -182,7 +182,8 @@ by the Linear MCP server during agent runs).
    → **New application**.
    - Name: `Yak`
    - Redirect URI: `https://{your-domain}/auth/linear/callback`
-   - Scopes: `read`, `write`, `issues:create`, `comments:create`
+   - Scopes: `read` and `write` (all that's needed; `write` covers
+     both comment creation and issue-state updates).
    - Enable the **Actor: app** toggle on the app detail page.
 2. Copy `Client ID` and `Client secret` into `linear_oauth_client_id` /
    `linear_oauth_client_secret`.

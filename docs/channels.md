@@ -173,9 +173,10 @@ Claude Code invokes during agent runs (read-side only, never writes).
    - On the app detail page, enable the **Actor: app** toggle. Without
      this, Linear will reject the `actor=app` parameter at authorize
      time.
-   - Scopes to request: `read`, `write`, `issues:create`,
-     `comments:create`. Do **not** request `admin` — Linear forbids it
-     when combined with `actor=app`.
+   - Scopes to request: `read` and `write`. That's all the outbound
+     driver needs — `write` covers both `commentCreate` and
+     `issueUpdate`. Do **not** request `admin`; Linear forbids it when
+     combined with `actor=app`.
 2. **Configure the webhook on the OAuth app** (same Applications page):
    - URL: `https://{your-domain}/webhooks/linear`
    - Subscribe to **Issue** events. (Linear's "Issue labels" event type

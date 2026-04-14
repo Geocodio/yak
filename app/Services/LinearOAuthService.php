@@ -187,7 +187,7 @@ class LinearOAuthService
      */
     private function scopes(): string
     {
-        $raw = (string) config('yak.channels.linear.oauth_scopes', 'read,write,issues:create,comments:create');
+        $raw = (string) config('yak.channels.linear.oauth_scopes', 'read,write');
 
         return implode(' ', array_filter(array_map('trim', explode(',', $raw))));
     }

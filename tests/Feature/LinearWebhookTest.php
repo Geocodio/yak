@@ -86,7 +86,7 @@ function enableLinearChannel(): string
         'oauth_client_id' => 'cid-test',
         'oauth_client_secret' => 'csecret-test',
         'oauth_redirect_uri' => 'http://localhost/auth/linear/callback',
-        'oauth_scopes' => 'read,write,issues:create,comments:create',
+        'oauth_scopes' => 'read,write',
     ]);
 
     // Re-register routes so the Linear route is available

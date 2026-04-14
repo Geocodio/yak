@@ -25,7 +25,7 @@ class LinearOauthConnectionFactory extends Factory
             'access_token' => 'lin_oauth_access_' . Str::random(24),
             'refresh_token' => 'lin_oauth_refresh_' . Str::random(24),
             'expires_at' => now()->addHours(23),
-            'scopes' => ['read', 'write', 'issues:create', 'comments:create'],
+            'scopes' => ['read', 'write'],
             'actor' => 'app',
             'app_user_id' => 'app-user-' . Str::random(8),
             'installer_user_id' => 'user-' . Str::random(8),

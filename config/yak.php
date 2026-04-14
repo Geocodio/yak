@@ -93,7 +93,7 @@ return [
             'oauth_client_id' => env('YAK_LINEAR_OAUTH_CLIENT_ID'),
             'oauth_client_secret' => env('YAK_LINEAR_OAUTH_CLIENT_SECRET'),
             'oauth_redirect_uri' => env('YAK_LINEAR_OAUTH_REDIRECT_URI'),
-            'oauth_scopes' => env('YAK_LINEAR_OAUTH_SCOPES', 'read,write,issues:create,comments:create'),
+            'oauth_scopes' => env('YAK_LINEAR_OAUTH_SCOPES', 'read,write'),
 
             // Personal API key read by the Linear MCP server (Claude Code uses
             // this during agent runs — not the comment/state update path).

@@ -8,7 +8,7 @@ beforeEach(function () {
     config()->set('yak.channels.linear.oauth_client_id', 'cid');
     config()->set('yak.channels.linear.oauth_client_secret', 'csecret');
     config()->set('yak.channels.linear.oauth_redirect_uri', 'http://localhost/auth/linear/callback');
-    config()->set('yak.channels.linear.oauth_scopes', 'read,write,issues:create,comments:create');
+    config()->set('yak.channels.linear.oauth_scopes', 'read,write');
 });
 
 test('unauthenticated user cannot start the Linear OAuth flow', function () {
@@ -32,7 +32,7 @@ test('redirect route sends the user to Linear with correct params', function () 
         'actor' => 'app',
         'prompt' => 'consent',
     ])
-        ->and($query['scope'])->toBe('read write issues:create comments:create')
+        ->and($query['scope'])->toBe('read write')
         ->and($query)->toHaveKey('state');
 });
 
@@ -50,7 +50,7 @@ test('callback persists a connection on success', function () {
             'access_token' => 'lin_access_abc',
             'refresh_token' => 'lin_refresh_abc',
             'expires_in' => 86400,
-            'scope' => 'read write issues:create comments:create',
+            'scope' => 'read write',
             'token_type' => 'Bearer',
         ]),
         'api.linear.app/graphql' => Http::response([
