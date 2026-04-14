@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Contracts\CIBuildScanner;
+use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Models\Repository;
 use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
@@ -55,6 +57,66 @@ class DroneBuildScanner implements CIBuildScanner
         }
 
         return $failures;
+    }
+
+    /**
+     * Poll the latest Drone build for a given branch.
+     *
+     * Used to resolve the "awaiting_ci" stage for Drone-backed repos, since
+     * Drone doesn't support outbound webhooks. Returns null while the build
+     * is still in flight so the caller can check again on the next tick.
+     *
+     * `$notBefore` guards against the retry race: after a task re-enters
+     * awaiting_ci with a fresh push, an older failed build on the same
+     * branch must not be picked up as the "current" result.
+     */
+    public function pollBranchStatus(
+        Repository $repository,
+        string $branch,
+        DateTimeInterface $notBefore,
+    ): ?BuildResult {
+        $droneUrl = (string) config('yak.channels.drone.url');
+        $droneToken = (string) config('yak.channels.drone.token');
+
+        /** @var array<int, array{number: int, status: string, started: int, link: string, after?: string}> $builds */
+        $builds = Http::withToken($droneToken)
+            ->get("{$droneUrl}/api/repos/{$repository->slug}/builds", ['branch' => $branch])
+            ->json() ?? [];
+
+        // 60s grace: Drone can lag a few seconds behind the git push.
+        $cutoff = $notBefore->getTimestamp() - 60;
+
+        $build = collect($builds)
+            ->filter(fn (array $b) => ($b['started'] ?? 0) >= $cutoff)
+            ->sortByDesc('started')
+            ->first();
+
+        if ($build === null) {
+            return null;
+        }
+
+        // Drone build statuses: pending, running, blocked, waiting_on_deps,
+        // success, failure, error, killed, declined, skipped. Treat anything
+        // non-terminal (or `skipped`, which means no CI actually ran) as
+        // "keep waiting" so the caller tries again.
+        return match ($build['status']) {
+            'success' => new BuildResult(
+                passed: true,
+                externalId: (string) $build['number'],
+                repository: $repository->slug,
+                commitSha: $build['after'] ?? null,
+                metadata: ['build_url' => $build['link']],
+            ),
+            'failure', 'error', 'killed', 'declined' => new BuildResult(
+                passed: false,
+                externalId: (string) $build['number'],
+                repository: $repository->slug,
+                output: $this->getBuildLogs($droneUrl, $droneToken, $repository->slug, $build['number']),
+                commitSha: $build['after'] ?? null,
+                metadata: ['build_url' => $build['link']],
+            ),
+            default => null,
+        };
     }
 
     private function getBuildLogs(string $droneUrl, string $droneToken, string $repoSlug, int $buildNumber): string

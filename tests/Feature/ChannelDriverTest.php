@@ -7,8 +7,6 @@ use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
-use App\Http\Controllers\Webhooks\DroneCIWebhookController;
-use App\Http\Controllers\Webhooks\DroneWebhookController;
 use App\Http\Controllers\Webhooks\GitHubCIWebhookController;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
 use App\Http\Controllers\Webhooks\LinearWebhookController;
@@ -224,8 +222,6 @@ test('all webhook controllers use VerifiesWebhookSignature trait', function () {
         SlackWebhookController::class,
         LinearWebhookController::class,
         SentryWebhookController::class,
-        DroneWebhookController::class,
-        DroneCIWebhookController::class,
     ];
 
     foreach ($controllers as $controller) {
@@ -245,13 +241,28 @@ test('GitHub webhook route is always registered', function () {
 });
 
 test('disabled channel routes return 404', function () {
-    // Without credentials, optional channels should not be registered
-    $optionalChannels = ['slack', 'linear', 'sentry', 'drone'];
+    // Without credentials, optional channels should not be registered.
+    // Drone is excluded: it has no inbound webhook at all (polled instead).
+    $optionalChannels = ['slack', 'linear', 'sentry'];
 
     foreach ($optionalChannels as $channel) {
         $this->post("/webhooks/{$channel}")
             ->assertNotFound("Expected /webhooks/{$channel} to return 404 when disabled");
     }
+});
+
+test('drone webhook routes are never registered (polled instead of webhooked)', function () {
+    config()->set('yak.channels.drone', [
+        'driver' => 'drone',
+        'url' => 'https://drone.example.com',
+        'token' => 'drone-token',
+    ]);
+
+    $provider = new ChannelServiceProvider($this->app);
+    $provider->boot();
+
+    $this->post('/webhooks/drone')->assertNotFound();
+    $this->post('/webhooks/ci/drone')->assertNotFound();
 });
 
 test('enabled channel routes are registered', function () {

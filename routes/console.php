@@ -13,3 +13,4 @@ Schedule::command('yak:cleanup')->daily();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours();
+Schedule::command('yak:poll-drone-ci')->everyMinute()->withoutOverlapping();
