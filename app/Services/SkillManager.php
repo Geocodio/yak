@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\ClaudeCli;
+use App\DataTransferObjects\BundledSkill;
 use App\DataTransferObjects\InstalledPlugin;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -51,6 +52,53 @@ class SkillManager
                 ), $installs);
             })
             ->values();
+    }
+
+    /**
+     * @return Collection<int, BundledSkill>
+     */
+    public function listBundledSkills(): Collection
+    {
+        $dir = config('yak.skills_dir');
+
+        if (! is_string($dir) || ! is_dir($dir)) {
+            return collect();
+        }
+
+        $entries = scandir($dir);
+
+        if ($entries === false) {
+            return collect();
+        }
+
+        return collect($entries)
+            ->reject(fn (string $name) => str_starts_with($name, '.'))
+            ->filter(fn (string $name) => is_file("{$dir}/{$name}/SKILL.md"))
+            ->map(function (string $name) use ($dir) {
+                $content = (string) file_get_contents("{$dir}/{$name}/SKILL.md");
+
+                return new BundledSkill(
+                    name: $name,
+                    description: $this->extractFrontMatterField($content, 'description') ?? '',
+                    path: "{$dir}/{$name}",
+                );
+            })
+            ->values();
+    }
+
+    private function extractFrontMatterField(string $markdown, string $field): ?string
+    {
+        if (! preg_match('/^---\s*\n(.*?)\n---/s', $markdown, $matches)) {
+            return null;
+        }
+
+        foreach (explode("\n", $matches[1]) as $line) {
+            if (preg_match("/^{$field}:\s*(.*?)\s*$/", $line, $fieldMatch)) {
+                return trim($fieldMatch[1], " \t'\"");
+            }
+        }
+
+        return null;
     }
 
     /**

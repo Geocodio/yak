@@ -65,3 +65,29 @@ it('marks plugins disabled when listed in config.json', function () {
 it('returns empty collection when installed_plugins.json is missing', function () {
     expect(app(SkillManager::class)->listInstalled())->toHaveCount(0);
 });
+
+it('lists bundled skills from the skills directory', function () {
+    $skillsDir = $this->tmp . '/bundled';
+    File::makeDirectory($skillsDir . '/agent-browser', recursive: true);
+    File::put($skillsDir . '/agent-browser/SKILL.md', <<<'MD'
+    ---
+    name: agent-browser
+    description: Browser automation CLI for AI agents.
+    ---
+
+    Body
+    MD);
+    File::makeDirectory($skillsDir . '/polish', recursive: true);
+    File::put($skillsDir . '/polish/SKILL.md', "---\nname: polish\ndescription: Visual polish rules.\n---\n");
+
+    $skills = app(SkillManager::class)->listBundledSkills();
+
+    expect($skills)->toHaveCount(2)
+        ->and($skills->pluck('name')->sort()->values()->all())->toBe(['agent-browser', 'polish'])
+        ->and($skills->firstWhere('name', 'agent-browser')->description)->toBe('Browser automation CLI for AI agents.');
+});
+
+it('returns empty when skills dir is missing', function () {
+    config()->set('yak.skills_dir', $this->tmp . '/no-such-dir');
+    expect(app(SkillManager::class)->listBundledSkills())->toHaveCount(0);
+});
