@@ -2,7 +2,7 @@
 
 namespace App\Ai\Agents;
 
-use Illuminate\Support\Facades\View;
+use App\Facades\Prompts;
 use Laravel\Ai\Attributes\Model;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Contracts\Agent;
@@ -26,9 +26,9 @@ class PersonalityAgent implements Agent
 
     public function instructions(): Stringable|string
     {
-        return View::make('prompts.personality', [
+        return Prompts::render('personality', [
             'type' => $this->type,
             'context' => $this->context,
-        ])->render();
+        ]);
     }
 }

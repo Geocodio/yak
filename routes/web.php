@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Livewire\CostDashboard;
 use App\Livewire\Health;
+use App\Livewire\PromptEditor;
 use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
 use App\Livewire\Tasks\TaskDetail;
@@ -32,6 +33,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('repos/create', RepoForm::class)->name('repos.create');
     Route::livewire('repos/{repository}/edit', RepoForm::class)->name('repos.edit');
     Route::livewire('health', Health::class)->name('health');
+    Route::livewire('prompts', PromptEditor::class)->name('prompts');
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
