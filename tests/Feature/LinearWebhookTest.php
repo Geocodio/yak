@@ -157,6 +157,12 @@ it('creates a fix task when yak label is added to an issue', function () {
     expect($task->description)->toContain('Fix the broken auth flow');
     expect($task->description)->toContain('The login page returns 500 errors intermittently.');
 
+    $context = json_decode((string) $task->context, true);
+    expect($context['title'])->toBe('Fix the broken auth flow');
+    expect($context['description'])->toBe('The login page returns 500 errors intermittently.');
+    expect($context['linear_issue_identifier'])->toBe('ENG-42');
+    expect($context['linear_issue_url'])->toBe('https://linear.app/team/issue/ENG-42');
+
     Queue::assertPushed(RunYakJob::class, function (RunYakJob $job) use ($task) {
         return $job->task->id === $task->id;
     });

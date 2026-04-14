@@ -114,6 +114,12 @@ class LinearWebhookController extends Controller
             'external_url' => $description->metadata['linear_issue_url'] ?? null,
             'description' => $description->body,
             'mode' => $description->metadata['mode'] ?? 'fix',
+            'context' => json_encode([
+                'title' => $description->metadata['title'] ?? '',
+                'description' => $description->metadata['description'] ?? '',
+                'linear_issue_identifier' => $description->metadata['linear_issue_identifier'] ?? '',
+                'linear_issue_url' => $description->metadata['linear_issue_url'] ?? '',
+            ]),
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'linear', 'repo' => $repoSlug]);

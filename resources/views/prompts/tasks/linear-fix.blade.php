@@ -1,6 +1,8 @@
 Fix the following Linear issue:
 
-**Title:** {{ $title }}
+@if($identifier ?? '')**Linear Issue:** {{ $identifier }} ({{ $url ?? '' }})
+
+@endif**Title:** {{ $title }}
 
 **Description:**
 {{ $description }}

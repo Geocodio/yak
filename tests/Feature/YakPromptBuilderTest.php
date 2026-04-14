@@ -189,6 +189,33 @@ test('linear fix prompt includes title, description, instructions, and linear mc
         ->toContain('Linear MCP');
 });
 
+test('linear fix prompt includes the Linear issue identifier and url when present', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'linear']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'title' => 'Fix bug',
+        'description' => 'Something broke',
+        'linear_issue_identifier' => 'ENG-396',
+        'linear_issue_url' => 'https://linear.app/team/issue/ENG-396/fix-bug',
+    ]);
+
+    expect($prompt)->toContain('ENG-396')
+        ->toContain('https://linear.app/team/issue/ENG-396/fix-bug');
+});
+
+test('linear fix prompt falls back to task description when metadata missing', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'linear',
+        'description' => "Fix authentication bug\n\nUsers cannot login with SSO",
+        'context' => null,
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, []);
+
+    expect($prompt)->toContain('Fix authentication bug')
+        ->toContain('Users cannot login with SSO');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Task Prompts - Research

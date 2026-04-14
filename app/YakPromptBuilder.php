@@ -43,7 +43,7 @@ class YakPromptBuilder
         return match ($task->source) {
             'sentry' => self::sentryFixPrompt($metadata),
             'flaky-test' => self::flakyTestPrompt($metadata),
-            'linear' => self::linearFixPrompt($metadata),
+            'linear' => self::linearFixPrompt($metadata, $task->description ?? ''),
             'research' => self::researchPrompt($task->description ?? ''),
             'slack' => self::slackFixPrompt($task->description ?? '', $metadata),
             default => self::slackFixPrompt($task->description ?? '', $metadata),
@@ -130,11 +130,24 @@ class YakPromptBuilder
     /**
      * @param  array<string, mixed>  $metadata
      */
-    private static function linearFixPrompt(array $metadata): string
+    private static function linearFixPrompt(array $metadata, string $fallbackBody = ''): string
     {
+        $title = (string) ($metadata['title'] ?? '');
+        $description = (string) ($metadata['description'] ?? '');
+
+        // Fall back to the task's combined body field if metadata wasn't populated
+        // (e.g. tasks created before the controller stored context).
+        if ($title === '' && $description === '' && $fallbackBody !== '') {
+            $parts = explode("\n\n", $fallbackBody, 2);
+            $title = $parts[0];
+            $description = $parts[1] ?? '';
+        }
+
         return self::renderView('prompts.tasks.linear-fix', [
-            'title' => (string) ($metadata['title'] ?? ''),
-            'description' => (string) ($metadata['description'] ?? ''),
+            'title' => $title,
+            'description' => $description,
+            'identifier' => (string) ($metadata['linear_issue_identifier'] ?? ''),
+            'url' => (string) ($metadata['linear_issue_url'] ?? ''),
             'instructions' => (string) ($metadata['instructions'] ?? 'Investigate and fix the issue.'),
         ]);
     }

@@ -37,6 +37,8 @@ class LinearInputDriver implements InputDriver
             repository: $repository,
             metadata: [
                 'mode' => $mode->value,
+                'title' => $title,
+                'description' => $description,
                 'linear_issue_id' => $issueId,
                 'linear_issue_identifier' => $identifier,
                 'linear_issue_url' => $issueUrl,
