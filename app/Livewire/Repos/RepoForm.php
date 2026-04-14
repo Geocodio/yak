@@ -130,6 +130,10 @@ class RepoForm extends Component
         if ($this->detected_ci_system !== null) {
             $this->ci_system = $this->detected_ci_system;
         }
+
+        if ($this->sentry_project === '') {
+            $this->sentry_project = $this->guessSentryProject($repo['name']) ?? '';
+        }
     }
 
     public function clearSelectedRepo(): void
@@ -140,6 +144,42 @@ class RepoForm extends Component
         $this->default_branch = 'main';
         $this->github_search = '';
         $this->detected_ci_system = null;
+    }
+
+    /**
+     * Return the Sentry project slug that best matches the given repo name,
+     * or null if nothing looks like a good fit.
+     *
+     * Uses similar_text percentage on both slug and name so close variants
+     * like "geocodio-website" ↔ "geocodio_website" still match, but we
+     * require 60%+ similarity to avoid preselecting random projects.
+     */
+    protected function guessSentryProject(string $repoName): ?string
+    {
+        if (empty($this->sentry_projects)) {
+            return null;
+        }
+
+        $needle = strtolower($repoName);
+        $bestSlug = null;
+        $bestScore = 0.0;
+
+        foreach ($this->sentry_projects as $project) {
+            $candidates = [
+                strtolower($project['slug']),
+                strtolower($project['name']),
+            ];
+
+            foreach ($candidates as $candidate) {
+                similar_text($needle, $candidate, $percent);
+                if ($percent > $bestScore) {
+                    $bestScore = $percent;
+                    $bestSlug = $project['slug'];
+                }
+            }
+        }
+
+        return $bestScore >= 60.0 ? $bestSlug : null;
     }
 
     protected function detectCiSystem(string $repoSlug): ?string

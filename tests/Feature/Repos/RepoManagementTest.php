@@ -127,6 +127,49 @@ test('select github repo fills form fields', function () {
         ->assertSet('default_branch', 'develop');
 });
 
+test('selecting a github repo pre-selects a matching Sentry project', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'geocodio/geocodio-website',
+            'name' => 'geocodio-website',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/geocodio/geocodio-website.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+        ],
+    ], 300);
+    Cache::put('sentry-projects', [
+        ['slug' => 'api', 'name' => 'API'],
+        ['slug' => 'geocodio-website', 'name' => 'Geocodio Website'],
+        ['slug' => 'dashboard', 'name' => 'Dashboard'],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->call('selectGitHubRepo', 'geocodio/geocodio-website')
+        ->assertSet('sentry_project', 'geocodio-website');
+});
+
+test('selecting a github repo does not pre-select Sentry when nothing matches closely', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'acme/unique-tool',
+            'name' => 'unique-tool',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/unique-tool.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+        ],
+    ], 300);
+    Cache::put('sentry-projects', [
+        ['slug' => 'api', 'name' => 'API'],
+        ['slug' => 'dashboard', 'name' => 'Dashboard'],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->call('selectGitHubRepo', 'acme/unique-tool')
+        ->assertSet('sentry_project', '');
+});
+
 test('clear selected repo resets form fields', function () {
     config(['yak.channels.github.installation_id' => 12345]);
     Cache::put('github-installation-repos', [
