@@ -73,7 +73,7 @@ The routing layer is lightweight — classify the request, detect the repo, form
 | Task | Model | Why |
 |---|---|---|
 | Parse Slack message / webhook | Haiku | Fast, cheap, structured extraction |
-| Detect repo from message | Haiku | Pattern matching against known slugs |
+| Detect repo from message | Haiku | Pattern matching against known slugs; falls back to natural-language routing using repo descriptions when no explicit mention is found (`RepoRoutingAgent`) |
 | Summarize Sentry stacktrace | Sonnet | Needs actual code comprehension |
 | Assemble task context from Linear/Sentry | Sonnet | Judgment about what context matters |
 | Format and post results back to source | Haiku | Templated output |

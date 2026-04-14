@@ -23,6 +23,8 @@ class RepoForm extends Component
 
     public string $name = '';
 
+    public string $description = '';
+
     public string $git_url = '';
 
     public string $default_branch = 'main';
@@ -40,7 +42,7 @@ class RepoForm extends Component
 
     public string $selected_github_repo = '';
 
-    /** @var array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string}> */
+    /** @var array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string}> */
     public array $github_repos = [];
 
     /** @var array<int, array{slug: string, name: string}> */
@@ -57,6 +59,7 @@ class RepoForm extends Component
             $this->repository = $repository;
             $this->slug = $repository->slug;
             $this->name = $repository->name;
+            $this->description = $repository->description ?? '';
             $this->git_url = $repository->git_url ?? '';
             $this->path = $repository->path;
             $this->default_branch = $repository->default_branch;
@@ -116,6 +119,7 @@ class RepoForm extends Component
 
         $this->selected_github_repo = $repo['full_name'];
         $this->name = $repo['name'];
+        $this->description = $repo['description'] ?? '';
         $this->git_url = $repo['clone_url'];
         $this->default_branch = $repo['default_branch'];
         $this->github_search = '';
@@ -139,6 +143,7 @@ class RepoForm extends Component
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'git_url' => ['required', 'string', 'max:500', 'url:https'],
             'default_branch' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
@@ -181,6 +186,7 @@ class RepoForm extends Component
         $data = [
             'slug' => $this->slug,
             'name' => $this->name,
+            'description' => $this->description ?: null,
             'git_url' => $this->git_url,
             'path' => $this->path,
             'default_branch' => $this->default_branch,

@@ -82,6 +82,9 @@
                     </div>
                 @endif
                 <flux:input wire:model="name" label="Display Name" />
+                <div class="md:col-span-2">
+                    <flux:textarea wire:model="description" label="Description" description="One-line description of what this repo does. Used to route natural-language tasks to the right repo." rows="2" />
+                </div>
                 @if($this->isEditing)
                     <div class="md:col-span-2">
                         <flux:input wire:model="git_url" label="Git URL" description="HTTPS clone URL. Authenticated via the GitHub App." />

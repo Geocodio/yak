@@ -21,7 +21,7 @@ class GitHubAppService
     }
 
     /**
-     * @return array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string}>
+     * @return array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string}>
      */
     public function listInstallationRepositories(int $installationId): array
     {
@@ -45,6 +45,7 @@ class GitHubAppService
                 $repos[] = [
                     'full_name' => $repo['full_name'],
                     'name' => $repo['name'],
+                    'description' => $repo['description'] ?? null,
                     'default_branch' => $repo['default_branch'],
                     'clone_url' => $repo['clone_url'],
                     'pushed_at' => $repo['pushed_at'] ?? null,
@@ -56,6 +57,29 @@ class GitHubAppService
         } while (count($repos) < $total);
 
         return $repos;
+    }
+
+    /**
+     * Fetch a single repository's metadata (description, topics, etc.) from GitHub.
+     *
+     * @return array{description: ?string, topics: array<int, string>}|null
+     */
+    public function getRepository(int $installationId, string $repoSlug): ?array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}");
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        return [
+            'description' => $response->json('description'),
+            'topics' => $response->json('topics', []),
+        ];
     }
 
     /**
