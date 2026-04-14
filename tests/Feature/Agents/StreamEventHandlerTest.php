@@ -208,8 +208,160 @@ test('handles mcp tool calls', function () {
     ]);
 
     $log = TaskLog::where('yak_task_id', $this->task->id)->first();
-    expect($log->message)->toContain('MCP:');
+    expect($log->message)->toBe('🔌 context7: query-docs(query: "livewire")');
     expect($log->metadata['tool'])->toBe('mcp__context7__query-docs');
+});
+
+test('formats TodoWrite with in-progress activeForm', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'TodoWrite',
+        'input' => [
+            'todos' => [
+                ['content' => 'Read file', 'status' => 'completed', 'activeForm' => 'Reading file'],
+                ['content' => 'Run syntax check', 'status' => 'in_progress', 'activeForm' => 'Running syntax check'],
+                ['content' => 'Commit', 'status' => 'pending', 'activeForm' => 'Committing'],
+            ],
+        ],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('✅ Running syntax check');
+});
+
+test('formats TodoWrite with all completed falls back to count', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'TodoWrite',
+        'input' => [
+            'todos' => [
+                ['content' => 'Read', 'status' => 'completed', 'activeForm' => 'Reading'],
+                ['content' => 'Edit', 'status' => 'completed', 'activeForm' => 'Editing'],
+            ],
+        ],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('✅ Updated 2 todos');
+});
+
+test('formats TodoWrite with single todo uses singular', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'TodoWrite',
+        'input' => [
+            'todos' => [
+                ['content' => 'Read', 'status' => 'completed', 'activeForm' => 'Reading'],
+            ],
+        ],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('✅ Updated 1 todo');
+});
+
+test('formats ToolSearch with query', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'ToolSearch',
+        'input' => ['query' => 'select:mcp__linear__search_issues'],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🔎 Tool search: select:mcp__linear__search_issues');
+});
+
+test('formats WebFetch with url', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'WebFetch',
+        'input' => ['url' => 'https://example.com'],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🌐 Fetching https://example.com');
+});
+
+test('formats WebSearch with query', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'WebSearch',
+        'input' => ['query' => 'laravel 13 features'],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🔎 Web search: laravel 13 features');
+});
+
+test('formats NotebookEdit with notebook_path', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'NotebookEdit',
+        'input' => ['notebook_path' => '/nb/analysis.ipynb'],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('✏️ Editing notebook `/nb/analysis.ipynb`');
+});
+
+test('formats mcp call with two priority params', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'mcp__linear__search_issues',
+        'input' => ['query' => 'Harden SSH operational limits', 'limit' => 1],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🔌 linear: search_issues(query: "Harden SSH operational limits", limit: 1)');
+});
+
+test('formats mcp call prefers body over other params', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'mcp__linear__add_comment',
+        'input' => [
+            'issueId' => '85deb9ad-8352-4a02-944d-62d935f58628',
+            'body' => str_repeat('x', 100),
+        ],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    // body is priority-picked first and truncated to 60 chars; issueId follows
+    expect($log->message)->toContain('body: "' . str_repeat('x', 60) . '…"');
+    expect($log->message)->toContain('issueId: "85deb9ad-8352-4a02-944d-62d935f58628"');
+});
+
+test('formats mcp call without scalar params drops parens', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'mcp__playwright__browser_snapshot',
+        'input' => [],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🔌 playwright: browser_snapshot');
+});
+
+test('strips claude_ai_ prefix from mcp server name', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'mcp__claude_ai_Notion__notion-search',
+        'input' => ['query' => 'meeting notes'],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🔌 notion: notion-search(query: "meeting notes")');
+});
+
+test('mcp call collapses whitespace in string params', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'mcp__linear__add_comment',
+        'input' => ['body' => "line one\n\nline two\twith tabs"],
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('🔌 linear: add_comment(body: "line one line two with tabs")');
 });
 
 test('extracts tool_use blocks from assistant messages', function () {

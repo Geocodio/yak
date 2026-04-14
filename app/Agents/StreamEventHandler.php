@@ -206,10 +206,129 @@ class StreamEventHandler
             'Grep' => '🔍 Searching for `' . ($input['pattern'] ?? '...') . '`',
             'Glob' => '📂 Finding files: `' . ($input['pattern'] ?? '*') . '`',
             'Agent' => '🤖 Spawning agent: ' . ($input['description'] ?? 'sub-task'),
+            'TodoWrite' => $this->formatTodoWrite($input),
+            'ToolSearch' => '🔎 Tool search: ' . $this->truncate((string) ($input['query'] ?? ''), 80),
+            'WebFetch' => '🌐 Fetching ' . ($input['url'] ?? 'url'),
+            'WebSearch' => '🔎 Web search: ' . $this->truncate((string) ($input['query'] ?? ''), 80),
+            'NotebookEdit' => '✏️ Editing notebook `' . ($input['notebook_path'] ?? 'notebook') . '`',
             default => str_starts_with($toolName, 'mcp__')
-                ? '🔌 MCP: ' . str_replace('mcp__', '', $toolName)
+                ? $this->formatMcpCall($toolName, $input)
                 : "🔧 {$toolName}",
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function formatTodoWrite(array $input): string
+    {
+        /** @var array<int, array<string, mixed>>|mixed $todos */
+        $todos = $input['todos'] ?? [];
+
+        if (! is_array($todos)) {
+            return '✅ TodoWrite';
+        }
+
+        foreach ($todos as $todo) {
+            if (! is_array($todo)) {
+                continue;
+            }
+            if (($todo['status'] ?? '') === 'in_progress') {
+                $activeForm = trim((string) ($todo['activeForm'] ?? ''));
+                if ($activeForm !== '') {
+                    return '✅ ' . $activeForm;
+                }
+            }
+        }
+
+        $count = count($todos);
+
+        return '✅ Updated ' . $count . ' todo' . ($count === 1 ? '' : 's');
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function formatMcpCall(string $toolName, array $input): string
+    {
+        $stripped = substr($toolName, 5);
+        $pos = strpos($stripped, '__');
+        if ($pos === false) {
+            $server = $stripped;
+            $method = '';
+        } else {
+            $server = substr($stripped, 0, $pos);
+            $method = substr($stripped, $pos + 2);
+        }
+
+        if (str_starts_with($server, 'claude_ai_')) {
+            $server = strtolower(substr($server, 10));
+        }
+
+        $summary = $this->summarizeMcpParams($input);
+
+        if ($method === '') {
+            return $summary === '' ? "🔌 {$server}" : "🔌 {$server}({$summary})";
+        }
+
+        return $summary === '' ? "🔌 {$server}: {$method}" : "🔌 {$server}: {$method}({$summary})";
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function summarizeMcpParams(array $input): string
+    {
+        $priority = ['query', 'body', 'text', 'message', 'prompt', 'url', 'path', 'file_path', 'issueId', 'id'];
+
+        $picked = [];
+        foreach ($priority as $key) {
+            if (array_key_exists($key, $input) && $this->isDisplayableScalar($input[$key])) {
+                $picked[$key] = $input[$key];
+                if (count($picked) === 2) {
+                    break;
+                }
+            }
+        }
+
+        if (count($picked) < 2) {
+            foreach ($input as $key => $value) {
+                if (array_key_exists($key, $picked)) {
+                    continue;
+                }
+                if ($this->isDisplayableScalar($value)) {
+                    $picked[$key] = $value;
+                    if (count($picked) === 2) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        $parts = [];
+        foreach ($picked as $key => $value) {
+            if (is_string($value)) {
+                $collapsed = preg_replace('/\s+/', ' ', trim($value)) ?? '';
+                $display = $this->truncate($collapsed, 60);
+                $parts[] = "{$key}: \"{$display}\"";
+            } elseif (is_bool($value)) {
+                $parts[] = "{$key}: " . ($value ? 'true' : 'false');
+            } else {
+                $parts[] = "{$key}: {$value}";
+            }
+        }
+
+        return implode(', ', $parts);
+    }
+
+    private function isDisplayableScalar(mixed $value): bool
+    {
+        return is_string($value) || is_int($value) || is_bool($value);
+    }
+
+    private function truncate(string $value, int $max): string
+    {
+        return mb_strlen($value) > $max ? mb_substr($value, 0, $max) . '…' : $value;
     }
 
     /**
