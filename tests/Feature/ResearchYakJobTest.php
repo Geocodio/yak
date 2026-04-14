@@ -8,11 +8,13 @@ use App\Models\Artifact;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,6 +35,7 @@ test('successful research transitions task to success with result_summary and co
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -75,6 +78,7 @@ test('research ensures repo is on default branch and pulls latest', function () 
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -110,6 +114,7 @@ test('research does not create any branch', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -149,6 +154,7 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -197,6 +203,7 @@ test('handles missing HTML artifact gracefully', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -238,6 +245,7 @@ test('posts summary and findings URL as Linear comment', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -298,6 +306,7 @@ test('moves Linear issue to Done state', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -351,6 +360,7 @@ test('posts summary and findings URL as Slack thread reply', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),
@@ -415,6 +425,7 @@ test('Claude error response marks task as failed', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*git checkout *' => Process::result(''),

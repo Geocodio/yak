@@ -1,0 +1,226 @@
+---
+# Incus + ZFS provisioning for sandboxed task execution.
+#
+# Each task gets its own Incus system container cloned from a ZFS
+# copy-on-write snapshot. Containers have their own Docker daemon,
+# network namespace, and filesystem — fully isolated from the yak host.
+
+- name: Install ZFS utilities
+  ansible.builtin.apt:
+    name:
+      - zfsutils-linux
+    state: present
+    update_cache: true
+
+- name: Check if ZFS pool exists
+  ansible.builtin.command: zpool list incus-pool
+  register: zpool_check
+  changed_when: false
+  failed_when: false
+
+- name: Create ZFS pool on dedicated disk
+  ansible.builtin.command: >
+    zpool create
+    -o ashift=12
+    -O compression=lz4
+    -O atime=off
+    incus-pool {{ incus_zfs_device | default('/dev/sdb') }}
+  when: zpool_check.rc != 0 and incus_zfs_device is defined
+  changed_when: true
+
+- name: Create ZFS pool using a file (fallback when no dedicated disk)
+  ansible.builtin.shell: |
+    truncate -s {{ incus_zfs_pool_size | default('100G') }} /var/lib/incus/zfs-pool.img
+    zpool create incus-pool /var/lib/incus/zfs-pool.img
+    zfs set compression=lz4 incus-pool
+  when: zpool_check.rc != 0 and incus_zfs_device is not defined
+  changed_when: true
+
+- name: Configure ZFS ARC max memory
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/zfs.conf
+    content: |
+      options zfs zfs_arc_max={{ incus_zfs_arc_max | default('8589934592') }}
+    mode: "0644"
+
+- name: Apply ZFS ARC limit immediately
+  ansible.builtin.shell: "echo {{ incus_zfs_arc_max | default('8589934592') }} > /sys/module/zfs/parameters/zfs_arc_max"
+  changed_when: true
+
+- name: Add Incus (Zabbly) GPG key
+  ansible.builtin.get_url:
+    url: https://pkgs.zabbly.com/key.asc
+    dest: /etc/apt/keyrings/zabbly.gpg
+    mode: "0644"
+
+- name: Add Incus (Zabbly) repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/zabbly.gpg] https://pkgs.zabbly.com/incus/stable {{ ansible_distribution_release }} main"
+    state: present
+
+- name: Install Incus
+  ansible.builtin.apt:
+    name: incus
+    state: present
+    update_cache: true
+
+- name: Add yak user to incus-admin group
+  ansible.builtin.user:
+    name: "{{ yak_user }}"
+    groups: incus-admin
+    append: true
+
+- name: Check if Incus is initialized
+  ansible.builtin.command: incus profile show default
+  register: incus_init_check
+  changed_when: false
+  failed_when: false
+
+- name: Initialize Incus
+  ansible.builtin.shell: |
+    cat <<EOF | incus admin init --preseed
+    config: {}
+    networks:
+      - config:
+          ipv4.address: 10.100.0.1/24
+          ipv4.nat: "true"
+          ipv6.address: none
+        description: "Yak sandbox network"
+        name: yak-sandbox
+        type: bridge
+    storage_pools:
+      - config:
+          source: incus-pool
+        description: "ZFS pool for sandboxes"
+        driver: zfs
+        name: default
+    profiles:
+      - config:
+          security.nesting: "true"
+          security.syscalls.intercept.mknod: "true"
+          security.syscalls.intercept.setxattr: "true"
+        description: "Default Yak sandbox profile"
+        devices:
+          root:
+            path: /
+            pool: default
+            type: disk
+          eth0:
+            name: eth0
+            network: yak-sandbox
+            type: nic
+        name: default
+    EOF
+  when: incus_init_check.rc != 0
+  changed_when: true
+
+- name: Block sandbox network from accessing host services
+  community.general.ufw:
+    rule: deny
+    direction: in
+    from_ip: 10.100.0.0/24
+    to_port: "{{ item }}"
+    proto: tcp
+    comment: "Block Incus sandboxes from yak host services"
+  loop:
+    - "80"    # yak web app
+    - "3306"  # MariaDB
+    - "8080"  # yak web app (Caddy proxy)
+
+- name: Increase inotify limits for container density
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    reload: true
+  loop:
+    - { key: "fs.inotify.max_user_instances", value: "1024" }
+    - { key: "fs.inotify.max_user_watches", value: "524288" }
+
+- name: Check if base template exists
+  ansible.builtin.command: incus info yak-base
+  register: base_template_check
+  changed_when: false
+  failed_when: false
+
+- name: Create base template container
+  ansible.builtin.shell: |
+    incus launch images:ubuntu/24.04 yak-base
+
+    # Wait for container to be ready
+    sleep 5
+
+    # Install Docker inside the container
+    incus exec yak-base -- bash -c '
+      apt-get update
+      apt-get install -y ca-certificates curl gnupg lsb-release git sudo
+
+      # Add Docker repository
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+
+      # Add NodeSource repository
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+
+      # Install everything
+      apt-get update
+      apt-get install -y \
+        docker-ce docker-ce-cli containerd.io docker-compose-plugin \
+        nodejs \
+        php8.3-cli php8.3-common php8.3-curl php8.3-mbstring php8.3-xml php8.3-zip php8.3-mysql php8.3-sqlite3 php8.3-gd php8.3-bcmath \
+        chromium-browser \
+        ffmpeg \
+        unzip zip
+
+      # Install Composer
+      curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+      # Install Claude Code CLI
+      npm install -g @anthropic-ai/claude-code agent-browser
+
+      # Create yak user (mirrors the host setup)
+      useradd -m -s /bin/bash yak
+      usermod -aG docker yak
+      echo "yak ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/yak
+      chmod 440 /etc/sudoers.d/yak
+
+      # Create workspace and results directories
+      mkdir -p /workspace /results /home/yak/.claude
+      chown yak:yak /workspace /results /home/yak/.claude
+
+      # Enable and start Docker
+      systemctl enable docker
+      systemctl start docker
+
+      # Pre-pull common Docker images to speed up setup tasks
+      docker pull mariadb:11 || true
+      docker pull redis:7-alpine || true
+      docker pull postgres:16 || true
+    '
+
+    # Stop the container and create the base snapshot
+    incus stop yak-base
+    incus snapshot create yak-base ready
+  when: base_template_check.rc != 0
+  changed_when: true
+
+- name: Print Incus status
+  ansible.builtin.command: incus list --format table
+  register: incus_list
+  changed_when: false
+
+- name: Display Incus containers
+  ansible.builtin.debug:
+    msg: "{{ incus_list.stdout_lines }}"
+
+- name: Create sandbox cleanup cron job
+  ansible.builtin.cron:
+    name: "Cleanup stale Incus sandbox containers"
+    minute: "0"
+    hour: "*/6"
+    user: root
+    job: >
+      incus list --format csv -c n,s | grep '^task-' | grep ',STOPPED' |
+      cut -d',' -f1 | xargs -I{} incus delete {} --force 2>/dev/null || true

@@ -8,11 +8,12 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
-use App\GitOperations;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
+use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Support\TaskContext;
@@ -20,7 +21,6 @@ use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 
 class SetupYakJob implements ShouldQueue
 {
@@ -42,12 +42,8 @@ class SetupYakJob implements ShouldQueue
      */
     public function middleware(): array
     {
-        $repository = Repository::where('slug', $this->task->repo)->first();
-        $repoPath = $repository !== null ? $repository->path : '';
-
         return [
             new EnsureDailyBudget,
-            new Middleware\CleanupDevEnvironment($repoPath),
         ];
     }
 
@@ -65,6 +61,8 @@ class SetupYakJob implements ShouldQueue
     private function runSetup(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
+        $sandbox = app(IncusSandboxManager::class);
+        $containerName = null;
 
         $this->task->update([
             'status' => TaskStatus::Running,
@@ -76,15 +74,23 @@ class SetupYakJob implements ShouldQueue
         $repository->update(['setup_status' => 'running']);
 
         try {
-            $this->preflight($repository);
-            $this->ensureDefaultBranch($repository);
+            // Create sandbox from base template (no repo snapshot exists yet)
+            $containerName = $sandbox->create($this->task, $repository);
+            TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
+
+            // Clone the repo inside the sandbox
+            $this->cloneRepoInSandbox($sandbox, $containerName, $repository);
+
+            // Checkout default branch
+            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+            $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
 
             TaskLogger::info($this->task, 'Starting Claude agent');
 
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::setupPrompt($repository->name),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                workingDirectory: $repository->path,
+                workingDirectory: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
@@ -103,7 +109,7 @@ class SetupYakJob implements ShouldQueue
                 return;
             }
 
-            $this->handleSuccess($repository, $result);
+            $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
             Log::error('SetupYakJob auth failure', [
                 'task_id' => $this->task->id,
@@ -119,52 +125,79 @@ class SetupYakJob implements ShouldQueue
             ]);
 
             $this->handleError($repository, $e->getMessage());
+        } finally {
+            // Always clean up the sandbox on setup (we snapshot first on success)
+            if ($containerName !== null) {
+                $sandbox->destroy($containerName);
+            }
         }
     }
 
-    private function preflight(Repository $repository): void
-    {
-        if (! is_dir($repository->path)) {
-            $this->cloneRepository($repository);
-        }
-
-        TaskLogger::info($this->task, 'Preflight: stopping docker-compose');
-        Process::path($repository->path)->run('docker compose stop');
-
-        TaskLogger::info($this->task, 'Preflight: killing dev ports');
-        $devPorts = [8000, 5173, 3000];
-        foreach ($devPorts as $port) {
-            Process::run("lsof -ti:{$port} | xargs kill -9 2>/dev/null || true");
-        }
-
-        TaskLogger::info($this->task, 'Preflight: complete');
-    }
-
-    private function cloneRepository(Repository $repository): void
+    private function cloneRepoInSandbox(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
         if (empty($repository->git_url)) {
             throw new \RuntimeException("Repository {$repository->slug} has no git_url configured.");
         }
 
-        TaskLogger::info($this->task, "Cloning {$repository->git_url} to {$repository->path}");
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        GitOperations::cloneRepo($repository->git_url, $repository->path);
+        TaskLogger::info($this->task, "Cloning {$repository->git_url} in sandbox");
+
+        // Configure git credentials inside the sandbox
+        $this->configureGitInSandbox($sandbox, $containerName);
+
+        $result = $sandbox->run(
+            $containerName,
+            "git clone {$repository->git_url} {$workspacePath}",
+            timeout: 120,
+        );
+
+        if ($result->exitCode() !== 0) {
+            throw new \RuntimeException("Failed to clone repository in sandbox: {$result->errorOutput()}");
+        }
     }
 
-    private function ensureDefaultBranch(Repository $repository): void
+    private function configureGitInSandbox(IncusSandboxManager $sandbox, string $containerName): void
     {
-        TaskLogger::info($this->task, 'Ensuring default branch');
-        GitOperations::checkoutDefaultBranch($repository);
+        $gitName = config('yak.git_user_name', 'Yak');
+        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
 
-        TaskLogger::info($this->task, 'Pulling latest from origin');
-        GitOperations::pullDefaultBranch($repository);
+        // Set git config inside the sandbox
+        $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
+        $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
 
-        TaskLogger::info($this->task, 'Branch ready');
+        // Configure the credential helper to use the yak app's artisan command.
+        // The sandbox can reach the host via the bridge gateway IP for git credentials.
+        // For now, we generate a short-lived GitHub App token and inject it directly.
+        $this->injectGitCredentials($sandbox, $containerName);
     }
 
-    private function handleSuccess(Repository $repository, AgentRunResult $result): void
+    private function injectGitCredentials(IncusSandboxManager $sandbox, string $containerName): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if (! $installationId) {
+            return;
+        }
+
+        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+
+        // Configure git to use this token for github.com
+        $sandbox->run(
+            $containerName,
+            'git config --global credential.https://github.com.helper ' .
+            escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
+            timeout: 10,
+        );
+    }
+
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
         TaskMetricsAccumulator::applyFresh($this->task, $result);
+
+        // Promote the setup container to a repo template with snapshot.
+        // Future tasks for this repo will clone from this snapshot (instant CoW).
+        $snapshotRef = $sandbox->promoteToTemplate($containerName, $repository);
 
         $this->task->update([
             'status' => TaskStatus::Success,
@@ -176,7 +209,10 @@ class SetupYakJob implements ShouldQueue
         DailyCost::accumulate($result->costUsd);
 
         TaskLogger::info($this->task, 'Task completed');
-        $repository->update(['setup_status' => 'ready']);
+        $repository->update([
+            'setup_status' => 'ready',
+            'sandbox_snapshot' => $snapshotRef,
+        ]);
     }
 
     private function handleError(Repository $repository, string $errorMessage): void

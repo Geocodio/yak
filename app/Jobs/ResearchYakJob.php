@@ -9,12 +9,12 @@ use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
-use App\GitOperations;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Artifact;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\YakPersonality;
@@ -22,7 +22,6 @@ use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -66,6 +65,8 @@ class ResearchYakJob implements ShouldQueue
     private function runResearch(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
+        $sandbox = app(IncusSandboxManager::class);
+        $containerName = null;
 
         $this->task->update([
             'status' => TaskStatus::Running,
@@ -76,12 +77,18 @@ class ResearchYakJob implements ShouldQueue
         TaskLogger::info($this->task, 'Picked up by worker — research');
 
         try {
-            $this->ensureDefaultBranch($repository);
+            // Create sandbox from repo snapshot
+            $containerName = $sandbox->create($this->task, $repository);
+            TaskLogger::info($this->task, 'Sandbox created for research', ['container' => $containerName]);
+
+            // Ensure we're on the default branch with latest code
+            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+            $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
 
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::taskPrompt($this->task),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                workingDirectory: $repository->path,
+                workingDirectory: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
@@ -97,7 +104,7 @@ class ResearchYakJob implements ShouldQueue
                 return;
             }
 
-            $this->handleSuccess($repository, $result);
+            $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
             Log::error('ResearchYakJob auth failure', [
                 'task_id' => $this->task->id,
@@ -113,20 +120,18 @@ class ResearchYakJob implements ShouldQueue
             ]);
 
             $this->handleError($e->getMessage());
+        } finally {
+            if ($containerName !== null) {
+                $sandbox->destroy($containerName);
+            }
         }
     }
 
-    private function ensureDefaultBranch(Repository $repository): void
-    {
-        GitOperations::checkoutDefaultBranch($repository);
-        GitOperations::pullDefaultBranch($repository);
-    }
-
-    private function handleSuccess(Repository $repository, AgentRunResult $result): void
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
         $summary = $result->resultSummary;
 
-        $artifact = $this->collectHtmlArtifact($repository);
+        $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
         $artifactUrl = $artifact !== null ? $this->generateSignedUrl($artifact) : null;
 
         TaskMetricsAccumulator::applyFresh($this->task, $result);
@@ -154,24 +159,32 @@ class ResearchYakJob implements ShouldQueue
         }
     }
 
-    private function collectHtmlArtifact(Repository $repository): ?Artifact
+    private function collectHtmlArtifact(IncusSandboxManager $sandbox, string $containerName): ?Artifact
     {
-        $sourcePath = $repository->path . '/.yak-artifacts/research.html';
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $remotePath = "{$workspacePath}/.yak-artifacts/research.html";
 
-        if (! File::exists($sourcePath)) {
+        if (! $sandbox->fileExists($containerName, $remotePath)) {
             return null;
         }
 
+        // Pull the artifact from the sandbox to local storage
         $storagePath = "{$this->task->id}/research.html";
+        $localPath = Storage::disk('artifacts')->path($storagePath);
 
-        Storage::disk('artifacts')->put($storagePath, File::get($sourcePath));
+        $localDir = dirname($localPath);
+        if (! is_dir($localDir)) {
+            mkdir($localDir, 0755, true);
+        }
+
+        $sandbox->pullFile($containerName, $remotePath, $localPath);
 
         return Artifact::create([
             'yak_task_id' => $this->task->id,
             'type' => 'research',
             'filename' => 'research.html',
             'disk_path' => $storagePath,
-            'size_bytes' => File::size($sourcePath),
+            'size_bytes' => filesize($localPath) ?: 0,
         ]);
     }
 

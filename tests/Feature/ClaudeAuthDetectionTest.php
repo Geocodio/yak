@@ -17,11 +17,13 @@ use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\HealthCheck\ClaudeCliCheck;
 use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\Registry;
+use App\Services\IncusSandboxManager;
 use Illuminate\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -125,18 +127,9 @@ test('RunYakJob detects auth error and fails task with notification', function (
         new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git reset --hard' => Process::result(''),
-        '*git clean -fd' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'auth-repo', 'source' => 'slack']);
@@ -170,14 +163,9 @@ test('RetryYakJob detects auth error and fails task with notification', function
         new ClaudeAuthException('Claude CLI authentication error: token expired')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
     $task = YakTask::factory()->create([
@@ -213,13 +201,9 @@ test('ResearchYakJob detects auth error and fails task with notification', funct
         new ClaudeAuthException('Claude CLI authentication error: authentication_error: invalid_api_key')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'research-repo', 'path' => '/home/yak/repos/research-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'research-repo', 'source' => 'slack']);
@@ -250,16 +234,9 @@ test('SetupYakJob detects auth error and fails task with notification', function
         new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'setup-repo', 'path' => '/home/yak/repos/setup-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'setup-repo', 'source' => 'slack']);
@@ -290,14 +267,9 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
         new ClaudeAuthException('Claude CLI authentication error: session expired, please login again')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'clarify-repo', 'path' => '/home/yak/repos/clarify-repo']);
     $task = YakTask::factory()->create([

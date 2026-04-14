@@ -4,17 +4,18 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\SetupYakJob;
 use App\Livewire\Repos\RepoForm;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
 use App\YakPromptBuilder;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,13 +37,10 @@ test('successful setup transitions task to success and repo to ready', function 
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create([
         'slug' => 'test-repo',
@@ -68,7 +66,44 @@ test('successful setup transitions task to success and repo to ready', function 
         ->and($task->num_turns)->toBe(20)
         ->and($task->duration_ms)->toBe(180000)
         ->and($task->completed_at)->not->toBeNull()
-        ->and($repository->setup_status)->toBe('ready');
+        ->and($repository->setup_status)->toBe('ready')
+        ->and($repository->sandbox_snapshot)->not->toBeNull();
+});
+
+test('setup promotes sandbox to repo template on success', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_1',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'tpl-repo',
+        'path' => '/home/yak/repos/tpl-repo',
+        'setup_status' => 'pending',
+    ]);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'tpl-repo',
+        'mode' => TaskMode::Setup,
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->handle($fake);
+
+    expect($fakeSandbox->promotedTemplates)->toHaveCount(1)
+        ->and($fakeSandbox->promotedTemplates[0])->toContain('tpl-repo');
 });
 
 test('setup transitions repo setup_status through running to ready on success', function () {
@@ -85,13 +120,10 @@ test('setup transitions repo setup_status through running to ready on success', 
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create([
         'slug' => 'run-repo',
@@ -131,13 +163,10 @@ test('setup increments attempts', function () {
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create([
         'slug' => 'att-repo',
@@ -158,11 +187,11 @@ test('setup increments attempts', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Setup stays on default branch (no new branch)
+| Sandbox Lifecycle
 |--------------------------------------------------------------------------
 */
 
-test('setup checks out default branch and pulls latest', function () {
+test('sandbox is created and destroyed on setup', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
@@ -176,75 +205,45 @@ test('setup checks out default branch and pulls latest', function () {
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
-    $repository = Repository::factory()->create([
-        'slug' => 'branch-repo',
-        'path' => '/home/yak/repos/branch-repo',
-        'default_branch' => 'develop',
-    ]);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'branch-repo',
-        'mode' => TaskMode::Setup,
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
-    $job = new SetupYakJob($task);
-    $job->handle($fake);
+    Repository::factory()->create(['slug' => 'sb-repo', 'path' => '/home/yak/repos/sb-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'sb-repo', 'mode' => TaskMode::Setup]);
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout develop'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git pull origin develop'));
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->createdContainers)->toHaveCount(1)
+        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
-/*
-|--------------------------------------------------------------------------
-| Preflight Cleanup
-|--------------------------------------------------------------------------
-*/
-
-test('preflight runs docker compose stop and kills dev ports', function () {
+test('sandbox is destroyed even when setup fails', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 0.0,
+        sessionId: 'sess_err',
+        resultSummary: 'Docker compose failed to start',
+        costUsd: 0.25,
         numTurns: 1,
-        durationMs: 1000,
-        isError: false,
+        durationMs: 5000,
+        isError: true,
         clarificationNeeded: false,
         clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
-    $repository = Repository::factory()->create([
-        'slug' => 'pf-repo',
-        'path' => '/home/yak/repos/pf-repo',
-    ]);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'pf-repo',
-        'mode' => TaskMode::Setup,
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
-    $job = new SetupYakJob($task);
-    $job->handle($fake);
+    Repository::factory()->create(['slug' => 'err-repo', 'path' => '/home/yak/repos/err-repo', 'setup_status' => 'pending']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'err-repo', 'mode' => TaskMode::Setup]);
 
-    Process::assertRan(fn ($process) => $process->command === 'docker compose stop');
-    Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:5173'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:3000'));
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
 /*
@@ -267,13 +266,10 @@ test('claude error marks task failed and repo setup_status failed', function () 
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create([
         'slug' => 'err-repo',
@@ -297,48 +293,6 @@ test('claude error marks task failed and repo setup_status failed', function () 
         ->and($repository->setup_status)->toBe('failed');
 });
 
-test('malformed claude output marks task as failed', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: '',
-        resultSummary: 'Agent returned an error or malformed output',
-        costUsd: 0.0,
-        numTurns: 0,
-        durationMs: 0,
-        isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
-        rawOutput: 'not valid json',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
-
-    $repository = Repository::factory()->create([
-        'slug' => 'bad-repo',
-        'path' => '/home/yak/repos/bad-repo',
-    ]);
-    $task = YakTask::factory()->pending()->create([
-        'repo' => 'bad-repo',
-        'mode' => TaskMode::Setup,
-    ]);
-
-    $job = new SetupYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-    $repository->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->not->toBeEmpty()
-        ->and($repository->setup_status)->toBe('failed');
-});
-
 /*
 |--------------------------------------------------------------------------
 | Queue Configuration
@@ -358,7 +312,7 @@ test('SetupYakJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('SetupYakJob has CleanupDevEnvironment middleware', function () {
+test('SetupYakJob has EnsureDailyBudget middleware', function () {
     Process::fake();
 
     $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
@@ -367,9 +321,8 @@ test('SetupYakJob has CleanupDevEnvironment middleware', function () {
     $job = new SetupYakJob($task);
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(2)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class)
-        ->and($middleware[1])->toBeInstanceOf(CleanupDevEnvironment::class);
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
 });
 
 /*

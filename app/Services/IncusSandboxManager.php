@@ -1,0 +1,435 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Repository;
+use App\Models\YakTask;
+use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
+use RuntimeException;
+
+/**
+ * Manages Incus system containers for sandboxed task execution.
+ *
+ * Each task gets its own Incus container cloned from a per-repo snapshot.
+ * Containers have their own Docker daemon, network namespace, and filesystem
+ * via ZFS copy-on-write — providing full isolation from the yak host.
+ */
+class IncusSandboxManager
+{
+    /**
+     * Create a sandbox container for a task, cloned from the repo's snapshot.
+     *
+     * If the repo has a sandbox snapshot, clones from it (instant CoW).
+     * Otherwise, clones from the base template.
+     */
+    public function create(YakTask $task, Repository $repository): string
+    {
+        $containerName = $this->containerName($task);
+        $source = $this->resolveSource($repository);
+
+        Log::channel('yak')->info('Creating sandbox container', [
+            'container' => $containerName,
+            'source' => $source,
+            'task_id' => $task->id,
+        ]);
+
+        // Clone from snapshot (instant with ZFS CoW)
+        $this->exec("incus copy {$source} {$containerName}");
+
+        // Apply resource limits
+        $this->configureResources($containerName);
+
+        // Start the container
+        $this->exec("incus start {$containerName}");
+
+        // Wait for the container to be ready (systemd + Docker daemon)
+        $this->waitForReady($containerName);
+
+        // Push Claude config into the container
+        $this->pushClaudeConfig($containerName);
+
+        // Push MCP config if configured
+        $this->pushMcpConfig($containerName);
+
+        Log::channel('yak')->info('Sandbox container ready', [
+            'container' => $containerName,
+            'task_id' => $task->id,
+        ]);
+
+        return $containerName;
+    }
+
+    /**
+     * Execute a command inside a sandbox container.
+     *
+     * Returns the raw process result for callers that need stdout/stderr.
+     */
+    public function run(string $containerName, string $command, ?int $timeout = null): ProcessResult
+    {
+        $cmd = sprintf(
+            'incus exec %s -- bash -c %s',
+            escapeshellarg($containerName),
+            escapeshellarg($command),
+        );
+
+        $process = Process::timeout($timeout ?? 600);
+
+        return $process->run($cmd);
+    }
+
+    /**
+     * Execute a command inside a sandbox using proc_open for streaming.
+     *
+     * Returns the proc_open resource and pipes for line-by-line streaming.
+     *
+     * @return array{resource, array<int, resource>}
+     */
+    public function streamExec(string $containerName, string $command): array
+    {
+        $cmd = sprintf(
+            'incus exec %s -- bash -c %s',
+            escapeshellarg($containerName),
+            escapeshellarg($command),
+        );
+
+        $descriptors = [
+            0 => ['pipe', 'r'],  // stdin
+            1 => ['pipe', 'w'],  // stdout
+            2 => ['pipe', 'w'],  // stderr
+        ];
+
+        $process = proc_open($cmd, $descriptors, $pipes);
+
+        if (! is_resource($process)) {
+            throw new RuntimeException("Failed to start process in sandbox {$containerName}");
+        }
+
+        return [$process, $pipes];
+    }
+
+    /**
+     * Pull a file from a sandbox container to the host.
+     */
+    public function pullFile(string $containerName, string $remotePath, string $localPath): void
+    {
+        $this->exec(sprintf(
+            'incus file pull %s%s %s',
+            escapeshellarg($containerName),
+            $remotePath, // path inside container (no shell escaping — it's part of the incus arg)
+            escapeshellarg($localPath),
+        ));
+    }
+
+    /**
+     * Pull a directory recursively from a sandbox container.
+     */
+    public function pullDirectory(string $containerName, string $remotePath, string $localPath): void
+    {
+        // Ensure local directory exists
+        if (! is_dir($localPath)) {
+            mkdir($localPath, 0755, true);
+        }
+
+        $this->exec(sprintf(
+            'incus file pull -r %s%s %s',
+            escapeshellarg($containerName),
+            $remotePath,
+            escapeshellarg($localPath),
+        ));
+    }
+
+    /**
+     * Push a file into a sandbox container.
+     */
+    public function pushFile(string $containerName, string $localPath, string $remotePath): void
+    {
+        $this->exec(sprintf(
+            'incus file push %s %s%s',
+            escapeshellarg($localPath),
+            escapeshellarg($containerName),
+            $remotePath,
+        ));
+    }
+
+    /**
+     * Check if a file exists inside a sandbox container.
+     */
+    public function fileExists(string $containerName, string $path): bool
+    {
+        $result = $this->run($containerName, "test -e {$path}", timeout: 10);
+
+        return $result->exitCode() === 0;
+    }
+
+    /**
+     * Create a snapshot of a container for future task cloning.
+     *
+     * Called after a successful setup task to preserve the prepared state.
+     */
+    public function snapshot(string $containerName, string $snapshotName): void
+    {
+        Log::channel('yak')->info('Creating sandbox snapshot', [
+            'container' => $containerName,
+            'snapshot' => $snapshotName,
+        ]);
+
+        // Stop the container before snapshotting for a clean state
+        $this->exec("incus stop {$containerName}");
+
+        // Delete existing snapshot if present (idempotent re-snapshot)
+        Process::run("incus snapshot delete {$containerName} {$snapshotName} 2>/dev/null");
+
+        $this->exec("incus snapshot create {$containerName} {$snapshotName}");
+
+        Log::channel('yak')->info('Sandbox snapshot created', [
+            'container' => $containerName,
+            'snapshot' => $snapshotName,
+        ]);
+    }
+
+    /**
+     * Promote a task container to a repo template with a snapshot.
+     *
+     * After setup completes, this converts the task's sandbox into the
+     * repo's reusable template. Future tasks clone from this snapshot.
+     */
+    public function promoteToTemplate(string $containerName, Repository $repository): string
+    {
+        $templateName = $this->templateName($repository);
+        $snapshotName = (string) config('yak.sandbox.snapshot_name', 'ready');
+
+        // Delete old template if it exists
+        Process::run("incus delete {$templateName} --force 2>/dev/null");
+
+        // Stop the task container
+        $this->exec("incus stop {$containerName}");
+
+        // Copy task container as the new template
+        $this->exec("incus copy {$containerName} {$templateName}");
+
+        // Snapshot the template
+        $this->exec("incus snapshot create {$templateName} {$snapshotName}");
+
+        Log::channel('yak')->info('Promoted sandbox to repo template', [
+            'source' => $containerName,
+            'template' => $templateName,
+            'snapshot' => $snapshotName,
+        ]);
+
+        return "{$templateName}/{$snapshotName}";
+    }
+
+    /**
+     * Destroy a sandbox container and free its resources.
+     */
+    public function destroy(string $containerName): void
+    {
+        Log::channel('yak')->info('Destroying sandbox container', [
+            'container' => $containerName,
+        ]);
+
+        // Force stop + delete in one shot (ignore errors for already-stopped containers)
+        Process::run("incus delete {$containerName} --force 2>/dev/null");
+    }
+
+    /**
+     * Check if a repo has a sandbox snapshot ready for cloning.
+     */
+    public function hasSnapshot(Repository $repository): bool
+    {
+        $templateName = $this->templateName($repository);
+        $snapshotName = (string) config('yak.sandbox.snapshot_name', 'ready');
+
+        $result = Process::run("incus snapshot list {$templateName} --format csv 2>/dev/null");
+
+        if ($result->exitCode() !== 0) {
+            return false;
+        }
+
+        return str_contains($result->output(), $snapshotName);
+    }
+
+    /**
+     * Generate the container name for a task.
+     */
+    public function containerName(YakTask $task): string
+    {
+        // Incus names: lowercase alphanumeric and hyphens, max 63 chars
+        $sanitized = (string) preg_replace('/[^a-z0-9-]/', '-', strtolower("task-{$task->id}"));
+        $sanitized = (string) preg_replace('/-{2,}/', '-', $sanitized);
+
+        return trim($sanitized, '-');
+    }
+
+    /**
+     * Generate the template container name for a repository.
+     */
+    public function templateName(Repository $repository): string
+    {
+        $sanitized = (string) preg_replace('/[^a-z0-9-]/', '-', strtolower("yak-tpl-{$repository->slug}"));
+        $sanitized = (string) preg_replace('/-{2,}/', '-', $sanitized);
+
+        return trim($sanitized, '-');
+    }
+
+    /**
+     * Delete sandbox containers older than the configured cleanup threshold.
+     */
+    public function cleanupStale(): int
+    {
+        $hours = (int) config('yak.sandbox.cleanup_after_hours', 24);
+        $result = Process::run('incus list --format csv -c n,s 2>/dev/null');
+
+        if ($result->exitCode() !== 0) {
+            return 0;
+        }
+
+        $deleted = 0;
+
+        foreach (explode("\n", trim($result->output())) as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            $parts = explode(',', $line);
+            $name = trim($parts[0]);
+
+            // Only clean up task containers, not templates
+            if (! str_starts_with($name, 'task-')) {
+                continue;
+            }
+
+            // Check creation time
+            $info = Process::run("incus info {$name} --format csv 2>/dev/null");
+            if (str_contains($info->output(), 'Created')) {
+                // Simple heuristic: if the container exists and is a task container,
+                // and we're doing cleanup, delete stopped ones
+                $status = trim($parts[1] ?? '');
+                if ($status === 'STOPPED') {
+                    Process::run("incus delete {$name} --force");
+                    $deleted++;
+                }
+            }
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Resolve the source template/snapshot to clone from for a repository.
+     */
+    private function resolveSource(Repository $repository): string
+    {
+        $templateName = $this->templateName($repository);
+        $snapshotName = (string) config('yak.sandbox.snapshot_name', 'ready');
+
+        // Prefer repo-specific template with snapshot
+        if ($this->hasSnapshot($repository)) {
+            return "{$templateName}/{$snapshotName}";
+        }
+
+        // Fall back to base template
+        $baseTemplate = (string) config('yak.sandbox.base_template', 'yak-base');
+        $baseResult = Process::run("incus snapshot list {$baseTemplate} --format csv 2>/dev/null");
+
+        if ($baseResult->exitCode() === 0 && str_contains($baseResult->output(), $snapshotName)) {
+            return "{$baseTemplate}/{$snapshotName}";
+        }
+
+        // Last resort: copy from the base template directly (no snapshot)
+        return $baseTemplate;
+    }
+
+    private function configureResources(string $containerName): void
+    {
+        $cpu = (int) config('yak.sandbox.cpu_limit', 4);
+        $memory = (string) config('yak.sandbox.memory_limit', '8GB');
+        $disk = (string) config('yak.sandbox.disk_limit', '30GB');
+
+        $this->exec("incus config set {$containerName} limits.cpu={$cpu} limits.memory={$memory}");
+        Process::run("incus config device set {$containerName} root size={$disk} 2>/dev/null");
+    }
+
+    private function waitForReady(string $containerName, int $maxWaitSeconds = 60): void
+    {
+        $start = time();
+
+        while (time() - $start < $maxWaitSeconds) {
+            $result = Process::run(
+                "incus exec {$containerName} -- systemctl is-system-running 2>/dev/null",
+            );
+
+            $status = trim($result->output());
+
+            if ($status === 'running' || $status === 'degraded') {
+                // Also check Docker is ready
+                $docker = Process::run(
+                    "incus exec {$containerName} -- docker info 2>/dev/null",
+                );
+
+                if ($docker->exitCode() === 0) {
+                    return;
+                }
+            }
+
+            usleep(500_000); // 500ms
+        }
+
+        throw new RuntimeException("Sandbox {$containerName} did not become ready within {$maxWaitSeconds}s");
+    }
+
+    private function pushClaudeConfig(string $containerName): void
+    {
+        $claudeConfigSource = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
+
+        if (! is_dir($claudeConfigSource)) {
+            return;
+        }
+
+        // Push the entire claude config directory
+        Process::run(sprintf(
+            'incus file push -r %s %s/home/yak/',
+            escapeshellarg($claudeConfigSource),
+            escapeshellarg($containerName),
+        ));
+
+        // Also push .claude.json if it exists on the host
+        $claudeJson = dirname($claudeConfigSource) . '/.claude.json';
+        if (file_exists($claudeJson)) {
+            Process::run(sprintf(
+                'incus file push %s %s/home/yak/.claude.json',
+                escapeshellarg($claudeJson),
+                escapeshellarg($containerName),
+            ));
+        }
+
+        // Fix ownership inside container
+        $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10);
+    }
+
+    private function pushMcpConfig(string $containerName): void
+    {
+        $mcpConfigPath = config('yak.mcp_config_path');
+
+        if ($mcpConfigPath === null || $mcpConfigPath === '' || ! file_exists($mcpConfigPath)) {
+            return;
+        }
+
+        Process::run(sprintf(
+            'incus file push %s %s/home/yak/mcp-config.json',
+            escapeshellarg($mcpConfigPath),
+            escapeshellarg($containerName),
+        ));
+    }
+
+    private function exec(string $command): void
+    {
+        $result = Process::run($command);
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException("Incus command failed: {$command}\n{$result->errorOutput()}");
+        }
+    }
+}

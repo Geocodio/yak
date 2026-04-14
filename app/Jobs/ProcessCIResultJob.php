@@ -119,11 +119,24 @@ class ProcessCIResultJob implements ShouldQueue
     }
 
     /**
+     * Collect artifacts from the local artifacts disk.
+     *
+     * Artifacts are pre-collected from the sandbox by the agent jobs
+     * (RunYakJob, RetryYakJob) via SandboxArtifactCollector before
+     * the sandbox container is destroyed. By the time this job runs,
+     * the files are already on the host at {task_id}/ on the artifacts disk.
+     *
      * @return array<int, Artifact>
      */
     private function collectArtifacts(Repository $repository): array
     {
-        $artifactsPath = $repository->path . '/.yak-artifacts';
+        $taskDir = Storage::disk('artifacts')->path((string) $this->task->id);
+
+        // Check for artifacts collected from sandbox
+        // They may be in a .yak-artifacts subdirectory (from pullDirectory)
+        $artifactsPath = is_dir($taskDir . '/.yak-artifacts')
+            ? $taskDir . '/.yak-artifacts'
+            : $taskDir;
 
         if (! File::isDirectory($artifactsPath)) {
             return [];
@@ -136,10 +149,13 @@ class ProcessCIResultJob implements ShouldQueue
             $storagePath = "{$this->task->id}/{$file->getFilename()}";
             $type = $this->detectArtifactType($file->getExtension());
 
-            Storage::disk('artifacts')->put(
-                $storagePath,
-                File::get($file->getPathname()),
-            );
+            // If the file came from the .yak-artifacts subdirectory, move it up
+            if ($artifactsPath !== $taskDir) {
+                $targetPath = Storage::disk('artifacts')->path($storagePath);
+                if ($file->getPathname() !== $targetPath) {
+                    File::move($file->getPathname(), $targetPath);
+                }
+            }
 
             // Post-process video walkthroughs (trim dead start, speed up idle sections)
             if ($type === 'video') {
@@ -154,6 +170,11 @@ class ProcessCIResultJob implements ShouldQueue
                 'disk_path' => $storagePath,
                 'size_bytes' => Storage::disk('artifacts')->size($storagePath),
             ]);
+        }
+
+        // Clean up the .yak-artifacts subdirectory if it exists
+        if ($artifactsPath !== $taskDir && File::isDirectory($artifactsPath)) {
+            File::deleteDirectory($artifactsPath);
         }
 
         return $artifacts;

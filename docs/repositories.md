@@ -34,11 +34,16 @@ When a repo is first added, Yak dispatches a one-time **setup task** — a Claud
 3. Verifies the environment works by starting the dev server and running the test suite
 4. Reports success or failure with details of what was set up
 
-### Dev Environment Lifecycle
+### Sandbox Snapshots
 
-The dev environment **persists across tasks**. Setup runs once to bring it up; subsequent tasks just `docker-compose start` and `docker-compose stop` as needed. There is no cold-start penalty for each new task.
+After setup completes successfully, the sandbox container is **snapshotted** using ZFS copy-on-write. This snapshot becomes the base image for all future tasks on this repo.
 
-If a task crashes mid-run, the `CleanupDevEnvironment` job middleware runs `docker-compose stop` so the next task starts from a clean state.
+When a task starts, Incus clones the snapshot in ~2 seconds — the clone includes the fully-prepared dev environment (Docker images pulled, dependencies installed, database migrated). Each task gets its own isolated copy; changes never leak between tasks.
+
+This means:
+- **No cold-start penalty** — every task starts from the prepared snapshot.
+- **No shared state corruption** — each task has its own filesystem, Docker daemon, and network.
+- **Concurrent execution** — multiple tasks for the same repo can run in parallel from the same snapshot.
 
 ### Setup Status
 

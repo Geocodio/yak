@@ -4,12 +4,13 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
-use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,10 +31,9 @@ test('successful clarification reply transitions task to awaiting_ci and force p
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git rev-parse *' => Process::result(output: 'yak/test'),
         '*git branch -D *' => Process::result(''),
@@ -357,7 +357,7 @@ test('ClarificationReplyJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('ClarificationReplyJob has CleanupDevEnvironment middleware', function () {
+test('ClarificationReplyJob has EnsureDailyBudget middleware', function () {
     Process::fake();
 
     $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
@@ -366,7 +366,6 @@ test('ClarificationReplyJob has CleanupDevEnvironment middleware', function () {
     $job = new ClarificationReplyJob($task, 'test reply');
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(2)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class)
-        ->and($middleware[1])->toBeInstanceOf(CleanupDevEnvironment::class);
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
 });
