@@ -232,9 +232,68 @@
         @endif
     </div>
 
+    @once
+        <script>
+            document.addEventListener('alpine:init', () => {
+                Alpine.data('activityFollow', (initial) => ({
+                    following: initial,
+                    observer: null,
+                    suppressScrollEvent: false,
+                    init() {
+                        this.$nextTick(() => {
+                            if (this.following) {
+                                this.scrollToEnd('auto');
+                            }
+                        });
+
+                        this.observer = new MutationObserver(() => {
+                            if (this.following) {
+                                this.scrollToEnd('smooth');
+                            }
+                        });
+
+                        this.observer.observe(this.$refs.logList, {
+                            childList: true,
+                            subtree: true,
+                        });
+                    },
+                    destroy() {
+                        this.observer?.disconnect();
+                    },
+                    isNearBottom() {
+                        const el = this.$refs.logList;
+                        return el.scrollTop + el.clientHeight >= el.scrollHeight - 48;
+                    },
+                    scrollToEnd(behavior) {
+                        const el = this.$refs.logList;
+                        this.suppressScrollEvent = true;
+                        el.scrollTo({ top: el.scrollHeight, behavior: behavior ?? 'smooth' });
+                        requestAnimationFrame(() => { this.suppressScrollEvent = false; });
+                    },
+                    onScroll() {
+                        if (this.suppressScrollEvent) return;
+                        if (this.following && !this.isNearBottom()) {
+                            this.following = false;
+                        }
+                    },
+                    toggle() {
+                        this.following = !this.following;
+                        if (this.following) {
+                            this.scrollToEnd('smooth');
+                        }
+                    },
+                }));
+            });
+        </script>
+    @endonce
+
     {{-- Section 8: Activity (Unified log with milestone highlighting) --}}
     @if($this->logs->isNotEmpty())
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+        <div
+            class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]"
+            x-data="activityFollow({{ $this->isActiveStatus() ? 'true' : 'false' }})"
+        >
+
             {{-- Milestone progress bar --}}
             <div class="mb-5 flex items-center gap-0" data-testid="milestone-stepper">
                 @foreach($this->milestoneSteps as $stepIndex => $step)
@@ -261,14 +320,14 @@
                 <div class="flex items-center gap-3">
                     @if($this->isActiveStatus())
                         <button
-                            x-data
-                            @click="$dispatch('toggle-follow')"
-                            x-text="$store.follow.active ? 'Following' : 'Follow'"
+                            type="button"
+                            @click="toggle()"
                             class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition-colors"
-                            :class="$store.follow.active ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-[#7a8c5e]' : 'border-[rgba(200,184,154,0.4)] bg-white text-[#6b8fa3]'"
+                            :class="following ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-[#7a8c5e]' : 'border-[rgba(200,184,154,0.4)] bg-white text-[#6b8fa3]'"
                             data-testid="follow-button"
                         >
-                            <span class="size-1.5 rounded-full bg-current" :class="$store.follow.active && 'animate-pulse'"></span>
+                            <span class="size-1.5 rounded-full bg-current" :class="following && 'animate-pulse'"></span>
+                            <span x-text="following ? 'Following' : 'Follow'">Follow</span>
                         </button>
                     @endif
                     <span class="text-xs text-[#6b8fa3]">
@@ -294,38 +353,10 @@
             </div>
 
             <div
-                x-data="{
-                    init() {
-                        Alpine.store('follow', { active: {{ $this->isActiveStatus() ? 'true' : 'false' }} });
-                        this.scrollToBottom();
-                    },
-                    scrollToBottom() {
-                        if (Alpine.store('follow').active) {
-                            this.$nextTick(() => {
-                                this.$refs.logList.scrollTo({ top: this.$refs.logList.scrollHeight, behavior: 'smooth' });
-                            });
-                        }
-                    },
-                    handleScroll() {
-                        const el = this.$refs.logList;
-                        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
-                        if (!atBottom && Alpine.store('follow').active) {
-                            Alpine.store('follow').active = false;
-                        }
-                    },
-                    toggleFollow() {
-                        Alpine.store('follow').active = !Alpine.store('follow').active;
-                        if (Alpine.store('follow').active) {
-                            this.scrollToBottom();
-                        }
-                    }
-                }"
                 x-ref="logList"
-                x-on:toggle-follow.window="toggleFollow()"
                 wire:poll.{{ $this->pollInterval }}="$refresh"
-                x-effect="scrollToBottom()"
                 class="max-h-[600px] overflow-y-auto"
-                @scroll="handleScroll()"
+                @scroll.passive="onScroll()"
             >
                 @foreach($this->groupedLogs as $entry)
                     @if($entry['type'] === 'group')
