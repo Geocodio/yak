@@ -16,7 +16,7 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-#[Signature('yak:scan-ci {--repo=}')]
+#[Signature('yak:scan-ci {--repo=} {--dry-run : Report detected failures without creating tasks or dispatching jobs}')]
 #[Description('Scan CI logs for flaky tests and create fix tasks')]
 class ScanCiCommand extends Command
 {
@@ -24,6 +24,7 @@ class ScanCiCommand extends Command
     {
         /** @var string|null $repoSlug */
         $repoSlug = $this->option('repo');
+        $dryRun = (bool) $this->option('dry-run');
 
         $repositories = $repoSlug !== null
             ? Repository::where('slug', $repoSlug)->where('is_active', true)->get()
@@ -38,15 +39,19 @@ class ScanCiCommand extends Command
         $tasksCreated = 0;
 
         foreach ($repositories as $repository) {
-            $tasksCreated += $this->scanRepository($repository);
+            $tasksCreated += $this->scanRepository($repository, $dryRun);
         }
 
-        $this->components->info("Scan complete. Created {$tasksCreated} task(s).");
+        if ($dryRun) {
+            $this->components->info("Dry run complete. Would have created {$tasksCreated} task(s).");
+        } else {
+            $this->components->info("Scan complete. Created {$tasksCreated} task(s).");
+        }
 
         return self::SUCCESS;
     }
 
-    private function scanRepository(Repository $repository): int
+    private function scanRepository(Repository $repository, bool $dryRun = false): int
     {
         $scanner = $this->resolveScanner($repository);
 
@@ -73,6 +78,13 @@ class ScanCiCommand extends Command
         foreach ($failures as $failure) {
             if ($this->isDuplicate($repository, $failure)) {
                 $this->components->warn("Skipping {$failure->testName} — task already exists.");
+
+                continue;
+            }
+
+            if ($dryRun) {
+                $this->components->info("Would create task for: {$failure->testName} (build {$failure->buildId})");
+                $tasksCreated++;
 
                 continue;
             }

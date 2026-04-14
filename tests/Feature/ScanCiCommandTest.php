@@ -199,6 +199,27 @@ test('uses max_failure_age_hours from config', function () {
     $this->artisan('yak:scan-ci', ['--repo' => 'age-repo'])->assertSuccessful();
 });
 
+test('dry-run reports detected failures without creating tasks or dispatching jobs', function () {
+    Repository::factory()->create(['slug' => 'dry-repo', 'ci_system' => 'github_actions']);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'Expected 200, got 500',
+            buildUrl: 'https://example.com/runs/42',
+            buildId: '42',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'dry-repo', '--dry-run' => true])
+        ->assertSuccessful()
+        ->expectsOutputToContain('Would create task for: Tests\Feature\LoginTest')
+        ->expectsOutputToContain('Would have created 1 task');
+
+    expect(YakTask::where('repo', 'dry-repo')->count())->toBe(0);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
 test('scan-ci command is scheduled every two hours', function () {
     $schedule = app(Schedule::class);
 
