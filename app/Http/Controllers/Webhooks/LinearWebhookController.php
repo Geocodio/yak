@@ -28,11 +28,8 @@ class LinearWebhookController extends Controller
             prefix: '', // Linear sends the raw HMAC-SHA256 digest with no prefix
         );
 
-        Log::channel('yak')->info('Linear webhook received', [
-            'type' => $request->input('type'),
-            'action' => $request->input('action'),
-            'labels' => $request->input('data.labels'),
-            'updatedFrom' => $request->input('updatedFrom'),
+        Log::channel('yak')->info('Linear webhook received (full payload)', [
+            'payload' => $request->all(),
         ]);
 
         // Only handle Issue label events
