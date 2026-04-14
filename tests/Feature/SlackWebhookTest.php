@@ -409,7 +409,7 @@ it('resolves repo from clarification reply using full slug', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    Repository::factory()->create(['slug' => 'Geocodio/geocodio-website', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'acme/marketing-site', 'is_active' => true]);
 
     $task = YakTask::factory()->create([
         'source' => 'slack',
@@ -418,11 +418,11 @@ it('resolves repo from clarification reply using full slug', function () {
         'session_id' => null,
         'slack_channel' => 'C_REPO_CLAR',
         'slack_thread_ts' => '5555555555.555555',
-        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_options' => ['acme/marketing-site', 'acme/deployer'],
         'clarification_expires_at' => now()->addDays(3),
     ]);
 
-    $body = slackThreadReplyPayload('Geocodio/geocodio-website', 'C_REPO_CLAR', '5555555555.555555');
+    $body = slackThreadReplyPayload('acme/marketing-site', 'C_REPO_CLAR', '5555555555.555555');
     $headers = signSlackPayload($body, $secret);
 
     $this->call('POST', '/webhooks/slack', content: $body, server: [
@@ -432,7 +432,7 @@ it('resolves repo from clarification reply using full slug', function () {
     ])->assertSuccessful();
 
     $task->refresh();
-    expect($task->repo)->toBe('Geocodio/geocodio-website');
+    expect($task->repo)->toBe('acme/marketing-site');
     expect($task->status)->toBe(TaskStatus::Pending);
     expect($task->clarification_options)->toBeNull();
 
@@ -444,7 +444,7 @@ it('resolves repo from clarification reply using partial name', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    Repository::factory()->create(['slug' => 'Geocodio/geocodio-website', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'acme/marketing-site', 'is_active' => true]);
 
     $task = YakTask::factory()->create([
         'source' => 'slack',
@@ -453,11 +453,11 @@ it('resolves repo from clarification reply using partial name', function () {
         'session_id' => null,
         'slack_channel' => 'C_REPO_PART',
         'slack_thread_ts' => '6666666666.666666',
-        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_options' => ['acme/marketing-site', 'acme/deployer'],
         'clarification_expires_at' => now()->addDays(3),
     ]);
 
-    $body = slackThreadReplyPayload('geocodio-website', 'C_REPO_PART', '6666666666.666666');
+    $body = slackThreadReplyPayload('marketing-site', 'C_REPO_PART', '6666666666.666666');
     $headers = signSlackPayload($body, $secret);
 
     $this->call('POST', '/webhooks/slack', content: $body, server: [
@@ -467,7 +467,7 @@ it('resolves repo from clarification reply using partial name', function () {
     ])->assertSuccessful();
 
     $task->refresh();
-    expect($task->repo)->toBe('Geocodio/geocodio-website');
+    expect($task->repo)->toBe('acme/marketing-site');
 
     Queue::assertPushed(RunYakJob::class);
     Queue::assertNotPushed(ClarificationReplyJob::class);
@@ -477,7 +477,7 @@ it('resolves repo from clarification reply with spaces instead of hyphens', func
     $secret = enableSlackChannel();
     Queue::fake();
 
-    Repository::factory()->create(['slug' => 'Geocodio/geocodio-website', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'acme/marketing-site', 'is_active' => true]);
 
     $task = YakTask::factory()->create([
         'source' => 'slack',
@@ -486,11 +486,11 @@ it('resolves repo from clarification reply with spaces instead of hyphens', func
         'session_id' => null,
         'slack_channel' => 'C_REPO_FUZZY',
         'slack_thread_ts' => '9999999999.999999',
-        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_options' => ['acme/marketing-site', 'acme/deployer'],
         'clarification_expires_at' => now()->addDays(3),
     ]);
 
-    $body = slackThreadReplyPayload('geocodio website', 'C_REPO_FUZZY', '9999999999.999999');
+    $body = slackThreadReplyPayload('marketing site', 'C_REPO_FUZZY', '9999999999.999999');
     $headers = signSlackPayload($body, $secret);
 
     $this->call('POST', '/webhooks/slack', content: $body, server: [
@@ -500,7 +500,7 @@ it('resolves repo from clarification reply with spaces instead of hyphens', func
     ])->assertSuccessful();
 
     $task->refresh();
-    expect($task->repo)->toBe('Geocodio/geocodio-website');
+    expect($task->repo)->toBe('acme/marketing-site');
 
     Queue::assertPushed(RunYakJob::class);
 });
@@ -516,7 +516,7 @@ it('re-prompts when repo clarification reply does not match any option', functio
         'session_id' => null,
         'slack_channel' => 'C_REPO_BAD',
         'slack_thread_ts' => '7777777777.777777',
-        'clarification_options' => ['Geocodio/geocodio-website', 'Geocodio/deployer'],
+        'clarification_options' => ['acme/marketing-site', 'acme/deployer'],
         'clarification_expires_at' => now()->addDays(3),
     ]);
 

@@ -45,7 +45,7 @@ Repositories:
 Task description:
 {$description}
 
-Respond with ONLY the repository slug (e.g. "Geocodio/deployer") on a single line, with no other text. If you cannot confidently determine the correct repository, respond with ONLY the word "UNKNOWN".
+Respond with ONLY the repository slug (e.g. "acme/api") on a single line, with no other text. If you cannot confidently determine the correct repository, respond with ONLY the word "UNKNOWN".
 PROMPT;
 
         try {

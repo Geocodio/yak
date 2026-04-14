@@ -161,13 +161,13 @@ test('multi-repo with natural language routes via Haiku before clarification', f
     config(['yak.anthropic_api_key' => 'sk-ant-test']);
     Http::fake([
         'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'Geocodio/deployer']],
+            'content' => [['text' => 'acme/deployer']],
         ]),
     ]);
 
-    Repository::factory()->create(['slug' => 'Geocodio/geocodio']);
-    Repository::factory()->create(['slug' => 'Geocodio/deployer']);
-    Repository::factory()->create(['slug' => 'Geocodio/website']);
+    Repository::factory()->create(['slug' => 'acme/api']);
+    Repository::factory()->create(['slug' => 'acme/deployer']);
+    Repository::factory()->create(['slug' => 'acme/web']);
 
     $description = new TaskDescription(
         title: 'Add confetti',
@@ -180,7 +180,7 @@ test('multi-repo with natural language routes via Haiku before clarification', f
 
     expect($result->resolved)->toBeTrue()
         ->and($result->needsClarification)->toBeFalse()
-        ->and($result->repositories->first()->slug)->toBe('Geocodio/deployer');
+        ->and($result->repositories->first()->slug)->toBe('acme/deployer');
 });
 
 test('slack low-confidence triggers clarification with multiple active repos', function (): void {

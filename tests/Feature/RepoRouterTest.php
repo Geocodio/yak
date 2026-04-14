@@ -28,13 +28,13 @@ test('returns null when repo list is empty', function (): void {
 test('resolves repo from natural language when Haiku returns confident match', function (): void {
     Http::fake([
         'api.anthropic.com/*' => Http::response([
-            'content' => [['text' => 'Geocodio/deployer']],
+            'content' => [['text' => 'acme/deployer']],
         ]),
     ]);
 
     $repos = collect([
-        Repository::factory()->create(['slug' => 'Geocodio/geocodio']),
-        Repository::factory()->create(['slug' => 'Geocodio/deployer']),
+        Repository::factory()->create(['slug' => 'acme/api']),
+        Repository::factory()->create(['slug' => 'acme/deployer']),
     ]);
 
     $result = (new RepoRouter)->route(
@@ -43,7 +43,7 @@ test('resolves repo from natural language when Haiku returns confident match', f
     );
 
     expect($result)->not->toBeNull();
-    expect($result->slug)->toBe('Geocodio/deployer');
+    expect($result->slug)->toBe('acme/deployer');
 });
 
 test('returns null when Haiku returns UNKNOWN', function (): void {

@@ -200,7 +200,7 @@ class SlackWebhookController extends Controller
         $options = $task->clarification_options ?? [];
         $replyNormalized = str($replyText)->lower()->trim()->replaceMatches('/[\s\-_]+/', '-');
 
-        // Match against the offered repo slugs (e.g. "Geocodio/geocodio-website")
+        // Match against the offered repo slugs (e.g. "acme/api")
         // Normalizes spaces/hyphens/underscores so "geocodio website" matches "geocodio-website"
         $matchedSlug = collect($options)->first(function (string $slug) use ($replyNormalized) {
             $fullNorm = str($slug)->lower()->replaceMatches('/[\s\-_]+/', '-');

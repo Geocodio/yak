@@ -50,15 +50,15 @@ test('it filters by source', function () {
 });
 
 test('it filters by repo', function () {
-    YakTask::factory()->create(['repo' => 'geocodio', 'description' => 'Geocodio task']);
-    YakTask::factory()->create(['repo' => 'chopchop', 'description' => 'Chopchop task']);
+    YakTask::factory()->create(['repo' => 'api', 'description' => 'API task']);
+    YakTask::factory()->create(['repo' => 'web', 'description' => 'Web task']);
 
     Livewire::test(TaskList::class)
-        ->assertSee('Geocodio task')
-        ->assertSee('Chopchop task')
-        ->set('repo', 'geocodio')
-        ->assertSee('Geocodio task')
-        ->assertDontSee('Chopchop task');
+        ->assertSee('API task')
+        ->assertSee('Web task')
+        ->set('repo', 'api')
+        ->assertSee('API task')
+        ->assertDontSee('Web task');
 });
 
 test('it paginates tasks', function () {
