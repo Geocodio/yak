@@ -7,12 +7,17 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
-#[Signature('yak:git-credential {--stdin= : Override stdin input (for testing)}')]
+#[Signature('yak:git-credential {action? : get|store|erase, passed by git} {--stdin= : Override stdin input (for testing)}')]
 #[Description('Git credential helper — outputs GitHub App installation token for HTTPS authentication')]
 class GitCredentialHelperCommand extends Command
 {
     public function handle(GitHubAppService $gitHubAppService): int
     {
+        // git only cares about 'get'; 'store' and 'erase' are no-ops here.
+        if ($this->argument('action') !== null && $this->argument('action') !== 'get') {
+            return self::SUCCESS;
+        }
+
         $input = $this->option('stdin') ?? (string) file_get_contents('php://stdin');
 
         if (! str_contains($input, 'host=github.com')) {
