@@ -27,6 +27,7 @@ spec/
 .chief
 CLAUDE.local.md
 TODO.md
+docs/superpowers/
 
 /ansible/vault/secrets.yml
 /ansible/vault/.vault_pass
