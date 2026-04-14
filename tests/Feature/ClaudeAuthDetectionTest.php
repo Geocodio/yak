@@ -13,9 +13,11 @@ use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
-use App\Services\HealthCheckService;
+use App\Services\HealthCheck\ClaudeAuthCheck;
+use App\Services\HealthCheck\ClaudeCliCheck;
+use App\Services\HealthCheck\HealthStatus;
+use App\Services\HealthCheck\Registry;
 use Illuminate\Process\ProcessResult;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -329,11 +331,10 @@ test('health check reports healthy when claude auth is valid', function () {
         'claude auth status' => Process::result('Authenticated as user@example.com'),
     ]);
 
-    $service = new HealthCheckService;
-    $result = $service->checkClaudeAuth();
+    $result = (new ClaudeAuthCheck)->run();
 
-    expect($result['healthy'])->toBeTrue()
-        ->and($result['detail'])->toBe('Authenticated');
+    expect($result->status)->toBe(HealthStatus::Ok)
+        ->and($result->detail)->toBe('Authenticated');
 });
 
 test('health check reports unhealthy when claude auth fails', function () {
@@ -345,11 +346,10 @@ test('health check reports unhealthy when claude auth fails', function () {
         ),
     ]);
 
-    $service = new HealthCheckService;
-    $result = $service->checkClaudeAuth();
+    $result = (new ClaudeAuthCheck)->run();
 
-    expect($result['healthy'])->toBeFalse()
-        ->and($result['detail'])->toContain('not authenticated');
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->detail)->toContain('not authenticated');
 });
 
 test('health check reports unhealthy when claude auth times out', function () {
@@ -361,29 +361,10 @@ test('health check reports unhealthy when claude auth times out', function () {
         )
     );
 
-    $service = new HealthCheckService;
-    $result = $service->checkClaudeAuth();
+    $result = (new ClaudeAuthCheck)->run();
 
-    expect($result['healthy'])->toBeFalse()
-        ->and($result['detail'])->toBe('Timed out');
-});
-
-test('runAll rehydrates cached checked_at ISO strings into Carbon', function () {
-    Cache::put('health:results', [
-        [
-            'name' => 'Queue Worker',
-            'healthy' => true,
-            'detail' => 'Running, PID 42',
-            'checked_at' => '2026-04-14T11:00:00+00:00',
-        ],
-    ], 90);
-
-    $service = new HealthCheckService;
-    $results = $service->runAll();
-
-    expect($results)->toHaveCount(1)
-        ->and($results[0]['checked_at'])->toBeInstanceOf(Carbon\Carbon::class)
-        ->and($results[0]['checked_at']->toIso8601String())->toBe('2026-04-14T11:00:00+00:00');
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->detail)->toBe('Timed out');
 });
 
 test('health check handles Laravel-wrapped timeout exception on claude auth', function () {
@@ -400,11 +381,10 @@ test('health check handles Laravel-wrapped timeout exception on claude auth', fu
         )
     );
 
-    $service = new HealthCheckService;
-    $result = $service->checkClaudeAuth();
+    $result = (new ClaudeAuthCheck)->run();
 
-    expect($result['healthy'])->toBeFalse()
-        ->and($result['detail'])->toBe('Timed out');
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->detail)->toBe('Timed out');
 });
 
 test('health check reports unhealthy when claude cli times out', function () {
@@ -416,14 +396,13 @@ test('health check reports unhealthy when claude cli times out', function () {
         )
     );
 
-    $service = new HealthCheckService;
-    $result = $service->checkClaudeCli();
+    $result = (new ClaudeCliCheck)->run();
 
-    expect($result['healthy'])->toBeFalse()
-        ->and($result['detail'])->toBe('Timed out');
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->detail)->toBe('Timed out');
 });
 
-test('health check includes claude auth check in runAll', function () {
+test('registry includes claude auth check', function () {
     Process::fake([
         'pgrep *' => Process::result('12345'),
         '*ls-remote*' => Process::result('abc123'),
@@ -435,12 +414,13 @@ test('health check includes claude auth check in runAll', function () {
         ),
     ]);
 
-    $service = new HealthCheckService;
-    $results = $service->runAll();
+    $check = collect(app(Registry::class)->all())
+        ->first(fn ($c) => $c->id() === 'claude-auth');
 
-    $authCheck = collect($results)->firstWhere('name', 'Claude CLI Auth');
+    expect($check)->not->toBeNull();
 
-    expect($authCheck)->not->toBeNull()
-        ->and($authCheck['healthy'])->toBeFalse()
-        ->and($authCheck['detail'])->toContain('not authenticated');
+    $result = $check->run();
+
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->detail)->toContain('not authenticated');
 });

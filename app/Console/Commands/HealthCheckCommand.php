@@ -3,8 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Channel;
-use App\Services\HealthCheckService;
-use Carbon\Carbon;
+use App\Services\HealthCheck\HealthResult;
+use App\Services\HealthCheck\HealthStatus;
+use App\Services\HealthCheck\Registry;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -15,10 +16,19 @@ use Illuminate\Support\Facades\Log;
 #[Description('Run health checks and post to Slack on failure')]
 class HealthCheckCommand extends Command
 {
-    public function handle(HealthCheckService $service): int
+    public function handle(Registry $registry): int
     {
-        $results = $service->runAllFresh();
-        $failures = array_filter($results, fn (array $r): bool => ! $r['healthy']);
+        $failures = [];
+
+        foreach ($registry->all() as $check) {
+            $result = $check->run();
+
+            if ($result->status === HealthStatus::Ok || $result->status === HealthStatus::NotConnected) {
+                continue;
+            }
+
+            $failures[] = ['name' => $check->name(), 'result' => $result];
+        }
 
         if (count($failures) === 0) {
             $this->components->info('All health checks passed.');
@@ -27,8 +37,11 @@ class HealthCheckCommand extends Command
         }
 
         foreach ($failures as $failure) {
-            $this->components->error("{$failure['name']}: {$failure['detail']}");
-            Log::warning("Health check failed: {$failure['name']}", $failure);
+            $this->components->error("{$failure['name']}: {$failure['result']->detail}");
+            Log::warning("Health check failed: {$failure['name']}", [
+                'status' => $failure['result']->status->value,
+                'detail' => $failure['result']->detail,
+            ]);
         }
 
         $this->notifySlack($failures);
@@ -37,7 +50,7 @@ class HealthCheckCommand extends Command
     }
 
     /**
-     * @param  array<int, array{name: string, healthy: bool, detail: string, checked_at: Carbon}>  $failures
+     * @param  list<array{name: string, result: HealthResult}>  $failures
      */
     private function notifySlack(array $failures): void
     {
@@ -50,7 +63,7 @@ class HealthCheckCommand extends Command
         }
 
         $lines = array_map(
-            fn (array $f): string => "• *{$f['name']}*: {$f['detail']}",
+            fn (array $f): string => "• *{$f['name']}*: {$f['result']->detail}",
             $failures
         );
 

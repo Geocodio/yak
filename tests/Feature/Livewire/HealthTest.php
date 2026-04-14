@@ -1,9 +1,7 @@
 <?php
 
 use App\Livewire\Health;
-use App\Models\Repository;
 use App\Models\User;
-use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
 use Livewire\Livewire;
 
@@ -14,78 +12,65 @@ beforeEach(function () {
         '*ls-remote*' => Process::result(output: 'abc123 HEAD'),
         'claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
+
+    // Disable all channels by default; individual tests enable what they need
+    config([
+        'yak.channels.slack.bot_token' => null,
+        'yak.channels.slack.signing_secret' => null,
+        'yak.channels.linear.webhook_secret' => null,
+        'yak.channels.sentry.auth_token' => null,
+        'yak.channels.sentry.webhook_secret' => null,
+        'yak.channels.sentry.org_slug' => null,
+        'yak.channels.drone.url' => null,
+        'yak.channels.drone.token' => null,
+        'yak.channels.github.app_id' => null,
+        'yak.channels.github.private_key' => null,
+        'yak.channels.github.webhook_secret' => null,
+    ]);
 });
 
-test('health page renders overall status', function () {
+it('renders the health page header', function () {
     Livewire::test(Health::class)
-        ->assertSee('All Systems Operational')
-        ->assertSee('Health');
+        ->assertSee('Health')
+        ->assertSee('Refresh all');
 });
 
-test('health page shows all check names', function () {
+it('renders the System section with all system check names as placeholders', function () {
     Livewire::test(Health::class)
+        ->assertSee('System')
         ->assertSee('Queue Worker')
         ->assertSee('Last Task Completed')
         ->assertSee('Repositories Fetchable')
         ->assertSee('Claude CLI')
-        ->assertSee('MCP Servers');
+        ->assertSee('Claude CLI Auth')
+        ->assertSee('Webhook Signatures');
 });
 
-test('health page shows queue worker running', function () {
+it('hides the Channels section when no channels are enabled', function () {
     Livewire::test(Health::class)
-        ->assertSee('Running, PID 12345');
+        ->assertDontSee('Channels');
 });
 
-test('health page shows queue worker not running', function () {
-    Process::fake([
-        'pgrep *' => Process::result(exitCode: 1),
-        'claude *' => Process::result(output: 'claude v1.0.0'),
+it('shows only enabled channels in the Channels section', function () {
+    config([
+        'yak.channels.slack.bot_token' => 'xoxb',
+        'yak.channels.slack.signing_secret' => 'sig',
     ]);
 
     Livewire::test(Health::class)
-        ->assertSee('Not running')
-        ->assertSee('Issues Detected');
+        ->assertSee('Channels')
+        ->assertSee('Slack')
+        ->assertDontSee('Sentry')
+        ->assertDontSee('Drone CI');
 });
 
-test('health page shows last completed task', function () {
-    YakTask::factory()->success()->create([
-        'external_id' => 'GEO-1234',
-    ]);
-
+it('refresh all dispatches the health-refresh event', function () {
     Livewire::test(Health::class)
-        ->assertSee('GEO-1234');
+        ->call('refreshAll')
+        ->assertDispatched('health-refresh');
 });
 
-test('health page shows no completed tasks message', function () {
-    Livewire::test(Health::class)
-        ->assertSee('No completed tasks yet');
-});
-
-test('health page shows repositories fetchable', function () {
-    Repository::factory()->create(['is_active' => true, 'slug' => 'test-repo']);
-
-    Livewire::test(Health::class)
-        ->assertSee('1/1 active repositories OK');
-});
-
-test('health page shows claude cli responding', function () {
-    Livewire::test(Health::class)
-        ->assertSee('Responding, claude v1.0.0');
-});
-
-test('health page shows issues when checks fail', function () {
-    Process::fake([
-        'pgrep *' => Process::result(exitCode: 1),
-        'claude *' => Process::result(exitCode: 1),
-    ]);
-
-    Livewire::test(Health::class)
-        ->assertSee('Issues Detected')
-        ->assertSee('Not running')
-        ->assertSee('Not responding');
-});
-
-test('health page requires authentication', function () {
+it('requires authentication', function () {
     auth()->logout();
 
     $this->get(route('health'))

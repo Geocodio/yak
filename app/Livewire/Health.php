@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Services\HealthCheckService;
-use Carbon\Carbon;
+use App\Services\HealthCheck\HealthSection;
+use App\Services\HealthCheck\Registry;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -12,29 +12,31 @@ use Livewire\Component;
 class Health extends Component
 {
     /**
-     * @return list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}>
+     * @return list<string>
      */
     #[Computed]
-    public function checks(): array
+    public function systemCheckIds(): array
     {
-        return app(HealthCheckService::class)->runAll();
+        return array_map(
+            fn ($check): string => $check->id(),
+            app(Registry::class)->forSection(HealthSection::System),
+        );
     }
 
-    public function refresh(): void
-    {
-        app(HealthCheckService::class)->runAllFresh();
-        unset($this->checks, $this->allHealthy);
-    }
-
+    /**
+     * @return list<string>
+     */
     #[Computed]
-    public function allHealthy(): bool
+    public function channelCheckIds(): array
     {
-        foreach ($this->checks() as $check) {
-            if (! $check['healthy']) {
-                return false;
-            }
-        }
+        return array_map(
+            fn ($check): string => $check->id(),
+            app(Registry::class)->forSection(HealthSection::Channels),
+        );
+    }
 
-        return true;
+    public function refreshAll(): void
+    {
+        $this->dispatch('health-refresh');
     }
 }

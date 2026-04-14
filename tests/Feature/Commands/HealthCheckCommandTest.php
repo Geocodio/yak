@@ -1,8 +1,6 @@
 <?php
 
-use App\Services\HealthCheckService;
 use Illuminate\Console\Scheduling\Schedule;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 
@@ -11,6 +9,12 @@ beforeEach(function () {
         'pgrep *' => Process::result(output: '12345'),
         '*ls-remote*' => Process::result(output: 'abc123 HEAD'),
         'claude *' => Process::result(output: 'claude v1.0.0'),
+    ]);
+
+    // Disable channel healthchecks by default; individual tests enable Slack if needed
+    config([
+        'yak.channels.slack.bot_token' => null,
+        'yak.channels.slack.signing_secret' => null,
     ]);
 });
 
@@ -41,6 +45,7 @@ test('healthcheck command posts to slack on failure when configured', function (
     ]);
 
     Http::fake([
+        'slack.com/api/auth.test' => Http::response(['ok' => true, 'team' => 'Yak', 'user' => 'yak-bot']),
         'slack.com/api/chat.postMessage' => Http::response(['ok' => true]),
     ]);
 
@@ -59,37 +64,12 @@ test('healthcheck command skips slack when not configured', function () {
         'claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
 
-    config([
-        'yak.channels.slack.bot_token' => null,
-        'yak.channels.slack.signing_secret' => null,
-    ]);
-
     Http::fake();
 
     $this->artisan('yak:healthcheck')
         ->assertFailed();
 
     Http::assertNothingSent();
-});
-
-test('webhook signature check reports rejected webhooks', function () {
-    Cache::put('webhook-signature-failures:LinearWebhookController', 3);
-    Cache::put('webhook-signature-failures:SlackWebhookController', 1);
-
-    $result = (new HealthCheckService)->checkWebhookSignatures();
-
-    expect($result['healthy'])->toBeFalse();
-    expect($result['detail'])->toContain('Linear (3)');
-    expect($result['detail'])->toContain('Slack (1)');
-});
-
-test('webhook signature check passes when no failures', function () {
-    Cache::forget('webhook-signature-failures:LinearWebhookController');
-
-    $result = (new HealthCheckService)->checkWebhookSignatures();
-
-    expect($result['healthy'])->toBeTrue();
-    expect($result['detail'])->toBe('No rejected webhooks');
 });
 
 test('healthcheck command is scheduled every 15 minutes', function () {
