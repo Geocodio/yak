@@ -13,12 +13,20 @@ use Symfony\Component\Process\Exception\ProcessTimedOutException;
 
 class HealthCheckService
 {
+    private const CACHE_KEY = 'health:results';
+
+    private const CACHE_TTL_SECONDS = 90;
+
     /**
      * @return array{healthy: bool, detail: string}
      */
     public function checkQueueWorker(): array
     {
-        $result = Process::run('pgrep -f "artisan queue:work"');
+        try {
+            $result = Process::timeout(5)->run('pgrep -f "artisan queue:work"');
+        } catch (ProcessTimedOutException) {
+            return ['healthy' => false, 'detail' => 'Timed out checking worker'];
+        }
 
         if ($result->successful() && trim($result->output()) !== '') {
             $pid = (int) trim(explode("\n", trim($result->output()))[0]);
@@ -68,8 +76,15 @@ class HealthCheckService
         $failures = [];
 
         foreach ($repos as $repo) {
-            $result = Process::path($repo->path)
-                ->run('git ls-remote --exit-code origin HEAD');
+            try {
+                $result = Process::path($repo->path)
+                    ->timeout(10)
+                    ->run('git ls-remote --exit-code origin HEAD');
+            } catch (ProcessTimedOutException) {
+                $failures[] = $repo->slug;
+
+                continue;
+            }
 
             if ($result->successful()) {
                 $fetchable++;
@@ -191,9 +206,26 @@ class HealthCheckService
     }
 
     /**
+     * Return cached results when available, otherwise run all checks and cache the outcome.
+     *
      * @return list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}>
      */
     public function runAll(): array
+    {
+        /** @var list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}> */
+        return Cache::remember(
+            self::CACHE_KEY,
+            self::CACHE_TTL_SECONDS,
+            fn (): array => $this->runAllFresh(),
+        );
+    }
+
+    /**
+     * Force a fresh run of all checks, bypassing and refreshing the cache.
+     *
+     * @return list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}>
+     */
+    public function runAllFresh(): array
     {
         $now = Carbon::now();
         $checks = [
@@ -217,6 +249,8 @@ class HealthCheckService
                 'checked_at' => $now,
             ];
         }
+
+        Cache::put(self::CACHE_KEY, $results, self::CACHE_TTL_SECONDS);
 
         return $results;
     }

@@ -17,7 +17,7 @@ class HealthCheckCommand extends Command
 {
     public function handle(HealthCheckService $service): int
     {
-        $results = $service->runAll();
+        $results = $service->runAllFresh();
         $failures = array_filter($results, fn (array $r): bool => ! $r['healthy']);
 
         if (count($failures) === 0) {

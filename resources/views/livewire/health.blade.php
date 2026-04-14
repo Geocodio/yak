@@ -1,5 +1,10 @@
 <div wire:poll.60s>
-    <h1 class="text-2xl font-semibold text-yak-slate mb-8">Health</h1>
+    <div class="flex items-center justify-between mb-8">
+        <h1 class="text-2xl font-semibold text-yak-slate">Health</h1>
+        <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="refresh">
+            Refresh
+        </flux:button>
+    </div>
 
     {{-- Overall Status Card --}}
     <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-7 mb-8">

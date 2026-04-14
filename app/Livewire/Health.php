@@ -20,6 +20,12 @@ class Health extends Component
         return app(HealthCheckService::class)->runAll();
     }
 
+    public function refresh(): void
+    {
+        app(HealthCheckService::class)->runAllFresh();
+        unset($this->checks, $this->allHealthy);
+    }
+
     #[Computed]
     public function allHealthy(): bool
     {
