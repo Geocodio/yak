@@ -130,6 +130,7 @@ class ScanCiCommand extends Command
                     'build_id' => $canonical->buildId,
                     'failure_count' => $occurrences->count(),
                     'distinct_commits' => $occurrences->pluck('commitSha')->filter()->unique()->values()->all(),
+                    'build_urls' => $occurrences->pluck('buildUrl')->unique()->values()->all(),
                 ]),
                 'source' => 'flaky-test',
             ]);

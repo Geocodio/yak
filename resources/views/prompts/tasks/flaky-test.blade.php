@@ -5,7 +5,13 @@ Fix the following flaky test:
 
 **Failure Output:**
 {{ $failureOutput }}
-@if($buildUrl)
+@if(! empty($buildUrls))
+
+**Observed failures ({{ $failureCount ?: count($buildUrls) }}):**
+@foreach($buildUrls as $url)
+- {{ $url }}
+@endforeach
+@elseif($buildUrl)
 
 **Build URL:** {{ $buildUrl }}
 @endif

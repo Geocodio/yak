@@ -118,11 +118,19 @@ class YakPromptBuilder
      */
     private static function flakyTestPrompt(array $metadata): string
     {
+        /** @var list<string> $buildUrls */
+        $buildUrls = array_values(array_filter(
+            (array) ($metadata['build_urls'] ?? []),
+            fn ($u): bool => is_string($u) && $u !== '',
+        ));
+
         return Prompts::render('tasks-flaky-test', [
             'testClass' => (string) ($metadata['test_class'] ?? ''),
             'testMethod' => (string) ($metadata['test_method'] ?? ''),
             'failureOutput' => (string) ($metadata['failure_output'] ?? ''),
             'buildUrl' => (string) ($metadata['build_url'] ?? ''),
+            'buildUrls' => $buildUrls,
+            'failureCount' => (int) ($metadata['failure_count'] ?? 0),
         ]);
     }
 

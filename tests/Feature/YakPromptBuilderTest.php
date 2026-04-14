@@ -154,6 +154,28 @@ test('flaky test prompt includes test class, method, failure output, and build u
         ->toContain('https://ci.example.com/builds/123');
 });
 
+test('flaky test prompt lists every observed build url when build_urls is provided', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'test_class' => 'Tests\\Feature\\UserTest',
+        'test_method' => 'test_user_can_login',
+        'failure_output' => 'Expected 200 but got 500',
+        'build_url' => 'https://ci.example.com/builds/103',
+        'build_urls' => [
+            'https://ci.example.com/builds/101',
+            'https://ci.example.com/builds/102',
+            'https://ci.example.com/builds/103',
+        ],
+        'failure_count' => 3,
+    ]);
+
+    expect($prompt)->toContain('Observed failures (3)')
+        ->toContain('https://ci.example.com/builds/101')
+        ->toContain('https://ci.example.com/builds/102')
+        ->toContain('https://ci.example.com/builds/103');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Task Prompts - Linear Fix

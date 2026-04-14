@@ -288,6 +288,53 @@ test('flaky threshold: two failures from the SAME commit on a feature branch do 
     Queue::assertNotPushed(RunYakJob::class);
 });
 
+test('task context lists every distinct build URL where the test failed', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://ci.example.com/runs/101',
+            buildId: '101',
+            branch: 'feature/foo',
+            commitSha: 'sha-a',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://ci.example.com/runs/102',
+            buildId: '102',
+            branch: 'feature/foo',
+            commitSha: 'sha-b',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky',
+            buildUrl: 'https://ci.example.com/runs/103',
+            buildId: '103',
+            branch: 'feature/foo',
+            commitSha: 'sha-c',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])->assertSuccessful();
+
+    $task = YakTask::where('repo', 'thresh-repo')->first();
+    $context = json_decode($task->context, true);
+
+    expect($context['build_urls'])->toBe([
+        'https://ci.example.com/runs/101',
+        'https://ci.example.com/runs/102',
+        'https://ci.example.com/runs/103',
+    ]);
+    expect($context['failure_count'])->toBe(3);
+});
+
 test('flaky threshold: two failures from DIFFERENT commits on a feature branch DO create a task', function () {
     Repository::factory()->create([
         'slug' => 'thresh-repo',
