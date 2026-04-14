@@ -63,7 +63,7 @@ class ClaudeCodeOutputParser
 
                 return [
                     'needed' => true,
-                    'options' => is_array($options) ? array_values(array_map('strval', $options)) : [],
+                    'options' => array_map('strval', $options),
                 ];
             }
         }

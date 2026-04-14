@@ -68,7 +68,7 @@ class LinearOAuthService
 
         $viewer = $this->fetchViewer($accessToken);
 
-        $scopes = isset($json['scope']) && is_string($json['scope'])
+        $scopes = isset($json['scope'])
             ? explode(' ', $json['scope'])
             : [];
 
@@ -80,7 +80,7 @@ class LinearOAuthService
             'actor' => 'app',
             'app_user_id' => $viewer['app_user_id'] ?? null,
             'installer_user_id' => $viewer['user_id'] ?? null,
-            'workspace_name' => $viewer['workspace_name'] ?? 'Linear Workspace',
+            'workspace_name' => $viewer['workspace_name'],
             'workspace_url_key' => $viewer['workspace_url_key'] ?? null,
             'created_by_user_id' => $createdByUserId,
             'disconnected_at' => null,

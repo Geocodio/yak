@@ -16,6 +16,9 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
+/**
+ * @property-read Collection<int, TaskLog> $logs
+ */
 #[Title('Task Detail')]
 class TaskDetail extends Component
 {
@@ -57,7 +60,10 @@ class TaskDetail extends Component
             'completed_at' => null,
         ]);
 
-        $job = match ($this->task->mode) {
+        /** @var TaskMode $mode */
+        $mode = $this->task->mode;
+
+        $job = match ($mode) {
             TaskMode::Setup => new SetupYakJob($this->task),
             default => new RunYakJob($this->task),
         };
@@ -70,7 +76,10 @@ class TaskDetail extends Component
     #[Computed]
     public function canRetry(): bool
     {
-        return in_array($this->task->status, [
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+
+        return in_array($status, [
             TaskStatus::Failed,
             TaskStatus::Expired,
         ]);
@@ -118,8 +127,11 @@ class TaskDetail extends Component
     public function groupedLogs(): array
     {
         $logs = $this->logs;
+        /** @var array<int, array<string, mixed>> $grouped */
         $grouped = [];
+        /** @var array<int, TaskLog> $currentAssistantGroup */
         $currentAssistantGroup = [];
+        /** @var array<int, int> $currentAssistantIndices */
         $currentAssistantIndices = [];
         $groupCounter = 0;
 
@@ -151,7 +163,9 @@ class TaskDetail extends Component
         };
 
         foreach ($logs as $index => $log) {
-            $logType = $log->metadata['type'] ?? null;
+            /** @var array<string, mixed>|null $logMetadata */
+            $logMetadata = $log->metadata;
+            $logType = $logMetadata['type'] ?? null;
             $isAssistant = $logType === 'assistant';
             $isToolUse = $logType === 'tool_use';
 
@@ -264,7 +278,9 @@ class TaskDetail extends Component
 
     public static function isMilestone(TaskLog $log): bool
     {
-        $type = $log->metadata['type'] ?? null;
+        /** @var array<string, mixed>|null $metadata */
+        $metadata = $log->metadata;
+        $type = $metadata['type'] ?? null;
 
         if ($type !== 'tool_use' && $type !== 'assistant') {
             return true;

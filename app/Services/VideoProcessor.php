@@ -16,9 +16,6 @@ class VideoProcessor
     /** Speed multiplier for idle segments */
     private const IDLE_SPEED = 8;
 
-    /** Minimum duration of the first activity to consider it a real start */
-    private const MIN_START_ACTIVITY_SECONDS = 0.5;
-
     /**
      * Process a raw walkthrough video: trim dead start, speed up idle sections.
      * Returns the path to the processed video, or the original path if processing fails.
@@ -135,6 +132,8 @@ class VideoProcessor
      * Find the timestamp of the first meaningful visual activity.
      * Start just before the first scene change — the idle detection will handle
      * any gap between this and the next activity cluster.
+     *
+     * @param  array<int, float>  $sceneTimestamps
      */
     private static function findFirstActivity(array $sceneTimestamps): float
     {

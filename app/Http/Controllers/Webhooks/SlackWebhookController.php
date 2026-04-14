@@ -97,7 +97,6 @@ class SlackWebhookController extends Controller
                 RunYakJob::dispatch($task);
             }
 
-            $notification = new SlackNotificationDriver;
             $repoList = $detection->repositories->pluck('slug')->implode(', ');
             $dummyTask = YakTask::where('source', 'slack')
                 ->where('slack_channel', $description->metadata['slack_channel'])
@@ -197,6 +196,7 @@ class SlackWebhookController extends Controller
      */
     private function handleRepoClarification(YakTask $task, string $replyText): void
     {
+        /** @var list<string> $options */
         $options = $task->clarification_options ?? [];
         $replyNormalized = str($replyText)->lower()->trim()->replaceMatches('/[\s\-_]+/', '-');
 

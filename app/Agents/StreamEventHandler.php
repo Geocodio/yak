@@ -112,7 +112,7 @@ class StreamEventHandler
 
         // Track tool ID for correlating with tool_result events
         $toolId = $event['id'] ?? null;
-        if ($toolId !== null && $this->pendingToolLog !== null) {
+        if ($toolId !== null) {
             $this->pendingToolIds[(string) $toolId] = $toolName;
         }
     }

@@ -116,7 +116,7 @@ class GitHubAppService
 
     /**
      * @param  array<string, mixed>  $prData
-     * @return array{number: int, html_url: string}
+     * @return array<string, mixed>
      */
     public function createPullRequest(int $installationId, string $repoSlug, array $prData): array
     {
@@ -126,7 +126,7 @@ class GitHubAppService
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->post("https://api.github.com/repos/{$repoSlug}/pulls", $prData);
 
-        /** @var array{number: int, html_url: string} */
+        /** @var array<string, mixed> */
         return $response->json();
     }
 

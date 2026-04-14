@@ -278,7 +278,7 @@ class HealthCheckService
      */
     private function hydrateCheckedAt(array $results): array
     {
-        return array_map(
+        return array_values(array_map(
             fn (array $result): array => [
                 'name' => $result['name'],
                 'healthy' => $result['healthy'],
@@ -286,7 +286,7 @@ class HealthCheckService
                 'checked_at' => $this->toCarbon($result['checked_at']),
             ],
             $results,
-        );
+        ));
     }
 
     private function toCarbon(mixed $value): Carbon

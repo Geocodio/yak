@@ -23,11 +23,13 @@ class ClaudeCodeRunner implements AgentRunner
 
     private function runStreaming(AgentRunRequest $request): AgentRunResult
     {
+        assert($request->task !== null);
+
         $command = $this->buildCommand($request, streaming: true);
         $handler = new StreamEventHandler($request->task);
 
         Log::channel('yak')->info('Claude stream starting', [
-            'task_id' => $request->task?->id,
+            'task_id' => $request->task->id,
             'command_length' => strlen($command),
         ]);
 
@@ -98,7 +100,7 @@ class ClaudeCodeRunner implements AgentRunner
         $exitCode = proc_close($process);
 
         Log::channel('yak')->info('Claude stream completed', [
-            'task_id' => $request->task?->id,
+            'task_id' => $request->task->id,
             'lines' => $lineCount,
             'exit_code' => $exitCode,
             'has_result' => $handler->getResultEvent() !== null,
@@ -107,7 +109,7 @@ class ClaudeCodeRunner implements AgentRunner
 
         if ($stderrOutput !== '') {
             Log::channel('yak')->warning('Claude stream stderr', [
-                'task_id' => $request->task?->id,
+                'task_id' => $request->task->id,
                 'stderr' => substr($stderrOutput, 0, 2000),
             ]);
         }
@@ -116,7 +118,7 @@ class ClaudeCodeRunner implements AgentRunner
 
         if ($resultEvent !== null) {
             Log::channel('yak')->info('Claude result event', [
-                'task_id' => $request->task?->id,
+                'task_id' => $request->task->id,
                 'is_error' => $resultEvent['is_error'] ?? false,
                 'result' => substr((string) ($resultEvent['result'] ?? ''), 0, 500),
                 'num_turns' => $resultEvent['num_turns'] ?? null,
