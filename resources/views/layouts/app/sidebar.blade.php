@@ -102,7 +102,7 @@
                 x-show="mobileNavOpen"
                 x-transition.opacity
                 @click="mobileNavOpen = false"
-                class="lg:hidden fixed inset-0 z-40 bg-yak-slate/40 backdrop-blur-sm"
+                class="lg:hidden fixed inset-0 z-40 bg-yak-slate/40 dark:bg-black/60 backdrop-blur-sm"
                 style="display: none;"
             ></div>
 

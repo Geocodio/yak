@@ -153,7 +153,7 @@
                                 @else
                                 <div x-data class="flex items-center justify-center h-full p-4">
                                     <div
-                                        class="bg-white p-3 rounded"
+                                        class="bg-[#fff] p-3 rounded"
                                         :style="($flux.appearance === 'dark' || ($flux.appearance === 'system' && $flux.dark)) ? 'filter: invert(1) brightness(1.5)' : ''"
                                     >
                                             {!! $qrCodeSvg !!}

@@ -6,7 +6,7 @@
     <body class="min-h-screen bg-yak-cream antialiased">
         <div class="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
             <div class="relative hidden h-full flex-col p-10 text-white lg:flex">
-                <div class="absolute inset-0 bg-yak-slate"></div>
+                <div class="absolute inset-0 bg-yak-slate dark:bg-[#12171e]"></div>
                 <a href="{{ route('home') }}" class="relative z-20 flex items-center text-lg font-medium" wire:navigate>
                     <span class="font-serif text-3xl tracking-tight">
                         Y<span class="italic text-yak-orange">a</span>k
@@ -15,7 +15,7 @@
 
                 <div class="relative z-20 mt-auto">
                     <blockquote class="space-y-2">
-                        <p class="text-lg text-yak-cream">&ldquo;Your autonomous coding companion.&rdquo;</p>
+                        <p class="text-lg text-yak-cream dark:text-[#f5f0e8]">&ldquo;Your autonomous coding companion.&rdquo;</p>
                     </blockquote>
                 </div>
             </div>

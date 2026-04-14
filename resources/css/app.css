@@ -61,6 +61,26 @@
     --color-neutral: var(--color-yak-blue);
 }
 
+/* Dark mode — "Warm Charcoal"
+   Remaps the brand palette tokens so existing utility classes
+   (bg-yak-cream, text-yak-slate, border-yak-tan/40, etc.) adapt
+   automatically. Accent colours (orange, green, blue-light, danger)
+   are unchanged so the brand still reads in dark. */
+.dark {
+    --color-yak-cream: #1a1f26;       /* page background */
+    --color-yak-cream-dark: #222932;  /* sidebar & inset surfaces */
+    --color-yak-slate: #ece5d6;       /* body text */
+    --color-yak-blue: #9fb1c0;        /* muted labels & secondary text */
+    --color-yak-tan: #4a5260;         /* muted borders & faint text */
+
+    --color-surface: rgba(34, 41, 50, 0.75);
+    --color-surface-inset: var(--color-yak-cream-dark);
+
+    /* Elevation shadows read better deeper on a dark canvas */
+    --shadow-elevation-1: 0 4px 10px rgba(0, 0, 0, 0.35), 0 12px 28px rgba(0, 0, 0, 0.25);
+    --shadow-elevation-2: 0 4px 10px rgba(0, 0, 0, 0.4), 0 16px 32px rgba(0, 0, 0, 0.3), 0 32px 64px rgba(0, 0, 0, 0.3);
+}
+
 @layer base {
     *,
     ::after,
@@ -322,3 +342,136 @@ select:focus[data-flux-control] {
     padding: 3px 9px;
     border-radius: 999px;
 }
+
+/* ------------------------------------------------------------------
+   Dark-mode overrides for custom component classes that hardcode
+   colours (white, #fff) which wouldn't be reached by token remapping.
+   ------------------------------------------------------------------ */
+
+.dark .glass {
+    background: rgba(34, 41, 50, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dark .plugin-card {
+    background: #222932;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .plugin-card:hover {
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: var(--shadow-elevation-1);
+}
+
+.dark .yak-table thead th {
+    background-color: #1d232c;
+    color: var(--color-yak-blue);
+}
+
+.dark .yak-table tbody tr {
+    background-color: #222932;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dark .yak-table tbody tr:hover {
+    background-color: #2b3440;
+}
+
+.dark .btn-primary {
+    background-color: #2b3440;
+    color: #ece5d6;
+}
+
+.dark .btn-primary:hover {
+    background: linear-gradient(135deg, #2b3440, #3d4f5f, var(--color-yak-green), var(--color-yak-orange));
+}
+
+.dark .btn-ghost {
+    color: #9fb1c0;
+}
+
+.dark .btn-ghost:hover {
+    background-color: #2b3440;
+}
+
+.dark .bg-noise::after {
+    opacity: 0.04;
+    filter: invert(1);
+}
+
+/* Prose code blocks already render on a dark navy — deepen them a touch
+   more in dark mode so they sit as a distinct surface. */
+.dark .prose-yak :where(pre):not(:where([class~="not-prose"] *)) {
+    background-color: #0f141a;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Status badges — boost alpha so the tinted background reads against
+   a dark surface without blowing out. */
+.dark .badge-success {
+    background: color-mix(in srgb, var(--color-yak-green) 22%, transparent);
+    color: #aabd86;
+}
+.dark .badge-info {
+    background: color-mix(in srgb, var(--color-yak-blue-light) 22%, transparent);
+    color: var(--color-yak-blue-light);
+}
+.dark .badge-warning {
+    background: color-mix(in srgb, var(--color-yak-orange-warm) 22%, transparent);
+    color: var(--color-yak-orange-warm);
+}
+.dark .badge-danger {
+    background: color-mix(in srgb, #b85450 28%, transparent);
+    color: #e38985;
+}
+.dark .badge-neutral {
+    background: color-mix(in srgb, var(--color-yak-blue) 24%, transparent);
+    color: #b8c4d1;
+}
+.dark .badge-faint {
+    background: color-mix(in srgb, var(--color-yak-tan) 45%, transparent);
+    color: #9aa4b0;
+}
+
+.dark .skills-section-title::after {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .yak-toggle {
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.dark .yak-toggle::after {
+    background: #ece5d6;
+}
+
+/* Focus rings — the light-mode orange ring + offset looks harsh on
+   dark. Keep the orange ring but drop the offset to the dark canvas. */
+.dark input:focus[data-flux-control],
+.dark textarea:focus[data-flux-control],
+.dark select:focus[data-flux-control] {
+    @apply ring-offset-0;
+}
+
+/* Broad white-surface remap — many templates use bg-white / bg-white/75
+   as "the surface colour". In dark mode those turn into warm charcoal
+   surfaces so we don't have to add dark:bg-* to dozens of cards. If a
+   specific element truly needs to stay white (e.g. the 2FA QR code
+   scan area), use arbitrary-value `bg-[#fff]` instead, which doesn't
+   match these selectors. */
+/* bg-white represents "elevated card surface" — in dark mode we set it
+   slightly lighter than --color-yak-cream-dark (sidebar / insets) so
+   cards pop above the chrome. Depth hierarchy in dark:
+     #1a1f26  page             (bg-yak-cream)
+     #222932  chrome / insets  (bg-yak-cream-dark)
+     #2b3440  elevated cards   (bg-white)                                 */
+.dark .bg-white { background-color: #2b3440; }
+.dark .bg-white\/75 { background-color: rgba(43, 52, 64, 0.82); }
+.dark .bg-white\/60 { background-color: rgba(43, 52, 64, 0.7); }
+.dark .bg-white\/50 { background-color: rgba(43, 52, 64, 0.6); }
+.dark .border-white\/60 { border-color: rgba(255, 255, 255, 0.06); }
+.dark .border-white\/50 { border-color: rgba(255, 255, 255, 0.05); }
+
+/* Gradient stops that use white at the bottom of video/image overlays —
+   fade to the dark surface colour instead so the transition stays subtle. */
+.dark .from-white\/75 { --tw-gradient-from: rgba(34, 41, 50, 0.75) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from), var(--tw-gradient-to)); }

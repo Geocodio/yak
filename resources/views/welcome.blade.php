@@ -17,7 +17,7 @@
         <div class="h-px flex-1 bg-gradient-to-r from-transparent via-yak-tan to-transparent"></div>
     </div>
 
-    <a href="{{ route('login') }}" class="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-btn bg-yak-slate px-6 py-3.5 text-[15px] font-medium tracking-[0.02em] text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevation-2">
+    <a href="{{ route('login') }}" class="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-btn bg-yak-slate dark:bg-[#2b3440] px-6 py-3.5 text-[15px] font-medium tracking-[0.02em] text-white transition-all duration-300 hover:-translate-y-0.5 hover:shadow-elevation-2">
         <span class="absolute inset-0 rounded-btn bg-gradient-to-br from-yak-blue via-yak-green to-yak-orange opacity-0 transition-opacity duration-400 group-hover:opacity-100"></span>
         <svg class="relative z-10 h-5 w-5 flex-shrink-0" viewBox="0 0 24 24">
             <path fill="#fff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
