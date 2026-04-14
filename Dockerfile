@@ -64,8 +64,15 @@ RUN useradd -m -s /bin/bash yak \
         /home/yak/.local/share/pki/nssdb \
     && chown -R yak:yak /home/yak
 
-# Allow www-data to drop privileges to yak user for Claude Code execution
-RUN echo 'www-data ALL=(root) NOPASSWD: /usr/sbin/runuser' > /etc/sudoers.d/yak-sandbox \
+# Allow www-data to drop privileges to yak user for Claude Code execution.
+# Preserve YAK_* env vars through the sudo boundary so the artisan commands
+# invoked as yak (credential helper, agent runners) see the same config the
+# parent process has — otherwise sudo's `env_reset` strips them and Laravel
+# falls back to missing-config defaults (e.g. installation_id=0).
+RUN printf '%s\n' \
+    'Defaults env_keep += "YAK_* APP_* DB_* CLAUDE_*"' \
+    'www-data ALL=(root) NOPASSWD: /usr/sbin/runuser' \
+    > /etc/sudoers.d/yak-sandbox \
     && chmod 440 /etc/sudoers.d/yak-sandbox
 
 ENV HOME=/home/yak
