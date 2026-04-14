@@ -56,6 +56,14 @@ class GitOperations
      */
     public static function canFetch(Repository $repository, int $timeoutSeconds = 10): bool
     {
+        try {
+            self::ensureCredentials();
+        } catch (\Throwable) {
+            // Credential bootstrap failures shouldn't bubble out of a
+            // health probe. If it fails, ls-remote will fail too and
+            // the caller will simply see an unfetchable repo.
+        }
+
         $command = sprintf(
             'sudo runuser -u yak -- env HOME=%s git -c safe.directory=* ls-remote --exit-code origin HEAD',
             self::YAK_HOME,
