@@ -5,6 +5,7 @@ use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
+use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
@@ -512,7 +513,8 @@ test('green path posts PR link as Linear comment and moves issue to In Review', 
         '*git branch -D *' => Process::result(''),
     ]);
 
-    config()->set('yak.channels.linear.api_key', 'linear-key');
+    LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.in_review_state_id', 'in-review-state-uuid');
 
     Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -540,7 +542,7 @@ test('green path posts PR link as Linear comment and moves issue to In Review', 
     Http::assertSent(function ($request) {
         return str_contains($request->url(), 'api.linear.app/graphql')
             && str_contains($request['query'], 'issueUpdate')
-            && str_contains($request['query'], 'in-review');
+            && ($request['variables']['stateId'] ?? '') === 'in-review-state-uuid';
     });
 });
 

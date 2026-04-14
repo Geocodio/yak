@@ -12,7 +12,7 @@ class Channel
      */
     private const REQUIRED_CREDENTIALS = [
         'slack' => ['bot_token', 'signing_secret'],
-        'linear' => ['api_key', 'webhook_secret'],
+        'linear' => ['webhook_secret'],
         'sentry' => ['auth_token', 'webhook_secret', 'org_slug'],
         'drone' => ['url', 'token'],
         'github' => ['app_id', 'private_key', 'webhook_secret'],

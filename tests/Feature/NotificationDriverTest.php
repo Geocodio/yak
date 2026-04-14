@@ -6,6 +6,7 @@ use App\Drivers\SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Jobs\SendNotificationJob;
 use App\Models\GitHubInstallationToken;
+use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 
@@ -139,7 +140,7 @@ it('Slack: all notifications include dashboard link', function () {
 
 it('Linear: posts acknowledgment comment with dashboard link', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    config()->set('yak.channels.linear.api_key', 'lin_test_key');
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -154,7 +155,7 @@ it('Linear: posts acknowledgment comment with dashboard link', function () {
 
 it('Linear: posts result comment with PR link', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    config()->set('yak.channels.linear.api_key', 'lin_test_key');
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -169,7 +170,7 @@ it('Linear: posts result comment with PR link', function () {
 
 it('Linear: updates issue state to done on result', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    config()->set('yak.channels.linear.api_key', 'lin_test_key');
+    LinearOauthConnection::factory()->create();
     config()->set('yak.channels.linear.done_state_id', 'done-state-123');
 
     $task = YakTask::factory()->create([
@@ -184,7 +185,7 @@ it('Linear: updates issue state to done on result', function () {
 
 it('Linear: updates issue state to cancelled on expiry', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    config()->set('yak.channels.linear.api_key', 'lin_test_key');
+    LinearOauthConnection::factory()->create();
     config()->set('yak.channels.linear.cancelled_state_id', 'cancelled-state-456');
 
     $task = YakTask::factory()->create([
@@ -199,7 +200,7 @@ it('Linear: updates issue state to cancelled on expiry', function () {
 
 it('Linear: does not update state when state ID is not configured', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    config()->set('yak.channels.linear.api_key', 'lin_test_key');
+    LinearOauthConnection::factory()->create();
     config()->set('yak.channels.linear.done_state_id', null);
 
     $task = YakTask::factory()->create([
@@ -215,7 +216,7 @@ it('Linear: does not update state when state ID is not configured', function () 
 
 it('Linear: posts failure summary', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    config()->set('yak.channels.linear.api_key', 'lin_test_key');
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -333,9 +334,9 @@ it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
 
     config()->set('yak.channels.linear', [
         'driver' => 'linear',
-        'api_key' => 'lin_test',
         'webhook_secret' => 'test-secret',
     ]);
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',

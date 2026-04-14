@@ -92,7 +92,7 @@
 
     - role: channel-linear
       tags: [channel-linear]
-      when: linear_api_key is defined and linear_api_key | length > 0
+      when: linear_webhook_secret is defined and linear_webhook_secret | length > 0
 
     - role: channel-sentry
       tags: [channel-sentry]

@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
+use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
@@ -209,36 +210,19 @@ class ResearchYakJob implements ShouldQueue
 
     private function postToLinear(string $message): void
     {
-        $apiKey = (string) config('yak.channels.linear.api_key');
-
-        if ($apiKey === '') {
-            return;
-        }
-
-        Http::withHeaders(['Authorization' => $apiKey])
-            ->post('https://api.linear.app/graphql', [
-                'query' => 'mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }',
-                'variables' => [
-                    'issueId' => $this->task->external_id,
-                    'body' => $message,
-                ],
-            ]);
+        app(LinearNotificationDriver::class)
+            ->postIssueComment($this->task, $message);
     }
 
     private function moveLinearToDone(): void
     {
-        $apiKey = (string) config('yak.channels.linear.api_key');
+        $stateId = (string) config('yak.channels.linear.done_state_id');
 
-        if ($apiKey === '') {
+        if ($stateId === '') {
             return;
         }
 
-        Http::withHeaders(['Authorization' => $apiKey])
-            ->post('https://api.linear.app/graphql', [
-                'query' => 'mutation($issueId: String!) { issueUpdate(id: $issueId, input: { stateId: "done" }) { success } }',
-                'variables' => [
-                    'issueId' => $this->task->external_id,
-                ],
-            ]);
+        app(LinearNotificationDriver::class)
+            ->setIssueState($this->task, $stateId);
     }
 }

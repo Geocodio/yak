@@ -83,10 +83,21 @@ return [
 
         'linear' => [
             'driver' => 'linear',
-            'api_key' => env('YAK_LINEAR_API_KEY'),
             'webhook_secret' => env('YAK_LINEAR_WEBHOOK_SECRET'),
             'done_state_id' => env('YAK_LINEAR_DONE_STATE_ID'),
             'cancelled_state_id' => env('YAK_LINEAR_CANCELLED_STATE_ID'),
+            'in_review_state_id' => env('YAK_LINEAR_IN_REVIEW_STATE_ID'),
+
+            // OAuth2 app credentials — used by the outbound driver to post
+            // comments and update issue state as the Yak app.
+            'oauth_client_id' => env('YAK_LINEAR_OAUTH_CLIENT_ID'),
+            'oauth_client_secret' => env('YAK_LINEAR_OAUTH_CLIENT_SECRET'),
+            'oauth_redirect_uri' => env('YAK_LINEAR_OAUTH_REDIRECT_URI'),
+            'oauth_scopes' => env('YAK_LINEAR_OAUTH_SCOPES', 'read,write,issues:create,comments:create'),
+
+            // Personal API key read by the Linear MCP server (Claude Code uses
+            // this during agent runs — not the comment/state update path).
+            'mcp_api_key' => env('YAK_LINEAR_MCP_API_KEY'),
         ],
 
         'sentry' => [

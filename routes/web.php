@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Livewire\CostDashboard;
 use App\Livewire\Health;
 use App\Livewire\Repos\RepoForm;
@@ -31,6 +32,9 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('repos/create', RepoForm::class)->name('repos.create');
     Route::livewire('repos/{repository}/edit', RepoForm::class)->name('repos.edit');
     Route::livewire('health', Health::class)->name('health');
+
+    Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
+    Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
 });
 
 Route::get('artifacts/{task}/viewer/{filename}', [ArtifactController::class, 'viewer'])

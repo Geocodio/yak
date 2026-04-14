@@ -4,8 +4,12 @@ namespace App\Drivers;
 
 use App\Contracts\NotificationDriver;
 use App\Enums\NotificationType;
+use App\Exceptions\LinearOAuthRefreshFailedException;
+use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
+use App\Services\LinearOAuthService;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class LinearNotificationDriver implements NotificationDriver
 {
@@ -13,29 +17,91 @@ class LinearNotificationDriver implements NotificationDriver
 
     public function send(YakTask $task, NotificationType $type, string $message): void
     {
-        $apiKey = $this->getApiKey();
+        $accessToken = $this->resolveAccessToken();
         $issueId = $this->resolveLinearIssueId($task);
 
-        if ($apiKey === '' || $issueId === '') {
+        if ($accessToken === null || $issueId === '') {
             return;
         }
 
         $dashboardLink = $this->taskDashboardLink($task);
         $body = $this->formatComment($task, $type, $message, $dashboardLink);
 
-        $this->postComment($apiKey, $issueId, $body);
+        $this->postComment($accessToken, $issueId, $body);
 
         if ($type === NotificationType::Result || $type === NotificationType::Expiry) {
-            $this->updateIssueState($apiKey, $issueId, $type);
+            $this->updateIssueState($accessToken, $issueId, $type);
+        }
+    }
+
+    /**
+     * Post a raw comment on the Linear issue associated with a task.
+     * Used by jobs that want to post outside the standard notification
+     * driver lifecycle (e.g. "PR created" announcements).
+     */
+    public function postIssueComment(YakTask $task, string $message): void
+    {
+        $accessToken = $this->resolveAccessToken();
+        $issueId = $this->resolveLinearIssueId($task);
+
+        if ($accessToken === null || $issueId === '') {
+            return;
+        }
+
+        $this->postComment($accessToken, $issueId, $message);
+    }
+
+    /**
+     * Move the Linear issue associated with a task to a specific
+     * workflow state. Returns silently when no connection or issue UUID
+     * is available.
+     */
+    public function setIssueState(YakTask $task, string $stateId): void
+    {
+        $accessToken = $this->resolveAccessToken();
+        $issueId = $this->resolveLinearIssueId($task);
+
+        if ($accessToken === null || $issueId === '' || $stateId === '') {
+            return;
+        }
+
+        Http::withToken($accessToken)
+            ->post(self::GRAPHQL_ENDPOINT, [
+                'query' => 'mutation($issueId: String!, $stateId: String!) { issueUpdate(id: $issueId, input: { stateId: $stateId }) { success } }',
+                'variables' => [
+                    'issueId' => $issueId,
+                    'stateId' => $stateId,
+                ],
+            ]);
+    }
+
+    /**
+     * Return a fresh OAuth access token, or null if Linear isn't
+     * connected / the connection was invalidated / refresh failed.
+     */
+    private function resolveAccessToken(): ?string
+    {
+        $connection = LinearOauthConnection::active();
+        if ($connection === null) {
+            return null;
+        }
+
+        try {
+            return $connection->freshAccessToken(app(LinearOAuthService::class));
+        } catch (LinearOAuthRefreshFailedException $e) {
+            Log::warning('LinearNotificationDriver skipped: refresh failed', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
         }
     }
 
     /**
      * Resolve the Linear issue UUID for GraphQL calls.
      *
-     * Historical tasks stored the UUID directly in external_id. Newer tasks
-     * store a "LINEAR-ENG-123" identifier in external_id and keep the UUID in
-     * the context metadata, so fall back to that when present.
+     * Tasks store a "LINEAR-ENG-123" identifier in external_id and keep
+     * the UUID in the context metadata for API calls.
      */
     private function resolveLinearIssueId(YakTask $task): string
     {
@@ -52,9 +118,9 @@ class LinearNotificationDriver implements NotificationDriver
         return "{$message}\n\n[View on Dashboard]({$dashboardLink})";
     }
 
-    private function postComment(string $apiKey, string $issueId, string $body): void
+    private function postComment(string $accessToken, string $issueId, string $body): void
     {
-        Http::withHeaders(['Authorization' => $apiKey])
+        Http::withToken($accessToken)
             ->post(self::GRAPHQL_ENDPOINT, [
                 'query' => 'mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }',
                 'variables' => [
@@ -68,7 +134,7 @@ class LinearNotificationDriver implements NotificationDriver
      * Update issue state based on notification type.
      * Uses configured state IDs from yak.channels.linear config.
      */
-    private function updateIssueState(string $apiKey, string $issueId, NotificationType $type): void
+    private function updateIssueState(string $accessToken, string $issueId, NotificationType $type): void
     {
         $stateConfigKey = match ($type) {
             NotificationType::Result => 'done_state_id',
@@ -86,7 +152,7 @@ class LinearNotificationDriver implements NotificationDriver
             return;
         }
 
-        Http::withHeaders(['Authorization' => $apiKey])
+        Http::withToken($accessToken)
             ->post(self::GRAPHQL_ENDPOINT, [
                 'query' => 'mutation($issueId: String!, $stateId: String!) { issueUpdate(id: $issueId, input: { stateId: $stateId }) { success } }',
                 'variables' => [
@@ -101,10 +167,5 @@ class LinearNotificationDriver implements NotificationDriver
         $baseUrl = rtrim((string) config('app.url'), '/');
 
         return "{$baseUrl}/tasks/{$task->id}";
-    }
-
-    private function getApiKey(): string
-    {
-        return (string) config('yak.channels.linear.api_key');
     }
 }

@@ -60,10 +60,9 @@ test('all channels are disabled by default without env credentials', function ()
     }
 });
 
-test('linear is enabled when api_key and webhook_secret are set', function () {
+test('linear is enabled when webhook_secret is set', function () {
     config()->set('yak.channels.linear', [
         'driver' => 'linear',
-        'api_key' => 'lin_api_test',
         'webhook_secret' => 'whsec_test',
     ]);
 

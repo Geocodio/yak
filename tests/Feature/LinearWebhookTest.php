@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
@@ -81,8 +82,11 @@ function enableLinearChannel(): string
 
     config()->set('yak.channels.linear', [
         'driver' => 'linear',
-        'api_key' => 'lin_api_test_key',
         'webhook_secret' => $secret,
+        'oauth_client_id' => 'cid-test',
+        'oauth_client_secret' => 'csecret-test',
+        'oauth_redirect_uri' => 'http://localhost/auth/linear/callback',
+        'oauth_scopes' => 'read,write,issues:create,comments:create',
     ]);
 
     // Re-register routes so the Linear route is available
@@ -366,7 +370,9 @@ it('dispatches acknowledgment notification on pickup', function () {
 it('LinearNotificationDriver posts comments to Linear issues', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
-    config()->set('yak.channels.linear.api_key', 'lin_api_test_key');
+    LinearOauthConnection::factory()->create([
+        'access_token' => 'lin_oauth_access_test',
+    ]);
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -377,12 +383,16 @@ it('LinearNotificationDriver posts comments to Linear issues', function () {
     $driver->send($task, NotificationType::Progress, 'Working on this issue now...');
 
     assertLinearComment('Working on this issue now...');
+    Http::assertSent(function ($request): bool {
+        return str_contains($request->url(), 'linear.app/graphql')
+            && $request->header('Authorization')[0] === 'Bearer lin_oauth_access_test';
+    });
 });
 
 it('LinearNotificationDriver uses UUID from context when external_id is a LINEAR- identifier', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
-    config()->set('yak.channels.linear.api_key', 'lin_api_test_key');
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -406,7 +416,7 @@ it('LinearNotificationDriver uses UUID from context when external_id is a LINEAR
 it('LinearNotificationDriver posts result to Linear issues', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
-    config()->set('yak.channels.linear.api_key', 'lin_api_test_key');
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -422,7 +432,7 @@ it('LinearNotificationDriver posts result to Linear issues', function () {
 it('LinearNotificationDriver updates issue state', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
-    config()->set('yak.channels.linear.api_key', 'lin_api_test_key');
+    LinearOauthConnection::factory()->create();
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -436,10 +446,8 @@ it('LinearNotificationDriver updates issue state', function () {
     assertLinearStateUpdate('done-state-uuid');
 });
 
-it('LinearNotificationDriver skips when API key is missing', function () {
+it('LinearNotificationDriver skips when no OAuth connection exists', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-
-    config()->set('yak.channels.linear.api_key', '');
 
     $task = YakTask::factory()->create([
         'source' => 'linear',
@@ -448,6 +456,22 @@ it('LinearNotificationDriver skips when API key is missing', function () {
 
     $driver = new LinearNotificationDriver;
     $driver->send($task, NotificationType::Progress, 'should not be sent');
+
+    Http::assertNothingSent();
+});
+
+it('LinearNotificationDriver skips when the OAuth connection is disconnected', function () {
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+
+    LinearOauthConnection::factory()->disconnected()->create();
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'issue-uuid-disc',
+    ]);
+
+    (new LinearNotificationDriver)
+        ->send($task, NotificationType::Progress, 'should not be sent');
 
     Http::assertNothingSent();
 });

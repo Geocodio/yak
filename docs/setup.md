@@ -28,7 +28,7 @@ Only configure the channels you use. Everything except GitHub (for pushing branc
 | Channel | What you need |
 |---|---|
 | **Slack** | Slack app with bot token plus signing secret. |
-| **Linear** | API key. Webhook configured to `https://{your-domain}/webhooks/linear`. |
+| **Linear** | OAuth2 app (client id + secret + webhook signing secret). Authorize at `/settings/linear`. Personal API key only if using the Linear MCP server. |
 | **Sentry** | Auth token plus webhook secret. Alert rules tagged `yak-eligible`. |
 | **Drone CI** | API token. Webhook configured per-repo. |
 | **GitHub Actions** | Included with the GitHub App — no additional setup. |
@@ -91,8 +91,11 @@ github_webhook_secret: ""
 slack_bot_token: ""
 slack_signing_secret: ""
 
-linear_api_key: ""
+linear_oauth_client_id: ""
+linear_oauth_client_secret: ""
+linear_oauth_redirect_uri: ""   # defaults to https://{yak_domain}/auth/linear/callback
 linear_webhook_secret: ""
+linear_mcp_api_key: ""          # personal API key, MCP-only
 
 sentry_auth_token: ""
 sentry_webhook_secret: ""
@@ -171,15 +174,32 @@ See [channels.md](channels.md#slack-optional) for usage and gotchas.
 
 #### Linear (optional)
 
-1. Go to [linear.app/settings](https://linear.app/settings) → **API** → **Personal API keys**
-2. Create a new key and copy it into `linear_api_key`
-3. Go to **API** → **Webhooks** and create a webhook:
-   - URL: `https://{your-domain}/webhooks/linear`
-   - Subscribe to **Issues** events (NOT "Issue labels" — that event type is for label entity changes like renames, not labels being added to issues)
-4. Copy the webhook's **Signing secret** into `linear_webhook_secret`
-5. Create a `yak` label in your workspace (and optionally a `research` label)
+Linear has two credentials — an **OAuth2 app** (authors comments/state
+updates as the Yak app) and an **optional personal API key** (used only
+by the Linear MCP server during agent runs).
 
-See [channels.md](channels.md#linear-optional) for usage and gotchas.
+1. Go to [linear.app/settings/api/applications](https://linear.app/settings/api/applications)
+   → **New application**.
+   - Name: `Yak`
+   - Redirect URI: `https://{your-domain}/auth/linear/callback`
+   - Scopes: `read`, `write`, `issues:create`, `comments:create`
+   - Enable the **Actor: app** toggle on the app detail page.
+2. Copy `Client ID` and `Client secret` into `linear_oauth_client_id` /
+   `linear_oauth_client_secret`.
+3. On the same OAuth app, configure the webhook:
+   - URL: `https://{your-domain}/webhooks/linear`
+   - Subscribe to **Issues** events.
+   - Copy the app's signing secret into `linear_webhook_secret`.
+4. (Optional, for MCP) Go to **Settings → API → Personal API keys**,
+   create a key, copy it into `linear_mcp_api_key`.
+5. Create a `yak` label in your workspace (and optionally a `research`
+   label).
+6. Re-run Ansible so the env vars land in the container.
+7. Sign in to the Yak dashboard → **Settings → Linear → Connect Linear**
+   and authorize.
+
+See [channels.md](channels.md#linear-optional) for usage, gotchas, and
+the rationale for the two-credential split.
 
 #### Sentry (optional)
 

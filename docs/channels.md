@@ -159,27 +159,67 @@ Linear and Sentry tasks do not clarify because their inputs are already structur
 
 **Roles:** Input (task creation via label), notification (issue comments and state transitions).
 
+Linear is integrated via an **OAuth2 app with `actor=app`** so comments and
+state updates are authored by the Yak app rather than a human user. A
+separate personal API key is used only by the Linear MCP server that
+Claude Code invokes during agent runs (read-side only, never writes).
+
 ### Setup
 
-1. Create a Linear API key at **Settings → API → Personal API keys**
-2. Create a webhook at **Settings → API → Webhooks**:
+1. **Register the OAuth app** at Linear → **Settings → API → Applications →
+   New application**.
+   - Name: `Yak`
+   - Redirect URI: `https://{your-domain}/auth/linear/callback`
+   - On the app detail page, enable the **Actor: app** toggle. Without
+     this, Linear will reject the `actor=app` parameter at authorize
+     time.
+   - Scopes to request: `read`, `write`, `issues:create`,
+     `comments:create`. Do **not** request `admin` — Linear forbids it
+     when combined with `actor=app`.
+2. **Configure the webhook on the OAuth app** (same Applications page):
    - URL: `https://{your-domain}/webhooks/linear`
-   - Subscribe to **Issues** events (Linear's "Issue labels" event type is for label entity changes, not labels being applied to issues)
-3. Create a `yak` label in your workspace. Optionally create a `research` label.
-4. Add to `ansible/vault/secrets.yml`:
+   - Subscribe to **Issue** events. (Linear's "Issue labels" event type
+     is for label entity changes, not labels being applied to issues.)
+   - Copy the app's webhook **signing secret**.
+3. **Create a `yak` label** in your workspace (optionally a `research`
+   label too).
+4. **Generate a personal API key for MCP** at Linear → **Settings → API
+   → Personal API keys**. This is consumed only by Claude Code's Linear
+   MCP server during agent runs and is kept separate from the OAuth app
+   deliberately. Revoking or rotating it does not affect the OAuth
+   integration.
+5. Add to `ansible/vault/secrets.yml`:
 
    ```yaml
-   linear_api_key: lin_api_...
-   linear_webhook_secret: ...
+   linear_oauth_client_id: lin_api_...
+   linear_oauth_client_secret: lin_oauth_...
+   # Defaults to https://{yak_domain}/auth/linear/callback if omitted.
+   linear_oauth_redirect_uri: ""
+   linear_webhook_secret: lin_wh_...
+   linear_mcp_api_key: lin_api_...  # personal API key, MCP-only
    ```
 
-5. Re-run Ansible
+6. Re-run Ansible to push the env onto the container.
+7. **Authorize the app from Yak**: sign in to the dashboard → **Settings →
+   Linear → Connect Linear**. Pick the workspace on Linear and you'll be
+   redirected back with a confirmation.
 
 ### Usage
 
 Add the `yak` label to any issue. Add `yak` + `research` for research-only tasks.
 
-Anyone on the team can trigger a task by applying the label — no Linear seat is needed, because Yak uses an API key rather than a user account.
+Anyone on the team can trigger a task by applying the label — no Linear seat is needed, because the OAuth app posts as itself, not as a user.
+
+### Why two Linear credentials?
+
+- **OAuth app** (required): posts comments, updates issue state. Authored
+  by the Yak app — actions don't appear attributed to any individual
+  user.
+- **Personal API key** (optional but recommended): only for the Linear
+  MCP server Claude Code uses while working on tasks. It's a read-side
+  tool the agent uses to look up issue details. MCP's upstream server
+  currently takes a personal key, not an OAuth token; that's the only
+  reason this key still exists. It never posts comments.
 
 ### Issue State Management
 

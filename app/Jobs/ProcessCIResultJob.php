@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\GitOperations;
@@ -211,37 +212,20 @@ class ProcessCIResultJob implements ShouldQueue
 
     private function postToLinear(string $message): void
     {
-        $apiKey = (string) config('yak.channels.linear.api_key');
-
-        if ($apiKey === '') {
-            return;
-        }
-
-        Http::withHeaders(['Authorization' => $apiKey])
-            ->post('https://api.linear.app/graphql', [
-                'query' => 'mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }',
-                'variables' => [
-                    'issueId' => $this->task->external_id,
-                    'body' => $message,
-                ],
-            ]);
+        app(LinearNotificationDriver::class)
+            ->postIssueComment($this->task, $message);
     }
 
     private function moveLinearToInReview(): void
     {
-        $apiKey = (string) config('yak.channels.linear.api_key');
+        $stateId = (string) config('yak.channels.linear.in_review_state_id');
 
-        if ($apiKey === '') {
+        if ($stateId === '') {
             return;
         }
 
-        Http::withHeaders(['Authorization' => $apiKey])
-            ->post('https://api.linear.app/graphql', [
-                'query' => 'mutation($issueId: String!) { issueUpdate(id: $issueId, input: { stateId: "in-review" }) { success } }',
-                'variables' => [
-                    'issueId' => $this->task->external_id,
-                ],
-            ]);
+        app(LinearNotificationDriver::class)
+            ->setIssueState($this->task, $stateId);
     }
 
     private function cleanupBranch(Repository $repository): void

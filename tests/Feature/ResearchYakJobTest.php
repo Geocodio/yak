@@ -5,6 +5,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ResearchYakJob;
 use App\Models\Artifact;
+use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\File;
@@ -255,7 +256,7 @@ test('posts summary and findings URL as Linear comment', function () {
         ->andReturn(2048);
     Storage::fake('artifacts');
 
-    config(['yak.channels.linear.api_key' => 'lin_api_test_key']);
+    LinearOauthConnection::factory()->create();
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create([
@@ -305,7 +306,8 @@ test('moves Linear issue to Done state', function () {
     Http::fake();
     File::shouldReceive('exists')->andReturn(false);
 
-    config(['yak.channels.linear.api_key' => 'lin_api_test_key']);
+    LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.done_state_id', 'done-state-uuid');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create([
@@ -325,7 +327,7 @@ test('moves Linear issue to Done state', function () {
         $body = $request->data();
 
         return str_contains($body['query'] ?? '', 'issueUpdate')
-            && str_contains($body['query'] ?? '', '"done"')
+            && ($body['variables']['stateId'] ?? '') === 'done-state-uuid'
             && ($body['variables']['issueId'] ?? '') === 'LIN-456';
     });
 });
