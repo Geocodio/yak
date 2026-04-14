@@ -13,7 +13,6 @@ use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 class LinearWebhookController extends Controller
 {
@@ -28,21 +27,15 @@ class LinearWebhookController extends Controller
             prefix: '', // Linear sends the raw HMAC-SHA256 digest with no prefix
         );
 
-        Log::channel('yak')->info('Linear webhook received (full payload)', [
-            'payload' => $request->all(),
-        ]);
-
-        // Only handle Issue label events
+        // Only handle Issue update events. Note: Linear's "IssueLabel" resource
+        // type is for label entity changes (rename/delete), not labels added to
+        // issues. Subscribe to "Issue" events in Linear's webhook settings.
         if ($request->input('type') !== 'Issue' || $request->input('action') !== 'update') {
-            Log::channel('yak')->info('Linear webhook skipped — not an Issue update event');
-
             return response()->json(['ok' => true]);
         }
 
         // Only proceed when labels were changed and yak label is being added
         if (! $this->isYakLabelAdded($request)) {
-            Log::channel('yak')->info('Linear webhook skipped — yak label was not newly added');
-
             return response()->json(['ok' => true]);
         }
 

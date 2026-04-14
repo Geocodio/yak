@@ -123,7 +123,7 @@ Symptoms: you `@yak` in Slack (or add a Linear label, or trigger a Sentry alert)
 ### Per-Channel Gotchas
 
 - **Slack** — channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
-- **Linear** — the webhook must subscribe to **Issue label events**, not issue events in general. Generic issue events are filtered.
+- **Linear** — the webhook must subscribe to **Issues** events (not "Issue labels" — that resource type fires for label entity changes, not for labels being applied to issues). Events with `type: "IssueLabel"` are silently dropped.
 - **Sentry** — alerts must be tagged `yak-eligible`. Alerts without the tag are ignored even if they hit the webhook.
 - **GitHub** — the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
 

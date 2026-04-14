@@ -164,7 +164,7 @@ Linear and Sentry tasks do not clarify because their inputs are already structur
 1. Create a Linear API key at **Settings → API → Personal API keys**
 2. Create a webhook at **Settings → API → Webhooks**:
    - URL: `https://{your-domain}/webhooks/linear`
-   - Subscribe to **Issue label events**
+   - Subscribe to **Issues** events (Linear's "Issue labels" event type is for label entity changes, not labels being applied to issues)
 3. Create a `yak` label in your workspace. Optionally create a `research` label.
 4. Add to `ansible/vault/secrets.yml`:
 

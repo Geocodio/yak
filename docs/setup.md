@@ -175,7 +175,7 @@ See [channels.md](channels.md#slack-optional) for usage and gotchas.
 2. Create a new key and copy it into `linear_api_key`
 3. Go to **API** → **Webhooks** and create a webhook:
    - URL: `https://{your-domain}/webhooks/linear`
-   - Subscribe to **Issue label** events
+   - Subscribe to **Issues** events (NOT "Issue labels" — that event type is for label entity changes like renames, not labels being added to issues)
 4. Copy the webhook's **Signing secret** into `linear_webhook_secret`
 5. Create a `yak` label in your workspace (and optionally a `research` label)
 
