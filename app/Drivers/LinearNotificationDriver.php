@@ -14,20 +14,37 @@ class LinearNotificationDriver implements NotificationDriver
     public function send(YakTask $task, NotificationType $type, string $message): void
     {
         $apiKey = $this->getApiKey();
-        $externalId = (string) $task->external_id;
+        $issueId = $this->resolveLinearIssueId($task);
 
-        if ($apiKey === '' || $externalId === '') {
+        if ($apiKey === '' || $issueId === '') {
             return;
         }
 
         $dashboardLink = $this->taskDashboardLink($task);
         $body = $this->formatComment($task, $type, $message, $dashboardLink);
 
-        $this->postComment($apiKey, $externalId, $body);
+        $this->postComment($apiKey, $issueId, $body);
 
         if ($type === NotificationType::Result || $type === NotificationType::Expiry) {
-            $this->updateIssueState($apiKey, $externalId, $type);
+            $this->updateIssueState($apiKey, $issueId, $type);
         }
+    }
+
+    /**
+     * Resolve the Linear issue UUID for GraphQL calls.
+     *
+     * Historical tasks stored the UUID directly in external_id. Newer tasks
+     * store a "LINEAR-ENG-123" identifier in external_id and keep the UUID in
+     * the context metadata, so fall back to that when present.
+     */
+    private function resolveLinearIssueId(YakTask $task): string
+    {
+        $context = json_decode((string) $task->context, true);
+        if (is_array($context) && ! empty($context['linear_issue_id'])) {
+            return (string) $context['linear_issue_id'];
+        }
+
+        return (string) $task->external_id;
     }
 
     private function formatComment(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string

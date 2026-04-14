@@ -149,7 +149,7 @@ it('creates a fix task when yak label is added to an issue', function () {
     $task = YakTask::first();
     expect($task)->not->toBeNull();
     expect($task->source)->toBe('linear');
-    expect($task->external_id)->toBe('issue-uuid-001');
+    expect($task->external_id)->toBe('LINEAR-ENG-42');
     expect($task->external_url)->toBe('https://linear.app/team/issue/ENG-42');
     expect($task->repo)->toBe('my-app');
     expect($task->mode)->toBe(TaskMode::Fix);
@@ -378,6 +378,30 @@ it('LinearNotificationDriver posts comments to Linear issues', function () {
     assertLinearComment('Working on this issue now...');
 });
 
+it('LinearNotificationDriver uses UUID from context when external_id is a LINEAR- identifier', function () {
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+
+    config()->set('yak.channels.linear.api_key', 'lin_api_test_key');
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'LINEAR-ENG-123',
+        'context' => json_encode([
+            'linear_issue_id' => 'uuid-from-context',
+            'linear_issue_identifier' => 'ENG-123',
+        ]),
+    ]);
+
+    $driver = new LinearNotificationDriver;
+    $driver->send($task, NotificationType::Progress, 'Using UUID from context');
+
+    Http::assertSent(function ($request): bool {
+        $body = $request->data();
+
+        return ($body['variables']['issueId'] ?? null) === 'uuid-from-context';
+    });
+});
+
 it('LinearNotificationDriver posts result to Linear issues', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
@@ -469,11 +493,12 @@ it('does not create duplicate task for same Linear issue', function () {
     // Create existing task for this issue
     YakTask::factory()->create([
         'source' => 'linear',
-        'external_id' => 'issue-uuid-dup',
+        'external_id' => 'LINEAR-ENG-42',
     ]);
 
     $body = linearLabelPayload([
         'issueId' => 'issue-uuid-dup',
+        'identifier' => 'ENG-42',
         'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
@@ -483,6 +508,6 @@ it('does not create duplicate task for same Linear issue', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    expect(YakTask::where('source', 'linear')->where('external_id', 'issue-uuid-dup')->count())->toBe(1);
+    expect(YakTask::where('source', 'linear')->where('external_id', 'LINEAR-ENG-42')->count())->toBe(1);
     Queue::assertNotPushed(RunYakJob::class);
 });

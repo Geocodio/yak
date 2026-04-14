@@ -29,11 +29,13 @@ class LinearInputDriver implements InputDriver
         $mode = $this->detectMode($labels);
         $repository = $this->detectRepo($description);
 
+        $externalId = $identifier !== '' ? "LINEAR-{$identifier}" : $issueId;
+
         return new TaskDescription(
             title: Str::limit($title, 100),
             body: $description !== '' ? "{$title}\n\n{$description}" : $title,
             channel: 'linear',
-            externalId: $issueId,
+            externalId: $externalId,
             repository: $repository,
             metadata: [
                 'mode' => $mode->value,
