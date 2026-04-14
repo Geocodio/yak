@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Process;
 beforeEach(function () {
     Process::fake([
         'pgrep *' => Process::result(output: '12345'),
-        'git ls-remote *' => Process::result(output: 'abc123 HEAD'),
+        '*ls-remote*' => Process::result(output: 'abc123 HEAD'),
         'claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
 });

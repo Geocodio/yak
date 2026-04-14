@@ -48,6 +48,29 @@ class GitOperations
     }
 
     /**
+     * Probe whether the repository's origin can be reached with current credentials.
+     *
+     * Runs as the yak user (where the credential helper lives) with a short
+     * timeout and `-c safe.directory=*` so git doesn't refuse the repo dir
+     * simply because the caller (www-data) isn't its owner.
+     */
+    public static function canFetch(Repository $repository, int $timeoutSeconds = 10): bool
+    {
+        self::ensureCredentials();
+
+        $command = sprintf(
+            'sudo runuser -u yak -- env HOME=%s git -c safe.directory=* ls-remote --exit-code origin HEAD',
+            self::YAK_HOME,
+        );
+
+        $result = Process::path($repository->path)
+            ->timeout($timeoutSeconds)
+            ->run($command);
+
+        return $result->exitCode() === 0;
+    }
+
+    /**
      * Return the currently checked-out branch name for a repository.
      */
     public static function currentBranch(Repository $repository): string

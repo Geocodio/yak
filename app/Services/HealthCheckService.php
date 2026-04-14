@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Channel;
 use App\Enums\TaskStatus;
+use App\GitOperations;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Carbon\Carbon;
@@ -78,16 +79,14 @@ class HealthCheckService
 
         foreach ($repos as $repo) {
             try {
-                $result = Process::path($repo->path)
-                    ->timeout(10)
-                    ->run('git ls-remote --exit-code origin HEAD');
+                $ok = GitOperations::canFetch($repo);
             } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
                 $failures[] = $repo->slug;
 
                 continue;
             }
 
-            if ($result->successful()) {
+            if ($ok) {
                 $fetchable++;
             } else {
                 $failures[] = $repo->slug;

@@ -426,7 +426,7 @@ test('health check reports unhealthy when claude cli times out', function () {
 test('health check includes claude auth check in runAll', function () {
     Process::fake([
         'pgrep *' => Process::result('12345'),
-        'git ls-remote *' => Process::result('abc123'),
+        '*ls-remote*' => Process::result('abc123'),
         'claude --version' => Process::result('1.0.0'),
         'claude auth status' => Process::result(
             output: '',
