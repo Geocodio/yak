@@ -126,6 +126,27 @@
     background-color: var(--color-yak-cream-dark);
 }
 
+/* Readable prose inside task detail cards — ensures code blocks have
+   high contrast (light text on dark navy) and inline code keeps its
+   subtle slate-on-cream styling. */
+.prose-yak :where(pre):not(:where([class~="not-prose"] *)) {
+    background-color: #2b3640;
+    color: #e2e8f0;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    overflow-x: auto;
+}
+
+.prose-yak :where(pre code):not(:where([class~="not-prose"] *)) {
+    background-color: transparent;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+    font-weight: inherit;
+}
+
 /* Status badges */
 .badge-success {
     background: color-mix(in srgb, var(--color-yak-green) 12%, transparent);
