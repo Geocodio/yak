@@ -213,12 +213,18 @@ class HealthCheckService
      */
     public function runAll(): array
     {
-        /** @var list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}> */
-        return Cache::remember(
-            self::CACHE_KEY,
-            self::CACHE_TTL_SECONDS,
-            fn (): array => $this->runAllFresh(),
-        );
+        $cached = Cache::get(self::CACHE_KEY);
+
+        if (is_array($cached)) {
+            try {
+                return $this->hydrateCheckedAt($cached);
+            } catch (\Throwable) {
+                // Stale cache from a previous format — fall through to a fresh run.
+                Cache::forget(self::CACHE_KEY);
+            }
+        }
+
+        return $this->runAllFresh();
     }
 
     /**
@@ -239,21 +245,61 @@ class HealthCheckService
             ['name' => 'Webhook Signatures', 'method' => 'checkWebhookSignatures'],
         ];
 
-        $results = [];
+        $checkedAt = $now->toIso8601String();
+        $serializable = [];
         foreach ($checks as $check) {
             /** @var array{healthy: bool, detail: string} $result */
             $result = $this->{$check['method']}();
-            $results[] = [
+            $serializable[] = [
                 'name' => $check['name'],
                 'healthy' => $result['healthy'],
                 'detail' => $result['detail'],
-                'checked_at' => $now,
+                'checked_at' => $checkedAt,
             ];
         }
 
-        Cache::put(self::CACHE_KEY, $results, self::CACHE_TTL_SECONDS);
+        Cache::put(self::CACHE_KEY, $serializable, self::CACHE_TTL_SECONDS);
+
+        $results = $this->hydrateCheckedAt($serializable);
 
         return $results;
+    }
+
+    /**
+     * Convert stored checked_at ISO strings back into Carbon instances.
+     *
+     * Carbon can't round-trip through file-cache serialization reliably
+     * (unserialize fires before Carbon autoloads on some requests), so
+     * we store a plain ISO-8601 string and rehydrate here.
+     *
+     * @param  array<int, array{name: string, healthy: bool, detail: string, checked_at: string|Carbon}>  $results
+     * @return list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}>
+     */
+    private function hydrateCheckedAt(array $results): array
+    {
+        return array_map(
+            fn (array $result): array => [
+                'name' => $result['name'],
+                'healthy' => $result['healthy'],
+                'detail' => $result['detail'],
+                'checked_at' => $this->toCarbon($result['checked_at']),
+            ],
+            $results,
+        );
+    }
+
+    private function toCarbon(mixed $value): Carbon
+    {
+        if ($value instanceof Carbon) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return Carbon::parse($value);
+        }
+
+        // Likely a __PHP_Incomplete_Class from a previous-format cache value.
+        throw new \RuntimeException('Unrecognised checked_at value in cache');
     }
 
     /**

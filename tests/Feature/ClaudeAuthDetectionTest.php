@@ -15,6 +15,7 @@ use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
 use App\Services\HealthCheckService;
 use Illuminate\Process\ProcessResult;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -365,6 +366,24 @@ test('health check reports unhealthy when claude auth times out', function () {
 
     expect($result['healthy'])->toBeFalse()
         ->and($result['detail'])->toBe('Timed out');
+});
+
+test('runAll rehydrates cached checked_at ISO strings into Carbon', function () {
+    Cache::put('health:results', [
+        [
+            'name' => 'Queue Worker',
+            'healthy' => true,
+            'detail' => 'Running, PID 42',
+            'checked_at' => '2026-04-14T11:00:00+00:00',
+        ],
+    ], 90);
+
+    $service = new HealthCheckService;
+    $results = $service->runAll();
+
+    expect($results)->toHaveCount(1)
+        ->and($results[0]['checked_at'])->toBeInstanceOf(Carbon\Carbon::class)
+        ->and($results[0]['checked_at']->toIso8601String())->toBe('2026-04-14T11:00:00+00:00');
 });
 
 test('health check handles Laravel-wrapped timeout exception on claude auth', function () {
