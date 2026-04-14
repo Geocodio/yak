@@ -20,11 +20,12 @@ class DroneBuildScanner implements CIBuildScanner
         $droneToken = (string) config('yak.channels.drone.token');
         $cutoff = now()->subHours($maxAgeHours);
 
+        // Scan all branches — flaky tests surface on PR branches first, so
+        // restricting to default_branch misses them. Dedup by test name in
+        // the caller keeps task volume sane.
         /** @var array<int, array{number: int, status: string, source: string, started: int, link: string}> $builds */
         $builds = Http::withToken($droneToken)
-            ->get("{$droneUrl}/api/repos/{$repository->slug}/builds", [
-                'branch' => $repository->default_branch,
-            ])
+            ->get("{$droneUrl}/api/repos/{$repository->slug}/builds")
             ->json();
 
         $failures = collect();
@@ -58,21 +59,30 @@ class DroneBuildScanner implements CIBuildScanner
 
     private function getBuildLogs(string $droneUrl, string $droneToken, string $repoSlug, int $buildNumber): string
     {
-        /** @var array<int, array{number: int}> $stages */
+        /** @var array<int, array{number: int, steps?: array<int, array{number: int, status: string}>}> $stages */
         $stages = Http::withToken($droneToken)
             ->get("{$droneUrl}/api/repos/{$repoSlug}/builds/{$buildNumber}")
-            ->json('stages');
+            ->json('stages') ?? [];
 
         $logs = '';
 
         foreach ($stages as $stage) {
-            /** @var array<int, array{out: string}> $stageLog */
-            $stageLog = Http::withToken($droneToken)
-                ->get("{$droneUrl}/api/repos/{$repoSlug}/builds/{$buildNumber}/logs/{$stage['number']}/1")
-                ->json();
+            foreach ($stage['steps'] ?? [] as $step) {
+                // Only failing steps produce useful test output; fetching
+                // every step would explode the log size and still not help
+                // the parser.
+                if ($step['status'] !== 'failure') {
+                    continue;
+                }
 
-            foreach ($stageLog as $line) {
-                $logs .= $line['out'] . "\n";
+                /** @var array<int, array{out: string}> $stepLog */
+                $stepLog = Http::withToken($droneToken)
+                    ->get("{$droneUrl}/api/repos/{$repoSlug}/builds/{$buildNumber}/logs/{$stage['number']}/{$step['number']}")
+                    ->json() ?? [];
+
+                foreach ($stepLog as $line) {
+                    $logs .= ($line['out'] ?? '') . "\n";
+                }
             }
         }
 
