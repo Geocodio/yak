@@ -8,6 +8,10 @@ use App\Models\Repository;
 
 class RepoDetector
 {
+    public function __construct(
+        private readonly RepoRouter $router = new RepoRouter,
+    ) {}
+
     public function detect(TaskDescription $description): RepoDetectionResult
     {
         // 1. Explicit mention: parsed by input driver or --repo= in body
@@ -55,7 +59,14 @@ class RepoDetector
             return RepoDetectionResult::resolved([$singleRepo]);
         }
 
-        // Slack low-confidence: multiple repos, no explicit mention/sentry → clarification
+        // Multi-repo, no explicit mention — ask Haiku to pick the best match from
+        // the natural language description.
+        $routed = $this->router->route($description->body, $activeRepos);
+        if ($routed !== null) {
+            return RepoDetectionResult::resolved([$routed]);
+        }
+
+        // Slack low-confidence: ask the user via a threaded reply
         if ($description->channel === 'slack') {
             return RepoDetectionResult::needsClarification(array_values($activeRepos->all()));
         }

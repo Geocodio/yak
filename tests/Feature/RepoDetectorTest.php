@@ -3,6 +3,7 @@
 use App\DataTransferObjects\TaskDescription;
 use App\Models\Repository;
 use App\Services\RepoDetector;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
     $this->detector = new RepoDetector;
@@ -154,6 +155,32 @@ test('single active repo is always used without clarification', function (): voi
     expect($result->resolved)->toBeTrue()
         ->and($result->needsClarification)->toBeFalse()
         ->and($result->repositories->first()->slug)->toBe('only-repo');
+});
+
+test('multi-repo with natural language routes via Haiku before clarification', function (): void {
+    config(['yak.anthropic_api_key' => 'sk-ant-test']);
+    Http::fake([
+        'api.anthropic.com/*' => Http::response([
+            'content' => [['text' => 'Geocodio/deployer']],
+        ]),
+    ]);
+
+    Repository::factory()->create(['slug' => 'Geocodio/geocodio']);
+    Repository::factory()->create(['slug' => 'Geocodio/deployer']);
+    Repository::factory()->create(['slug' => 'Geocodio/website']);
+
+    $description = new TaskDescription(
+        title: 'Add confetti',
+        body: 'in the deployer tool. I want confetti to animate all over the screen after you trigger a deployment.',
+        channel: 'slack',
+        externalId: 'SLACK-20260414-1',
+    );
+
+    $result = $this->detector->detect($description);
+
+    expect($result->resolved)->toBeTrue()
+        ->and($result->needsClarification)->toBeFalse()
+        ->and($result->repositories->first()->slug)->toBe('Geocodio/deployer');
 });
 
 test('slack low-confidence triggers clarification with multiple active repos', function (): void {
