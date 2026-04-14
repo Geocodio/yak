@@ -328,7 +328,7 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
 
 test('health check reports healthy when claude auth is valid', function () {
     Process::fake([
-        'claude auth status' => Process::result('Authenticated as user@example.com'),
+        '*claude auth status*' => Process::result('Authenticated as user@example.com'),
     ]);
 
     $result = (new ClaudeAuthCheck)->run();
@@ -339,7 +339,7 @@ test('health check reports healthy when claude auth is valid', function () {
 
 test('health check reports unhealthy when claude auth fails', function () {
     Process::fake([
-        'claude auth status' => Process::result(
+        '*claude auth status*' => Process::result(
             output: '',
             errorOutput: 'Not authenticated',
             exitCode: 1,
@@ -354,7 +354,7 @@ test('health check reports unhealthy when claude auth fails', function () {
 
 test('health check reports unhealthy when claude auth times out', function () {
     Process::shouldReceive('timeout')->with(15)->andReturnSelf();
-    Process::shouldReceive('run')->with('claude auth status')->andThrow(
+    Process::shouldReceive('run')->with('sudo runuser -u yak -- env HOME=/home/yak claude auth status')->andThrow(
         new ProcessTimedOutException(
             new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
             ProcessTimedOutException::TYPE_GENERAL,
@@ -369,7 +369,7 @@ test('health check reports unhealthy when claude auth times out', function () {
 
 test('health check handles Laravel-wrapped timeout exception on claude auth', function () {
     Process::shouldReceive('timeout')->with(15)->andReturnSelf();
-    Process::shouldReceive('run')->with('claude auth status')->andThrow(
+    Process::shouldReceive('run')->with('sudo runuser -u yak -- env HOME=/home/yak claude auth status')->andThrow(
         new Illuminate\Process\Exceptions\ProcessTimedOutException(
             new ProcessTimedOutException(
                 new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
@@ -407,7 +407,7 @@ test('registry includes claude auth check', function () {
         'pgrep *' => Process::result('12345'),
         '*ls-remote*' => Process::result('abc123'),
         'claude --version' => Process::result('1.0.0'),
-        'claude auth status' => Process::result(
+        '*claude auth status*' => Process::result(
             output: '',
             errorOutput: 'Not authenticated',
             exitCode: 1,

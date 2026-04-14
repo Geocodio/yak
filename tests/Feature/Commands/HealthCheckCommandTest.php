@@ -8,7 +8,7 @@ beforeEach(function () {
     Process::fake([
         'pgrep *' => Process::result(output: '12345'),
         '*ls-remote*' => Process::result(output: 'abc123 HEAD'),
-        'claude *' => Process::result(output: 'claude v1.0.0'),
+        '*claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
 
     // Disable channel healthchecks by default; individual tests enable Slack if needed
@@ -26,7 +26,7 @@ test('healthcheck command passes when all checks are healthy', function () {
 test('healthcheck command fails when checks are unhealthy', function () {
     Process::fake([
         'pgrep *' => Process::result(exitCode: 1),
-        'claude *' => Process::result(output: 'claude v1.0.0'),
+        '*claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
 
     $this->artisan('yak:healthcheck')
@@ -36,7 +36,7 @@ test('healthcheck command fails when checks are unhealthy', function () {
 test('healthcheck command posts to slack on failure when configured', function () {
     Process::fake([
         'pgrep *' => Process::result(exitCode: 1),
-        'claude *' => Process::result(output: 'claude v1.0.0'),
+        '*claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
 
     config([
@@ -61,7 +61,7 @@ test('healthcheck command posts to slack on failure when configured', function (
 test('healthcheck command skips slack when not configured', function () {
     Process::fake([
         'pgrep *' => Process::result(exitCode: 1),
-        'claude *' => Process::result(output: 'claude v1.0.0'),
+        '*claude *' => Process::result(output: 'claude v1.0.0'),
     ]);
 
     Http::fake();
