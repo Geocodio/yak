@@ -80,7 +80,9 @@ class HealthCheckService
         foreach ($repos as $repo) {
             try {
                 $ok = GitOperations::canFetch($repo);
-            } catch (ProcessTimedOutException|SymfonyProcessTimedOutException) {
+            } catch (\Throwable) {
+                // Any unexpected failure (timeout, missing path, process error)
+                // counts as unfetchable for the purposes of this check.
                 $failures[] = $repo->slug;
 
                 continue;

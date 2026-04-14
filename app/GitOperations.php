@@ -56,16 +56,21 @@ class GitOperations
      */
     public static function canFetch(Repository $repository, int $timeoutSeconds = 10): bool
     {
-        self::ensureCredentials();
-
         $command = sprintf(
             'sudo runuser -u yak -- env HOME=%s git -c safe.directory=* ls-remote --exit-code origin HEAD',
             self::YAK_HOME,
         );
 
-        $result = Process::path($repository->path)
-            ->timeout($timeoutSeconds)
-            ->run($command);
+        try {
+            $result = Process::path($repository->path)
+                ->timeout($timeoutSeconds)
+                ->run($command);
+        } catch (\Throwable) {
+            // Missing repo path, process boot failures, timeouts — treat
+            // anything unexpected as unfetchable rather than bubbling out
+            // of the health check render.
+            return false;
+        }
 
         return $result->exitCode() === 0;
     }
@@ -98,11 +103,13 @@ class GitOperations
     }
 
     /**
-     * Configure git credentials using the GitHub App installation token.
+     * Configure git globally (as the yak user) to fetch GitHub App
+     * installation tokens via the `yak:git-credential` artisan command.
      *
-     * Writes a credential helper script and sets it globally so all git
-     * operations (clone, fetch, push) authenticate automatically. Only
-     * runs once per process.
+     * We deliberately avoid writing a credential helper *file* to
+     * /home/yak — doing that baked the current caller's ownership
+     * into the file, and any later caller running as a different
+     * user (www-data vs. root) could no longer overwrite it.
      */
     public static function ensureCredentials(): void
     {
@@ -116,13 +123,12 @@ class GitOperations
             return;
         }
 
-        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+        // Warm the cached installation token so the credential helper
+        // invocation returns fast without another GitHub App API round-trip.
+        app(GitHubAppService::class)->getInstallationToken($installationId);
 
-        $helperPath = self::YAK_HOME . '/.git-credential-yak';
-        file_put_contents($helperPath, "#!/bin/sh\necho username=x-access-token\necho password={$token}\n");
-        chmod($helperPath, 0755);
-
-        self::runAsYak("git config --global credential.https://github.com.helper {$helperPath}");
+        $helperCommand = escapeshellarg('!php /app/artisan yak:git-credential');
+        self::runAsYak("git config --global credential.https://github.com.helper {$helperCommand}");
 
         $gitName = config('yak.git_user_name', 'Yak');
         $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
