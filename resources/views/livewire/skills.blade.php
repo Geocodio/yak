@@ -81,19 +81,33 @@
                                         role="switch"
                                         aria-checked="{{ $plugin->enabled ? 'true' : 'false' }}"
                                         wire:click="toggle(@js($plugin->key()), @js(! $plugin->enabled))"
+                                        wire:loading.attr="disabled"
+                                        wire:target="toggle(@js($plugin->key()), @js(! $plugin->enabled))"
                                         @class(['yak-toggle', 'on' => $plugin->enabled])
                                         aria-label="Toggle {{ $plugin->name }}"
                                     ></button>
                                 </div>
                             </div>
 
+                            @php($updateExpr = "updatePlugin(" . \Illuminate\Support\Js::from($plugin->key()) . ")")
+                            @php($uninstallExpr = "uninstall(" . \Illuminate\Support\Js::from($plugin->key()) . ")")
                             <div class="mt-1 flex items-center justify-end gap-3 text-[12px]">
-                                <flux:button size="xs" variant="ghost" wire:click="updatePlugin(@js($plugin->key()))">
-                                    Update
+                                <flux:button size="xs" variant="ghost"
+                                    wire:click="{{ $updateExpr }}"
+                                    wire:loading.attr="disabled"
+                                    wire:target="{{ $updateExpr }}"
+                                    data-test="update-{{ $plugin->key() }}">
+                                    <span wire:loading.remove wire:target="{{ $updateExpr }}">Update</span>
+                                    <span wire:loading wire:target="{{ $updateExpr }}">Updating…</span>
                                 </flux:button>
-                                <flux:button size="xs" variant="ghost" wire:click="uninstall(@js($plugin->key()))"
-                                    wire:confirm="Uninstall {{ $plugin->name }}?">
-                                    Uninstall
+                                <flux:button size="xs" variant="ghost"
+                                    wire:click="{{ $uninstallExpr }}"
+                                    wire:confirm="Uninstall {{ $plugin->name }}?"
+                                    wire:loading.attr="disabled"
+                                    wire:target="{{ $uninstallExpr }}"
+                                    data-test="uninstall-{{ $plugin->key() }}">
+                                    <span wire:loading.remove wire:target="{{ $uninstallExpr }}">Uninstall</span>
+                                    <span wire:loading wire:target="{{ $uninstallExpr }}">Uninstalling…</span>
                                 </flux:button>
                             </div>
                         </div>
@@ -158,9 +172,14 @@
                         </p>
                         <div class="mt-1 flex items-center justify-between border-t border-dashed border-yak-tan/40 pt-[10px]">
                             <span class="text-[11px] text-yak-blue opacity-85">{{ $plugin->marketplace }}</span>
+                            @php($installExpr = "install(" . \Illuminate\Support\Js::from($plugin->name) . ", " . \Illuminate\Support\Js::from($plugin->marketplace) . ")")
                             <flux:button size="xs" variant="filled"
-                                wire:click="install(@js($plugin->name), @js($plugin->marketplace))">
-                                Install
+                                wire:click="{{ $installExpr }}"
+                                wire:loading.attr="disabled"
+                                wire:target="{{ $installExpr }}"
+                                data-test="install-{{ $plugin->key() }}">
+                                <span wire:loading.remove wire:target="{{ $installExpr }}">Install</span>
+                                <span wire:loading wire:target="{{ $installExpr }}">Installing…</span>
                             </flux:button>
                         </div>
                     </div>
@@ -195,7 +214,8 @@
                                 @endif
                             </div>
                         </div>
-                        <flux:button size="xs" variant="ghost" wire:click="removeMarketplace(@js($mp->name))"
+                        <flux:button size="xs" variant="ghost"
+                            wire:click="{{ 'removeMarketplace(' . \Illuminate\Support\Js::from($mp->name) . ')' }}"
                             wire:confirm="Remove marketplace {{ $mp->name }}?">
                             Remove
                         </flux:button>
@@ -231,7 +251,11 @@
 
                     <div class="flex justify-end gap-2">
                         <flux:button type="button" variant="ghost" wire:click="$set('showInstallFromUrl', false)">Cancel</flux:button>
-                        <flux:button type="submit" variant="primary">Install</flux:button>
+                        <flux:button type="submit" variant="primary"
+                            wire:loading.attr="disabled" wire:target="installFromUrl">
+                            <span wire:loading.remove wire:target="installFromUrl">Install</span>
+                            <span wire:loading wire:target="installFromUrl">Installing…</span>
+                        </flux:button>
                     </div>
                 </form>
             </div>
