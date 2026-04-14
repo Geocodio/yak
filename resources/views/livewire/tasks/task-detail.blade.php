@@ -75,7 +75,7 @@
     {{-- Section 2: Description --}}
     <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
         <h2 class="mb-4 text-lg font-medium text-yak-slate">Description</h2>
-        <div class="prose prose-sm prose-yak mb-4 max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none">
+        <div class="prose prose-sm prose-yak mb-4 max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10">
             {!! Str::markdown($task->description) !!}
         </div>
         @if($task->context)
@@ -117,7 +117,7 @@
     @if($task->result_summary)
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
             <h2 class="mb-4 text-lg font-medium text-yak-slate">Result</h2>
-            <div class="prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none">
+            <div class="prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10">
                 {!! Str::markdown($task->result_summary) !!}
             </div>
             <div class="text-sm leading-loose text-yak-slate">
