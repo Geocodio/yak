@@ -1,9 +1,12 @@
-<section class="w-full">
-    <x-settings.layout
-        :heading="__('Skills')"
-        :subheading="__('Install and manage Claude Code plugins for the Yak agent.')"
-        wide
-    >
+<div class="flex flex-col gap-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-semibold text-yak-slate">Skills</h1>
+            <p class="text-sm text-yak-blue mt-1">Install and manage Claude Code plugins for the Yak agent.</p>
+        </div>
+    </div>
+
+    <div>
         <flux:callout variant="secondary" icon="information-circle" class="mb-6"
             heading="Plugins are shared across all Yak users. Changes take effect on the next task run, not mid-flight." />
 
@@ -233,5 +236,5 @@
                 </form>
             </div>
         </flux:modal>
-    </x-settings.layout>
-</section>
+    </div>
+</div>

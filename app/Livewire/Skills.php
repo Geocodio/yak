@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Settings;
+namespace App\Livewire;
 
 use App\DataTransferObjects\BundledSkill;
 use App\DataTransferObjects\InstalledPlugin;
@@ -192,6 +192,6 @@ class Skills extends Component
 
     public function render(): View
     {
-        return view('livewire.settings.skills');
+        return view('livewire.skills');
     }
 }

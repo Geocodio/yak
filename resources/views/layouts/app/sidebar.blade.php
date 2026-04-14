@@ -46,6 +46,12 @@
                             <flux:icon.chat-bubble-bottom-center-text class="size-5" />
                             {{ __('Prompts') }}
                         </a>
+                        <a href="{{ route('skills') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('skills') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           wire:navigate @click="mobileNavOpen = false">
+                            <flux:icon.puzzle-piece class="size-5" />
+                            {{ __('Skills') }}
+                        </a>
                         <a href="{{ route('health') }}"
                            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('health') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">

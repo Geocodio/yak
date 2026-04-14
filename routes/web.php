@@ -8,6 +8,7 @@ use App\Livewire\Health;
 use App\Livewire\PromptEditor;
 use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
+use App\Livewire\Skills;
 use App\Livewire\Tasks\TaskDetail;
 use App\Livewire\Tasks\TaskList;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('repos/{repository}/edit', RepoForm::class)->name('repos.edit');
     Route::livewire('health', Health::class)->name('health');
     Route::livewire('prompts', PromptEditor::class)->name('prompts');
+    Route::livewire('skills', Skills::class)->name('skills');
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');

@@ -1,6 +1,6 @@
 <?php
 
-use App\Livewire\Settings\Skills;
+use App\Livewire\Skills;
 use App\Models\User;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
