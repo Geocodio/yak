@@ -2,13 +2,16 @@
 
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
 
 /*
@@ -59,6 +62,64 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
         ->and($task->branch_name)->toStartWith('yak/');
 
     Process::assertRan(fn ($process) => str_contains($process->command, 'git push'));
+});
+
+test('successful run notifies source that task is awaiting CI', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_notify',
+        resultSummary: 'Fix committed',
+        costUsd: 1.0,
+        numTurns: 5,
+        durationMs: 10000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create([
+        'slug' => 'notify-repo',
+        'path' => '/home/yak/repos/notify-repo',
+        'ci_system' => 'github_actions',
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'notify-repo']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Progress && $job->task->id === $task->id);
+});
+
+test('no awaiting-CI notification dispatched when ci_system is none', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_nocinotify',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create([
+        'slug' => 'no-ci-repo',
+        'path' => '/home/yak/repos/no-ci-repo',
+        'ci_system' => 'none',
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'no-ci-repo']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    Queue::assertNotPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Progress);
 });
 
 test('successful run creates branch with yak/{external_id} naming', function () {

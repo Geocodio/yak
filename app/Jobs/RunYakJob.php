@@ -16,6 +16,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\YakPersonality;
 use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -208,6 +209,9 @@ class RunYakJob implements ShouldQueue
 
         if ($repository->ci_system === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
+        } else {
+            $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
+            SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
     }
 
