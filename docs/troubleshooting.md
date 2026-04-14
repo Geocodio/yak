@@ -83,7 +83,7 @@ docker exec yak php artisan yak:setup-repo {slug}
 
 Or click **Re-run Setup** on the repo's edit page.
 
-If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target repo with the specific commands Yak got wrong. See [repositories.md](repositories.md#claudemd--the-highest-leverage-config-point).
+If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target repo with the specific commands Yak got wrong. See [Repositories → CLAUDE.md](repositories.md#claudemd--the-highest-leverage-config-point).
 
 ## Webhooks Not Arriving
 
@@ -172,7 +172,7 @@ If a server is configured but Claude can't reach it, check:
 
 Symptoms: a task's status is `awaiting_ci` and never advances even though CI actually ran.
 
-1. **CI webhook not reaching Yak.** Check Caddy/nginx logs for inbound requests to `/webhooks/ci/github` or `/webhooks/ci/drone`.
+1. **CI result not reaching Yak.** For GitHub Actions, check Caddy/nginx logs for inbound requests to `/webhooks/ci/github`. For Drone, check the scheduler/`default` worker logs — CI results are polled by `yak:poll-drone-ci` every minute, not pushed.
 2. **Wrong CI system.** The repo's `ci_system` must match which CI is authoritative for that repo. A GitHub Actions webhook for a repo configured as `drone` is silently dropped.
 3. **Branch name mismatch.** The task's `branch_name` must match what was pushed. Look at the task's Debug section for the actual branch name.
 4. **GitHub App permissions.** The App needs `Checks: Read` and `Pull requests: Read & Write` to receive check suite events and create PRs.
@@ -182,7 +182,7 @@ Symptoms: a task's status is `awaiting_ci` and never advances even though CI act
 Retries are capped at one. After two failed attempts, the task is marked `failed` and a human has to take over. If you see this pattern repeatedly for a specific repo:
 
 - The repo's `CLAUDE.md` likely needs a rule that would have prevented the class of mistake
-- The Yak system prompt may need tuning for your team's conventions (see [prompting.md](prompting.md#customizing-the-system-prompt))
+- The Yak system prompt may need tuning for your team's conventions (see [Prompting → Customizing the System Prompt](prompting.md#customizing-the-system-prompt))
 
 ## High Costs
 

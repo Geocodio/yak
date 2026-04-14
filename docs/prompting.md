@@ -1,6 +1,6 @@
 # Prompting
 
-This page is for teams who want to customize Yak's behavior — adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [repositories.md](repositories.md#claudemd--the-highest-leverage-config-point).
+This page is for teams who want to customize Yak's behavior — adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#claudemd--the-highest-leverage-config-point).
 
 ## Three Prompt Layers
 
@@ -39,7 +39,7 @@ claude -p "$TASK_PROMPT" \
 | `--append-system-prompt` | Yak persona. Appends, doesn't replace Claude's built-in prompt. |
 | `--mcp-config` | Context7 and GitHub always; Linear and Sentry conditionally |
 
-Retries and clarification replies add `--resume $session_id` to continue the original session — see [architecture.md](architecture.md#session-continuity).
+Retries and clarification replies add `--resume $session_id` to continue the original session — see [Architecture → Session Continuity](architecture.md#session-continuity).
 
 ## Model Selection
 

@@ -21,7 +21,7 @@ Channels are enabled by the presence of credentials — no credentials, no chann
 | Slack | Input, notification | no | Bot mention |
 | Linear | Input, notification | no | `yak` label |
 | Sentry | Input | no | Alert rule |
-| Drone CI | CI | no | Per-repo webhook |
+| Drone CI | CI | no | Polled by `yak:poll-drone-ci` |
 
 The minimum viable setup is **GitHub + manual CLI**. Everything else is optional.
 
@@ -248,7 +248,7 @@ Linear projects are not mapped to repos — issues frequently span projects, so 
 2. Permissions required: **Organization: Read**, **Project: Read**, **Issue & Event: Read**. Organization+Project read are what lets the Add Repository form populate the Sentry project dropdown — skip them and the form silently falls back to a plain slug text input.
 3. Set the webhook URL: `https://{your-domain}/webhooks/sentry`
 4. Create an alert rule tagged `yak-eligible` for the issues you want Yak to pick up
-5. Map Sentry projects to repositories via the `sentry_project` field on each repo (see [repositories.md](repositories.md))
+5. Map Sentry projects to repositories via the `sentry_project` field on each repo (see the [Repositories](repositories.md) page)
 6. Add to `ansible/vault/secrets.yml`:
 
    ```yaml
@@ -295,9 +295,10 @@ Issues tagged `yak-priority` bypass both the event count and actionability filte
    drone_token: ...
    ```
 
-2. Configure a webhook on each Drone-CI repo pointing to `https://{your-domain}/webhooks/ci/drone`
-3. Set `ci_system: drone` on repositories that use Drone
-4. Re-run Ansible
+2. Set `ci_system: drone` on repositories that use Drone
+3. Re-run Ansible
+
+Drone has no outbound webhooks, so Yak polls the Drone API on a schedule (see below). No webhook configuration is required on the Drone side.
 
 Yak supports both Drone and GitHub Actions simultaneously — each repo specifies which CI system is authoritative via the `ci_system` field. During a migration from Drone to GitHub Actions, update repos one at a time.
 
@@ -305,13 +306,14 @@ Yak supports both Drone and GitHub Actions simultaneously — each repo specifie
 
 1. RunYakJob pushes `yak/{external_id}`
 2. Drone triggers a build on the branch
-3. On completion, Drone calls `POST /webhooks/ci/drone`
-4. Yak matches the branch name to a task with `status = awaiting_ci`
+3. `yak:poll-drone-ci` runs every minute and calls the Drone API for each task in `awaiting_ci` on a `ci_system=drone` repo
+4. When the latest build on the task's branch settles to `success`/`failure`/`error`/`killed`, Yak dispatches `ProcessCIResultJob`
 5. On green, Yak creates the PR. On red, Yak retries once or marks the task failed.
 
 ### Gotchas
 
-- **Webhooks from the wrong CI system are ignored.** A GitHub Actions webhook for a repo configured as `drone` is silently dropped.
+- **Poll cadence.** CI results surface within ~60s of the Drone build settling. Builds still running are skipped until the next tick.
+- **Retry race.** After a retry pushes a new commit on the same branch, the poller ignores any Drone build that started before the task re-entered `awaiting_ci` (with a 60s grace period).
 - **Retries use force push** to the same branch — the PR shows only the final attempt.
 
 ---
@@ -324,4 +326,4 @@ Channels are pluggable. Adding a new input source means implementing three inter
 - `CIDriver` — parse a build result webhook, return pass/fail plus failure output
 - `NotificationDriver` — post status updates back to the source
 
-See [development.md](development.md#adding-a-new-channel-driver) for the interface reference and a worked example.
+See [Development → Adding A New Channel Driver](development.md#adding-a-new-channel-driver) for the interface reference and a worked example.

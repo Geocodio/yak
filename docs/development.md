@@ -1,6 +1,6 @@
 # Development
 
-This page is for people working on Yak itself — fixing bugs in the Laravel app, adding new features, or writing new channel drivers. If you just want to run Yak against your repos, see [setup.md](setup.md).
+This page is for people working on Yak itself — fixing bugs in the Laravel app, adding new features, or writing new channel drivers. If you just want to run Yak against your repos, see the [Setup](setup.md) page.
 
 ## Local Development Setup
 
@@ -147,7 +147,7 @@ Not enforced. Developers can run Pint on save or set up a git pre-commit hook. C
 
 ## Architecture Overview For Contributors
 
-See [architecture.md](architecture.md) for the full system design. For contributors, the shortest version:
+See the [Architecture](architecture.md) page for the full system design. For contributors, the shortest version:
 
 - **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`. Each one is a single-responsibility queue job.
 - **`app/Jobs/Middleware/`** — `CleanupDevEnvironment`, `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
@@ -261,7 +261,7 @@ interface NotificationDriver
 
 10. **Document it**
 
-    Add a Jira section to [channels.md](channels.md) following the pattern of Linear and Sentry.
+    Add a Jira section to the [Channels](channels.md) page following the pattern of Linear and Sentry.
 
 ### Adding A New CI Driver
 

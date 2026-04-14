@@ -84,7 +84,7 @@ Claude Code does the heavy lifting: reading files, assessing ambiguity with full
 
 Claude Code is always Opus. Opus produces better first-attempt results, which means fewer retries and less total work than starting with Sonnet and escalating.
 
-Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms** — see [setup.md](setup.md#6-log-in-to-claude-code) for how each is configured.
+Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms** — see [Setup → Log In To Claude Code](setup.md#6-log-in-to-claude-code) for how each is configured.
 
 ## Channel Driver Architecture
 
@@ -129,7 +129,7 @@ A single channel can fill multiple roles. GitHub is both a CI driver (via Action
 
 The rule is **respond where you were asked**. Every task has a `source` column identifying its origin. Notifications always route back to that source; if the source channel is disabled (for historical tasks after removing a channel), notifications fall back to a PR comment.
 
-See [channels.md](channels.md) for the full list of channels and their roles.
+See the [Channels](channels.md) page for the full list of channels and their roles.
 
 ## The State Machine
 
@@ -213,7 +213,7 @@ Claude Code tasks run one at a time on `yak-claude`. Resource constraints — po
 - **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure).
 - **`RetryYakJob`** — resumes the original Claude session with CI failure output and runs a second attempt on the existing branch. **Yak** force-pushes the result.
 - **`ResearchYakJob`** — for research mode tasks. Read-only; no branch, no CI. Claude generates a standalone HTML findings page saved to `.yak-artifacts/research.html`.
-- **`SetupYakJob`** — the one-time dev environment setup task for a new repo. See [repositories.md](repositories.md#the-setup-task).
+- **`SetupYakJob`** — the one-time dev environment setup task for a new repo. See [Repositories → The Setup Task](repositories.md#the-setup-task).
 
 ### Middleware
 
@@ -287,7 +287,7 @@ Claude Code runs with `--dangerously-skip-permissions` on every invocation. No t
 - **No production access.** No production databases, no customer data, no deployment pipelines.
 - **Network allowlist.** Only GitHub, Anthropic, npm, and the enabled channel APIs are reachable.
 - **Process isolation.** Claude Code runs as the `yak` user, which has no write access outside `/home/yak/repos/` and `/home/yak/.claude/`. The database, artifacts, and application files are owned by `www-data` and inaccessible to the agent process.
-- **Environment isolation.** Container env vars (DB credentials, API keys, etc.) are stripped by the `sudo runuser` sandbox. Only explicitly allowlisted vars are forwarded — configure via `agent_extra_env` in Ansible (see [setup.md](setup.md#agent-environment-variables)).
+- **Environment isolation.** Container env vars (DB credentials, API keys, etc.) are stripped by the `sudo runuser` sandbox. Only explicitly allowlisted vars are forwarded — configure via `agent_extra_env` in Ansible (see [Setup → Agent Environment Variables](setup.md#agent-environment-variables)).
 
 Claude can do anything it wants inside that sandbox. The walls are physical, not logical.
 

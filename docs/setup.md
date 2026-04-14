@@ -30,10 +30,10 @@ Only configure the channels you use. Everything except GitHub (for pushing branc
 | **Slack** | Slack app with bot token plus signing secret. |
 | **Linear** | OAuth2 app (client id + secret + webhook signing secret). Authorize at `/settings/linear`. |
 | **Sentry** | Auth token plus webhook secret. Alert rules tagged `yak-eligible`. |
-| **Drone CI** | API token. Webhook configured per-repo. |
+| **Drone CI** | API token. Yak polls the Drone API — no webhook needed. |
 | **GitHub Actions** | Included with the GitHub App — no additional setup. |
 
-See [channels.md](channels.md) for the full configuration of each channel.
+See the [Channels](channels.md) page for the full configuration of each channel.
 
 ## Quick Start
 
@@ -169,7 +169,7 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
 8. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
 9. Subscribe to bot events: `app_mention` and `message.channels`
 
-See [channels.md](channels.md#slack-optional) for usage and gotchas.
+See [Channels → Slack](channels.md#slack-optional) for usage and gotchas.
 
 #### Linear (optional)
 
@@ -194,7 +194,7 @@ state updates post as the Yak app, not as a human user.
 6. Sign in to the Yak dashboard → **Settings → Linear → Connect Linear**
    and authorize.
 
-See [channels.md](channels.md#linear-optional) for usage and gotchas.
+See [Channels → Linear](channels.md#linear-optional) for usage and gotchas.
 
 #### Sentry (optional)
 
@@ -208,16 +208,17 @@ See [channels.md](channels.md#linear-optional) for usage and gotchas.
 8. Create an alert rule tagged `yak-eligible` for the issues you want Yak to pick up
 9. Map Sentry projects to repos via the `sentry_project` field on each repo in the dashboard
 
-See [channels.md](channels.md#sentry-optional) for filtering rules and gotchas.
+See [Channels → Sentry](channels.md#sentry-optional) for filtering rules and gotchas.
 
 #### Drone CI (optional)
 
 1. Go to your Drone instance at `https://{drone-url}/account`
 2. Copy the **Personal Token** into `drone_token`
 3. Set `drone_url` to your Drone instance URL (e.g. `https://drone.yourcompany.com`)
-4. After provisioning, configure a webhook on each Drone repo pointing to `https://{your-domain}/webhooks/ci/drone`
 
-See [channels.md](channels.md#drone-ci-optional) for usage and gotchas.
+Drone has no outbound webhooks — Yak polls the Drone API every minute for CI results, so no webhook config is required on the Drone side.
+
+See [Channels → Drone CI](channels.md#drone-ci-optional) for usage and gotchas.
 
 ### 3. Configure Inventory
 
@@ -270,7 +271,7 @@ The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku
 
 Repositories are managed through the dashboard — not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
 
-See [repositories.md](repositories.md) for the full field reference and how setup tasks work.
+See the [Repositories](repositories.md) page for the full field reference and how setup tasks work.
 
 ## Verifying the Installation
 
@@ -326,7 +327,7 @@ ansible-playbook ansible/playbook.yml --tags yak-container -e yak_image_tag=abc1
 1. Add the channel's credentials to `ansible/vault/secrets.yml`
 2. Re-run Ansible: `ansible-playbook ansible/playbook.yml`
 3. Ansible regenerates the MCP config, updates env vars, restarts the container
-4. Configure the external service's webhook URL — see [channels.md](channels.md)
+4. Configure the external service's webhook URL — see the [Channels](channels.md) page
 
 ### Removing a Channel
 
@@ -357,7 +358,7 @@ Or click **Re-run Setup** on the repo's edit page in the dashboard.
 
 ## Where To Go Next
 
-- [channels.md](channels.md) — per-channel configuration and usage
-- [repositories.md](repositories.md) — adding and managing repos, CLAUDE.md guidance
-- [architecture.md](architecture.md) — how Yak works under the hood
-- [troubleshooting.md](troubleshooting.md) — common issues and solutions
+- [Channels](channels.md) — per-channel configuration and usage
+- [Repositories](repositories.md) — adding and managing repos, CLAUDE.md guidance
+- [Architecture](architecture.md) — how Yak works under the hood
+- [Troubleshooting](troubleshooting.md) — common issues and solutions
