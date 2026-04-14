@@ -1,9 +1,11 @@
 <?php
 
 use App\Jobs\ProcessCIResultJob;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 /*
@@ -102,11 +104,19 @@ test('GitHub check_suite.completed dispatches ProcessCIResultJob', function () {
     });
 });
 
-test('GitHub check_suite.completed with failure dispatches ProcessCIResultJob with passed=false', function () {
+test('GitHub check_suite.completed with failure fetches check_run output from API', function () {
     Queue::fake();
 
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    config()->set('yak.channels.github.installation_id', 12345);
+
+    // Pre-populate a cached installation token so we skip JWT generation
+    GitHubInstallationToken::create([
+        'installation_id' => 12345,
+        'token' => 'ghs_fake',
+        'expires_at' => now()->addHour(),
+    ]);
 
     Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -118,15 +128,33 @@ test('GitHub check_suite.completed with failure dispatches ProcessCIResultJob wi
         'branch_name' => 'yak/fix-auth',
     ]);
 
+    Http::fake([
+        'https://api.github.com/repos/org/my-repo/commits/def456/check-runs*' => Http::response([
+            'check_runs' => [
+                [
+                    'name' => 'tests',
+                    'conclusion' => 'failure',
+                    'html_url' => 'https://github.com/org/my-repo/runs/1',
+                    'output' => [
+                        'title' => '3 tests failed',
+                        'summary' => 'AuthTest::testLogin failed on line 42',
+                        'text' => 'Expected: true, Actual: false',
+                    ],
+                ],
+                [
+                    'name' => 'lint',
+                    'conclusion' => 'success',
+                ],
+            ],
+        ]),
+    ]);
+
     $payload = [
         'action' => 'completed',
         'check_suite' => [
             'head_branch' => 'yak/fix-auth',
             'conclusion' => 'failure',
             'head_sha' => 'def456',
-            'output' => [
-                'text' => 'Tests failed: 3 errors',
-            ],
         ],
         'repository' => [
             'full_name' => 'org/my-repo',
@@ -143,7 +171,10 @@ test('GitHub check_suite.completed with failure dispatches ProcessCIResultJob wi
     Queue::assertPushed(ProcessCIResultJob::class, function (ProcessCIResultJob $job) use ($task) {
         return $job->task->id === $task->id
             && $job->passed === false
-            && $job->output === 'Tests failed: 3 errors';
+            && str_contains((string) $job->output, 'tests')
+            && str_contains((string) $job->output, '3 tests failed')
+            && str_contains((string) $job->output, 'AuthTest::testLogin failed')
+            && ! str_contains((string) $job->output, 'lint'); // passed runs excluded
     });
 });
 

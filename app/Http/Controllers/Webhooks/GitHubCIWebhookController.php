@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessCIResultJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,7 +15,7 @@ class GitHubCIWebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, GitHubAppService $github): JsonResponse
     {
         $this->verifyWebhookSignature(
             $request,
@@ -53,8 +54,15 @@ class GitHubCIWebhookController extends Controller
         $conclusion = $request->input('check_suite.conclusion', 'failure');
         $passed = $conclusion === 'success';
 
-        /** @var string|null $output */
-        $output = $passed ? null : $request->input('check_suite.output.text');
+        $output = null;
+        if (! $passed) {
+            $installationId = (int) config('yak.channels.github.installation_id');
+            $commitSha = (string) $request->input('check_suite.head_sha', '');
+
+            if ($installationId > 0 && $commitSha !== '') {
+                $output = $github->getFailedCheckRunOutput($installationId, $task->repo, $commitSha);
+            }
+        }
 
         ProcessCIResultJob::dispatch($task, $passed, $output);
 

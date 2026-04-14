@@ -113,6 +113,55 @@ class GitHubAppService
     }
 
     /**
+     * Fetch the output text of failed check runs for a commit.
+     *
+     * GitHub's check_suite webhook payload doesn't include failure details
+     * directly — they live on individual check_runs. This assembles a
+     * human-readable summary suitable for an agent retry prompt.
+     */
+    public function getFailedCheckRunOutput(int $installationId, string $repoSlug, string $commitSha): ?string
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$commitSha}/check-runs", [
+                'per_page' => 100,
+            ]);
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        /** @var array<int, array{name: string, conclusion: ?string, html_url: string, output?: array{title?: ?string, summary?: ?string, text?: ?string}}> $runs */
+        $runs = $response->json('check_runs', []);
+
+        $sections = [];
+        foreach ($runs as $run) {
+            if (($run['conclusion'] ?? null) !== 'failure') {
+                continue;
+            }
+
+            $parts = ["## {$run['name']} ({$run['html_url']})"];
+            $output = $run['output'] ?? [];
+
+            if (! empty($output['title'])) {
+                $parts[] = "**{$output['title']}**";
+            }
+            if (! empty($output['summary'])) {
+                $parts[] = $output['summary'];
+            }
+            if (! empty($output['text'])) {
+                $parts[] = $output['text'];
+            }
+
+            $sections[] = implode("\n\n", $parts);
+        }
+
+        return empty($sections) ? null : implode("\n\n---\n\n", $sections);
+    }
+
+    /**
      * @return array<int, string>
      */
     public function getChangedFiles(int $installationId, string $repoSlug, int $prNumber): array
