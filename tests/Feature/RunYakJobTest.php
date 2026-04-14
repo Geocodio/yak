@@ -344,6 +344,35 @@ test('assembles prompt based on task source', function () {
 |--------------------------------------------------------------------------
 */
 
+test('RunYakJob fails gracefully when repo is unknown', function () {
+    Repository::factory()->create(['slug' => 'repo-a', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'repo-b', 'is_active' => true]);
+
+    $task = YakTask::factory()->pending()->create(['repo' => 'unknown']);
+
+    $fake = new FakeAgentRunner;
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed);
+    expect($task->error_log)->toContain('Could not determine which repo');
+    expect($task->error_log)->toContain('repo-a');
+    expect($task->error_log)->toContain('repo-b');
+});
+
+test('RunYakJob fails gracefully when repo slug does not exist', function () {
+    Repository::factory()->create(['slug' => 'actual-repo', 'is_active' => true]);
+
+    $task = YakTask::factory()->pending()->create(['repo' => 'non-existent-repo']);
+
+    $fake = new FakeAgentRunner;
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed);
+    expect($task->error_log)->toContain("'non-existent-repo' not found");
+});
+
 test('RunYakJob dispatches to yak-claude queue', function () {
     $task = YakTask::factory()->pending()->make();
     $job = new RunYakJob($task);

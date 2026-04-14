@@ -21,7 +21,7 @@
                     <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
                 @endif
             </div>
-            <h1 class="text-lg font-medium leading-snug text-[#3d4f5f]">{{ $task->description }}</h1>
+            <h1 class="text-lg font-medium leading-snug text-[#3d4f5f]">{{ Str::before($task->description, "\n") }}</h1>
             @if($task->status === \App\Enums\TaskStatus::Failed && $task->error_log)
                 <div class="mt-2 rounded-xl border border-[rgba(184,84,80,0.2)] bg-[rgba(184,84,80,0.06)] px-4 py-3">
                     <span class="text-xs font-medium uppercase tracking-wider text-[#b85450]">Error</span>
@@ -75,7 +75,9 @@
     {{-- Section 2: Description --}}
     <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
         <h2 class="mb-4 text-lg font-medium text-[#3d4f5f]">Description</h2>
-        <p class="mb-4 text-base leading-relaxed text-[#3d4f5f]">{{ $task->description }}</p>
+        <div class="prose prose-sm mb-4 max-w-none text-[#3d4f5f] prose-headings:text-[#3d4f5f] prose-a:text-[#c4744a] prose-a:hover:text-[#d4915e] prose-strong:text-[#3d4f5f] prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-[#3d4f5f] prose-code:before:content-none prose-code:after:content-none">
+            {!! Str::markdown($task->description) !!}
+        </div>
         @if($task->context)
             <div class="text-xs font-medium uppercase tracking-wider text-[#6b8fa3]">Source context</div>
             <p class="mt-1 text-sm leading-relaxed text-[#6b8fa3]">{{ $task->context }}</p>

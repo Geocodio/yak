@@ -20,7 +20,7 @@ enum TaskStatus: string implements StateMachine
             ->getAttributes(FinalState::class) !== [];
     }
 
-    #[CanTransitionTo([self::Running])]
+    #[CanTransitionTo([self::Running, self::Failed])]
     case Pending = 'pending';
 
     #[CanTransitionTo([
