@@ -87,7 +87,6 @@ test('linear channel has required credential fields', function () {
     expect($linear)->toHaveKeys([
         'driver', 'webhook_secret',
         'oauth_client_id', 'oauth_client_secret', 'oauth_redirect_uri', 'oauth_scopes',
-        'mcp_api_key',
         'done_state_id', 'cancelled_state_id', 'in_review_state_id',
     ])
         ->and($linear['driver'])->toBe('linear');

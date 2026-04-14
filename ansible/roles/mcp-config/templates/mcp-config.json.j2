@@ -3,14 +3,7 @@
     "context7": {
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"]
-    }{% if linear_mcp_api_key is defined and linear_mcp_api_key | length > 0 %},
-    "linear": {
-      "command": "npx",
-      "args": ["-y", "mcp-linear"],
-      "env": {
-        "LINEAR_API_KEY": "{{ linear_mcp_api_key }}"
-      }
-    }{% endif %}{% if sentry_auth_token is defined and sentry_auth_token | length > 0 %},
+    }{% if sentry_auth_token is defined and sentry_auth_token | length > 0 %},
     "sentry": {
       "command": "npx",
       "args": ["-y", "@sentry/mcp-server"],

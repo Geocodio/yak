@@ -87,10 +87,9 @@ class YakPromptBuilder
     {
         $rules = [];
 
-        $linear = new Channel('linear');
-        if ($linear->enabled()) {
-            $rules[] = self::renderView('prompts.channels.linear');
-        }
+        // Linear has no MCP rules — Yak posts comments and updates state
+        // server-side via LinearNotificationDriver. Claude isn't expected
+        // to interact with Linear directly during a run.
 
         $sentry = new Channel('sentry');
         if ($sentry->enabled()) {

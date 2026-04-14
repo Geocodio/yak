@@ -21,5 +21,3 @@
       - "3. Authorize the app from Yak:"
       - "     https://{{ yak_domain }}/settings/linear"
       - "   (Actions will then post as 'Yak', not the authorizing user.)"
-      - "4. If linear_mcp_api_key is set, the Linear MCP server stays on a"
-      - "   personal API key — read-side only, used by Claude during tasks."

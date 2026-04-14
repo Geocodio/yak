@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
+use App\Services\LinearIssueFetcher;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
@@ -107,12 +108,15 @@ class LinearWebhookController extends Controller
             ? $detection->firstRepository()->slug
             : ($description->repository ?? 'unknown');
 
+        $linearIssueId = (string) ($description->metadata['linear_issue_id'] ?? '');
+        $enriched = $this->enrichBody($description->body, $linearIssueId);
+
         $task = YakTask::create([
             'source' => 'linear',
             'repo' => $repoSlug,
             'external_id' => $description->externalId,
             'external_url' => $description->metadata['linear_issue_url'] ?? null,
-            'description' => $description->body,
+            'description' => $enriched,
             'mode' => $description->metadata['mode'] ?? 'fix',
             'context' => json_encode([
                 'title' => $description->metadata['title'] ?? '',
@@ -129,5 +133,29 @@ class LinearWebhookController extends Controller
         RunYakJob::dispatch($task);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Append comments, attachments, sub-issues, and assignment metadata
+     * fetched from Linear to the original webhook body. The webhook
+     * payload only carries title + description, but the agent benefits
+     * from the full conversation. Failures are non-fatal — fall back to
+     * the bare body.
+     */
+    private function enrichBody(string $body, string $linearIssueId): string
+    {
+        if ($linearIssueId === '') {
+            return $body;
+        }
+
+        $issue = app(LinearIssueFetcher::class)->fetch($linearIssueId);
+
+        if ($issue === null) {
+            return $body;
+        }
+
+        $rendered = app(LinearIssueFetcher::class)->renderAsMarkdown($issue);
+
+        return $rendered === '' ? $body : "{$body}\n\n---\n\n{$rendered}";
     }
 }

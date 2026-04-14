@@ -10,4 +10,4 @@ Fix the following Linear issue:
 **Instructions:**
 {{ $instructions }}
 
-Use the Linear MCP tools to read full issue details and post progress comments as you work.
+Yak posts progress and result comments back on the Linear issue automatically — no need for you to call Linear yourself.

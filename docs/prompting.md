@@ -147,13 +147,14 @@ You work unattended. Your output will be a pull request that a human reviews.
 These are appended only when the corresponding channel is enabled:
 
 ```
-# Appended when Linear channel is enabled:
-11. LINEAR: If from Linear, read the full issue and comments via Linear MCP.
-
 # Appended when Sentry channel is enabled:
-12. SENTRY: If from Sentry, use Sentry MCP to pull breadcrumbs, tags,
+11. SENTRY: If from Sentry, use Sentry MCP to pull breadcrumbs, tags,
     and related events for fuller context.
 ```
+
+(Linear has no MCP injection — Yak posts comments and updates issue
+state server-side via the OAuth integration, and the issue title/body
+are already inlined in the task prompt at creation time.)
 
 ### Customizing The System Prompt
 
@@ -229,11 +230,10 @@ Fix the failing test on the main branch.
 {issue_description}
 
 ### Instructions
-1. Read comments on {external_id} via Linear MCP
-2. Implement the fix with minimal changes
-3. Write or update tests
-4. Run relevant tests locally
-5. Commit
+1. Implement the fix with minimal changes
+2. Write or update tests
+3. Run relevant tests locally
+4. Commit
 ```
 
 ### Research

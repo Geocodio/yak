@@ -60,20 +60,8 @@ test('system prompt uses default dev environment instructions when none provided
 |--------------------------------------------------------------------------
 */
 
-test('system prompt includes linear rules when linear channel enabled', function () {
-    config()->set('yak.channels.linear.api_key', 'test-key');
+test('system prompt does not include Linear MCP rules (Linear is handled server-side, no MCP)', function () {
     config()->set('yak.channels.linear.webhook_secret', 'test-secret');
-
-    $task = YakTask::factory()->pending()->create();
-
-    $prompt = YakPromptBuilder::systemPrompt($task);
-
-    expect($prompt)->toContain('LINEAR MCP');
-});
-
-test('system prompt excludes linear rules when linear channel disabled', function () {
-    config()->set('yak.channels.linear.api_key', null);
-    config()->set('yak.channels.linear.webhook_secret', null);
 
     $task = YakTask::factory()->pending()->create();
 
@@ -106,8 +94,7 @@ test('system prompt excludes sentry rules when sentry channel disabled', functio
     expect($prompt)->not->toContain('SENTRY MCP');
 });
 
-test('system prompt includes both channel rules when both enabled', function () {
-    config()->set('yak.channels.linear.api_key', 'test-key');
+test('system prompt includes Sentry rules without Linear rules when both channels configured', function () {
     config()->set('yak.channels.linear.webhook_secret', 'test-secret');
     config()->set('yak.channels.sentry.auth_token', 'test-token');
     config()->set('yak.channels.sentry.webhook_secret', 'test-secret');
@@ -117,8 +104,8 @@ test('system prompt includes both channel rules when both enabled', function () 
 
     $prompt = YakPromptBuilder::systemPrompt($task);
 
-    expect($prompt)->toContain('LINEAR MCP')
-        ->toContain('SENTRY MCP');
+    expect($prompt)->toContain('SENTRY MCP')
+        ->not->toContain('LINEAR MCP');
 });
 
 /*
@@ -173,7 +160,7 @@ test('flaky test prompt includes test class, method, failure output, and build u
 |--------------------------------------------------------------------------
 */
 
-test('linear fix prompt includes title, description, instructions, and linear mcp reference', function () {
+test('linear fix prompt includes title, description, and instructions without mentioning MCP', function () {
     $task = YakTask::factory()->pending()->create(['source' => 'linear']);
 
     $prompt = YakPromptBuilder::taskPrompt($task, [
@@ -185,7 +172,7 @@ test('linear fix prompt includes title, description, instructions, and linear mc
     expect($prompt)->toContain('Fix authentication bug')
         ->toContain('Users cannot login with SSO')
         ->toContain('Check the SAML integration')
-        ->toContain('Linear MCP');
+        ->not->toContain('Linear MCP');
 });
 
 test('linear fix prompt includes the Linear issue identifier and url when present', function () {
@@ -337,7 +324,6 @@ test('prompt templates exist as blade views', function () {
         'prompts.tasks.slack-fix',
         'prompts.tasks.clarification-reply',
         'prompts.tasks.retry',
-        'prompts.channels.linear',
         'prompts.channels.sentry',
     ];
 
