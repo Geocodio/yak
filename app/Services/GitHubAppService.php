@@ -60,6 +60,38 @@ class GitHubAppService
     }
 
     /**
+     * Detect which CI system a repository uses by probing for config files.
+     *
+     * Returns 'drone' if .drone.yml is committed, 'github_actions' if
+     * .github/workflows/ contains at least one file, or 'none' otherwise.
+     */
+    public function detectCiSystem(int $installationId, string $repoSlug): string
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $drone = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/contents/.drone.yml");
+
+        if ($drone->successful()) {
+            return 'drone';
+        }
+
+        $workflows = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/contents/.github/workflows");
+
+        if ($workflows->successful()) {
+            $entries = $workflows->json();
+            if (is_array($entries) && count($entries) > 0) {
+                return 'github_actions';
+            }
+        }
+
+        return 'none';
+    }
+
+    /**
      * Fetch a single repository's metadata (description, topics, etc.) from GitHub.
      *
      * @return array{description: ?string, topics: array<int, string>}|null

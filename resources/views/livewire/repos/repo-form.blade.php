@@ -91,11 +91,31 @@
                     </div>
                 @endif
                 <flux:input wire:model="default_branch" label="Default Branch" />
-                <flux:select wire:model="ci_system" label="CI System">
-                    <flux:select.option value="none">None</flux:select.option>
-                    <flux:select.option value="github_actions">GitHub Actions</flux:select.option>
-                    <flux:select.option value="drone">Drone</flux:select.option>
-                </flux:select>
+                @if($this->isEditing)
+                    <flux:select wire:model="ci_system" label="CI System">
+                        <flux:select.option value="none">None</flux:select.option>
+                        <flux:select.option value="github_actions">GitHub Actions</flux:select.option>
+                        <flux:select.option value="drone">Drone</flux:select.option>
+                    </flux:select>
+                @elseif($selected_github_repo)
+                    <div>
+                        <flux:field>
+                            <flux:label>CI System</flux:label>
+                            <div class="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                                @if($detected_ci_system === 'drone')
+                                    <flux:icon.check-circle variant="mini" class="text-emerald-500" />
+                                    <span>Drone detected (<code class="text-xs">.drone.yml</code>)</span>
+                                @elseif($detected_ci_system === 'github_actions')
+                                    <flux:icon.check-circle variant="mini" class="text-emerald-500" />
+                                    <span>GitHub Actions detected (<code class="text-xs">.github/workflows</code>)</span>
+                                @else
+                                    <flux:icon.minus-circle variant="mini" class="text-zinc-400" />
+                                    <span>No CI detected — change later if needed.</span>
+                                @endif
+                            </div>
+                        </flux:field>
+                    </div>
+                @endif
                 @if(count($sentry_projects) > 0)
                     <flux:select wire:model="sentry_project" label="Sentry Project" placeholder="None">
                         <flux:select.option value="">None</flux:select.option>

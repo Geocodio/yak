@@ -739,3 +739,58 @@ test('GitHubAppService generates valid JWT structure', function () {
     expect($payload['iss'])->toBe('12345')
         ->and($payload)->toHaveKeys(['iat', 'exp', 'iss']);
 });
+
+/*
+|--------------------------------------------------------------------------
+| CI System Detection
+|--------------------------------------------------------------------------
+*/
+
+test('detectCiSystem returns drone when .drone.yml is present', function () {
+    GitHubInstallationToken::factory()->create([
+        'installation_id' => 99999,
+        'token' => 'ghs_test',
+        'expires_at' => now()->addHour(),
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/org/my-repo/contents/.drone.yml' => Http::response(['name' => '.drone.yml']),
+    ]);
+
+    $service = new GitHubAppService;
+    expect($service->detectCiSystem(99999, 'org/my-repo'))->toBe('drone');
+});
+
+test('detectCiSystem returns github_actions when .github/workflows has files', function () {
+    GitHubInstallationToken::factory()->create([
+        'installation_id' => 99999,
+        'token' => 'ghs_test',
+        'expires_at' => now()->addHour(),
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/org/my-repo/contents/.drone.yml' => Http::response('', 404),
+        'api.github.com/repos/org/my-repo/contents/.github/workflows' => Http::response([
+            ['name' => 'ci.yml', 'type' => 'file'],
+        ]),
+    ]);
+
+    $service = new GitHubAppService;
+    expect($service->detectCiSystem(99999, 'org/my-repo'))->toBe('github_actions');
+});
+
+test('detectCiSystem returns none when no CI config is committed', function () {
+    GitHubInstallationToken::factory()->create([
+        'installation_id' => 99999,
+        'token' => 'ghs_test',
+        'expires_at' => now()->addHour(),
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/org/my-repo/contents/.drone.yml' => Http::response('', 404),
+        'api.github.com/repos/org/my-repo/contents/.github/workflows' => Http::response('', 404),
+    ]);
+
+    $service = new GitHubAppService;
+    expect($service->detectCiSystem(99999, 'org/my-repo'))->toBe('none');
+});

@@ -35,6 +35,8 @@ class RepoForm extends Component
 
     public string $ci_system = 'github_actions';
 
+    public ?string $detected_ci_system = null;
+
     public string $sentry_project = '';
 
     // GitHub repo picker (create mode only)
@@ -123,6 +125,11 @@ class RepoForm extends Component
         $this->git_url = $repo['clone_url'];
         $this->default_branch = $repo['default_branch'];
         $this->github_search = '';
+
+        $this->detected_ci_system = $this->detectCiSystem($repo['full_name']);
+        if ($this->detected_ci_system !== null) {
+            $this->ci_system = $this->detected_ci_system;
+        }
     }
 
     public function clearSelectedRepo(): void
@@ -132,6 +139,26 @@ class RepoForm extends Component
         $this->git_url = '';
         $this->default_branch = 'main';
         $this->github_search = '';
+        $this->detected_ci_system = null;
+    }
+
+    protected function detectCiSystem(string $repoSlug): ?string
+    {
+        try {
+            $installationId = (int) config('yak.channels.github.installation_id');
+
+            if (! $installationId) {
+                return null;
+            }
+
+            return Cache::remember(
+                "github-ci-detect:{$repoSlug}",
+                300,
+                fn (): string => app(GitHubAppService::class)->detectCiSystem($installationId, $repoSlug),
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
