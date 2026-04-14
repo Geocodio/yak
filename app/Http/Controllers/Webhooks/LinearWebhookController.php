@@ -117,6 +117,7 @@ class LinearWebhookController extends Controller
             'context' => json_encode([
                 'title' => $description->metadata['title'] ?? '',
                 'description' => $description->metadata['description'] ?? '',
+                'linear_issue_id' => $description->metadata['linear_issue_id'] ?? '',
                 'linear_issue_identifier' => $description->metadata['linear_issue_identifier'] ?? '',
                 'linear_issue_url' => $description->metadata['linear_issue_url'] ?? '',
             ]),

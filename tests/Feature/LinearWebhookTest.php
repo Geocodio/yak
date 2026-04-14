@@ -160,6 +160,7 @@ it('creates a fix task when yak label is added to an issue', function () {
     $context = json_decode((string) $task->context, true);
     expect($context['title'])->toBe('Fix the broken auth flow');
     expect($context['description'])->toBe('The login page returns 500 errors intermittently.');
+    expect($context['linear_issue_id'])->toBe('issue-uuid-001');
     expect($context['linear_issue_identifier'])->toBe('ENG-42');
     expect($context['linear_issue_url'])->toBe('https://linear.app/team/issue/ENG-42');
 
