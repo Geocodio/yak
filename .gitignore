@@ -25,6 +25,7 @@ yarn-error.log
 .superpowers
 spec/
 .chief
+.worktrees/
 CLAUDE.local.md
 TODO.md
 docs/superpowers/
