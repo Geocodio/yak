@@ -26,7 +26,7 @@ class LinearInputDriver implements InputDriver
         $issueId = $issue['id'] ?? '';
 
         $labels = $this->extractLabels($request);
-        $mode = $this->detectMode($labels);
+        $mode = $this->detectMode($labels, $title);
         $repository = $this->detectRepo($description);
 
         $externalId = $identifier !== '' ? "LINEAR-{$identifier}" : $issueId;
@@ -65,13 +65,22 @@ class LinearInputDriver implements InputDriver
     }
 
     /**
-     * Detect task mode from labels. yak + research = Research, otherwise Fix.
+     * Detect task mode from labels or title. A `research` label or the word
+     * "research" anywhere in the issue title triggers Research mode.
+     *
+     * Matching on the title avoids a race where the `yak` label is applied
+     * before the `research` label — the webhook fires on `yak` and the
+     * `research` label wouldn't be visible yet.
      *
      * @param  list<string>  $labels
      */
-    private function detectMode(array $labels): TaskMode
+    private function detectMode(array $labels, string $title): TaskMode
     {
         if (in_array('research', $labels, true)) {
+            return TaskMode::Research;
+        }
+
+        if (preg_match('/\bresearch\b/i', $title)) {
             return TaskMode::Research;
         }
 

@@ -203,6 +203,74 @@ it('creates a research task when yak and research labels are present', function 
     expect($task->mode)->toBe(TaskMode::Research);
 });
 
+it('creates a research task when "research" appears in the issue title', function () {
+    $secret = enableLinearChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = linearLabelPayload([
+        'issueId' => 'issue-uuid-002a',
+        'title' => 'Research: audit deprecated field usage',
+        'previousLabelIds' => [],
+    ]);
+    $signature = signLinearPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/linear', content: $body, server: [
+        'HTTP_Linear-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task = YakTask::first();
+    expect($task)->not->toBeNull();
+    expect($task->mode)->toBe(TaskMode::Research);
+});
+
+it('matches "research" in the title regardless of punctuation or casing', function () {
+    $secret = enableLinearChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = linearLabelPayload([
+        'issueId' => 'issue-uuid-002b',
+        'title' => '[RESEARCH] investigate memory leak',
+        'previousLabelIds' => [],
+    ]);
+    $signature = signLinearPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/linear', content: $body, server: [
+        'HTTP_Linear-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Research);
+});
+
+it('does not match research as a substring of another word', function () {
+    $secret = enableLinearChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = linearLabelPayload([
+        'issueId' => 'issue-uuid-002c',
+        'title' => 'Fix researcher profile page bug',
+        'previousLabelIds' => [],
+    ]);
+    $signature = signLinearPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/linear', content: $body, server: [
+        'HTTP_Linear-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Fix);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Repo Detection

@@ -199,7 +199,7 @@ state updates are authored by the Yak app rather than a human user.
 
 ### Usage
 
-Add the `yak` label to any issue. Add `yak` + `research` for research-only tasks.
+Add the `yak` label to any issue. For research-only tasks, include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`) — or apply a `research` label *before* the `yak` label. The title check exists because the webhook fires the instant `yak` is applied; if you add `research` afterwards, Yak won't see it.
 
 Anyone on the team can trigger a task by applying the label — no Linear seat is needed, because the OAuth app posts as itself, not as a user.
 
