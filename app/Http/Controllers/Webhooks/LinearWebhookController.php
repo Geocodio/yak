@@ -24,6 +24,7 @@ class LinearWebhookController extends Controller
             $request,
             (string) config('yak.channels.linear.webhook_secret'),
             'Linear-Signature',
+            prefix: '', // Linear sends the raw HMAC-SHA256 digest with no prefix
         );
 
         // Only handle Issue label events

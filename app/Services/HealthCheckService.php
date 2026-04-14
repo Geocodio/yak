@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 
@@ -162,6 +163,34 @@ class HealthCheckService
     }
 
     /**
+     * Check if any webhook signature verifications have failed recently.
+     *
+     * @return array{healthy: bool, detail: string}
+     */
+    public function checkWebhookSignatures(): array
+    {
+        $channels = ['SlackWebhookController', 'LinearWebhookController', 'SentryWebhookController', 'GitHubWebhookController', 'GitHubCIWebhookController', 'DroneCIWebhookController'];
+        $failures = [];
+
+        foreach ($channels as $controller) {
+            $count = (int) Cache::get("webhook-signature-failures:{$controller}", 0);
+            if ($count > 0) {
+                $name = str_replace('WebhookController', '', $controller);
+                $failures[] = "{$name} ({$count})";
+            }
+        }
+
+        if (empty($failures)) {
+            return ['healthy' => true, 'detail' => 'No rejected webhooks'];
+        }
+
+        return [
+            'healthy' => false,
+            'detail' => 'Rejected webhooks — check signing secrets: ' . implode(', ', $failures),
+        ];
+    }
+
+    /**
      * @return list<array{name: string, healthy: bool, detail: string, checked_at: Carbon}>
      */
     public function runAll(): array
@@ -174,6 +203,7 @@ class HealthCheckService
             ['name' => 'Claude CLI', 'method' => 'checkClaudeCli'],
             ['name' => 'Claude CLI Auth', 'method' => 'checkClaudeAuth'],
             ['name' => 'MCP Servers', 'method' => 'checkMcpServers'],
+            ['name' => 'Webhook Signatures', 'method' => 'checkWebhookSignatures'],
         ];
 
         $results = [];

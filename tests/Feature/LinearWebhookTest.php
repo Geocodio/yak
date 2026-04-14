@@ -140,7 +140,7 @@ it('creates a fix task when yak label is added to an issue', function () {
     $signature = signLinearPayload($body, $secret);
 
     $response = $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ]);
 
@@ -183,7 +183,7 @@ it('creates a research task when yak and research labels are present', function 
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -213,7 +213,7 @@ it('detects repo from issue description using repo: syntax', function () {
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -238,7 +238,7 @@ it('falls back to default repo when no repo mentioned in description', function 
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -276,7 +276,7 @@ it('ignores label removal events (yak label removed)', function () {
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -314,7 +314,7 @@ it('ignores non-yak label changes', function () {
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -341,7 +341,7 @@ it('dispatches acknowledgment notification on pickup', function () {
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -439,7 +439,7 @@ it('ignores non-Issue type events', function () {
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
@@ -473,7 +473,7 @@ it('does not create duplicate task for same Linear issue', function () {
     $signature = signLinearPayload($body, $secret);
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
-        'HTTP_Linear-Signature' => "sha256={$signature}",
+        'HTTP_Linear-Signature' => $signature,
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
