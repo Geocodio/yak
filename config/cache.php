@@ -119,12 +119,22 @@ return [
     | Serializable Classes
     |--------------------------------------------------------------------------
     |
-    | This value determines the classes that can be unserialized from cache
-    | storage. By default, no PHP classes will be unserialized from your
-    | cache to prevent gadget chain attacks if your APP_KEY is leaked.
+    | Laravel's default (`false`) disables unserialization of *all* classes
+    | from cache to prevent gadget-chain attacks via a leaked APP_KEY. Yak
+    | caches a handful of app-owned value objects (currently just health
+    | check results), so we explicitly allowlist those instead of disabling
+    | the feature entirely.
+    |
+    | Add new classes here when you start caching instances of them — a
+    | silent fallback to `__PHP_Incomplete_Class` is the symptom of a
+    | missing entry.
     |
     */
 
-    'serializable_classes' => false,
+    'serializable_classes' => [
+        \App\Services\HealthCheck\HealthResult::class,
+        \App\Services\HealthCheck\HealthStatus::class,
+        \App\Services\HealthCheck\HealthAction::class,
+    ],
 
 ];
