@@ -184,7 +184,7 @@ test('branch name gets a counter suffix when remote already has the branch', fun
         /** @param  array<int, string>  $existingRemoteBranches */
         public function __construct(private array $existingRemoteBranches) {}
 
-        public function run(string $containerName, string $command, ?int $timeout = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
         {
             if (preg_match("/git ls-remote --heads origin '([^']+)'/", $command, $m)) {
                 return in_array($m[1], $this->existingRemoteBranches, true)

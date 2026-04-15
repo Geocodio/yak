@@ -169,7 +169,8 @@ class SandboxedAgentRunner implements AgentRunner
     /**
      * Build the Claude CLI command that runs inside the sandbox.
      *
-     * The command runs directly inside the Incus container as the yak user.
+     * `IncusSandboxManager::run/streamExec` already wraps commands in
+     * `sudo -u yak`, so we invoke `claude` directly here.
      */
     private function buildClaudeCommand(AgentRunRequest $request): string
     {
@@ -180,7 +181,7 @@ class SandboxedAgentRunner implements AgentRunner
         $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
         $command = sprintf(
-            'cd %s && sudo -u yak claude -p %s --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            'cd %s && claude -p %s --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
             escapeshellarg($workspacePath),
             escapeshellarg($request->prompt),
             $outputFormat,

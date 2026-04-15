@@ -19,8 +19,8 @@ use App\Models\YakTask;
 |--------------------------------------------------------------------------
 */
 
-test('database queue retry_after defaults to 660 seconds', function () {
-    expect(config('queue.connections.database.retry_after'))->toBe(660);
+test('database queue retry_after defaults above the longest job timeout', function () {
+    expect(config('queue.connections.database.retry_after'))->toBe(2400);
 });
 
 /*
@@ -139,6 +139,13 @@ test('retry_after exceeds yak-claude job timeout', function () {
     $retryAfter = config('queue.connections.database.retry_after');
 
     expect($retryAfter)->toBeGreaterThan(600);
+});
+
+test('retry_after exceeds setup job timeout', function () {
+    $retryAfter = config('queue.connections.database.retry_after');
+    $setupTimeout = (new SetupYakJob(YakTask::factory()->pending()->make()))->timeout;
+
+    expect($retryAfter)->toBeGreaterThan($setupTimeout);
 });
 
 test('retry_after exceeds default job timeout', function () {

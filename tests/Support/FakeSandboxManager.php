@@ -48,7 +48,7 @@ class FakeSandboxManager extends IncusSandboxManager
         return $name;
     }
 
-    public function run(string $containerName, string $command, ?int $timeout = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
     {
         return Process::result('');
     }
@@ -56,7 +56,7 @@ class FakeSandboxManager extends IncusSandboxManager
     /**
      * @return array{resource, array<int, resource>}
      */
-    public function streamExec(string $containerName, string $command): array
+    public function streamExec(string $containerName, string $command, bool $asRoot = false): array
     {
         // Create a pair of pipes that the test can use
         $descriptors = [

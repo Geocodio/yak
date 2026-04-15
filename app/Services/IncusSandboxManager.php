@@ -66,18 +66,6 @@ class IncusSandboxManager
         // Push MCP config if configured
         $this->pushMcpConfig($containerName);
 
-        // Trust /workspace for every user inside the sandbox. yak-base
-        // pre-creates /workspace as yak:yak so the agent (running as yak)
-        // can write to it, but `git clone` and `git push` run as root
-        // via `sandbox->run()`. Without this, git refuses operations with
-        // "fatal: detected dubious ownership in repository at '/workspace'".
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
-        $this->run(
-            $containerName,
-            'git config --system --add safe.directory ' . escapeshellarg($workspacePath),
-            timeout: 10,
-        );
-
         Log::channel('yak')->info('Sandbox container ready', [
             'container' => $containerName,
             'task_id' => $task->id,
@@ -89,15 +77,15 @@ class IncusSandboxManager
     /**
      * Execute a command inside a sandbox container.
      *
+     * Commands run as the `yak` user by default so file ownership stays
+     * consistent with the agent (which also runs as yak). Set `asRoot: true`
+     * for the rare privileged operations (chown of pushed files, etc.).
+     *
      * Returns the raw process result for callers that need stdout/stderr.
      */
-    public function run(string $containerName, string $command, ?int $timeout = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
     {
-        $cmd = sprintf(
-            'incus exec %s -- bash -c %s',
-            escapeshellarg($containerName),
-            escapeshellarg($command),
-        );
+        $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
 
         $process = Process::timeout($timeout ?? 600);
 
@@ -107,17 +95,15 @@ class IncusSandboxManager
     /**
      * Execute a command inside a sandbox using proc_open for streaming.
      *
+     * Defaults to running as the `yak` user (see `run()` for rationale).
+     *
      * Returns the proc_open resource and pipes for line-by-line streaming.
      *
      * @return array{resource, array<int, resource>}
      */
-    public function streamExec(string $containerName, string $command): array
+    public function streamExec(string $containerName, string $command, bool $asRoot = false): array
     {
-        $cmd = sprintf(
-            'incus exec %s -- bash -c %s',
-            escapeshellarg($containerName),
-            escapeshellarg($command),
-        );
+        $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
 
         $descriptors = [
             0 => ['pipe', 'r'],  // stdin
@@ -523,8 +509,9 @@ class IncusSandboxManager
             ));
         }
 
-        // Fix ownership inside container
-        $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10);
+        // Fix ownership inside container. `incus file push` lands files as
+        // root; chown must run as root to change ownership to yak.
+        $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10, asRoot: true);
     }
 
     private function pushMcpConfig(string $containerName): void
@@ -549,5 +536,22 @@ class IncusSandboxManager
         if ($result->exitCode() !== 0) {
             throw new RuntimeException("Incus command failed: {$command}\n{$result->errorOutput()}");
         }
+    }
+
+    /**
+     * Build the `incus exec` shell command, wrapping the payload in
+     * `sudo -u yak` unless the caller explicitly needs root.
+     */
+    private function buildExecCommand(string $containerName, string $command, bool $asRoot): string
+    {
+        $shell = $asRoot
+            ? 'bash -c ' . escapeshellarg($command)
+            : 'sudo -u yak -H bash -c ' . escapeshellarg($command);
+
+        return sprintf(
+            'incus exec %s -- %s',
+            escapeshellarg($containerName),
+            $shell,
+        );
     }
 }
