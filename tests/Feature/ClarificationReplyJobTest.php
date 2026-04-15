@@ -5,6 +5,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\EnsureDailyBudget;
+use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
@@ -368,7 +369,8 @@ test('ClarificationReplyJob has EnsureDailyBudget middleware', function () {
 
     $job = new ClarificationReplyJob($task, 'test reply');
     $middleware = $job->middleware();
+    $classes = array_map(fn ($m) => $m::class, $middleware);
 
-    expect($middleware)->toHaveCount(1)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
+    expect($classes)->toContain(EnsureDailyBudget::class)
+        ->and($classes)->toContain(EnsureRepoReady::class);
 });

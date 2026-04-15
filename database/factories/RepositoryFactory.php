@@ -25,11 +25,20 @@ class RepositoryFactory extends Factory
             'is_default' => false,
             'is_active' => true,
             'setup_status' => 'ready',
+            'sandbox_snapshot' => 'yak-tpl-' . $slug . '/ready',
             'path' => '/home/yak/repos/' . $slug,
             'git_url' => 'https://github.com/acme/' . $slug . '.git',
             'default_branch' => 'main',
             'ci_system' => fake()->randomElement(['github_actions', 'drone']),
         ];
+    }
+
+    public function pendingSetup(): static
+    {
+        return $this->state(fn (): array => [
+            'setup_status' => 'pending',
+            'sandbox_snapshot' => null,
+        ]);
     }
 
     public function default(): static

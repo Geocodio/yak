@@ -9,6 +9,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Middleware\EnsureDailyBudget;
+use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -46,6 +47,7 @@ class ClarificationReplyJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            new EnsureRepoReady,
             new EnsureDailyBudget,
         ];
     }

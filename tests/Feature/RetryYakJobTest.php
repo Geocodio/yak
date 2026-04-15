@@ -4,6 +4,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\EnsureDailyBudget;
+use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\RetryYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -252,9 +253,10 @@ test('RetryYakJob has EnsureDailyBudget middleware', function () {
 
     $job = new RetryYakJob($task);
     $middleware = $job->middleware();
+    $classes = array_map(fn ($m) => $m::class, $middleware);
 
-    expect($middleware)->toHaveCount(1)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
+    expect($classes)->toContain(EnsureDailyBudget::class)
+        ->and($classes)->toContain(EnsureRepoReady::class);
 });
 
 /*
