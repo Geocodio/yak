@@ -40,7 +40,11 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 660),
+            // Must exceed every job's `$timeout` (longest is SetupYakJob at 1800s).
+            // Otherwise the queue re-reserves a still-running job, records it in
+            // failed_jobs via MaxAttemptsExceededException, then the original
+            // worker's timeout handler hits a duplicate UUID on insert.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 2400),
             'after_commit' => false,
         ],
 
