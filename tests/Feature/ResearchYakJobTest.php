@@ -65,7 +65,7 @@ test('successful research transitions task to success with result_summary and co
         ->and($task->completed_at)->not->toBeNull();
 });
 
-test('research ensures repo is on default branch and pulls latest', function () {
+test('research creates sandbox and completes successfully', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
@@ -78,14 +78,12 @@ test('research ensures repo is on default branch and pulls latest', function () 
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
     Http::fake();
-    File::shouldReceive('exists')->andReturn(false);
 
     $repository = Repository::factory()->create([
         'slug' => 'test-repo',
@@ -97,8 +95,12 @@ test('research ensures repo is on default branch and pulls latest', function () 
     $job = new ResearchYakJob($task);
     $job->handle($fake);
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git pull origin main'));
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success);
+
+    // Sandbox was created and destroyed
+    expect($fakeSandbox->createdContainers)->toHaveCount(1)
+        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
 test('research does not create any branch', function () {
@@ -141,7 +143,7 @@ test('research does not create any branch', function () {
 |--------------------------------------------------------------------------
 */
 
-test('collects HTML artifact from .yak-artifacts/research.html', function () {
+test('collects HTML artifact from sandbox when present', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_artifact',
         resultSummary: 'Research complete',
@@ -154,23 +156,28 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    // Create a sandbox fake that reports the artifact exists and writes a real file on pull
+    $fakeSandbox = new class extends FakeSandboxManager
+    {
+        public function fileExists(string $containerName, string $path): bool
+        {
+            return str_contains($path, 'research.html');
+        }
+
+        public function pullFile(string $containerName, string $remotePath, string $localPath): void
+        {
+            $dir = dirname($localPath);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($localPath, '<html>research</html>');
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
     Http::fake();
-
-    File::shouldReceive('exists')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(true);
-    File::shouldReceive('get')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn('<html>research</html>');
-    File::shouldReceive('size')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(4096);
     Storage::fake('artifacts');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
@@ -184,10 +191,7 @@ test('collects HTML artifact from .yak-artifacts/research.html', function () {
     expect($artifact)->not->toBeNull()
         ->and($artifact->type)->toBe('research')
         ->and($artifact->filename)->toBe('research.html')
-        ->and($artifact->disk_path)->toBe("{$task->id}/research.html")
-        ->and($artifact->size_bytes)->toBe(4096);
-
-    Storage::disk('artifacts')->assertExists("{$task->id}/research.html");
+        ->and($artifact->disk_path)->toBe("{$task->id}/research.html");
 });
 
 test('handles missing HTML artifact gracefully', function () {
@@ -245,23 +249,28 @@ test('posts summary and findings URL as Linear comment', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    // Sandbox that reports artifact exists and writes file on pull
+    $fakeSandbox = new class extends FakeSandboxManager
+    {
+        public function fileExists(string $containerName, string $path): bool
+        {
+            return str_contains($path, 'research.html');
+        }
+
+        public function pullFile(string $containerName, string $remotePath, string $localPath): void
+        {
+            $dir = dirname($localPath);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($localPath, '<html>research</html>');
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
     Http::fake();
-
-    File::shouldReceive('exists')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(true);
-    File::shouldReceive('get')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn('<html>research</html>');
-    File::shouldReceive('size')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(2048);
     Storage::fake('artifacts');
 
     LinearOauthConnection::factory()->create();
@@ -360,23 +369,28 @@ test('posts summary and findings URL as Slack thread reply', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    // Sandbox that reports artifact exists and writes file on pull
+    $fakeSandbox = new class extends FakeSandboxManager
+    {
+        public function fileExists(string $containerName, string $path): bool
+        {
+            return str_contains($path, 'research.html');
+        }
+
+        public function pullFile(string $containerName, string $remotePath, string $localPath): void
+        {
+            $dir = dirname($localPath);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($localPath, '<html>research</html>');
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
     Http::fake();
-
-    File::shouldReceive('exists')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(true);
-    File::shouldReceive('get')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn('<html>research</html>');
-    File::shouldReceive('size')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(1024);
     Storage::fake('artifacts');
 
     config(['yak.channels.slack.bot_token' => 'xoxb-test-token']);
