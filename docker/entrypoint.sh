@@ -12,6 +12,11 @@ chmod -R 775 /app/storage
 # worker reads it as www-data and pushes it into each new sandbox container.
 chown -R www-data:www-data /home/yak/.claude
 
+# www-data's HOME is /var/www — ensure it owns the dotfile dirs it needs
+# (incus client writes ~/.config/incus/, npm writes ~/.npm, etc.).
+chown www-data:www-data /var/www
+chown -R www-data:www-data /var/www/.cache /var/www/.config /var/www/.local /var/www/.npm 2>/dev/null || true
+
 # Add www-data to the Incus group on the host so the worker can talk to the
 # Incus Unix socket. The host's incus-admin GID is detected from the mounted
 # socket so it survives Incus reinstalls/upgrades.
