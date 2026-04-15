@@ -124,6 +124,34 @@ test('dispatches a fresh setup task and fails the current task when base_version
     expect($job->failed)->toBeTrue();
     expect($job->failMessage)->toContain('v1 → v2');
     expect($job->failMessage)->toContain('fresh Setup task');
+});
+
+test('dispatches a setup task when template predates the versioning system (null stored version)', function () {
+    config()->set('yak.sandbox.base_version', 2);
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'acme/legacy',
+        'setup_status' => 'ready',
+        'sandbox_snapshot' => 'yak-tpl-acme-legacy/ready',
+        'sandbox_base_version' => null,
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/legacy']);
+
+    $called = false;
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, function () use (&$called) {
+        $called = true;
+    });
+
+    expect($called)->toBeFalse();
+    expect($job->failed)->toBeTrue();
+    expect($job->failMessage)->toContain('legacy (unversioned) → v2');
+
+    Queue::assertPushed(SetupYakJob::class);
 
     $repo->refresh();
     expect($repo->sandbox_snapshot)->toBeNull();

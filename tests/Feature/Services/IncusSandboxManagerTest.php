@@ -84,10 +84,19 @@ it('considers a template up to date when stored version matches config', functio
     expect(app(IncusSandboxManager::class)->isTemplateUpToDate($repo))->toBeTrue();
 });
 
-it('considers a template up to date when no version is stored yet', function () {
-    $repo = Repository::factory()->create(['sandbox_base_version' => null]);
+it('considers a repo up to date when it has no template at all', function () {
+    $repo = Repository::factory()->pendingSetup()->create();
 
     expect(app(IncusSandboxManager::class)->isTemplateUpToDate($repo))->toBeTrue();
+});
+
+it('flags legacy templates (null version, snapshot set) as drifted', function () {
+    $repo = Repository::factory()->create([
+        'sandbox_snapshot' => 'yak-tpl-legacy/ready',
+        'sandbox_base_version' => null,
+    ]);
+
+    expect(app(IncusSandboxManager::class)->isTemplateUpToDate($repo))->toBeFalse();
 });
 
 it('flags a template as outdated when the stored version is behind config', function () {

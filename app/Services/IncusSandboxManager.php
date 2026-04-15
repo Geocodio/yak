@@ -358,18 +358,21 @@ class IncusSandboxManager
 
     /**
      * True when the repo's stored sandbox_base_version matches the current
-     * config value. Null versions are treated as "up to date" so fresh
-     * repos are not flagged as drifted.
+     * config value.
+     *
+     * Repos without a template (no sandbox_snapshot) return true so they
+     * pass through to the "not set up yet" path in EnsureRepoReady. Repos
+     * that DO have a template but a null version predate the versioning
+     * system, so they are treated as drifted and re-provisioned on the
+     * next task run.
      */
     public function isTemplateUpToDate(Repository $repository): bool
     {
-        $stored = $repository->sandbox_base_version;
-
-        if ($stored === null) {
+        if (empty($repository->sandbox_snapshot)) {
             return true;
         }
 
-        return (int) $stored === (int) config('yak.sandbox.base_version', 1);
+        return (int) $repository->sandbox_base_version === (int) config('yak.sandbox.base_version', 1);
     }
 
     /**

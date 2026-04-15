@@ -64,14 +64,16 @@ class EnsureRepoReady
 
         if (! $sandbox->isTemplateUpToDate($repository)) {
             $currentVersion = (int) config('yak.sandbox.base_version', 1);
-            $storedVersion = (int) $repository->sandbox_base_version;
+            $storedLabel = $repository->sandbox_base_version === null
+                ? 'legacy (unversioned)'
+                : 'v' . (int) $repository->sandbox_base_version;
 
             $sandbox->invalidateTemplate($repository);
             $setupTask = $this->dispatchSetupTask($repository);
 
             $reason = sprintf(
-                'Sandbox base image updated (v%d → v%d). A fresh Setup task (#%d) has been dispatched — retry this task once setup completes.',
-                $storedVersion,
+                'Sandbox base image updated (%s → v%d). A fresh Setup task (#%d) has been dispatched — retry this task once setup completes.',
+                $storedLabel,
                 $currentVersion,
                 $setupTask->id,
             );
