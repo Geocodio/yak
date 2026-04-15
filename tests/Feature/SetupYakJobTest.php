@@ -70,6 +70,73 @@ test('successful setup transitions task to success and repo to ready', function 
         ->and($repository->sandbox_snapshot)->not->toBeNull();
 });
 
+test('re-running setup destroys the existing template first so the clone starts from yak-base', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_resetup',
+        resultSummary: 'Reconfigured',
+        costUsd: 1.0,
+        numTurns: 5,
+        durationMs: 5000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'already-set-up',
+        'sandbox_snapshot' => 'yak-tpl-already-set-up/ready',
+        'sandbox_base_version' => null,
+        'setup_status' => 'ready',
+    ]);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'already-set-up',
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+    ]);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->invalidatedTemplates)->toContain('yak-tpl-already-set-up');
+});
+
+test('first-time setup skips invalidation (no existing template)', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_first',
+        resultSummary: 'Set up',
+        costUsd: 1.0,
+        numTurns: 5,
+        durationMs: 5000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->pendingSetup()->create(['slug' => 'fresh']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'fresh',
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+    ]);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->invalidatedTemplates)->toBeEmpty();
+});
+
 test('setup promotes sandbox to repo template on success', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',

@@ -76,7 +76,16 @@ class SetupYakJob implements ShouldQueue
         $repository->update(['setup_status' => 'running']);
 
         try {
-            // Create sandbox from base template (no repo snapshot exists yet)
+            // Always build setup sandboxes from the empty yak-base, not
+            // from any existing repo template. Without this, a re-run of
+            // Setup clones from the previously-promoted template whose
+            // /workspace is already populated, and `git clone` fails with
+            // "destination path already exists and is not empty".
+            if (! empty($repository->sandbox_snapshot)) {
+                $sandbox->invalidateTemplate($repository);
+                $repository->refresh();
+            }
+
             $containerName = $sandbox->create($this->task, $repository);
             TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
 

@@ -28,6 +28,9 @@ class FakeSandboxManager extends IncusSandboxManager
     /** @var array<int, string> */
     public array $promotedTemplates = [];
 
+    /** @var array<int, string> */
+    public array $invalidatedTemplates = [];
+
     private bool $hasSnapshotResult = false;
 
     public function setHasSnapshot(bool $value): self
@@ -103,6 +106,17 @@ class FakeSandboxManager extends IncusSandboxManager
     public function destroy(string $containerName): void
     {
         $this->destroyedContainers[] = $containerName;
+    }
+
+    public function invalidateTemplate(Repository $repository): void
+    {
+        $this->invalidatedTemplates[] = $this->templateName($repository);
+
+        $repository->update([
+            'sandbox_snapshot' => null,
+            'sandbox_base_version' => null,
+            'setup_status' => 'pending',
+        ]);
     }
 
     public function hasSnapshot(Repository $repository): bool
