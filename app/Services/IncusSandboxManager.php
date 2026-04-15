@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\TaskStatus;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -275,11 +276,16 @@ class IncusSandboxManager
     }
 
     /**
-     * Delete sandbox containers older than the configured cleanup threshold.
+     * Delete leftover task sandbox containers.
+     *
+     * Covers two cases:
+     *  - STOPPED task-* containers (normal leftovers from completed jobs)
+     *  - RUNNING task-* containers whose YakTask is in a terminal state
+     *    (orphans from worker hard-kills on timeout — the `finally` block
+     *    never got a chance to destroy the container)
      */
     public function cleanupStale(): int
     {
-        $hours = (int) config('yak.sandbox.cleanup_after_hours', 24);
         $result = Process::run('incus list --format csv -c n,s 2>/dev/null');
 
         if ($result->exitCode() !== 0) {
@@ -295,26 +301,52 @@ class IncusSandboxManager
 
             $parts = explode(',', $line);
             $name = trim($parts[0]);
+            $status = trim($parts[1] ?? '');
 
-            // Only clean up task containers, not templates
             if (! str_starts_with($name, 'task-')) {
                 continue;
             }
 
-            // Check creation time
-            $info = Process::run("incus info {$name} --format csv 2>/dev/null");
-            if (str_contains($info->output(), 'Created')) {
-                // Simple heuristic: if the container exists and is a task container,
-                // and we're doing cleanup, delete stopped ones
-                $status = trim($parts[1] ?? '');
-                if ($status === 'STOPPED') {
-                    Process::run("incus delete {$name} --force");
-                    $deleted++;
-                }
+            if ($status === 'STOPPED') {
+                Process::run("incus delete {$name} --force");
+                $deleted++;
+
+                continue;
+            }
+
+            if ($status === 'RUNNING' && $this->isOrphaned($name)) {
+                Log::channel('yak')->warning('Cleaning up orphaned sandbox', [
+                    'container' => $name,
+                ]);
+                Process::run("incus delete {$name} --force");
+                $deleted++;
             }
         }
 
         return $deleted;
+    }
+
+    /**
+     * True when a task-* container's YakTask no longer exists or has
+     * reached a state where no sandbox should legitimately be running.
+     */
+    private function isOrphaned(string $containerName): bool
+    {
+        if (! preg_match('/^task-(\d+)$/', $containerName, $matches)) {
+            return false;
+        }
+
+        $task = YakTask::find((int) $matches[1]);
+
+        if ($task === null) {
+            return true;
+        }
+
+        return in_array($task->status, [
+            TaskStatus::Success,
+            TaskStatus::Failed,
+            TaskStatus::Expired,
+        ], true);
     }
 
     /**

@@ -26,10 +26,12 @@ class SetupYakJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 600;
+    public int $timeout = 1800;
 
-    /** @var array<int, int> */
-    public array $backoff = [1, 5, 10];
+    // A failed setup rarely succeeds on retry without manual intervention,
+    // and each retry burns another agent budget. Fail fast; users can
+    // re-trigger via the "Re-run Setup" button, which dispatches a fresh task.
+    public int $tries = 1;
 
     public function __construct(
         public YakTask $task,
