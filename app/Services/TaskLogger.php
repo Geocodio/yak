@@ -20,8 +20,15 @@ class TaskLogger
             ...(is_array($metadata) ? $metadata : []),
         ]);
 
+        // Stamp the log with the in-flight attempt number so the task detail
+        // UI can split previous retries from the current run. Jobs bump
+        // `attempts` at the start of each run; `max(1, ...)` covers tasks
+        // logged before that bump (e.g. on the dispatch path).
+        $attempt = max(1, (int) $task->attempts);
+
         return TaskLog::create([
             'yak_task_id' => $task->id,
+            'attempt_number' => $attempt,
             'level' => $level,
             'message' => $message,
             'metadata' => $metadata,

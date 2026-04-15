@@ -288,7 +288,7 @@
     @endonce
 
     {{-- Section 8: Activity (Unified log with milestone highlighting) --}}
-    @if($this->logs->isNotEmpty())
+    @if($this->hasLogs)
         <div
             class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]"
             x-data="activityFollow()"
@@ -324,6 +324,22 @@
                     @if($task->cost_usd) &middot; ${{ number_format((float) $task->cost_usd, 2) }} @endif
                 </span>
             </div>
+
+            {{-- Attempt selector (only shown when the task was retried) --}}
+            @if(count($this->availableAttempts) > 0)
+                <div class="mb-3 flex flex-wrap items-center gap-2" data-testid="attempt-selector">
+                    <span class="text-xs font-medium text-yak-tan">Attempt</span>
+                    @foreach($this->availableAttempts as $attempt)
+                        <button
+                            wire:click="selectAttempt({{ $attempt }})"
+                            class="rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors {{ $visibleAttempt === $attempt ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-yak-green' : 'border-[rgba(200,184,154,0.4)] bg-white text-yak-blue hover:bg-[rgba(245,240,232,0.5)]' }}"
+                            data-testid="attempt-{{ $attempt }}"
+                        >
+                            #{{ $attempt }}@if($attempt === (int) $task->attempts) <span class="text-yak-tan">latest</span>@endif
+                        </button>
+                    @endforeach
+                </div>
+            @endif
 
             {{-- Filter buttons --}}
             <div class="mb-4 flex gap-2" data-testid="log-filters">

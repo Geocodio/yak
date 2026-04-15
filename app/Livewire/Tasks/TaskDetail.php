@@ -30,6 +30,13 @@ class TaskDetail extends Component
     public string $logFilter = 'all';
 
     /**
+     * Attempt currently displayed in the activity log. Defaults to the
+     * latest attempt on mount; user can click a chip to view earlier
+     * attempts when the task was retried.
+     */
+    public int $visibleAttempt = 1;
+
+    /**
      * @var array<int, bool>
      */
     public array $expandedLogs = [];
@@ -42,6 +49,7 @@ class TaskDetail extends Component
     public function mount(YakTask $task): void
     {
         $this->task = $task;
+        $this->visibleAttempt = max(1, (int) $task->attempts);
     }
 
     public function retry(): void
@@ -70,6 +78,12 @@ class TaskDetail extends Component
         };
 
         dispatch($job);
+
+        // Follow the new run. The job will increment attempts to this value
+        // on pickup, at which point the new logs appear under this chip.
+        $this->visibleAttempt = (int) $this->task->attempts + 1;
+        $this->expandedLogs = [];
+        $this->expandedGroups = [];
 
         Flux::toast('Task re-queued.');
     }
@@ -106,13 +120,43 @@ class TaskDetail extends Component
         $this->logFilter = $filter;
     }
 
+    public function selectAttempt(int $attempt): void
+    {
+        $this->visibleAttempt = max(1, $attempt);
+        $this->expandedLogs = [];
+        $this->expandedGroups = [];
+    }
+
     /**
      * @return Collection<int, TaskLog>
      */
     #[Computed]
     public function logs(): Collection
     {
-        return $this->task->logs()->orderBy('created_at')->get();
+        return $this->task->logs()
+            ->where('attempt_number', $this->visibleAttempt)
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    /**
+     * List of attempt numbers the user can switch between (1..attempts).
+     * Only includes >1 attempts when the task has actually been retried.
+     *
+     * @return array<int, int>
+     */
+    #[Computed]
+    public function availableAttempts(): array
+    {
+        $total = max(1, (int) $this->task->attempts);
+
+        return $total > 1 ? range(1, $total) : [];
+    }
+
+    #[Computed]
+    public function hasLogs(): bool
+    {
+        return $this->task->logs()->exists();
     }
 
     /**

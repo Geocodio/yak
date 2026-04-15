@@ -507,3 +507,44 @@ test('error tool results are auto-expanded', function () {
     // Error tool results should be auto-expanded (output visible without toggling)
     expect($html)->toContain('Error: test suite failed');
 });
+
+test('attempt selector only renders when task has been retried', function () {
+    $singleAttempt = YakTask::factory()->success()->create(['attempts' => 1]);
+    TaskLog::factory()->create(['yak_task_id' => $singleAttempt->id, 'attempt_number' => 1]);
+
+    Livewire::test(TaskDetail::class, ['task' => $singleAttempt])
+        ->assertDontSeeHtml('data-testid="attempt-selector"');
+
+    $retried = YakTask::factory()->success()->create(['attempts' => 2]);
+    TaskLog::factory()->create(['yak_task_id' => $retried->id, 'attempt_number' => 1]);
+    TaskLog::factory()->create(['yak_task_id' => $retried->id, 'attempt_number' => 2]);
+
+    Livewire::test(TaskDetail::class, ['task' => $retried])
+        ->assertSeeHtml('data-testid="attempt-selector"')
+        ->assertSeeHtml('data-testid="attempt-1"')
+        ->assertSeeHtml('data-testid="attempt-2"');
+});
+
+test('activity log defaults to latest attempt and switches on selectAttempt', function () {
+    $task = YakTask::factory()->failed()->create(['attempts' => 2]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'first attempt activity',
+    ]);
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 2,
+        'message' => 'second attempt activity',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSet('visibleAttempt', 2)
+        ->assertSee('second attempt activity')
+        ->assertDontSee('first attempt activity')
+        ->call('selectAttempt', 1)
+        ->assertSet('visibleAttempt', 1)
+        ->assertSee('first attempt activity')
+        ->assertDontSee('second attempt activity');
+});

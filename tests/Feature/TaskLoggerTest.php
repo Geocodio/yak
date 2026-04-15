@@ -74,3 +74,15 @@ test('log entry without metadata stores null', function () {
 
     expect($log->metadata)->toBeNull();
 });
+
+test('log entries are stamped with the task\'s current attempt number', function () {
+    $task = YakTask::factory()->create(['attempts' => 0]);
+
+    $firstRun = TaskLogger::info($task, 'first attempt');
+
+    $task->update(['attempts' => 2]);
+    $secondRun = TaskLogger::info($task, 'second attempt');
+
+    expect($firstRun->attempt_number)->toBe(1)  // floored to 1 when attempts=0
+        ->and($secondRun->attempt_number)->toBe(2);
+});

@@ -20,6 +20,7 @@ class TaskLogFactory extends Factory
     {
         return [
             'yak_task_id' => YakTask::factory(),
+            'attempt_number' => 1,
             'level' => 'info',
             'message' => fake()->sentence(),
             'created_at' => now(),
