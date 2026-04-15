@@ -280,6 +280,7 @@ test('posts summary and findings URL as Linear comment', function () {
         'repo' => 'test-repo',
         'source' => 'linear',
         'external_id' => 'LIN-123',
+        'linear_agent_session_id' => 'session-research-1',
     ]);
 
     $job = new ResearchYakJob($task);
@@ -292,13 +293,16 @@ test('posts summary and findings URL as Linear comment', function () {
 
         $body = $request->data();
 
-        if (str_contains($body['query'] ?? '', 'commentCreate')) {
-            return str_contains($body['variables']['body'] ?? '', 'Codebase audit complete')
-                && str_contains($body['variables']['body'] ?? '', '/artifacts/')
-                && ($body['variables']['issueId'] ?? '') === 'LIN-123';
+        if (! str_contains($body['query'] ?? '', 'agentActivityCreate')) {
+            return false;
         }
 
-        return false;
+        $input = $body['variables']['input'] ?? [];
+
+        return ($input['agentSessionId'] ?? null) === 'session-research-1'
+            && ($input['content']['type'] ?? null) === 'response'
+            && str_contains($input['content']['body'] ?? '', 'Codebase audit complete')
+            && str_contains($input['content']['body'] ?? '', '/artifacts/');
     });
 });
 

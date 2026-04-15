@@ -239,8 +239,14 @@ class ResearchYakJob implements ShouldQueue
 
     private function postToLinear(string $message): void
     {
+        $sessionId = (string) $this->task->linear_agent_session_id;
+
+        if ($sessionId === '') {
+            return;
+        }
+
         app(LinearNotificationDriver::class)
-            ->postIssueComment($this->task, $message);
+            ->postAgentActivity($sessionId, type: 'response', body: $message);
     }
 
     private function moveLinearToDone(): void

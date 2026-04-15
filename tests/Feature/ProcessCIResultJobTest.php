@@ -482,16 +482,24 @@ test('green path posts PR link as Linear comment and moves issue to In Review', 
         'branch_name' => 'yak/LIN-100',
         'source' => 'linear',
         'external_id' => 'LIN-100',
+        'linear_agent_session_id' => 'session-pr-link',
         'attempts' => 1,
     ]);
 
     $job = new ProcessCIResultJob($task, true);
     $job->handle();
 
-    // Verify Linear comment posted (PR link)
+    // Verify Linear agent activity posted (PR link)
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'api.linear.app/graphql')
-            && str_contains($request['query'], 'commentCreate');
+        if (! str_contains($request->url(), 'api.linear.app/graphql')) {
+            return false;
+        }
+
+        $body = $request->data();
+
+        return str_contains($body['query'] ?? '', 'agentActivityCreate')
+            && ($body['variables']['input']['agentSessionId'] ?? null) === 'session-pr-link'
+            && str_contains($body['variables']['input']['content']['body'] ?? '', 'PR created');
     });
 
     // Verify Linear issue moved to In Review
