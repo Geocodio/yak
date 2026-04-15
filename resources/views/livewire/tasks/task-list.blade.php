@@ -71,8 +71,9 @@
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse($this->tasks as $task)
-                    <tr wire:key="task-{{ $task->id }}" class="h-14 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" data-row-href="{{ route('tasks.show', $task) }}" onclick="yakRowNav(event)" onauxclick="yakRowNav(event)">
+                    <tr wire:key="task-{{ $task->id }}" class="relative h-14 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                         <td class="px-3 py-2 sm:px-5">
+                            <a href="{{ route('tasks.show', $task) }}" wire:navigate class="absolute inset-0" aria-label="Open task {{ $task->external_id ?? $task->id }}"></a>
                             <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
                                 {{ str_replace('_', ' ', $task->status->value) }}
                             </span>
@@ -91,16 +92,16 @@
                                 <span class="text-zinc-700 dark:text-zinc-300">{{ ucfirst($task->source ?? 'manual') }}</span>
                             </div>
                         </td>
-                        <td class="px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300" onclick="event.stopPropagation()">
+                        <td class="px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
                             @if($task->repository)
-                                <a href="{{ route('repos.edit', $task->repository) }}" wire:navigate class="font-medium text-accent hover:underline">{{ $task->repo }}</a>
+                                <a href="{{ route('repos.edit', $task->repository) }}" wire:navigate class="relative font-medium text-accent hover:underline">{{ $task->repo }}</a>
                             @else
                                 {{ $task->repo ?? '—' }}
                             @endif
                         </td>
                         <td class="px-3 py-2 sm:px-5">
                             @if($task->external_url)
-                                <a href="{{ $task->external_url }}" target="_blank" class="font-medium text-accent hover:underline">{{ $task->external_id }}</a>
+                                <a href="{{ $task->external_url }}" target="_blank" class="relative font-medium text-accent hover:underline">{{ $task->external_id }}</a>
                             @else
                                 <span class="text-zinc-700 dark:text-zinc-300">{{ $task->external_id ?? '—' }}</span>
                             @endif
@@ -109,7 +110,7 @@
                         <td class="px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</td>
                         <td class="px-3 py-2 sm:px-5">
                             @if($task->pr_url)
-                                <a href="{{ $task->pr_url }}" target="_blank" class="font-medium text-accent hover:underline">PR</a>
+                                <a href="{{ $task->pr_url }}" target="_blank" class="relative font-medium text-accent hover:underline">PR</a>
                             @else
                                 <span class="text-zinc-400">—</span>
                             @endif

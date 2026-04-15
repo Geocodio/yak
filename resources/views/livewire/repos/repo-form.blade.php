@@ -245,14 +245,15 @@
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                             @foreach($this->setupTasks as $setupTask)
-                                <tr wire:key="setup-task-{{ $setupTask->id }}" class="h-12 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" data-row-href="{{ route('tasks.show', $setupTask) }}" onclick="yakRowNav(event)" onauxclick="yakRowNav(event)">
+                                <tr wire:key="setup-task-{{ $setupTask->id }}" class="relative h-12 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                                     <td class="px-4 py-2 sm:px-6">
+                                        <a href="{{ route('tasks.show', $setupTask) }}" wire:navigate class="absolute inset-0" aria-label="Open setup task {{ $setupTask->external_id }}"></a>
                                         <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($setupTask->status) }}">
                                             {{ str_replace('_', ' ', $setupTask->status->value) }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-2 sm:px-6">
-                                        <a href="{{ route('tasks.show', $setupTask) }}" wire:navigate class="font-medium text-accent hover:underline">{{ $setupTask->external_id }}</a>
+                                        <a href="{{ route('tasks.show', $setupTask) }}" wire:navigate class="relative font-medium text-accent hover:underline">{{ $setupTask->external_id }}</a>
                                     </td>
                                     <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ $setupTask->created_at->diffForHumans() }}</td>
                                     <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($setupTask->duration_ms) }}</td>
