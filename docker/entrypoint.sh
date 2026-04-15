@@ -41,12 +41,26 @@ touch /app/storage/logs/yak-claude-worker.log \
 chown www-data:www-data /app/storage/logs/*.log
 
 # Restore Claude config if missing (lost on container restart since /home/yak is not a volume)
+#
+# Pick the newest backup that actually contains OAuth credentials. Claude CLI
+# sometimes writes a 50-byte `{"firstStartTime": ...}` stub before it has
+# credentials, and its rotation snapshots that stub too. Blindly picking
+# "latest by mtime" has poisoned restores before (Apr 2026). Iterate newest-
+# first and take the first one with an `oauthAccount` key.
 if [ ! -f /home/yak/.claude.json ] && [ -d /home/yak/.claude/backups ]; then
-    LATEST_BACKUP=$(ls -t /home/yak/.claude/backups/.claude.json.backup.* 2>/dev/null | head -1)
-    if [ -n "$LATEST_BACKUP" ]; then
-        cp "$LATEST_BACKUP" /home/yak/.claude.json
+    VALID_BACKUP=""
+    for BACKUP in $(ls -t /home/yak/.claude/backups/.claude.json.backup.* 2>/dev/null); do
+        if grep -q '"oauthAccount"' "$BACKUP" 2>/dev/null; then
+            VALID_BACKUP="$BACKUP"
+            break
+        fi
+    done
+    if [ -n "$VALID_BACKUP" ]; then
+        cp "$VALID_BACKUP" /home/yak/.claude.json
         chown www-data:www-data /home/yak/.claude.json
-        echo "Restored Claude config from $LATEST_BACKUP"
+        echo "Restored Claude config from $VALID_BACKUP"
+    else
+        echo "WARNING: no usable Claude config backup found (all backups missing oauthAccount)"
     fi
 fi
 
