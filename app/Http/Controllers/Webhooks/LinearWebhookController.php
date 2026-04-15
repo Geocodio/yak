@@ -8,6 +8,7 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
 use App\Services\LinearIssueFetcher;
 use App\Services\RepoDetector;
@@ -28,66 +29,70 @@ class LinearWebhookController extends Controller
             prefix: '', // Linear sends the raw HMAC-SHA256 digest with no prefix
         );
 
-        // Only handle Issue update events. Note: Linear's "IssueLabel" resource
-        // type is for label entity changes (rename/delete), not labels added to
-        // issues. Subscribe to "Issue" events in Linear's webhook settings.
+        // Only handle Issue update events. Subscribe to "Issue" events
+        // in Linear's webhook settings.
         if ($request->input('type') !== 'Issue' || $request->input('action') !== 'update') {
             return response()->json(['ok' => true]);
         }
 
-        // Only proceed when labels were changed and yak label is being added
-        if (! $this->isYakLabelAdded($request)) {
+        $connection = $this->resolveConnection($request);
+
+        // Only proceed when the issue has just been assigned to the Yak app
+        if ($connection === null || ! $this->isAssignedToYak($request, $connection)) {
             return response()->json(['ok' => true]);
         }
 
-        return $this->handleYakLabel($request);
+        return $this->handleAssignment($request);
     }
 
     /**
-     * Determine if the `yak` label was added (not removed) in this webhook event.
+     * Locate the OAuth connection this webhook belongs to. Linear includes
+     * the workspace id on every event payload.
      */
-    private function isYakLabelAdded(Request $request): bool
+    private function resolveConnection(Request $request): ?LinearOauthConnection
     {
-        /** @var list<string> $updatedFrom */
-        $updatedFrom = $request->input('updatedFrom.labelIds', []);
+        $workspaceId = (string) $request->input('organizationId', '');
 
-        /** @var list<array{id?: string, name?: string}> $currentLabels */
-        $currentLabels = $request->input('data.labels', []);
-
-        $currentLabelNames = array_map(
-            fn (array $label): string => strtolower($label['name'] ?? ''),
-            $currentLabels,
-        );
-
-        // yak must be in current labels
-        if (! in_array('yak', $currentLabelNames, true)) {
-            return false;
+        if ($workspaceId === '') {
+            return null;
         }
 
-        // Check that the label set actually changed (labels were updated)
-        $currentLabelIds = array_map(
-            fn (array $label): string => $label['id'] ?? '',
-            $currentLabels,
-        );
-
-        // If updatedFrom.labelIds differs from current label IDs, labels changed
-        // If updatedFrom is not present, this isn't a label change event
-        if (! $request->has('updatedFrom.labelIds')) {
-            return false;
-        }
-
-        // Ensure yak was not already present before this update
-        // (i.e., this is a label addition, not a different field update on an already-labeled issue)
-        sort($updatedFrom);
-        sort($currentLabelIds);
-
-        return $updatedFrom !== $currentLabelIds;
+        return LinearOauthConnection::activeForWorkspace($workspaceId);
     }
 
     /**
-     * Handle yak label being added — create task and dispatch RunYakJob.
+     * Determine if this update transitions the issue's assignee to the
+     * Yak app (i.e., someone just delegated the issue to Yak).
      */
-    private function handleYakLabel(Request $request): JsonResponse
+    private function isAssignedToYak(Request $request, LinearOauthConnection $connection): bool
+    {
+        $yakActorId = $connection->yakActorId();
+
+        if ($yakActorId === null) {
+            return false;
+        }
+
+        // Only fire on events that carry an assignee transition.
+        if (! $request->has('updatedFrom.assigneeId')) {
+            return false;
+        }
+
+        $currentAssigneeId = (string) $request->input('data.assignee.id', '');
+        $previousAssigneeId = (string) $request->input('updatedFrom.assigneeId', '');
+
+        // Must now be assigned to Yak.
+        if ($currentAssigneeId !== $yakActorId) {
+            return false;
+        }
+
+        // Ignore unrelated updates to already-assigned issues.
+        return $previousAssigneeId !== $yakActorId;
+    }
+
+    /**
+     * Handle an issue being assigned to Yak — create task and dispatch RunYakJob.
+     */
+    private function handleAssignment(Request $request): JsonResponse
     {
         $driver = new LinearInputDriver;
         $description = $driver->parse($request);

@@ -22,33 +22,34 @@ function signLinearPayload(string $body, string $secret): string
 }
 
 /**
- * Build a Linear Issue label update webhook payload.
+ * The default Yak actor id and workspace used by most webhook tests. Kept
+ * stable so payloads can reference them directly.
+ */
+const TEST_YAK_ACTOR_ID = 'yak-actor-id';
+const TEST_WORKSPACE_ID = 'workspace-uuid-001';
+
+/**
+ * Build a Linear Issue update webhook payload simulating an assignment
+ * to the Yak OAuth app.
  *
  * @param  array<string, mixed>  $overrides
  */
-function linearLabelPayload(array $overrides = []): string
+function linearAssignmentPayload(array $overrides = []): string
 {
-    $yakLabelId = $overrides['yakLabelId'] ?? 'label-yak-id';
     $issueId = $overrides['issueId'] ?? 'issue-uuid-123';
     $identifier = $overrides['identifier'] ?? 'ENG-42';
     $title = $overrides['title'] ?? 'Fix the broken auth flow';
     $description = $overrides['description'] ?? 'The login page returns 500 errors intermittently.';
     $url = $overrides['url'] ?? 'https://linear.app/team/issue/ENG-42';
-    $previousLabelIds = $overrides['previousLabelIds'] ?? [];
-
-    $labels = [
-        ['id' => $yakLabelId, 'name' => 'yak'],
-    ];
-
-    if (! empty($overrides['extraLabels'])) {
-        $labels = array_merge($labels, $overrides['extraLabels']);
-    }
-
-    $currentLabelIds = array_map(fn (array $l): string => $l['id'], $labels);
+    $assigneeId = $overrides['assigneeId'] ?? TEST_YAK_ACTOR_ID;
+    $previousAssigneeId = $overrides['previousAssigneeId'] ?? null;
+    $workspaceId = $overrides['workspaceId'] ?? TEST_WORKSPACE_ID;
+    $labels = $overrides['labels'] ?? [];
 
     $payload = [
         'type' => 'Issue',
         'action' => 'update',
+        'organizationId' => $workspaceId,
         'data' => [
             'id' => $issueId,
             'identifier' => $identifier,
@@ -56,9 +57,10 @@ function linearLabelPayload(array $overrides = []): string
             'description' => $description,
             'url' => $url,
             'labels' => $labels,
+            'assignee' => $assigneeId !== null ? ['id' => $assigneeId, 'name' => 'Yak'] : null,
         ],
         'updatedFrom' => [
-            'labelIds' => $previousLabelIds,
+            'assigneeId' => $previousAssigneeId,
         ],
     ];
 
@@ -70,7 +72,23 @@ function linearLabelPayload(array $overrides = []): string
         $payload['action'] = $overrides['action'];
     }
 
+    if (array_key_exists('omitUpdatedFrom', $overrides) && $overrides['omitUpdatedFrom']) {
+        unset($payload['updatedFrom']);
+    }
+
     return (string) json_encode($payload);
+}
+
+/**
+ * Seed an active Linear OAuth connection so the webhook controller can
+ * resolve it by workspace id and compare against Yak's actor id.
+ */
+function linearConnection(string $workspaceId = TEST_WORKSPACE_ID, string $actorId = TEST_YAK_ACTOR_ID): LinearOauthConnection
+{
+    return LinearOauthConnection::factory()->create([
+        'workspace_id' => $workspaceId,
+        'installer_user_id' => $actorId,
+    ]);
 }
 
 /**
@@ -103,7 +121,8 @@ function enableLinearChannel(): string
 
 it('rejects requests with invalid Linear signature', function () {
     $secret = enableLinearChannel();
-    $body = linearLabelPayload();
+    linearConnection();
+    $body = linearAssignmentPayload();
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
         'HTTP_Linear-Signature' => 'invalid_signature',
@@ -113,7 +132,8 @@ it('rejects requests with invalid Linear signature', function () {
 
 it('rejects requests with missing Linear signature', function () {
     enableLinearChannel();
-    $body = linearLabelPayload();
+    linearConnection();
+    $body = linearAssignmentPayload();
 
     $this->call('POST', '/webhooks/linear', content: $body, server: [
         'CONTENT_TYPE' => 'application/json',
@@ -122,24 +142,24 @@ it('rejects requests with missing Linear signature', function () {
 
 /*
 |--------------------------------------------------------------------------
-| yak Label Creates Fix Task
+| Assigning to Yak Creates Fix Task
 |--------------------------------------------------------------------------
 */
 
-it('creates a fix task when yak label is added to an issue', function () {
+it('creates a fix task when an issue is assigned to Yak', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->default()->create(['slug' => 'my-app']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-001',
         'identifier' => 'ENG-42',
         'title' => 'Fix the broken auth flow',
         'description' => 'The login page returns 500 errors intermittently.',
         'url' => 'https://linear.app/team/issue/ENG-42',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -175,21 +195,21 @@ it('creates a fix task when yak label is added to an issue', function () {
 
 /*
 |--------------------------------------------------------------------------
-| yak + research Labels Create Research Task
+| Research Mode (label or title hint) still works
 |--------------------------------------------------------------------------
 */
 
-it('creates a research task when yak and research labels are present', function () {
+it('creates a research task when the issue has a research label at assignment time', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->default()->create(['slug' => 'my-app']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-002',
-        'extraLabels' => [['id' => 'label-research-id', 'name' => 'research']],
-        'previousLabelIds' => [],
+        'labels' => [['id' => 'label-research-id', 'name' => 'research']],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -205,15 +225,15 @@ it('creates a research task when yak and research labels are present', function 
 
 it('creates a research task when "research" appears in the issue title', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->default()->create(['slug' => 'my-app']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-002a',
         'title' => 'Research: audit deprecated field usage',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -229,15 +249,15 @@ it('creates a research task when "research" appears in the issue title', functio
 
 it('matches "research" in the title regardless of punctuation or casing', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->default()->create(['slug' => 'my-app']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-002b',
         'title' => '[RESEARCH] investigate memory leak',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -251,15 +271,15 @@ it('matches "research" in the title regardless of punctuation or casing', functi
 
 it('does not match research as a substring of another word', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->default()->create(['slug' => 'my-app']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-002c',
         'title' => 'Fix researcher profile page bug',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -279,15 +299,15 @@ it('does not match research as a substring of another word', function () {
 
 it('detects repo from issue description using repo: syntax', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->create(['slug' => 'acme/api']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-003',
         'description' => 'The auth middleware is broken. repo: acme/api',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -303,16 +323,16 @@ it('detects repo from issue description using repo: syntax', function () {
 
 it('falls back to default repo when no repo mentioned in description', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
     Repository::factory()->create(['slug' => 'other-repo']);
     Repository::factory()->default()->create(['slug' => 'default-repo']);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-004',
         'description' => 'Just a plain bug description without repo info.',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -328,29 +348,20 @@ it('falls back to default repo when no repo mentioned in description', function 
 
 /*
 |--------------------------------------------------------------------------
-| Label Removal Ignored
+| Assignment change edge cases
 |--------------------------------------------------------------------------
 */
 
-it('ignores label removal events (yak label removed)', function () {
+it('ignores events where Yak is unassigned from the issue', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
 
-    // yak label was removed: previous had yak, current does not
-    $body = (string) json_encode([
-        'type' => 'Issue',
-        'action' => 'update',
-        'data' => [
-            'id' => 'issue-uuid-005',
-            'identifier' => 'ENG-99',
-            'title' => 'Some issue',
-            'description' => 'desc',
-            'url' => 'https://linear.app/team/issue/ENG-99',
-            'labels' => [],
-        ],
-        'updatedFrom' => [
-            'labelIds' => ['label-yak-id'],
-        ],
+    $body = linearAssignmentPayload([
+        'issueId' => 'issue-uuid-005',
+        'identifier' => 'ENG-99',
+        'assigneeId' => null,
+        'previousAssigneeId' => TEST_YAK_ACTOR_ID,
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -363,32 +374,58 @@ it('ignores label removal events (yak label removed)', function () {
     Queue::assertNotPushed(RunYakJob::class);
 });
 
-/*
-|--------------------------------------------------------------------------
-| Non-yak Label Changes Ignored
-|--------------------------------------------------------------------------
-*/
-
-it('ignores non-yak label changes', function () {
+it('ignores events where the issue is assigned to someone other than Yak', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
 
-    $body = (string) json_encode([
-        'type' => 'Issue',
-        'action' => 'update',
-        'data' => [
-            'id' => 'issue-uuid-006',
-            'identifier' => 'ENG-100',
-            'title' => 'Some issue',
-            'description' => 'desc',
-            'url' => 'https://linear.app/team/issue/ENG-100',
-            'labels' => [
-                ['id' => 'label-bug-id', 'name' => 'bug'],
-            ],
-        ],
-        'updatedFrom' => [
-            'labelIds' => [],
-        ],
+    $body = linearAssignmentPayload([
+        'issueId' => 'issue-uuid-006',
+        'identifier' => 'ENG-100',
+        'assigneeId' => 'some-other-user-id',
+        'previousAssigneeId' => null,
+    ]);
+    $signature = signLinearPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/linear', content: $body, server: [
+        'HTTP_Linear-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::count())->toBe(0);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+it('ignores unrelated field updates on an issue already assigned to Yak', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+
+    $body = linearAssignmentPayload([
+        'issueId' => 'issue-uuid-006b',
+        'identifier' => 'ENG-101',
+        'assigneeId' => TEST_YAK_ACTOR_ID,
+        'previousAssigneeId' => TEST_YAK_ACTOR_ID,
+    ]);
+    $signature = signLinearPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/linear', content: $body, server: [
+        'HTTP_Linear-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::count())->toBe(0);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+it('ignores webhooks from workspaces with no matching connection', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+
+    $body = linearAssignmentPayload([
+        'issueId' => 'issue-uuid-006c',
+        'workspaceId' => 'unknown-workspace-id',
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -409,13 +446,13 @@ it('ignores non-yak label changes', function () {
 
 it('dispatches acknowledgment notification on pickup', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
 
     Repository::factory()->default()->create();
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-007',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 
@@ -578,6 +615,7 @@ it('ignores non-Issue type events', function () {
 
 it('does not create duplicate task for same Linear issue', function () {
     $secret = enableLinearChannel();
+    linearConnection();
     Queue::fake();
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
 
@@ -589,10 +627,9 @@ it('does not create duplicate task for same Linear issue', function () {
         'external_id' => 'LINEAR-ENG-42',
     ]);
 
-    $body = linearLabelPayload([
+    $body = linearAssignmentPayload([
         'issueId' => 'issue-uuid-dup',
         'identifier' => 'ENG-42',
-        'previousLabelIds' => [],
     ]);
     $signature = signLinearPayload($body, $secret);
 

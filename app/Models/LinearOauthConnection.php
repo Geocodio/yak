@@ -41,6 +41,32 @@ class LinearOauthConnection extends Model
         return self::query()->whereNull('disconnected_at')->latest('id')->first();
     }
 
+    /**
+     * Return the active connection for a specific Linear workspace, or null.
+     */
+    public static function activeForWorkspace(string $workspaceId): ?self
+    {
+        return self::query()
+            ->where('workspace_id', $workspaceId)
+            ->whereNull('disconnected_at')
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * The actor id of the Yak OAuth app inside this workspace. Stored at
+     * OAuth callback time by querying `viewer { id }` with an actor=app
+     * token, which resolves to the app's bot user — the same id Linear
+     * reports as `assignee.id` when a user assigns an issue to Yak.
+     *
+     * Historically tracked in the `installer_user_id` column; the name
+     * is kept to avoid a migration but the semantics are the app actor.
+     */
+    public function yakActorId(): ?string
+    {
+        return $this->installer_user_id;
+    }
+
     public function isExpired(int $skewSeconds = 60): bool
     {
         /** @var Carbon $expiresAt */

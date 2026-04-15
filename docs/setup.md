@@ -189,8 +189,8 @@ state updates post as the Yak app, not as a human user.
    - URL: `https://{your-domain}/webhooks/linear`
    - Subscribe to **Issues** events.
    - Copy the app's signing secret into `linear_webhook_secret`.
-4. Create a `yak` label in your workspace (and optionally a `research`
-   label).
+4. Optionally create a `research` label (used as a mode hint on issues
+   assigned to Yak; no label is required to trigger a task).
 5. Re-run Ansible so the env vars land in the container.
 6. Sign in to the Yak dashboard → **Settings → Linear → Connect Linear**
    and authorize.
@@ -301,7 +301,7 @@ The `--sync` flag runs the task in the foreground so you can watch the output. I
 For each enabled channel, trigger a test event:
 
 - **Slack** — mention `@yak` in a channel
-- **Linear** — add the `yak` label to a test issue
+- **Linear** — assign a test issue to Yak (the OAuth app appears in the assignee picker)
 - **Sentry** — trigger a test alert rule
 - **GitHub Actions** — push a commit to a `yak/test-*` branch
 

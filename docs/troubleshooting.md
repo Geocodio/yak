@@ -87,7 +87,7 @@ If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target 
 
 ## Webhooks Not Arriving
 
-Symptoms: you `@yak` in Slack (or add a Linear label, or trigger a Sentry alert) and nothing happens. No task appears on the dashboard.
+Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sentry alert) and nothing happens. No task appears on the dashboard.
 
 ### Checklist
 
@@ -123,7 +123,7 @@ Symptoms: you `@yak` in Slack (or add a Linear label, or trigger a Sentry alert)
 ### Per-Channel Gotchas
 
 - **Slack** — channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
-- **Linear** — the webhook must subscribe to **Issues** events (not "Issue labels" — that resource type fires for label entity changes, not for labels being applied to issues). Events with `type: "IssueLabel"` are silently dropped.
+- **Linear** — the webhook must subscribe to **Issue** events so assignee changes come through, and the OAuth connection must be active; if the `linear_oauth_connections.installer_user_id` column is null, re-authorize the app from Yak's settings so the Yak actor id is captured. Events with `type: "IssueLabel"` are silently dropped (they're for label entity changes).
 - **Sentry** — alerts must be tagged `yak-eligible`. Alerts without the tag are ignored even if they hit the webhook.
 - **GitHub** — the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
 

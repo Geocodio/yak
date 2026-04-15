@@ -68,9 +68,10 @@ class LinearInputDriver implements InputDriver
      * Detect task mode from labels or title. A `research` label or the word
      * "research" anywhere in the issue title triggers Research mode.
      *
-     * Matching on the title avoids a race where the `yak` label is applied
-     * before the `research` label — the webhook fires on `yak` and the
-     * `research` label wouldn't be visible yet.
+     * Matching on the title is the common path: the webhook fires on
+     * assignment to Yak, and the `research` label may not have been applied
+     * yet at that moment. Encoding the mode in the title keeps it visible
+     * no matter when the user sets it.
      *
      * @param  list<string>  $labels
      */

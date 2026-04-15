@@ -19,7 +19,7 @@ Channels are enabled by the presence of credentials — no credentials, no chann
 | GitHub | CI (Actions), notification (PRs) | **yes** | Always on |
 | Manual CLI | Input | **yes** | Always on |
 | Slack | Input, notification | no | Bot mention |
-| Linear | Input, notification | no | `yak` label |
+| Linear | Input, notification | no | Assign issue to Yak |
 | Sentry | Input | no | Alert rule |
 | Drone CI | CI | no | Polled by `yak:poll-drone-ci` |
 
@@ -180,8 +180,8 @@ state updates are authored by the Yak app rather than a human user.
    - Subscribe to **Issue** events. (Linear's "Issue labels" event type
      is for label entity changes, not labels being applied to issues.)
    - Copy the app's webhook **signing secret**.
-3. **Create a `yak` label** in your workspace (optionally a `research`
-   label too).
+3. Optionally create a **`research` label** in your workspace (used as a
+   mode hint on issues assigned to Yak; not required).
 4. Add to `ansible/vault/secrets.yml`:
 
    ```yaml
@@ -199,9 +199,9 @@ state updates are authored by the Yak app rather than a human user.
 
 ### Usage
 
-Add the `yak` label to any issue. For research-only tasks, include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`) — or apply a `research` label *before* the `yak` label. The title check exists because the webhook fires the instant `yak` is applied; if you add `research` afterwards, Yak won't see it.
+Assign any Linear issue to **Yak** — the OAuth app appears in the assignee picker alongside human teammates. For research-only tasks, include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`) — or apply a `research` label *before* assigning to Yak. The title check exists because the webhook fires the instant the assignment changes; a `research` label added afterwards won't retroactively change the mode.
 
-Anyone on the team can trigger a task by applying the label — no Linear seat is needed, because the OAuth app posts as itself, not as a user.
+The Yak OAuth app is assignable without consuming a Linear seat — it behaves like a bot teammate.
 
 The Linear MCP server is not wired up. Yak passes the issue title and
 body into Claude's prompt at task creation time, so the agent has the
@@ -233,8 +233,9 @@ Linear projects are not mapped to repos — issues frequently span projects, so 
 
 ### Gotchas
 
-- **Labels are the trigger**, not assignment or `@mentions`. Assignment requires a paid seat; labels don't.
-- **Label removal does nothing** — removing the `yak` label after a task is dispatched will not cancel it.
+- **Assignment is the trigger**, not labels or `@mentions`. Yak only fires on the *transition* from another assignee (or unassigned) to Yak — re-assigning an already-Yak-assigned issue won't re-trigger.
+- **Unassigning does nothing** — removing Yak as assignee after a task is dispatched will not cancel the run.
+- **The `research` label is a mode hint**, not a trigger. It only matters at the moment the issue is assigned to Yak.
 
 ---
 
