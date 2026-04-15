@@ -27,6 +27,15 @@ class CreatePullRequestJob implements ShouldQueue
         $this->onQueue('default');
     }
 
+    public function failed(?\Throwable $e): void
+    {
+        Log::channel('yak')->error(self::class . ' failed', [
+            'task_id' => $this->task->id,
+            'error' => $e?->getMessage() ?? 'Job failed without exception',
+            'exception_class' => $e !== null ? get_class($e) : null,
+        ]);
+    }
+
     public function handle(GitHubAppService $gitHub): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();

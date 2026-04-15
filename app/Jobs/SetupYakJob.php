@@ -8,6 +8,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\DailyCost;
 use App\Models\Repository;
@@ -24,9 +25,10 @@ use Illuminate\Support\Facades\Log;
 
 class SetupYakJob implements ShouldQueue
 {
+    use HandlesAgentJobFailure;
     use Queueable;
 
-    public int $timeout = 1800;
+    public int $timeout = 3600;
 
     // A failed setup rarely succeeds on retry without manual intervention,
     // and each retry burns another agent budget. Fail fast; users can

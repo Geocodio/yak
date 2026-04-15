@@ -13,6 +13,7 @@ use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
 
 class SendNotificationJob implements ShouldQueue
 {
@@ -29,6 +30,15 @@ class SendNotificationJob implements ShouldQueue
         public readonly string $message,
     ) {
         $this->onQueue('default');
+    }
+
+    public function failed(?\Throwable $e): void
+    {
+        Log::channel('yak')->error(self::class . ' failed', [
+            'task_id' => $this->task->id,
+            'error' => $e?->getMessage() ?? 'Job failed without exception',
+            'exception_class' => $e !== null ? get_class($e) : null,
+        ]);
     }
 
     public function handle(): void

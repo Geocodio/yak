@@ -9,6 +9,7 @@ use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\Artifact;
@@ -29,6 +30,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ResearchYakJob implements ShouldQueue
 {
+    use HandlesAgentJobFailure;
     use Queueable;
 
     public int $timeout = 600;

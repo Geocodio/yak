@@ -9,6 +9,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
+use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\DailyCost;
@@ -28,6 +29,7 @@ use Illuminate\Support\Facades\Log;
 
 class RunYakJob implements ShouldQueue
 {
+    use HandlesAgentJobFailure;
     use Queueable;
 
     public int $timeout = 600;

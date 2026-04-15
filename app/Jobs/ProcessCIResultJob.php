@@ -37,6 +37,15 @@ class ProcessCIResultJob implements ShouldQueue
         $this->onQueue('default');
     }
 
+    public function failed(?\Throwable $e): void
+    {
+        Log::channel('yak')->error(self::class . ' failed', [
+            'task_id' => $this->task->id,
+            'error' => $e?->getMessage() ?? 'Job failed without exception',
+            'exception_class' => $e !== null ? get_class($e) : null,
+        ]);
+    }
+
     public function handle(): void
     {
         TaskContext::set($this->task);

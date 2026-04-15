@@ -103,6 +103,12 @@ class FakeSandboxManager extends IncusSandboxManager
         return "{$templateName}/ready";
     }
 
+    public function containerExists(string $containerName): bool
+    {
+        return in_array($containerName, $this->createdContainers, true)
+            && ! in_array($containerName, $this->destroyedContainers, true);
+    }
+
     public function destroy(string $containerName): void
     {
         $this->destroyedContainers[] = $containerName;

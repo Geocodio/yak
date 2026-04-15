@@ -2,13 +2,15 @@ Set up the development environment for this repository.
 
 **Repository:** {{ $repoName }}
 
+**BEFORE YOU START: Read the "Repository-specific notes" section at the end of the system prompt.** Those notes come from the team that owns this repo and OVERRIDE anything in this task prompt when they conflict. In particular, look for guidance on test execution (some repos forbid running the full suite locally because of size, duration, or missing fixtures). If the repo notes contradict a step below, follow the repo notes and explain the substitution in your final report.
+
 **Steps:**
 1. Read README.md, CLAUDE.md, docker-compose.yml, and any config files to understand the project setup.
 2. Start the dev environment: run `docker-compose up -d` if a docker-compose.yml exists.
 3. Install dependencies (e.g., `composer install`, `npm install`, `pip install -r requirements.txt` — whatever the project uses).
 4. Run database migrations and seed data if applicable.
-5. Verify the environment: start the dev server and run the test suite.
-6. Report success or failure with details about what was set up and any issues encountered.
+5. Verify the environment. **Default:** start the dev server and run the full test suite. **BUT** if the repo-specific notes say NOT to run the full suite (common for repos with large fixtures, long-running suites, or external dependencies), do NOT run it — substitute the lighter verification the notes recommend (smoke test, `--filter=` a single test, type/lint checks, or just confirming the dev server responds). When in doubt, err on the side of the repo notes — they exist because running the full suite was a problem before.
+6. Report success or failure with details about what was set up and any issues encountered. If you deviated from step 5's default because of repo notes, say so explicitly.
 
 **Important:**
 - The dev environment must persist after setup — subsequent tasks will use `docker-compose start` / `docker-compose stop`.
