@@ -26,6 +26,9 @@ class RepositoryFactory extends Factory
             'is_active' => true,
             'setup_status' => 'ready',
             'sandbox_snapshot' => 'yak-tpl-' . $slug . '/ready',
+            // Align with current config so existing tests don't accidentally
+            // trip the drift check. Tests that want drift set this explicitly.
+            'sandbox_base_version' => (int) config('yak.sandbox.base_version', 1),
             'path' => '/home/yak/repos/' . $slug,
             'git_url' => 'https://github.com/acme/' . $slug . '.git',
             'default_branch' => 'main',
@@ -38,6 +41,7 @@ class RepositoryFactory extends Factory
         return $this->state(fn (): array => [
             'setup_status' => 'pending',
             'sandbox_snapshot' => null,
+            'sandbox_base_version' => null,
         ]);
     }
 

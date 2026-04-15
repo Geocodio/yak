@@ -31,6 +31,7 @@ class Repository extends Model
         return [
             'is_default' => 'boolean',
             'is_active' => 'boolean',
+            'sandbox_base_version' => 'integer',
         ];
     }
 

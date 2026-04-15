@@ -28,6 +28,18 @@ class IncusSandboxManager
     public function create(YakTask $task, Repository $repository): string
     {
         $containerName = $this->containerName($task);
+
+        // Self-heal: reclaim any stale container left behind by a prior
+        // attempt. Without this, a retry after a worker hard-kill hits
+        // `incus copy` with an "already exists" error.
+        if ($this->containerExists($containerName)) {
+            Log::channel('yak')->warning('Reclaiming stale sandbox before create', [
+                'container' => $containerName,
+                'task_id' => $task->id,
+            ]);
+            $this->destroy($containerName);
+        }
+
         $source = $this->resolveSource($repository);
 
         Log::channel('yak')->info('Creating sandbox container', [
@@ -213,10 +225,18 @@ class IncusSandboxManager
         // Snapshot the template
         $this->exec("incus snapshot create {$templateName} {$snapshotName}");
 
+        // Stamp the repo with the yak-base version the template inherits
+        // from. A later bump to config('yak.sandbox.base_version') will
+        // trigger ensureTemplateVersionCurrent() to invalidate this template.
+        $repository->update([
+            'sandbox_base_version' => (int) config('yak.sandbox.base_version', 1),
+        ]);
+
         Log::channel('yak')->info('Promoted sandbox to repo template', [
             'source' => $containerName,
             'template' => $templateName,
             'snapshot' => $snapshotName,
+            'base_version' => $repository->sandbox_base_version,
         ]);
 
         return "{$templateName}/{$snapshotName}";
@@ -324,6 +344,57 @@ class IncusSandboxManager
         }
 
         return $deleted;
+    }
+
+    /**
+     * Check if a container with the given name exists in Incus.
+     */
+    public function containerExists(string $containerName): bool
+    {
+        $result = Process::run('incus info ' . escapeshellarg($containerName));
+
+        return $result->exitCode() === 0;
+    }
+
+    /**
+     * True when the repo's stored sandbox_base_version matches the current
+     * config value. Null versions are treated as "up to date" so fresh
+     * repos are not flagged as drifted.
+     */
+    public function isTemplateUpToDate(Repository $repository): bool
+    {
+        $stored = $repository->sandbox_base_version;
+
+        if ($stored === null) {
+            return true;
+        }
+
+        return (int) $stored === (int) config('yak.sandbox.base_version', 1);
+    }
+
+    /**
+     * Destroy the repo template and reset the repository's sandbox state
+     * so the next SetupYakJob can rebuild cleanly from yak-base. Used by
+     * the EnsureRepoReady middleware when it detects a base_version drift.
+     */
+    public function invalidateTemplate(Repository $repository): void
+    {
+        $templateName = $this->templateName($repository);
+
+        Log::channel('yak')->warning('Invalidating repo template for reprovisioning', [
+            'repository' => $repository->slug,
+            'template' => $templateName,
+            'stored_version' => $repository->sandbox_base_version,
+            'current_version' => (int) config('yak.sandbox.base_version', 1),
+        ]);
+
+        Process::run("incus delete {$templateName} --force 2>/dev/null");
+
+        $repository->update([
+            'sandbox_snapshot' => null,
+            'sandbox_base_version' => null,
+            'setup_status' => 'pending',
+        ]);
     }
 
     /**

@@ -186,11 +186,32 @@
     - { key: "fs.inotify.max_user_instances", value: "1024" }
     - { key: "fs.inotify.max_user_watches", value: "524288" }
 
-- name: Check if base template exists
-  ansible.builtin.command: incus info yak-base
+- name: Check if base template exists at current version
+  # The marker file is versioned: bumping `yak_sandbox_base_version` makes
+  # this test fail even if `yak-base` already exists, which forces a
+  # rebuild below. Repo templates cloned from the previous yak-base get
+  # invalidated separately by ensureTemplateVersionCurrent() in the app.
+  ansible.builtin.shell: >
+    incus info yak-base >/dev/null 2>&1 &&
+    incus file pull yak-base/etc/yak/base-version-{{ yak_sandbox_base_version }} - >/dev/null 2>&1
   register: base_template_check
   changed_when: false
   failed_when: false
+
+- name: Tear down outdated yak-base (base_version bumped)
+  # Only runs when yak-base exists but the version marker is missing. Any
+  # repo templates cloned from it stay in place on disk — the app
+  # invalidates them on the next task clone via the stored
+  # sandbox_base_version column.
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if incus info yak-base >/dev/null 2>&1; then
+      incus stop yak-base --force 2>/dev/null || true
+      incus snapshot delete yak-base ready 2>/dev/null || true
+      incus delete yak-base --force
+    fi
+  when: base_template_check.rc != 0
+  changed_when: true
 
 - name: Create base template container
   ansible.builtin.shell: |
@@ -227,21 +248,39 @@
         docker-ce docker-ce-cli containerd.io docker-compose-plugin \
         nodejs \
         php8.3-cli php8.3-common php8.3-curl php8.3-mbstring php8.3-xml php8.3-zip php8.3-mysql php8.3-sqlite3 php8.3-gd php8.3-bcmath \
-        chromium-browser \
         ffmpeg \
         unzip zip
 
       # Install Composer
       curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-      # Install Claude Code CLI
-      npm install -g @anthropic-ai/claude-code agent-browser
+      # Install Claude Code CLI + agent-browser. chromium-browser on
+      # Ubuntu 24.04 is a snap redirect that breaks inside Incus (snap
+      # daemonization inside an unprivileged container leaves chrome
+      # processes as zombies and the agent-browser daemon hangs). Use
+      # Playwright-bundled Chromium instead — a real deb-deps install
+      # with a maintained binary under /home/yak/.cache/ms-playwright.
+      npm install -g @anthropic-ai/claude-code agent-browser playwright
 
       # Create yak user (mirrors the host setup)
       useradd -m -s /bin/bash yak
       usermod -aG docker yak
       echo "yak ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/yak
       chmod 440 /etc/sudoers.d/yak
+
+      # Install Playwright Chromium + OS deps for the yak user (fonts,
+      # libnss3, libasound2, etc.). Binary lands in
+      # /home/yak/.cache/ms-playwright and is reused by agent-browser.
+      sudo -u yak npx --yes playwright install --with-deps chromium
+
+      # Point agent-browser at Playwright instead of auto-detecting system
+      # chromium. `default.engine` is read by the daemon on launch; seeding
+      # it here means the very first `agent-browser` call picks the right
+      # engine without any ad-hoc env var discovery.
+      mkdir -p /home/yak/.agent-browser
+      echo playwright > /home/yak/.agent-browser/default.engine
+      chown -R yak:yak /home/yak/.agent-browser
+      echo "export AGENT_BROWSER_ENGINE=playwright" >> /home/yak/.bashrc
 
       # Create workspace and results directories
       mkdir -p /workspace /results /home/yak/.claude
@@ -255,6 +294,11 @@
       docker pull mariadb:11 || true
       docker pull redis:7-alpine || true
       docker pull postgres:16 || true
+
+      # Write the version marker so future ansible runs can detect when
+      # yak-base drifts from the current config and rebuild.
+      mkdir -p /etc/yak
+      touch /etc/yak/base-version-{{ yak_sandbox_base_version }}
     '
 
     # Install the curated Claude Code skills as the yak user

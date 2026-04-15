@@ -51,6 +51,16 @@ return [
         'enabled' => (bool) env('YAK_SANDBOX_ENABLED', true),
         'base_template' => env('YAK_SANDBOX_BASE_TEMPLATE', 'yak-base'),
         'snapshot_name' => env('YAK_SANDBOX_SNAPSHOT_NAME', 'ready'),
+
+        // Bump this integer whenever `ansible/roles/incus/tasks/main.yml`
+        // changes the yak-base image in a way repo templates must inherit
+        // (new system packages, browser engine, language runtimes, etc.).
+        // The matching `yak_sandbox_base_version` var in Ansible must be
+        // bumped in the same commit. On the next task clone, any repo
+        // template whose stored `sandbox_base_version` differs gets
+        // destroyed and re-provisioned from the fresh yak-base.
+        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 2),
+
         'cpu_limit' => (int) env('YAK_SANDBOX_CPU_LIMIT', 4),
         'memory_limit' => env('YAK_SANDBOX_MEMORY_LIMIT', '8GB'),
         'disk_limit' => env('YAK_SANDBOX_DISK_LIMIT', '30GB'),

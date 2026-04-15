@@ -14,6 +14,7 @@
                     <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">Name</th>
                     <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">CI System</th>
                     <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">Setup</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">Base</th>
                     <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">Status</th>
                     <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">Default</th>
                     <th class="px-3 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-5 dark:text-zinc-400">Tasks (Total)</th>
@@ -34,6 +35,16 @@
                             </span>
                         </td>
                         <td class="px-3 py-2 sm:px-5">
+                            @php($currentBaseVersion = (int) config('yak.sandbox.base_version', 1))
+                            @if($repo->sandbox_base_version === null)
+                                <span class="text-xs text-zinc-400" title="No sandbox template provisioned yet">—</span>
+                            @elseif((int) $repo->sandbox_base_version === $currentBaseVersion)
+                                <span class="inline-block rounded-lg bg-[rgba(122,140,94,0.12)] px-2.5 py-1 text-xs font-medium text-[#7a8c5e] tabular-nums" title="Template matches current yak-base v{{ $currentBaseVersion }}">v{{ $repo->sandbox_base_version }}</span>
+                            @else
+                                <span class="inline-block rounded-lg bg-[rgba(200,184,154,0.12)] px-2.5 py-1 text-xs font-medium text-[#c8b89a] tabular-nums" title="Template drift — current yak-base is v{{ $currentBaseVersion }}. Next task run will re-provision.">v{{ $repo->sandbox_base_version }} → v{{ $currentBaseVersion }}</span>
+                            @endif
+                        </td>
+                        <td class="px-3 py-2 sm:px-5">
                             @if($repo->is_active)
                                 <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium bg-[rgba(122,140,94,0.12)] text-[#7a8c5e]">Active</span>
                             @else
@@ -52,7 +63,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="px-3 py-12 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
+                        <td colspan="9" class="px-3 py-12 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
                             No repositories found.
                         </td>
                     </tr>

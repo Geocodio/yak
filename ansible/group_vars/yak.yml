@@ -20,3 +20,10 @@ mariadb_data_path: /home/yak/mariadb-data
 # incus_zfs_device: /dev/sdb  # Uncomment and set to a dedicated disk for best performance
 incus_zfs_pool_size: 100G     # Only used when no dedicated disk (file-backed pool)
 incus_zfs_arc_max: "8589934592"  # 8GB ZFS ARC cache (tune based on total RAM)
+
+# yak-base image version. Bump this whenever the base template build
+# changes in a way repo templates need to inherit (new packages, swapped
+# browser engine, etc.). MUST match `yak.sandbox.base_version` in
+# config/yak.php — the app reads that config value and invalidates repo
+# templates whose stored `sandbox_base_version` is older.
+yak_sandbox_base_version: 2

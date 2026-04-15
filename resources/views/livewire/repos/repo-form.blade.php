@@ -186,7 +186,32 @@
     </form>
 
     @if($this->isEditing)
-        <div class="mt-10 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900" data-testid="setup-history">
+        @php($currentBaseVersion = (int) config('yak.sandbox.base_version', 1))
+        <div class="mt-10 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900">
+            <flux:heading size="lg" class="mb-3">{{ __('Sandbox Template') }}</flux:heading>
+            <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Snapshot') }}</dt>
+                    <dd class="mt-1 font-mono text-zinc-700 dark:text-zinc-300">{{ $repository->sandbox_snapshot ?: '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('yak-base Version') }}</dt>
+                    <dd class="mt-1 flex items-center gap-2">
+                        @if($repository->sandbox_base_version === null)
+                            <span class="text-zinc-500">— (not provisioned)</span>
+                        @elseif((int) $repository->sandbox_base_version === $currentBaseVersion)
+                            <span class="inline-block rounded-lg bg-[rgba(122,140,94,0.12)] px-2.5 py-1 text-xs font-medium text-[#7a8c5e] tabular-nums">v{{ $repository->sandbox_base_version }}</span>
+                            <span class="text-xs text-zinc-500">up to date</span>
+                        @else
+                            <span class="inline-block rounded-lg bg-[rgba(200,184,154,0.12)] px-2.5 py-1 text-xs font-medium text-[#c8b89a] tabular-nums">v{{ $repository->sandbox_base_version }}</span>
+                            <span class="text-xs text-zinc-500">current yak-base is <span class="font-medium text-zinc-700 dark:text-zinc-300">v{{ $currentBaseVersion }}</span> — next task run re-provisions automatically</span>
+                        @endif
+                    </dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="mt-6 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900" data-testid="setup-history">
             <div class="mb-4 flex items-center justify-between">
                 <flux:heading size="lg">{{ __('Setup History') }}</flux:heading>
                 @if($this->setupTasks->isNotEmpty())
