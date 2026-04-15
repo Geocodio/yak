@@ -45,10 +45,22 @@
       - "{{ yak_claude_path }}:/home/yak/.claude"
       - "/etc/yak/github-app.pem:/etc/yak/github-app.pem:ro"
       - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
-      # Incus Unix socket — the worker calls `incus` to manage sandbox containers
-      - "/var/lib/incus/unix.socket:/var/lib/incus/unix.socket"
+      # Bind the whole Incus state dir, not just the unix.socket file.
+      # Socket files pin the inode, so any Incus daemon restart on the
+      # host (new inode) would leave the container stuck referencing a
+      # stale, deleted socket. Mounting the parent dir re-resolves the
+      # socket path on each access.
+      - "/var/lib/incus:/var/lib/incus"
     env_file: /etc/yak/env
     recreate: true
+    healthcheck:
+      # Surfaces the "Incus Daemon" failure mode before users hit it;
+      # unhealthy status shows up in `docker ps` and can be paged on.
+      test: ["CMD-SHELL", "incus list -c n >/dev/null 2>&1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     networks:
       - name: yak
 
