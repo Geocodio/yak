@@ -78,6 +78,35 @@ it('skips reclaim when no stale container is present', function () {
     Process::assertNotRan("incus delete {$container} --force 2>/dev/null");
 });
 
+it('normalizes /workspace ownership to yak when creating a sandbox', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'chown-fix',
+        'sandbox_snapshot' => 'yak-tpl-chown-fix/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'chown-fix']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, "incus exec '{$container}' -- bash -c 'chown -R yak:yak '\\''/workspace'\\'''")
+        && ! str_contains($process->command, 'sudo -u yak'));
+});
+
 it('runs sandbox commands as the yak user by default', function () {
     Process::fake(['*' => Process::result(exitCode: 0)]);
 

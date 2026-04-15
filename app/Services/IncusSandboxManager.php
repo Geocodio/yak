@@ -66,6 +66,18 @@ class IncusSandboxManager
         // Push MCP config if configured
         $this->pushMcpConfig($containerName);
 
+        // Normalize /workspace ownership so every git operation — whether
+        // run by the agent or by job code — sees a consistently yak-owned
+        // tree. Legacy templates were built with `git clone` as root, which
+        // left `.git` root-owned and tripped git's dubious-ownership check.
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $this->run(
+            $containerName,
+            'chown -R yak:yak ' . escapeshellarg($workspacePath),
+            timeout: 30,
+            asRoot: true,
+        );
+
         Log::channel('yak')->info('Sandbox container ready', [
             'container' => $containerName,
             'task_id' => $task->id,
