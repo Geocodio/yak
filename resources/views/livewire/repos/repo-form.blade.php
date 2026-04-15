@@ -245,7 +245,7 @@
                         </thead>
                         <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                             @foreach($this->setupTasks as $setupTask)
-                                <tr wire:key="setup-task-{{ $setupTask->id }}" class="h-12 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" onclick="window.location='{{ route('tasks.show', $setupTask) }}'">
+                                <tr wire:key="setup-task-{{ $setupTask->id }}" class="h-12 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" data-row-href="{{ route('tasks.show', $setupTask) }}" onclick="yakRowNav(event)" onauxclick="yakRowNav(event)">
                                     <td class="px-4 py-2 sm:px-6">
                                         <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($setupTask->status) }}">
                                             {{ str_replace('_', ' ', $setupTask->status->value) }}

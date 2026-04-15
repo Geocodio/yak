@@ -14,3 +14,23 @@
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 @fluxAppearance
+
+<script>
+    // Row-as-link helper: makes <tr data-row-href="..."> behave like a real
+    // anchor for cmd/ctrl/shift + click and middle-click. Without this, the
+    // bare onclick="window.location=..." pattern swallows modifier keys and
+    // you can't open a task in a new tab.
+    window.yakRowNav = function (event) {
+        const row = event.currentTarget;
+        const href = row.dataset.rowHref;
+        if (!href) return;
+        if (event.type === 'auxclick' && event.button !== 1) return;
+        const newTab = event.metaKey || event.ctrlKey || event.shiftKey || event.button === 1;
+        if (newTab) {
+            window.open(href, '_blank');
+            event.preventDefault();
+        } else {
+            window.location = href;
+        }
+    };
+</script>
