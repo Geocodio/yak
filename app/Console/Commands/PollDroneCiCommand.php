@@ -39,11 +39,17 @@ class PollDroneCiCommand extends Command
                 continue;
             }
 
+            $notBefore = $task->updated_at ?? $task->created_at;
+
+            if ($notBefore === null) {
+                continue;
+            }
+
             try {
                 $result = $scanner->pollBranchStatus(
                     $repository,
                     (string) $task->branch_name,
-                    $task->updated_at,
+                    $notBefore,
                 );
             } catch (\Throwable $e) {
                 Log::warning('Drone poll failed', [

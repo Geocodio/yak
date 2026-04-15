@@ -426,7 +426,10 @@ class IncusSandboxManager
             return true;
         }
 
-        return in_array($task->status, [
+        /** @var TaskStatus $status */
+        $status = $task->status;
+
+        return in_array($status, [
             TaskStatus::Success,
             TaskStatus::Failed,
             TaskStatus::Expired,

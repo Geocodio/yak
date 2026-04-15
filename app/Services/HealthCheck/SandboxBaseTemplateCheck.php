@@ -45,7 +45,7 @@ class SandboxBaseTemplateCheck implements HealthCheck
             return HealthResult::error("Base template '{$template}' not found — run the `incus` Ansible role to build it");
         }
 
-        $snapshots = array_map(fn (string $line) => trim(explode(',', $line)[0] ?? ''), explode("\n", trim($result->output())));
+        $snapshots = array_map(fn (string $line) => trim(explode(',', $line)[0]), explode("\n", trim($result->output())));
 
         if (! in_array($snapshot, $snapshots, true)) {
             return HealthResult::error("Base template '{$template}' has no '{$snapshot}' snapshot — re-run the `incus` Ansible role");

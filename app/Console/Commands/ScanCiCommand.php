@@ -102,6 +102,10 @@ class ScanCiCommand extends Command
             // Use the most recent failure as the canonical representative.
             $canonical = $occurrences->sortByDesc('buildId')->first();
 
+            if ($canonical === null) {
+                continue;
+            }
+
             if ($this->isDuplicate($repository, $canonical)) {
                 $this->components->warn("Skipping {$canonical->testName} — task already exists.");
 
@@ -159,7 +163,7 @@ class ScanCiCommand extends Command
     {
         $defaultBranch = $repository->default_branch;
 
-        if ($defaultBranch !== null && $occurrences->contains(
+        if ($occurrences->contains(
             fn (CIBuildFailure $f): bool => $f->branch === $defaultBranch,
         )) {
             return true;

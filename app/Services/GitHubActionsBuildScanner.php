@@ -34,7 +34,7 @@ class GitHubActionsBuildScanner implements CIBuildScanner
             ])
             ->json();
 
-        /** @var array<int, array{id: int, html_url: string, conclusion: string, created_at: string, head_branch: string, head_sha?: string}> $runs */
+        /** @var array<int, array{id: int, html_url: string, conclusion: string, created_at: string, head_branch?: string|null, head_sha?: string|null}> $runs */
         $runs = $response['workflow_runs'] ?? [];
 
         $failures = collect();

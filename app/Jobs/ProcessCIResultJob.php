@@ -171,7 +171,7 @@ class ProcessCIResultJob implements ShouldQueue
         }
 
         // Clean up the .yak-artifacts subdirectory if it exists
-        if ($artifactsPath !== $taskDir && File::isDirectory($artifactsPath)) {
+        if ($artifactsPath !== $taskDir) {
             File::deleteDirectory($artifactsPath);
         }
 

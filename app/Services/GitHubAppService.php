@@ -227,7 +227,7 @@ class GitHubAppService
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->get("https://api.github.com/repos/{$repoSlug}/compare/{$base}...{$head}");
 
-        /** @var array{files?: array<int, array{filename: string, additions: int, deletions: int}>} $data */
+        /** @var array{files?: array<int, array{filename: string, additions?: int|null, deletions?: int|null}>} $data */
         $data = $response->json();
         $files = $data['files'] ?? [];
 

@@ -32,7 +32,7 @@ class YakPromptBuilder
      */
     private static function resolveRepoInstructions(YakTask $task): string
     {
-        if ($task->repo === null || $task->repo === '') {
+        if ($task->repo === '') {
             return '';
         }
 

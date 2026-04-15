@@ -25,7 +25,7 @@ class DroneBuildScanner implements CIBuildScanner
         // Scan all branches — flaky tests surface on PR branches first, so
         // restricting to default_branch misses them. Dedup by test name in
         // the caller keeps task volume sane.
-        /** @var array<int, array{number: int, status: string, source: string, started: int, link: string, after?: string}> $builds */
+        /** @var array<int, array{number: int, status: string, source?: string|null, started: int, link: string, after?: string|null}> $builds */
         $builds = Http::withToken($droneToken)
             ->get("{$droneUrl}/api/repos/{$repository->slug}/builds")
             ->json();
@@ -80,7 +80,7 @@ class DroneBuildScanner implements CIBuildScanner
         $droneUrl = (string) config('yak.channels.drone.url');
         $droneToken = (string) config('yak.channels.drone.token');
 
-        /** @var array<int, array{number: int, status: string, started: int, link: string, after?: string}> $builds */
+        /** @var array<int, array{number: int, status: string, started: int, link: string, after?: string|null}> $builds */
         $builds = Http::withToken($droneToken)
             ->get("{$droneUrl}/api/repos/{$repository->slug}/builds", ['branch' => $branch])
             ->json() ?? [];
@@ -89,7 +89,7 @@ class DroneBuildScanner implements CIBuildScanner
         $cutoff = $notBefore->getTimestamp() - 60;
 
         $build = collect($builds)
-            ->filter(fn (array $b) => ($b['started'] ?? 0) >= $cutoff)
+            ->filter(fn (array $b) => $b['started'] >= $cutoff)
             ->sortByDesc('started')
             ->first();
 
@@ -139,7 +139,7 @@ class DroneBuildScanner implements CIBuildScanner
                     continue;
                 }
 
-                /** @var array<int, array{out: string}> $stepLog */
+                /** @var array<int, array{out?: string|null}> $stepLog */
                 $stepLog = Http::withToken($droneToken)
                     ->get("{$droneUrl}/api/repos/{$repoSlug}/builds/{$buildNumber}/logs/{$stage['number']}/{$step['number']}")
                     ->json() ?? [];
@@ -170,6 +170,7 @@ class DroneBuildScanner implements CIBuildScanner
         $failures = [];
         $lines = explode("\n", $output);
 
+        /** @var string|null $currentTest */
         $currentTest = null;
         $currentOutput = '';
 

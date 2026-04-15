@@ -46,7 +46,7 @@ class Repository extends Model
             return null;
         }
 
-        return rtrim(preg_replace('/\.git$/', '', (string) $this->git_url), '/');
+        return rtrim((string) preg_replace('/\.git$/', '', (string) $this->git_url), '/');
     }
 
     /**
