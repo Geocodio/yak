@@ -141,6 +141,13 @@
   when: profile_eth0_check.rc != 0
   changed_when: true
 
+- name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+  notify: reload ufw
+
 - name: Block sandbox network from accessing host services
   community.general.ufw:
     rule: deny
@@ -153,6 +160,21 @@
     - "80"    # yak web app
     - "3306"  # MariaDB
     - "8080"  # yak web app (Caddy proxy)
+
+# UFW defaults to DROP on INPUT; without these allows, dnsmasq on the
+# yak-sandbox bridge never sees DHCP/DNS requests from the containers.
+- name: Allow DHCP and DNS on the sandbox bridge
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: yak-sandbox
+    to_port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "Incus bridge services (dnsmasq)"
+  loop:
+    - { port: "67", proto: "udp" }  # DHCP
+    - { port: "53", proto: "udp" }  # DNS
+    - { port: "53", proto: "tcp" }  # DNS (large responses)
 
 - name: Increase inotify limits for container density
   ansible.posix.sysctl:
@@ -172,13 +194,21 @@
 
 - name: Create base template container
   ansible.builtin.shell: |
+    set -euo pipefail
+
     incus launch images:ubuntu/24.04 yak-base
 
-    # Wait for container to be ready
-    sleep 5
+    # Wait for the container to come up and acquire a DHCP lease. Without
+    # this, apt-get runs before the network is ready and silently fails.
+    for i in $(seq 1 30); do
+      if incus exec yak-base -- getent hosts deb.debian.org >/dev/null 2>&1; then
+        break
+      fi
+      sleep 2
+    done
 
     # Install Docker inside the container
-    incus exec yak-base -- bash -c '
+    incus exec yak-base -- bash -euo pipefail -c '
       apt-get update
       apt-get install -y ca-certificates curl gnupg lsb-release git sudo
 
