@@ -23,10 +23,8 @@ class LinearInputDriver implements InputDriver
      */
     public function parse(Request $request): TaskDescription
     {
-        /** @var array{agentSession?: array{id?: string, issue?: array<string, mixed>, promptContext?: string}} $payload */
-        $payload = (array) json_decode($request->getContent(), associative: true);
         /** @var array{id?: string, issue?: array<string, mixed>, promptContext?: string} $session */
-        $session = (array) ($payload['agentSession'] ?? []);
+        $session = (array) $request->input('agentSession', []);
         /** @var array{id?: string, identifier?: string, title?: string, description?: string, url?: string} $issue */
         $issue = (array) ($session['issue'] ?? []);
 

@@ -24,7 +24,12 @@ function agentSessionCreatedRequest(array $overrides = []): Request
         ],
     ];
 
-    return Request::create('/webhooks/linear', 'POST', content: (string) json_encode($payload));
+    return Request::create(
+        '/webhooks/linear',
+        'POST',
+        server: ['CONTENT_TYPE' => 'application/json'],
+        content: (string) json_encode($payload),
+    );
 }
 
 it('parses AgentSessionEvent.created into a normalized TaskDescription', function () {
