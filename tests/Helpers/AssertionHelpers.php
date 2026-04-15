@@ -44,11 +44,11 @@ function assertLinearComment(?string $bodyContains = null): void
             return false;
         }
 
-        if (! str_contains($request['query'], 'commentCreate')) {
+        if (! str_contains($request['query'], 'agentActivityCreate')) {
             return false;
         }
 
-        if ($bodyContains !== null && ! str_contains($request['variables']['body'] ?? '', $bodyContains)) {
+        if ($bodyContains !== null && ! str_contains($request['variables']['input']['content']['body'] ?? '', $bodyContains)) {
             return false;
         }
 

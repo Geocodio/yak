@@ -145,6 +145,7 @@ it('Linear: posts acknowledgment comment with dashboard link', function () {
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-ack-uuid',
+        'linear_agent_session_id' => 'session-ack',
     ]);
 
     (new LinearNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Horns down — trotting over to this issue! 🐃');
@@ -160,6 +161,7 @@ it('Linear: posts result comment with PR link', function () {
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-result-uuid',
+        'linear_agent_session_id' => 'session-result',
         'pr_url' => 'https://github.com/org/repo/pull/99',
     ]);
 
@@ -176,6 +178,7 @@ it('Linear: updates issue state to done on result', function () {
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-done-uuid',
+        'linear_agent_session_id' => 'session-done',
     ]);
 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'Done!');
@@ -191,6 +194,7 @@ it('Linear: updates issue state to cancelled on expiry', function () {
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-expired-uuid',
+        'linear_agent_session_id' => 'session-expired',
     ]);
 
     (new LinearNotificationDriver)->send($task, NotificationType::Expiry, 'Clarification expired');
@@ -206,6 +210,7 @@ it('Linear: does not update state when state ID is not configured', function () 
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-nostate-uuid',
+        'linear_agent_session_id' => 'session-nostate',
     ]);
 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'Done!');
@@ -221,6 +226,7 @@ it('Linear: posts failure summary', function () {
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-fail-uuid',
+        'linear_agent_session_id' => 'session-fail',
     ]);
 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'Task failed: could not reproduce the issue');
@@ -341,6 +347,7 @@ it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
     $task = YakTask::factory()->create([
         'source' => 'linear',
         'external_id' => 'issue-job-uuid',
+        'linear_agent_session_id' => 'session-job',
     ]);
 
     $job = new SendNotificationJob($task, NotificationType::Acknowledgment, 'On it.');
