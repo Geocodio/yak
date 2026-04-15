@@ -121,7 +121,8 @@ You work unattended. Your output will be a pull request that a human reviews.
    h. Stop the dev server when done.
    i. REQUIRED STATUS LINE: End the result summary with exactly one of
       these lines — no exceptions:
-      - `Visual capture: done`
+      - `Visual capture: done (real flow)`
+      - `Visual capture: done (isolated harness) — <why the real surface was not capturable>`
       - `Visual capture: partial — <what was captured and what wasn't>`
       - `Visual capture: skipped — <specific reason>`
       A missing line is a task violation. Silent skipping is not
@@ -356,19 +357,24 @@ No special prompt block is appended. Claude follows rule 6 and reads `CLAUDE.md`
 
 Visual capture is flexible by design — different repos have different setups, and Claude adapts to what it finds rather than relying on stored configuration. The cost of this flexibility is that `CLAUDE.md` needs to be accurate about how to run the dev server.
 
-### Partial captures and temporary helpers
+### Capture plan, partial captures, temporary scaffolding
 
-If something blocks a full capture (dev server won't start, an external dependency like a deploy trigger or payment API can't be reached, a feature fires only after an event that requires real infrastructure), Claude records a partial capture rather than skipping. Claude may also add short-lived scaffolding — seeding a test user via tinker, stubbing out an external call, adding a dev-only route, bypassing auth — and MUST revert it before committing. A `git diff --stat` pre-commit and a `git show --stat HEAD` post-commit check are both part of the prompt.
+Before writing code, Claude produces a short **capture plan** — the exact real-feature URL, the user actions that trigger it, and how each blocker (external calls, auth, seed data) will be neutralised on the real page. The goal is always to record the real feature surface.
+
+Scaffolding is ranked: **(1) stub external calls** in the real code path (`Http::fake`, commented-out dispatch, fake service binding, feature flag) is the preferred path; **(2) local data / auth tweaks** are fine; **(3) isolated demo routes** like `/confetti-test` are a last resort and must be called out in the status line because the viewer never sees the real feature. All scaffolding must be reverted between `record stop` and `git commit`. A `git diff --stat` pre-commit and a `git show --stat HEAD` post-commit check are both part of the prompt.
+
+`.yak-artifacts/` is excluded by a global gitignore inside every sandbox (`~/.config/git/ignore`, installed by `IncusSandboxManager::create()`), so capture files never end up in agent commits — Yak collects them out-of-band and attaches them to the PR.
 
 ### Required status line
 
 Every task result summary must end with one of:
 
-- `Visual capture: done`
+- `Visual capture: done (real flow)`
+- `Visual capture: done (isolated harness) — <why the real surface was not capturable>`
 - `Visual capture: partial — <what was and wasn't captured>`
 - `Visual capture: skipped — <specific reason>`
 
-This turns silent skips into loud ones — reviewers can see at a glance whether visual verification happened.
+This turns silent skips into loud ones — and forces agents to name when they fell back to a fake page.
 
 ### agent-browser
 

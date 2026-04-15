@@ -78,6 +78,8 @@ class IncusSandboxManager
             asRoot: true,
         );
 
+        $this->installGlobalGitIgnore($containerName);
+
         Log::channel('yak')->info('Sandbox container ready', [
             'container' => $containerName,
             'task_id' => $task->id,
@@ -527,6 +529,41 @@ class IncusSandboxManager
         // Fix ownership inside container. `incus file push` lands files as
         // root; chown must run as root to change ownership to yak.
         $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10, asRoot: true);
+    }
+
+    /**
+     * Write a global git ignore file that excludes sandbox-only artifacts
+     * from every commit inside the container.
+     *
+     * Git reads `~/.config/git/ignore` automatically (XDG), so this applies
+     * to every repo without needing a `core.excludesFile` flag. Yak pulls
+     * `.yak-artifacts/` out of the sandbox before commit and attaches the
+     * files to the PR, so they must never end up in git.
+     */
+    private function installGlobalGitIgnore(string $containerName): void
+    {
+        $lines = [
+            '# Managed by Yak - do not edit.',
+            '# Yak collects these out-of-band and attaches them to the PR.',
+            '.yak-artifacts/',
+        ];
+
+        $remotePath = '/home/yak/.config/git/ignore';
+        $printfArgs = implode(' ', array_map(
+            fn (string $line): string => escapeshellarg($line),
+            $lines,
+        ));
+
+        $this->run(
+            $containerName,
+            sprintf(
+                "mkdir -p %s && printf '%%s\n' %s > %s",
+                escapeshellarg(dirname($remotePath)),
+                $printfArgs,
+                escapeshellarg($remotePath),
+            ),
+            timeout: 10,
+        );
     }
 
     private function pushMcpConfig(string $containerName): void

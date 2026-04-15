@@ -107,6 +107,39 @@ it('normalizes /workspace ownership to yak when creating a sandbox', function ()
         && ! str_contains($process->command, 'sudo -u yak'));
 });
 
+it('installs a global gitignore that excludes .yak-artifacts from every sandbox commit', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'gitignore-fix',
+        'sandbox_snapshot' => 'yak-tpl-gitignore-fix/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'gitignore-fix']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    // The command is double-shell-escaped: the inner payload's single quotes
+    // become '\'' once wrapped again by buildExecCommand.
+    Process::assertRan(fn ($process) => str_contains($process->command, "mkdir -p '\\''/home/yak/.config/git'\\''")
+        && str_contains($process->command, "'\\''.yak-artifacts/'\\''")
+        && str_contains($process->command, "> '\\''/home/yak/.config/git/ignore'\\''")
+        && str_contains($process->command, 'sudo -u yak'));
+});
+
 it('runs sandbox commands as the yak user by default', function () {
     Process::fake(['*' => Process::result(exitCode: 0)]);
 
