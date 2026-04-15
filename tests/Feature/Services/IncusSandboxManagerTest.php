@@ -78,6 +78,35 @@ it('skips reclaim when no stale container is present', function () {
     Process::assertNotRan("incus delete {$container} --force 2>/dev/null");
 });
 
+it('registers /workspace as a git safe.directory in every new sandbox', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'trust',
+        'sandbox_snapshot' => 'yak-tpl-trust/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'trust']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, "incus exec '{$container}' -- bash -c 'git config --system --add safe.directory")
+        && str_contains($process->command, '/workspace'));
+});
+
 it('considers a template up to date when stored version matches config', function () {
     $repo = Repository::factory()->create(['sandbox_base_version' => 2]);
 

@@ -66,6 +66,18 @@ class IncusSandboxManager
         // Push MCP config if configured
         $this->pushMcpConfig($containerName);
 
+        // Trust /workspace for every user inside the sandbox. yak-base
+        // pre-creates /workspace as yak:yak so the agent (running as yak)
+        // can write to it, but `git clone` and `git push` run as root
+        // via `sandbox->run()`. Without this, git refuses operations with
+        // "fatal: detected dubious ownership in repository at '/workspace'".
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $this->run(
+            $containerName,
+            'git config --system --add safe.directory ' . escapeshellarg($workspacePath),
+            timeout: 10,
+        );
+
         Log::channel('yak')->info('Sandbox container ready', [
             'container' => $containerName,
             'task_id' => $task->id,
