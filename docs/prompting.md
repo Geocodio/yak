@@ -18,9 +18,7 @@ These stack: `CLAUDE.md` is loaded by Claude Code itself from the repo, the syst
 
 ## CLI Invocation
 
-The exact invocation for every task:
-
-The CLI command is built by `ClaudeCodeRunner` (the default `AgentRunner` implementation in `app/Agents/`):
+The CLI command is built by `SandboxedAgentRunner` (the `AgentRunner` implementation in `app/Agents/`) and executed inside the task's Incus sandbox via `incus exec`:
 
 ```bash
 claude -p "$TASK_PROMPT" \
@@ -35,7 +33,7 @@ claude -p "$TASK_PROMPT" \
 
 | Flag | Why |
 |---|---|
-| `--dangerously-skip-permissions` | Isolated server, no production access. Machine is the boundary. |
+| `--dangerously-skip-permissions` | Each task runs in an isolated Incus sandbox. The sandbox is the boundary. |
 | `--output-format stream-json` | Incremental events streamed back to the task log in real time (falls back to `json` when the caller doesn't need streaming). |
 | `--model opus` | Implementation always uses Opus. Configurable via `YAK_DEFAULT_MODEL`. |
 | `--max-turns 300` | Large enough to cover long read → plan → edit → test → fix → commit loops, including retries. Configurable via `YAK_MAX_TURNS`. |
@@ -45,7 +43,7 @@ claude -p "$TASK_PROMPT" \
 
 Retries and clarification replies add `--resume $session_id` to continue the original session — see [Architecture → Session Continuity](architecture.md#session-continuity).
 
-The whole command is wrapped by `sudo runuser` so the agent runs as the sandboxed `yak` user rather than root — `ClaudeCli::buildWrappedCommand()` handles that, plus explicit env-var passthrough (app secrets like `DB_PASSWORD` and `APP_KEY` are NOT forwarded).
+The command runs inside the sandbox container as the unprivileged `yak` user. App secrets (`DB_PASSWORD`, `APP_KEY`, etc.) live only in the yak app container and are never present in the sandbox's environment.
 
 ## Model Selection
 

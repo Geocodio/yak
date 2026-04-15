@@ -2,17 +2,28 @@
 
 namespace App\Agents;
 
-use App\ClaudeCli;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Exceptions\ClaudeAuthException;
 use App\Services\ClaudeAuthDetector;
+use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 
-class ClaudeCodeRunner implements AgentRunner
+/**
+ * Agent runner that executes Claude Code inside an Incus sandbox container.
+ *
+ * The sandbox is created by the job layer (SetupYakJob, RunYakJob, etc.)
+ * and its container name is passed via the AgentRunRequest's containerName.
+ * This runner executes `claude -p` inside that container via `incus exec`,
+ * streaming stdout line-by-line through StreamEventHandler.
+ */
+class SandboxedAgentRunner implements AgentRunner
 {
+    public function __construct(
+        private readonly IncusSandboxManager $sandbox,
+    ) {}
+
     public function run(AgentRunRequest $request): AgentRunResult
     {
         if ($request->task) {
@@ -26,26 +37,17 @@ class ClaudeCodeRunner implements AgentRunner
     {
         assert($request->task !== null);
 
-        $command = $this->buildCommand($request, streaming: true);
+        $containerName = $request->containerName;
+        $command = $this->buildClaudeCommand($request);
         $handler = new StreamEventHandler($request->task);
 
-        Log::channel('yak')->info('Claude stream starting', [
+        Log::channel('yak')->info('Claude stream starting (sandboxed)', [
             'task_id' => $request->task->id,
+            'container' => $containerName,
             'command_length' => strlen($command),
         ]);
 
-        $descriptors = [
-            0 => ['pipe', 'r'],  // stdin
-            1 => ['pipe', 'w'],  // stdout
-            2 => ['pipe', 'w'],  // stderr
-        ];
-
-        $wrappedCommand = $this->wrapCommand($command);
-        $process = proc_open($wrappedCommand, $descriptors, $pipes, $request->workingDirectory);
-
-        if (! is_resource($process)) {
-            return AgentRunResult::failure('Failed to start Claude process', '');
-        }
+        [$process, $pipes] = $this->sandbox->streamExec($containerName, $command);
 
         fclose($pipes[0]); // Close stdin
 
@@ -53,9 +55,6 @@ class ClaudeCodeRunner implements AgentRunner
         $stdout = $pipes[1];
         $stderr = $pipes[2];
 
-        // Read stdout line by line using stream_select + fgets
-        // Pure blocking fgets hangs in the queue worker due to Laravel's
-        // pcntl signal handlers interfering with the blocking read syscall
         stream_set_blocking($stdout, false);
 
         while (true) {
@@ -63,26 +62,22 @@ class ClaudeCodeRunner implements AgentRunner
             $write = null;
             $except = null;
 
-            // Wait up to 5 seconds for data, then check if process is alive
             $ready = @stream_select($read, $write, $except, 5);
 
             if ($ready === false) {
-                // stream_select was interrupted (e.g. by a signal), retry
                 continue;
             }
 
             if ($ready > 0) {
                 $line = fgets($stdout);
                 if ($line === false) {
-                    break; // pipe closed
+                    break;
                 }
                 $lineCount++;
                 $this->processLine($line, $handler);
             } else {
-                // Timeout — check if process is still running
                 $status = proc_get_status($process);
                 if (! $status['running']) {
-                    // Drain remaining output
                     while (($line = fgets($stdout)) !== false) {
                         $lineCount++;
                         $this->processLine($line, $handler);
@@ -92,7 +87,6 @@ class ClaudeCodeRunner implements AgentRunner
             }
         }
 
-        // Read any stderr after process ends
         $stderrOutput = stream_get_contents($stderr) ?: '';
 
         fclose($stdout);
@@ -100,8 +94,9 @@ class ClaudeCodeRunner implements AgentRunner
 
         $exitCode = proc_close($process);
 
-        Log::channel('yak')->info('Claude stream completed', [
+        Log::channel('yak')->info('Claude stream completed (sandboxed)', [
             'task_id' => $request->task->id,
+            'container' => $containerName,
             'lines' => $lineCount,
             'exit_code' => $exitCode,
             'has_result' => $handler->getResultEvent() !== null,
@@ -109,7 +104,7 @@ class ClaudeCodeRunner implements AgentRunner
         ]);
 
         if ($stderrOutput !== '') {
-            Log::channel('yak')->warning('Claude stream stderr', [
+            Log::channel('yak')->warning('Claude stream stderr (sandboxed)', [
                 'task_id' => $request->task->id,
                 'stderr' => substr($stderrOutput, 0, 2000),
             ]);
@@ -118,7 +113,7 @@ class ClaudeCodeRunner implements AgentRunner
         $resultEvent = $handler->getResultEvent();
 
         if ($resultEvent !== null) {
-            Log::channel('yak')->info('Claude result event', [
+            Log::channel('yak')->info('Claude result event (sandboxed)', [
                 'task_id' => $request->task->id,
                 'is_error' => $resultEvent['is_error'] ?? false,
                 'result' => substr((string) ($resultEvent['result'] ?? ''), 0, 500),
@@ -141,13 +136,10 @@ class ClaudeCodeRunner implements AgentRunner
 
     private function runBatch(AgentRunRequest $request): AgentRunResult
     {
-        $command = $this->buildCommand($request, streaming: false);
+        $containerName = $request->containerName;
+        $command = $this->buildClaudeCommand($request);
 
-        $wrappedCommand = $this->wrapCommand($command);
-
-        $result = Process::path($request->workingDirectory)
-            ->timeout($request->timeoutSeconds)
-            ->run($wrappedCommand);
+        $result = $this->sandbox->run($containerName, $command, $request->timeoutSeconds);
 
         if (ClaudeAuthDetector::isAuthError($result)) {
             throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));
@@ -175,35 +167,21 @@ class ClaudeCodeRunner implements AgentRunner
     }
 
     /**
-     * Build the sudo runuser wrapper with allowlisted env vars.
+     * Build the Claude CLI command that runs inside the sandbox.
      *
-     * Only HOME and explicitly configured passthrough vars are forwarded
-     * to the sandboxed agent — app secrets (DB_PASSWORD, APP_KEY, etc.)
-     * are NOT exposed.
+     * The command runs directly inside the Incus container as the yak user.
      */
-    private function wrapCommand(string $command): string
+    private function buildClaudeCommand(AgentRunRequest $request): string
     {
-        $extraEnv = [];
-
-        $passthrough = config('yak.agent_passthrough_env', '');
-        foreach (array_filter(explode(',', $passthrough)) as $name) {
-            $name = trim($name);
-            $value = getenv($name);
-            if ($value !== false) {
-                $extraEnv[$name] = $value;
-            }
-        }
-
-        return app(ClaudeCli::class)->buildWrappedCommand($command, $extraEnv);
-    }
-
-    private function buildCommand(AgentRunRequest $request, bool $streaming): string
-    {
+        $streaming = $request->task !== null;
         $outputFormat = $streaming ? 'stream-json' : 'json';
         $verboseFlag = $streaming ? ' --verbose' : '';
 
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+
         $command = sprintf(
-            'claude -p %s --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            'cd %s && sudo -u yak claude -p %s --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            escapeshellarg($workspacePath),
             escapeshellarg($request->prompt),
             $outputFormat,
             $verboseFlag,
@@ -218,7 +196,8 @@ class ClaudeCodeRunner implements AgentRunner
         }
 
         if ($request->mcpConfigPath !== null && $request->mcpConfigPath !== '') {
-            $command .= sprintf(' --mcp-config %s', escapeshellarg($request->mcpConfigPath));
+            // MCP config is pushed into the container at /home/yak/mcp-config.json
+            $command .= ' --mcp-config /home/yak/mcp-config.json';
         }
 
         return $command;

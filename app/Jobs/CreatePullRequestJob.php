@@ -9,7 +9,7 @@ use App\Models\YakTask;
 use App\Services\GitHubAppService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Log;
 
 class CreatePullRequestJob implements ShouldQueue
 {
@@ -32,12 +32,13 @@ class CreatePullRequestJob implements ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $installationId = (int) config('yak.channels.github.installation_id');
         $signedUrls = $this->generateSignedUrls();
+        $changedFiles = $this->fetchChangedFiles($gitHub, $installationId, $repository);
 
         $prResponse = $gitHub->createPullRequest($installationId, $repository->slug, [
             'title' => $this->buildPrTitle(),
             'head' => $this->task->branch_name,
             'base' => $repository->default_branch,
-            'body' => $this->buildPrBody($repository, $signedUrls),
+            'body' => $this->buildPrBody($signedUrls, $changedFiles),
         ]);
 
         if (! isset($prResponse['number'], $prResponse['html_url'])) {
@@ -98,8 +99,9 @@ class CreatePullRequestJob implements ShouldQueue
 
     /**
      * @param  array<int, array{filename: string, url: string, type: string}>  $signedUrls
+     * @param  array<int, string>  $changedFiles
      */
-    private function buildPrBody(Repository $repository, array $signedUrls): string
+    private function buildPrBody(array $signedUrls, array $changedFiles): string
     {
         $taskUrl = $this->task->external_url ?? '';
         $parts = [
@@ -138,7 +140,6 @@ class CreatePullRequestJob implements ShouldQueue
             }
         }
 
-        $changedFiles = $this->getChangedFiles($repository);
         if (count($changedFiles) > 0) {
             $parts[] = '';
             $parts[] = '### Files changed';
@@ -157,17 +158,28 @@ class CreatePullRequestJob implements ShouldQueue
     /**
      * @return array<int, string>
      */
-    private function getChangedFiles(Repository $repository): array
+    private function fetchChangedFiles(GitHubAppService $gitHub, int $installationId, Repository $repository): array
     {
-        $result = Process::path($repository->path)
-            ->run("git diff --name-only {$repository->default_branch}...{$this->task->branch_name}");
-
-        $output = trim($result->output());
-
-        if ($output === '') {
+        if ($this->task->branch_name === null || $installationId === 0) {
             return [];
         }
 
-        return explode("\n", $output);
+        try {
+            $compare = $gitHub->compareBranches(
+                $installationId,
+                $repository->slug,
+                $repository->default_branch,
+                $this->task->branch_name,
+            );
+
+            return $compare['files'];
+        } catch (\Throwable $e) {
+            Log::warning('Failed to fetch changed files via GitHub API', [
+                'task_id' => $this->task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
     }
 }

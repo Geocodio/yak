@@ -21,9 +21,11 @@ class Registry
     private const CHECKS = [
         'queue-worker' => QueueWorkerCheck::class,
         'last-task-completed' => LastTaskCompletedCheck::class,
-        'repositories' => RepositoriesCheck::class,
+        'incus-daemon' => IncusDaemonCheck::class,
+        'sandbox-base-template' => SandboxBaseTemplateCheck::class,
         'claude-cli' => ClaudeCliCheck::class,
         'claude-auth' => ClaudeAuthCheck::class,
+        'repositories' => RepositoriesCheck::class,
         'webhook-signatures' => WebhookSignaturesCheck::class,
         'slack' => SlackChannelCheck::class,
         'linear' => LinearChannelCheck::class,

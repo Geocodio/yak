@@ -6,6 +6,15 @@ use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
 use Symfony\Component\Process\Exception\ProcessTimedOutException as SymfonyProcessTimedOutException;
 
+/**
+ * Verifies the shared Claude Max session is valid.
+ *
+ * The session token at /home/yak/.claude.json is mounted from the host
+ * and pushed into every sandbox at create time. We probe it from the
+ * yak app container (where the `claude` binary is also installed for
+ * the /skills dashboard); if `claude auth status` succeeds here, every
+ * sandbox that gets the same files will succeed too.
+ */
 class ClaudeAuthCheck implements HealthCheck
 {
     public function id(): string
@@ -15,7 +24,7 @@ class ClaudeAuthCheck implements HealthCheck
 
     public function name(): string
     {
-        return 'Claude CLI Auth';
+        return 'Claude Max Session';
     }
 
     public function section(): HealthSection
@@ -25,10 +34,18 @@ class ClaudeAuthCheck implements HealthCheck
 
     public function run(): HealthResult
     {
-        // Run as the yak user — credentials live at /home/yak/.claude and are
-        // not readable by www-data, so invoking `claude auth status` directly
-        // from php-fpm hangs instead of failing fast.
-        $command = 'sudo runuser -u yak -- env HOME=/home/yak claude auth status';
+        $configDir = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
+        $sessionFile = dirname($configDir) . '/.claude.json';
+
+        if (! is_file($sessionFile)) {
+            return HealthResult::error("Session token missing at {$sessionFile} — run `docker exec -it yak claude login`");
+        }
+
+        $command = sprintf(
+            'env HOME=%s CLAUDE_CONFIG_DIR=%s claude auth status',
+            escapeshellarg(dirname($configDir)),
+            escapeshellarg($configDir),
+        );
 
         try {
             $result = Process::timeout(15)->run($command);
@@ -40,6 +57,6 @@ class ClaudeAuthCheck implements HealthCheck
             return HealthResult::ok('Authenticated');
         }
 
-        return HealthResult::error('Claude CLI not authenticated — run `claude login` to re-authenticate');
+        return HealthResult::error('Claude session expired — run `docker exec -it yak claude login` to re-authenticate');
     }
 }

@@ -102,6 +102,9 @@
       tags: [channel-drone]
       when: drone_url is defined and drone_url | length > 0
 
+    - role: incus
+      tags: [incus, sandbox]
+
     - role: mariadb
       tags: [mariadb]
 

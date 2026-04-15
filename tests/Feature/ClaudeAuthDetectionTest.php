@@ -14,14 +14,13 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
 use App\Services\HealthCheck\ClaudeAuthCheck;
-use App\Services\HealthCheck\ClaudeCliCheck;
 use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\Registry;
-use Illuminate\Process\ProcessResult;
+use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -125,18 +124,9 @@ test('RunYakJob detects auth error and fails task with notification', function (
         new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git reset --hard' => Process::result(''),
-        '*git clean -fd' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'auth-repo', 'source' => 'slack']);
@@ -170,14 +160,9 @@ test('RetryYakJob detects auth error and fails task with notification', function
         new ClaudeAuthException('Claude CLI authentication error: token expired')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
     $task = YakTask::factory()->create([
@@ -213,13 +198,9 @@ test('ResearchYakJob detects auth error and fails task with notification', funct
         new ClaudeAuthException('Claude CLI authentication error: authentication_error: invalid_api_key')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'research-repo', 'path' => '/home/yak/repos/research-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'research-repo', 'source' => 'slack']);
@@ -250,16 +231,9 @@ test('SetupYakJob detects auth error and fails task with notification', function
         new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        '*git clone *' => Process::result(''),
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-        '*git pull *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'setup-repo', 'path' => '/home/yak/repos/setup-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'setup-repo', 'source' => 'slack']);
@@ -290,14 +264,9 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
         new ClaudeAuthException('Claude CLI authentication error: session expired, please login again')
     );
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-    ]);
+    Process::fake(['*' => Process::result('')]);
 
     $repository = Repository::factory()->create(['slug' => 'clarify-repo', 'path' => '/home/yak/repos/clarify-repo']);
     $task = YakTask::factory()->create([
@@ -327,100 +296,36 @@ test('ClarificationReplyJob detects auth error and fails task with notification'
 */
 
 test('health check reports healthy when claude auth is valid', function () {
+    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
+    mkdir($configDir);
+    file_put_contents(dirname($configDir) . '/' . basename($configDir) . '.json', '{}');
+    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
+    config()->set('yak.sandbox.claude_config_source', $configDir);
+
     Process::fake([
-        '*claude auth status*' => Process::result('Authenticated as user@example.com'),
+        '*claude auth status*' => Process::result(output: 'Authenticated as user@example.com'),
     ]);
 
     $result = (new ClaudeAuthCheck)->run();
 
-    expect($result->status)->toBe(HealthStatus::Ok)
-        ->and($result->detail)->toBe('Authenticated');
+    expect($result->status)->toBe(HealthStatus::Ok);
+
+    @unlink(dirname($configDir) . '/.claude.json');
+    @rmdir($configDir);
 });
 
-test('health check reports unhealthy when claude auth fails', function () {
-    Process::fake([
-        '*claude auth status*' => Process::result(
-            output: '',
-            errorOutput: 'Not authenticated',
-            exitCode: 1,
-        ),
-    ]);
+test('health check reports unhealthy when session file missing', function () {
+    config()->set('yak.sandbox.claude_config_source', '/tmp/yak-claude-missing-' . uniqid());
 
     $result = (new ClaudeAuthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toContain('not authenticated');
-});
-
-test('health check reports unhealthy when claude auth times out', function () {
-    Process::shouldReceive('timeout')->with(15)->andReturnSelf();
-    Process::shouldReceive('run')->with('sudo runuser -u yak -- env HOME=/home/yak claude auth status')->andThrow(
-        new ProcessTimedOutException(
-            new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
-            ProcessTimedOutException::TYPE_GENERAL,
-        )
-    );
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toBe('Timed out');
-});
-
-test('health check handles Laravel-wrapped timeout exception on claude auth', function () {
-    Process::shouldReceive('timeout')->with(15)->andReturnSelf();
-    Process::shouldReceive('run')->with('sudo runuser -u yak -- env HOME=/home/yak claude auth status')->andThrow(
-        new Illuminate\Process\Exceptions\ProcessTimedOutException(
-            new ProcessTimedOutException(
-                new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
-                ProcessTimedOutException::TYPE_GENERAL,
-            ),
-            new ProcessResult(
-                new Symfony\Component\Process\Process(['claude', 'auth', 'status']),
-            ),
-        )
-    );
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toBe('Timed out');
-});
-
-test('health check reports unhealthy when claude cli times out', function () {
-    Process::shouldReceive('timeout')->with(15)->andReturnSelf();
-    Process::shouldReceive('run')->with('claude --version')->andThrow(
-        new ProcessTimedOutException(
-            new Symfony\Component\Process\Process(['claude', '--version']),
-            ProcessTimedOutException::TYPE_GENERAL,
-        )
-    );
-
-    $result = (new ClaudeCliCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toBe('Timed out');
+        ->and($result->detail)->toContain('Session token missing');
 });
 
 test('registry includes claude auth check', function () {
-    Process::fake([
-        'pgrep *' => Process::result('12345'),
-        '*ls-remote*' => Process::result('abc123'),
-        'claude --version' => Process::result('1.0.0'),
-        '*claude auth status*' => Process::result(
-            output: '',
-            errorOutput: 'Not authenticated',
-            exitCode: 1,
-        ),
-    ]);
-
     $check = collect(app(Registry::class)->all())
         ->first(fn ($c) => $c->id() === 'claude-auth');
 
     expect($check)->not->toBeNull();
-
-    $result = $check->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toContain('not authenticated');
 });

@@ -41,41 +41,31 @@ ENV CHROME_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Docker CLI — needed for docker-compose stop in preflight/cleanup and agent tasks
+# Incus client — used by the queue worker to manage sandbox containers
+# on the host. The host's Incus Unix socket is mounted at runtime; the
+# www-data user is added to the matching `incus-admin` group via
+# entrypoint.sh so it can talk to the daemon.
 RUN install -m 0755 -d /etc/apt/keyrings \
-    && curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc \
-    && chmod a+r /etc/apt/keyrings/docker.asc \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+    && curl -fsSL https://pkgs.zabbly.com/key.asc -o /etc/apt/keyrings/zabbly.asc \
+    && chmod a+r /etc/apt/keyrings/zabbly.asc \
+    && echo "deb [signed-by=/etc/apt/keyrings/zabbly.asc] https://pkgs.zabbly.com/incus/stable $(. /etc/os-release && echo "$VERSION_CODENAME") main" > /etc/apt/sources.list.d/zabbly-incus.list
 
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update && apt-get install -y --no-install-recommends \
         nodejs \
-        docker-ce-cli \
-        docker-compose-plugin \
+        incus-client \
     && rm -rf /var/lib/apt/lists/*
 
-RUN npm install -g @anthropic-ai/claude-code agent-browser
+# Claude Code CLI is installed in two places:
+#  - Inside each Incus sandbox (where the agent actually runs), and
+#  - Here, on the yak app container, so the /skills dashboard page can
+#    install/uninstall/update plugins. Skills written to /home/yak/.claude
+#    are mounted from the host and pushed into each sandbox at create time.
+RUN npm install -g @anthropic-ai/claude-code
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-RUN useradd -m -s /bin/bash yak \
-    && mkdir -p /home/yak/repos /home/yak/.claude \
-        /home/yak/.cache /home/yak/.config/chromium \
-        /home/yak/.local/share/pki/nssdb \
-    && chown -R yak:yak /home/yak
-
-# Allow www-data to drop privileges to yak user for Claude Code execution.
-# Preserve YAK_* env vars through the sudo boundary so the artisan commands
-# invoked as yak (credential helper, agent runners) see the same config the
-# parent process has — otherwise sudo's `env_reset` strips them and Laravel
-# falls back to missing-config defaults (e.g. installation_id=0).
-RUN printf '%s\n' \
-    'Defaults env_keep += "YAK_* APP_* DB_* CLAUDE_*"' \
-    'www-data ALL=(root) NOPASSWD: /usr/sbin/runuser' \
-    > /etc/sudoers.d/yak-sandbox \
-    && chmod 440 /etc/sudoers.d/yak-sandbox
-
-ENV HOME=/home/yak
+ENV HOME=/var/www
 ENV CLAUDE_CONFIG_DIR=/home/yak/.claude
 
 # ── Build frontend assets ────────────────────────────────────────────
@@ -111,15 +101,17 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache
 
-RUN usermod -aG www-data yak
-
 RUN mkdir -p /data \
     && chown -R www-data:www-data /data \
     && chmod -R 775 /data
 
+# Claude config dir is mounted from the host at runtime; it holds the
+# shared Claude Max session token that gets pushed into each sandbox.
+RUN mkdir -p /home/yak/.claude
+
 EXPOSE 80
 
-VOLUME ["/home/yak/repos", "/data", "/home/yak/.claude"]
+VOLUME ["/data", "/home/yak/.claude"]
 
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/yak.conf"]

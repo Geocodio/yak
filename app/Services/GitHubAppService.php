@@ -210,6 +210,37 @@ class GitHubAppService
         return array_map(fn (array $file): string => $file['filename'], $files);
     }
 
+    /**
+     * Compare two branches via the GitHub Compare API.
+     *
+     * Returns the list of changed file paths and the total LOC delta
+     * (additions + deletions). Used by the post-CI jobs that need this
+     * data without a local checkout.
+     *
+     * @return array{files: array<int, string>, loc_changed: int}
+     */
+    public function compareBranches(int $installationId, string $repoSlug, string $base, string $head): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/compare/{$base}...{$head}");
+
+        /** @var array{files?: array<int, array{filename: string, additions: int, deletions: int}>} $data */
+        $data = $response->json();
+        $files = $data['files'] ?? [];
+
+        $loc = 0;
+        $names = [];
+        foreach ($files as $file) {
+            $loc += ($file['additions'] ?? 0) + ($file['deletions'] ?? 0);
+            $names[] = $file['filename'];
+        }
+
+        return ['files' => $names, 'loc_changed' => $loc];
+    }
+
     public function generateJwt(): string
     {
         $appId = (string) config('yak.channels.github.app_id');

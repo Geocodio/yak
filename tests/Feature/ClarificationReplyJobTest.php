@@ -4,12 +4,13 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
-use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,10 +31,9 @@ test('successful clarification reply transitions task to awaiting_ci and force p
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
         '*git checkout *' => Process::result(''),
         '*git rev-parse *' => Process::result(output: 'yak/test'),
         '*git branch -D *' => Process::result(''),
@@ -61,8 +61,6 @@ test('successful clarification reply transitions task to awaiting_ci and force p
         ->and((float) $task->cost_usd)->toBe(3.50)
         ->and($task->num_turns)->toBe(23)
         ->and($task->duration_ms)->toBe(180000);
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git push --force'));
 });
 
 /*
@@ -86,6 +84,7 @@ test('transitions from awaiting_clarification to running during execution', func
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -128,6 +127,7 @@ test('invokes claude with --resume flag and session_id', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -159,6 +159,7 @@ test('claude command includes all standard flags', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -196,6 +197,7 @@ test('prompt includes the user chosen option text', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -236,6 +238,7 @@ test('accumulates cost, turns, and duration on task', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -280,6 +283,7 @@ test('claude error response marks task as failed and checks out default branch',
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -300,8 +304,6 @@ test('claude error response marks task as failed and checks out default branch',
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->error_log)->toBe('Rate limited by API')
         ->and($task->completed_at)->not->toBeNull();
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
 });
 
 test('malformed claude output marks task as failed', function () {
@@ -317,6 +319,7 @@ test('malformed claude output marks task as failed', function () {
         rawOutput: 'not json at all {{',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
     Process::fake([
         '*' => Process::result(''),
@@ -357,7 +360,7 @@ test('ClarificationReplyJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('ClarificationReplyJob has CleanupDevEnvironment middleware', function () {
+test('ClarificationReplyJob has EnsureDailyBudget middleware', function () {
     Process::fake();
 
     $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
@@ -366,7 +369,6 @@ test('ClarificationReplyJob has CleanupDevEnvironment middleware', function () {
     $job = new ClarificationReplyJob($task, 'test reply');
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(2)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class)
-        ->and($middleware[1])->toBeInstanceOf(CleanupDevEnvironment::class);
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
 });

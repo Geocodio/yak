@@ -6,6 +6,7 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 
 - A dedicated server running the Yak Docker container (Laravel app, queue workers, scheduler, nginx)
 - A MariaDB container with persistent storage for the application database
+- **Incus + ZFS** for sandboxed task execution — each task runs in its own isolated system container with its own Docker daemon, network, and filesystem
 - Webhook endpoints for whichever channels you have enabled
 - A dashboard at `https://{your-domain}` behind Google OAuth
 - Claude Code CLI configured with MCP servers matching your enabled channels
@@ -260,7 +261,7 @@ Total time: about 10 minutes.
 Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
 
 ```bash
-docker exec -u yak -it yak claude login
+docker exec -it yak claude login
 ```
 
 Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.

@@ -191,20 +191,62 @@ pending ──→ running ────┼──→ awaiting_ci ──→ success
 | `Retrying` | `AwaitingCi` | Retry completed, branch force-pushed |
 | `Retrying` | `Failed` | Claude errored on retry |
 
+## Sandbox Isolation (Incus)
+
+Every Claude Code task runs in an isolated **Incus system container**. Each container has its own Docker daemon, network namespace, and filesystem — cloned from a ZFS copy-on-write snapshot in under 3 seconds.
+
+```
+Host (Hetzner Dedicated Server)
+│
+├─ Yak App (Docker container)
+│   ├─ Web (nginx + php-fpm)
+│   ├─ Queue workers (4x yak-claude, 3x default)
+│   └─ Scheduler
+│
+├─ MariaDB (Docker container, yak-internal network)
+│
+├─ Incus (system container manager, ZFS-backed)
+│   ├─ yak-tpl-{repo}/ready  ← snapshot per repo (setup result)
+│   │
+│   ├─ task-42  ← clone of snapshot (CoW, isolated)
+│   │   └─ Docker daemon, compose services, Claude Code
+│   │
+│   └─ task-43  ← another clone (fully independent)
+│       └─ Docker daemon, compose services, Claude Code
+```
+
+### Why Incus
+
+Three guarantees make sandboxed execution safe at scale:
+
+- **Network isolation** — sandbox containers are on a separate bridge (`yak-sandbox`) with firewall rules blocking access to the yak app and MariaDB. The agent cannot reach the yak database, period.
+- **Port isolation** — each container has its own network namespace. Port 8000 in container A doesn't conflict with port 8000 in container B.
+- **Filesystem isolation** — ZFS copy-on-write means each container has its own writable filesystem. Changes in one container are invisible to others, so concurrent tasks on the same repo never collide.
+
+### The Snapshot Workflow
+
+1. **Setup** — `SetupYakJob` creates a sandbox from the base template (`yak-base`), clones the repo, runs Claude's setup (npm install, composer install, docker-compose up, etc.), then **snapshots the result** as `yak-tpl-{repo}/ready`.
+2. **Task execution** — `RunYakJob` clones from the repo snapshot (instant, ~2s). The agent works in a pristine copy of the fully-prepared environment.
+3. **Cleanup** — after the task completes (success or failure), the sandbox is destroyed. ZFS reclaims the space immediately.
+
+### Docker-in-Incus
+
+Repo dev environments using Docker Compose work natively inside Incus containers. `security.nesting=true` gives each container its own Docker daemon. There's no shared Docker socket, no port override files, no DinD hacks.
+
 ## Jobs and Queues
 
 Two queues separate Claude Code work from everything else:
 
 | Queue | Concurrency | Timeout | Jobs |
 |---|---|---|---|
-| `yak-claude` | 1 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ClarificationReplyJob |
+| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ClarificationReplyJob |
 | `default` | 3 | 30s | ProcessCIResultJob, webhook handlers, PR creation, notifications, cleanup |
 
 The split exists to prevent a common failure mode: Task A's CI passes, but Task A's PR creation blocks for 10 minutes because Task B is mid-Opus on `yak-claude`. Putting coordination work (webhook processing, PR creation) on the `default` queue keeps it responsive even when Claude Code is busy.
 
-### Sequential Implementation
+### Concurrent Execution
 
-Claude Code tasks run one at a time on `yak-claude`. Resource constraints — ports, Docker containers, memory — mean concurrent execution isn't reliable on a single box. Throughput comes from automation (no human in the loop), not parallelism.
+With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers by default). Each task gets its own isolated container — no shared ports, no shared filesystem, no shared Docker daemon. Throughput scales with available RAM (each sandbox uses ~4-8GB).
 
 ### The Main Jobs
 
@@ -217,9 +259,6 @@ Claude Code tasks run one at a time on `yak-claude`. Resource constraints — po
 
 ### Middleware
 
-Two job middleware classes handle cross-cutting concerns:
-
-- **`CleanupDevEnvironment`** — runs `docker-compose stop` in the repo directory after any Claude Code job finishes (success or failure). Catches leaks from crashes or manual SSH interventions.
 - **`EnsureDailyBudget`** — checks the `daily_costs` table before Claude Code invocations. If today's routing-layer cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
 
 ## Session Continuity
@@ -281,15 +320,19 @@ The safety guarantees are deliberate design choices, not afterthoughts.
 
 Claude Code runs with `--dangerously-skip-permissions` on every invocation. No tool approval prompts, no human in the loop during execution. This is the only way unattended operation works at scale.
 
-**The safety boundary is the machine itself**, not permission dialogs:
+**The safety boundary is the sandbox**, not permission dialogs:
 
 - **Dedicated server.** Completely separate from production. No VPN, no Tailscale, no shared network.
 - **No production access.** No production databases, no customer data, no deployment pipelines.
-- **Network allowlist.** Only GitHub, Anthropic, npm, and the enabled channel APIs are reachable.
-- **Process isolation.** Claude Code runs as the `yak` user, which has no write access outside `/home/yak/repos/` and `/home/yak/.claude/`. The database, artifacts, and application files are owned by `www-data` and inaccessible to the agent process.
-- **Environment isolation.** Container env vars (DB credentials, API keys, etc.) are stripped by the `sudo runuser` sandbox. Only explicitly allowlisted vars are forwarded — configure via `agent_extra_env` in Ansible (see [Setup → Agent Environment Variables](setup.md#agent-environment-variables)).
+- **Incus sandbox isolation.** Each task runs in its own Incus system container with:
+  - **Own Docker daemon** — no access to the host's Docker socket.
+  - **Own network namespace** — firewall rules block access to the yak app and MariaDB.
+  - **Own filesystem** — ZFS copy-on-write from a snapshot. Changes are invisible to other tasks.
+  - **Own process tree** — no visibility into host processes.
+- **Short-lived credentials.** GitHub App tokens are injected per-task and are short-lived. Claude Max auth tokens are copied read-only from the host.
+- **Automatic cleanup.** Sandbox containers are destroyed after each task. A cron job catches any that were missed.
 
-Claude can do anything it wants inside that sandbox. The walls are physical, not logical.
+Claude can do anything it wants inside that sandbox. The walls are real — Incus namespace isolation, not just user separation within a shared container.
 
 ### No Merge Authority
 
@@ -326,7 +369,7 @@ Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed UR
 ## What Yak Is Not
 
 - **Not a merge bot.** See above — no merge authority, no bypass.
-- **Not horizontally scaled.** One queue worker for Claude Code, one server. The architecture supports future scaling but doesn't need it.
+- **Not horizontally scaled.** Four concurrent workers on one server. The architecture supports future scaling to multiple hosts but doesn't need it.
 - **Not a long-running agent.** Every task is one-shot. No back-and-forth refinement. If a task needs iterative discussion, use a normal Claude session.
 - **Not a frontend framework.** Dashboard is Livewire (server-rendered) with Livewire polling for live updates. No SPA, no websockets.
-- **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) on a dedicated server. Laravel's database queue driver. Boring stack.
+- **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.

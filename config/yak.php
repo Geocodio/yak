@@ -24,8 +24,6 @@ return [
 
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
-    'agent_runner' => env('YAK_AGENT_RUNNER', 'claude_code'),
-
     'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 3),
 
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
@@ -37,6 +35,31 @@ return [
     // Env vars to forward from the container to the sandboxed agent process.
     // Comma-separated list of var names (e.g. "NODE_AUTH_TOKEN,NPM_TOKEN").
     'agent_passthrough_env' => env('YAK_AGENT_PASSTHROUGH_ENV', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sandbox Configuration (Incus)
+    |--------------------------------------------------------------------------
+    |
+    | Sandboxed task execution uses Incus system containers with ZFS
+    | copy-on-write snapshots. Each task gets its own isolated container
+    | with its own Docker daemon, network namespace, and filesystem.
+    |
+    */
+
+    'sandbox' => [
+        'enabled' => (bool) env('YAK_SANDBOX_ENABLED', true),
+        'base_template' => env('YAK_SANDBOX_BASE_TEMPLATE', 'yak-base'),
+        'snapshot_name' => env('YAK_SANDBOX_SNAPSHOT_NAME', 'ready'),
+        'cpu_limit' => (int) env('YAK_SANDBOX_CPU_LIMIT', 4),
+        'memory_limit' => env('YAK_SANDBOX_MEMORY_LIMIT', '8GB'),
+        'disk_limit' => env('YAK_SANDBOX_DISK_LIMIT', '30GB'),
+        'workspace_path' => env('YAK_SANDBOX_WORKSPACE_PATH', '/workspace'),
+        'results_path' => env('YAK_SANDBOX_RESULTS_PATH', '/results'),
+        'claude_config_source' => env('YAK_SANDBOX_CLAUDE_CONFIG', '/home/yak/.claude'),
+        'network' => env('YAK_SANDBOX_NETWORK', 'yak-sandbox'),
+        'cleanup_after_hours' => (int) env('YAK_SANDBOX_CLEANUP_HOURS', 24),
+    ],
 
     /*
     |--------------------------------------------------------------------------

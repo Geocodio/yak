@@ -4,15 +4,16 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
-use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
+use Tests\Support\FakeSandboxManager;
 
 /*
 |--------------------------------------------------------------------------
@@ -34,17 +35,11 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
     Process::fake([
-        'docker compose stop' => Process::result(''),
-        'lsof *' => Process::result(''),
-        '*git reset --hard' => Process::result(''),
-        '*git clean -fd' => Process::result(''),
-        '*git fetch *' => Process::result(''),
-        '*git checkout -b *' => Process::result(''),
-        '*git checkout *' => Process::result(''),
-        '*git rev-parse *' => Process::result(output: 'yak/test'),
-        '*git branch -D *' => Process::result(''),
-        '*git push *' => Process::result(''),
+        '*' => Process::result(''),
     ]);
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
@@ -63,7 +58,9 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
         ->and($task->duration_ms)->toBe(120000)
         ->and($task->branch_name)->toStartWith('yak/');
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git push'));
+    // Sandbox was created and destroyed
+    expect($fakeSandbox->createdContainers)->toHaveCount(1)
+        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
 test('successful run notifies source that task is awaiting CI', function () {
@@ -80,6 +77,9 @@ test('successful run notifies source that task is awaiting CI', function () {
         clarificationOptions: [],
         rawOutput: '{}',
     ));
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
     Process::fake(['*' => Process::result('')]);
 
@@ -110,6 +110,9 @@ test('no awaiting-CI notification dispatched when ci_system is none', function (
         rawOutput: '{}',
     ));
 
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
     Process::fake(['*' => Process::result('')]);
 
     Repository::factory()->create([
@@ -138,6 +141,9 @@ test('successful run creates branch with yak/{external_id} naming', function () 
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
     Process::fake([
         '*' => Process::result(''),
     ]);
@@ -154,8 +160,6 @@ test('successful run creates branch with yak/{external_id} naming', function () 
     $task->refresh();
 
     expect($task->branch_name)->toBe('yak/ISSUE-42');
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout -b') && str_contains($process->command, 'yak/ISSUE-42'));
 });
 
 test('successful run increments attempts', function () {
@@ -171,6 +175,9 @@ test('successful run increments attempts', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
     Process::fake([
         '*' => Process::result(''),
@@ -188,11 +195,11 @@ test('successful run increments attempts', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Preflight Cleanup
+| Sandbox Lifecycle
 |--------------------------------------------------------------------------
 */
 
-test('preflight runs docker compose stop and kills dev ports', function () {
+test('sandbox is created and destroyed on successful run', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_1',
         resultSummary: 'Done',
@@ -206,20 +213,46 @@ test('preflight runs docker compose stop and kills dev ports', function () {
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    Process::fake([
-        '*' => Process::result(''),
-    ]);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
-    $repository = Repository::factory()->create(['slug' => 'my-repo', 'path' => '/home/yak/repos/my-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'my-repo']);
+    Process::fake(['*' => Process::result('')]);
 
-    $job = new RunYakJob($task);
-    $job->handle($fake);
+    Repository::factory()->create(['slug' => 'sb-repo', 'path' => '/home/yak/repos/sb-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'sb-repo']);
 
-    Process::assertRan(fn ($process) => $process->command === 'docker compose stop');
-    Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:8000'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:5173'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'lsof -ti:3000'));
+    (new RunYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->createdContainers)->toHaveCount(1)
+        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1)
+        ->and($fakeSandbox->createdContainers[0])->toBe($fakeSandbox->destroyedContainers[0]);
+});
+
+test('sandbox is destroyed even when agent errors', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_err',
+        resultSummary: 'Rate limited by API',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'err-repo', 'path' => '/home/yak/repos/err-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'err-repo']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
 /*
@@ -241,6 +274,9 @@ test('clarification from slack source sets awaiting_clarification status', funct
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
     Process::fake([
         '*' => Process::result(''),
@@ -275,6 +311,9 @@ test('clarification from non-slack source is treated as success', function () {
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
     Process::fake([
         '*' => Process::result(''),
@@ -311,6 +350,9 @@ test('claude error response marks task as failed', function () {
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
     Process::fake([
         '*' => Process::result(''),
     ]);
@@ -326,8 +368,6 @@ test('claude error response marks task as failed', function () {
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->error_log)->toBe('Rate limited by API')
         ->and($task->completed_at)->not->toBeNull();
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
 });
 
 test('malformed claude output marks task as failed', function () {
@@ -343,6 +383,9 @@ test('malformed claude output marks task as failed', function () {
         rawOutput: 'not json at all {{',
     ));
     $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
     Process::fake([
         '*' => Process::result(''),
@@ -382,6 +425,9 @@ test('assembles prompt based on task source', function () {
             rawOutput: '{}',
         ));
         $this->app->instance(AgentRunner::class, $fake);
+
+        $fakeSandbox = new FakeSandboxManager;
+        $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
 
         Process::fake([
             '*' => Process::result(''),
@@ -449,7 +495,7 @@ test('RunYakJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('RunYakJob has CleanupDevEnvironment middleware', function () {
+test('RunYakJob has EnsureDailyBudget middleware', function () {
     Process::fake();
 
     $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
@@ -458,7 +504,6 @@ test('RunYakJob has CleanupDevEnvironment middleware', function () {
     $job = new RunYakJob($task);
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(2)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class)
-        ->and($middleware[1])->toBeInstanceOf(CleanupDevEnvironment::class);
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
 });

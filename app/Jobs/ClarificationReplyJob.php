@@ -8,12 +8,13 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
-use App\GitOperations;
-use App\Jobs\Middleware\CleanupDevEnvironment;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
+use App\Services\IncusSandboxManager;
+use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\YakPersonality;
@@ -22,7 +23,6 @@ use App\YakPromptBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 
 class ClarificationReplyJob implements ShouldQueue
 {
@@ -45,12 +45,8 @@ class ClarificationReplyJob implements ShouldQueue
      */
     public function middleware(): array
     {
-        $repository = Repository::where('slug', $this->task->repo)->first();
-        $repoPath = $repository !== null ? $repository->path : '';
-
         return [
             new EnsureDailyBudget,
-            new CleanupDevEnvironment($repoPath),
         ];
     }
 
@@ -68,6 +64,8 @@ class ClarificationReplyJob implements ShouldQueue
     private function runReply(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
+        $sandbox = app(IncusSandboxManager::class);
+        $containerName = null;
 
         $this->task->update([
             'status' => TaskStatus::Running,
@@ -76,13 +74,17 @@ class ClarificationReplyJob implements ShouldQueue
         TaskLogger::info($this->task, 'Picked up by worker — clarification reply');
 
         try {
-            $this->preflight($repository);
-            $this->checkoutTaskBranch($repository);
+            // Create sandbox from repo snapshot
+            $containerName = $sandbox->create($this->task, $repository);
+            TaskLogger::info($this->task, 'Sandbox created for clarification reply', ['container' => $containerName]);
+
+            // Configure git and checkout the task branch
+            $this->prepareBranch($sandbox, $containerName, $repository);
 
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::clarificationReplyPrompt($this->replyText),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                workingDirectory: $repository->path,
+                containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
@@ -93,19 +95,22 @@ class ClarificationReplyJob implements ShouldQueue
             ));
 
             if ($result->isError) {
-                $this->handleError($repository, $result->resultSummary ?: 'Agent returned an error or malformed output');
+                $this->handleError($result->resultSummary ?: 'Agent returned an error or malformed output');
 
                 return;
             }
 
-            $this->handleSuccess($repository, $result);
+            // Collect artifacts before sandbox is destroyed
+            SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+
+            $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
             Log::error('ClarificationReplyJob auth failure', [
                 'task_id' => $this->task->id,
                 'error' => $e->getMessage(),
             ]);
 
-            $this->handleError($repository, $e->getMessage());
+            $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('ClarificationReplyJob failed', [
@@ -113,28 +118,42 @@ class ClarificationReplyJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
-            $this->handleError($repository, $e->getMessage());
+            $this->handleError($e->getMessage());
+        } finally {
+            if ($containerName !== null) {
+                $sandbox->destroy($containerName);
+            }
         }
     }
 
-    private function preflight(Repository $repository): void
+    private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
-        Process::path($repository->path)->run('docker compose stop');
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        $devPorts = [8000, 5173, 3000];
-        foreach ($devPorts as $port) {
-            Process::run("lsof -ti:{$port} | xargs kill -9 2>/dev/null || true");
+        // Configure git credentials
+        $gitName = config('yak.git_user_name', 'Yak');
+        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
+        $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
+        $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+        if ($installationId) {
+            $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+            $sandbox->run(
+                $containerName,
+                'git config --global credential.https://github.com.helper ' .
+                escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
+                timeout: 10,
+            );
         }
+
+        // Fetch and checkout the task branch
+        $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
+        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
+        $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
     }
 
-    private function checkoutTaskBranch(Repository $repository): void
-    {
-        $branchName = 'yak/' . $this->task->external_id;
-
-        GitOperations::checkoutBranch($repository, $branchName);
-    }
-
-    private function handleSuccess(Repository $repository, AgentRunResult $result): void
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
         TaskMetricsAccumulator::applyAccumulated($this->task, $result);
 
@@ -147,10 +166,23 @@ class ClarificationReplyJob implements ShouldQueue
         DailyCost::accumulate($result->costUsd);
 
         if ($this->task->branch_name !== null) {
-            // Refuse to push if the agent ended up on the default branch
-            GitOperations::assertNotOnDefaultBranch($repository);
+            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-            GitOperations::forcePushBranch($repository, $this->task->branch_name);
+            // Safety check
+            $branchResult = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse --abbrev-ref HEAD", timeout: 10);
+            $currentBranch = trim($branchResult->output());
+
+            if ($currentBranch === $repository->default_branch) {
+                throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
+            }
+
+            // Force push from sandbox
+            $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push --force-with-lease origin {$this->task->branch_name}", timeout: 60);
+
+            if ($pushResult->exitCode() !== 0) {
+                throw new \RuntimeException("Git push failed in sandbox: {$pushResult->errorOutput()}");
+            }
+
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }
 
@@ -162,7 +194,7 @@ class ClarificationReplyJob implements ShouldQueue
         }
     }
 
-    private function handleError(Repository $repository, string $errorMessage): void
+    private function handleError(string $errorMessage): void
     {
         $this->task->update([
             'status' => TaskStatus::Failed,
@@ -171,6 +203,5 @@ class ClarificationReplyJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
-        GitOperations::checkoutDefaultBranch($repository);
     }
 }
