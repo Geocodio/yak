@@ -32,7 +32,9 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('costs', CostDashboard::class)->name('costs');
     Route::livewire('repos', RepoList::class)->name('repos');
     Route::livewire('repos/create', RepoForm::class)->name('repos.create');
-    Route::livewire('repos/{repository}/edit', RepoForm::class)->name('repos.edit');
+    Route::livewire('repos/{repository}/edit', RepoForm::class)
+        ->name('repos.edit')
+        ->where('repository', '.+');
     Route::livewire('health', Health::class)->name('health');
     Route::livewire('prompts', PromptEditor::class)->name('prompts');
     Route::livewire('skills', Skills::class)->name('skills');

@@ -73,6 +73,14 @@ class TaskList extends Component
         $this->resetPage();
     }
 
+    public function clearFilters(): void
+    {
+        $this->status = '';
+        $this->source = '';
+        $this->repo = '';
+        $this->resetPage();
+    }
+
     /**
      * @return array<int, string>
      */

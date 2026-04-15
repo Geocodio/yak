@@ -55,7 +55,9 @@ it('claude cli check fails when not installed', function () {
 });
 
 it('claude auth check fails when session file missing', function () {
-    config()->set('yak.sandbox.claude_config_source', '/tmp/nonexistent-yak-claude-' . uniqid());
+    // Use a nested path so both the config dir and its parent (where the
+    // .claude.json lookup happens) are guaranteed not to exist.
+    config()->set('yak.sandbox.claude_config_source', '/tmp/nonexistent-yak-' . uniqid() . '/claude');
 
     $result = (new ClaudeAuthCheck)->run();
 

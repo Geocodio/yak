@@ -61,7 +61,9 @@ test('cleanup command is scheduled daily', function () {
     $schedule = app(Schedule::class);
 
     $events = collect($schedule->events())->filter(function ($event) {
-        return str_contains($event->command ?? '', 'yak:cleanup');
+        // Match "yak:cleanup" at a word boundary so we don't also catch
+        // "yak:cleanup-sandboxes" or other yak:cleanup-prefixed commands.
+        return preg_match('/\syak:cleanup($|\s)/', (string) $event->command) === 1;
     });
 
     expect($events)->toHaveCount(1);

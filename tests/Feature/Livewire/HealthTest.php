@@ -40,9 +40,11 @@ it('renders the System section with all system check names as placeholders', fun
         ->assertSee('System')
         ->assertSee('Queue Worker')
         ->assertSee('Last Task Completed')
-        ->assertSee('Repositories Fetchable')
+        ->assertSee('Incus Daemon')
+        ->assertSee('Sandbox Base Template')
         ->assertSee('Claude CLI')
-        ->assertSee('Claude CLI Auth')
+        ->assertSee('Claude Max Session')
+        ->assertSee('Repositories Reachable')
         ->assertSee('Webhook Signatures');
 });
 

@@ -21,29 +21,39 @@
         </button>
     </div>
 
-    <div class="mb-6 flex flex-wrap gap-3">
-        <flux:select wire:model.live="status" class="min-w-40" aria-label="Filter by status">
-            <flux:select.option value="">All Statuses</flux:select.option>
-            @foreach(\App\Enums\TaskStatus::cases() as $statusOption)
-                <flux:select.option value="{{ $statusOption->value }}">{{ str_replace('_', ' ', ucfirst($statusOption->value)) }}</flux:select.option>
-            @endforeach
-        </flux:select>
-
-        @if($tab === 'tasks')
-            <flux:select wire:model.live="source" class="min-w-40" aria-label="Filter by source">
-                <flux:select.option value="">All Sources</flux:select.option>
-                @foreach($this->sources as $sourceOption)
-                    <flux:select.option value="{{ $sourceOption }}">{{ ucfirst($sourceOption) }}</flux:select.option>
+    <div class="mb-5 flex flex-wrap items-center gap-2" data-testid="task-filters">
+        <div class="w-full sm:w-44">
+            <flux:select wire:model.live="status" size="sm" aria-label="Filter by status">
+                <flux:select.option value="">All statuses</flux:select.option>
+                @foreach(\App\Enums\TaskStatus::cases() as $statusOption)
+                    <flux:select.option value="{{ $statusOption->value }}">{{ str_replace('_', ' ', ucfirst($statusOption->value)) }}</flux:select.option>
                 @endforeach
             </flux:select>
+        </div>
+
+        @if($tab === 'tasks')
+            <div class="w-full sm:w-44">
+                <flux:select wire:model.live="source" size="sm" aria-label="Filter by source">
+                    <flux:select.option value="">All sources</flux:select.option>
+                    @foreach($this->sources as $sourceOption)
+                        <flux:select.option value="{{ $sourceOption }}">{{ ucfirst($sourceOption) }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
         @endif
 
-        <flux:select wire:model.live="repo" class="min-w-40" aria-label="Filter by repo">
-            <flux:select.option value="">All Repos</flux:select.option>
-            @foreach($this->repos as $repoOption)
-                <flux:select.option value="{{ $repoOption }}">{{ $repoOption }}</flux:select.option>
-            @endforeach
-        </flux:select>
+        <div class="w-full sm:w-56">
+            <flux:select wire:model.live="repo" size="sm" aria-label="Filter by repo">
+                <flux:select.option value="">All repos</flux:select.option>
+                @foreach($this->repos as $repoOption)
+                    <flux:select.option value="{{ $repoOption }}">{{ $repoOption }}</flux:select.option>
+                @endforeach
+            </flux:select>
+        </div>
+
+        @if($status !== '' || $source !== '' || $repo !== '')
+            <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="clearFilters" data-testid="clear-filters">Clear</flux:button>
+        @endif
     </div>
 
     <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
