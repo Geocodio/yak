@@ -271,7 +271,9 @@
       # Install Playwright Chromium + OS deps for the yak user (fonts,
       # libnss3, libasound2, etc.). Binary lands in
       # /home/yak/.cache/ms-playwright and is reused by agent-browser.
-      sudo -u yak npx --yes playwright install --with-deps chromium
+      # Use `sudo -iu` so the shell runs with /home/yak as CWD — without
+      # this, npx tries to create temp files in /root and fails EACCES.
+      sudo -iu yak npx --yes playwright install --with-deps chromium
 
       # Point agent-browser at Playwright instead of auto-detecting system
       # chromium. `default.engine` is read by the daemon on launch; seeding
