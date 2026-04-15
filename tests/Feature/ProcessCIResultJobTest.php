@@ -11,6 +11,7 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 99999);
@@ -293,7 +294,7 @@ test('green path does not apply large-change label when LOC is under threshold',
 |--------------------------------------------------------------------------
 */
 
-test('green path collects artifacts from .yak-artifacts directory', function () {
+test('green path collects artifacts pre-collected by sandbox', function () {
     Http::fake([
         'api.github.com/*' => Http::response([
             'number' => 1,
@@ -308,15 +309,9 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
         '*git branch -D *' => Process::result(''),
     ]);
 
-    $tempDir = sys_get_temp_dir() . '/yak-test-' . uniqid();
-    $artifactsDir = $tempDir . '/.yak-artifacts';
-    mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir . '/screenshot.png', 'fake-png-data');
-    file_put_contents($artifactsDir . '/report.html', '<html>report</html>');
-
     $repository = Repository::factory()->create([
         'slug' => 'org/art-repo',
-        'path' => $tempDir,
+        'path' => '/home/yak/repos/art-repo',
     ]);
 
     $task = YakTask::factory()->awaitingCi()->create([
@@ -325,6 +320,12 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
         'source' => 'manual',
         'attempts' => 1,
     ]);
+
+    // Simulate artifacts pre-collected by SandboxArtifactCollector into .yak-artifacts subdir
+    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    mkdir($artifactsDir, 0755, true);
+    file_put_contents($artifactsDir . '/screenshot.png', 'fake-png-data');
+    file_put_contents($artifactsDir . '/report.html', '<html>report</html>');
 
     $job = new ProcessCIResultJob($task, true);
     $job->handle();
@@ -338,11 +339,6 @@ test('green path collects artifacts from .yak-artifacts directory', function () 
     $report = Artifact::where('yak_task_id', $task->id)->where('filename', 'report.html')->first();
     expect($report)->not->toBeNull()
         ->and($report->type)->toBe('research');
-
-    // Cleanup temp directory
-    array_map('unlink', glob($artifactsDir . '/*'));
-    rmdir($artifactsDir);
-    rmdir($tempDir);
 });
 
 test('green path generates signed URLs with HMAC-SHA256 for artifacts', function () {
@@ -360,14 +356,9 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
         '*git branch -D *' => Process::result(''),
     ]);
 
-    $tempDir = sys_get_temp_dir() . '/yak-test-' . uniqid();
-    $artifactsDir = $tempDir . '/.yak-artifacts';
-    mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir . '/capture.png', 'fake-png');
-
     $repository = Repository::factory()->create([
         'slug' => 'org/sig-repo',
-        'path' => $tempDir,
+        'path' => '/home/yak/repos/sig-repo',
     ]);
 
     $task = YakTask::factory()->awaitingCi()->create([
@@ -376,6 +367,11 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
         'source' => 'manual',
         'attempts' => 1,
     ]);
+
+    // Simulate artifacts pre-collected by SandboxArtifactCollector
+    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    mkdir($artifactsDir, 0755, true);
+    file_put_contents($artifactsDir . '/capture.png', 'fake-png');
 
     $job = new ProcessCIResultJob($task, true);
     $job->handle();
@@ -400,11 +396,6 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
     $expectedSignature = hash_hmac('sha256', $payload, (string) config('app.key'));
 
     expect(strlen($expectedSignature))->toBe(64); // SHA-256 hex digest
-
-    // Cleanup
-    array_map('unlink', glob($artifactsDir . '/*'));
-    rmdir($artifactsDir);
-    rmdir($tempDir);
 });
 
 /*
