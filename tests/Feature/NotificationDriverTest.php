@@ -150,8 +150,8 @@ it('Linear: posts acknowledgment comment with dashboard link', function () {
 
     (new LinearNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Horns down — trotting over to this issue! 🐃');
 
-    assertLinearComment('Horns down');
-    assertLinearComment("/tasks/{$task->id}");
+    assertLinearActivity('Horns down');
+    assertLinearActivity("/tasks/{$task->id}");
 });
 
 it('Linear: posts result comment with PR link', function () {
@@ -167,7 +167,7 @@ it('Linear: posts result comment with PR link', function () {
 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'PR: https://github.com/org/repo/pull/99');
 
-    assertLinearComment('https://github.com/org/repo/pull/99');
+    assertLinearActivity('https://github.com/org/repo/pull/99');
 });
 
 it('Linear: updates issue state to done on result', function () {
@@ -215,7 +215,7 @@ it('Linear: does not update state when state ID is not configured', function () 
 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'Done!');
 
-    assertLinearComment('Done!');
+    assertLinearActivity('Done!');
     Http::assertSentCount(1);
 });
 
@@ -231,7 +231,7 @@ it('Linear: posts failure summary', function () {
 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'Task failed: could not reproduce the issue');
 
-    assertLinearComment('could not reproduce');
+    assertLinearActivity('could not reproduce');
 });
 
 /*
@@ -353,7 +353,7 @@ it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
     $job = new SendNotificationJob($task, NotificationType::Acknowledgment, 'On it.');
     $job->handle();
 
-    assertLinearComment('On it!');  // Personality fallback
+    assertLinearActivity('On it!');  // Personality fallback
 });
 
 it('SendNotificationJob falls back to GitHub PR comment when source channel is disabled', function () {

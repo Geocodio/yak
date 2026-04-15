@@ -33,11 +33,12 @@ function assertSlackThreadReply(?string $channel = null, ?string $threadTs = nul
 }
 
 /**
- * Assert that a Linear comment was posted via GraphQL.
+ * Assert that a Linear agent activity was posted via the
+ * agentActivityCreate GraphQL mutation.
  *
- * @param  string|null  $bodyContains  Expected comment body substring (null to skip check)
+ * @param  string|null  $bodyContains  Expected activity body substring (null to skip check)
  */
-function assertLinearComment(?string $bodyContains = null): void
+function assertLinearActivity(?string $bodyContains = null): void
 {
     Http::assertSent(function ($request) use ($bodyContains) {
         if (! str_contains($request->url(), 'api.linear.app/graphql')) {
