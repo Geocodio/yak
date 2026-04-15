@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\SlackInputDriver;
 use App\Enums\NotificationType;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
+use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
@@ -94,7 +96,7 @@ class SlackWebhookController extends Controller
                 ]);
 
                 TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repo->slug]);
-                RunYakJob::dispatch($task);
+                $this->dispatchAgentJob($task);
             }
 
             $repoList = $detection->repositories->pluck('slug')->implode(', ');
@@ -152,9 +154,26 @@ class SlackWebhookController extends Controller
         TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repoSlug]);
         SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Task: {$task->description}");
 
-        RunYakJob::dispatch($task);
+        $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Dispatch the right agent job for the task's mode. Research tasks
+     * go through ResearchYakJob (read-only, produces artifacts); every
+     * other mode goes through RunYakJob (writes code, pushes a branch,
+     * waits on CI).
+     */
+    private function dispatchAgentJob(YakTask $task): void
+    {
+        if ($task->mode === TaskMode::Research) {
+            ResearchYakJob::dispatch($task);
+
+            return;
+        }
+
+        RunYakJob::dispatch($task);
     }
 
     /**
@@ -232,6 +251,6 @@ class SlackWebhookController extends Controller
         ]);
 
         TaskLogger::info($task, "Repo resolved to {$repository->slug}");
-        RunYakJob::dispatch($task);
+        $this->dispatchAgentJob($task);
     }
 }

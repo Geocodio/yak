@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Webhooks;
 use App\Drivers\LinearInputDriver;
 use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
+use App\Enums\TaskMode;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
+use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
@@ -107,9 +109,26 @@ class LinearWebhookController extends Controller
             ->send($task, NotificationType::Acknowledgment, 'Picked this up — working on it now.');
 
         SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Issue: {$description->body}");
-        RunYakJob::dispatch($task);
+        $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Dispatch the right agent job for the task's mode. Research tasks
+     * go through ResearchYakJob (read-only, produces artifacts); every
+     * other mode goes through RunYakJob (writes code, pushes a branch,
+     * waits on CI).
+     */
+    private function dispatchAgentJob(YakTask $task): void
+    {
+        if ($task->mode === TaskMode::Research) {
+            ResearchYakJob::dispatch($task);
+
+            return;
+        }
+
+        RunYakJob::dispatch($task);
     }
 
     /**

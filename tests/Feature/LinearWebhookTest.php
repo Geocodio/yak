@@ -4,6 +4,7 @@ use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
@@ -168,6 +169,34 @@ it('detects research mode from "research" in the issue title', function () {
     ]), $secret)->assertSuccessful();
 
     expect(YakTask::first()->mode)->toBe(TaskMode::Research);
+});
+
+it('dispatches ResearchYakJob (not RunYakJob) for research-mode tasks', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload([
+        'title' => 'Research: inventory all jobs',
+    ]), $secret)->assertSuccessful();
+
+    Queue::assertPushed(ResearchYakJob::class);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+it('dispatches RunYakJob for fix-mode tasks', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    Queue::assertPushed(RunYakJob::class);
+    Queue::assertNotPushed(ResearchYakJob::class);
 });
 
 it('detects repo from "repo:" mention in the issue description', function () {
