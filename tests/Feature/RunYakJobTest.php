@@ -11,6 +11,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
@@ -161,6 +162,53 @@ test('successful run creates branch with yak/{external_id} naming', function () 
     $task->refresh();
 
     expect($task->branch_name)->toBe('yak/ISSUE-42');
+});
+
+test('branch name gets a counter suffix when remote already has the branch', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_collision',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    // Pretend `yak/ISSUE-42` and `yak/ISSUE-42-2` already exist on the remote.
+    $fakeSandbox = new class(['yak/ISSUE-42', 'yak/ISSUE-42-2']) extends FakeSandboxManager
+    {
+        /** @param  array<int, string>  $existingRemoteBranches */
+        public function __construct(private array $existingRemoteBranches) {}
+
+        public function run(string $containerName, string $command, ?int $timeout = null): ProcessResult
+        {
+            if (preg_match("/git ls-remote --heads origin '([^']+)'/", $command, $m)) {
+                return in_array($m[1], $this->existingRemoteBranches, true)
+                    ? Process::result("abc123\trefs/heads/{$m[1]}\n")
+                    : Process::result('');
+            }
+
+            return parent::run($containerName, $command, $timeout);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'collide-repo', 'path' => '/home/yak/repos/collide-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'collide-repo',
+        'external_id' => 'ISSUE-42',
+    ]);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->branch_name)->toBe('yak/ISSUE-42-3');
 });
 
 test('successful run increments attempts', function () {

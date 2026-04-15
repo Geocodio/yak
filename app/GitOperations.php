@@ -2,6 +2,8 @@
 
 namespace App;
 
+use RuntimeException;
+
 /**
  * Static helpers for git-related work that runs in the yak app container.
  *
@@ -47,5 +49,32 @@ class GitOperations
         }
 
         return "yak/{$name}";
+    }
+
+    /**
+     * Return the first branch name not already present on the remote.
+     *
+     * If the base name is free, it's returned as-is. Otherwise a counter
+     * suffix (`-2`, `-3`, ...) is appended until an unused name is found.
+     * This prevents retried tasks from clobbering branches pushed by
+     * previous attempts.
+     *
+     * @param  callable(string): bool  $existsOnRemote  Tests whether a given branch exists on the remote.
+     */
+    public static function resolveAvailableBranchName(string $baseName, callable $existsOnRemote, int $maxAttempts = 100): string
+    {
+        if (! $existsOnRemote($baseName)) {
+            return $baseName;
+        }
+
+        for ($counter = 2; $counter <= $maxAttempts; $counter++) {
+            $candidate = "{$baseName}-{$counter}";
+
+            if (! $existsOnRemote($candidate)) {
+                return $candidate;
+            }
+        }
+
+        throw new RuntimeException("Unable to find an available branch name for '{$baseName}' within {$maxAttempts} attempts.");
     }
 }

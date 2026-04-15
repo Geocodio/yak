@@ -172,14 +172,31 @@ class RunYakJob implements ShouldQueue
     private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
         $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
-        $branchName = GitOperations::branchName($this->task->external_id);
+        $baseBranchName = GitOperations::branchName($this->task->external_id);
         $defaultBranch = $repository->default_branch;
 
         // Configure git credentials in the sandbox
         $this->configureGitInSandbox($sandbox, $containerName);
 
-        // Fetch latest and create branch inside the sandbox
+        // Fetch latest default branch
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$defaultBranch}", timeout: 60);
+
+        // Avoid colliding with branches from previous attempts that may
+        // already be pushed to the remote.
+        $branchName = GitOperations::resolveAvailableBranchName(
+            $baseBranchName,
+            function (string $candidate) use ($sandbox, $containerName, $workspacePath): bool {
+                $result = $sandbox->run(
+                    $containerName,
+                    "cd {$workspacePath} && git ls-remote --heads origin " . escapeshellarg($candidate),
+                    timeout: 30,
+                );
+
+                return trim($result->output()) !== '';
+            },
+        );
+
+        // Create the branch inside the sandbox
         $sandbox->run($containerName, "cd {$workspacePath} && git checkout -b {$branchName} origin/{$defaultBranch}", timeout: 30);
 
         $this->task->update(['branch_name' => $branchName]);
