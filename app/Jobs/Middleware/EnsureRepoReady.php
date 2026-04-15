@@ -2,8 +2,10 @@
 
 namespace App\Jobs\Middleware;
 
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -109,6 +111,10 @@ class EnsureRepoReady
                 'error_log' => $reason,
                 'completed_at' => now(),
             ])->save();
+        }
+
+        if ($task->source !== 'system') {
+            SendNotificationJob::dispatch($task, NotificationType::Error, $reason);
         }
 
         if (method_exists($job, 'fail')) {

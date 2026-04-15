@@ -1,10 +1,13 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeSandboxManager;
 
 beforeEach(function () {
@@ -44,6 +47,40 @@ it('reaps the sandbox container if one still exists when the job fails', functio
     $job->failed(new RuntimeException('timeout'));
 
     expect($this->fakeSandbox->destroyedContainers)->toContain($containerName);
+});
+
+it('dispatches a failure notification for non-system tasks', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/widgets']);
+    $task = YakTask::factory()->create([
+        'repo' => 'acme/widgets',
+        'status' => TaskStatus::Running,
+        'source' => 'slack',
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->failed(new RuntimeException('boom'));
+
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $dispatched) use ($task) {
+        return $dispatched->task->id === $task->id
+            && $dispatched->type === NotificationType::Error
+            && str_contains($dispatched->message, 'boom');
+    });
+});
+
+it('does not dispatch a failure notification for system-source tasks', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/widgets']);
+    $task = YakTask::factory()->create([
+        'repo' => 'acme/widgets',
+        'status' => TaskStatus::Running,
+        'source' => 'system',
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->failed(new RuntimeException('boom'));
+
+    Queue::assertNotPushed(SendNotificationJob::class);
 });
 
 it('does not clobber a task that is already in a terminal state', function () {

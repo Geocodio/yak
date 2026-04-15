@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
@@ -7,6 +8,7 @@ use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -190,6 +192,42 @@ test('lets a task through when sandbox_base_version matches config', function ()
     expect($called)->toBeTrue();
     expect($job->failed)->toBeFalse();
     Queue::assertNotPushed(SetupYakJob::class);
+});
+
+test('dispatches a failure notification when a non-system task is refused', function () {
+    Queue::fake();
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/notify-me']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'acme/notify-me',
+        'source' => 'slack',
+    ]);
+
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, function () {});
+
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $dispatched) use ($task) {
+        return $dispatched->task->id === $task->id
+            && $dispatched->type === NotificationType::Error
+            && str_contains($dispatched->message, 'has not been set up');
+    });
+});
+
+test('does not dispatch a failure notification for system-source tasks', function () {
+    Queue::fake();
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/system-task']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'acme/system-task',
+        'source' => 'system',
+    ]);
+
+    $job = makeTestJobDouble();
+    $job->task = $task;
+
+    (new EnsureRepoReady)->handle($job, function () {});
+
+    Queue::assertNotPushed(SendNotificationJob::class);
 });
 
 test('all agent-running jobs wire up EnsureRepoReady before the agent runs', function () {

@@ -2,7 +2,9 @@
 
 namespace App\Jobs\Concerns;
 
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\SendNotificationJob;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -47,6 +49,17 @@ trait HandlesAgentJobFailure
                 'error_log' => $errorMessage,
                 'completed_at' => now(),
             ]);
+        }
+
+        if ($task->status === TaskStatus::Failed && $task->source !== 'system') {
+            try {
+                SendNotificationJob::dispatch($task, NotificationType::Error, $errorMessage);
+            } catch (Throwable $dispatchError) {
+                Log::channel('yak')->warning('Failed to dispatch failure notification', [
+                    'task_id' => $task->id,
+                    'error' => $dispatchError->getMessage(),
+                ]);
+            }
         }
 
         // Reap the sandbox best-effort. The container name is derived from
