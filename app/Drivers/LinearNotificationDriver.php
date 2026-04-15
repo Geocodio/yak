@@ -18,48 +18,35 @@ class LinearNotificationDriver implements NotificationDriver
     public function send(YakTask $task, NotificationType $type, string $message): void
     {
         $accessToken = $this->resolveAccessToken();
-        $issueId = $this->resolveLinearIssueId($task);
-
-        if ($accessToken === null || $issueId === '') {
+        if ($accessToken === null) {
             return;
         }
 
-        $dashboardLink = $this->taskDashboardLink($task);
-        $body = $this->formatComment($task, $type, $message, $dashboardLink);
-
-        $this->postComment($accessToken, $issueId, $body);
+        $sessionId = (string) $task->linear_agent_session_id;
+        if ($sessionId !== '') {
+            $dashboardLink = $this->taskDashboardLink($task);
+            $body = "{$message}\n\n[View on Dashboard]({$dashboardLink})";
+            $this->sendAgentActivity($accessToken, $sessionId, $this->mapActivityType($type), $body);
+        }
 
         if ($type === NotificationType::Result || $type === NotificationType::Expiry) {
-            $this->updateIssueState($accessToken, $issueId, $type);
+            $this->updateIssueState($accessToken, $task, $type);
         }
     }
 
     /**
-     * Post a raw comment on the Linear issue associated with a task.
-     * Used by jobs that want to post outside the standard notification
-     * driver lifecycle (e.g. "PR created" announcements).
-     */
-    public function postIssueComment(YakTask $task, string $message): void
-    {
-        $accessToken = $this->resolveAccessToken();
-        $issueId = $this->resolveLinearIssueId($task);
-
-        if ($accessToken === null || $issueId === '') {
-            return;
-        }
-
-        $this->postComment($accessToken, $issueId, $message);
-    }
-
-    /**
-     * Stub: Task 6 will implement this by posting an agentActivityCreate
-     * mutation to Linear. For now it is a no-op so the webhook controller
-     * compiles and its tests can pass everything that doesn't depend on
-     * the outbound activity being sent.
+     * Post a freeform agent activity without going through the
+     * notification-type mapping. Used by the webhook controller's
+     * `prompted` path and any ad-hoc session interactions.
      */
     public function postAgentActivity(string $sessionId, string $type, string $body): void
     {
-        // intentionally empty — implemented in Task 6
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $sessionId === '') {
+            return;
+        }
+
+        $this->sendAgentActivity($accessToken, $sessionId, $type, $body);
     }
 
     /**
@@ -70,12 +57,78 @@ class LinearNotificationDriver implements NotificationDriver
     public function setIssueState(YakTask $task, string $stateId): void
     {
         $accessToken = $this->resolveAccessToken();
-        $issueId = $this->resolveLinearIssueId($task);
-
-        if ($accessToken === null || $issueId === '' || $stateId === '') {
+        if ($accessToken === null || $stateId === '') {
             return;
         }
 
+        $issueId = $this->resolveLinearIssueId($task);
+        if ($issueId === '') {
+            return;
+        }
+
+        $this->postIssueState($accessToken, $issueId, $stateId);
+    }
+
+    /**
+     * Map Yak's NotificationType to one of Linear's agent activity
+     * content types: `thought` (progress, retries), `response` (final
+     * result), `error` (failures / expiry), `elicitation` (clarification
+     * prompt — unreachable on Linear today but mapped for completeness).
+     */
+    private function mapActivityType(NotificationType $type): string
+    {
+        return match ($type) {
+            NotificationType::Result => 'response',
+            NotificationType::Error, NotificationType::Expiry => 'error',
+            NotificationType::Clarification => 'elicitation',
+            default => 'thought',
+        };
+    }
+
+    private function sendAgentActivity(string $accessToken, string $sessionId, string $type, string $body): void
+    {
+        Http::withToken($accessToken)
+            ->post(self::GRAPHQL_ENDPOINT, [
+                'query' => 'mutation($input: AgentActivityCreateInput!) { agentActivityCreate(input: $input) { success } }',
+                'variables' => [
+                    'input' => [
+                        'agentSessionId' => $sessionId,
+                        'content' => [
+                            'type' => $type,
+                            'body' => $body,
+                        ],
+                    ],
+                ],
+            ]);
+    }
+
+    private function updateIssueState(string $accessToken, YakTask $task, NotificationType $type): void
+    {
+        $stateConfigKey = match ($type) {
+            NotificationType::Result => 'done_state_id',
+            NotificationType::Expiry => 'cancelled_state_id',
+            default => null,
+        };
+
+        if ($stateConfigKey === null) {
+            return;
+        }
+
+        $stateId = (string) config("yak.channels.linear.{$stateConfigKey}");
+        if ($stateId === '') {
+            return;
+        }
+
+        $issueId = $this->resolveLinearIssueId($task);
+        if ($issueId === '') {
+            return;
+        }
+
+        $this->postIssueState($accessToken, $issueId, $stateId);
+    }
+
+    private function postIssueState(string $accessToken, string $issueId, string $stateId): void
+    {
         Http::withToken($accessToken)
             ->post(self::GRAPHQL_ENDPOINT, [
                 'query' => 'mutation($issueId: String!, $stateId: String!) { issueUpdate(id: $issueId, input: { stateId: $stateId }) { success } }',
@@ -109,10 +162,9 @@ class LinearNotificationDriver implements NotificationDriver
     }
 
     /**
-     * Resolve the Linear issue UUID for GraphQL calls.
-     *
-     * Tasks store a "LINEAR-ENG-123" identifier in external_id and keep
-     * the UUID in the context metadata for API calls.
+     * Resolve the Linear issue UUID for GraphQL calls. Tasks stash the
+     * UUID in context metadata; fall back to external_id if for some
+     * reason context is empty.
      */
     private function resolveLinearIssueId(YakTask $task): string
     {
@@ -122,55 +174,6 @@ class LinearNotificationDriver implements NotificationDriver
         }
 
         return (string) $task->external_id;
-    }
-
-    private function formatComment(YakTask $task, NotificationType $type, string $message, string $dashboardLink): string
-    {
-        return "{$message}\n\n[View on Dashboard]({$dashboardLink})";
-    }
-
-    private function postComment(string $accessToken, string $issueId, string $body): void
-    {
-        Http::withToken($accessToken)
-            ->post(self::GRAPHQL_ENDPOINT, [
-                'query' => 'mutation($issueId: String!, $body: String!) { commentCreate(input: { issueId: $issueId, body: $body }) { success } }',
-                'variables' => [
-                    'issueId' => $issueId,
-                    'body' => $body,
-                ],
-            ]);
-    }
-
-    /**
-     * Update issue state based on notification type.
-     * Uses configured state IDs from yak.channels.linear config.
-     */
-    private function updateIssueState(string $accessToken, string $issueId, NotificationType $type): void
-    {
-        $stateConfigKey = match ($type) {
-            NotificationType::Result => 'done_state_id',
-            NotificationType::Expiry => 'cancelled_state_id',
-            default => null,
-        };
-
-        if ($stateConfigKey === null) {
-            return;
-        }
-
-        $stateId = (string) config("yak.channels.linear.{$stateConfigKey}");
-
-        if ($stateId === '') {
-            return;
-        }
-
-        Http::withToken($accessToken)
-            ->post(self::GRAPHQL_ENDPOINT, [
-                'query' => 'mutation($issueId: String!, $stateId: String!) { issueUpdate(id: $issueId, input: { stateId: $stateId }) { success } }',
-                'variables' => [
-                    'issueId' => $issueId,
-                    'stateId' => $stateId,
-                ],
-            ]);
     }
 
     private function taskDashboardLink(YakTask $task): string

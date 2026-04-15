@@ -1,5 +1,6 @@
 <?php
 
+use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -239,4 +240,187 @@ it('ignores unrelated webhook event headers', function () {
 
     expect(YakTask::count())->toBe(0);
     Queue::assertNotPushed(RunYakJob::class);
+});
+
+// --- AgentSessionEvent.prompted responds with a polite error ---
+
+it('responds to prompted events with an error activity pointing to the dashboard', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    LinearOauthConnection::query()->delete(); // recreate with known token
+    LinearOauthConnection::factory()->create([
+        'workspace_id' => TEST_WORKSPACE_ID,
+        'installer_user_id' => TEST_YAK_ACTOR_ID,
+    ]);
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+
+    postLinearWebhook(agentSessionPromptedPayload(['sessionId' => 'session-xyz']), $secret)
+        ->assertSuccessful();
+
+    Http::assertSent(function ($request): bool {
+        if (! str_contains($request->url(), 'linear.app/graphql')) {
+            return false;
+        }
+        $vars = $request->data()['variables'] ?? [];
+
+        return ($vars['input']['agentSessionId'] ?? null) === 'session-xyz'
+            && ($vars['input']['content']['type'] ?? null) === 'error';
+    });
+});
+
+it('posts a thought activity to Linear within the webhook response (fast ack)', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload(['sessionId' => 'session-xyz']), $secret)
+        ->assertSuccessful();
+
+    Http::assertSent(function ($request): bool {
+        if (! str_contains($request->url(), 'linear.app/graphql')) {
+            return false;
+        }
+        $body = $request->data();
+        $vars = $body['variables'] ?? [];
+
+        return ($vars['input']['agentSessionId'] ?? null) === 'session-xyz'
+            && ($vars['input']['content']['type'] ?? null) === 'thought';
+    });
+});
+
+// --- Notification Driver posts agent activities ---
+
+it('LinearNotificationDriver posts a thought activity for progress notifications', function () {
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+
+    LinearOauthConnection::factory()->create(['access_token' => 'lin_oauth_access_test']);
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'LINEAR-ENG-99',
+        'linear_agent_session_id' => 'session-progress',
+    ]);
+
+    app(LinearNotificationDriver::class)
+        ->send($task, NotificationType::Progress, 'Making progress on the bug.');
+
+    Http::assertSent(function ($request): bool {
+        $vars = $request->data()['variables'] ?? [];
+
+        return ($vars['input']['agentSessionId'] ?? null) === 'session-progress'
+            && ($vars['input']['content']['type'] ?? null) === 'thought'
+            && str_contains($vars['input']['content']['body'] ?? '', 'Making progress');
+    });
+});
+
+it('LinearNotificationDriver posts a response activity for result notifications', function () {
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    LinearOauthConnection::factory()->create();
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'LINEAR-ENG-100',
+        'linear_agent_session_id' => 'session-result',
+    ]);
+
+    app(LinearNotificationDriver::class)
+        ->send($task, NotificationType::Result, 'PR opened: https://github.com/org/repo/pull/42');
+
+    Http::assertSent(function ($request): bool {
+        $vars = $request->data()['variables'] ?? [];
+
+        return ($vars['input']['content']['type'] ?? null) === 'response';
+    });
+});
+
+it('LinearNotificationDriver posts an error activity for error notifications', function () {
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    LinearOauthConnection::factory()->create();
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'LINEAR-ENG-101',
+        'linear_agent_session_id' => 'session-error',
+    ]);
+
+    app(LinearNotificationDriver::class)
+        ->send($task, NotificationType::Error, 'Task failed: CI stayed red after retry.');
+
+    Http::assertSent(function ($request): bool {
+        $vars = $request->data()['variables'] ?? [];
+
+        return ($vars['input']['content']['type'] ?? null) === 'error';
+    });
+});
+
+it('LinearNotificationDriver still updates the Linear issue state on result', function () {
+    Http::fake(['*' => Http::response(['data' => ['issueUpdate' => ['success' => true]]])]);
+    LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.done_state_id', 'done-state-uuid');
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'external_id' => 'LINEAR-ENG-102',
+        'linear_agent_session_id' => 'session-state',
+        'context' => json_encode(['linear_issue_id' => 'uuid-issue']),
+    ]);
+
+    app(LinearNotificationDriver::class)
+        ->send($task, NotificationType::Result, 'Done');
+
+    Http::assertSent(function ($request): bool {
+        $data = $request->data();
+        $vars = $data['variables'] ?? [];
+
+        return str_contains($data['query'] ?? '', 'issueUpdate')
+            && ($vars['issueId'] ?? null) === 'uuid-issue'
+            && ($vars['stateId'] ?? null) === 'done-state-uuid';
+    });
+});
+
+it('LinearNotificationDriver is a no-op when no OAuth connection exists', function () {
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'session-no-conn',
+    ]);
+
+    app(LinearNotificationDriver::class)
+        ->send($task, NotificationType::Progress, 'should not be sent');
+
+    Http::assertNothingSent();
+});
+
+it('LinearNotificationDriver is a no-op when the task has no linear_agent_session_id', function () {
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+    LinearOauthConnection::factory()->create();
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => null,
+    ]);
+
+    app(LinearNotificationDriver::class)
+        ->send($task, NotificationType::Progress, 'should not be sent');
+
+    Http::assertNothingSent();
+});
+
+it('postAgentActivity posts a freeform activity without needing a task', function () {
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    LinearOauthConnection::factory()->create();
+
+    app(LinearNotificationDriver::class)
+        ->postAgentActivity('session-ad-hoc', type: 'error', body: 'Not supported here.');
+
+    Http::assertSent(function ($request): bool {
+        $vars = $request->data()['variables'] ?? [];
+
+        return ($vars['input']['agentSessionId'] ?? null) === 'session-ad-hoc'
+            && ($vars['input']['content']['type'] ?? null) === 'error'
+            && ($vars['input']['content']['body'] ?? null) === 'Not supported here.';
+    });
 });
