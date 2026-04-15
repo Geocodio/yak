@@ -5,12 +5,20 @@
         {{ $this->isEditing ? 'Edit' : 'Add New' }}
     </div>
 
-    <flux:heading size="xl" class="mb-6">{{ $this->isEditing ? 'Edit Repository' : 'Add Repository' }}</flux:heading>
+    <div class="mb-6 flex items-center gap-3">
+        <flux:heading size="xl">{{ $this->isEditing ? 'Edit Repository' : 'Add Repository' }}</flux:heading>
+        @if($this->isEditing && $repository->githubUrl())
+            <a href="{{ $repository->githubUrl() }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-xs font-medium text-yak-blue hover:text-yak-orange" title="Open on GitHub">
+                <flux:icon.arrow-top-right-on-square class="!size-3.5" />
+                <span>Open on GitHub</span>
+            </a>
+        @endif
+    </div>
 
     <form wire:submit="save">
         @unless($this->isEditing)
             {{-- GitHub Repository Picker (create mode) --}}
-            <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900">
                 <flux:heading size="lg" class="mb-4">{{ __('GitHub Repository') }}</flux:heading>
 
                 @if($selected_github_repo)
@@ -73,7 +81,7 @@
         @endunless
 
         {{-- Configuration --}}
-        <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="mb-6 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:heading size="lg" class="mb-4">{{ $this->isEditing ? __('Basics') : __('Configuration') }}</flux:heading>
             <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
                 @if($this->isEditing)
@@ -160,7 +168,16 @@
                 <flux:button variant="primary" type="submit">{{ $this->isEditing ? __('Save Repository') : __('Add Repository') }}</flux:button>
 
                 @if($this->isEditing)
-                    <flux:button variant="filled" wire:click.prevent="rerunSetup">{{ __('Re-run Setup') }}</flux:button>
+                    <flux:button
+                        variant="filled"
+                        wire:click.prevent="rerunSetup"
+                        wire:loading.attr="disabled"
+                        wire:target="rerunSetup"
+                        icon="arrow-path"
+                    >
+                        <span wire:loading.remove wire:target="rerunSetup">{{ __('Re-run Setup') }}</span>
+                        <span wire:loading wire:target="rerunSetup">{{ __('Dispatching…') }}</span>
+                    </flux:button>
                 @endif
             </div>
 
@@ -169,7 +186,49 @@
     </form>
 
     @if($this->isEditing)
-        <div class="mt-12 rounded-xl border border-red-200 bg-white p-6 shadow-sm dark:border-red-800 dark:bg-zinc-900">
+        <div class="mt-10 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900" data-testid="setup-history">
+            <div class="mb-4 flex items-center justify-between">
+                <flux:heading size="lg">{{ __('Setup History') }}</flux:heading>
+                @if($this->setupTasks->isNotEmpty())
+                    <a href="{{ route('tasks', ['tab' => 'setup', 'repo' => $repository->slug]) }}" wire:navigate class="text-xs font-medium text-yak-orange hover:text-yak-orange-warm">View all</a>
+                @endif
+            </div>
+
+            @if($this->setupTasks->isEmpty())
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">No setup runs yet.</p>
+            @else
+                <div class="-mx-4 overflow-hidden sm:-mx-6">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                                <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-6 dark:text-zinc-400">Status</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-6 dark:text-zinc-400">ID</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-6 dark:text-zinc-400">Started</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 sm:px-6 dark:text-zinc-400">Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            @foreach($this->setupTasks as $setupTask)
+                                <tr wire:key="setup-task-{{ $setupTask->id }}" class="h-12 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" onclick="window.location='{{ route('tasks.show', $setupTask) }}'">
+                                    <td class="px-4 py-2 sm:px-6">
+                                        <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($setupTask->status) }}">
+                                            {{ str_replace('_', ' ', $setupTask->status->value) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-2 sm:px-6">
+                                        <a href="{{ route('tasks.show', $setupTask) }}" wire:navigate class="font-medium text-accent hover:underline">{{ $setupTask->external_id }}</a>
+                                    </td>
+                                    <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ $setupTask->created_at->diffForHumans() }}</td>
+                                    <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($setupTask->duration_ms) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
+        <div class="mt-6 rounded-xl border border-red-200 bg-white p-4 shadow-sm sm:p-6 dark:border-red-800 dark:bg-zinc-900">
             <flux:heading size="lg" class="mb-4 text-red-600 dark:text-red-400">{{ __('Danger Zone') }}</flux:heading>
             <div class="flex items-center justify-between">
                 <div>

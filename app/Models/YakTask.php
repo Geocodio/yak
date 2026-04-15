@@ -8,6 +8,7 @@ use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Database\Factories\YakTaskFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class YakTask extends Model
@@ -52,6 +53,14 @@ class YakTask extends Model
             'pr_merged_at' => 'datetime',
             'pr_closed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Repository, $this>
+     */
+    public function repository(): BelongsTo
+    {
+        return $this->belongsTo(Repository::class, 'repo', 'slug');
     }
 
     /**

@@ -156,7 +156,7 @@
 
             {{-- Main Content --}}
             <main class="flex-1 lg:ml-60 pt-16 lg:pt-0">
-                <div class="px-4 py-5 sm:p-6 lg:p-8 relative z-10">
+                <div class="px-2 py-4 sm:p-6 lg:p-8 relative z-10">
                     {{ $slot }}
                 </div>
             </main>

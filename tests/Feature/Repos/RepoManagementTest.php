@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
 use App\Models\Repository;
@@ -359,6 +360,73 @@ test('rerun setup dispatches new task', function () {
 
     expect($repo->refresh()->setup_task_id)->not->toBeNull();
     expect(YakTask::where('repo', 'rerun-test')->exists())->toBeTrue();
+});
+
+test('rerun setup redirects to the new task', function () {
+    $repo = Repository::factory()->create(['slug' => 'redirect-test']);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->call('rerunSetup')
+        ->assertRedirect(route('tasks.show', YakTask::where('repo', 'redirect-test')->first()));
+});
+
+test('setup history shows recent setup tasks for the repository', function () {
+    $repo = Repository::factory()->create(['slug' => 'history-test']);
+
+    YakTask::factory()->create([
+        'repo' => 'history-test',
+        'mode' => TaskMode::Setup,
+        'external_id' => 'setup-aaa',
+        'description' => 'Setup repository: history-test',
+    ]);
+    YakTask::factory()->create([
+        'repo' => 'history-test',
+        'mode' => TaskMode::Fix,
+        'external_id' => 'fix-bbb',
+        'description' => 'Unrelated fix',
+    ]);
+    YakTask::factory()->create([
+        'repo' => 'other-repo',
+        'mode' => TaskMode::Setup,
+        'external_id' => 'setup-ccc',
+    ]);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->assertSee('Setup History')
+        ->assertSee('setup-aaa')
+        ->assertDontSee('fix-bbb')
+        ->assertDontSee('setup-ccc');
+});
+
+test('setup history limits to 10 most recent tasks', function () {
+    $repo = Repository::factory()->create(['slug' => 'limit-test']);
+
+    YakTask::factory()->count(12)->sequence(fn ($sequence) => [
+        'external_id' => 'setup-limit-' . $sequence->index,
+        'created_at' => now()->subMinutes(12 - $sequence->index),
+    ])->create([
+        'repo' => 'limit-test',
+        'mode' => TaskMode::Setup,
+    ]);
+
+    $html = Livewire::test(RepoForm::class, ['repository' => $repo])->html();
+
+    // Newest 10 visible (indexes 2..11), oldest 2 hidden (indexes 0..1)
+    expect($html)->toContain('setup-limit-11')
+        ->toContain('setup-limit-2')
+        ->not->toContain('>setup-limit-1<')
+        ->not->toContain('>setup-limit-0<');
+});
+
+test('open on github link renders on edit page when git url present', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'github-link-test',
+        'git_url' => 'https://github.com/acme/my-repo.git',
+    ]);
+
+    $component = Livewire::test(RepoForm::class, ['repository' => $repo]);
+
+    expect($component->html())->toContain('https://github.com/acme/my-repo');
 });
 
 test('sentry projects load as dropdown options', function () {

@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Livewire\Tasks\TaskList;
+use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use Livewire\Livewire;
@@ -146,4 +148,88 @@ test('it resets page when filter changes', function () {
         ->call('gotoPage', 2)
         ->set('status', 'pending')
         ->assertNotSet('page', 2);
+});
+
+test('default tab shows only fix and research tasks', function () {
+    YakTask::factory()->create(['mode' => TaskMode::Fix, 'description' => 'Fix task A']);
+    YakTask::factory()->create(['mode' => TaskMode::Research, 'description' => 'Research task B']);
+    YakTask::factory()->create(['mode' => TaskMode::Setup, 'description' => 'Setup task C']);
+
+    Livewire::test(TaskList::class)
+        ->assertSee('Fix task A')
+        ->assertSee('Research task B')
+        ->assertDontSee('Setup task C');
+});
+
+test('setup tab shows only setup tasks', function () {
+    YakTask::factory()->create(['mode' => TaskMode::Fix, 'description' => 'Fix task A']);
+    YakTask::factory()->create(['mode' => TaskMode::Setup, 'description' => 'Setup task C']);
+
+    Livewire::test(TaskList::class)
+        ->set('tab', 'setup')
+        ->assertSee('Setup task C')
+        ->assertDontSee('Fix task A');
+});
+
+test('tab counts reflect mode scopes', function () {
+    YakTask::factory()->count(3)->create(['mode' => TaskMode::Fix]);
+    YakTask::factory()->count(2)->create(['mode' => TaskMode::Setup]);
+
+    Livewire::test(TaskList::class)
+        ->assertSet('tab', 'tasks')
+        ->assertSeeInOrder(['Tasks', '3', 'Setup', '2']);
+});
+
+test('changing tab resets page', function () {
+    YakTask::factory()->count(51)->create(['mode' => TaskMode::Fix]);
+
+    Livewire::test(TaskList::class)
+        ->call('gotoPage', 2)
+        ->set('tab', 'setup')
+        ->assertNotSet('page', 2);
+});
+
+test('source filter is hidden on setup tab', function () {
+    YakTask::factory()->create(['mode' => TaskMode::Setup]);
+
+    $component = Livewire::test(TaskList::class)
+        ->set('tab', 'setup');
+
+    expect($component->html())->not->toContain('aria-label="Filter by source"');
+});
+
+test('source filter is shown on tasks tab', function () {
+    YakTask::factory()->create(['mode' => TaskMode::Fix]);
+
+    $component = Livewire::test(TaskList::class);
+
+    expect($component->html())->toContain('aria-label="Filter by source"');
+});
+
+test('repo column links to repository edit page when repository exists', function () {
+    Repository::factory()->create(['slug' => 'my-project']);
+    YakTask::factory()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'my-project',
+        'description' => 'Linked task',
+    ]);
+
+    $component = Livewire::test(TaskList::class);
+
+    expect($component->html())
+        ->toContain('href="' . route('repos.edit', 'my-project') . '"');
+});
+
+test('repo column renders plain text when no repository record exists', function () {
+    YakTask::factory()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'ghost-repo',
+        'description' => 'Orphan task',
+    ]);
+
+    $component = Livewire::test(TaskList::class);
+
+    expect($component->html())
+        ->toContain('ghost-repo')
+        ->not->toContain('href="' . url('/repos/ghost-repo/edit') . '"');
 });

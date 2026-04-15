@@ -7,7 +7,7 @@
     </div>
 
     {{-- Section 1: Status Header (Glass Card) --}}
-    <div class="mb-5 rounded-[28px] border border-white/60 bg-white/75 p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)] backdrop-blur-[40px] backdrop-saturate-[1.4]">
+    <div class="mb-5 rounded-[28px] border border-white/60 bg-white/75 p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)] backdrop-blur-[40px] backdrop-saturate-[1.4]">
         <div class="flex flex-col gap-3">
             <div class="flex items-center gap-3.5">
                 <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
@@ -53,7 +53,11 @@
                     <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
                         <flux:icon.code-bracket class="!size-3.5" />
                         <span class="font-medium">Repo:</span>
-                        <span class="text-yak-slate">{{ $task->repo }}</span>
+                        @if($task->repository)
+                            <a href="{{ route('repos.edit', $task->repository) }}" wire:navigate class="font-medium text-yak-orange hover:text-yak-orange-warm">{{ $task->repo }}</a>
+                        @else
+                            <span class="text-yak-slate">{{ $task->repo }}</span>
+                        @endif
                     </span>
                 @endif
                 <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
@@ -73,7 +77,7 @@
     </div>
 
     {{-- Section 2: Description --}}
-    <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+    <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
         <h2 class="mb-4 text-lg font-medium text-yak-slate">Description</h2>
         <div class="prose prose-sm prose-yak mb-4 max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10">
             {!! Str::markdown($task->description) !!}
@@ -86,7 +90,7 @@
 
     {{-- Section 3: Clarification (if applicable) --}}
     @if($task->status === \App\Enums\TaskStatus::AwaitingClarification || $task->clarification_options)
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
             <h2 class="mb-4 text-lg font-medium text-yak-slate">Clarification</h2>
             @if($task->status === \App\Enums\TaskStatus::AwaitingClarification)
                 <div class="mb-3 inline-flex items-center gap-2 rounded-lg bg-[rgba(212,145,94,0.12)] px-3 py-1.5 text-sm font-medium text-yak-orange-warm">
@@ -115,7 +119,7 @@
 
     {{-- Section 5: Result Summary --}}
     @if($task->result_summary)
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
             <h2 class="mb-4 text-lg font-medium text-yak-slate">Result</h2>
             <div class="prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10">
                 {!! Str::markdown($task->result_summary) !!}
@@ -139,7 +143,7 @@
 
     {{-- Section 6: Screenshots --}}
     @if($this->screenshots->isNotEmpty() || $this->videos->isNotEmpty())
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
             <h2 class="mb-4 text-lg font-medium text-yak-slate">Media</h2>
             @if($this->screenshots->isNotEmpty())
                 <div class="flex flex-wrap gap-5">
@@ -239,16 +243,12 @@
     @once
         <script>
             document.addEventListener('alpine:init', () => {
-                Alpine.data('activityFollow', (initial) => ({
-                    following: initial,
+                Alpine.data('activityFollow', () => ({
+                    following: true,
                     observer: null,
                     suppressScrollEvent: false,
                     init() {
-                        this.$nextTick(() => {
-                            if (this.following) {
-                                this.scrollToEnd('auto');
-                            }
-                        });
+                        this.$nextTick(() => this.scrollToEnd('auto'));
 
                         this.observer = new MutationObserver(() => {
                             if (this.following) {
@@ -276,15 +276,11 @@
                     },
                     onScroll() {
                         if (this.suppressScrollEvent) return;
-                        if (this.following && !this.isNearBottom()) {
-                            this.following = false;
-                        }
+                        this.following = this.isNearBottom();
                     },
-                    toggle() {
-                        this.following = !this.following;
-                        if (this.following) {
-                            this.scrollToEnd('smooth');
-                        }
+                    jumpToLatest() {
+                        this.scrollToEnd('smooth');
+                        this.following = true;
                     },
                 }));
             });
@@ -294,8 +290,8 @@
     {{-- Section 8: Activity (Unified log with milestone highlighting) --}}
     @if($this->logs->isNotEmpty())
         <div
-            class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]"
-            x-data="activityFollow({{ $this->isActiveStatus() ? 'true' : 'false' }})"
+            class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]"
+            x-data="activityFollow()"
         >
 
             {{-- Milestone progress bar --}}
@@ -321,26 +317,12 @@
 
             <div class="mb-5 flex items-center justify-between">
                 <h2 class="text-lg font-medium text-yak-slate">Activity</h2>
-                <div class="flex items-center gap-3">
-                    @if($this->isActiveStatus())
-                        <button
-                            type="button"
-                            @click="toggle()"
-                            class="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-medium transition-colors"
-                            :class="following ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-yak-green' : 'border-[rgba(200,184,154,0.4)] bg-white text-yak-blue'"
-                            data-testid="follow-button"
-                        >
-                            <span class="size-1.5 rounded-full bg-current" :class="following && 'animate-pulse'"></span>
-                            <span x-text="following ? 'Following' : 'Follow'">Follow</span>
-                        </button>
-                    @endif
-                    <span class="text-xs text-yak-blue">
-                        {{ $this->logs->count() }} entries
-                        @if($task->num_turns) &middot; {{ $task->num_turns }} turns @endif
-                        @if($task->duration_ms) &middot; {{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }} @endif
-                        @if($task->cost_usd) &middot; ${{ number_format((float) $task->cost_usd, 2) }} @endif
-                    </span>
-                </div>
+                <span class="text-xs text-yak-blue">
+                    {{ $this->logs->count() }} entries
+                    @if($task->num_turns) &middot; {{ $task->num_turns }} turns @endif
+                    @if($task->duration_ms) &middot; {{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }} @endif
+                    @if($task->cost_usd) &middot; ${{ number_format((float) $task->cost_usd, 2) }} @endif
+                </span>
             </div>
 
             {{-- Filter buttons --}}
@@ -356,12 +338,13 @@
                 @endforeach
             </div>
 
-            <div
-                x-ref="logList"
-                wire:poll.{{ $this->pollInterval }}="$refresh"
-                class="max-h-[600px] overflow-y-auto"
-                @scroll.passive="onScroll()"
-            >
+            <div class="relative">
+                <div
+                    x-ref="logList"
+                    wire:poll.{{ $this->pollInterval }}="$refresh"
+                    class="max-h-[600px] overflow-y-auto"
+                    @scroll.passive="onScroll()"
+                >
                 @foreach($this->groupedLogs as $entry)
                     @if($entry['type'] === 'group')
                         {{-- Collapsed group of consecutive assistant entries --}}
@@ -468,6 +451,20 @@
                         </div>
                     @endif
                 @endforeach
+                </div>
+
+                <button
+                    type="button"
+                    x-show="!following"
+                    x-cloak
+                    x-transition.opacity
+                    @click="jumpToLatest()"
+                    class="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-yak-orange px-3 py-1.5 text-xs font-medium text-white shadow-lg transition-colors hover:bg-yak-orange-warm"
+                    data-testid="jump-to-latest"
+                >
+                    <flux:icon.arrow-down class="!size-3.5" />
+                    <span>Jump to latest</span>
+                </button>
             </div>
         </div>
     @endif

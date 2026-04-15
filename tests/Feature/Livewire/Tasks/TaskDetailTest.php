@@ -219,24 +219,34 @@ test('warning and error logs are milestones regardless of type', function () {
     expect($html)->not->toContain('data-testid="log-entry"');
 });
 
-test('follow button is visible for active tasks', function () {
+test('jump-to-latest pill renders whenever activity log is shown', function () {
     $task = YakTask::factory()->running()->create();
 
     TaskLog::factory()->create(['yak_task_id' => $task->id]);
 
     $component = Livewire::test(TaskDetail::class, ['task' => $task]);
 
-    expect($component->html())->toContain('data-testid="follow-button"');
+    expect($component->html())->toContain('data-testid="jump-to-latest"');
 });
 
-test('follow button is hidden for completed tasks', function () {
-    $task = YakTask::factory()->success()->create();
+test('follow toggle button has been removed', function () {
+    $task = YakTask::factory()->running()->create();
 
     TaskLog::factory()->create(['yak_task_id' => $task->id]);
 
     $component = Livewire::test(TaskDetail::class, ['task' => $task]);
 
     expect($component->html())->not->toContain('data-testid="follow-button"');
+});
+
+test('jump-to-latest pill renders for completed tasks with logs', function () {
+    $task = YakTask::factory()->success()->create();
+
+    TaskLog::factory()->create(['yak_task_id' => $task->id]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+
+    expect($component->html())->toContain('data-testid="jump-to-latest"');
 });
 
 test('isMilestone returns true for logs without tool_use or assistant type', function () {

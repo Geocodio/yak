@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Tasks;
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\YakTask;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -15,6 +17,9 @@ use Livewire\WithPagination;
 class TaskList extends Component
 {
     use WithPagination;
+
+    #[Url]
+    public string $tab = 'tasks';
 
     #[Url]
     public string $status = '';
@@ -31,12 +36,41 @@ class TaskList extends Component
     #[Computed]
     public function tasks(): LengthAwarePaginator
     {
-        return YakTask::query()
+        return $this->scopedQuery($this->tab)
+            ->with('repository')
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
-            ->when($this->source !== '', fn ($query) => $query->where('source', $this->source))
+            ->when($this->tab === 'tasks' && $this->source !== '', fn ($query) => $query->where('source', $this->source))
             ->when($this->repo !== '', fn ($query) => $query->where('repo', $this->repo))
             ->latest()
             ->paginate(50);
+    }
+
+    /**
+     * @return Builder<YakTask>
+     */
+    protected function scopedQuery(string $tab): Builder
+    {
+        return match ($tab) {
+            'setup' => YakTask::query()->where('mode', TaskMode::Setup),
+            default => YakTask::query()->whereIn('mode', [TaskMode::Fix, TaskMode::Research]),
+        };
+    }
+
+    #[Computed]
+    public function tasksCount(): int
+    {
+        return $this->scopedQuery('tasks')->count();
+    }
+
+    #[Computed]
+    public function setupCount(): int
+    {
+        return $this->scopedQuery('setup')->count();
+    }
+
+    public function updatedTab(): void
+    {
+        $this->resetPage();
     }
 
     /**

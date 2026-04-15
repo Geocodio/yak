@@ -9,6 +9,7 @@ use App\Models\YakTask;
 use App\Services\GitHubAppService;
 use App\Services\SentryService;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -93,6 +94,27 @@ class RepoForm extends Component
         }
 
         return 'Maps incoming Sentry webhooks to this repository.';
+    }
+
+    /**
+     * @return Collection<int, YakTask>
+     */
+    #[Computed]
+    public function setupTasks(): Collection
+    {
+        if (! $this->repository) {
+            /** @var Collection<int, YakTask> $empty */
+            $empty = new Collection;
+
+            return $empty;
+        }
+
+        return YakTask::query()
+            ->where('repo', $this->repository->slug)
+            ->where('mode', TaskMode::Setup)
+            ->latest()
+            ->limit(10)
+            ->get();
     }
 
     #[Computed]
@@ -290,10 +312,13 @@ class RepoForm extends Component
 
     public function rerunSetup(): void
     {
-        if ($this->repository) {
-            $this->dispatchSetupTask();
-            Flux::toast('Setup task dispatched.');
+        if (! $this->repository) {
+            return;
         }
+
+        $task = $this->dispatchSetupTask();
+
+        $this->redirectRoute('tasks.show', $task, navigate: true);
     }
 
     public function toggleActive(): void
@@ -318,10 +343,10 @@ class RepoForm extends Component
         $this->redirectRoute('repos', navigate: true);
     }
 
-    protected function dispatchSetupTask(): void
+    protected function dispatchSetupTask(): ?YakTask
     {
         if (! $this->repository) {
-            return;
+            return null;
         }
 
         $task = YakTask::create([
@@ -338,6 +363,8 @@ class RepoForm extends Component
         ]);
 
         SetupYakJob::dispatch($task);
+
+        return $task;
     }
 
     protected function loadGitHubRepos(): void

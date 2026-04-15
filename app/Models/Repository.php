@@ -34,6 +34,20 @@ class Repository extends Model
         ];
     }
 
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    public function githubUrl(): ?string
+    {
+        if (! $this->git_url) {
+            return null;
+        }
+
+        return rtrim(preg_replace('/\.git$/', '', (string) $this->git_url), '/');
+    }
+
     /**
      * @return BelongsTo<YakTask, $this>
      */
