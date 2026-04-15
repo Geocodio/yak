@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\YakTask;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -33,6 +34,16 @@ class SandboxArtifactCollector
 
         if (! is_dir($localDir)) {
             mkdir($localDir, 0755, true);
+        }
+
+        // `incus file pull -r` creates a `.yak-artifacts` subdir at the
+        // destination and errors out if it already exists. On a retry
+        // (first attempt failed mid-run, or registered Artifact rows were
+        // never created) that stale dir would block every subsequent
+        // collection. Wipe it so the current run wins.
+        $staleDir = $localDir . '/.yak-artifacts';
+        if (File::isDirectory($staleDir)) {
+            File::deleteDirectory($staleDir);
         }
 
         try {
