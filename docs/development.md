@@ -310,7 +310,7 @@ Key factory states:
 | `fakeClaudeClarification()` | Fakes a Claude run that returns clarification JSON |
 | `fakeClaudeError()` | Fakes a failed Claude run |
 | `assertSlackThreadReply()` | Asserts an HTTP call to Slack `chat.postMessage` with correct channel/thread/text |
-| `assertLinearComment()` | Asserts a Linear issue comment was posted |
+| `assertLinearActivity()` | Asserts a Linear agent session activity was posted |
 | `assertLinearStateUpdate()` | Asserts a Linear issue's state was updated |
 
 ### Process And HTTP Faking

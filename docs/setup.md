@@ -29,7 +29,7 @@ Only configure the channels you use. Everything except GitHub (for pushing branc
 | Channel | What you need |
 |---|---|
 | **Slack** | Slack app with bot token plus signing secret. |
-| **Linear** | OAuth2 app (client id + secret + webhook signing secret). Authorize at `/settings/linear`. |
+| **Linear** | OAuth application (client id + secret + webhook signing secret). Authorize at `/settings/linear`. Requires workspace admin approval. |
 | **Sentry** | Auth token plus webhook secret. Alert rules tagged `yak-eligible`. |
 | **Drone CI** | API token. Yak polls the Drone API — no webhook needed. |
 | **GitHub Actions** | Included with the GitHub App — no additional setup. |
@@ -174,26 +174,19 @@ See [Channels → Slack](channels.md#slack-optional) for usage and gotchas.
 
 #### Linear (optional)
 
-Linear is integrated via an **OAuth2 app with `actor=app`** — comments and
-state updates post as the Yak app, not as a human user.
+Yak installs as a Linear **Agent** — a first-class workspace participant that appears in the assignee picker without consuming a seat.
 
 1. Go to [linear.app/settings/api/applications](https://linear.app/settings/api/applications)
    → **New application**.
    - Name: `Yak`
-   - Redirect URI: `https://{your-domain}/auth/linear/callback`
-   - Scopes: `read` and `write`.
-   - Enable the **Actor: app** toggle on the app detail page.
+   - Callback URL: `https://{your-domain}/auth/linear/callback`
+   - Enable **Webhooks**, set the URL to `https://{your-domain}/webhooks/linear`, and under **App events** tick **Agent session events**.
+   - Copy the app's webhook signing secret into `linear_webhook_secret`.
 2. Copy `Client ID` and `Client secret` into `linear_oauth_client_id` /
    `linear_oauth_client_secret`.
-3. On the same OAuth app, configure the webhook:
-   - URL: `https://{your-domain}/webhooks/linear`
-   - Subscribe to **Issues** events.
-   - Copy the app's signing secret into `linear_webhook_secret`.
-4. Optionally create a `research` label (used as a mode hint on issues
-   assigned to Yak; no label is required to trigger a task).
-5. Re-run Ansible so the env vars land in the container.
-6. Sign in to the Yak dashboard → **Settings → Linear → Connect Linear**
-   and authorize.
+3. Re-run Ansible so the env vars land in the container.
+4. Sign in to the Yak dashboard → **Settings → Linear → Connect Linear**
+   and approve the consent screen. A workspace admin must approve — the install requests `app:assignable` and `app:mentionable` scopes.
 
 See [Channels → Linear](channels.md#linear-optional) for usage and gotchas.
 

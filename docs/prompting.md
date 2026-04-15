@@ -157,9 +157,7 @@ These are appended only when the corresponding channel is enabled:
     and related events for fuller context.
 ```
 
-(Linear has no MCP injection — Yak posts comments and updates issue
-state server-side via the OAuth integration, and the issue title/body
-are already inlined in the task prompt at creation time.)
+(Linear has no MCP injection into the system prompt — Yak posts agent session activities and updates issue state server-side via the OAuth integration, and the issue title/body are already inlined in the task prompt at creation time.)
 
 ### Customizing The System Prompt
 
@@ -435,7 +433,7 @@ When the corresponding channel is enabled:
 |---|---|---|---|
 | **Context7** | Always | Current library documentation | Read-only, no auth |
 | **GitHub** | Always | PR creation, reading related PRs | Push, PR create, issue read |
-| **Linear** | Linear enabled | Read issues and comments, post results | Read + comment |
+| **Linear** | Linear enabled | Read issues and comments | Read |
 | **Sentry** | Sentry enabled | Breadcrumbs, tags, related events | Read-only |
 
 ### What Is NOT Connected

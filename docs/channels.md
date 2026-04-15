@@ -157,32 +157,18 @@ Linear and Sentry tasks do not clarify because their inputs are already structur
 
 ## Linear (optional)
 
-**Roles:** Input (task creation via label), notification (issue comments and state transitions).
+**Roles:** Input (task delegation via Linear Agents), notification (agent session activities, issue state transitions).
 
-Linear is integrated via an **OAuth2 app with `actor=app`** so comments and
-state updates are authored by the Yak app rather than a human user.
+Yak installs into a Linear workspace as an **Agent** — a first-class workspace participant that appears in the assignee picker without consuming a seat. Delegating an issue to Yak opens an **agent session** on the issue; Yak posts its thoughts, actions, and final result as typed activities inside that session.
 
 ### Setup
 
-1. **Register the OAuth app** at Linear → **Settings → API → Applications →
-   New application**.
+1. **Register the OAuth Application** at Linear → **Settings → API → Applications → New application**.
    - Name: `Yak`
-   - Redirect URI: `https://{your-domain}/auth/linear/callback`
-   - On the app detail page, enable the **Actor: app** toggle. Without
-     this, Linear will reject the `actor=app` parameter at authorize
-     time.
-   - Scopes to request: `read` and `write`. That's all the outbound
-     driver needs — `write` covers both `commentCreate` and
-     `issueUpdate`. Do **not** request `admin`; Linear forbids it when
-     combined with `actor=app`.
-2. **Configure the webhook on the OAuth app** (same Applications page):
-   - URL: `https://{your-domain}/webhooks/linear`
-   - Subscribe to **Issue** events. (Linear's "Issue labels" event type
-     is for label entity changes, not labels being applied to issues.)
+   - Callback URL: `https://{your-domain}/auth/linear/callback`
+   - Enable **Webhooks**, set the URL to `https://{your-domain}/webhooks/linear`, and under **App events** tick **Agent session events**. Under **Authorization events**, tick OAuth authorization events if you want to track installs.
    - Copy the app's webhook **signing secret**.
-3. Optionally create a **`research` label** in your workspace (used as a
-   mode hint on issues assigned to Yak; not required).
-4. Add to `ansible/vault/secrets.yml`:
+2. Add the following to `ansible/vault/secrets.yml`:
 
    ```yaml
    linear_oauth_client_id: lin_api_...
@@ -192,24 +178,31 @@ state updates are authored by the Yak app rather than a human user.
    linear_webhook_secret: lin_wh_...
    ```
 
-5. Re-run Ansible to push the env onto the container.
-6. **Authorize the app from Yak**: sign in to the dashboard → **Settings →
-   Linear → Connect Linear**. Pick the workspace on Linear and you'll be
-   redirected back with a confirmation.
+3. Re-run Ansible to push the credentials into the container.
+4. **Authorize the app**: sign in to the Yak dashboard → **Settings → Linear → Connect Linear**. Approve the consent screen — it requests scopes `read`, `write`, `app:assignable`, and `app:mentionable`. A workspace admin must approve the install.
+
+Once installed, Yak appears in the Linear assignee picker for every team it belongs to. Team membership is managed inside Linear — an admin adds or removes the Yak agent per team like any other user.
 
 ### Usage
 
-Assign any Linear issue to **Yak** — the OAuth app appears in the assignee picker alongside human teammates. For research-only tasks, include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`) — or apply a `research` label *before* assigning to Yak. The title check exists because the webhook fires the instant the assignment changes; a `research` label added afterwards won't retroactively change the mode.
+Assign any Linear issue to **Yak**. For research-only tasks, include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`).
 
-The Yak OAuth app is assignable without consuming a Linear seat — it behaves like a bot teammate.
+Delegation opens an agent session on the issue. Yak immediately posts an acknowledgement activity, then emits progress updates as it works. When the run finishes:
 
-The Linear MCP server is not wired up. Yak passes the issue title and
-body into Claude's prompt at task creation time, so the agent has the
-context it needs without live Linear access during the run. If you ever
-want Claude to search Linear for similar issues mid-task, Linear's
-official remote MCP (`https://mcp.linear.app/sse`) is the place to look
-— but wiring it up from a headless sandbox needs additional plumbing
-(non-interactive OAuth) that doesn't exist yet.
+- **Fix tasks** — Yak posts a `response` activity linking to the pull request and moves the issue to the configured "In review" (CI green, PR opened) or "Done" state.
+- **Research tasks** — Yak posts the findings and moves the issue to "Done".
+- **Failures** — Yak posts an `error` activity explaining what went wrong; the issue state is left alone.
+
+Follow-up messages inside the agent session are not supported — Yak replies with a polite error pointing you to the pull request or a fresh Linear issue for further changes.
+
+### Repo Detection
+
+Linear issues follow the standard priority chain:
+
+1. Explicit mention in the issue body: `in my-cli:` or `repo: my-api`.
+2. Falls back to the default repo.
+
+Linear projects are not mapped to repos — issues frequently span projects, so a hard mapping is too limiting.
 
 ### Issue State Management
 
@@ -220,22 +213,16 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 | Task picked up | → **In Progress** |
 | PR created (CI green) | → **In Review** |
 | Research completed | → **Done** |
-| Task failed | remains In Progress with a failure comment |
+| Task failed | remains In Progress with a failure activity |
 
-### Repo Detection
-
-Linear issues rely on the standard priority chain:
-
-1. Explicit mention in the issue body: `in my-cli:` or `repo: my-api`
-2. Falls back to the default repo
-
-Linear projects are not mapped to repos — issues frequently span projects, so a hard mapping is too limiting.
+Configure the state UUIDs via `linear_done_state_id`, `linear_cancelled_state_id`, and `linear_in_review_state_id` in `ansible/vault/secrets.yml`.
 
 ### Gotchas
 
-- **Assignment is the trigger**, not labels or `@mentions`. Yak only fires on the *transition* from another assignee (or unassigned) to Yak — re-assigning an already-Yak-assigned issue won't re-trigger.
-- **Unassigning does nothing** — removing Yak as assignee after a task is dispatched will not cancel the run.
-- **The `research` label is a mode hint**, not a trigger. It only matters at the moment the issue is assigned to Yak.
+- **Delegation is the trigger.** Yak only acts on the initial `AgentSessionEvent.created` from delegation. Re-assigning an already-Yak issue does not re-trigger.
+- **The `research` label has no effect.** Research mode is detected from the issue title only — `promptContext` doesn't surface label changes at session creation time.
+- **Admin install required.** The `app:assignable` OAuth flow requires a workspace admin to approve. Non-admin installs fail at the consent screen.
+- **10-second SLA.** Yak posts an acknowledgement activity synchronously during the webhook response to avoid Linear marking the session unresponsive. If the Linear API is slow, that ack may time out — the run still proceeds.
 
 ---
 
