@@ -200,6 +200,20 @@
       docker pull postgres:16 || true
     '
 
+    # Install the curated Claude Code skills as the yak user
+    for skill_def in \
+      "https://github.com/vercel-labs/agent-browser:agent-browser" \
+      "https://github.com/vercel-labs/agent-skills:vercel-react-best-practices" \
+      "https://github.com/anthropics/skills:frontend-design" \
+      "https://github.com/vercel-labs/agent-skills:web-design-guidelines" \
+      "https://github.com/remotion-dev/skills:remotion-best-practices" \
+      "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill:ui-ux-pro-max" \
+      "https://github.com/pbakaus/impeccable:polish"; do
+      repo="${skill_def%:*}"
+      skill="${skill_def##*:}"
+      incus exec yak-base -- sudo -u yak npx skills add "$repo" --skill "$skill" || true
+    done
+
     # Stop the container and create the base snapshot
     incus stop yak-base
     incus snapshot create yak-base ready

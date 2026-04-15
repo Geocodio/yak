@@ -1,32 +1,26 @@
 #!/usr/bin/env bash
 set -e
 
-# /data is used for artifacts — owned by www-data only (yak must NOT write here)
+# /data is owned by www-data — that's where artifacts get written by the queue worker.
 chown -R www-data:www-data /data
 chmod -R 750 /data
 
 chown -R www-data:www-data /app/bootstrap/cache /app/storage
 chmod -R 775 /app/storage
 
-# Ensure yak user owns its home directory contents
-chown -R yak:yak /home/yak/repos /home/yak/.claude /home/yak/.cache /home/yak/.config
+# Claude Max config (shared across sandboxes). Mounted from host; the queue
+# worker reads it as www-data and pushes it into each new sandbox container.
+chown -R www-data:www-data /home/yak/.claude
 
-# Allow yak to access app logs and storage via group membership
-usermod -aG www-data yak 2>/dev/null || true
-# Allow www-data to read /home/yak/repos for artifact collection
-usermod -aG yak www-data 2>/dev/null || true
-
-# www-data (queue worker) needs to write git credentials and config in /home/yak
-chown yak:yak /home/yak
-chmod 770 /home/yak
-
-# Allow yak to use the Docker socket (for docker-compose in repos)
-if [ -S /var/run/docker.sock ]; then
-    DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
-    if ! getent group docker > /dev/null 2>&1; then
-        groupadd -g "$DOCKER_GID" docker
+# Add www-data to the Incus group on the host so the worker can talk to the
+# Incus Unix socket. The host's incus-admin GID is detected from the mounted
+# socket so it survives Incus reinstalls/upgrades.
+if [ -S /var/lib/incus/unix.socket ]; then
+    INCUS_GID=$(stat -c '%g' /var/lib/incus/unix.socket)
+    if ! getent group incus-admin > /dev/null 2>&1; then
+        groupadd -g "$INCUS_GID" incus-admin
     fi
-    usermod -aG docker yak 2>/dev/null || true
+    usermod -aG incus-admin www-data 2>/dev/null || true
 fi
 
 # Pre-create log files so supervisor doesn't create them as root
@@ -42,7 +36,7 @@ if [ ! -f /home/yak/.claude.json ] && [ -d /home/yak/.claude/backups ]; then
     LATEST_BACKUP=$(ls -t /home/yak/.claude/backups/.claude.json.backup.* 2>/dev/null | head -1)
     if [ -n "$LATEST_BACKUP" ]; then
         cp "$LATEST_BACKUP" /home/yak/.claude.json
-        chown yak:yak /home/yak/.claude.json
+        chown www-data:www-data /home/yak/.claude.json
         echo "Restored Claude config from $LATEST_BACKUP"
     fi
 fi

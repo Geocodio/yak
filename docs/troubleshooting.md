@@ -132,8 +132,8 @@ Symptoms: you `@yak` in Slack (or add a Linear label, or trigger a Sentry alert)
 ### CLI Not Found Or Not Responding
 
 ```bash
-docker exec -u yak yak claude --version
-docker exec -u yak yak claude -p "Say hello" --output-format json
+docker exec yak claude --version
+docker exec yak claude -p "Say hello" --output-format json
 ```
 
 If the first command fails, the CLI isn't installed in the container — rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic — check network connectivity.
@@ -147,7 +147,7 @@ Claude Code authenticates via an interactive `claude login` session token stored
 **Resolution:**
 
 ```bash
-docker exec -u yak -it yak claude login
+docker exec -it yak claude login
 ```
 
 Follow the browser-based OAuth flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
@@ -221,18 +221,18 @@ The `/health` page (and the scheduled `yak:healthcheck` command) runs these chec
 | **Last task completed within N hours** | No traffic, or workers hung on a stuck task |
 | **All repos fetchable** | Git auth issue — re-run `yak:refresh-repos` manually, check SSH key |
 | **Claude CLI responding** | See [Claude CLI errors](#claude-cli-errors) above |
-| **Claude CLI authenticated** | Token expired — run `docker exec -u yak -it yak claude login` |
+| **Claude CLI authenticated** | Token expired — run `docker exec -it yak claude login` |
 | **Enabled channel MCP servers reachable** | Network issue or external service down |
 
 Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.
 
 ## Agent Environment Variables Not Visible
 
-Symptoms: the agent can't find a token that's set in the container (e.g. `npm install` fails with 401 on a private registry even though `NODE_AUTH_TOKEN` is in the container env).
+Symptoms: the agent can't find a token that the repo needs at build time (e.g. `npm install` fails with 401 on a private registry).
 
 ### Cause
 
-The agent runs as a sandboxed `yak` user via `sudo runuser`. This strips all environment variables for security — app secrets like `DB_PASSWORD` are never exposed to the agent. Only explicitly allowlisted vars are forwarded.
+Each task runs in its own Incus sandbox container. Sandboxes start from the base template snapshot and have no access to the yak app's environment. Only variables explicitly listed in `agent_extra_env` are pushed into the sandbox.
 
 ### Resolution
 
@@ -243,20 +243,12 @@ agent_extra_env:
   NODE_AUTH_TOKEN: "ghp_..."
 ```
 
-Then redeploy. The template automatically:
-1. Sets the token as a container env var
-2. Adds it to `YAK_AGENT_PASSTHROUGH_ENV` so the agent receives it through the sandbox
+Redeploy and re-run the affected repo's setup task — the new env vars are baked into the next snapshot.
 
-To verify it's working after deploy:
+To verify the var is set inside a running sandbox:
 
 ```bash
-docker exec yak sudo runuser -u yak -- env | grep NODE_AUTH_TOKEN
-```
-
-If the var appears, the agent can see it. If not, check that `YAK_AGENT_PASSTHROUGH_ENV` is set in the container:
-
-```bash
-docker exec yak printenv YAK_AGENT_PASSTHROUGH_ENV
+incus exec task-<id> -- printenv NODE_AUTH_TOKEN
 ```
 
 ## Emergency: Kill Everything And Restart

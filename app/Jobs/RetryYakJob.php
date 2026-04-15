@@ -80,7 +80,7 @@ class RetryYakJob implements ShouldQueue
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::retryPrompt($this->failureOutput),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                workingDirectory: $containerName,
+                containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),

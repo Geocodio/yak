@@ -5,10 +5,22 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
+    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
+    mkdir($configDir);
+    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
+    config()->set('yak.sandbox.claude_config_source', $configDir);
+
     Process::fake([
         'pgrep *' => Process::result(output: '12345'),
-        '*ls-remote*' => Process::result(output: 'abc123 HEAD'),
-        '*claude *' => Process::result(output: 'claude v1.0.0'),
+        'claude --version' => Process::result(output: 'claude v1.0.0'),
+        '*claude auth status*' => Process::result(output: 'Authenticated'),
+        'incus list*' => Process::result(output: 'task-1'),
+        'incus snapshot list*' => Process::result(output: 'ready,2026-04-15'),
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/*' => Http::response(['name' => 'repo']),
+        'api.github.com/app/installations/*' => Http::response(['token' => 'ghs_test', 'expires_at' => now()->addHour()->toIso8601String()]),
     ]);
 
     // Disable channel healthchecks by default; individual tests enable Slack if needed

@@ -111,13 +111,16 @@ class IncusSandboxManager
 
     /**
      * Pull a file from a sandbox container to the host.
+     *
+     * The remote path is part of an incus argument like `task-1/foo` so it
+     * must be appended (after a slash) to the container name in a single
+     * escapeshellarg() call.
      */
     public function pullFile(string $containerName, string $remotePath, string $localPath): void
     {
         $this->exec(sprintf(
-            'incus file pull %s%s %s',
-            escapeshellarg($containerName),
-            $remotePath, // path inside container (no shell escaping — it's part of the incus arg)
+            'incus file pull %s %s',
+            escapeshellarg($containerName . $remotePath),
             escapeshellarg($localPath),
         ));
     }
@@ -127,15 +130,13 @@ class IncusSandboxManager
      */
     public function pullDirectory(string $containerName, string $remotePath, string $localPath): void
     {
-        // Ensure local directory exists
         if (! is_dir($localPath)) {
             mkdir($localPath, 0755, true);
         }
 
         $this->exec(sprintf(
-            'incus file pull -r %s%s %s',
-            escapeshellarg($containerName),
-            $remotePath,
+            'incus file pull -r %s %s',
+            escapeshellarg($containerName . $remotePath),
             escapeshellarg($localPath),
         ));
     }
@@ -146,10 +147,9 @@ class IncusSandboxManager
     public function pushFile(string $containerName, string $localPath, string $remotePath): void
     {
         $this->exec(sprintf(
-            'incus file push %s %s%s',
+            'incus file push %s %s',
             escapeshellarg($localPath),
-            escapeshellarg($containerName),
-            $remotePath,
+            escapeshellarg($containerName . $remotePath),
         ));
     }
 
@@ -158,7 +158,7 @@ class IncusSandboxManager
      */
     public function fileExists(string $containerName, string $path): bool
     {
-        $result = $this->run($containerName, "test -e {$path}", timeout: 10);
+        $result = $this->run($containerName, 'test -e ' . escapeshellarg($path), timeout: 10);
 
         return $result->exitCode() === 0;
     }

@@ -6,7 +6,7 @@ it('holds all fields for a fresh run', function () {
     $request = new AgentRunRequest(
         prompt: 'Fix the bug',
         systemPrompt: 'You are Yak',
-        workingDirectory: '/home/yak/repos/test',
+        containerName: '/home/yak/repos/test',
         timeoutSeconds: 570,
         maxBudgetUsd: 5.0,
         maxTurns: 40,
@@ -17,7 +17,7 @@ it('holds all fields for a fresh run', function () {
 
     expect($request->prompt)->toBe('Fix the bug')
         ->and($request->systemPrompt)->toBe('You are Yak')
-        ->and($request->workingDirectory)->toBe('/home/yak/repos/test')
+        ->and($request->containerName)->toBe('/home/yak/repos/test')
         ->and($request->timeoutSeconds)->toBe(570)
         ->and($request->maxBudgetUsd)->toBe(5.0)
         ->and($request->maxTurns)->toBe(40)
@@ -31,7 +31,7 @@ it('reports isResume() true when a session id is provided', function () {
     $request = new AgentRunRequest(
         prompt: 'Retry',
         systemPrompt: 'sys',
-        workingDirectory: '/x',
+        containerName: '/x',
         timeoutSeconds: 60,
         maxBudgetUsd: 1.0,
         maxTurns: 10,

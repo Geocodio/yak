@@ -35,6 +35,7 @@ test('creates PR via GitHub API with installation token', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/42',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -82,6 +83,7 @@ test('uses cached installation token when not expired', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -130,6 +132,7 @@ test('requests new installation token when cached token is expired', function ()
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -168,6 +171,7 @@ test('caches installation token in database after request', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -212,6 +216,7 @@ test('PR title uses Yak Fix prefix for fix mode tasks', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -252,6 +257,7 @@ test('PR title uses Yak Research prefix for research mode tasks', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -292,6 +298,7 @@ test('PR title truncates long descriptions', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -340,6 +347,7 @@ test('PR body includes source, repo, attempts, and result summary', function () 
             'html_url' => 'https://github.com/org/test-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -391,6 +399,7 @@ test('PR body includes warning footer', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -430,10 +439,11 @@ test('PR body includes files changed list', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
-    ]);
-
-    Process::fake([
-        'git diff --name-only *' => Process::result("app/Models/User.php\napp/Http/Controllers/AuthController.php\ntests/Feature/AuthTest.php"),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => [
+            ['filename' => 'app/Models/User.php', 'additions' => 5, 'deletions' => 1],
+            ['filename' => 'app/Http/Controllers/AuthController.php', 'additions' => 10, 'deletions' => 2],
+            ['filename' => 'tests/Feature/AuthTest.php', 'additions' => 20, 'deletions' => 0],
+        ]]),
     ]);
 
     Repository::factory()->create([
@@ -483,6 +493,7 @@ test('PR body includes screenshot signed URLs', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -540,6 +551,7 @@ test('PR body includes video walkthrough signed URLs', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/1',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -597,6 +609,7 @@ test('applies yak label to every PR', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/5',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -636,6 +649,7 @@ test('applies yak-large-change label when LOC exceeds threshold', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/7',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([
@@ -676,6 +690,7 @@ test('does not apply yak-large-change label for small changes', function () {
             'html_url' => 'https://github.com/org/my-repo/pull/8',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
     ]);
 
     Process::fake([

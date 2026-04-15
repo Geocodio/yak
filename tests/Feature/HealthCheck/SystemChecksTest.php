@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\HealthCheck\ClaudeCliCheck;
@@ -34,18 +33,6 @@ it('repositories check returns Ok when no active repositories', function () {
     expect($result->detail)->toBe('No active repositories');
 });
 
-it('repositories check returns Ok when all fetchable', function () {
-    Process::fake([
-        '*ls-remote*' => Process::result(output: 'abc123 HEAD'),
-    ]);
-    Repository::factory()->create(['is_active' => true, 'slug' => 'foo/bar']);
-
-    $result = (new RepositoriesCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Ok);
-    expect($result->detail)->toBe('1/1 active repositories OK');
-});
-
 it('claude cli check succeeds with version output', function () {
     Process::fake([
         'claude --version' => Process::result(output: 'claude v1.0.0'),
@@ -54,50 +41,26 @@ it('claude cli check succeeds with version output', function () {
     $result = (new ClaudeCliCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Ok);
-    expect($result->detail)->toBe('Responding, claude v1.0.0');
+    expect($result->detail)->toContain('claude v1.0.0');
 });
 
-it('claude cli check fails when not responding', function () {
+it('claude cli check fails when not installed', function () {
     Process::fake([
-        'claude --version' => Process::result(exitCode: 1),
+        'claude --version' => Process::result(exitCode: 127),
     ]);
 
     $result = (new ClaudeCliCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error);
-    expect($result->detail)->toBe('Not responding');
 });
 
-it('claude auth check succeeds when authenticated', function () {
-    Process::fake([
-        '*claude auth status*' => Process::result(output: 'Logged in'),
-    ]);
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Ok);
-    expect($result->detail)->toBe('Authenticated');
-});
-
-it('claude auth check fails when not authenticated', function () {
-    Process::fake([
-        '*claude auth status*' => Process::result(exitCode: 1),
-    ]);
+it('claude auth check fails when session file missing', function () {
+    config()->set('yak.sandbox.claude_config_source', '/tmp/nonexistent-yak-claude-' . uniqid());
 
     $result = (new ClaudeAuthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error);
-});
-
-it('claude auth check runs as yak user via sudo runuser', function () {
-    Process::fake([
-        '*claude auth status*' => Process::result(output: 'Logged in'),
-    ]);
-
-    (new ClaudeAuthCheck)->run();
-
-    Process::assertRan(fn ($process) => str_contains((string) $process->command, 'sudo runuser -u yak')
-        && str_contains((string) $process->command, 'claude auth status'));
+    expect($result->detail)->toContain('Session token missing');
 });
 
 it('webhook signatures check passes when no failures', function () {

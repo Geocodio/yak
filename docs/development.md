@@ -149,9 +149,11 @@ Not enforced. Developers can run Pint on save or set up a git pre-commit hook. C
 
 See the [Architecture](architecture.md) page for the full system design. For contributors, the shortest version:
 
-- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each one is a single-responsibility queue job.
-- **`app/Jobs/Middleware/`** — `CleanupDevEnvironment`, `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
-- **`app/Agents/`** — `ClaudeCodeRunner` (the default `AgentRunner` implementation), `ClaudeCodeOutputParser`, `StreamEventHandler`. The agent runner is bound via `yak.agent_runner` config.
+- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each agent job creates an Incus sandbox at the start and destroys it in a `finally` block.
+- **`app/Jobs/Middleware/`** — `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
+- **`app/Agents/`** — `SandboxedAgentRunner` (the `AgentRunner` implementation), `ClaudeCodeOutputParser`, `StreamEventHandler`. The runner executes Claude Code inside the task's Incus container via `incus exec`.
+- **`app/Services/IncusSandboxManager.php`** — sandbox lifecycle: clone from snapshot, configure resource limits, push Claude/MCP config, snapshot, promote-to-template, destroy.
+- **`app/Services/SandboxArtifactCollector.php`** — pulls `.yak-artifacts/` from the sandbox before destruction.
 - **`app/Drivers/`** — channel driver implementations. Each channel has an input driver, a notification driver, or both.
 - **`app/Contracts/`** — the driver interfaces (`InputDriver`, `CIDriver`, `NotificationDriver`) plus `CIBuildScanner` and `AgentRunner`.
 - **`app/Http/Controllers/Webhooks/`** — one invokable controller per webhook endpoint. Uses the `VerifiesWebhookSignature` trait. Note: there is no Drone CI webhook — Drone is polled via `yak:poll-drone-ci` instead.

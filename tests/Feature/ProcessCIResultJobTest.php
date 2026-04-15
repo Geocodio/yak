@@ -215,13 +215,13 @@ test('green path applies yak-large-change label when LOC exceeds threshold', fun
             'html_url' => 'https://github.com/org/my-repo/pull/7',
         ]),
         'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
-    ]);
-
-    Process::fake([
-        '*git diff --name-only *' => Process::result(''),
-        '*git diff --stat *' => Process::result(' 15 files changed, 180 insertions(+), 50 deletions(-)'),
-        '*git checkout *' => Process::result(''),
-        '*git branch -D *' => Process::result(''),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => [
+            ['filename' => 'a.php', 'additions' => 180, 'deletions' => 50],
+        ]]),
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
     ]);
 
     config()->set('yak.large_change_threshold', 200);
@@ -403,41 +403,6 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
 | Green Path — Branch Cleanup
 |--------------------------------------------------------------------------
 */
-
-test('green path checks out default branch and deletes task branch', function () {
-    Http::fake([
-        'api.github.com/*' => Http::response([
-            'number' => 1,
-            'html_url' => 'https://github.com/org/my-repo/pull/1',
-        ]),
-    ]);
-
-    Process::fake([
-        '*git diff --name-only *' => Process::result(''),
-        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        '*git checkout *' => Process::result(''),
-        '*git branch -D *' => Process::result(''),
-    ]);
-
-    Repository::factory()->create([
-        'slug' => 'org/my-repo',
-        'path' => '/home/yak/repos/my-repo',
-        'default_branch' => 'main',
-    ]);
-
-    $task = YakTask::factory()->awaitingCi()->create([
-        'repo' => 'org/my-repo',
-        'branch_name' => 'yak/FIX-CLEANUP',
-        'source' => 'manual',
-        'attempts' => 1,
-    ]);
-
-    $job = new ProcessCIResultJob($task, true);
-    $job->handle();
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D') && str_contains($process->command, 'yak/FIX-CLEANUP'));
-});
 
 /*
 |--------------------------------------------------------------------------
@@ -653,34 +618,6 @@ test('second failure marks task as failed', function () {
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->completed_at)->not->toBeNull()
         ->and($task->error_log)->toBe('Tests still failing after retry');
-});
-
-test('second failure cleans up branch', function () {
-    Process::fake([
-        '*git checkout *' => Process::result(''),
-        '*git branch -D *' => Process::result(''),
-    ]);
-
-    config()->set('yak.max_attempts', 2);
-
-    Repository::factory()->create([
-        'slug' => 'org/my-repo',
-        'path' => '/home/yak/repos/my-repo',
-        'default_branch' => 'main',
-    ]);
-
-    $task = YakTask::factory()->awaitingCi()->create([
-        'repo' => 'org/my-repo',
-        'branch_name' => 'yak/FIX-CLEANUP2',
-        'source' => 'manual',
-        'attempts' => 2,
-    ]);
-
-    $job = new ProcessCIResultJob($task, false, 'Final failure');
-    $job->handle();
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git checkout main'));
-    Process::assertRan(fn ($process) => str_contains($process->command, 'git branch -D') && str_contains($process->command, 'yak/FIX-CLEANUP2'));
 });
 
 test('second failure posts failure summary to source', function () {

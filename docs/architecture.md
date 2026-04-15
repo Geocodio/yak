@@ -217,17 +217,11 @@ Host (Hetzner Dedicated Server)
 
 ### Why Incus
 
-The previous architecture ran Claude Code directly in the yak app container. This caused:
+Three guarantees make sandboxed execution safe at scale:
 
-1. **Database wipes** — the agent could reach MariaDB and run destructive migrations during repo setup.
-2. **Port conflicts** — hardcoded dev ports (8000, 5173, 3000) limited execution to one task at a time.
-3. **No filesystem isolation** — an agent working on repo A could modify repo B.
-
-Incus solves all three:
-
-- **Network isolation** — sandbox containers are on a separate bridge (`yak-sandbox`) with firewall rules blocking access to the yak app and MariaDB.
+- **Network isolation** — sandbox containers are on a separate bridge (`yak-sandbox`) with firewall rules blocking access to the yak app and MariaDB. The agent cannot reach the yak database, period.
 - **Port isolation** — each container has its own network namespace. Port 8000 in container A doesn't conflict with port 8000 in container B.
-- **Filesystem isolation** — ZFS copy-on-write means each container has its own writable filesystem. Changes in one container are invisible to others.
+- **Filesystem isolation** — ZFS copy-on-write means each container has its own writable filesystem. Changes in one container are invisible to others, so concurrent tasks on the same repo never collide.
 
 ### The Snapshot Workflow
 

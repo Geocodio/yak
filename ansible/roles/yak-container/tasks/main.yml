@@ -41,27 +41,14 @@
     ports:
       - "8080:80"
     volumes:
-      - "{{ yak_repo_path }}:/home/yak/repos"
       - "{{ yak_data_path }}:/data"
       - "{{ yak_claude_path }}:/home/yak/.claude"
       - "/etc/yak/github-app.pem:/etc/yak/github-app.pem:ro"
       - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      # Incus Unix socket — the worker calls `incus` to manage sandbox containers
+      - "/var/lib/incus/unix.socket:/var/lib/incus/unix.socket"
     env_file: /etc/yak/env
     recreate: true
     networks:
       - name: yak
 
-- name: Install Claude Code skills
-  community.docker.docker_container_exec:
-    container: "{{ yak_container_name }}"
-    user: yak
-    command: "npx skills add {{ item.repo }} --skill {{ item.skill }}"
-  loop:
-    - { repo: "https://github.com/vercel-labs/agent-browser", skill: "agent-browser" }
-    - { repo: "https://github.com/vercel-labs/agent-skills", skill: "vercel-react-best-practices" }
-    - { repo: "https://github.com/anthropics/skills", skill: "frontend-design" }
-    - { repo: "https://github.com/vercel-labs/agent-skills", skill: "web-design-guidelines" }
-    - { repo: "https://github.com/remotion-dev/skills", skill: "remotion-best-practices" }
-    - { repo: "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill", skill: "ui-ux-pro-max" }
-    - { repo: "https://github.com/pbakaus/impeccable", skill: "polish" }

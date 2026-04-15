@@ -14,11 +14,9 @@ use Illuminate\Support\Facades\Log;
  * Agent runner that executes Claude Code inside an Incus sandbox container.
  *
  * The sandbox is created by the job layer (SetupYakJob, RunYakJob, etc.)
- * and its container name is passed via the AgentRunRequest's workingDirectory.
- * This runner executes `claude -p` inside that container via `incus exec`.
- *
- * The existing StreamEventHandler works unchanged — it just reads lines
- * from a different pipe (incus exec stdout instead of proc_open stdout).
+ * and its container name is passed via the AgentRunRequest's containerName.
+ * This runner executes `claude -p` inside that container via `incus exec`,
+ * streaming stdout line-by-line through StreamEventHandler.
  */
 class SandboxedAgentRunner implements AgentRunner
 {
@@ -39,7 +37,7 @@ class SandboxedAgentRunner implements AgentRunner
     {
         assert($request->task !== null);
 
-        $containerName = $request->workingDirectory; // Repurposed: container name, not filesystem path
+        $containerName = $request->containerName;
         $command = $this->buildClaudeCommand($request);
         $handler = new StreamEventHandler($request->task);
 
@@ -138,7 +136,7 @@ class SandboxedAgentRunner implements AgentRunner
 
     private function runBatch(AgentRunRequest $request): AgentRunResult
     {
-        $containerName = $request->workingDirectory;
+        $containerName = $request->containerName;
         $command = $this->buildClaudeCommand($request);
 
         $result = $this->sandbox->run($containerName, $command, $request->timeoutSeconds);
@@ -171,8 +169,7 @@ class SandboxedAgentRunner implements AgentRunner
     /**
      * Build the Claude CLI command that runs inside the sandbox.
      *
-     * Unlike ClaudeCodeRunner, this does NOT wrap with sudo/runuser —
-     * the command runs directly inside the Incus container as the yak user.
+     * The command runs directly inside the Incus container as the yak user.
      */
     private function buildClaudeCommand(AgentRunRequest $request): string
     {

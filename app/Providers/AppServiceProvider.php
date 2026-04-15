@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Agents\ClaudeCodeRunner;
 use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Listeners\RecordAiUsage;
@@ -24,15 +23,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(IncusSandboxManager::class);
 
-        $this->app->bind(AgentRunner::class, function () {
-            $driver = config('yak.agent_runner', 'sandbox');
-
-            return match ($driver) {
-                'sandbox' => new SandboxedAgentRunner(app(IncusSandboxManager::class)),
-                'claude_code' => new ClaudeCodeRunner,
-                default => throw new \InvalidArgumentException("Unknown Yak agent runner: {$driver}"),
-            };
-        });
+        $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
     }
 
     /**

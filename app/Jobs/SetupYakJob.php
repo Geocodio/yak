@@ -90,7 +90,7 @@ class SetupYakJob implements ShouldQueue
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::setupPrompt($repository->name),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                workingDirectory: $containerName,
+                containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
@@ -162,16 +162,16 @@ class SetupYakJob implements ShouldQueue
         $gitName = config('yak.git_user_name', 'Yak');
         $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
 
-        // Set git config inside the sandbox
         $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
         $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
 
-        // Configure the credential helper to use the yak app's artisan command.
-        // The sandbox can reach the host via the bridge gateway IP for git credentials.
-        // For now, we generate a short-lived GitHub App token and inject it directly.
         $this->injectGitCredentials($sandbox, $containerName);
     }
 
+    /**
+     * Inject a short-lived GitHub App installation token into the sandbox
+     * as a git credential helper for github.com.
+     */
     private function injectGitCredentials(IncusSandboxManager $sandbox, string $containerName): void
     {
         $installationId = (int) config('yak.channels.github.installation_id');
@@ -182,7 +182,6 @@ class SetupYakJob implements ShouldQueue
 
         $token = app(GitHubAppService::class)->getInstallationToken($installationId);
 
-        // Configure git to use this token for github.com
         $sandbox->run(
             $containerName,
             'git config --global credential.https://github.com.helper ' .

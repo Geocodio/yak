@@ -5,10 +5,10 @@ namespace App\Jobs;
 use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
-use App\GitOperations;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use App\Services\TaskLogger;
 use App\Services\VideoProcessor;
 use App\Services\YakPersonality;
@@ -17,7 +17,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ProcessCIResultJob implements ShouldQueue
@@ -84,7 +84,6 @@ class ProcessCIResultJob implements ShouldQueue
         ]);
 
         TaskLogger::info($this->task, 'Task completed');
-        $this->cleanupBranch($repository);
     }
 
     private function handleRetry(): void
@@ -115,7 +114,6 @@ class ProcessCIResultJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $failureSummary]);
-        $this->cleanupBranch($repository);
     }
 
     /**
@@ -192,25 +190,33 @@ class ProcessCIResultJob implements ShouldQueue
 
     private function countLinesOfCode(Repository $repository): int
     {
-        $result = Process::path($repository->path)
-            ->run("git diff --stat {$repository->default_branch}...{$this->task->branch_name}");
-
-        $output = trim($result->output());
-        $lines = explode("\n", $output);
-        $summary = end($lines);
-
-        $added = 0;
-        $removed = 0;
-
-        if (preg_match('/(\d+)\s+insertions?\(\+\)/', $summary, $insertions)) {
-            $added = (int) $insertions[1];
+        if ($this->task->branch_name === null) {
+            return 0;
         }
 
-        if (preg_match('/(\d+)\s+deletions?\(-\)/', $summary, $deletions)) {
-            $removed = (int) $deletions[1];
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if (! $installationId) {
+            return 0;
         }
 
-        return $added + $removed;
+        try {
+            $compare = app(GitHubAppService::class)->compareBranches(
+                $installationId,
+                $repository->slug,
+                $repository->default_branch,
+                $this->task->branch_name,
+            );
+
+            return $compare['loc_changed'];
+        } catch (\Throwable $e) {
+            Log::warning('Failed to compute LOC via GitHub API', [
+                'task_id' => $this->task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
     }
 
     private function postToSource(string $message): void
@@ -254,10 +260,5 @@ class ProcessCIResultJob implements ShouldQueue
 
         app(LinearNotificationDriver::class)
             ->setIssueState($this->task, $stateId);
-    }
-
-    private function cleanupBranch(Repository $repository): void
-    {
-        GitOperations::cleanup($repository, $this->task->branch_name);
     }
 }

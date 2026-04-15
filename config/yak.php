@@ -24,8 +24,6 @@ return [
 
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
-    'agent_runner' => env('YAK_AGENT_RUNNER', 'sandbox'),
-
     'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 3),
 
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
