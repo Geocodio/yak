@@ -14,6 +14,10 @@ chown -R www-data:www-data /home/yak/.claude
 
 # www-data's HOME is /var/www — ensure it owns the dotfile dirs it needs
 # (incus client writes ~/.config/incus/, npm writes ~/.npm, etc.).
+# Pre-create the incus config dir so the Docker HEALTHCHECK (which runs
+# as root by default) can't beat us to it and leave a root-owned dir
+# that www-data then can't read.
+mkdir -p /var/www/.cache /var/www/.config/incus /var/www/.local /var/www/.npm
 chown www-data:www-data /var/www
 chown -R www-data:www-data /var/www/.cache /var/www/.config /var/www/.local /var/www/.npm 2>/dev/null || true
 
