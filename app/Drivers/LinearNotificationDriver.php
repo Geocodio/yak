@@ -52,6 +52,17 @@ class LinearNotificationDriver implements NotificationDriver
     }
 
     /**
+     * Stub: Task 6 will implement this by posting an agentActivityCreate
+     * mutation to Linear. For now it is a no-op so the webhook controller
+     * compiles and its tests can pass everything that doesn't depend on
+     * the outbound activity being sent.
+     */
+    public function postAgentActivity(string $sessionId, string $type, string $body): void
+    {
+        // intentionally empty — implemented in Task 6
+    }
+
+    /**
      * Move the Linear issue associated with a task to a specific
      * workflow state. Returns silently when no connection or issue UUID
      * is available.

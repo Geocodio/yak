@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Webhooks;
 
 use App\Drivers\LinearInputDriver;
+use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
@@ -10,7 +11,6 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
-use App\Services\LinearIssueFetcher;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
@@ -26,33 +26,31 @@ class LinearWebhookController extends Controller
             $request,
             (string) config('yak.channels.linear.webhook_secret'),
             'Linear-Signature',
-            prefix: '', // Linear sends the raw HMAC-SHA256 digest with no prefix
+            prefix: '',
         );
 
-        // Only handle Issue update events. Subscribe to "Issue" events
-        // in Linear's webhook settings.
-        if ($request->input('type') !== 'Issue' || $request->input('action') !== 'update') {
+        if ($request->header('Linear-Event') !== 'AgentSessionEvent') {
             return response()->json(['ok' => true]);
         }
 
-        $connection = $this->resolveConnection($request);
-
-        // Only proceed when the issue has just been assigned to the Yak app
-        if ($connection === null || ! $this->isAssignedToYak($request, $connection)) {
+        if ($this->resolveConnection($request) === null) {
             return response()->json(['ok' => true]);
         }
 
-        return $this->handleAssignment($request);
+        return match ((string) $request->input('action')) {
+            'created' => $this->handleCreated($request),
+            'prompted' => $this->handlePrompted($request),
+            default => response()->json(['ok' => true]),
+        };
     }
 
     /**
-     * Locate the OAuth connection this webhook belongs to. Linear includes
-     * the workspace id on every event payload.
+     * Resolve the OAuth connection this webhook belongs to via the
+     * workspace id Linear stamps on every payload.
      */
     private function resolveConnection(Request $request): ?LinearOauthConnection
     {
         $workspaceId = (string) $request->input('organizationId', '');
-
         if ($workspaceId === '') {
             return null;
         }
@@ -61,106 +59,76 @@ class LinearWebhookController extends Controller
     }
 
     /**
-     * Determine if this update transitions the issue's assignee to the
-     * Yak app (i.e., someone just delegated the issue to Yak).
+     * Handle the delegation of a Linear issue to Yak: create the task,
+     * post a synchronous acknowledgement activity (Linear's 10-second
+     * SLA), then dispatch the run job.
      */
-    private function isAssignedToYak(Request $request, LinearOauthConnection $connection): bool
+    private function handleCreated(Request $request): JsonResponse
     {
-        $yakActorId = $connection->yakActorId();
+        $description = app(LinearInputDriver::class)->parse($request);
 
-        if ($yakActorId === null) {
-            return false;
-        }
-
-        // Only fire on events that carry an assignee transition.
-        if (! $request->has('updatedFrom.assigneeId')) {
-            return false;
-        }
-
-        $currentAssigneeId = (string) $request->input('data.assignee.id', '');
-        $previousAssigneeId = (string) $request->input('updatedFrom.assigneeId', '');
-
-        // Must now be assigned to Yak.
-        if ($currentAssigneeId !== $yakActorId) {
-            return false;
-        }
-
-        // Ignore unrelated updates to already-assigned issues.
-        return $previousAssigneeId !== $yakActorId;
-    }
-
-    /**
-     * Handle an issue being assigned to Yak — create task and dispatch RunYakJob.
-     */
-    private function handleAssignment(Request $request): JsonResponse
-    {
-        $driver = new LinearInputDriver;
-        $description = $driver->parse($request);
-
-        // Don't create duplicate tasks for the same Linear issue
-        $existingTask = YakTask::where('source', 'linear')
+        $existing = YakTask::where('source', 'linear')
             ->where('external_id', $description->externalId)
             ->first();
 
-        if ($existingTask !== null) {
+        if ($existing !== null) {
             return response()->json(['ok' => true]);
         }
 
-        $detector = new RepoDetector;
-        $detection = $detector->detect($description);
-
+        $detection = app(RepoDetector::class)->detect($description);
         $repoSlug = $detection->resolved
             ? $detection->firstRepository()->slug
             : ($description->repository ?? 'unknown');
-
-        $linearIssueId = (string) ($description->metadata['linear_issue_id'] ?? '');
-        $enriched = $this->enrichBody($description->body, $linearIssueId);
 
         $task = YakTask::create([
             'source' => 'linear',
             'repo' => $repoSlug,
             'external_id' => $description->externalId,
             'external_url' => $description->metadata['linear_issue_url'] ?? null,
-            'description' => $enriched,
+            'description' => $description->body,
             'mode' => $description->metadata['mode'] ?? 'fix',
+            'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? null,
             'context' => json_encode([
                 'title' => $description->metadata['title'] ?? '',
                 'description' => $description->metadata['description'] ?? '',
                 'linear_issue_id' => $description->metadata['linear_issue_id'] ?? '',
                 'linear_issue_identifier' => $description->metadata['linear_issue_identifier'] ?? '',
                 'linear_issue_url' => $description->metadata['linear_issue_url'] ?? '',
+                'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? '',
             ]),
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'linear', 'repo' => $repoSlug]);
-        SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Issue: {$description->body}");
 
+        // Post synchronously so Linear sees an activity well within the
+        // 10-second SLA from `created`. Returns silently on failure; the
+        // async notification below will retry via the standard path.
+        app(LinearNotificationDriver::class)
+            ->send($task, NotificationType::Acknowledgment, 'Picked this up — working on it now.');
+
+        SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Issue: {$description->body}");
         RunYakJob::dispatch($task);
 
         return response()->json(['ok' => true]);
     }
 
     /**
-     * Append comments, attachments, sub-issues, and assignment metadata
-     * fetched from Linear to the original webhook body. The webhook
-     * payload only carries title + description, but the agent benefits
-     * from the full conversation. Failures are non-fatal — fall back to
-     * the bare body.
+     * Handle follow-up messages inside an existing agent session. Yak
+     * does not currently support multi-turn Linear conversations —
+     * respond with a polite error so the session surfaces the guidance.
      */
-    private function enrichBody(string $body, string $linearIssueId): string
+    private function handlePrompted(Request $request): JsonResponse
     {
-        if ($linearIssueId === '') {
-            return $body;
+        $sessionId = (string) $request->input('agentSession.id', '');
+
+        if ($sessionId !== '') {
+            app(LinearNotificationDriver::class)->postAgentActivity(
+                $sessionId,
+                type: 'error',
+                body: "I can't continue this conversation inside Linear. To adjust the task, comment on the pull request or mention me in a fresh Linear issue.",
+            );
         }
 
-        $issue = app(LinearIssueFetcher::class)->fetch($linearIssueId);
-
-        if ($issue === null) {
-            return $body;
-        }
-
-        $rendered = app(LinearIssueFetcher::class)->renderAsMarkdown($issue);
-
-        return $rendered === '' ? $body : "{$body}\n\n---\n\n{$rendered}";
+        return response()->json(['ok' => true]);
     }
 }
