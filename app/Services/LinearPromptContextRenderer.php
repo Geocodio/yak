@@ -20,11 +20,15 @@ class LinearPromptContextRenderer
             return '';
         }
 
+        libxml_use_internal_errors(true);
         try {
             $wrapped = '<root>' . $xml . '</root>';
             $root = new SimpleXMLElement($wrapped);
         } catch (Throwable) {
             return '';
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors(false);
         }
 
         $sections = [];

@@ -62,7 +62,7 @@ it('renders other threads and guidance blocks when present', function () {
 it('returns an empty string when the XML is empty or unparseable', function () {
     $renderer = app(LinearPromptContextRenderer::class);
     expect($renderer->render(''))->toBe('');
-    expect($renderer->render('not xml at all'))->toBe('');
+    expect($renderer->render('<unclosed'))->toBe('');
 });
 
 it('renders a parent issue block when present', function () {
