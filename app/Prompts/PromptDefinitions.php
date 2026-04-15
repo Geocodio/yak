@@ -30,7 +30,7 @@ class PromptDefinitions
                 'label' => 'System Rules',
                 'category' => 'high_touch',
                 'type' => 'system',
-                'variables' => ['taskId', 'devEnvironmentInstructions', 'channelRules'],
+                'variables' => ['taskId', 'devEnvironmentInstructions', 'channelRules', 'repoInstructions'],
             ],
             'personality' => [
                 'view' => 'prompts.personality',

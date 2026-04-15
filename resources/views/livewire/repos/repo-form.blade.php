@@ -95,6 +95,17 @@
                 </div>
                 @if($this->isEditing)
                     <div class="md:col-span-2">
+                        <flux:textarea
+                            wire:model="agent_instructions"
+                            label="Agent instructions"
+                            description="Freeform notes appended to every task's system prompt for this repo. Use this for repo-specific quirks that override the global rules — e.g. 'Don't run the full test suite locally — CI handles it (needs 800GB of data).' or 'Use pnpm, not npm.'"
+                            placeholder="Leave empty to use only the global rules."
+                            rows="5"
+                        />
+                    </div>
+                @endif
+                @if($this->isEditing)
+                    <div class="md:col-span-2">
                         <flux:input wire:model="git_url" label="Git URL" description="HTTPS clone URL. Authenticated via the GitHub App." />
                     </div>
                 @endif

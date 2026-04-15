@@ -46,3 +46,11 @@ You are Yak, an autonomous coding agent. Follow these rules strictly:
 
 {!! $channelRules !!}
 @endif
+@if(!empty($repoInstructions))
+
+## Repository-specific notes
+
+These notes are maintained by the team for this particular repo. They override or supplement the general rules above when they conflict (e.g. "skip local tests — CI handles them" wins over rule 4's "Test locally").
+
+{!! $repoInstructions !!}
+@endif

@@ -4,6 +4,7 @@ namespace App;
 
 use App\Enums\TaskMode;
 use App\Facades\Prompts;
+use App\Models\Repository;
 use App\Models\YakTask;
 
 class YakPromptBuilder
@@ -14,12 +15,30 @@ class YakPromptBuilder
     public static function systemPrompt(YakTask $task, string $devEnvironmentInstructions = 'No specific dev environment instructions.'): string
     {
         $channelRules = self::buildChannelRules();
+        $repoInstructions = self::resolveRepoInstructions($task);
 
         return Prompts::render('system', [
             'taskId' => $task->external_id,
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
+            'repoInstructions' => $repoInstructions,
         ]);
+    }
+
+    /**
+     * Resolve per-repository guidance defined on the Repository model.
+     * Returned text is rendered as a "Repository-specific notes" section
+     * appended to the system rules so the agent sees it on every run.
+     */
+    private static function resolveRepoInstructions(YakTask $task): string
+    {
+        if ($task->repo === null || $task->repo === '') {
+            return '';
+        }
+
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        return trim((string) ($repository->agent_instructions ?? ''));
     }
 
     /**

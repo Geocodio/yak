@@ -26,6 +26,8 @@ class RepoForm extends Component
 
     public string $description = '';
 
+    public string $agent_instructions = '';
+
     public string $git_url = '';
 
     public string $default_branch = 'main';
@@ -63,6 +65,7 @@ class RepoForm extends Component
             $this->slug = $repository->slug;
             $this->name = $repository->name;
             $this->description = $repository->description ?? '';
+            $this->agent_instructions = $repository->agent_instructions ?? '';
             $this->git_url = $repository->git_url ?? '';
             $this->path = $repository->path;
             $this->default_branch = $repository->default_branch;
@@ -246,6 +249,7 @@ class RepoForm extends Component
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
+            'agent_instructions' => ['nullable', 'string', 'max:10000'],
             'git_url' => ['required', 'string', 'max:500', 'url:https'],
             'default_branch' => ['required', 'string', 'max:255'],
             'is_active' => ['boolean'],
@@ -289,6 +293,7 @@ class RepoForm extends Component
             'slug' => $this->slug,
             'name' => $this->name,
             'description' => $this->description ?: null,
+            'agent_instructions' => trim($this->agent_instructions) !== '' ? $this->agent_instructions : null,
             'git_url' => $this->git_url,
             'path' => $this->path,
             'default_branch' => $this->default_branch,

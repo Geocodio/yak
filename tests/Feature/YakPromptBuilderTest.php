@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\YakPromptBuilder;
 
@@ -36,6 +37,28 @@ test('system prompt includes task id in commit format rule', function () {
     $prompt = YakPromptBuilder::systemPrompt($task);
 
     expect($prompt)->toContain('[YAK-42] Short description');
+});
+
+test('system prompt appends repo-specific agent_instructions as a notes section', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'acme/monorepo',
+        'agent_instructions' => "Don't run the full test suite locally — CI covers it (800GB of fixture data).",
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('Repository-specific notes')
+        ->toContain("Don't run the full test suite locally");
+});
+
+test('system prompt omits the repo-notes section when agent_instructions is empty', function () {
+    $repo = Repository::factory()->create(['slug' => 'acme/clean', 'agent_instructions' => null]);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->not->toContain('Repository-specific notes');
 });
 
 test('system prompt uses custom dev environment instructions', function () {

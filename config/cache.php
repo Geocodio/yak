@@ -1,5 +1,8 @@
 <?php
 
+use App\Services\HealthCheck\HealthAction;
+use App\Services\HealthCheck\HealthResult;
+use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Str;
 
 return [
@@ -132,9 +135,9 @@ return [
     */
 
     'serializable_classes' => [
-        \App\Services\HealthCheck\HealthResult::class,
-        \App\Services\HealthCheck\HealthStatus::class,
-        \App\Services\HealthCheck\HealthAction::class,
+        HealthResult::class,
+        HealthStatus::class,
+        HealthAction::class,
     ],
 
 ];

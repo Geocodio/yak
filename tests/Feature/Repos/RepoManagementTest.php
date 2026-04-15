@@ -79,6 +79,32 @@ test('create repo with valid data auto-generates slug and path', function () {
     expect($repo->git_url)->toBe('https://github.com/acme/my-new-repo.git');
 });
 
+test('editing a repo persists agent_instructions', function () {
+    $repo = Repository::factory()->create([
+        'agent_instructions' => null,
+    ]);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->set('agent_instructions', "- Don't run local tests, CI covers it.\n- Use pnpm.")
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($repo->fresh()->agent_instructions)->toContain("Don't run local tests");
+});
+
+test('editing a repo clears agent_instructions when emptied', function () {
+    $repo = Repository::factory()->create([
+        'agent_instructions' => 'legacy note',
+    ]);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->set('agent_instructions', '')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($repo->fresh()->agent_instructions)->toBeNull();
+});
+
 test('create repo generates unique slug when duplicate exists', function () {
     Repository::factory()->create(['slug' => 'my-project']);
 

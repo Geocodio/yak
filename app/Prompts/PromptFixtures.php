@@ -26,6 +26,7 @@ class PromptFixtures
                         'taskId' => 'YAK-1234',
                         'devEnvironmentInstructions' => 'Run `docker compose up -d` to start services.',
                         'channelRules' => '',
+                        'repoInstructions' => '',
                     ],
                 ],
                 [
@@ -34,6 +35,16 @@ class PromptFixtures
                         'taskId' => 'YAK-5678',
                         'devEnvironmentInstructions' => 'Use PHP 8.3 and Node 22.',
                         'channelRules' => "## Sentry\nPost a comment to the Sentry issue when you finish.",
+                        'repoInstructions' => '',
+                    ],
+                ],
+                [
+                    'label' => 'With repo-specific notes',
+                    'data' => [
+                        'taskId' => 'YAK-9012',
+                        'devEnvironmentInstructions' => 'Use PHP 8.3 and Node 22.',
+                        'channelRules' => '',
+                        'repoInstructions' => "- Skip running the full test suite locally — CI covers it (needs 800GB of fixture data).\n- Use pnpm, not npm.",
                     ],
                 ],
             ],
