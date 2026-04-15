@@ -5,12 +5,26 @@
 # copy-on-write snapshot. Containers have their own Docker daemon,
 # network namespace, and filesystem — fully isolated from the yak host.
 
-- name: Install ZFS utilities
+- name: Install ZFS kernel module and utilities
   ansible.builtin.apt:
     name:
+      - "linux-headers-{{ ansible_kernel }}"
+      - zfs-dkms
       - zfsutils-linux
     state: present
     update_cache: true
+
+- name: Load ZFS kernel module
+  community.general.modprobe:
+    name: zfs
+    state: present
+    persistent: present
+
+- name: Ensure Incus state directory exists (needed for file-backed ZFS pool)
+  ansible.builtin.file:
+    path: /var/lib/incus
+    state: directory
+    mode: "0755"
 
 - name: Check if ZFS pool exists
   ansible.builtin.command: zpool list incus-pool
@@ -70,48 +84,61 @@
     groups: incus-admin
     append: true
 
-- name: Check if Incus is initialized
-  ansible.builtin.command: incus profile show default
-  register: incus_init_check
+- name: Check if Incus storage pool exists
+  ansible.builtin.command: incus storage show default
+  register: incus_storage_check
   changed_when: false
   failed_when: false
 
-- name: Initialize Incus
-  ansible.builtin.shell: |
-    cat <<EOF | incus admin init --preseed
-    config: {}
-    networks:
-      - config:
-          ipv4.address: 10.100.0.1/24
-          ipv4.nat: "true"
-          ipv6.address: none
-        description: "Yak sandbox network"
-        name: yak-sandbox
-        type: bridge
-    storage_pools:
-      - config:
-          source: incus-pool
-        description: "ZFS pool for sandboxes"
-        driver: zfs
-        name: default
-    profiles:
-      - config:
-          security.nesting: "true"
-          security.syscalls.intercept.mknod: "true"
-          security.syscalls.intercept.setxattr: "true"
-        description: "Default Yak sandbox profile"
-        devices:
-          root:
-            path: /
-            pool: default
-            type: disk
-          eth0:
-            name: eth0
-            network: yak-sandbox
-            type: nic
-        name: default
-    EOF
-  when: incus_init_check.rc != 0
+- name: Create Incus storage pool from existing ZFS pool
+  ansible.builtin.command: incus storage create default zfs source=incus-pool
+  when: incus_storage_check.rc != 0
+  changed_when: true
+
+- name: Check if Incus sandbox network exists
+  ansible.builtin.command: incus network show yak-sandbox
+  register: incus_network_check
+  changed_when: false
+  failed_when: false
+
+- name: Create Incus sandbox network
+  ansible.builtin.command: >
+    incus network create yak-sandbox
+    ipv4.address=10.100.0.1/24
+    ipv4.nat=true
+    ipv6.address=none
+    --description="Yak sandbox network"
+  when: incus_network_check.rc != 0
+  changed_when: true
+
+- name: Configure default profile security options
+  ansible.builtin.command: incus profile set default {{ item }}
+  loop:
+    - security.nesting=true
+    - security.syscalls.intercept.mknod=true
+    - security.syscalls.intercept.setxattr=true
+  changed_when: true
+
+- name: Check if default profile has root disk device
+  ansible.builtin.command: incus profile device get default root path
+  register: profile_root_check
+  changed_when: false
+  failed_when: false
+
+- name: Attach root disk to default profile
+  ansible.builtin.command: incus profile device add default root disk path=/ pool=default
+  when: profile_root_check.rc != 0
+  changed_when: true
+
+- name: Check if default profile has network device
+  ansible.builtin.command: incus profile device get default eth0 nictype
+  register: profile_eth0_check
+  changed_when: false
+  failed_when: false
+
+- name: Attach network device to default profile
+  ansible.builtin.command: incus profile device add default eth0 nic name=eth0 network=yak-sandbox
+  when: profile_eth0_check.rc != 0
   changed_when: true
 
 - name: Block sandbox network from accessing host services
@@ -238,3 +265,12 @@
     job: >
       incus list --format csv -c n,s | grep '^task-' | grep ',STOPPED' |
       cut -d',' -f1 | xargs -I{} incus delete {} --force 2>/dev/null || true
+
+- name: Weekly ZFS pool trim for NVMe longevity
+  ansible.builtin.cron:
+    name: "ZFS trim incus-pool"
+    weekday: "0"
+    hour: "3"
+    minute: "0"
+    user: root
+    job: "zpool trim incus-pool"
