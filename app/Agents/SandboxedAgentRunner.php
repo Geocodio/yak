@@ -131,7 +131,14 @@ class SandboxedAgentRunner implements AgentRunner
         Log::channel('yak')->info('Claude CLI refreshed in sandbox', $metadata);
 
         if ($request->task !== null) {
-            TaskLogger::info($request->task, "Claude CLI {$versionBefore} → {$versionAfter}", $metadata);
+            // Show a different line when the refresh was a no-op so
+            // the arrow isn't misleading (e.g. "2.1.110 → 2.1.110").
+            // The user still gets confirmation the update ran.
+            $line = $versionBefore === $versionAfter
+                ? "Claude CLI {$versionAfter} (already up to date)"
+                : "Claude CLI {$versionBefore} → {$versionAfter}";
+
+            TaskLogger::info($request->task, $line, $metadata);
         }
     }
 

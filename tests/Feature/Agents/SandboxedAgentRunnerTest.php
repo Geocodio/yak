@@ -133,8 +133,42 @@ it('logs the before/after Claude versions on the task when a task is attached', 
     expect($log)->not->toBeNull();
     expect($log->message)->toContain('2.1.109 (Claude Code)');
     expect($log->message)->toContain('2.1.110 (Claude Code)');
+    expect($log->message)->toContain('→');
     expect($log->metadata['version_before'] ?? null)->toBe('2.1.109 (Claude Code)');
     expect($log->metadata['version_after'] ?? null)->toBe('2.1.110 (Claude Code)');
+});
+
+it('logs a friendlier line when Claude was already up to date (no version change)', function () {
+    $task = YakTask::factory()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
+
+            if (str_contains($command, 'claude --version')) {
+                return Process::result("2.1.110 (Claude Code)\n");
+            }
+
+            if (str_contains($command, 'npm install')) {
+                return Process::result('already up to date');
+            }
+
+            return Process::result('');
+        }
+    };
+
+    $runner = new SandboxedAgentRunner($sandbox);
+    $runner->run(buildAgentRunRequest($task));
+
+    $log = TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'like', 'Claude CLI %')
+        ->first();
+
+    expect($log)->not->toBeNull();
+    expect($log->message)->toBe('Claude CLI 2.1.110 (Claude Code) (already up to date)');
+    expect($log->message)->not->toContain('→');
 });
 
 it('terminates the exec process after the post-result grace period, preserving the success result', function () {
