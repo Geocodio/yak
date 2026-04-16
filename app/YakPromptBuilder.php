@@ -90,11 +90,19 @@ class YakPromptBuilder
     }
 
     /**
-     * Build a retry prompt with CI failure output.
+     * Build a retry prompt with the original task description, the
+     * previous attempt's result summary, and CI failure output.
+     *
+     * The prompt is self-contained — we can't rely on `claude --resume`
+     * to restore conversation history because the sandbox from the
+     * previous attempt was destroyed right after push. Claude starts
+     * fresh each retry with everything it needs pre-assembled.
      */
-    public static function retryPrompt(?string $failureOutput): string
+    public static function retryPrompt(YakTask $task, ?string $failureOutput): string
     {
         return Prompts::render('tasks-retry', [
+            'taskDescription' => (string) $task->description,
+            'previousSummary' => (string) ($task->result_summary ?? ''),
             'failureOutput' => $failureOutput,
         ]);
     }

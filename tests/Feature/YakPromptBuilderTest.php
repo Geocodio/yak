@@ -320,18 +320,40 @@ test('clarification reply prompt includes chosen option', function () {
 |--------------------------------------------------------------------------
 */
 
-test('retry prompt includes ci failure output', function () {
-    $prompt = YakPromptBuilder::retryPrompt('Tests failed: 3 failures in UserTest');
+test('retry prompt is self-contained: original description + previous summary + CI failure', function () {
+    $task = YakTask::factory()->make([
+        'description' => 'Fix the duplicate CSV header in batch export',
+        'result_summary' => 'Rewrote BatchExporter::writeHeader() to deduplicate.',
+    ]);
 
-    expect($prompt)->toContain('CI pipeline failed')
-        ->toContain('Tests failed: 3 failures in UserTest');
+    $prompt = YakPromptBuilder::retryPrompt($task, 'Tests failed: 3 failures in UserTest');
+
+    expect($prompt)
+        ->toContain('Fix the duplicate CSV header in batch export')
+        ->toContain('Rewrote BatchExporter::writeHeader() to deduplicate.')
+        ->toContain('Tests failed: 3 failures in UserTest')
+        ->toContain('git log main..HEAD');
+});
+
+test('retry prompt omits the previous-summary block when none is stored', function () {
+    $task = YakTask::factory()->make([
+        'description' => 'Something',
+        'result_summary' => null,
+    ]);
+
+    $prompt = YakPromptBuilder::retryPrompt($task, 'failure');
+
+    expect($prompt)
+        ->toContain('Something')
+        ->not->toContain('What the previous attempt did');
 });
 
 test('retry prompt handles null failure output', function () {
-    $prompt = YakPromptBuilder::retryPrompt(null);
+    $task = YakTask::factory()->make(['description' => 'Do a thing']);
 
-    expect($prompt)->toContain('CI pipeline failed')
-        ->toContain('No CI output was captured');
+    $prompt = YakPromptBuilder::retryPrompt($task, null);
+
+    expect($prompt)->toContain('No CI output was captured');
 });
 
 /*

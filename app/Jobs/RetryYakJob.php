@@ -82,14 +82,17 @@ class RetryYakJob implements ShouldQueue
             $this->prepareRetryBranch($sandbox, $containerName, $repository);
 
             $result = $agent->run(new AgentRunRequest(
-                prompt: YakPromptBuilder::retryPrompt($this->failureOutput),
+                prompt: YakPromptBuilder::retryPrompt($this->task, $this->failureOutput),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
-                resumeSessionId: $this->task->session_id,
+                // Can't --resume: the previous attempt's sandbox was
+                // destroyed after push, so Claude's session file is
+                // gone. The prompt above is self-contained instead.
+                resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
             ));

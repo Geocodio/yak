@@ -106,11 +106,11 @@ test('successful retry accumulates cost and turns on task', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Claude --resume Flag
+| Claude --resume Flag — intentionally NOT used on retry
 |--------------------------------------------------------------------------
 */
 
-test('invokes claude with --resume flag and session_id', function () {
+test('does NOT pass --resume on retry (sandbox is fresh, session file is gone)', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_resumed',
         resultSummary: 'Done',
@@ -139,7 +139,9 @@ test('invokes claude with --resume flag and session_id', function () {
     $job = new RetryYakJob($task);
     $job->handle($fake);
 
-    expect($fake->lastCall()->resumeSessionId)->toBe('sess_original_123');
+    // session_id is stored on the task but we deliberately don't pass
+    // it through — see the comment in RetryYakJob::runRetry().
+    expect($fake->lastCall()->resumeSessionId)->toBeNull();
 });
 
 /*
@@ -180,8 +182,13 @@ test('retry prompt includes CI failure output', function () {
     $job->handle($fake);
 
     expect($fake->lastCall())->not->toBeNull()
-        ->and($fake->lastCall()->prompt)->toContain('CI')
         ->and($fake->lastCall()->prompt)->toContain($failureOutput);
+
+    // Retries must NOT use --resume — the previous attempt's sandbox
+    // was torn down after the push, so Claude's session history is
+    // gone and `claude --resume <id>` would fail with
+    // "No conversation found with session ID". See task 4384.
+    expect($fake->lastCall()->resumeSessionId)->toBeNull();
 });
 
 /*
