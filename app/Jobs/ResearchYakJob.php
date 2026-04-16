@@ -80,6 +80,17 @@ class ResearchYakJob implements ShouldQueue
 
         TaskLogger::info($this->task, 'Picked up by worker — research');
 
+        // One-shot "starting research" progress on first attempt,
+        // matching the RunYakJob cadence. Research tasks can take
+        // minutes; this keeps the channel alive while we explore.
+        if ((int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
+            SendNotificationJob::dispatch(
+                $this->task,
+                NotificationType::Progress,
+                "Diving into `{$this->task->repo}` — researching now, no code changes.",
+            );
+        }
+
         try {
             // Create sandbox from repo snapshot
             $containerName = $sandbox->create($this->task, $repository);

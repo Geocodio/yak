@@ -142,7 +142,7 @@ it('creates a fix task when an AgentSessionEvent.created webhook arrives', funct
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
 });
 
-it('dispatches an acknowledgment notification on pickup', function () {
+it('posts an acknowledgment activity synchronously on pickup', function () {
     $secret = enableLinearChannel();
     linearConnection();
     Queue::fake();
@@ -151,10 +151,10 @@ it('dispatches an acknowledgment notification on pickup', function () {
 
     postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
 
-    Queue::assertPushed(
-        SendNotificationJob::class,
-        fn (SendNotificationJob $job) => $job->type === NotificationType::Acknowledgment,
-    );
+    // The ack now goes out synchronously (with a personality timeout)
+    // rather than through SendNotificationJob, so we assert against the
+    // HTTP request to Linear's Agent Activity API directly.
+    assertLinearActivity();
 });
 
 it('detects research mode from "research" in the issue title', function () {

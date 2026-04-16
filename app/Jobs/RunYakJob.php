@@ -97,6 +97,18 @@ class RunYakJob implements ShouldQueue
 
         TaskLogger::info($this->task, 'Picked up by worker', ['attempt' => $this->task->attempts + 1]);
 
+        // One-shot "starting work" progress message on the first
+        // attempt, gated by yak.emit_start_progress. Closes the silent
+        // gap between ack and first push (can be several minutes for
+        // research tasks). Skipped on retries to avoid re-notifying.
+        if ((int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
+            SendNotificationJob::dispatch(
+                $this->task,
+                NotificationType::Progress,
+                "Starting on `{$this->task->repo}` — exploring the codebase now.",
+            );
+        }
+
         try {
             // Create isolated sandbox container (instant CoW clone from snapshot)
             $containerName = $sandbox->create($this->task, $repository);

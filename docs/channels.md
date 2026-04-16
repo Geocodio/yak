@@ -139,6 +139,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 - **First-time intro.** The first time a given user gets a reply from Yak, the acknowledgment has a small *"First time seeing me?"* footer pointing to this doc. It only appears once per user.
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
 - **Direct ping on status changes.** When Yak needs clarification, completes the task, fails, or expires, it @-mentions the requester so they get a push. Progress ticks don't ping (avoids noise).
+- **Start-of-work progress.** When the worker picks a task up, Yak posts a short in-thread message ("Starting on `{repo}` — exploring the codebase now."). Closes the silent gap between ack and first push. Disable with `YAK_EMIT_START_PROGRESS=false` if you find it noisy.
 
 ### Clarification Flow
 
@@ -208,6 +209,14 @@ Delegation opens an agent session on the issue. Yak immediately posts an acknowl
 - **Failures** — Yak posts an `error` activity explaining what went wrong; the issue state is left alone.
 
 Follow-up messages inside the agent session are not supported — Yak replies with a polite error pointing you to the pull request or a fresh Linear issue for further changes.
+
+#### What you'll see during a run
+
+- **Acknowledgement (sync).** Posted during the webhook response, before the 10-second SLA. Runs through Yak's personality agent with a short timeout, so the voice matches later messages — if the LLM is slow or unreachable, it falls back to a static template but still sounds like Yak.
+- **Start-of-work progress.** As soon as the worker picks the task up (often seconds later), Yak posts a `thought` activity describing what it's about to do. Closes the silent gap between pickup and first push on longer tasks. Controlled by `YAK_EMIT_START_PROGRESS` — default on.
+- **Push + CI.** Once the agent has changes, Yak pushes to a branch and posts another progress activity noting CI is running.
+- **Final response.** On success, a `response` activity with the PR link; on failure, an `error` activity with the reason.
+- **Multi-turn replies.** Commenting *inside* the agent session isn't supported — Yak responds with an `error` activity (run through personality for tone) directing you to the pull request or a fresh issue.
 
 ### Repo Detection
 

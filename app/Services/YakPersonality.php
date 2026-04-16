@@ -21,6 +21,17 @@ class YakPersonality
 
     public static function generate(NotificationType $type, string $context): string
     {
+        return self::generateWithTimeout($type, $context, null);
+    }
+
+    /**
+     * Generate a personality message, but bound the underlying HTTP
+     * call to `$timeoutSeconds` so callers on a tight SLA (e.g. the
+     * Linear webhook's 10-second response budget) don't stall. On
+     * timeout or any error, falls back to the static template.
+     */
+    public static function generateWithTimeout(NotificationType $type, string $context, ?int $timeoutSeconds): string
+    {
         $apiKey = (string) config('ai.providers.anthropic.key');
 
         if ($apiKey === '') {
@@ -28,7 +39,8 @@ class YakPersonality
         }
 
         try {
-            $response = PersonalityAgent::make($type->value, $context)->prompt('Generate the notification message.');
+            $response = PersonalityAgent::make($type->value, $context)
+                ->prompt('Generate the notification message.', timeout: $timeoutSeconds);
             $text = trim((string) $response);
 
             return $text !== '' ? $text : self::fallback($type, $context);

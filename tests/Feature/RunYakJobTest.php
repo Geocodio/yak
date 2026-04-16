@@ -126,7 +126,13 @@ test('no awaiting-CI notification dispatched when ci_system is none', function (
 
     (new RunYakJob($task))->handle($fake);
 
-    Queue::assertNotPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Progress);
+    // We now emit a "starting work" progress at pickup regardless of
+    // CI. Specifically assert that the *CI-waiting* progress is not
+    // sent — that's the one that should be skipped when ci_system is none.
+    Queue::assertNotPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Progress
+            && str_contains($job->message, 'waiting for CI');
+    });
 });
 
 test('successful run creates branch with yak/{external_id} naming', function () {
@@ -556,4 +562,99 @@ test('RunYakJob has EnsureDailyBudget middleware', function () {
 
     expect($classes)->toContain(EnsureDailyBudget::class)
         ->and($classes)->toContain(EnsureRepoReady::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Start-of-work progress notification
+|--------------------------------------------------------------------------
+*/
+
+test('emits a Progress notification at pickup on the first attempt', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_startprog',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'progress-repo', 'path' => '/home/yak/repos/progress-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'progress-repo', 'attempts' => 0]);
+
+    (new RunYakJob($task))->handle($fake);
+
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) use ($task) {
+        return $job->task->id === $task->id
+            && $job->type === NotificationType::Progress
+            && str_contains($job->message, 'exploring the codebase');
+    });
+});
+
+test('skips start-of-work progress notification when emit_start_progress is disabled', function () {
+    config()->set('yak.emit_start_progress', false);
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_nostart',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'quiet-repo', 'path' => '/home/yak/repos/quiet-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'quiet-repo', 'attempts' => 0]);
+
+    (new RunYakJob($task))->handle($fake);
+
+    Queue::assertNotPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Progress
+            && str_contains($job->message, 'exploring the codebase');
+    });
+});
+
+test('does not emit start-of-work progress on retry (attempts > 0)', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'retry-repo', 'path' => '/home/yak/repos/retry-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'retry-repo', 'attempts' => 1]);
+
+    (new RunYakJob($task))->handle($fake);
+
+    Queue::assertNotPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Progress
+            && str_contains($job->message, 'exploring the codebase');
+    });
 });

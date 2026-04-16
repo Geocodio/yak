@@ -10,11 +10,11 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
-use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
+use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -103,12 +103,20 @@ class LinearWebhookController extends Controller
         TaskLogger::info($task, 'Task created', ['source' => 'linear', 'repo' => $repoSlug]);
 
         // Post synchronously so Linear sees an activity well within the
-        // 10-second SLA from `created`. Returns silently on failure; the
-        // async notification below will retry via the standard path.
+        // 10-second SLA from `created`. Run the personality agent with
+        // a 2-second timeout so the bot sounds like Yak from the first
+        // message — on timeout or API error we fall back to the static
+        // template, which still keeps the voice consistent with later
+        // async messages. Skip the async ack dispatch since we've
+        // already posted one sync.
+        $ackMessage = YakPersonality::generateWithTimeout(
+            NotificationType::Acknowledgment,
+            "Issue: {$description->body}",
+            timeoutSeconds: 2,
+        );
         app(LinearNotificationDriver::class)
-            ->send($task, NotificationType::Acknowledgment, 'Picked this up — working on it now.');
+            ->send($task, NotificationType::Acknowledgment, $ackMessage);
 
-        SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Issue: {$description->body}");
         $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);
@@ -135,18 +143,30 @@ class LinearWebhookController extends Controller
      * Handle follow-up messages inside an existing agent session. Yak
      * does not currently support multi-turn Linear conversations —
      * respond with a polite error so the session surfaces the guidance.
+     * Runs the message through the personality agent (timed) so the
+     * voice stays consistent with the rest of the session.
      */
     private function handlePrompted(Request $request): JsonResponse
     {
         $sessionId = (string) $request->input('agentSession.id', '');
 
-        if ($sessionId !== '') {
-            app(LinearNotificationDriver::class)->postAgentActivity(
-                $sessionId,
-                type: 'error',
-                body: "I can't continue this conversation inside Linear. To adjust the task, comment on the pull request or mention me in a fresh Linear issue.",
-            );
+        if ($sessionId === '') {
+            return response()->json(['ok' => true]);
         }
+
+        $context = "I can't continue this conversation inside Linear. To adjust the task, comment on the pull request or mention me in a fresh Linear issue.";
+
+        $body = YakPersonality::generateWithTimeout(
+            NotificationType::Error,
+            $context,
+            timeoutSeconds: 2,
+        );
+
+        app(LinearNotificationDriver::class)->postAgentActivity(
+            $sessionId,
+            type: 'error',
+            body: $body,
+        );
 
         return response()->json(['ok' => true]);
     }

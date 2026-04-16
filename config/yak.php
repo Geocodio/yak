@@ -26,6 +26,12 @@ return [
 
     'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 3),
 
+    // Emit an extra "starting work" progress notification when the
+    // agent picks up a task. Closes the silent gap between ack and
+    // first push. Linear's Agent Activity UI is designed for progress;
+    // Slack gets it as an extra in-thread reply. Default on.
+    'emit_start_progress' => (bool) env('YAK_EMIT_START_PROGRESS', true),
+
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
 
     'git_user_name' => env('YAK_GIT_USER_NAME', 'Yak'),

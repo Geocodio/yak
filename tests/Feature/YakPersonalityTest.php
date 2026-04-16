@@ -51,6 +51,22 @@ it('includes context in fallback messages that use placeholders', function () {
     expect($result)->toBe('Database connection lost 🚨');
 });
 
+it('generateWithTimeout falls back when the API key is missing', function () {
+    config()->set('ai.providers.anthropic.key', '');
+
+    $result = YakPersonality::generateWithTimeout(NotificationType::Acknowledgment, 'Quick ack', timeoutSeconds: 2);
+
+    expect($result)->toBe('On it — Quick ack 🐃');
+});
+
+it('generateWithTimeout returns the agent response when available', function () {
+    Ai::fakeAgent(PersonalityAgent::class, ['Horns down, chewing through! 🐃']);
+
+    $result = YakPersonality::generateWithTimeout(NotificationType::Acknowledgment, 'Quick ack', timeoutSeconds: 2);
+
+    expect($result)->toBe('Horns down, chewing through! 🐃');
+});
+
 it('provides correct fallbacks for all notification types', function () {
     config()->set('ai.providers.anthropic.key', '');
 
