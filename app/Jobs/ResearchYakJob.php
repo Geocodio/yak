@@ -178,6 +178,24 @@ class ResearchYakJob implements ShouldQueue
         $this->postToSource($notificationMessage);
 
         if ($this->task->source === 'linear') {
+            // Attach the viewer URL (auth-gated, stable forever) to the
+            // Linear issue itself so the research report stays findable
+            // long after the agent session wraps up. The signed URL in
+            // the response activity above is for quick access; this
+            // attachment is for persistence.
+            if ($artifact !== null) {
+                $viewerUrl = route('artifacts.viewer', [
+                    'task' => $this->task->id,
+                    'filename' => $artifact->filename,
+                ]);
+                app(LinearNotificationDriver::class)->createIssueAttachment(
+                    $this->task,
+                    title: 'Research report',
+                    url: $viewerUrl,
+                    subtitle: 'Detailed findings from Yak · HTML',
+                );
+            }
+
             $this->moveLinearToDone();
         }
     }

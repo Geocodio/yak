@@ -309,6 +309,25 @@ test('posts summary and findings URL as Linear comment', function () {
             // to the personality agent to preserve.
             && str_contains($body, 'View research report');
     });
+
+    // The attachment makes the report stick to the issue itself, so
+    // it stays findable after the agent session ends.
+    Http::assertSent(function ($request) {
+        if ($request->url() !== 'https://api.linear.app/graphql') {
+            return false;
+        }
+
+        $body = $request->data();
+        if (! str_contains($body['query'] ?? '', 'attachmentCreate')) {
+            return false;
+        }
+
+        $input = $body['variables']['input'] ?? [];
+
+        return ($input['title'] ?? null) === 'Research report'
+            && str_contains($input['url'] ?? '', '/artifacts/')
+            && str_contains($input['url'] ?? '', '/viewer/');
+    });
 });
 
 test('moves Linear issue to Done state', function () {

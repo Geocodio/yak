@@ -70,6 +70,40 @@ class LinearNotificationDriver implements NotificationDriver
     }
 
     /**
+     * Attach a URL to the Linear issue so it persists as a first-
+     * class attachment on the issue (visible under the Attachments
+     * section, findable long after the agent session ends). Used for
+     * research report links.
+     */
+    public function createIssueAttachment(YakTask $task, string $title, string $url, ?string $subtitle = null): void
+    {
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $url === '' || $title === '') {
+            return;
+        }
+
+        $issueId = $this->resolveLinearIssueId($task);
+        if ($issueId === '') {
+            return;
+        }
+
+        $input = [
+            'issueId' => $issueId,
+            'title' => $title,
+            'url' => $url,
+        ];
+        if ($subtitle !== null && $subtitle !== '') {
+            $input['subtitle'] = $subtitle;
+        }
+
+        Http::withToken($accessToken)
+            ->post(self::GRAPHQL_ENDPOINT, [
+                'query' => 'mutation($input: AttachmentCreateInput!) { attachmentCreate(input: $input) { success } }',
+                'variables' => ['input' => $input],
+            ]);
+    }
+
+    /**
      * Map Yak's NotificationType to one of Linear's agent activity
      * content types: `thought` (progress, retries), `response` (final
      * result), `error` (failures / expiry), `elicitation` (clarification
