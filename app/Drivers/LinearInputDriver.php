@@ -6,6 +6,7 @@ use App\Contracts\InputDriver;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\TaskMode;
 use App\Models\Repository;
+use App\Services\LinearIssueFetcher;
 use App\Services\LinearPromptContextRenderer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -14,7 +15,13 @@ class LinearInputDriver implements InputDriver
 {
     public function __construct(
         private readonly LinearPromptContextRenderer $contextRenderer = new LinearPromptContextRenderer,
+        private readonly ?LinearIssueFetcher $fetcher = null,
     ) {}
+
+    private function fetcher(): LinearIssueFetcher
+    {
+        return $this->fetcher ?? app(LinearIssueFetcher::class);
+    }
 
     /**
      * Parse a Linear AgentSessionEvent.created payload into a normalized
@@ -37,7 +44,7 @@ class LinearInputDriver implements InputDriver
         $promptContextXml = (string) ($session['promptContext'] ?? '');
 
         $externalId = $identifier !== '' ? "LINEAR-{$identifier}" : $issueId;
-        $mode = $this->detectMode($title, $issue);
+        $mode = $this->detectMode($title, $issue, $issueId);
         $repository = $this->detectRepo($description);
         $body = $this->composeBody($title, $description, $promptContextXml);
 
@@ -67,19 +74,28 @@ class LinearInputDriver implements InputDriver
      * with Y — evaluate options"), while the title path keeps the
      * low-friction "Research: …" prefix working.
      *
+     * Linear's `AgentSessionEvent.created` webhook omits labels from
+     * the issue payload, so the in-payload check rarely fires — the
+     * authoritative check is a GraphQL lookup via LinearIssueFetcher,
+     * which runs with a short timeout and falls back to fix mode on
+     * any failure (so a Linear outage can't block task creation).
+     *
      * @param  array<string, mixed>  $issue  Raw issue payload from the
-     *                                       Linear webhook — we inspect
-     *                                       `labels` / `labels.nodes`
-     *                                       tolerantly since Linear uses
-     *                                       both shapes.
+     *                                       Linear webhook.
+     * @param  string  $issueId  The Linear issue UUID, used for the
+     *                           GraphQL fallback lookup.
      */
-    private function detectMode(string $title, array $issue): TaskMode
+    private function detectMode(string $title, array $issue, string $issueId): TaskMode
     {
         if (preg_match('/\bresearch\b/i', $title)) {
             return TaskMode::Research;
         }
 
         if ($this->hasLabel($issue, 'research')) {
+            return TaskMode::Research;
+        }
+
+        if ($issueId !== '' && $this->fetcher()->hasLabel($issueId, 'research')) {
             return TaskMode::Research;
         }
 

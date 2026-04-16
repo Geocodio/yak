@@ -177,6 +177,46 @@ it('detects research mode from "research" in the issue title', function () {
     expect(YakTask::first()->mode)->toBe(TaskMode::Research);
 });
 
+it('detects research mode by fetching labels from Linear when the webhook payload omits them', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake([
+        'api.linear.app/graphql' => Http::sequence()
+            // First: the GraphQL label fetch triggered by detectMode
+            ->push([
+                'data' => ['issue' => ['labels' => ['nodes' => [['name' => 'Research']]]]],
+            ])
+            // Subsequent: agent activity posts
+            ->push(['data' => ['agentActivityCreate' => ['success' => true]]])
+            ->whenEmpty(Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])),
+    ]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload([
+        'title' => 'Replace AWS Inspector with reliable host-level monitoring',
+        // No 'labels' key on purpose — mirrors Linear's real payload.
+    ]), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Research);
+});
+
+it('falls back to fix mode when the Linear label fetch fails', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake([
+        'api.linear.app/graphql' => Http::response([], 500),
+    ]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload([
+        'title' => 'Fix login flow bug',
+    ]), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Fix);
+});
+
 it('detects research mode from a "research" label (flat array shape)', function () {
     $secret = enableLinearChannel();
     linearConnection();
