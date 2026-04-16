@@ -23,8 +23,18 @@ use Throwable;
  */
 class SandboxedAgentRunner implements AgentRunner
 {
+    /**
+     * After Claude emits its `result` event, we wait this many seconds
+     * for the `incus exec` process to exit naturally before terminating
+     * it. Backgrounded services inside the sandbox (e.g. `php artisan
+     * serve &`) can keep the exec pipe open indefinitely by inheriting
+     * stdout; the grace period bounds that wedge.
+     */
     public function __construct(
         private readonly IncusSandboxManager $sandbox,
+        private readonly float $postResultGraceSeconds = 15.0,
+        private readonly float $streamIdleTimeoutSeconds = 600.0,
+        private readonly int $streamPollIntervalSeconds = 5,
     ) {}
 
     public function run(AgentRunRequest $request): AgentRunResult
@@ -179,12 +189,16 @@ class SandboxedAgentRunner implements AgentRunner
 
         stream_set_blocking($stdout, false);
 
+        $lastLineAt = microtime(true);
+        $resultReceivedAt = null;
+        $forcedTermination = null;
+
         while (true) {
             $read = [$stdout];
             $write = null;
             $except = null;
 
-            $ready = @stream_select($read, $write, $except, 5);
+            $ready = @stream_select($read, $write, $except, $this->streamPollIntervalSeconds);
 
             if ($ready === false) {
                 continue;
@@ -196,7 +210,12 @@ class SandboxedAgentRunner implements AgentRunner
                     break;
                 }
                 $lineCount++;
+                $lastLineAt = microtime(true);
                 $this->processLine($line, $handler);
+
+                if ($resultReceivedAt === null && $handler->getResultEvent() !== null) {
+                    $resultReceivedAt = microtime(true);
+                }
             } else {
                 $status = proc_get_status($process);
                 if (! $status['running']) {
@@ -205,6 +224,32 @@ class SandboxedAgentRunner implements AgentRunner
                         $this->processLine($line, $handler);
                     }
                     break;
+                }
+
+                $now = microtime(true);
+
+                if ($resultReceivedAt !== null && ($now - $resultReceivedAt) >= $this->postResultGraceSeconds) {
+                    Log::channel('yak')->info('Claude stream: terminating after post-result grace', [
+                        'task_id' => $request->task->id,
+                        'container' => $containerName,
+                        'grace_seconds' => $this->postResultGraceSeconds,
+                    ]);
+                    proc_terminate($process);
+                    $forcedTermination = 'post_result_grace';
+
+                    continue;
+                }
+
+                if ($resultReceivedAt === null && ($now - $lastLineAt) >= $this->streamIdleTimeoutSeconds) {
+                    Log::channel('yak')->warning('Claude stream: idle timeout, terminating', [
+                        'task_id' => $request->task->id,
+                        'container' => $containerName,
+                        'idle_seconds' => $this->streamIdleTimeoutSeconds,
+                    ]);
+                    proc_terminate($process);
+                    $forcedTermination = 'stream_idle_timeout';
+
+                    continue;
                 }
             }
         }
@@ -223,6 +268,7 @@ class SandboxedAgentRunner implements AgentRunner
             'exit_code' => $exitCode,
             'has_result' => $handler->getResultEvent() !== null,
             'stderr_length' => strlen($stderrOutput),
+            'forced_termination' => $forcedTermination,
         ]);
 
         if ($stderrOutput !== '') {
@@ -250,8 +296,12 @@ class SandboxedAgentRunner implements AgentRunner
             return AgentRunResult::failure($stderrOutput, '');
         }
 
+        $terminationNote = $forcedTermination === 'stream_idle_timeout'
+            ? ' — terminated after stream idle timeout'
+            : '';
+
         return AgentRunResult::failure(
-            "Claude Code stream ended without result event (lines={$lineCount}, exit={$exitCode})",
+            "Claude Code stream ended without result event (lines={$lineCount}, exit={$exitCode}){$terminationNote}",
             '',
         );
     }

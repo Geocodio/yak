@@ -137,6 +137,96 @@ it('logs the before/after Claude versions on the task when a task is attached', 
     expect($log->metadata['version_after'] ?? null)->toBe('2.1.110 (Claude Code)');
 });
 
+it('terminates the exec process after the post-result grace period, preserving the success result', function () {
+    $task = YakTask::factory()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            $resultEvent = json_encode([
+                'type' => 'result',
+                'is_error' => false,
+                'result' => 'setup complete',
+                'num_turns' => 5,
+                'total_cost_usd' => 0.42,
+                'duration_ms' => 1000,
+                'session_id' => 'sess_grace',
+            ]);
+
+            // Emit the result then replace the shell with `sleep` so SIGTERM
+            // from proc_terminate kills the sleep directly — mirrors the
+            // wedge we see in prod when backgrounded sandbox services hold
+            // stdout open after claude exits.
+            $shellCommand = sprintf("printf '%%s\\n' '%s'; exec sleep 20", $resultEvent);
+            $process = proc_open(['sh', '-c', $shellCommand], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner(
+        sandbox: $sandbox,
+        postResultGraceSeconds: 0.5,
+        streamIdleTimeoutSeconds: 60,
+        streamPollIntervalSeconds: 0,
+    );
+
+    $start = microtime(true);
+    $result = $runner->run(buildAgentRunRequest($task));
+    $elapsed = microtime(true) - $start;
+
+    expect($result->isError)->toBeFalse();
+    expect($result->resultSummary)->toBe('setup complete');
+    expect($elapsed)->toBeLessThan(5.0);
+});
+
+it('terminates and reports failure when the stream is idle with no result event', function () {
+    $task = YakTask::factory()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            // Emit nothing, just hold stdout open — simulates Claude silently hanging.
+            $process = proc_open(['sleep', '20'], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner(
+        sandbox: $sandbox,
+        postResultGraceSeconds: 60,
+        streamIdleTimeoutSeconds: 0.5,
+        streamPollIntervalSeconds: 0,
+    );
+
+    $start = microtime(true);
+    $result = $runner->run(buildAgentRunRequest($task));
+    $elapsed = microtime(true) - $start;
+
+    expect($result->isError)->toBeTrue();
+    expect($result->resultSummary)->toContain('terminated after stream idle timeout');
+    expect($elapsed)->toBeLessThan(5.0);
+});
+
 it('records the exact prompt and system prompt on task_logs when a task is attached', function () {
     $task = YakTask::factory()->create();
 
