@@ -2,9 +2,12 @@
 
 namespace App\Livewire\Tasks;
 
+use App\Channel;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Models\Repository;
 use App\Models\YakTask;
+use App\Support\Docs;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Computed;
@@ -71,6 +74,78 @@ class TaskList extends Component
     public function updatedTab(): void
     {
         $this->resetPage();
+    }
+
+    /**
+     * Shows the "Getting started" card on the Tasks page when the
+     * installation looks bare (no repos or no tasks) AND the current
+     * user hasn't dismissed the card yet. Self-hides once the user
+     * has both at least one repo configured and at least one task
+     * completed, so admins don't see it forever.
+     */
+    #[Computed]
+    public function showSetupCard(): bool
+    {
+        $user = auth()->user();
+
+        if ($user === null || $user->has_seen_setup_card_at !== null) {
+            return false;
+        }
+
+        return Repository::count() === 0 || YakTask::count() === 0;
+    }
+
+    /**
+     * The setup checklist items shown inside the "Getting started"
+     * card. Each item knows whether it's done and where the user
+     * should click to complete it.
+     *
+     * @return list<array{label: string, description: string, done: bool, url: string, external: bool}>
+     */
+    #[Computed]
+    public function setupChecklist(): array
+    {
+        $anyRepo = Repository::count() > 0;
+        $anyChannelEnabled = collect(['slack', 'linear', 'sentry', 'github', 'drone'])
+            ->contains(fn (string $channel) => (new Channel($channel))->enabled());
+        $anyTask = YakTask::count() > 0;
+
+        return [
+            [
+                'label' => 'Add your first repository',
+                'description' => 'Yak clones it and dispatches a setup task automatically.',
+                'done' => $anyRepo,
+                'url' => route('repos.create'),
+                'external' => false,
+            ],
+            [
+                'label' => 'Connect a channel',
+                'description' => 'Slack, Linear, or Sentry — tasks come in from configured channels.',
+                'done' => $anyChannelEnabled,
+                'url' => Docs::url('channels'),
+                'external' => true,
+            ],
+            [
+                'label' => 'Send your first task',
+                'description' => 'Mention @yak in Slack or assign a Linear issue to Yak.',
+                'done' => $anyTask,
+                'url' => Docs::url('channels.slack'),
+                'external' => true,
+            ],
+        ];
+    }
+
+    public function dismissSetupCard(): void
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return;
+        }
+
+        $user->forceFill(['has_seen_setup_card_at' => now()])->save();
+
+        unset($this->showSetupCard);
     }
 
     public function clearFilters(): void

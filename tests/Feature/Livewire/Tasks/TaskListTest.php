@@ -233,3 +233,72 @@ test('repo column renders plain text when no repository record exists', function
         ->toContain('ghost-repo')
         ->not->toContain('href="' . url('/repos/ghost-repo/edit') . '"');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Getting started card
+|--------------------------------------------------------------------------
+*/
+
+test('shows setup card to a first-time user with no repos or tasks', function () {
+    User::query()->delete();
+    $user = User::factory()->create(['has_seen_setup_card_at' => null]);
+    $this->actingAs($user);
+
+    Livewire::test(TaskList::class)
+        ->assertSet('showSetupCard', true)
+        ->assertSeeHtml('data-testid="setup-card"');
+});
+
+test('hides setup card once the user has dismissed it', function () {
+    $user = User::factory()->create(['has_seen_setup_card_at' => now()]);
+    $this->actingAs($user);
+
+    Livewire::test(TaskList::class)
+        ->assertSet('showSetupCard', false)
+        ->assertDontSeeHtml('data-testid="setup-card"');
+});
+
+test('hides setup card once repos and tasks both exist', function () {
+    $user = User::factory()->create(['has_seen_setup_card_at' => null]);
+    $this->actingAs($user);
+
+    Repository::factory()->create();
+    YakTask::factory()->create();
+
+    Livewire::test(TaskList::class)
+        ->assertSet('showSetupCard', false);
+});
+
+test('dismissSetupCard records the timestamp and hides the card', function () {
+    User::query()->delete();
+    $user = User::factory()->create(['has_seen_setup_card_at' => null]);
+    $this->actingAs($user);
+
+    Livewire::test(TaskList::class)
+        ->assertSet('showSetupCard', true)
+        ->call('dismissSetupCard')
+        ->assertSet('showSetupCard', false);
+
+    expect($user->fresh()->has_seen_setup_card_at)->not->toBeNull();
+});
+
+test('setup checklist reflects real state', function () {
+    User::query()->delete();
+    $user = User::factory()->create(['has_seen_setup_card_at' => null]);
+    $this->actingAs($user);
+
+    $component = Livewire::test(TaskList::class);
+    $checklist = $component->get('setupChecklist');
+
+    expect($checklist)->toBeArray()->toHaveCount(3);
+    expect($checklist[0]['done'])->toBeFalse();
+    expect($checklist[1]['done'])->toBeFalse();
+    expect($checklist[2]['done'])->toBeFalse();
+
+    // Now add a repo — first item should flip to done.
+    Repository::factory()->create();
+    $component = Livewire::test(TaskList::class);
+    $checklist = $component->get('setupChecklist');
+    expect($checklist[0]['done'])->toBeTrue();
+});

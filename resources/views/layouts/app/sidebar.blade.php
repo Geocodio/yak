@@ -40,6 +40,12 @@
                             <flux:icon.code-bracket class="size-5" />
                             {{ __('Repositories') }}
                         </a>
+                        <a href="{{ route('channels') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('channels') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           wire:navigate @click="mobileNavOpen = false">
+                            <flux:icon.inbox-arrow-down class="size-5" />
+                            {{ __('Channels') }}
+                        </a>
                         <a href="{{ route('prompts') }}"
                            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('prompts') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">

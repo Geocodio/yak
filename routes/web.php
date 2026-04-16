@@ -3,6 +3,7 @@
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
+use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
 use App\Livewire\Health;
 use App\Livewire\PromptEditor;
@@ -36,6 +37,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('repos.edit')
         ->where('repository', '.+');
     Route::livewire('health', Health::class)->name('health');
+    Route::livewire('channels', ChannelList::class)->name('channels');
     Route::livewire('prompts', PromptEditor::class)->name('prompts');
     Route::livewire('skills', Skills::class)->name('skills');
 

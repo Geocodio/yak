@@ -1,4 +1,58 @@
 <div wire:poll.15s>
+    {{-- Getting started card (shown when the install is bare and the user hasn't dismissed it) --}}
+    @if($this->showSetupCard)
+        <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-gradient-to-br from-yak-orange/5 to-yak-cream p-5" data-testid="setup-card">
+            <div class="flex items-start gap-4">
+                <div class="shrink-0 rounded-full bg-yak-orange/15 p-2">
+                    <flux:icon.rocket-launch class="!size-5 text-yak-orange" />
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-sm font-semibold uppercase tracking-wider text-yak-orange">Getting started with Yak</h2>
+                            <p class="mt-1 text-sm text-yak-blue">Three small steps and you're ready to ship papercuts.</p>
+                        </div>
+                        <button
+                            type="button"
+                            wire:click="dismissSetupCard"
+                            class="shrink-0 text-yak-tan hover:text-yak-slate transition-colors"
+                            aria-label="Dismiss"
+                            data-testid="dismiss-setup-card"
+                        >
+                            <flux:icon.x-mark class="!size-4" />
+                        </button>
+                    </div>
+                    <ul class="mt-4 space-y-3">
+                        @foreach($this->setupChecklist as $item)
+                            <li class="flex items-start gap-3" data-testid="setup-step">
+                                @if($item['done'])
+                                    <div class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-yak-green/20 text-yak-green">
+                                        <flux:icon.check class="!size-3.5" />
+                                    </div>
+                                @else
+                                    <div class="mt-0.5 size-5 shrink-0 rounded-full border border-yak-tan"></div>
+                                @endif
+                                <div class="min-w-0 flex-1">
+                                    <a
+                                        href="{{ $item['url'] }}"
+                                        @if($item['external']) target="_blank" rel="noopener noreferrer" @else wire:navigate @endif
+                                        class="text-sm font-medium text-yak-slate hover:text-yak-orange transition-colors {{ $item['done'] ? 'line-through decoration-yak-tan/60' : '' }}"
+                                    >
+                                        {{ $item['label'] }}
+                                        @if($item['external'])
+                                            <flux:icon.arrow-top-right-on-square class="!size-3 inline-block opacity-60" />
+                                        @endif
+                                    </a>
+                                    <p class="mt-0.5 text-xs text-yak-blue">{{ $item['description'] }}</p>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Tabs --}}
     <div class="mb-5 flex border-b border-yak-tan/40" data-testid="task-tabs">
         <button
