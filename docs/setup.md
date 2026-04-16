@@ -324,20 +324,6 @@ To deploy a specific version:
 ansible-playbook ansible/playbook.yml --tags yak-container -e yak_image_tag=abc1234
 ```
 
-#### Slack manifest changes between versions
-
-Some releases add Slack scopes or event subscriptions. When they do, the Slack app manifest in your workspace has to be updated *by hand* — the container upgrade alone is not enough; reactions silently fail without the scope, and App Home events never fire without the subscription.
-
-Steps when a release adds Slack scopes or events:
-
-1. Go to your Slack app at [api.slack.com/apps](https://api.slack.com/apps) → your Yak app.
-2. Under **OAuth & Permissions**, add any new bot scopes listed in the release notes, then click **Reinstall to Workspace**.
-3. Under **Event Subscriptions**, add any new bot events listed in the release notes.
-4. Under **Interactivity & Shortcuts**, if a release introduces a new interactive endpoint, update the request URL.
-5. If the installation returned a new bot token, update `slack_bot_token` in vault and re-run `ansible-playbook ansible/playbook.yml --tags yak-container`.
-
-Current required scopes and events are listed in the [Slack setup section](#slack-optional) above. If something that used to work (reactions, App Home DMs, interactivity) stops, check that your installed scopes still match that list.
-
 ### Adding a New Channel
 
 1. Add the channel's credentials to `ansible/vault/secrets.yml`
