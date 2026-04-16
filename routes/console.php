@@ -10,6 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('yak:cleanup')->daily();
 Schedule::command('yak:cleanup-sandboxes')->hourly();
+Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:refresh-claude-auth')->everyFourHours()->withoutOverlapping();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
