@@ -10,6 +10,7 @@ use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Support\TaskSourceUrl;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
@@ -103,6 +104,33 @@ class TaskDetail extends Component
     public function toggleDebug(): void
     {
         $this->showDebug = ! $this->showDebug;
+    }
+
+    #[Computed]
+    public function sourceUrl(): ?string
+    {
+        return TaskSourceUrl::resolve($this->task);
+    }
+
+    #[Computed]
+    public function showIntroBanner(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && $user->has_seen_task_detail_intro_at === null;
+    }
+
+    public function dismissIntro(): void
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return;
+        }
+
+        $user->forceFill(['has_seen_task_detail_intro_at' => now()])->save();
+
+        unset($this->showIntroBanner);
     }
 
     public function toggleLog(int $index): void
@@ -248,7 +276,7 @@ class TaskDetail extends Component
     /**
      * Returns milestone steps with their completion status.
      *
-     * @return array<int, array{label: string, completed: bool, active: bool}>
+     * @return array<int, array{label: string, tooltip: string, completed: bool, active: bool}>
      */
     #[Computed]
     public function milestoneSteps(): array
@@ -265,13 +293,22 @@ class TaskDetail extends Component
             TaskStatus::Failed, TaskStatus::Expired => $this->task->pr_url ? 5 : ($this->task->branch_name ? 3 : 2),
         };
 
-        $labels = ['Created', 'Picked up', 'Working', 'Fix pushed', 'CI', 'PR created', 'Done'];
+        $steps = [
+            ['label' => 'Created', 'tooltip' => 'Task received and queued for an agent.'],
+            ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
+            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and making changes.'],
+            ['label' => 'Fix pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
+            ['label' => 'CI', 'tooltip' => 'Waiting for CI to verify the changes.'],
+            ['label' => 'PR created', 'tooltip' => 'Pull request opened for human review.'],
+            ['label' => 'Done', 'tooltip' => 'Task complete.'],
+        ];
 
-        return array_map(fn (string $label, int $index) => [
-            'label' => $label,
+        return array_map(fn (array $step, int $index) => [
+            'label' => $step['label'],
+            'tooltip' => $step['tooltip'],
             'completed' => $index <= $reachedStep,
             'active' => $index === $reachedStep,
-        ], $labels, array_keys($labels));
+        ], $steps, array_keys($steps));
     }
 
     /**

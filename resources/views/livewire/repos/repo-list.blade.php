@@ -65,8 +65,11 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="9" class="px-3 py-12 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
-                            No repositories found.
+                        <td colspan="9" class="px-3 py-16 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
+                            <div class="flex flex-col items-center gap-3">
+                                <p class="text-sm">No repositories yet. Add one so Yak can clone and work on it.</p>
+                                <x-doc-link anchor="repositories.adding" class="text-sm">Adding a repository</x-doc-link>
+                            </div>
                         </td>
                     </tr>
                 @endforelse

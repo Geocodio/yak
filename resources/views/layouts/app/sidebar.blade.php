@@ -58,6 +58,14 @@
                             <flux:icon.heart class="size-5" />
                             {{ __('Health') }}
                         </a>
+                        <a href="{{ config('docs.base_url', 'https://geocodio.github.io/yak/') }}"
+                           target="_blank"
+                           rel="noopener"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors text-yak-slate hover:bg-yak-cream">
+                            <flux:icon.book-open class="size-5" />
+                            <span class="flex-1">{{ __('Help') }}</span>
+                            <flux:icon.arrow-top-right-on-square class="size-3.5 text-yak-tan" />
+                        </a>
                     </nav>
 
                     {{-- User Menu --}}

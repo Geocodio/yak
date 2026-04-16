@@ -126,6 +126,10 @@ return [
             'driver' => 'slack',
             'bot_token' => env('YAK_SLACK_BOT_TOKEN'),
             'signing_secret' => env('YAK_SLACK_SIGNING_SECRET'),
+
+            // Workspace URL (e.g. "https://acme.slack.com"). Used to build
+            // deep links from the dashboard back to the original thread.
+            'workspace_url' => env('YAK_SLACK_WORKSPACE_URL'),
         ],
 
         'linear' => [

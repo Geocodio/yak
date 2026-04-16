@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Livewire\Tasks\TaskDetail;
 use App\Models\Artifact;
 use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -547,4 +549,115 @@ test('activity log defaults to latest attempt and switches on selectAttempt', fu
         ->assertSet('visibleAttempt', 1)
         ->assertSee('first attempt activity')
         ->assertDontSee('second attempt activity');
+});
+
+test('it shows the intro banner for first-time visitors', function () {
+    $user = User::factory()->create(['has_seen_task_detail_intro_at' => null]);
+    $this->actingAs($user);
+
+    $task = YakTask::factory()->running()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSet('showIntroBanner', true)
+        ->assertSeeHtml('data-testid="task-detail-intro"');
+});
+
+test('it hides the intro banner after it has been dismissed', function () {
+    $user = User::factory()->create(['has_seen_task_detail_intro_at' => now()]);
+    $this->actingAs($user);
+
+    $task = YakTask::factory()->running()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSet('showIntroBanner', false)
+        ->assertDontSeeHtml('data-testid="task-detail-intro"');
+});
+
+test('dismissIntro records the timestamp and hides the banner', function () {
+    $user = User::factory()->create(['has_seen_task_detail_intro_at' => null]);
+    $this->actingAs($user);
+
+    $task = YakTask::factory()->running()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSet('showIntroBanner', true)
+        ->call('dismissIntro')
+        ->assertSet('showIntroBanner', false);
+
+    expect($user->fresh()->has_seen_task_detail_intro_at)->not->toBeNull();
+});
+
+test('it shows a Slack clarification hint that links to the thread', function () {
+    config()->set('yak.channels.slack.workspace_url', 'https://acme.slack.com');
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'slack',
+        'slack_channel' => 'C1234567',
+        'slack_thread_ts' => '1700000000.123456',
+        'clarification_options' => ['option a', 'option b'],
+        'clarification_expires_at' => now()->addDays(1),
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="clarification-reply-hint"')
+        ->assertSee('Reply in the')
+        ->assertSee('Slack thread')
+        ->assertSeeHtml('href="https://acme.slack.com/archives/C1234567/p1700000000123456"');
+});
+
+test('it shows a Linear clarification hint that links to the issue', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'linear',
+        'external_url' => 'https://linear.app/acme/issue/ACM-42/fix-the-bug',
+        'clarification_options' => ['option a', 'option b'],
+        'clarification_expires_at' => now()->addDays(1),
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="clarification-reply-hint"')
+        ->assertSee('Reply on the')
+        ->assertSee('Linear issue')
+        ->assertSeeHtml('href="https://linear.app/acme/issue/ACM-42/fix-the-bug"');
+});
+
+test('it shows a generic clarification hint for unknown sources', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'system',
+        'clarification_options' => ['option a', 'option b'],
+        'clarification_expires_at' => now()->addDays(1),
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="clarification-reply-hint"')
+        ->assertSee('Reply from the originating channel to answer');
+});
+
+test('milestone steps include tooltip copy for each stage', function () {
+    $task = YakTask::factory()->running()->create();
+
+    /** @var Testable $component */
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+
+    $steps = $component->get('milestoneSteps');
+
+    expect($steps)->toBeArray()->toHaveCount(7);
+    foreach ($steps as $step) {
+        expect($step)->toHaveKeys(['label', 'tooltip', 'completed', 'active']);
+        expect($step['tooltip'])->toBeString()->not->toBeEmpty();
+    }
+});
+
+test('milestone stepper links to the architecture docs', function () {
+    $task = YakTask::factory()->running()->create([
+        'started_at' => now(),
+    ]);
+
+    TaskLog::factory()->create(['yak_task_id' => $task->id]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="milestone-docs-link"')
+        ->assertSeeHtml('href="https://geocodio.github.io/yak/architecture/#the-core-loop"');
 });

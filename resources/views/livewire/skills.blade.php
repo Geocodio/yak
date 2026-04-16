@@ -44,7 +44,10 @@
             </div>
 
             @if ($this->installed->isEmpty())
-                <p class="text-sm text-yak-blue">No plugins installed yet.</p>
+                <div class="flex items-center gap-3 text-sm text-yak-blue">
+                    <span>No plugins installed yet.</span>
+                    <x-doc-link anchor="prompting">Learn about skills &amp; plugins</x-doc-link>
+                </div>
             @else
                 <div class="skills-grid">
                     @foreach ($this->installed as $plugin)

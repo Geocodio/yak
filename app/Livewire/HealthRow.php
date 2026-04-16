@@ -17,11 +17,39 @@ class HealthRow extends Component
 
     private const CACHE_TTL_SECONDS = 60;
 
+    /**
+     * Maps a check ID to the most relevant docs anchor. Used to render a
+     * "?" icon link next to each row so users can jump straight to the
+     * section explaining how to configure or fix that dependency.
+     *
+     * @var array<string, string>
+     */
+    private const DOCS_ANCHOR_BY_CHECK = [
+        'queue-worker' => 'troubleshooting',
+        'last-task-completed' => 'troubleshooting',
+        'incus-daemon' => 'architecture.sandbox',
+        'sandbox-base-template' => 'architecture.sandbox',
+        'claude-cli' => 'troubleshooting.cli',
+        'claude-auth' => 'troubleshooting.cli',
+        'repositories' => 'repositories',
+        'webhook-signatures' => 'troubleshooting.webhooks',
+        'slack' => 'channels.slack',
+        'linear' => 'channels.linear',
+        'sentry' => 'channels.sentry',
+        'github' => 'channels.github',
+        'drone' => 'channels.drone',
+    ];
+
     public function placeholder(): string
     {
         $name = app(Registry::class)->nameFor($this->checkId);
 
         return view('livewire.partials.health-row-skeleton', ['name' => $name])->render();
+    }
+
+    public function docsAnchor(): ?string
+    {
+        return self::DOCS_ANCHOR_BY_CHECK[$this->checkId] ?? null;
     }
 
     #[Computed]

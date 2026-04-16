@@ -22,7 +22,7 @@ it('falls back gracefully when API key is missing', function () {
 
     $result = YakPersonality::generate(NotificationType::Acknowledgment, 'Fix the login bug');
 
-    expect($result)->toBe('On it! 🐃');
+    expect($result)->toBe('On it — Fix the login bug 🐃');
 });
 
 it('falls back when the agent throws', function () {
@@ -32,7 +32,7 @@ it('falls back when the agent throws', function () {
 
     $result = YakPersonality::generate(NotificationType::Retry, 'CI failed');
 
-    expect($result)->toBe('Retrying. 🔄');
+    expect($result)->toBe('Retrying — CI failed 🔄');
 });
 
 it('falls back when the agent returns empty text', function () {
@@ -55,10 +55,10 @@ it('provides correct fallbacks for all notification types', function () {
     config()->set('ai.providers.anthropic.key', '');
 
     expect(YakPersonality::generate(NotificationType::Acknowledgment, 'test'))
-        ->toBe('On it! 🐃');
+        ->toBe('On it — test 🐃');
 
     expect(YakPersonality::generate(NotificationType::Progress, 'test'))
-        ->toBe('Still working on this. ⏳');
+        ->toBe('test ⏳');
 
     expect(YakPersonality::generate(NotificationType::Clarification, 'Which repo?'))
         ->toBe('Need some input: Which repo? ❓');
@@ -67,7 +67,7 @@ it('provides correct fallbacks for all notification types', function () {
         ->toBe('PR created ✅');
 
     expect(YakPersonality::generate(NotificationType::Retry, 'test'))
-        ->toBe('Retrying. 🔄');
+        ->toBe('Retrying — test 🔄');
 
     expect(YakPersonality::generate(NotificationType::Error, 'Oops'))
         ->toBe('Oops 🚨');

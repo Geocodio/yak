@@ -1,4 +1,31 @@
 <div wire:poll.{{ $this->pollInterval }}>
+    {{-- First-visit intro banner --}}
+    @if($this->showIntroBanner)
+        <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-yak-orange/5 p-4 sm:p-5" data-testid="task-detail-intro">
+            <div class="flex items-start gap-4">
+                <div class="shrink-0 rounded-full bg-yak-orange/15 p-2">
+                    <flux:icon.sparkles class="!size-5 text-yak-orange" />
+                </div>
+                <div class="flex-1 text-sm leading-relaxed text-yak-slate">
+                    <p class="font-medium text-yak-slate">Yak is working on your task.</p>
+                    <p class="mt-1 text-yak-blue">
+                        This page updates live — no need to refresh. Reply in the original Slack thread or Linear issue to steer Yak mid-task.
+                        <x-doc-link anchor="architecture.core-loop" class="ml-1">How Yak works</x-doc-link>
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    wire:click="dismissIntro"
+                    class="shrink-0 text-yak-tan hover:text-yak-slate transition-colors"
+                    aria-label="Dismiss intro"
+                    data-testid="dismiss-intro"
+                >
+                    <flux:icon.x-mark class="!size-4" />
+                </button>
+            </div>
+        </div>
+    @endif
+
     {{-- Breadcrumb --}}
     <div class="mb-6 text-sm">
         <a href="{{ route('tasks') }}" class="font-medium text-yak-orange hover:text-yak-orange-warm">Tasks</a>
@@ -46,7 +73,20 @@
                             <flux:icon.command-line class="!size-3.5" />
                         @endif
                         <span class="font-medium">Source:</span>
-                        <span class="text-yak-slate">{{ ucfirst($task->source) }}</span>
+                        @if($this->sourceUrl)
+                            <a
+                                href="{{ $this->sourceUrl }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-1 font-medium text-yak-orange hover:text-yak-orange-warm transition-colors"
+                                data-testid="source-link"
+                            >
+                                <span>{{ ucfirst($task->source) }}</span>
+                                <flux:icon.arrow-top-right-on-square class="!size-3 opacity-70" />
+                            </a>
+                        @else
+                            <span class="text-yak-slate">{{ ucfirst($task->source) }}</span>
+                        @endif
                     </span>
                 @endif
                 @if($task->repo)
@@ -100,6 +140,28 @@
                         <span class="text-xs font-normal">&mdash; {{ $this->clarificationTtl() }}</span>
                     @endif
                 </div>
+
+                <p class="mb-3 text-sm text-yak-blue" data-testid="clarification-reply-hint">
+                    @if($task->source === 'slack')
+                        Reply in the
+                        @if($this->sourceUrl)
+                            <a href="{{ $this->sourceUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Slack thread</a>
+                        @else
+                            Slack thread
+                        @endif
+                        to answer.
+                    @elseif($task->source === 'linear')
+                        Reply on the
+                        @if($this->sourceUrl)
+                            <a href="{{ $this->sourceUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Linear issue</a>
+                        @else
+                            Linear issue
+                        @endif
+                        to answer.
+                    @else
+                        Reply from the originating channel to answer.
+                    @endif
+                </p>
             @endif
             @if($task->clarification_options)
                 <div class="mt-3">
@@ -298,21 +360,34 @@
             <div class="mb-5 flex items-center gap-0" data-testid="milestone-stepper">
                 @foreach($this->milestoneSteps as $stepIndex => $step)
                     <div class="flex items-center {{ $stepIndex < count($this->milestoneSteps) - 1 ? 'flex-1' : '' }}">
-                        <div class="flex flex-col items-center gap-1">
-                            <div class="flex size-6 items-center justify-center rounded-full text-[10px] font-semibold {{ $step['completed'] ? ($step['active'] ? 'bg-yak-green text-white' : 'bg-[rgba(122,140,94,0.25)] text-yak-green') : 'bg-[rgba(200,184,154,0.25)] text-yak-tan' }}">
-                                @if($step['completed'])
-                                    <flux:icon.check class="!size-3.5" />
-                                @else
-                                    {{ $stepIndex + 1 }}
-                                @endif
-                            </div>
-                            <span class="whitespace-nowrap text-[10px] font-medium {{ $step['completed'] ? ($step['active'] ? 'text-yak-green' : 'text-yak-blue') : 'text-yak-tan' }}">{{ $step['label'] }}</span>
-                        </div>
+                        <flux:tooltip :content="$step['tooltip']">
+                            <button type="button" class="flex flex-col items-center gap-1 cursor-help" data-testid="milestone-step-{{ $stepIndex }}">
+                                <div class="flex size-6 items-center justify-center rounded-full text-[10px] font-semibold {{ $step['completed'] ? ($step['active'] ? 'bg-yak-green text-white' : 'bg-[rgba(122,140,94,0.25)] text-yak-green') : 'bg-[rgba(200,184,154,0.25)] text-yak-tan' }}">
+                                    @if($step['completed'])
+                                        <flux:icon.check class="!size-3.5" />
+                                    @else
+                                        {{ $stepIndex + 1 }}
+                                    @endif
+                                </div>
+                                <span class="whitespace-nowrap text-[10px] font-medium {{ $step['completed'] ? ($step['active'] ? 'text-yak-green' : 'text-yak-blue') : 'text-yak-tan' }}">{{ $step['label'] }}</span>
+                            </button>
+                        </flux:tooltip>
                         @if($stepIndex < count($this->milestoneSteps) - 1)
                             <div class="mx-1 mb-4 h-0.5 flex-1 {{ $step['completed'] ? 'bg-[rgba(122,140,94,0.3)]' : 'bg-[rgba(200,184,154,0.2)]' }}"></div>
                         @endif
                     </div>
                 @endforeach
+                <a
+                    href="{{ \App\Support\Docs::url('architecture.core-loop') }}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ml-3 mb-4 shrink-0 text-yak-tan hover:text-yak-slate transition-colors"
+                    title="Learn how Yak progresses through a task"
+                    aria-label="Learn about the task lifecycle"
+                    data-testid="milestone-docs-link"
+                >
+                    <flux:icon.question-mark-circle class="!size-4" />
+                </a>
             </div>
 
             <div class="mb-5 flex items-center justify-between">

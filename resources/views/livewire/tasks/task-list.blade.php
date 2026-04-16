@@ -121,8 +121,11 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-3 py-12 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
-                            No tasks found.
+                        <td colspan="7" class="px-3 py-16 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
+                            <div class="flex flex-col items-center gap-3">
+                                <p class="text-sm">No tasks yet. Yak picks up work from your configured channels.</p>
+                                <x-doc-link anchor="channels" class="text-sm">How tasks get created</x-doc-link>
+                            </div>
                         </td>
                     </tr>
                 @endforelse

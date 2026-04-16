@@ -10,10 +10,10 @@ class YakPersonality
 {
     /** @var array<string, string> */
     private const FALLBACKS = [
-        'acknowledgment' => 'On it! 🐃',
-        'progress' => 'Still working on this. ⏳',
+        'acknowledgment' => 'On it — {context} 🐃',
+        'progress' => '{context} ⏳',
         'clarification' => 'Need some input: {context} ❓',
-        'retry' => 'Retrying. 🔄',
+        'retry' => 'Retrying — {context} 🔄',
         'result' => '{context} ✅',
         'error' => '{context} 🚨',
         'expiry' => 'This one timed out. ⏰',

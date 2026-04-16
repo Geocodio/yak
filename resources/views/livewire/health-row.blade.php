@@ -31,6 +31,19 @@
         </flux:button>
     @endif
 
+    @if ($this->docsAnchor())
+        <a
+            href="{{ \App\Support\Docs::url($this->docsAnchor()) }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-yak-tan hover:text-yak-slate shrink-0 transition-colors"
+            title="Open docs for this check"
+            aria-label="Docs for {{ $this->name() }}"
+        >
+            <flux:icon.question-mark-circle variant="micro" />
+        </a>
+    @endif
+
     <button
         type="button"
         wire:click="refresh"

@@ -332,7 +332,7 @@ it('SendNotificationJob routes to Slack driver for Slack tasks', function () {
     $job = new SendNotificationJob($task, NotificationType::Progress, 'fix pushed, waiting on CI');
     $job->handle();
 
-    assertSlackThreadReply('C_JOB_TEST', '9999999999.999999', 'Still working on this');  // Personality fallback
+    assertSlackThreadReply('C_JOB_TEST', '9999999999.999999', 'fix pushed, waiting on CI');  // Personality fallback interpolates context
 });
 
 it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
@@ -353,7 +353,7 @@ it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
     $job = new SendNotificationJob($task, NotificationType::Acknowledgment, 'On it.');
     $job->handle();
 
-    assertLinearActivity('On it!');  // Personality fallback
+    assertLinearActivity('On it — On it.');  // Personality fallback interpolates context
 });
 
 it('SendNotificationJob falls back to GitHub PR comment when source channel is disabled', function () {
