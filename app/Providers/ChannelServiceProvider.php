@@ -7,6 +7,7 @@ use App\Http\Controllers\Webhooks\GitHubCIWebhookController;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
 use App\Http\Controllers\Webhooks\LinearWebhookController;
 use App\Http\Controllers\Webhooks\SentryWebhookController;
+use App\Http\Controllers\Webhooks\SlackInteractiveWebhookController;
 use App\Http\Controllers\Webhooks\SlackWebhookController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -58,6 +59,14 @@ class ChannelServiceProvider extends ServiceProvider
                 if ((new Channel($channel))->enabled()) {
                     Route::post($channel, $controller)->name("webhooks.{$channel}");
                 }
+            }
+
+            // Slack Interactivity endpoint — for button clicks inside
+            // Yak messages. Needs to be enabled in the Slack app's
+            // "Interactivity & Shortcuts" settings pointing here.
+            if ((new Channel('slack'))->enabled()) {
+                Route::post('slack/interactive', SlackInteractiveWebhookController::class)
+                    ->name('webhooks.slack.interactive');
             }
 
             // CI-specific webhook routes

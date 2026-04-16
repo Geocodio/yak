@@ -170,8 +170,9 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
 6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
 7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
 8. Go to **App Home**, enable the **Home Tab** — this powers the welcome DM Yak sends the first time a user opens Yak in the sidebar
-9. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
-10. Subscribe to bot events: `app_mention`, `message.channels`, and `app_home_opened`
+9. Go to **Interactivity & Shortcuts**, enable interactivity, and set the request URL to `https://{your-domain}/webhooks/slack/interactive` — this powers the click-to-answer buttons on clarification messages
+10. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
+11. Subscribe to bot events: `app_mention`, `message.channels`, and `app_home_opened`
 
 Add `YAK_SLACK_WORKSPACE_URL=https://{your-workspace}.slack.com` to your vault so the dashboard can deep-link tasks back to their originating Slack thread.
 
@@ -332,7 +333,8 @@ Steps when a release adds Slack scopes or events:
 1. Go to your Slack app at [api.slack.com/apps](https://api.slack.com/apps) → your Yak app.
 2. Under **OAuth & Permissions**, add any new bot scopes listed in the release notes, then click **Reinstall to Workspace**.
 3. Under **Event Subscriptions**, add any new bot events listed in the release notes.
-4. If the installation returned a new bot token, update `slack_bot_token` in vault and re-run `ansible-playbook ansible/playbook.yml --tags yak-container`.
+4. Under **Interactivity & Shortcuts**, if a release introduces a new interactive endpoint, update the request URL.
+5. If the installation returned a new bot token, update `slack_bot_token` in vault and re-run `ansible-playbook ansible/playbook.yml --tags yak-container`.
 
 Current required scopes and events are listed in the [Slack setup section](#slack-optional) above. If something that used to work (reactions, App Home DMs, interactivity) stops, check that your installed scopes still match that list.
 

@@ -15,6 +15,13 @@ use App\Models\YakTask;
 class SlackBlockFormatter
 {
     /**
+     * Block Kit action_id used for clarification option buttons.
+     * Centralised so the interactive webhook controller can match on
+     * the same constant.
+     */
+    public const CLARIFY_ACTION_ID = 'yak_clarify';
+
+    /**
      * Build the Block Kit payload for a notification.
      *
      * @return list<array<string, mixed>>
@@ -54,7 +61,21 @@ class SlackBlockFormatter
             ];
         }
 
-        // 3. Action buttons — View task always, plus View PR / Retry
+        // 3. Clarification option buttons — emit an actions row with
+        // one button per option so users can click-to-answer rather
+        // than type back. Clicking posts to /webhooks/slack/interactive
+        // which dispatches ClarificationReplyJob. Capped at Slack's
+        // 25-element limit.
+        $optionButtons = self::clarificationOptionButtons($task, $type);
+        if ($optionButtons !== []) {
+            $blocks[] = [
+                'type' => 'actions',
+                'block_id' => 'yak_clarify_options',
+                'elements' => $optionButtons,
+            ];
+        }
+
+        // 4. Action buttons — View task always, plus View PR / Retry
         // when applicable.
         $actions = self::actionElements($task, $type, $dashboardUrl);
         if ($actions !== []) {
@@ -170,6 +191,45 @@ class SlackBlockFormatter
             NotificationType::Result => true,
             default => false,
         };
+    }
+
+    /**
+     * Build clickable buttons for each clarification option. Slack
+     * caps button text at 75 chars and actions blocks at 25 elements;
+     * we truncate and cap so a pathological clarification payload
+     * still renders something usable.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function clarificationOptionButtons(YakTask $task, NotificationType $type): array
+    {
+        if ($type !== NotificationType::Clarification) {
+            return [];
+        }
+
+        /** @var array<int, string>|null $options */
+        $options = $task->clarification_options;
+        if (! is_array($options) || $options === []) {
+            return [];
+        }
+
+        $buttons = [];
+        foreach (array_slice($options, 0, 25) as $index => $option) {
+            $label = (string) $option;
+            $buttonText = mb_strlen($label) > 75 ? mb_substr($label, 0, 72) . '…' : $label;
+
+            $buttons[] = [
+                'type' => 'button',
+                'action_id' => self::CLARIFY_ACTION_ID . '_' . $index,
+                'text' => [
+                    'type' => 'plain_text',
+                    'text' => $buttonText,
+                ],
+                'value' => $task->id . '|' . $label,
+            ];
+        }
+
+        return $buttons;
     }
 
     /**

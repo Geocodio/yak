@@ -117,3 +117,74 @@ it('produces a fallback text suitable for Slack notification previews', function
     expect(SlackBlockFormatter::fallbackText('**Done!** [PR](https://github.com/a/b/pull/1)'))
         ->toBe('*Done!* <https://github.com/a/b/pull/1|PR>');
 });
+
+it('renders one button per clarification option', function () {
+    $task = YakTask::factory()->create([
+        'clarification_options' => ['acme/api', 'acme/web', 'acme/worker'],
+    ]);
+
+    $blocks = SlackBlockFormatter::blocks(
+        $task,
+        NotificationType::Clarification,
+        'Which repo should I work in?',
+        'https://yak.example.com/tasks/' . $task->id,
+    );
+
+    $optionActions = collect($blocks)->firstWhere('block_id', 'yak_clarify_options');
+
+    expect($optionActions)->not->toBeNull();
+    expect($optionActions['elements'])->toHaveCount(3);
+    expect($optionActions['elements'][0])->toMatchArray([
+        'type' => 'button',
+        'action_id' => 'yak_clarify_0',
+        'text' => ['type' => 'plain_text', 'text' => 'acme/api'],
+        'value' => $task->id . '|acme/api',
+    ]);
+});
+
+it('skips clarification option buttons when the task has no options', function () {
+    $task = YakTask::factory()->create(['clarification_options' => null]);
+
+    $blocks = SlackBlockFormatter::blocks(
+        $task,
+        NotificationType::Clarification,
+        'Hmm?',
+        'https://yak.example.com/tasks/' . $task->id,
+    );
+
+    expect(collect($blocks)->firstWhere('block_id', 'yak_clarify_options'))->toBeNull();
+});
+
+it('skips clarification buttons on non-Clarification notification types', function () {
+    $task = YakTask::factory()->create([
+        'clarification_options' => ['a', 'b'],
+    ]);
+
+    $blocks = SlackBlockFormatter::blocks(
+        $task,
+        NotificationType::Progress,
+        'working',
+        'https://yak.example.com/tasks/' . $task->id,
+    );
+
+    expect(collect($blocks)->firstWhere('block_id', 'yak_clarify_options'))->toBeNull();
+});
+
+it('truncates long option labels to fit Slack\'s 75-char button limit', function () {
+    $long = str_repeat('x', 100);
+    $task = YakTask::factory()->create(['clarification_options' => [$long]]);
+
+    $blocks = SlackBlockFormatter::blocks(
+        $task,
+        NotificationType::Clarification,
+        'Pick one',
+        'https://yak.example.com/tasks/' . $task->id,
+    );
+
+    $button = collect($blocks)->firstWhere('block_id', 'yak_clarify_options')['elements'][0];
+    expect(mb_strlen($button['text']['text']))->toBeLessThanOrEqual(75);
+
+    // But the value should still carry the full option so the reply
+    // job gets the unambiguous text.
+    expect($button['value'])->toBe($task->id . '|' . $long);
+});

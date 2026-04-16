@@ -107,13 +107,14 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
    - `message.channels` (needed for thread replies to clarifications)
    - `app_home_opened` (powers the welcome DM the first time a user opens Yak's App Home)
 4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view.
-5. Add bot scopes:
+5. Enable **Interactivity & Shortcuts** with request URL `https://{your-domain}/webhooks/slack/interactive` — powers click-to-answer buttons on clarification messages.
+6. Add bot scopes:
    - `chat:write`
    - `app_mentions:read`
    - `channels:history`
    - `reactions:write` (lets Yak apply status reactions to your @mention)
-6. Install the app to your workspace
-7. Add the following to `ansible/vault/secrets.yml`:
+7. Install the app to your workspace
+8. Add the following to `ansible/vault/secrets.yml`:
 
    ```yaml
    slack_bot_token: xoxb-...
@@ -121,7 +122,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
    slack_workspace_url: https://{your-workspace}.slack.com  # for dashboard → thread deep links
    ```
 
-8. Re-run Ansible
+9. Re-run Ansible
 
 ### Usage
 
@@ -140,6 +141,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
 - **Direct ping on status changes.** When Yak needs clarification, completes the task, fails, or expires, it @-mentions the requester so they get a push. Progress ticks don't ping (avoids noise).
 - **Start-of-work progress.** When the worker picks a task up, Yak posts a short in-thread message ("Starting on `{repo}` — exploring the codebase now."). Closes the silent gap between ack and first push. Disable with `YAK_EMIT_START_PROGRESS=false` if you find it noisy.
+- **Click-to-answer clarification.** When Yak asks a clarification question, each option is rendered as a Block Kit button. Clicking one is equivalent to replying in the thread — it dispatches the same ClarificationReplyJob. Requires Interactivity & Shortcuts to be enabled in the Slack app config (step 5 above).
 
 ### Clarification Flow
 
