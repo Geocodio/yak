@@ -7,9 +7,6 @@
     </div>
 
     <div>
-        <flux:callout variant="secondary" icon="information-circle" class="mb-6"
-            heading="Plugins are shared across all Yak users. Changes take effect on the next task run, not mid-flight." />
-
         {{-- Toolbar --}}
         <div class="mb-6 flex flex-wrap items-center gap-3">
             <flux:input
