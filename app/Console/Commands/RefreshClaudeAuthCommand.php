@@ -33,8 +33,15 @@ class RefreshClaudeAuthCommand extends Command
     {
         $configDir = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
 
+        // Unset ANTHROPIC_API_KEY so the CLI is forced through the
+        // OAuth (Max subscription) path. With the key set, claude
+        // short-circuits and bills the API — which makes this command
+        // report "refreshed" even when OAuth is dead, silently masking
+        // exactly the failure mode sandboxes hit (they don't inherit
+        // ANTHROPIC_API_KEY, so they have no fallback). Burned us once
+        // already; surfacing OAuth breakage here is the whole point.
         $command = sprintf(
-            'env HOME=%s CLAUDE_CONFIG_DIR=%s claude --model claude-haiku-4-5 -p %s',
+            'env -u ANTHROPIC_API_KEY HOME=%s CLAUDE_CONFIG_DIR=%s claude --model claude-haiku-4-5 -p %s',
             escapeshellarg(dirname($configDir)),
             escapeshellarg($configDir),
             escapeshellarg('Reply with exactly: ok'),
