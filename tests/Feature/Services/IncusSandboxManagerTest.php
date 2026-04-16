@@ -207,6 +207,107 @@ it('destroys the template and resets repo state when invalidateTemplate is calle
     expect($repo->setup_status)->toBe('pending');
 });
 
+it('forwards agent_passthrough_env vars into the container via incus config set environment.*', function () {
+    config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN,NPM_TOKEN');
+    putenv('NODE_AUTH_TOKEN=ghp_test');
+    putenv('NPM_TOKEN=npm_secret');
+
+    $repo = Repository::factory()->create([
+        'slug' => 'envrepo',
+        'sandbox_snapshot' => 'yak-tpl-envrepo/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'envrepo']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config set '{$container}' 'environment.NODE_AUTH_TOKEN'='ghp_test'"));
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config set '{$container}' 'environment.NPM_TOKEN'='npm_secret'"));
+
+    putenv('NODE_AUTH_TOKEN');
+    putenv('NPM_TOKEN');
+});
+
+it('skips passthrough env when agent_passthrough_env is empty', function () {
+    config()->set('yak.agent_passthrough_env', '');
+
+    $repo = Repository::factory()->create([
+        'slug' => 'noenv',
+        'sandbox_snapshot' => 'yak-tpl-noenv/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'noenv']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertNotRan(fn ($p) => str_contains($p->command, 'environment.'));
+});
+
+it('skips passthrough entries whose env var is not defined on the host', function () {
+    config()->set('yak.agent_passthrough_env', 'DEFINED_VAR,MISSING_VAR');
+    putenv('DEFINED_VAR=hello');
+    putenv('MISSING_VAR');  // ensure unset
+
+    $repo = Repository::factory()->create([
+        'slug' => 'partial',
+        'sandbox_snapshot' => 'yak-tpl-partial/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'partial']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'environment.DEFINED_VAR'));
+    Process::assertNotRan(fn ($p) => str_contains($p->command, 'environment.MISSING_VAR'));
+
+    putenv('DEFINED_VAR');
+});
+
 it('stamps the current base_version on the repo when promoting to a template', function () {
     $repo = Repository::factory()->create([
         'slug' => 'promote',

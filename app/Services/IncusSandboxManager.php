@@ -54,6 +54,11 @@ class IncusSandboxManager
         // Apply resource limits
         $this->configureResources($containerName);
 
+        // Forward opted-in env vars (NODE_AUTH_TOKEN, NPM_TOKEN, etc.)
+        // into the container so every `incus exec` process — ours and
+        // any the agent spawns — sees them.
+        $this->configureEnvironment($containerName);
+
         // Start the container
         $this->exec("incus start {$containerName}");
 
@@ -471,6 +476,40 @@ class IncusSandboxManager
 
         $this->exec("incus config set {$containerName} limits.cpu={$cpu} limits.memory={$memory}");
         Process::run("incus config device set {$containerName} root size={$disk} 2>/dev/null");
+    }
+
+    /**
+     * Inject opted-in env vars into the Incus container via
+     * `incus config set environment.*`. These values are passed to
+     * every process started by `incus exec`, so `claude` and anything
+     * it spawns (npm install, composer, pip, etc.) inherit them.
+     *
+     * The list of names comes from `yak.agent_passthrough_env`
+     * (populated from Ansible vault's `agent_extra_env`). Values are
+     * read from the Yak container's own env via getenv(). App
+     * secrets (DB_PASSWORD, APP_KEY, etc.) are never forwarded —
+     * only names explicitly listed get through.
+     */
+    private function configureEnvironment(string $containerName): void
+    {
+        $passthrough = (string) config('yak.agent_passthrough_env', '');
+        if ($passthrough === '') {
+            return;
+        }
+
+        foreach (array_filter(array_map('trim', explode(',', $passthrough))) as $name) {
+            $value = getenv($name);
+            if ($value === false) {
+                continue;
+            }
+
+            $this->exec(sprintf(
+                'incus config set %s %s=%s',
+                escapeshellarg($containerName),
+                escapeshellarg("environment.{$name}"),
+                escapeshellarg($value),
+            ));
+        }
     }
 
     private function waitForReady(string $containerName, int $maxWaitSeconds = 60): void

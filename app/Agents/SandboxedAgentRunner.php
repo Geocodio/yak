@@ -342,10 +342,11 @@ class SandboxedAgentRunner implements AgentRunner
      * Build the Claude CLI command that runs inside the sandbox.
      *
      * `IncusSandboxManager::run/streamExec` already wraps commands in
-     * `sudo -u yak`, so we invoke `claude` directly here. The
-     * `yak.agent_passthrough_env` list is forwarded as `export` prefixes
-     * so repos that need NODE_AUTH_TOKEN, NPM_TOKEN, etc. for
-     * install-time commands see them inside the sandbox too.
+     * `sudo -u yak`, so we invoke `claude` directly here. Passthrough
+     * env vars (yak.agent_passthrough_env) are injected at the
+     * container level by `IncusSandboxManager::configureEnvironment()`
+     * rather than prepended to every command, so nothing extra is
+     * needed here.
      */
     private function buildClaudeCommand(AgentRunRequest $request): string
     {
@@ -376,36 +377,6 @@ class SandboxedAgentRunner implements AgentRunner
             $command .= ' --mcp-config /home/yak/mcp-config.json';
         }
 
-        return $this->passthroughEnvPrefix() . $command;
-    }
-
-    /**
-     * Build a shell `export` prefix for each env var named in
-     * `yak.agent_passthrough_env`. The Yak container has these set via
-     * the Ansible env.j2 template; we read them back with getenv() and
-     * re-export them inside the sandbox so build tools invoked by the
-     * agent (npm install, composer, etc.) can see them.
-     *
-     * App secrets (DB_PASSWORD, APP_KEY, etc.) are never exposed —
-     * only vars explicitly opted in via the passthrough list are
-     * forwarded.
-     */
-    private function passthroughEnvPrefix(): string
-    {
-        $passthrough = (string) config('yak.agent_passthrough_env', '');
-        if ($passthrough === '') {
-            return '';
-        }
-
-        $exports = [];
-        foreach (array_filter(array_map('trim', explode(',', $passthrough))) as $name) {
-            $value = getenv($name);
-            if ($value === false) {
-                continue;
-            }
-            $exports[] = sprintf('export %s=%s', $name, escapeshellarg($value));
-        }
-
-        return $exports === [] ? '' : implode('; ', $exports) . '; ';
+        return $command;
     }
 }
