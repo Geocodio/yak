@@ -37,7 +37,7 @@ class LinearInputDriver implements InputDriver
         $promptContextXml = (string) ($session['promptContext'] ?? '');
 
         $externalId = $identifier !== '' ? "LINEAR-{$identifier}" : $issueId;
-        $mode = $this->detectMode($title);
+        $mode = $this->detectMode($title, $issue);
         $repository = $this->detectRepo($description);
         $body = $this->composeBody($title, $description, $promptContextXml);
 
@@ -60,17 +60,58 @@ class LinearInputDriver implements InputDriver
     }
 
     /**
-     * Research mode is triggered by the word "research" anywhere in the
-     * issue title — the most reliable hint available at session creation
-     * time.
+     * Research mode is triggered by either (a) the word "research"
+     * anywhere in the issue title or (b) a label named "research" on
+     * the issue. The label path catches semantically-obvious research
+     * tasks where the title happens to read like a fix ("Replace X
+     * with Y — evaluate options"), while the title path keeps the
+     * low-friction "Research: …" prefix working.
+     *
+     * @param  array<string, mixed>  $issue  Raw issue payload from the
+     *                                       Linear webhook — we inspect
+     *                                       `labels` / `labels.nodes`
+     *                                       tolerantly since Linear uses
+     *                                       both shapes.
      */
-    private function detectMode(string $title): TaskMode
+    private function detectMode(string $title, array $issue): TaskMode
     {
         if (preg_match('/\bresearch\b/i', $title)) {
             return TaskMode::Research;
         }
 
+        if ($this->hasLabel($issue, 'research')) {
+            return TaskMode::Research;
+        }
+
         return TaskMode::Fix;
+    }
+
+    /**
+     * @param  array<string, mixed>  $issue
+     */
+    private function hasLabel(array $issue, string $labelName): bool
+    {
+        $labels = $issue['labels'] ?? null;
+
+        // Normalise to a flat list of label entries. Linear sometimes
+        // sends a plain array, sometimes a { nodes: […] } connection
+        // wrapper.
+        if (is_array($labels) && isset($labels['nodes']) && is_array($labels['nodes'])) {
+            $labels = $labels['nodes'];
+        }
+
+        if (! is_array($labels)) {
+            return false;
+        }
+
+        foreach ($labels as $label) {
+            $name = is_array($label) ? ($label['name'] ?? '') : $label;
+            if (is_string($name) && strcasecmp($name, $labelName) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -202,7 +202,7 @@ Once installed, Yak appears in the Linear assignee picker for every team it belo
 
 ### Usage
 
-Assign any Linear issue to **Yak**. For research-only tasks, include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`).
+Assign any Linear issue to **Yak**. For research-only tasks, either (a) include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`), or (b) add a **`research`** label to the issue. Label matching is case-insensitive. Use the label when the title naturally reads like a fix ("Replace AWS Inspector…") but the task is actually investigative — it's lower-friction than rewriting the title.
 
 Delegation opens an agent session on the issue. Yak immediately posts an acknowledgement activity, then emits progress updates as it works. When the run finishes:
 
@@ -245,7 +245,7 @@ Configure the state UUIDs via `linear_done_state_id`, `linear_cancelled_state_id
 ### Gotchas
 
 - **Delegation is the trigger.** Yak only acts on the initial `AgentSessionEvent.created` from delegation. Re-assigning an already-Yak issue does not re-trigger.
-- **The `research` label has no effect.** Research mode is detected from the issue title only — `promptContext` doesn't surface label changes at session creation time.
+- **Research mode triggers on either the title or a `research` label.** Label changes made *after* the session is created don't re-route the task (session type is decided at creation time) — but labels present at creation are read from the webhook payload and honoured.
 - **Admin install required.** The `app:assignable` OAuth flow requires a workspace admin to approve. Non-admin installs fail at the consent screen.
 - **10-second SLA.** Yak posts an acknowledgement activity synchronously during the webhook response to avoid Linear marking the session unresponsive. If the Linear API is slow, that ack may time out — the run still proceeds.
 

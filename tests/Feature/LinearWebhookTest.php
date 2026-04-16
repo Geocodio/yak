@@ -50,19 +50,25 @@ function linearConnection(string $workspaceId = TEST_WORKSPACE_ID, string $actor
 
 function agentSessionCreatedPayload(array $overrides = []): string
 {
+    $issue = [
+        'id' => $overrides['issueId'] ?? 'issue-uuid-001',
+        'identifier' => $overrides['identifier'] ?? 'ENG-42',
+        'title' => $overrides['title'] ?? 'Fix the broken auth flow',
+        'description' => $overrides['description'] ?? 'Intermittent 500 on login.',
+        'url' => $overrides['url'] ?? 'https://linear.app/team/issue/ENG-42',
+    ];
+
+    if (array_key_exists('labels', $overrides)) {
+        $issue['labels'] = $overrides['labels'];
+    }
+
     return (string) json_encode([
         'type' => 'AgentSessionEvent',
         'action' => 'created',
         'organizationId' => $overrides['workspaceId'] ?? TEST_WORKSPACE_ID,
         'agentSession' => [
             'id' => $overrides['sessionId'] ?? 'session-uuid-001',
-            'issue' => [
-                'id' => $overrides['issueId'] ?? 'issue-uuid-001',
-                'identifier' => $overrides['identifier'] ?? 'ENG-42',
-                'title' => $overrides['title'] ?? 'Fix the broken auth flow',
-                'description' => $overrides['description'] ?? 'Intermittent 500 on login.',
-                'url' => $overrides['url'] ?? 'https://linear.app/team/issue/ENG-42',
-            ],
+            'issue' => $issue,
             'promptContext' => $overrides['promptContext'] ?? '',
         ],
     ]);
@@ -169,6 +175,58 @@ it('detects research mode from "research" in the issue title', function () {
     ]), $secret)->assertSuccessful();
 
     expect(YakTask::first()->mode)->toBe(TaskMode::Research);
+});
+
+it('detects research mode from a "research" label (flat array shape)', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload([
+        'title' => 'Replace AWS Inspector with vulnerability monitoring',
+        'labels' => [
+            ['name' => 'security'],
+            ['name' => 'research'],
+        ],
+    ]), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Research);
+});
+
+it('detects research mode from a "research" label (GraphQL connection shape)', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload([
+        'title' => 'Evaluate options for host-level monitoring',
+        'labels' => [
+            'nodes' => [
+                ['name' => 'Research'],  // case-insensitive match
+            ],
+        ],
+    ]), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Research);
+});
+
+it('stays in fix mode when neither title nor labels indicate research', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload([
+        'title' => 'Fix the login bug',
+        'labels' => [['name' => 'bug'], ['name' => 'priority']],
+    ]), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->mode)->toBe(TaskMode::Fix);
 });
 
 it('dispatches ResearchYakJob (not RunYakJob) for research-mode tasks', function () {
