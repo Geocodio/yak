@@ -411,9 +411,11 @@
                             $logType = $log->metadata['type'] ?? null;
                             $isToolUse = $logType === 'tool_use';
                             $isAssistant = $logType === 'assistant';
+                            $isPrompt = $logType === 'prompt';
                             $hasOutput = $isToolUse && isset($log->metadata['output']);
+                            $hasToolInput = $isToolUse && ! empty($log->metadata['input']);
                             $isError = $log->metadata['is_error'] ?? false;
-                            $hasExpandableContent = $hasOutput || $log->metadata;
+                            $hasExpandableContent = $hasOutput || $hasToolInput || $isPrompt || $log->metadata;
                             $isMilestone = \App\Livewire\Tasks\TaskDetail::isMilestone($log);
                             // Auto-expand errors, auto-collapse assistant
                             $defaultExpanded = $isError && $hasOutput;
@@ -436,6 +438,10 @@
                                     <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $isError ? 'bg-[rgba(184,84,80,0.15)] text-yak-danger' : 'bg-[rgba(122,140,94,0.15)] text-yak-green' }}">
                                         {{ $log->metadata['tool'] ?? 'tool' }}
                                     </span>
+                                @elseif($isPrompt)
+                                    <span class="shrink-0 rounded-md bg-[rgba(212,145,94,0.15)] px-2 py-0.5 font-mono text-[11px] font-medium text-yak-orange-warm">
+                                        prompt
+                                    </span>
                                 @elseif(!$isAssistant)
                                     <span class="shrink-0 rounded-md px-2 py-0.5 font-mono text-[11px] font-medium {{ $log->level === 'error' ? 'bg-[rgba(184,84,80,0.15)] text-yak-danger' : ($log->level === 'warning' ? 'bg-[rgba(212,145,94,0.15)] text-yak-orange-warm' : 'bg-[rgba(143,179,196,0.15)] text-[#5a8da5]') }}">
                                         {{ $log->level }}
@@ -456,11 +462,48 @@
                                 </span>
                             </button>
                             @if($isExpanded)
-                                <div class="border-t border-[rgba(200,184,154,0.25)] bg-[#2b3640] p-4">
-                                    @if($hasOutput)
-                                        <pre class="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['output'] }}</pre>
+                                <div class="border-t border-[rgba(200,184,154,0.25)] bg-[#2b3640] p-4 space-y-3">
+                                    @if($isPrompt)
+                                        <div>
+                                            <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-orange-warm">User prompt</div>
+                                            <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['prompt'] ?? '' }}</pre>
+                                        </div>
+                                        <div>
+                                            <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-orange-warm">System prompt</div>
+                                            <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['system_prompt'] ?? '' }}</pre>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] text-[#a8a8a8]">
+                                            <div><span class="text-[#8a8a8a]">model:</span> {{ $log->metadata['model'] ?? '-' }}</div>
+                                            <div><span class="text-[#8a8a8a]">max_turns:</span> {{ $log->metadata['max_turns'] ?? '-' }}</div>
+                                            <div><span class="text-[#8a8a8a]">max_budget_usd:</span> {{ $log->metadata['max_budget_usd'] ?? '-' }}</div>
+                                            <div><span class="text-[#8a8a8a]">resume_session_id:</span> {{ $log->metadata['resume_session_id'] ?? '-' }}</div>
+                                        </div>
                                     @else
-                                        <div class="max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-[#d4d4d4]">{{ $log->message }}</div>
+                                        @if($hasToolInput)
+                                            <div>
+                                                <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-green">
+                                                    {{ ($log->metadata['tool'] ?? 'tool') === 'Bash' ? 'Command' : 'Input' }}
+                                                </div>
+                                                @if(($log->metadata['tool'] ?? null) === 'Bash' && isset($log->metadata['input']['command']))
+                                                    <pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#f5e9c9]">{{ $log->metadata['input']['command'] }}</pre>
+                                                    @if(! empty($log->metadata['input']['description']))
+                                                        <div class="mt-1 font-mono text-[11px] italic text-[#8a8a8a]"># {{ $log->metadata['input']['description'] }}</div>
+                                                    @endif
+                                                @else
+                                                    <pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ json_encode($log->metadata['input'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                                @endif
+                                            </div>
+                                        @endif
+                                        @if($hasOutput)
+                                            <div>
+                                                @if($hasToolInput)
+                                                    <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-blue">Output</div>
+                                                @endif
+                                                <pre class="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $log->metadata['output'] }}</pre>
+                                            </div>
+                                        @elseif(! $hasToolInput)
+                                            <div class="max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-[#d4d4d4]">{{ $log->message }}</div>
+                                        @endif
                                     @endif
                                 </div>
                             @endif

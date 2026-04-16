@@ -137,6 +137,65 @@ it('logs the before/after Claude versions on the task when a task is attached', 
     expect($log->metadata['version_after'] ?? null)->toBe('2.1.110 (Claude Code)');
 });
 
+it('records the exact prompt and system prompt on task_logs when a task is attached', function () {
+    $task = YakTask::factory()->create();
+
+    $sandbox = new RecordingSandboxManager;
+    $runner = new SandboxedAgentRunner($sandbox);
+
+    $request = new AgentRunRequest(
+        prompt: 'implement feature X',
+        systemPrompt: 'you are yak agent — follow repo CLAUDE.md',
+        containerName: 'task-prompt-test',
+        timeoutSeconds: 600,
+        maxBudgetUsd: 5.0,
+        maxTurns: 200,
+        model: 'opus',
+        task: $task,
+    );
+
+    $runner->run($request);
+
+    $log = TaskLog::where('yak_task_id', $task->id)
+        ->where('metadata->type', 'prompt')
+        ->first();
+
+    expect($log)->not->toBeNull();
+    expect($log->message)->toBe('Dispatching Claude with task prompt');
+    expect($log->metadata['prompt'] ?? null)->toBe('implement feature X');
+    expect($log->metadata['system_prompt'] ?? null)->toBe('you are yak agent — follow repo CLAUDE.md');
+    expect($log->metadata['model'] ?? null)->toBe('opus');
+    expect($log->metadata['max_turns'] ?? null)->toBe(200);
+});
+
+it('labels a resumed session distinctly in the prompt log', function () {
+    $task = YakTask::factory()->create();
+    $sandbox = new RecordingSandboxManager;
+    $runner = new SandboxedAgentRunner($sandbox);
+
+    $request = new AgentRunRequest(
+        prompt: 'CI failed: syntax error on line 42',
+        systemPrompt: 'system',
+        containerName: 'task-resume-test',
+        timeoutSeconds: 600,
+        maxBudgetUsd: 5.0,
+        maxTurns: 200,
+        model: 'opus',
+        resumeSessionId: 'sess_abc123',
+        task: $task,
+    );
+
+    $runner->run($request);
+
+    $log = TaskLog::where('yak_task_id', $task->id)
+        ->where('metadata->type', 'prompt')
+        ->first();
+
+    expect($log)->not->toBeNull();
+    expect($log->message)->toBe('Resumed Claude session (sess_abc123)');
+    expect($log->metadata['resume_session_id'] ?? null)->toBe('sess_abc123');
+});
+
 it('is tolerant of a failed npm install and still invokes claude -p', function () {
     $task = YakTask::factory()->create();
 

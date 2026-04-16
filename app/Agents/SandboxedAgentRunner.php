@@ -30,12 +30,40 @@ class SandboxedAgentRunner implements AgentRunner
     public function run(AgentRunRequest $request): AgentRunResult
     {
         $this->refreshClaude($request);
+        $this->logPrompts($request);
 
         if ($request->task) {
             return $this->runStreaming($request);
         }
 
         return $this->runBatch($request);
+    }
+
+    /**
+     * Record the exact prompt + system prompt sent to Claude on this run
+     * to task_logs, so the timeline can show exactly what the agent was
+     * asked to do. Skipped when no task is attached (batch mode).
+     */
+    private function logPrompts(AgentRunRequest $request): void
+    {
+        if ($request->task === null) {
+            return;
+        }
+
+        $summary = $request->isResume()
+            ? "Resumed Claude session ({$request->resumeSessionId})"
+            : 'Dispatching Claude with task prompt';
+
+        TaskLogger::info($request->task, $summary, [
+            'type' => 'prompt',
+            'model' => $request->model,
+            'max_turns' => $request->maxTurns,
+            'max_budget_usd' => $request->maxBudgetUsd,
+            'resume_session_id' => $request->resumeSessionId,
+            'mcp_config_path' => $request->mcpConfigPath,
+            'prompt' => $request->prompt,
+            'system_prompt' => $request->systemPrompt,
+        ]);
     }
 
     /**
