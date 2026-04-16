@@ -76,6 +76,29 @@ test('it shows research link for completed research tasks', function () {
         ->assertSee('View research artifact');
 });
 
+test('it shows a prominent "View research report" button in the status header for completed research tasks', function () {
+    $task = YakTask::factory()->success()->create(['mode' => TaskMode::Research]);
+    Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="research-report-button"')
+        ->assertSee('View research report');
+});
+
+test('the research report button is NOT shown when the task has no artifact yet', function () {
+    $task = YakTask::factory()->running()->create(['mode' => TaskMode::Research]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="research-report-button"');
+});
+
+test('the research report button is NOT shown for non-research tasks', function () {
+    $task = YakTask::factory()->success()->create(['mode' => TaskMode::Fix]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="research-report-button"');
+});
+
 test('it shows clarification options when awaiting clarification', function () {
     $task = YakTask::factory()->awaitingClarification()->create([
         'clarification_options' => ['Refactor the module', 'Add a new endpoint', 'Do both'],

@@ -299,10 +299,15 @@ test('posts summary and findings URL as Linear comment', function () {
 
         $input = $body['variables']['input'] ?? [];
 
+        $body = $input['content']['body'] ?? '';
+
         return ($input['agentSessionId'] ?? null) === 'session-research-1'
             && ($input['content']['type'] ?? null) === 'response'
-            && str_contains($input['content']['body'] ?? '', 'Codebase audit complete')
-            && str_contains($input['content']['body'] ?? '', '/artifacts/');
+            && str_contains($body, 'Codebase audit complete')
+            && str_contains($body, '/artifacts/')
+            // Explicit findings link must always be present, not left
+            // to the personality agent to preserve.
+            && str_contains($body, 'View research report');
     });
 });
 

@@ -162,11 +162,19 @@ class ResearchYakJob implements ShouldQueue
 
         TaskLogger::info($this->task, 'Task completed');
 
-        $context = $artifactUrl !== null
-            ? "Research complete: {$summary}\n\nFindings: {$artifactUrl}"
-            : "Research complete: {$summary}";
-
+        // Generate the personality message from the summary only. If
+        // we pipe the URL through the agent it sometimes paraphrases
+        // the findings link into prose ("check out the link!") and
+        // drops the actual URL — which is exactly what the user sees.
+        // Append the URL ourselves after the rewrite so it's always
+        // front-and-center.
+        $context = "Research complete: {$summary}";
         $notificationMessage = YakPersonality::generate(NotificationType::Result, $context);
+
+        if ($artifactUrl !== null) {
+            $notificationMessage .= "\n\n📑 **[View research report]({$artifactUrl})**";
+        }
+
         $this->postToSource($notificationMessage);
 
         if ($this->task->source === 'linear') {

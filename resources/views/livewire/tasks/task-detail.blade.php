@@ -36,19 +36,31 @@
     {{-- Section 1: Status Header (Glass Card) --}}
     <div class="mb-5 rounded-[28px] border border-white/60 bg-white/75 p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)] backdrop-blur-[40px] backdrop-saturate-[1.4]">
         <div class="flex flex-col gap-3">
-            <div class="flex items-center gap-3.5">
-                <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
-                    @if($this->isActiveStatus())
-                        <span class="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current"></span>
+            <div class="flex items-center justify-between gap-3.5">
+                <div class="flex items-center gap-3.5">
+                    <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
+                        @if($this->isActiveStatus())
+                            <span class="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current"></span>
+                        @endif
+                        {{ str_replace('_', ' ', $task->status->value) }}
+                    </span>
+                    <span class="text-xs text-yak-blue">#{{ $task->id }}</span>
+                    @if($this->canRetry)
+                        <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
                     @endif
-                    {{ str_replace('_', ' ', $task->status->value) }}
-                </span>
-                <span class="text-xs text-yak-blue">#{{ $task->id }}</span>
-                @if($this->canRetry)
-                    <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
-                @endif
-                @if($this->canCancel)
-                    <flux:button variant="ghost" size="sm" icon="x-circle" wire:click="cancel" wire:confirm="Cancel this task? The sandbox will be destroyed and the agent will stop." data-testid="cancel-button">Cancel</flux:button>
+                    @if($this->canCancel)
+                        <flux:button variant="ghost" size="sm" icon="x-circle" wire:click="cancel" wire:confirm="Cancel this task? The sandbox will be destroyed and the agent will stop." data-testid="cancel-button">Cancel</flux:button>
+                    @endif
+                </div>
+                @if($this->isResearchTask() && $this->researchArtifact)
+                    <a
+                        href="{{ route('artifacts.viewer', ['task' => $task->id, 'filename' => $this->researchArtifact->filename]) }}"
+                        class="inline-flex items-center gap-2 rounded-xl bg-yak-orange px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-yak-orange-warm transition-colors"
+                        data-testid="research-report-button"
+                    >
+                        <flux:icon.document-text class="!size-4" />
+                        <span>View research report</span>
+                    </a>
                 @endif
             </div>
             <h1 class="text-lg font-medium leading-snug text-yak-slate">{{ Str::before($task->description, "\n") }}</h1>
