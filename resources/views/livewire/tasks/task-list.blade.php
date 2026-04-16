@@ -71,7 +71,10 @@
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse($this->tasks as $task)
-                    <tr wire:key="task-{{ $task->id }}" class="relative h-14 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    {{-- `transform: translateZ(0)` forces Safari to treat the <tr> as a containing block for
+                         the stretched-link anchor below. Without it, Safari leaks the anchor up to the viewport,
+                         every row's anchor stacks, and every tap hits the last row. --}}
+                    <tr wire:key="task-{{ $task->id }}" class="relative h-14 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" style="transform: translateZ(0)">
                         <td class="px-3 py-2 sm:px-5">
                             <a href="{{ route('tasks.show', $task) }}" wire:navigate class="absolute inset-0" aria-label="Open task {{ $task->external_id ?? $task->id }}"></a>
                             <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
