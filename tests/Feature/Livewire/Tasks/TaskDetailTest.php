@@ -820,6 +820,24 @@ test('retry dispatches SetupYakJob for setup-mode tasks', function () {
     Queue::assertNotPushed(ResearchYakJob::class);
 });
 
+test('nextSteps nudge uses research-specific copy for running research tasks', function () {
+    $task = YakTask::factory()->running()->create(['mode' => TaskMode::Research]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="next-steps"')
+        ->assertSee('gathering findings')
+        ->assertDontSee('making changes');
+});
+
+test('nextSteps nudge uses fix-specific copy for running fix tasks', function () {
+    $task = YakTask::factory()->running()->create(['mode' => TaskMode::Fix]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="next-steps"')
+        ->assertSee('making changes')
+        ->assertDontSee('gathering findings');
+});
+
 test('nextSteps nudge shows retry prompt for failed tasks', function () {
     $task = YakTask::factory()->failed()->create();
 
