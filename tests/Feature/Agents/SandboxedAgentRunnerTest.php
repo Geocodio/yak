@@ -320,3 +320,61 @@ it('is tolerant of a failed npm install and still invokes claude -p', function (
     $claudeCall = collect($sandbox->calls)->first(fn (array $c): bool => str_contains($c['command'], 'claude -p'));
     expect($claudeCall)->not->toBeNull();
 });
+
+test('exports agent_passthrough_env vars before invoking claude', function () {
+    config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN,NPM_TOKEN');
+    putenv('NODE_AUTH_TOKEN=ghp_forwarded');
+    putenv('NPM_TOKEN=npm_secret');
+
+    $task = YakTask::factory()->running()->create();
+    $sandbox = new RecordingSandboxManager;
+    $sandbox->respondTo('claude --version', Process::result('claude 1.0.0'));
+
+    $runner = new SandboxedAgentRunner($sandbox);
+    $runner->run(buildAgentRunRequest($task));
+
+    $claudeCall = collect($sandbox->calls)->first(fn (array $c): bool => str_contains($c['command'], 'claude -p'));
+    expect($claudeCall)->not->toBeNull();
+    expect($claudeCall['command'])
+        ->toContain("export NODE_AUTH_TOKEN='ghp_forwarded'")
+        ->toContain("export NPM_TOKEN='npm_secret'");
+
+    // Exports must come before the claude invocation, not after.
+    $exportPos = strpos($claudeCall['command'], 'export NODE_AUTH_TOKEN');
+    $claudePos = strpos($claudeCall['command'], 'claude -p');
+    expect($exportPos)->toBeLessThan($claudePos);
+
+    putenv('NODE_AUTH_TOKEN');
+    putenv('NPM_TOKEN');
+});
+
+test('skips exports for env vars that are not set', function () {
+    config()->set('yak.agent_passthrough_env', 'MISSING_VAR');
+    putenv('MISSING_VAR');
+
+    $task = YakTask::factory()->running()->create();
+    $sandbox = new RecordingSandboxManager;
+    $sandbox->respondTo('claude --version', Process::result('claude 1.0.0'));
+
+    $runner = new SandboxedAgentRunner($sandbox);
+    $runner->run(buildAgentRunRequest($task));
+
+    $claudeCall = collect($sandbox->calls)->first(fn (array $c): bool => str_contains($c['command'], 'claude -p'));
+    expect($claudeCall)->not->toBeNull();
+    expect($claudeCall['command'])->not->toContain('export MISSING_VAR');
+});
+
+test('does not emit any export prefix when agent_passthrough_env is empty', function () {
+    config()->set('yak.agent_passthrough_env', '');
+
+    $task = YakTask::factory()->running()->create();
+    $sandbox = new RecordingSandboxManager;
+    $sandbox->respondTo('claude --version', Process::result('claude 1.0.0'));
+
+    $runner = new SandboxedAgentRunner($sandbox);
+    $runner->run(buildAgentRunRequest($task));
+
+    $claudeCall = collect($sandbox->calls)->first(fn (array $c): bool => str_contains($c['command'], 'claude -p'));
+    expect($claudeCall)->not->toBeNull();
+    expect($claudeCall['command'])->not->toContain('export ');
+});
