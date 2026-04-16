@@ -207,6 +207,49 @@ it('destroys the template and resets repo state when invalidateTemplate is calle
     expect($repo->setup_status)->toBe('pending');
 });
 
+it('wraps non-root sandbox commands with --preserve-env so passthrough vars survive sudo', function () {
+    config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN,NPM_TOKEN');
+
+    Process::fake([
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->run('task-1', 'echo hello');
+
+    Process::assertRan(function ($p) {
+        return str_contains($p->command, "sudo -u yak --preserve-env='NODE_AUTH_TOKEN,NPM_TOKEN' -H bash -c");
+    });
+});
+
+it('omits --preserve-env when agent_passthrough_env is empty', function () {
+    config()->set('yak.agent_passthrough_env', '');
+
+    Process::fake([
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->run('task-1', 'echo hello');
+
+    Process::assertRan(function ($p) {
+        return str_contains($p->command, 'sudo -u yak -H bash -c');
+    });
+});
+
+it('runs root commands without a sudo wrapper so container env pass through untouched', function () {
+    config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN');
+
+    Process::fake([
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->run('task-1', 'chown -R yak:yak /workspace', asRoot: true);
+
+    Process::assertRan(function ($p) {
+        return str_contains($p->command, "incus exec 'task-1' -- bash -c")
+            && ! str_contains($p->command, 'sudo -u yak');
+    });
+});
+
 it('forwards agent_passthrough_env vars into the container via incus config set environment.*', function () {
     config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN,NPM_TOKEN');
     putenv('NODE_AUTH_TOKEN=ghp_test');

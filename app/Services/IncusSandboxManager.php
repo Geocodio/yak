@@ -635,14 +635,43 @@ class IncusSandboxManager
      */
     private function buildExecCommand(string $containerName, string $command, bool $asRoot): string
     {
-        $shell = $asRoot
-            ? 'bash -c ' . escapeshellarg($command)
-            : 'sudo -u yak -H bash -c ' . escapeshellarg($command);
+        if ($asRoot) {
+            // `incus exec` runs as root by default and preserves the
+            // container's environment, so no further wrapping needed.
+            $shell = 'bash -c ' . escapeshellarg($command);
+        } else {
+            // sudo's default env_reset scrubs everything except a
+            // small allowlist, which would eat the agent passthrough
+            // vars we just set on the container. --preserve-env=<list>
+            // whitelists exactly the ones we forwarded.
+            $preserve = $this->preserveEnvFlag();
+            $shell = 'sudo -u yak' . $preserve . ' -H bash -c ' . escapeshellarg($command);
+        }
 
         return sprintf(
             'incus exec %s -- %s',
             escapeshellarg($containerName),
             $shell,
         );
+    }
+
+    /**
+     * Build the `--preserve-env=NAME1,NAME2` flag for sudo, based on
+     * `yak.agent_passthrough_env`. Returns an empty string when
+     * nothing is configured so the sudo invocation stays clean.
+     */
+    private function preserveEnvFlag(): string
+    {
+        $passthrough = (string) config('yak.agent_passthrough_env', '');
+        if ($passthrough === '') {
+            return '';
+        }
+
+        $names = array_filter(array_map('trim', explode(',', $passthrough)));
+        if ($names === []) {
+            return '';
+        }
+
+        return ' --preserve-env=' . escapeshellarg(implode(',', $names));
     }
 }
