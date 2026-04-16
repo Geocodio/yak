@@ -449,7 +449,7 @@ test('milestone stepper is displayed', function () {
     $html = $component->html();
 
     expect($html)->toContain('data-testid="milestone-stepper"');
-    expect($html)->toContain('Created');
+    expect($html)->toContain('Received');
     expect($html)->toContain('Working');
     expect($html)->toContain('Done');
 });
@@ -648,6 +648,31 @@ test('milestone steps include tooltip copy for each stage', function () {
         expect($step)->toHaveKeys(['label', 'tooltip', 'completed', 'active']);
         expect($step['tooltip'])->toBeString()->not->toBeEmpty();
     }
+});
+
+test('nextSteps nudge shows for running tasks', function () {
+    $task = YakTask::factory()->running()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="next-steps"')
+        ->assertSee('Yak is exploring the codebase');
+});
+
+test('nextSteps nudge shows retry prompt for failed tasks', function () {
+    $task = YakTask::factory()->failed()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="next-steps"')
+        ->assertSee('Click Retry above');
+});
+
+test('nextSteps nudge is hidden for statuses with their own call-to-action', function () {
+    $task = YakTask::factory()->awaitingClarification()->create([
+        'clarification_options' => ['a', 'b'],
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="next-steps"');
 });
 
 test('milestone stepper links to the architecture docs', function () {

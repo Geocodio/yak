@@ -55,6 +55,9 @@
                     <p class="mt-1 text-sm leading-relaxed text-yak-slate">{{ $task->error_log }}</p>
                 </div>
             @endif
+            @if($this->nextSteps())
+                <p class="mt-1 text-sm italic text-yak-blue" data-testid="next-steps">{{ $this->nextSteps() }}</p>
+            @endif
             <div class="mt-1 flex flex-wrap gap-4">
                 <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
                     <flux:icon.wrench-screwdriver class="!size-3.5" />

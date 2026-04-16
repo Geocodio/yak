@@ -112,6 +112,28 @@ class TaskDetail extends Component
         return TaskSourceUrl::resolve($this->task);
     }
 
+    /**
+     * A short "what's next" nudge keyed off task status — shown in the
+     * header card so users landing cold on the page know whether to
+     * wait, retry, or do nothing. Returns null when the status already
+     * has its own call-to-action elsewhere on the page (clarification
+     * block, result section) to avoid duplication.
+     */
+    public function nextSteps(): ?string
+    {
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+
+        return match ($status) {
+            TaskStatus::Running => 'Yak is exploring the codebase and making changes. This page updates live — check back in a few minutes.',
+            TaskStatus::AwaitingCi => 'Changes pushed — waiting for CI. Yak will open a PR once the build passes.',
+            TaskStatus::Retrying => 'CI failed on the previous attempt. Yak is taking another pass.',
+            TaskStatus::Failed => 'Task failed. Click Retry above, or mention Yak again with more context.',
+            TaskStatus::Expired => 'No response within the clarification window. Mention Yak again to start over.',
+            default => null,
+        };
+    }
+
     #[Computed]
     public function showIntroBanner(): bool
     {
@@ -294,12 +316,12 @@ class TaskDetail extends Component
         };
 
         $steps = [
-            ['label' => 'Created', 'tooltip' => 'Task received and queued for an agent.'],
+            ['label' => 'Received', 'tooltip' => 'Task landed in the queue.'],
             ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
             ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and making changes.'],
-            ['label' => 'Fix pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
-            ['label' => 'CI', 'tooltip' => 'Waiting for CI to verify the changes.'],
-            ['label' => 'PR created', 'tooltip' => 'Pull request opened for human review.'],
+            ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
+            ['label' => 'CI passing', 'tooltip' => 'Waiting for CI to verify the changes.'],
+            ['label' => 'Pull request', 'tooltip' => 'Pull request opened for human review.'],
             ['label' => 'Done', 'tooltip' => 'Task complete.'],
         ];
 

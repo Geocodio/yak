@@ -166,7 +166,7 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
    - `channels:history`
    - `reactions:write` — lets Yak react 👀 / 🚧 / ✅ / ❌ on your mention for glanceable status
 4. Click **Install to Workspace** and authorize
-5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon
+5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon, set the short description to *"AI coding agent — mention me with a task, get a pull request"*, and the background color to the brand orange (`#D4915E`)
 6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
 7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
 8. Go to **App Home**, enable the **Home Tab** — this powers the welcome DM Yak sends the first time a user opens Yak in the sidebar
@@ -184,6 +184,8 @@ Yak installs as a Linear **Agent** — a first-class workspace participant that 
 1. Go to [linear.app/settings/api/applications](https://linear.app/settings/api/applications)
    → **New application**.
    - Name: `Yak`
+   - Description: `AI coding agent — assign me an issue and I'll open a pull request` (this appears in the assignee picker and the install consent screen, so keep it plain)
+   - Icon: use `docs/mascot.png` or any small square yak image
    - Callback URL: `https://{your-domain}/auth/linear/callback`
    - Enable **Webhooks**, set the URL to `https://{your-domain}/webhooks/linear`, and under **App events** tick **Agent session events**.
    - Copy the app's webhook signing secret into `linear_webhook_secret`.
