@@ -2,18 +2,24 @@
 
 namespace App\Livewire\Tasks;
 
+use App\Drivers\LinearNotificationDriver;
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\IncusSandboxManager;
+use App\Services\TaskLogger;
 use App\Support\TaskSourceUrl;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -101,6 +107,73 @@ class TaskDetail extends Component
         ]);
     }
 
+    #[Computed]
+    public function canCancel(): bool
+    {
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+
+        return in_array($status, [
+            TaskStatus::Pending,
+            TaskStatus::Running,
+            TaskStatus::AwaitingClarification,
+            TaskStatus::AwaitingCi,
+            TaskStatus::Retrying,
+        ]);
+    }
+
+    /**
+     * Terminate an in-flight task. Destroys the Incus sandbox (which
+     * cascades: the agent process dies, streamExec gets EOF, the
+     * queue worker eventually errors out but HandlesAgentJobFailure
+     * sees the Cancelled status and leaves it alone), then updates
+     * the task record and notifies the source channel.
+     */
+    public function cancel(): void
+    {
+        if (! $this->canCancel()) {
+            return;
+        }
+
+        TaskLogger::info($this->task, 'Task cancelled by user');
+
+        // Best-effort sandbox teardown — ignore failures so the UI
+        // action succeeds even if the container is already gone.
+        $containerName = 'task-' . $this->task->id;
+        try {
+            app(IncusSandboxManager::class)->destroy($containerName);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('Sandbox destroy failed during cancel', [
+                'task_id' => $this->task->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $this->task->update([
+            'status' => TaskStatus::Cancelled,
+            'completed_at' => now(),
+        ]);
+
+        SendNotificationJob::dispatch(
+            $this->task,
+            NotificationType::Expiry,
+            'Task cancelled from the dashboard.',
+        );
+
+        // For Linear tasks, also flip the issue's workflow state so
+        // the team's board doesn't show it "In Progress".
+        if ($this->task->source === 'linear') {
+            $cancelledStateId = (string) config('yak.channels.linear.cancelled_state_id');
+            if ($cancelledStateId !== '') {
+                app(LinearNotificationDriver::class)->setIssueState($this->task, $cancelledStateId);
+            }
+        }
+
+        unset($this->canRetry, $this->canCancel);
+
+        Flux::toast('Task cancelled.');
+    }
+
     public function toggleDebug(): void
     {
         $this->showDebug = ! $this->showDebug;
@@ -130,6 +203,7 @@ class TaskDetail extends Component
             TaskStatus::Retrying => 'CI failed on the previous attempt. Yak is taking another pass.',
             TaskStatus::Failed => 'Task failed. Click Retry above, or mention Yak again with more context.',
             TaskStatus::Expired => 'No response within the clarification window. Mention Yak again to start over.',
+            TaskStatus::Cancelled => 'Task cancelled from the dashboard. Mention Yak again (or adjust the issue) to start over.',
             default => null,
         };
     }
@@ -312,7 +386,7 @@ class TaskDetail extends Component
             TaskStatus::Running, TaskStatus::AwaitingClarification, TaskStatus::Retrying => 2,
             TaskStatus::AwaitingCi => 4,
             TaskStatus::Success => 6,
-            TaskStatus::Failed, TaskStatus::Expired => $this->task->pr_url ? 5 : ($this->task->branch_name ? 3 : 2),
+            TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $this->task->pr_url ? 5 : ($this->task->branch_name ? 3 : 2),
         };
 
         $steps = [
@@ -376,6 +450,7 @@ class TaskDetail extends Component
             TaskStatus::Success => '#7a8c5e',
             TaskStatus::Failed => '#b85450',
             TaskStatus::Expired => '#c8b89a',
+            TaskStatus::Cancelled => '#c8b89a',
         };
     }
 

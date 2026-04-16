@@ -2,11 +2,16 @@
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\SendNotificationJob;
 use App\Livewire\Tasks\TaskDetail;
 use App\Models\Artifact;
+use App\Models\LinearOauthConnection;
 use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
@@ -656,6 +661,94 @@ test('nextSteps nudge shows for running tasks', function () {
     Livewire::test(TaskDetail::class, ['task' => $task])
         ->assertSeeHtml('data-testid="next-steps"')
         ->assertSee('Yak is exploring the codebase');
+});
+
+test('canCancel is true for active statuses and false for terminal ones', function () {
+    $active = [
+        TaskStatus::Pending,
+        TaskStatus::Running,
+        TaskStatus::AwaitingClarification,
+        TaskStatus::AwaitingCi,
+        TaskStatus::Retrying,
+    ];
+
+    foreach ($active as $status) {
+        $task = YakTask::factory()->create(['status' => $status]);
+        Livewire::test(TaskDetail::class, ['task' => $task])
+            ->assertSet('canCancel', true);
+    }
+
+    $terminal = [
+        TaskStatus::Success,
+        TaskStatus::Failed,
+        TaskStatus::Expired,
+        TaskStatus::Cancelled,
+    ];
+
+    foreach ($terminal as $status) {
+        $task = YakTask::factory()->create(['status' => $status]);
+        Livewire::test(TaskDetail::class, ['task' => $task])
+            ->assertSet('canCancel', false);
+    }
+});
+
+test('cancel marks the task as Cancelled, destroys the sandbox, and notifies the source', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+
+    $task = YakTask::factory()->running()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C1',
+        'slack_thread_ts' => '1.1',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('cancel');
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Cancelled);
+    expect($task->completed_at)->not->toBeNull();
+
+    Queue::assertPushed(SendNotificationJob::class, function ($job) use ($task) {
+        return $job->task->id === $task->id
+            && str_contains($job->message, 'cancelled from the dashboard');
+    });
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete'));
+});
+
+test('cancel is a no-op for a task in a terminal status', function () {
+    $task = YakTask::factory()->success()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('cancel');
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success);
+});
+
+test('cancel flips Linear issue state when cancelled_state_id is configured', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    Http::fake(['*' => Http::response(['data' => ['issueUpdate' => ['success' => true]]])]);
+
+    config()->set('yak.channels.linear.cancelled_state_id', 'cancelled-state-uuid');
+    LinearOauthConnection::factory()->create();
+
+    $task = YakTask::factory()->running()->create([
+        'source' => 'linear',
+        'external_id' => 'issue-uuid',
+        'context' => json_encode(['linear_issue_id' => 'issue-uuid-resolved']),
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('cancel');
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'api.linear.app/graphql')
+            && str_contains($request['query'], 'issueUpdate')
+            && ($request['variables']['stateId'] ?? '') === 'cancelled-state-uuid';
+    });
 });
 
 test('nextSteps nudge shows retry prompt for failed tasks', function () {

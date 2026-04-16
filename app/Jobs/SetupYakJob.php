@@ -229,6 +229,13 @@ class SetupYakJob implements ShouldQueue
 
     private function handleError(Repository $repository, string $errorMessage): void
     {
+        // Don't downgrade a user-cancelled task back to Failed.
+        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+            $repository->update(['setup_status' => 'failed']);
+
+            return;
+        }
+
         $this->task->update([
             'status' => TaskStatus::Failed,
             'error_log' => $errorMessage,

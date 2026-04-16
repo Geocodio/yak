@@ -42,7 +42,7 @@ trait HandlesAgentJobFailure
             return;
         }
 
-        $terminal = [TaskStatus::Success, TaskStatus::Failed, TaskStatus::Expired];
+        $terminal = [TaskStatus::Success, TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled];
         if (! in_array($task->status, $terminal, true)) {
             $task->update([
                 'status' => TaskStatus::Failed,

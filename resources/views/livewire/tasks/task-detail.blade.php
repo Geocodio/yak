@@ -47,6 +47,9 @@
                 @if($this->canRetry)
                     <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
                 @endif
+                @if($this->canCancel)
+                    <flux:button variant="ghost" size="sm" icon="x-circle" wire:click="cancel" wire:confirm="Cancel this task? The sandbox will be destroyed and the agent will stop." data-testid="cancel-button">Cancel</flux:button>
+                @endif
             </div>
             <h1 class="text-lg font-medium leading-snug text-yak-slate">{{ Str::before($task->description, "\n") }}</h1>
             @if($task->status === \App\Enums\TaskStatus::Failed && $task->error_log)

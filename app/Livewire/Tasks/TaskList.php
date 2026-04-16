@@ -212,6 +212,7 @@ class TaskList extends Component
             TaskStatus::Success => 'bg-[rgba(122,140,94,0.12)] text-[#7a8c5e]',
             TaskStatus::Failed => 'bg-[rgba(184,84,80,0.12)] text-[#b85450]',
             TaskStatus::Expired => 'bg-[rgba(200,184,154,0.12)] text-[#c8b89a]',
+            TaskStatus::Cancelled => 'bg-[rgba(200,184,154,0.12)] text-[#c8b89a]',
         };
     }
 

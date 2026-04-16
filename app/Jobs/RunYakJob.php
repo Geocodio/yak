@@ -341,6 +341,13 @@ class RunYakJob implements ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
+        // Don't downgrade a user-cancelled task back to Failed — the
+        // cancel action already set a terminal status and destroyed
+        // the sandbox; this error is the expected aftermath.
+        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+            return;
+        }
+
         $this->task->update([
             'status' => TaskStatus::Failed,
             'error_log' => $errorMessage,

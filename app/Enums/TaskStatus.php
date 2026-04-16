@@ -20,7 +20,7 @@ enum TaskStatus: string implements StateMachine
             ->getAttributes(FinalState::class) !== [];
     }
 
-    #[CanTransitionTo([self::Running, self::Failed])]
+    #[CanTransitionTo([self::Running, self::Failed, self::Cancelled])]
     case Pending = 'pending';
 
     #[CanTransitionTo([
@@ -29,16 +29,17 @@ enum TaskStatus: string implements StateMachine
         self::AwaitingClarification,
         self::Success,
         self::Failed,
+        self::Cancelled,
     ])]
     case Running = 'running';
 
-    #[CanTransitionTo([self::Pending, self::Running, self::Expired])]
+    #[CanTransitionTo([self::Pending, self::Running, self::Expired, self::Cancelled])]
     case AwaitingClarification = 'awaiting_clarification';
 
-    #[CanTransitionTo([self::Success, self::Retrying, self::Failed])]
+    #[CanTransitionTo([self::Success, self::Retrying, self::Failed, self::Cancelled])]
     case AwaitingCi = 'awaiting_ci';
 
-    #[CanTransitionTo([self::AwaitingCi, self::Failed])]
+    #[CanTransitionTo([self::AwaitingCi, self::Failed, self::Cancelled])]
     case Retrying = 'retrying';
 
     #[FinalState]
@@ -49,4 +50,7 @@ enum TaskStatus: string implements StateMachine
 
     #[CanTransitionTo([self::Pending])]
     case Expired = 'expired';
+
+    #[FinalState]
+    case Cancelled = 'cancelled';
 }

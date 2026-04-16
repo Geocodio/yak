@@ -214,6 +214,11 @@ class ResearchYakJob implements ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
+        // Don't downgrade a user-cancelled task back to Failed.
+        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+            return;
+        }
+
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
 
         $this->task->update([
