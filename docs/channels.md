@@ -105,19 +105,23 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 3. Subscribe to bot events:
    - `app_mention`
    - `message.channels` (needed for thread replies to clarifications)
-4. Add bot scopes:
+   - `app_home_opened` (powers the welcome DM the first time a user opens Yak's App Home)
+4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view.
+5. Add bot scopes:
    - `chat:write`
    - `app_mentions:read`
    - `channels:history`
-5. Install the app to your workspace
-6. Add the following to `ansible/vault/secrets.yml`:
+   - `reactions:write` (lets Yak apply status reactions to your @mention)
+6. Install the app to your workspace
+7. Add the following to `ansible/vault/secrets.yml`:
 
    ```yaml
    slack_bot_token: xoxb-...
    slack_signing_secret: ...
+   slack_workspace_url: https://{your-workspace}.slack.com  # for dashboard → thread deep links
    ```
 
-7. Re-run Ansible
+8. Re-run Ansible
 
 ### Usage
 
@@ -125,9 +129,16 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 @yak fix the broken CSV export
 @yak in api: fix the timeout on batch endpoints
 @yak research: which endpoints still use the deprecated `accuracy_type` field?
+@yak help
 ```
 
-Yak responds in the same thread with acknowledgment, progress, and results.
+Yak responds in the same thread with a Block Kit card — personality line, context chips (repo · mode · task id), and action buttons (**View task**, **View PR**).
+
+- **Reactions.** Yak reacts on your original @mention as the task progresses: 👀 when picked up, 🚧 while working, ✅ when a PR is ready, ❌ on failure. You can see status at a glance without opening the thread.
+- **`@yak help`.** Sending `@yak`, `@yak help`, or `@yak ?` returns a capabilities card with syntax examples — it does not create a task.
+- **First-time intro.** The first time a given user gets a reply from Yak, the acknowledgment has a small *"First time seeing me?"* footer pointing to this doc. It only appears once per user.
+- **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
+- **Direct ping on status changes.** When Yak needs clarification, completes the task, fails, or expires, it @-mentions the requester so they get a push. Progress ticks don't ping (avoids noise).
 
 ### Clarification Flow
 
@@ -150,8 +161,11 @@ Linear and Sentry tasks do not clarify because their inputs are already structur
 ### Gotchas
 
 - **Channels history scope is required** for thread reply matching. Without it, clarification replies cannot be routed to the correct task.
+- **`reactions:write` must be granted** for status reactions to appear. Without it, reactions silently fail; everything else still works.
+- **`app_home_opened` event must be subscribed** for welcome DMs. Enable the App Home tab in the Slack app config even if you never customize it — the event only fires when the tab is enabled.
 - **Bot token rotation** requires re-running Ansible to update the container env vars.
 - **3-day TTL** — clarifications that aren't answered auto-expire with a "Closing this — mention me again" message.
+- **`slack_workspace_url` is optional but recommended.** Without it, the dashboard's "Source: Slack" chip renders as plain text instead of linking back to the originating thread.
 
 ---
 

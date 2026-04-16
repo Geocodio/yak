@@ -91,6 +91,7 @@ github_webhook_secret: ""
 
 slack_bot_token: ""
 slack_signing_secret: ""
+slack_workspace_url: ""          # e.g. https://acme.slack.com — for thread deep links
 
 linear_oauth_client_id: ""
 linear_oauth_client_secret: ""
@@ -163,12 +164,16 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
    - `chat:write`
    - `app_mentions:read`
    - `channels:history`
+   - `reactions:write` — lets Yak react 👀 / 🚧 / ✅ / ❌ on your mention for glanceable status
 4. Click **Install to Workspace** and authorize
 5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon
 6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
 7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
-8. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
-9. Subscribe to bot events: `app_mention` and `message.channels`
+8. Go to **App Home**, enable the **Home Tab** — this powers the welcome DM Yak sends the first time a user opens Yak in the sidebar
+9. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
+10. Subscribe to bot events: `app_mention`, `message.channels`, and `app_home_opened`
+
+Add `YAK_SLACK_WORKSPACE_URL=https://{your-workspace}.slack.com` to your vault so the dashboard can deep-link tasks back to their originating Slack thread.
 
 See [Channels → Slack](channels.md#slack-optional) for usage and gotchas.
 
@@ -315,6 +320,19 @@ To deploy a specific version:
 ```bash
 ansible-playbook ansible/playbook.yml --tags yak-container -e yak_image_tag=abc1234
 ```
+
+#### Slack manifest changes between versions
+
+Some releases add Slack scopes or event subscriptions. When they do, the Slack app manifest in your workspace has to be updated *by hand* — the container upgrade alone is not enough; reactions silently fail without the scope, and App Home events never fire without the subscription.
+
+Steps when a release adds Slack scopes or events:
+
+1. Go to your Slack app at [api.slack.com/apps](https://api.slack.com/apps) → your Yak app.
+2. Under **OAuth & Permissions**, add any new bot scopes listed in the release notes, then click **Reinstall to Workspace**.
+3. Under **Event Subscriptions**, add any new bot events listed in the release notes.
+4. If the installation returned a new bot token, update `slack_bot_token` in vault and re-run `ansible-playbook ansible/playbook.yml --tags yak-container`.
+
+Current required scopes and events are listed in the [Slack setup section](#slack-optional) above. If something that used to work (reactions, App Home DMs, interactivity) stops, check that your installed scopes still match that list.
 
 ### Adding a New Channel
 

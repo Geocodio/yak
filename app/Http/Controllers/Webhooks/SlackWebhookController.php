@@ -16,9 +16,13 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
+use App\Support\Docs;
+use App\Support\SlackHelpCard;
+use App\Support\SlackUserTracker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class SlackWebhookController extends Controller
 {
@@ -50,6 +54,7 @@ class SlackWebhookController extends Controller
         return match ($event['type'] ?? null) {
             'app_mention' => $this->handleMention($request),
             'message' => $this->handleThreadReply($event),
+            'app_home_opened' => $this->handleAppHomeOpened($event),
             default => response()->json(['ok' => true]),
         };
     }
@@ -79,6 +84,17 @@ class SlackWebhookController extends Controller
         $driver = new SlackInputDriver;
         $description = $driver->parse($request);
 
+        // Intercept help queries (`@yak`, `@yak help`, `@yak ?`) before
+        // creating a task — post a capabilities card instead and exit.
+        if (SlackHelpCard::isHelpQuery($description->body)) {
+            $this->postHelpCard(
+                channel: (string) ($description->metadata['slack_channel'] ?? ''),
+                threadTs: (string) ($description->metadata['slack_thread_ts'] ?? ''),
+            );
+
+            return response()->json(['ok' => true]);
+        }
+
         $detector = new RepoDetector;
         $detection = $detector->detect($description);
 
@@ -93,6 +109,8 @@ class SlackWebhookController extends Controller
                     'mode' => $description->metadata['mode'] ?? 'fix',
                     'slack_channel' => $description->metadata['slack_channel'],
                     'slack_thread_ts' => $description->metadata['slack_thread_ts'],
+                    'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
+                    'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 ]);
 
                 TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repo->slug]);
@@ -125,6 +143,8 @@ class SlackWebhookController extends Controller
                 'status' => 'awaiting_clarification',
                 'slack_channel' => $description->metadata['slack_channel'],
                 'slack_thread_ts' => $description->metadata['slack_thread_ts'],
+                'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
+                'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 'clarification_options' => $repoOptions,
                 'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
             ]);
@@ -149,6 +169,8 @@ class SlackWebhookController extends Controller
             'mode' => $description->metadata['mode'] ?? 'fix',
             'slack_channel' => $description->metadata['slack_channel'],
             'slack_thread_ts' => $description->metadata['slack_thread_ts'],
+            'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
+            'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'slack', 'repo' => $repoSlug]);
@@ -157,6 +179,103 @@ class SlackWebhookController extends Controller
         $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Handle `app_home_opened` — fires whenever a user opens Yak's App
+     * Home tab. We DM the user a welcome card the first time they do
+     * so, then mark them as seen via SlackUserTracker so the in-channel
+     * first-timer block doesn't fire on top of it later.
+     *
+     * @param  array{user?: string, tab?: string}  $event
+     */
+    private function handleAppHomeOpened(array $event): JsonResponse
+    {
+        $userId = (string) ($event['user'] ?? '');
+
+        if ($userId === '' || ! SlackUserTracker::markSeen($userId)) {
+            return response()->json(['ok' => true]);
+        }
+
+        $this->postWelcomeDm($userId);
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function postWelcomeDm(string $userId): void
+    {
+        $token = (string) config('yak.channels.slack.bot_token');
+
+        if ($token === '') {
+            return;
+        }
+
+        $docsUrl = Docs::url('home');
+        $channelsUrl = Docs::url('channels.slack');
+        $dashboardUrl = rtrim((string) config('app.url'), '/');
+
+        Http::withToken($token)
+            ->post('https://slack.com/api/chat.postMessage', [
+                'channel' => $userId,
+                'text' => "Hi — I'm Yak. I turn Slack messages and Linear issues into reviewable pull requests.",
+                'blocks' => [
+                    [
+                        'type' => 'section',
+                        'text' => [
+                            'type' => 'mrkdwn',
+                            'text' => "*Hi — I'm Yak.* 🐃 I turn Slack messages and Linear issues into reviewable pull requests.",
+                        ],
+                    ],
+                    [
+                        'type' => 'section',
+                        'text' => [
+                            'type' => 'mrkdwn',
+                            'text' => "*Try it:* mention me in any channel I'm in.\n"
+                                . "• `@yak fix the login bug on staging`\n"
+                                . "• `@yak in my-repo: add a unit test for UserService`\n"
+                                . '• `@yak research: how does the payments webhook flow work?`',
+                        ],
+                    ],
+                    [
+                        'type' => 'actions',
+                        'elements' => [
+                            [
+                                'type' => 'button',
+                                'text' => ['type' => 'plain_text', 'text' => 'Open dashboard'],
+                                'url' => $dashboardUrl,
+                                'style' => 'primary',
+                            ],
+                            [
+                                'type' => 'button',
+                                'text' => ['type' => 'plain_text', 'text' => 'Slack guide'],
+                                'url' => $channelsUrl,
+                            ],
+                            [
+                                'type' => 'button',
+                                'text' => ['type' => 'plain_text', 'text' => 'Full docs'],
+                                'url' => $docsUrl,
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+    }
+
+    private function postHelpCard(string $channel, string $threadTs): void
+    {
+        $token = (string) config('yak.channels.slack.bot_token');
+
+        if ($token === '' || $channel === '' || $threadTs === '') {
+            return;
+        }
+
+        Http::withToken($token)
+            ->post('https://slack.com/api/chat.postMessage', [
+                'channel' => $channel,
+                'thread_ts' => $threadTs,
+                'text' => SlackHelpCard::fallbackText(),
+                'blocks' => SlackHelpCard::blocks(),
+            ]);
     }
 
     /**

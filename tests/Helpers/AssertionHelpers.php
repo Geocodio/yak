@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\Http;
  *
  * @param  string|null  $channel  Expected channel ID (null to skip check)
  * @param  string|null  $threadTs  Expected thread timestamp (null to skip check)
- * @param  string|null  $textContains  Expected text substring (null to skip check)
+ * @param  string|null  $textContains  Expected text/blocks substring (null to skip check).
+ *                                     Searches the `text` fallback field AND the JSON-encoded
+ *                                     `blocks` payload, so it matches either a plain-text
+ *                                     fallback or a Block Kit button URL / section content.
  */
 function assertSlackThreadReply(?string $channel = null, ?string $threadTs = null, ?string $textContains = null): void
 {
@@ -24,8 +27,14 @@ function assertSlackThreadReply(?string $channel = null, ?string $threadTs = nul
             return false;
         }
 
-        if ($textContains !== null && ! str_contains($request['text'], $textContains)) {
-            return false;
+        if ($textContains !== null) {
+            $haystack = (string) ($request['text'] ?? '');
+            if (isset($request['blocks'])) {
+                $haystack .= ' ' . json_encode($request['blocks'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+            if (! str_contains($haystack, $textContains)) {
+                return false;
+            }
         }
 
         return true;

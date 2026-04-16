@@ -8,6 +8,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /*
@@ -107,6 +108,219 @@ it('Slack: posts expiry message', function () {
     assertSlackThreadReply('C_EXP', '6666666666.666666', 'Clarification expired');
 });
 
+it('Slack: @-mentions requester on Result notifications', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_MENTION',
+        'slack_thread_ts' => '8888.8888',
+        'slack_user_id' => 'U1234567',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Result, 'PR opened');
+
+    assertSlackThreadReply(textContains: '<@U1234567>');
+});
+
+it('Slack: @-mentions requester on Clarification/Error/Expiry but not on Progress or Acknowledgment', function () {
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_MIX',
+        'slack_thread_ts' => '9999.9999',
+        'slack_user_id' => 'U7654321',
+    ]);
+
+    $shouldMentionByType = [
+        'acknowledgment' => false,
+        'progress' => false,
+        'retry' => false,
+        'clarification' => true,
+        'result' => true,
+        'error' => true,
+        'expiry' => true,
+    ];
+
+    foreach (NotificationType::cases() as $type) {
+        $shouldMention = $shouldMentionByType[$type->value];
+        Http::fake(['*' => Http::response(['ok' => true])]);
+
+        (new SlackNotificationDriver)->send($task, $type, 'msg');
+
+        Http::assertSent(function ($request) use ($shouldMention) {
+            if (! str_contains($request->url(), 'slack.com/api/chat.postMessage')) {
+                return false;
+            }
+            $hasMention = str_contains((string) ($request['text'] ?? ''), '<@U7654321>');
+
+            return $hasMention === $shouldMention;
+        });
+    }
+});
+
+it('Slack: skips mention when slack_user_id is missing', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_NOMENT',
+        'slack_thread_ts' => '1.2',
+        'slack_user_id' => null,
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Result, 'PR opened');
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'slack.com/api/chat.postMessage')
+            && ! str_contains((string) ($request['text'] ?? ''), '<@');
+    });
+});
+
+it('Slack: applies an eyes reaction on Acknowledgment', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_REACT',
+        'slack_thread_ts' => '111.111',
+        'slack_message_ts' => '111.111',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, 'On it!');
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'slack.com/api/reactions.add')
+            && $request['channel'] === 'C_REACT'
+            && $request['timestamp'] === '111.111'
+            && $request['name'] === 'eyes';
+    });
+});
+
+it('Slack: reaction maps cover all visible status transitions', function () {
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $expectations = [
+        'acknowledgment' => 'eyes',
+        'progress' => 'construction',
+        'result' => 'white_check_mark',
+        'error' => 'x',
+        'expiry' => 'x',
+    ];
+
+    foreach (NotificationType::cases() as $type) {
+        Http::fake(['*' => Http::response(['ok' => true])]);
+
+        $task = YakTask::factory()->create([
+            'source' => 'slack',
+            'slack_channel' => 'C_R' . $type->value,
+            'slack_thread_ts' => '1.' . $type->value,
+            'slack_message_ts' => '1.' . $type->value,
+        ]);
+
+        (new SlackNotificationDriver)->send($task, $type, 'msg');
+
+        $expected = $expectations[$type->value] ?? null;
+
+        if ($expected === null) {
+            Http::assertNotSent(fn ($request) => str_contains($request->url(), 'reactions.add'));
+        } else {
+            Http::assertSent(fn ($request) => str_contains($request->url(), 'reactions.add')
+                && $request['name'] === $expected
+            );
+        }
+    }
+});
+
+it('Slack: skips reactions when slack_message_ts is missing', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_NORTS',
+        'slack_thread_ts' => '1.1',
+        'slack_message_ts' => null,
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, 'On it!');
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'reactions.add'));
+});
+
+it('Slack: shows the first-time intro block on a user\'s initial acknowledgment', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+    Cache::flush();
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_INTRO',
+        'slack_thread_ts' => '1.1',
+        'slack_user_id' => 'UFIRSTTIMER',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, 'On it!');
+
+    assertSlackThreadReply(textContains: 'First time seeing me');
+});
+
+it('Slack: skips the intro block on a returning user\'s acknowledgment', function () {
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+    Cache::flush();
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_SECOND',
+        'slack_thread_ts' => '1.1',
+        'slack_user_id' => 'URETURNING',
+    ]);
+
+    // First ack — seen flag gets set.
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    (new SlackNotificationDriver)->send($task, NotificationType::Acknowledgment, 'On it!');
+
+    // Second ack on a different task from the same user.
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    $task2 = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_SECOND',
+        'slack_thread_ts' => '2.2',
+        'slack_user_id' => 'URETURNING',
+    ]);
+
+    (new SlackNotificationDriver)->send($task2, NotificationType::Acknowledgment, 'On it!');
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'chat.postMessage')
+            && ! str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), 'First time seeing me');
+    });
+});
+
+it('Slack: intro block is only attached to Acknowledgment, not to Progress or Result', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+    Cache::flush();
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_NOTACK',
+        'slack_thread_ts' => '1.1',
+        'slack_user_id' => 'UXYZ',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Progress, 'Still working…');
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'chat.postMessage')
+            && ! str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), 'First time seeing me');
+    });
+});
+
 it('Slack: all notifications include dashboard link', function () {
     Http::fake(['*' => Http::response(['ok' => true])]);
     config()->set('yak.channels.slack.bot_token', 'xoxb-test');
@@ -128,7 +342,9 @@ it('Slack: all notifications include dashboard link', function () {
             return false;
         }
 
-        return str_contains($request['text'], "/tasks/{$task->id}");
+        // Dashboard URL now lives inside a Block Kit button rather than
+        // the text fallback — search the serialized blocks payload.
+        return str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), "/tasks/{$task->id}");
     });
 });
 

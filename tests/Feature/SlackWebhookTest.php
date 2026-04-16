@@ -10,6 +10,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -685,4 +686,132 @@ it('SlackNotificationDriver skips when bot token is missing', function () {
     $driver->send($task, NotificationType::Progress, 'should not be sent');
 
     Http::assertNothingSent();
+});
+
+/*
+|--------------------------------------------------------------------------
+| @yak help command
+|--------------------------------------------------------------------------
+*/
+
+it('posts a help card when the mention is just @yak with no body', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    Queue::fake();
+    config()->set('yak.channels.slack.bot_token', 'xoxb-help');
+    config()->set('yak.channels.slack.signing_secret', 'test-secret');
+    (new ChannelServiceProvider(app()))->boot();
+
+    $body = slackMentionPayload(text: '');
+    $headers = signSlackPayload($body, 'test-secret');
+
+    $this->postJson('/webhooks/slack', json_decode($body, true), $headers)->assertOk();
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'chat.postMessage')
+            && str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), "I'm Yak");
+    });
+
+    // No task should have been created for the help query.
+    expect(YakTask::count())->toBe(0);
+    Queue::assertNothingPushed();
+});
+
+it('posts a help card when the mention is @yak help', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    Queue::fake();
+    config()->set('yak.channels.slack.bot_token', 'xoxb-help');
+    config()->set('yak.channels.slack.signing_secret', 'test-secret');
+    (new ChannelServiceProvider(app()))->boot();
+
+    $body = slackMentionPayload(text: 'help');
+    $headers = signSlackPayload($body, 'test-secret');
+
+    $this->postJson('/webhooks/slack', json_decode($body, true), $headers)->assertOk();
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'chat.postMessage')
+            && str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), 'How to ask for work');
+    });
+
+    expect(YakTask::count())->toBe(0);
+});
+
+/*
+|--------------------------------------------------------------------------
+| app_home_opened — install DM
+|--------------------------------------------------------------------------
+*/
+
+it('DMs the user the first time they open the App Home tab', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-home');
+    config()->set('yak.channels.slack.signing_secret', 'test-secret');
+    (new ChannelServiceProvider(app()))->boot();
+    Cache::flush();
+
+    $body = (string) json_encode([
+        'type' => 'event_callback',
+        'event_id' => 'Ev' . Str::random(10),
+        'event' => [
+            'type' => 'app_home_opened',
+            'user' => 'U_NEWUSER',
+            'tab' => 'home',
+        ],
+    ]);
+    $headers = signSlackPayload($body, 'test-secret');
+
+    $this->postJson('/webhooks/slack', json_decode($body, true), $headers)->assertOk();
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'chat.postMessage')
+            && $request['channel'] === 'U_NEWUSER'
+            && str_contains(json_encode($request['blocks'] ?? [], JSON_UNESCAPED_SLASHES), "I'm Yak");
+    });
+});
+
+it('does not DM the user on subsequent App Home opens', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-home');
+    config()->set('yak.channels.slack.signing_secret', 'test-secret');
+    (new ChannelServiceProvider(app()))->boot();
+    Cache::flush();
+
+    $buildPayload = fn () => (string) json_encode([
+        'type' => 'event_callback',
+        'event_id' => 'Ev' . Str::random(10),
+        'event' => [
+            'type' => 'app_home_opened',
+            'user' => 'U_RETURNING',
+            'tab' => 'home',
+        ],
+    ]);
+
+    // First open — DM fires.
+    $body1 = $buildPayload();
+    $this->postJson('/webhooks/slack', json_decode($body1, true), signSlackPayload($body1, 'test-secret'))->assertOk();
+
+    // Second open — no new DM.
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    $body2 = $buildPayload();
+    $this->postJson('/webhooks/slack', json_decode($body2, true), signSlackPayload($body2, 'test-secret'))->assertOk();
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'chat.postMessage'));
+});
+
+it('does not treat normal task descriptions as help queries', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    Queue::fake();
+    config()->set('yak.channels.slack.bot_token', 'xoxb-help');
+    config()->set('yak.channels.slack.signing_secret', 'test-secret');
+    (new ChannelServiceProvider(app()))->boot();
+
+    Repository::factory()->create(['slug' => 'org/repo', 'is_default' => true, 'is_active' => true]);
+
+    $body = slackMentionPayload(text: 'fix the login bug that helps users authenticate');
+    $headers = signSlackPayload($body, 'test-secret');
+
+    $this->postJson('/webhooks/slack', json_decode($body, true), $headers)->assertOk();
+
+    // The task should be created — "help" appearing mid-sentence doesn't trigger the help card.
+    expect(YakTask::count())->toBe(1);
 });

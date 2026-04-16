@@ -36,6 +36,10 @@ class SlackInputDriver implements InputDriver
                 'slack_channel' => $event['channel'] ?? '',
                 'slack_thread_ts' => $event['thread_ts'] ?? $event['ts'] ?? '',
                 'slack_user_id' => $event['user'] ?? '',
+                // The ts of the @yak mention itself — always the event's
+                // `ts` regardless of whether we're in a thread. This is
+                // what reactions get applied to.
+                'slack_message_ts' => $event['ts'] ?? '',
             ],
         );
     }
