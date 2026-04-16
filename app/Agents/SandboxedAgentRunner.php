@@ -6,9 +6,12 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Exceptions\ClaudeAuthException;
+use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
 use App\Services\IncusSandboxManager;
+use App\Services\TaskLogger;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Agent runner that executes Claude Code inside an Incus sandbox container.
@@ -26,11 +29,102 @@ class SandboxedAgentRunner implements AgentRunner
 
     public function run(AgentRunRequest $request): AgentRunResult
     {
+        $this->refreshClaude($request);
+
         if ($request->task) {
             return $this->runStreaming($request);
         }
 
         return $this->runBatch($request);
+    }
+
+    /**
+     * Update the Claude CLI inside the sandbox to the latest release
+     * before invoking `claude -p`. Best-effort: on any failure we log a
+     * warning and proceed with whatever version is already installed.
+     *
+     * Runs as root because the npm global install lives under
+     * /usr/lib/node_modules, which the `yak` user cannot write.
+     */
+    private function refreshClaude(AgentRunRequest $request): void
+    {
+        $containerName = $request->containerName;
+        if ($containerName === '') {
+            return;
+        }
+
+        $versionBefore = $this->claudeVersion($containerName);
+
+        try {
+            $updateResult = $this->sandbox->run(
+                $containerName,
+                'npm install -g @anthropic-ai/claude-code@latest 2>&1',
+                timeout: 60,
+                asRoot: true,
+            );
+        } catch (Throwable $e) {
+            $this->logRefreshWarning($request->task, 'Claude CLI refresh threw', [
+                'container' => $containerName,
+                'error' => $e->getMessage(),
+                'version_before' => $versionBefore,
+            ]);
+
+            return;
+        }
+
+        if (! $updateResult->successful()) {
+            $this->logRefreshWarning($request->task, 'Claude CLI refresh exited non-zero', [
+                'container' => $containerName,
+                'exit_code' => $updateResult->exitCode(),
+                'output' => substr((string) $updateResult->output(), -500),
+                'version_before' => $versionBefore,
+            ]);
+
+            return;
+        }
+
+        $versionAfter = $this->claudeVersion($containerName);
+        $metadata = [
+            'container' => $containerName,
+            'version_before' => $versionBefore,
+            'version_after' => $versionAfter,
+        ];
+
+        Log::channel('yak')->info('Claude CLI refreshed in sandbox', $metadata);
+
+        if ($request->task !== null) {
+            TaskLogger::info($request->task, "Claude CLI {$versionBefore} → {$versionAfter}", $metadata);
+        }
+    }
+
+    /**
+     * Ask the sandbox's claude binary to report its version. Returns
+     * "unknown" if the call fails, so refresh logging is always safe.
+     */
+    private function claudeVersion(string $containerName): string
+    {
+        try {
+            $result = $this->sandbox->run($containerName, 'claude --version', timeout: 10, asRoot: true);
+            if (! $result->successful()) {
+                return 'unknown';
+            }
+
+            return trim((string) $result->output());
+        } catch (Throwable) {
+            return 'unknown';
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function logRefreshWarning(?YakTask $task, string $message, array $metadata): void
+    {
+        Log::channel('yak')->warning($message, $metadata);
+
+        if ($task !== null) {
+            TaskLogger::warning($task, $message, $metadata);
+        }
     }
 
     private function runStreaming(AgentRunRequest $request): AgentRunResult
