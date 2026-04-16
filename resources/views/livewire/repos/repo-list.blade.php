@@ -23,9 +23,11 @@
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse($this->repositories as $repo)
-                    <tr wire:key="repo-{{ $repo->id }}" class="h-14 cursor-pointer transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 {{ !$repo->is_active ? 'opacity-60' : '' }}" onclick="window.location='{{ route('repos.edit', $repo) }}'">
+                    {{-- translateZ forces Safari to treat the <tr> as a containing block; see task-list.blade.php --}}
+                    <tr wire:key="repo-{{ $repo->id }}" class="relative h-14 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50 {{ !$repo->is_active ? 'opacity-60' : '' }}" style="transform: translateZ(0)">
                         <td class="px-3 py-2 sm:px-5">
-                            <span class="font-medium text-accent">{{ $repo->slug }}</span>
+                            <a href="{{ route('repos.edit', $repo) }}" wire:navigate class="absolute inset-0" aria-label="Open repository {{ $repo->slug }}"></a>
+                            <span class="relative font-medium text-accent">{{ $repo->slug }}</span>
                         </td>
                         <td class="px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">{{ $repo->name }}</td>
                         <td class="px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">{{ \App\Livewire\Repos\RepoList::ciSystemLabel($repo->ci_system) }}</td>
