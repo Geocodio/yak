@@ -11,7 +11,11 @@ Artisan::command('inspire', function () {
 Schedule::command('yak:cleanup')->daily();
 Schedule::command('yak:cleanup-sandboxes')->hourly();
 Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();
-Schedule::command('yak:refresh-claude-auth')->everyFourHours()->withoutOverlapping();
+// Hourly because the Max access token lives ~8h and
+// everyFourHours() fires at fixed clock hours — a deploy landing a
+// few minutes after a fire time can go 4h without a refresh, which
+// stacks badly against an already-aging on-disk token.
+Schedule::command('yak:refresh-claude-auth')->hourly()->withoutOverlapping();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours();
