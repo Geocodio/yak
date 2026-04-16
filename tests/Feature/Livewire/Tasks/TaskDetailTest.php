@@ -2,7 +2,10 @@
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ResearchYakJob;
+use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
+use App\Jobs\SetupYakJob;
 use App\Livewire\Tasks\TaskDetail;
 use App\Models\Artifact;
 use App\Models\LinearOauthConnection;
@@ -749,6 +752,49 @@ test('cancel flips Linear issue state when cancelled_state_id is configured', fu
             && str_contains($request['query'], 'issueUpdate')
             && ($request['variables']['stateId'] ?? '') === 'cancelled-state-uuid';
     });
+});
+
+test('retry dispatches ResearchYakJob for research-mode tasks', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->failed()->create([
+        'mode' => TaskMode::Research,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('retry');
+
+    Queue::assertPushed(ResearchYakJob::class, fn ($job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('retry dispatches RunYakJob for fix-mode tasks', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->failed()->create([
+        'mode' => TaskMode::Fix,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('retry');
+
+    Queue::assertPushed(RunYakJob::class, fn ($job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(ResearchYakJob::class);
+});
+
+test('retry dispatches SetupYakJob for setup-mode tasks', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->failed()->create([
+        'mode' => TaskMode::Setup,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('retry');
+
+    Queue::assertPushed(SetupYakJob::class, fn ($job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertNotPushed(ResearchYakJob::class);
 });
 
 test('nextSteps nudge shows retry prompt for failed tasks', function () {

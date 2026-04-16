@@ -6,6 +6,7 @@ use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
@@ -81,6 +82,7 @@ class TaskDetail extends Component
 
         $job = match ($mode) {
             TaskMode::Setup => new SetupYakJob($this->task),
+            TaskMode::Research => new ResearchYakJob($this->task),
             default => new RunYakJob($this->task),
         };
 
