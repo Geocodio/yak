@@ -47,3 +47,21 @@ it('posts a COMMENT review with line-level comments', function () {
             && $body['comments'][0]['path'] === 'app/Foo.php';
     });
 });
+
+it('dismisses a review with a message', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'x', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/geocodio/api/pulls/42/reviews/77/dismissals' => Http::response(['id' => 77, 'state' => 'DISMISSED']),
+    ]);
+
+    app(GitHubAppService::class)
+        ->dismissPullRequestReview(12345, 'geocodio/api', 42, 77, 'Superseded.');
+
+    Http::assertSent(function ($request): bool {
+        if (! str_contains($request->url(), '/reviews/77/dismissals')) {
+            return false;
+        }
+
+        return str_contains((string) $request->body(), 'Superseded');
+    });
+});

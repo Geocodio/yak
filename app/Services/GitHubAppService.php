@@ -303,6 +303,23 @@ class GitHubAppService
         return $response->json();
     }
 
+    public function dismissPullRequestReview(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        int $reviewId,
+        string $message,
+    ): void {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->put("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}/dismissals", [
+                'message' => $message,
+                'event' => 'DISMISS',
+            ]);
+    }
+
     private function requestInstallationToken(int $installationId): string
     {
         $jwt = $this->generateJwt();
