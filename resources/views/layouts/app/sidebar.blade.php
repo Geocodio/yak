@@ -40,6 +40,12 @@
                             <flux:icon.code-bracket class="size-5" />
                             {{ __('Repositories') }}
                         </a>
+                        <a href="{{ route('pr-reviews') }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('pr-reviews') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           wire:navigate @click="mobileNavOpen = false">
+                            <flux:icon.chat-bubble-left-ellipsis class="size-5" />
+                            {{ __('PR Reviews') }}
+                        </a>
                         <a href="{{ route('channels') }}"
                            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('channels') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
