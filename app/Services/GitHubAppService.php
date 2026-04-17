@@ -338,6 +338,22 @@ class GitHubAppService
         return $results;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listCommentReactions(int $installationId, string $repoSlug, int $commentId): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/comments/{$commentId}/reactions");
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : [];
+    }
+
     public function dismissPullRequestReview(
         int $installationId,
         string $repoSlug,

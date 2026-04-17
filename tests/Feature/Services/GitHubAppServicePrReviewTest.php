@@ -64,6 +64,21 @@ it('lists open PRs with pagination', function () {
     expect($prs)->toHaveCount(2);
 });
 
+it('lists reactions on a review comment', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'x', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/geocodio/api/pulls/comments/999/reactions' => Http::response([
+            ['id' => 1, 'user' => ['login' => 'maria', 'id' => 10], 'content' => '+1', 'created_at' => '2026-04-17T00:00:00Z'],
+            ['id' => 2, 'user' => ['login' => 'bob', 'id' => 11], 'content' => '-1', 'created_at' => '2026-04-17T00:00:00Z'],
+        ]),
+    ]);
+
+    $reactions = app(GitHubAppService::class)->listCommentReactions(12345, 'geocodio/api', 999);
+
+    expect($reactions)->toHaveCount(2)
+        ->and($reactions[0]['content'])->toBe('+1');
+});
+
 it('dismisses a review with a message', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'x', 'expires_at' => now()->addHour()->toIso8601String()]),
