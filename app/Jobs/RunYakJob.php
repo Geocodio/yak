@@ -151,7 +151,7 @@ class RunYakJob implements ShouldQueue
 
             TaskLogger::info($this->task, 'Assessment complete');
 
-            if ($result->clarificationNeeded && $this->task->source === 'slack') {
+            if ($result->clarificationNeeded) {
                 $this->handleClarification($result);
 
                 return;

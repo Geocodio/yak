@@ -23,6 +23,41 @@ use Tests\Support\FakeSandboxManager;
 |--------------------------------------------------------------------------
 */
 
+test('retry routes to AwaitingClarification when Claude signals clarificationNeeded', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_clarify',
+        resultSummary: 'Still stuck',
+        costUsd: 0.15,
+        numTurns: 2,
+        durationMs: 5000,
+        isError: false,
+        clarificationNeeded: true,
+        clarificationOptions: ['Approach X', 'Approach Y'],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'retry-clar-repo', 'path' => '/home/yak/repos/retry-clar-repo']);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'retry-clar-repo',
+        'branch_name' => 'yak/retry-clar',
+        'source' => 'linear',
+    ]);
+
+    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->clarification_options)->toBe(['Approach X', 'Approach Y']);
+});
+
 test('retry marks task Success and skips push when no new commits', function () {
     Queue::fake();
 

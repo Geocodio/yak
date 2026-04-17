@@ -24,6 +24,73 @@ use Tests\Support\FakeSandboxManager;
 |--------------------------------------------------------------------------
 */
 
+test('clarification is handled for any source, not just slack', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_clarify',
+        resultSummary: 'Need more info',
+        costUsd: 0.05,
+        numTurns: 1,
+        durationMs: 2000,
+        isError: false,
+        clarificationNeeded: true,
+        clarificationOptions: ['Option A', 'Option B'],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'linear-clar-repo', 'path' => '/home/yak/repos/linear-clar-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'linear-clar-repo',
+        'source' => 'linear',
+    ]);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->clarification_options)->toBe(['Option A', 'Option B']);
+});
+
+test('clarification is handled for sentry tasks too', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_sentry_clarify',
+        resultSummary: 'Need trace',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: true,
+        clarificationOptions: ['Share a trace ID', 'Close as environment-specific'],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'sentry-repo', 'path' => '/home/yak/repos/sentry-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'sentry-repo',
+        'source' => 'sentry',
+    ]);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification);
+});
+
 test('handleSuccess marks task Success and skips push when no new commits', function () {
     Queue::fake();
 
@@ -390,7 +457,7 @@ test('clarification from slack source sets awaiting_clarification status', funct
         ->and($task->num_turns)->toBe(5);
 });
 
-test('clarification from non-slack source is treated as success', function () {
+test('clarification from non-slack source is honored and routes to AwaitingClarification', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_linear_clarify',
         resultSummary: '',
@@ -419,7 +486,7 @@ test('clarification from non-slack source is treated as success', function () {
 
     $task->refresh();
 
-    expect($task->status)->toBe(TaskStatus::AwaitingCi);
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification);
 });
 
 /*
