@@ -32,6 +32,13 @@ return [
     // Slack gets it as an extra in-thread reply. Default on.
     'emit_start_progress' => (bool) env('YAK_EMIT_START_PROGRESS', true),
 
+    // Intent classifier: when a task comes in without an explicit
+    // `research:` prefix, a cheap Haiku call decides Fix vs Research.
+    // Disable for tests that don't want to mock the AI SDK.
+    'intent_classifier' => [
+        'enabled' => (bool) env('YAK_INTENT_CLASSIFIER_ENABLED', true),
+    ],
+
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
 
     'git_user_name' => env('YAK_GIT_USER_NAME', 'Yak'),

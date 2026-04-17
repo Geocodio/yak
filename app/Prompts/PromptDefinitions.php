@@ -109,6 +109,13 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-task-intent' => [
+                'view' => 'prompts.agents.task-intent',
+                'label' => 'Task Intent Classifier',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
         ];
     }
 
