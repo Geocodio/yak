@@ -267,6 +267,14 @@ Do NOT make code changes or commits.
    findings page.
 ```
 
+### PR Review
+
+Slug: `tasks-review`. Dispatched by the GitHub webhook when a PR is opened, made ready for review, reopened, or synchronized on a repo with `pr_review_enabled = true`.
+
+The template is read-only: it explicitly forbids commits or file modifications. It receives the PR title, body, author, head/base branches, scope (`full` or `incremental`), filtered list of changed files, an optional Linear ticket description (when the body mentions an identifier like `GEO-1234`), and the repo's path-exclude globs. Output is a strict JSON block with `summary`, `verdict`, `verdict_detail`, and `findings[]` — each finding carries a file, line, severity (`must_fix` / `should_fix` / `consider`), category, body, and an optional `suggestion_loc` when the body contains a `suggestion` block.
+
+See [pr-review.md](pr-review.md) for the operational guide.
+
 ### Slack Fix (with ambiguity check)
 
 ```
