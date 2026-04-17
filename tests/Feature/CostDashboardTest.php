@@ -141,7 +141,7 @@ test('source filter narrows results', function () {
 
 test('guests cannot access cost dashboard', function () {
     auth()->logout();
-    $this->get('/costs')->assertRedirect('/auth/google');
+    $this->get('/costs')->assertRedirect('/login');
 });
 
 test('success rate is calculated correctly', function () {

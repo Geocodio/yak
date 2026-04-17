@@ -6,7 +6,7 @@ test('guests see the login page at the homepage', function () {
     $response = $this->get(route('home'));
 
     $response->assertOk();
-    $response->assertSee('Continue with Google');
+    $response->assertSee('Sign in');
 });
 
 test('authenticated users are redirected from homepage to tasks', function () {
