@@ -21,6 +21,7 @@ class Repository extends Model
         'is_active' => true,
         'setup_status' => 'pending',
         'default_branch' => 'main',
+        'pr_review_enabled' => false,
     ];
 
     /**
@@ -32,6 +33,8 @@ class Repository extends Model
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',
+            'pr_review_enabled' => 'boolean',
+            'pr_review_path_excludes' => 'array',
         ];
     }
 
