@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Repos;
 
+use App\Actions\ApplyPrReviewToOpenPulls;
 use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
@@ -42,6 +43,10 @@ class RepoForm extends Component
 
     public string $sentry_project = '';
 
+    public bool $pr_review_enabled = false;
+
+    public bool $apply_to_open_prs = true;
+
     // GitHub repo picker (create mode only)
     public string $github_search = '';
 
@@ -73,6 +78,7 @@ class RepoForm extends Component
             $this->is_default = $repository->is_default;
             $this->ci_system = $repository->ci_system;
             $this->sentry_project = $repository->sentry_project ?? '';
+            $this->pr_review_enabled = (bool) $repository->pr_review_enabled;
         } else {
             $this->loadGitHubRepos();
         }
@@ -263,6 +269,8 @@ class RepoForm extends Component
             'is_default' => ['boolean'],
             'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone', 'none'])],
             'sentry_project' => ['nullable', 'string', 'max:255'],
+            'pr_review_enabled' => ['boolean'],
+            'apply_to_open_prs' => ['boolean'],
         ];
 
         if ($this->repository) {
@@ -308,7 +316,10 @@ class RepoForm extends Component
             'is_default' => $this->is_default,
             'ci_system' => $this->ci_system,
             'sentry_project' => $this->sentry_project ?: null,
+            'pr_review_enabled' => $this->pr_review_enabled,
         ];
+
+        $wasEnabled = (bool) ($this->repository?->pr_review_enabled ?? false);
 
         if ($this->repository) {
             $this->repository->update($data);
@@ -319,7 +330,22 @@ class RepoForm extends Component
             Flux::toast('Repository created. Setup task dispatched.');
         }
 
+        if ($this->pr_review_enabled && ! $wasEnabled && $this->apply_to_open_prs) {
+            app(ApplyPrReviewToOpenPulls::class)($this->repository);
+        }
+
         $this->redirectRoute('repos.edit', $this->repository, navigate: true);
+    }
+
+    public function reviewAllOpenPrs(): void
+    {
+        if (! $this->repository) {
+            return;
+        }
+
+        $count = app(ApplyPrReviewToOpenPulls::class)($this->repository);
+
+        Flux::toast("Enqueued review for {$count} open PRs.");
     }
 
     public function rerunSetup(): void

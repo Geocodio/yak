@@ -169,6 +169,25 @@
                         <flux:switch wire:model="is_active" label="Active" description="Enabled" />
                     </div>
                 @endif
+                <div>
+                    <flux:switch
+                        wire:model.live="pr_review_enabled"
+                        label="PR Review"
+                        description="Have Yak review every open, non-draft pull request on this repo."
+                    />
+                </div>
+                @if($pr_review_enabled && ! ($repository?->pr_review_enabled ?? false))
+                    <div class="rounded-lg border border-yak-tan/40 bg-yak-cream-dark/40 p-3">
+                        <flux:switch wire:model="apply_to_open_prs" label="Review all currently open PRs on save" />
+                    </div>
+                @endif
+                @if($this->isEditing && $pr_review_enabled && ($repository?->pr_review_enabled ?? false))
+                    <div>
+                        <flux:button wire:click="reviewAllOpenPrs" variant="outline" size="sm">
+                            Re-review all open PRs
+                        </flux:button>
+                    </div>
+                @endif
             </div>
         </div>
 
