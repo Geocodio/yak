@@ -95,6 +95,18 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['chosenOption'],
             ],
+            'tasks-review' => [
+                'view' => 'prompts.tasks.review',
+                'label' => 'PR Review',
+                'category' => 'high_touch',
+                'type' => 'task',
+                'variables' => [
+                    'prNumber', 'prTitle', 'prBody', 'prAuthor',
+                    'baseBranch', 'headBranch', 'diffSummary',
+                    'reviewScope', 'changedFiles',
+                    'repoAgentInstructions', 'pathExcludes', 'linearTicket',
+                ],
+            ],
             'channels-sentry' => [
                 'view' => 'prompts.channels.sentry',
                 'label' => 'Channel: Sentry',
