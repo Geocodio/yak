@@ -7,6 +7,7 @@ use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
 use App\Livewire\Health;
 use App\Livewire\PromptEditor;
+use App\Livewire\PrReviewFeedback;
 use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
 use App\Livewire\Skills;
@@ -41,6 +42,7 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('channels', ChannelList::class)->name('channels');
     Route::livewire('prompts', PromptEditor::class)->name('prompts');
     Route::livewire('skills', Skills::class)->name('skills');
+    Route::livewire('pr-reviews', PrReviewFeedback::class)->name('pr-reviews');
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
