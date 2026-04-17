@@ -66,6 +66,15 @@
         </button>
         <button
             type="button"
+            wire:click="$set('tab', 'reviews')"
+            class="-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors {{ $tab === 'reviews' ? 'border-yak-orange text-yak-orange' : 'border-transparent text-yak-blue hover:text-yak-slate' }}"
+            data-testid="tab-reviews"
+        >
+            <span>PR Reviews</span>
+            <span class="rounded-full px-2 py-0.5 text-xs {{ $tab === 'reviews' ? 'bg-yak-orange/15 text-yak-orange' : 'bg-yak-cream-dark text-yak-blue' }}">{{ $this->reviewsCount }}</span>
+        </button>
+        <button
+            type="button"
             wire:click="$set('tab', 'setup')"
             class="-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors {{ $tab === 'setup' ? 'border-yak-orange text-yak-orange' : 'border-transparent text-yak-blue hover:text-yak-slate' }}"
             data-testid="tab-setup"
