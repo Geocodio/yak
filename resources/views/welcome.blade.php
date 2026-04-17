@@ -249,9 +249,10 @@
             position: relative;
             z-index: 2;
             transform-origin: 50% 50%;
-            transition: translate 0.9s  cubic-bezier(0.22, 1, 0.36, 1),
-                        rotate    0.9s  cubic-bezier(0.22, 1, 0.36, 1),
-                        scale     1.8s  cubic-bezier(0.42, 0, 0.58, 1);
+            /* Hover-out: scale back quickly, no delay. Hover-in delay is on :hover. */
+            transition: translate 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                        rotate    0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                        scale     0.8s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .hero-mascot::before {
             content: '';
@@ -320,6 +321,10 @@
             translate: 0 -22px;
             rotate: -2deg;
             scale: 0.55;
+            /* Wait for the UFO to arrive (~1s) before the yak starts shrinking. */
+            transition: translate 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                        rotate    0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                        scale     1.8s cubic-bezier(0.42, 0, 0.58, 1) 1.0s;
         }
         /* Wobble only touches transform + rotate so translate stays owned by the
            CSS transition (otherwise the UFO snaps on unhover). The 0%/100% frame
