@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskMode;
+use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Bus;
@@ -126,6 +127,122 @@ it('skips when the repo has pr_review_enabled = false', function () {
     ])->assertOk();
 
     expect(YakTask::count())->toBe(0);
+});
+
+it('triggers on ready_for_review', function () {
+    Bus::fake();
+    Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
+
+    $payload = [
+        'action' => 'ready_for_review',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/10',
+            'draft' => false, 'user' => ['login' => 'm'],
+            'head' => ['ref' => 'x', 'sha' => 'a'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+            'number' => 10, 'title' => '', 'body' => '',
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload($body),
+    ])->assertOk();
+
+    $task = YakTask::where('mode', TaskMode::Review)->first();
+    expect(json_decode($task->context, true)['review_scope'])->toBe('full');
+});
+
+it('triggers full review on reopened', function () {
+    Bus::fake();
+    Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
+
+    $payload = [
+        'action' => 'reopened',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/11',
+            'draft' => false, 'user' => ['login' => 'm'],
+            'head' => ['ref' => 'x', 'sha' => 'a'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+            'number' => 11, 'title' => '', 'body' => '',
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload($body),
+    ])->assertOk();
+
+    $task = YakTask::where('mode', TaskMode::Review)->first();
+    expect(json_decode($task->context, true)['review_scope'])->toBe('full');
+});
+
+it('triggers incremental review on synchronize when prior exists', function () {
+    Bus::fake();
+    $repo = Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
+
+    $priorTask = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/20',
+    ]);
+
+    PrReview::factory()->create([
+        'yak_task_id' => $priorTask->id,
+        'pr_url' => 'https://github.com/geocodio/api/pull/20',
+        'commit_sha_reviewed' => 'old-sha',
+    ]);
+
+    $payload = [
+        'action' => 'synchronize',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/20',
+            'draft' => false, 'user' => ['login' => 'm'],
+            'head' => ['ref' => 'x', 'sha' => 'new-sha'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+            'number' => 20, 'title' => '', 'body' => '',
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload($body),
+    ])->assertOk();
+
+    $task = YakTask::where('mode', TaskMode::Review)->latest()->first();
+    $ctx = json_decode($task->context, true);
+    expect($ctx['review_scope'])->toBe('incremental')
+        ->and($ctx['incremental_base_sha'])->toBe('old-sha');
+});
+
+it('falls back to full on synchronize when no prior review exists', function () {
+    Bus::fake();
+    Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
+
+    $payload = [
+        'action' => 'synchronize',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/21',
+            'draft' => false, 'user' => ['login' => 'm'],
+            'head' => ['ref' => 'x', 'sha' => 'new-sha'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+            'number' => 21, 'title' => '', 'body' => '',
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload($body),
+    ])->assertOk();
+
+    $task = YakTask::where('mode', TaskMode::Review)->first();
+    $ctx = json_decode($task->context, true);
+    expect($ctx['review_scope'])->toBe('full')
+        ->and($ctx['incremental_base_sha'])->toBeNull();
 });
 
 it('dedups same PR + head SHA', function () {
