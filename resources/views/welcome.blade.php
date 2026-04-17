@@ -294,8 +294,9 @@
                 rgba(255, 243, 180, 0.00) 100%);
             clip-path: polygon(40% 0%, 60% 0%, 100% 100%, 0% 100%);
             filter: blur(2px) drop-shadow(0 0 14px rgba(255, 236, 170, 0.55));
-            transition: transform 0.5s ease 0.55s,
-                        opacity   0.5s ease 0.55s;
+            /* Hover-out: snap off instantly. Hover-in delay + ease is set on :hover. */
+            transition: transform 0.12s ease 0s,
+                        opacity   0.12s ease 0s;
             z-index: 1;
         }
         .hero-mascot:hover .ufo {
@@ -306,6 +307,8 @@
         .hero-mascot:hover .abduction-beam {
             opacity: 1;
             transform: scaleY(1);
+            transition: transform 0.5s ease 0.55s,
+                        opacity   0.5s ease 0.55s;
         }
         .hero-mascot:hover .mascot-img {
             translate: 0 -14px;
