@@ -277,6 +277,32 @@ class GitHubAppService
         return "{$header}.{$payload}.{$this->base64UrlEncode($signature)}";
     }
 
+    /**
+     * @param  array<int, array{path: string, line: int, body: string}>  $comments
+     * @return array<string, mixed>
+     */
+    public function createPullRequestReview(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        string $body,
+        string $event,
+        array $comments,
+    ): array {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews", [
+                'body' => $body,
+                'event' => $event,
+                'comments' => $comments,
+            ]);
+
+        /** @var array<string, mixed> */
+        return $response->json();
+    }
+
     private function requestInstallationToken(int $installationId): string
     {
         $jwt = $this->generateJwt();
