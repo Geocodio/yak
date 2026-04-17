@@ -13,6 +13,7 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
+use App\Models\PrReview;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
@@ -22,6 +23,7 @@ use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use League\CommonMark\CommonMarkConverter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -224,6 +226,42 @@ class TaskDetail extends Component
     public function toggleDebug(): void
     {
         $this->showDebug = ! $this->showDebug;
+    }
+
+    #[Computed]
+    public function prReview(): ?PrReview
+    {
+        if ($this->task->mode !== TaskMode::Review) {
+            return null;
+        }
+
+        return PrReview::where('yak_task_id', $this->task->id)
+            ->with('comments')
+            ->first();
+    }
+
+    #[Computed]
+    public function renderedReviewBody(): string
+    {
+        $review = $this->prReview;
+        if ($review === null) {
+            return '';
+        }
+
+        $parts = [];
+        $parts[] = "## Summary\n\n" . ($review->summary ?? '');
+
+        $nitpicks = $review->comments->where('severity', 'consider');
+        if ($nitpicks->isNotEmpty()) {
+            $body = $nitpicks->map(fn ($c) => "- **{$c->file_path}:{$c->line_number}** — _{$c->category}_: {$c->body}")->implode("\n");
+            $parts[] = "### Nitpicks ({$nitpicks->count()})\n\n" . $body;
+        }
+
+        $parts[] = "## Verdict\n\n**" . ($review->verdict ?? '') . '**';
+
+        $md = implode("\n\n", $parts);
+
+        return (new CommonMarkConverter)->convert($md)->getContent();
     }
 
     #[Computed]

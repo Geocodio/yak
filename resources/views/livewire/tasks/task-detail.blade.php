@@ -243,6 +243,79 @@
         </div>
     @endif
 
+    {{-- Review-specific panels --}}
+    @if($task->mode === \App\Enums\TaskMode::Review && $this->prReview)
+        @php($review = $this->prReview)
+        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+            <h2 class="mb-4 text-lg font-medium text-yak-slate">Review output</h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                    <dt class="text-yak-slate/70">PR</dt>
+                    <dd>
+                        <a href="{{ $review->pr_url }}" target="_blank" class="font-medium text-yak-orange hover:text-yak-orange-warm">
+                            {{ $review->repo }}#{{ $review->pr_number }}
+                        </a>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-yak-slate/70">Verdict</dt>
+                    <dd class="text-yak-slate">{{ $review->verdict ?? '—' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-yak-slate/70">Scope</dt>
+                    <dd><flux:badge size="sm" :variant="$review->review_scope === 'full' ? 'outline' : 'primary'">{{ $review->review_scope }}</flux:badge></dd>
+                </div>
+                <div>
+                    <dt class="text-yak-slate/70">Findings</dt>
+                    <dd class="text-yak-slate">{{ $review->comments->count() }}</dd>
+                </div>
+                @if($review->dismissed_at)
+                    <div>
+                        <dt class="text-yak-slate/70">Dismissed</dt>
+                        <dd class="text-yak-slate">{{ $review->dismissed_at->diffForHumans() }}</dd>
+                    </div>
+                @endif
+            </dl>
+        </div>
+
+        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+            <h2 class="mb-4 text-lg font-medium text-yak-slate">Review preview</h2>
+            <div class="prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-strong:text-yak-slate">
+                {!! $this->renderedReviewBody !!}
+            </div>
+        </div>
+
+        @if($review->comments->isNotEmpty())
+            <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+                <h2 class="mb-4 text-lg font-medium text-yak-slate">Findings</h2>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-yak-tan/30 text-left">
+                            <th class="py-2 font-medium text-yak-slate">File</th>
+                            <th class="py-2 font-medium text-yak-slate">Severity</th>
+                            <th class="py-2 font-medium text-yak-slate">Category</th>
+                            <th class="py-2 font-medium text-yak-slate">👍/👎</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($review->comments as $c)
+                            <tr class="border-b border-yak-tan/20">
+                                <td class="py-2 font-mono text-xs">{{ $c->file_path }}:{{ $c->line_number }}</td>
+                                <td class="py-2">
+                                    <flux:badge size="sm" :variant="$c->severity === 'must_fix' ? 'danger' : ($c->severity === 'should_fix' ? 'warning' : 'outline')">
+                                        {{ $c->severity }}
+                                    </flux:badge>
+                                </td>
+                                <td class="py-2 text-yak-slate">{{ $c->category }}</td>
+                                <td class="py-2 text-yak-slate">{{ $c->thumbs_up }} / {{ $c->thumbs_down }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    @endif
+
     {{-- Section 6: Screenshots --}}
     @if($this->screenshots->isNotEmpty() || $this->videos->isNotEmpty())
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
