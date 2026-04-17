@@ -22,6 +22,28 @@ beforeEach(function () {
     ]);
 });
 
+/**
+ * Render a PNG with a distinct light/dark pattern so it has non-trivial
+ * perceptual structure (solid colors dHash to 0 regardless of hue).
+ */
+function makePatternPng(string $pattern): string
+{
+    $img = imagecreatetruecolor(200, 150);
+    $bg = imagecolorallocate($img, 255, 255, 255);
+    $fg = imagecolorallocate($img, 0, 0, 0);
+    imagefilledrectangle($img, 0, 0, 200, 150, $bg);
+
+    match ($pattern) {
+        'left-half' => imagefilledrectangle($img, 0, 0, 100, 150, $fg),
+        'right-half' => imagefilledrectangle($img, 100, 0, 200, 150, $fg),
+    };
+
+    ob_start();
+    imagepng($img);
+
+    return (string) ob_get_clean();
+}
+
 /*
 |--------------------------------------------------------------------------
 | Green Path — PR Creation & Task Success
@@ -339,6 +361,64 @@ test('green path collects artifacts pre-collected by sandbox', function () {
     $report = Artifact::where('yak_task_id', $task->id)->where('filename', 'report.html')->first();
     expect($report)->not->toBeNull()
         ->and($report->type)->toBe('research');
+});
+
+test('green path drops perceptually identical screenshots', function () {
+    Http::fake([
+        'api.github.com/*' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/dup-repo/pull/1',
+        ]),
+    ]);
+
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/dup-repo',
+        'path' => '/home/yak/repos/dup-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/dup-repo',
+        'branch_name' => 'yak/FIX-DUP',
+        'source' => 'manual',
+        'attempts' => 1,
+    ]);
+
+    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    mkdir($artifactsDir, 0755, true);
+
+    // Two visually identical PNGs (same bytes written under different names),
+    // one visually distinct PNG. Expect the two dupes to collapse to one.
+    $leftHalf = makePatternPng('left-half');
+    $rightHalf = makePatternPng('right-half');
+
+    file_put_contents($artifactsDir . '/01-initial.png', $leftHalf);
+    file_put_contents($artifactsDir . '/02-same.png', $leftHalf);
+    file_put_contents($artifactsDir . '/03-different.png', $rightHalf);
+
+    $job = new ProcessCIResultJob($task, true);
+    $job->handle();
+
+    $screenshots = Artifact::where('yak_task_id', $task->id)
+        ->where('type', 'screenshot')
+        ->get();
+
+    expect($screenshots)->toHaveCount(2)
+        ->and($screenshots->pluck('filename')->sort()->values()->all())
+        ->toEqual(['01-initial.png', '03-different.png']);
+
+    // The dropped file should be gone from disk.
+    $droppedPath = Storage::disk('artifacts')->path("{$task->id}/02-same.png");
+    expect(file_exists($droppedPath))->toBeFalse();
+
+    // Surviving screenshots should have their dhash persisted.
+    expect($screenshots->pluck('dhash')->filter()->count())->toBe(2);
 });
 
 test('green path generates signed URLs with HMAC-SHA256 for artifacts', function () {

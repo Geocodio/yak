@@ -9,6 +9,7 @@ use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
+use App\Services\PerceptualHash;
 use App\Services\TaskLogger;
 use App\Services\VideoProcessor;
 use App\Services\YakPersonality;
@@ -151,6 +152,7 @@ class ProcessCIResultJob implements ShouldQueue
 
         $files = File::files($artifactsPath);
         $artifacts = [];
+        $screenshotHashes = [];
 
         foreach ($files as $file) {
             $storagePath = "{$this->task->id}/{$file->getFilename()}";
@@ -164,9 +166,30 @@ class ProcessCIResultJob implements ShouldQueue
                 }
             }
 
+            $fullPath = Storage::disk('artifacts')->path($storagePath);
+
+            // Drop screenshots that are perceptually identical to one we've
+            // already kept for this task. dHash distance ≤ 2 tolerates PNG
+            // encoding noise without collapsing real UI state changes.
+            $dhash = null;
+            if ($type === 'screenshot') {
+                $dhash = PerceptualHash::dhash($fullPath);
+                if ($dhash !== null && $this->isDuplicateScreenshot($dhash, $screenshotHashes)) {
+                    TaskLogger::info($this->task, 'Dropped duplicate screenshot', [
+                        'filename' => $file->getFilename(),
+                        'dhash' => $dhash,
+                    ]);
+                    File::delete($fullPath);
+
+                    continue;
+                }
+                if ($dhash !== null) {
+                    $screenshotHashes[] = $dhash;
+                }
+            }
+
             // Post-process video walkthroughs (trim dead start, speed up idle sections)
             if ($type === 'video') {
-                $fullPath = Storage::disk('artifacts')->path($storagePath);
                 VideoProcessor::process($fullPath);
             }
 
@@ -176,6 +199,7 @@ class ProcessCIResultJob implements ShouldQueue
                 'filename' => $file->getFilename(),
                 'disk_path' => $storagePath,
                 'size_bytes' => Storage::disk('artifacts')->size($storagePath),
+                'dhash' => $dhash,
             ]);
         }
 
@@ -185,6 +209,24 @@ class ProcessCIResultJob implements ShouldQueue
         }
 
         return $artifacts;
+    }
+
+    /**
+     * @param  array<int, string>  $knownHashes
+     */
+    private function isDuplicateScreenshot(string $dhash, array $knownHashes): bool
+    {
+        foreach ($knownHashes as $known) {
+            if (PerceptualHash::hamming($dhash, $known) <= 2) {
+                return true;
+            }
+        }
+
+        return Artifact::where('yak_task_id', $this->task->id)
+            ->where('type', 'screenshot')
+            ->whereNotNull('dhash')
+            ->pluck('dhash')
+            ->contains(fn (string $known) => PerceptualHash::hamming($dhash, $known) <= 2);
     }
 
     private function detectArtifactType(string $extension): string
