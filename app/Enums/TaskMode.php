@@ -7,4 +7,5 @@ enum TaskMode: string
     case Fix = 'fix';
     case Research = 'research';
     case Setup = 'setup';
+    case Review = 'review';
 }
