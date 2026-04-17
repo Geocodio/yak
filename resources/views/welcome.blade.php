@@ -239,12 +239,17 @@
         .hero-mascot {
             position: relative;
             justify-self: center;
+            cursor: default;
         }
-        .hero-mascot img {
+        .hero-mascot .mascot-img {
             width: 100%;
             max-width: 520px;
             height: auto;
             filter: drop-shadow(0 30px 40px rgba(92, 74, 58, 0.18));
+            position: relative;
+            z-index: 2;
+            transition: translate 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+                        rotate   0.75s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .hero-mascot::before {
             content: '';
@@ -253,6 +258,67 @@
             background: radial-gradient(ellipse at center, color-mix(in srgb, var(--yak-tan) 35%, transparent), transparent 65%);
             z-index: -1;
             filter: blur(30px);
+        }
+
+        /* Easter egg: hovering the mascot sends a UFO down to abduct the yak. */
+        .hero-mascot .ufo {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 42%;
+            height: auto;
+            pointer-events: none;
+            opacity: 0;
+            translate: -50% -220%;
+            filter: drop-shadow(0 14px 20px rgba(61, 79, 95, 0.28));
+            transition: opacity 0.35s ease,
+                        translate 1.0s cubic-bezier(0.34, 1.2, 0.64, 1);
+            z-index: 4;
+        }
+        .hero-mascot .abduction-beam {
+            position: absolute;
+            top: -28%;
+            left: 50%;
+            width: 30%;
+            height: 120%;
+            pointer-events: none;
+            translate: -50% 0;
+            transform-origin: top center;
+            transform: scaleY(0);
+            opacity: 0;
+            background: linear-gradient(to bottom,
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(255, 251, 230, 0.80) 18%,
+                rgba(255, 243, 180, 0.45) 55%,
+                rgba(255, 243, 180, 0.15) 85%,
+                rgba(255, 243, 180, 0.00) 100%);
+            clip-path: polygon(40% 0%, 60% 0%, 100% 100%, 0% 100%);
+            filter: blur(2px) drop-shadow(0 0 14px rgba(255, 236, 170, 0.55));
+            transition: transform 0.5s ease 0.55s,
+                        opacity   0.5s ease 0.55s;
+            z-index: 1;
+        }
+        .hero-mascot:hover .ufo {
+            opacity: 1;
+            translate: -50% -118%;
+            animation: ufo-hover 2.6s ease-in-out 1.1s infinite;
+        }
+        .hero-mascot:hover .abduction-beam {
+            opacity: 1;
+            transform: scaleY(1);
+        }
+        .hero-mascot:hover .mascot-img {
+            translate: 0 -14px;
+            rotate: -2deg;
+        }
+        @keyframes ufo-hover {
+            0%, 100% { translate: -50% -118%; rotate: -2.5deg; }
+            50%      { translate: -50% -126%; rotate:  2.5deg; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-mascot .ufo,
+            .hero-mascot .abduction-beam,
+            .hero-mascot .mascot-img { transition: none; animation: none; }
         }
 
         .papercut {
@@ -1092,7 +1158,9 @@
             <div class="hero-mascot reveal d3">
                 <div class="papercut papercut-1"></div>
                 <div class="papercut papercut-2"></div>
-                <img src="{{ asset('mascot.png') }}" alt="Yak mascot" class="float">
+                <div class="abduction-beam" aria-hidden="true"></div>
+                <img src="{{ asset('ufo.png') }}" alt="" class="ufo" aria-hidden="true">
+                <img src="{{ asset('mascot.png') }}" alt="Yak mascot" class="mascot-img float">
             </div>
         </div>
 
