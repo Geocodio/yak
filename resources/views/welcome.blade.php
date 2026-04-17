@@ -322,10 +322,13 @@
             scale: 0.55;
         }
         /* Wobble only touches transform + rotate so translate stays owned by the
-           CSS transition (otherwise the UFO snaps on unhover). */
+           CSS transition (otherwise the UFO snaps on unhover). The 0%/100% frame
+           matches the UFO's neutral state so there's no jerk when the animation
+           kicks in after its delay. */
         @keyframes ufo-wobble {
-            0%, 100% { transform: translateY(0);    rotate: -2.5deg; }
-            50%      { transform: translateY(-6px); rotate:  2.5deg; }
+            0%, 100% { transform: translateY(0);    rotate:  0deg;   }
+            25%      { transform: translateY(-5px); rotate:  3deg;   }
+            75%      { transform: translateY(-4px); rotate: -3deg;   }
         }
         @media (prefers-reduced-motion: reduce) {
             .hero-mascot .ufo,
