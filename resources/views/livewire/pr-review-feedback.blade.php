@@ -1,6 +1,26 @@
 <div>
     <h1 class="text-2xl font-semibold text-yak-slate mb-5">PR Reviews</h1>
 
+    @if ($this->showIntro())
+        <div class="mb-5 flex items-start gap-4 rounded-[20px] border border-yak-tan/40 bg-yak-cream-dark/60 p-4">
+            <div class="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-yak-orange/15 text-yak-orange">
+                <flux:icon.sparkles variant="mini" class="size-4" />
+            </div>
+            <div class="flex-1 text-sm text-yak-slate">
+                <div class="font-medium text-yak-orange mb-1">Yak now reviews your pull requests.</div>
+                Turn on <em>PR Review</em> on a repository, then open a PR — Yak posts a line-level review with suggestion blocks. Reactions (👍/👎) are tracked here so you can see which kinds of feedback the team finds useful.
+            </div>
+            <button
+                wire:click="dismissIntro"
+                type="button"
+                class="text-yak-slate/60 hover:text-yak-slate transition-colors"
+                aria-label="Dismiss"
+            >
+                <flux:icon.x-mark class="size-5" />
+            </button>
+        </div>
+    @endif
+
     @if ($stats['reviews'] === 0)
         <div class="rounded-[20px] border border-yak-tan/40 bg-yak-cream-dark/40 p-8 text-center">
             <flux:icon.chat-bubble-left-ellipsis class="mx-auto size-10 text-yak-slate/60" />

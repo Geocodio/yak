@@ -82,6 +82,24 @@ class PrReviewFeedback extends Component
             ->get();
     }
 
+    public function showIntro(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && $user->has_seen_pr_review_intro_at === null;
+    }
+
+    public function dismissIntro(): void
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return;
+        }
+
+        $user->forceFill(['has_seen_pr_review_intro_at' => now()])->save();
+    }
+
     public function sortBy(string $column): void
     {
         if ($this->sort_by === $column) {
