@@ -329,7 +329,7 @@ test('review prompt renders the tasks-review template for a review task', functi
         'linearTicket' => null,
     ]);
 
-    expect($prompt)->toContain('Review pull request #42')
+    expect($prompt)->toContain('reviewing pull request #42')
         ->and($prompt)->toContain('Add retry')
         ->and($prompt)->toContain('full review')
         ->and($prompt)->not->toContain('clarification_needed');

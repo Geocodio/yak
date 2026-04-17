@@ -35,7 +35,9 @@ class EnqueuePrReview
             'context' => json_encode([
                 'pr_number' => (int) $prPayload['number'],
                 'head_sha' => $headSha,
+                'head_ref' => (string) $prPayload['head']['ref'],
                 'base_sha' => (string) $prPayload['base']['sha'],
+                'base_ref' => (string) $prPayload['base']['ref'],
                 'author' => (string) $prPayload['user']['login'],
                 'title' => (string) ($prPayload['title'] ?? ''),
                 'body' => (string) ($prPayload['body'] ?? ''),

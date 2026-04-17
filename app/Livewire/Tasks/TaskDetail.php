@@ -10,6 +10,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
@@ -93,6 +94,7 @@ class TaskDetail extends Component
         $job = match ($mode) {
             TaskMode::Setup => new SetupYakJob($this->task),
             TaskMode::Research => new ResearchYakJob($this->task),
+            TaskMode::Review => new RunYakReviewJob($this->task),
             default => new RunYakJob($this->task),
         };
 

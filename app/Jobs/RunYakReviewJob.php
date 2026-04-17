@@ -166,7 +166,12 @@ class RunYakReviewJob implements ShouldQueue
     {
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
         $prNumber = (int) $metadata['pr_number'];
-        $headBranch = (string) $this->task->branch_name;
+        $headSha = (string) $metadata['head_sha'];
+
+        // Use a locally-generated branch name rooted at the PR number so
+        // the checkout never depends on whatever happens to be stored in
+        // $task->branch_name (which other jobs mutate for push flows).
+        $localBranch = "yak-review/pr-{$prNumber}";
 
         $installationId = (int) config('yak.channels.github.installation_id');
         if ($installationId > 0) {
@@ -179,14 +184,17 @@ class RunYakReviewJob implements ShouldQueue
             );
         }
 
+        // Fetch the PR's head commit and check it out at the exact SHA
+        // stored on the task. Pinning to the SHA guards against races with
+        // new pushes that arrive between enqueue and execution.
         $sandbox->run(
             $containerName,
-            "cd {$workspace} && git fetch origin pull/{$prNumber}/head:" . escapeshellarg($headBranch),
+            "cd {$workspace} && git fetch origin pull/{$prNumber}/head:" . escapeshellarg($localBranch),
             timeout: 60,
         );
         $sandbox->run(
             $containerName,
-            "cd {$workspace} && git checkout " . escapeshellarg($headBranch),
+            "cd {$workspace} && git checkout " . escapeshellarg($headSha),
             timeout: 30,
         );
     }
@@ -263,8 +271,8 @@ class RunYakReviewJob implements ShouldQueue
             'prTitle' => (string) $metadata['title'],
             'prBody' => (string) $metadata['body'],
             'prAuthor' => (string) $metadata['author'],
-            'baseBranch' => $repository->default_branch,
-            'headBranch' => (string) $this->task->branch_name,
+            'baseBranch' => (string) ($metadata['base_ref'] ?? $repository->default_branch),
+            'headBranch' => (string) ($metadata['head_ref'] ?? ''),
             'diffSummary' => trim($diffStat),
             'reviewScope' => $scope,
             'changedFiles' => $changedFiles,
