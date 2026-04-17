@@ -320,7 +320,7 @@
         .hero-mascot:hover .mascot-img {
             translate: 0 -72px;
             rotate: -2deg;
-            scale: 0.55;
+            scale: 0.28;
             /* Choreography on hover-in:
                1.0s → UFO in place, yak starts shrinking
                2.0s → yak starts drifting up into the beam (while still shrinking)
