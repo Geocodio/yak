@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\YakPromptBuilder;
@@ -298,6 +299,40 @@ test('slack fix prompt uses default requester name when not provided', function 
     $prompt = YakPromptBuilder::taskPrompt($task);
 
     expect($prompt)->toContain('a team member');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Task Prompts - Review
+|--------------------------------------------------------------------------
+*/
+
+test('review prompt renders the tasks-review template for a review task', function () {
+    $task = YakTask::factory()->pending()->create([
+        'mode' => TaskMode::Review,
+        'source' => 'github',
+        'description' => 'Review PR #42',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'prNumber' => 42,
+        'prTitle' => 'Add retry',
+        'prBody' => 'Fixes GEO-1234',
+        'prAuthor' => 'mathias',
+        'baseBranch' => 'main',
+        'headBranch' => 'feat/retry',
+        'diffSummary' => 'app/Foo.php | 3 +--',
+        'reviewScope' => 'full',
+        'changedFiles' => ['app/Foo.php'],
+        'repoAgentInstructions' => '',
+        'pathExcludes' => [],
+        'linearTicket' => null,
+    ]);
+
+    expect($prompt)->toContain('Review pull request #42')
+        ->and($prompt)->toContain('Add retry')
+        ->and($prompt)->toContain('full review')
+        ->and($prompt)->not->toContain('clarification_needed');
 });
 
 /*

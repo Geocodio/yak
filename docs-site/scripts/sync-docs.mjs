@@ -33,6 +33,7 @@ const PAGES = [
   { file: 'setup.md',           title: 'Setup Guide',    description: 'Provision a Yak server with Ansible in one command.',                    group: 'getting-started', order: 1 },
   { file: 'channels.md',        title: 'Channels',       description: 'Configure Slack, Linear, Sentry, GitHub, Drone, and the manual CLI.',    group: 'getting-started', order: 2 },
   { file: 'repositories.md',    title: 'Repositories',   description: 'Add and manage repositories, setup tasks, and CLAUDE.md conventions.',   group: 'getting-started', order: 3 },
+  { file: 'pr-review.md',       title: 'PR Review',      description: 'Enable Yak to review pull requests with line-level comments and a feedback dashboard.', group: 'getting-started', order: 4 },
   { file: 'architecture.md',    title: 'Architecture',   description: 'How Yak works under the hood: two-tier AI, drivers, state machine.',    group: 'reference',       order: 1 },
   { file: 'prompting.md',       title: 'Prompting',      description: 'Three prompt layers, system prompt, task templates, MCP servers.',       group: 'reference',       order: 2 },
   { file: 'troubleshooting.md', title: 'Troubleshooting',description: 'Common problems and how to diagnose them.',                             group: 'operations',      order: 1 },

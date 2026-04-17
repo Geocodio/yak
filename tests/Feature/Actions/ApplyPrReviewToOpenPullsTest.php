@@ -22,6 +22,7 @@ it('enqueues review tasks for each open non-draft non-Yak PR', function () {
     ]);
 
     $github = mock(GitHubAppService::class);
+    $github->shouldReceive('appBotLogin')->andReturn('yak-bot[bot]');
     $github->shouldReceive('listOpenPullRequests')->andReturn([
         ['number' => 1, 'html_url' => 'u1', 'title' => '', 'body' => '', 'draft' => false, 'user' => ['login' => 'maria'], 'head' => ['ref' => 'h1', 'sha' => 's1'], 'base' => ['ref' => 'main', 'sha' => 'b1']],
         ['number' => 2, 'html_url' => 'u2', 'title' => '', 'body' => '', 'draft' => true, 'user' => ['login' => 'maria'], 'head' => ['ref' => 'h2', 'sha' => 's2'], 'base' => ['ref' => 'main', 'sha' => 'b2']],

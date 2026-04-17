@@ -3,11 +3,50 @@
 namespace App\Services;
 
 use App\Models\GitHubInstallationToken;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class GitHubAppService
 {
     private const TOKEN_BUFFER_SECONDS = 300;
+
+    /**
+     * Bot login for the configured GitHub App, shaped like `my-app[bot]`.
+     *
+     * Reads the explicit `GITHUB_APP_BOT_LOGIN` env var when set; otherwise
+     * derives it from the App's `slug` (from `GET /app`) and caches for a
+     * day. Falls back to the default if the API call fails so the review
+     * path still skips cleanly even without network access.
+     */
+    public function appBotLogin(): string
+    {
+        $explicit = (string) config('yak.channels.github.app_bot_login_override', '');
+        if ($explicit !== '') {
+            return $explicit;
+        }
+
+        $default = (string) config('yak.channels.github.app_bot_login');
+
+        return Cache::remember('github-app-bot-login', now()->addDay(), function () use ($default): string {
+            try {
+                $jwt = $this->generateJwt();
+
+                $response = Http::withToken($jwt)
+                    ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                    ->get('https://api.github.com/app');
+
+                $slug = $response->json('slug');
+
+                if (is_string($slug) && $slug !== '') {
+                    return $slug . '[bot]';
+                }
+            } catch (\Throwable) {
+                // Fall through to default
+            }
+
+            return $default;
+        });
+    }
 
     public function getInstallationToken(int $installationId): string
     {
