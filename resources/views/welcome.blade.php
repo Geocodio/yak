@@ -248,8 +248,10 @@
             filter: drop-shadow(0 30px 40px rgba(92, 74, 58, 0.18));
             position: relative;
             z-index: 2;
+            transform-origin: 50% 70%;
             transition: translate 0.75s cubic-bezier(0.22, 1, 0.36, 1),
-                        rotate   0.75s cubic-bezier(0.22, 1, 0.36, 1);
+                        rotate   0.75s cubic-bezier(0.22, 1, 0.36, 1),
+                        scale    0.75s cubic-bezier(0.22, 1, 0.36, 1);
         }
         .hero-mascot::before {
             content: '';
@@ -317,6 +319,7 @@
         .hero-mascot:hover .mascot-img {
             translate: 0 -14px;
             rotate: -2deg;
+            scale: 0.92;
         }
         /* Wobble only touches transform + rotate so translate stays owned by the
            CSS transition (otherwise the UFO snaps on unhover). */
