@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Tasks;
 
+use App\Actions\EnqueuePrReview;
 use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
@@ -14,8 +15,10 @@ use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\PrReview;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Support\TaskSourceUrl;
@@ -226,6 +229,50 @@ class TaskDetail extends Component
     public function toggleDebug(): void
     {
         $this->showDebug = ! $this->showDebug;
+    }
+
+    public function rerunReview(): void
+    {
+        if ($this->task->mode !== TaskMode::Review) {
+            return;
+        }
+
+        $existing = YakTask::query()
+            ->where('mode', TaskMode::Review)
+            ->where('external_id', $this->task->pr_url)
+            ->whereIn('status', ['pending', 'running'])
+            ->exists();
+
+        if ($existing) {
+            Flux::toast('A review is already queued for this PR.', variant: 'warning');
+
+            return;
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $context = json_decode((string) $this->task->context, true) ?: [];
+        $prNumber = $context['pr_number'] ?? null;
+
+        if ($prNumber === null) {
+            Flux::toast('Cannot determine PR number.', variant: 'danger');
+
+            return;
+        }
+
+        $prPayload = app(GitHubAppService::class)
+            ->getPullRequest($installationId, $this->task->repo, (int) $prNumber);
+
+        if (! isset($prPayload['head']['sha'])) {
+            Flux::toast('Failed to fetch PR from GitHub.', variant: 'danger');
+
+            return;
+        }
+
+        $repo = Repository::where('slug', $this->task->repo)->firstOrFail();
+
+        app(EnqueuePrReview::class)->dispatch($repo, $prPayload, 'full');
+
+        Flux::toast('Re-running review for this PR.');
     }
 
     #[Computed]

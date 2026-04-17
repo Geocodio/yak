@@ -245,7 +245,7 @@
 
     {{-- Review-specific panels --}}
     @if($task->mode === \App\Enums\TaskMode::Review && $this->prReview)
-        @php($review = $this->prReview)
+        @php $review = $this->prReview; @endphp
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
             <h2 class="mb-4 text-lg font-medium text-yak-slate">Review output</h2>
             <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -276,6 +276,11 @@
                     </div>
                 @endif
             </dl>
+            <div class="mt-4">
+                <flux:button wire:click="rerunReview" variant="outline" size="sm">
+                    Re-run review
+                </flux:button>
+            </div>
         </div>
 
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
