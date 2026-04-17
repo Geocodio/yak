@@ -21,7 +21,7 @@ class GitHubAppService
     }
 
     /**
-     * @return array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string}>
+     * @return array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
      */
     public function listInstallationRepositories(int $installationId): array
     {
@@ -49,12 +49,29 @@ class GitHubAppService
                     'default_branch' => $repo['default_branch'],
                     'clone_url' => $repo['clone_url'],
                     'pushed_at' => $repo['pushed_at'] ?? null,
+                    'private' => (bool) ($repo['private'] ?? false),
+                    'language' => $repo['language'] ?? null,
                 ];
             }
 
             $total = $data['total_count'] ?? 0;
             $page++;
         } while (count($repos) < $total);
+
+        // Sort by pushed_at desc; null pushed_at falls to the end.
+        usort($repos, function (array $a, array $b): int {
+            if ($a['pushed_at'] === $b['pushed_at']) {
+                return 0;
+            }
+            if ($a['pushed_at'] === null) {
+                return 1;
+            }
+            if ($b['pushed_at'] === null) {
+                return -1;
+            }
+
+            return $b['pushed_at'] <=> $a['pushed_at'];
+        });
 
         return $repos;
     }

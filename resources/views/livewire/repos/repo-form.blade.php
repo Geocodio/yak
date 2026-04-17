@@ -60,11 +60,22 @@
                                                 @click="open = false"
                                                 :class="highlightedIndex === {{ $index }} ? 'bg-zinc-100 dark:bg-zinc-700' : ''"
                                                 @mouseenter="highlightedIndex = {{ $index }}"
-                                                class="flex w-full items-center justify-between px-4 py-2.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                                                class="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700"
                                             >
-                                                <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $repo['name'] }}</span>
+                                                <div class="flex min-w-0 items-center gap-2">
+                                                    <span class="truncate font-medium text-zinc-900 dark:text-zinc-100">{{ $repo['name'] }}</span>
+                                                    @if(! empty($repo['private']))
+                                                        <flux:icon.lock-closed variant="mini" class="size-3.5 shrink-0 text-zinc-400" title="Private repository" />
+                                                    @endif
+                                                    @if(! empty($repo['language']))
+                                                        <span class="inline-flex shrink-0 items-center gap-1 text-xs text-zinc-500">
+                                                            <span class="size-2 rounded-full" style="background-color: {{ \App\Support\GitHubLanguageColors::hexFor($repo['language']) }}"></span>
+                                                            {{ $repo['language'] }}
+                                                        </span>
+                                                    @endif
+                                                </div>
                                                 @if($repo['pushed_at'])
-                                                    <span class="text-xs text-zinc-400">{{ \Carbon\Carbon::parse($repo['pushed_at'])->diffForHumans() }}</span>
+                                                    <span class="shrink-0 text-xs text-zinc-400">{{ \Carbon\Carbon::parse($repo['pushed_at'])->diffForHumans() }}</span>
                                                 @endif
                                             </button>
                                         </li>

@@ -47,7 +47,7 @@ class RepoForm extends Component
 
     public string $selected_github_repo = '';
 
-    /** @var array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string}> */
+    /** @var array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}> */
     public array $github_repos = [];
 
     /** @var array<int, array{slug: string, name: string}> */
@@ -131,22 +131,29 @@ class RepoForm extends Component
     }
 
     /**
-     * @return array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string}>
+     * @return array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
      */
     #[Computed]
     public function filteredGitHubRepos(): array
     {
+        $alreadyAdded = array_flip(Repository::pluck('slug')->all());
+
+        $available = array_filter(
+            $this->github_repos,
+            fn (array $repo): bool => ! isset($alreadyAdded[$repo['full_name']]),
+        );
+
         if (empty($this->github_search)) {
-            return array_slice($this->github_repos, 0, 10);
+            return array_slice($available, 0, 50);
         }
 
         $query = strtolower($this->github_search);
 
         return array_slice(array_filter(
-            $this->github_repos,
+            $available,
             fn (array $repo): bool => str_contains(strtolower($repo['name']), $query)
                 || str_contains(strtolower($repo['full_name']), $query),
-        ), 0, 10);
+        ), 0, 50);
     }
 
     public function selectGitHubRepo(string $fullName): void

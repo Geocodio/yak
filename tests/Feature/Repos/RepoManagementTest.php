@@ -220,6 +220,35 @@ test('clear selected repo resets form fields', function () {
         ->assertSet('default_branch', 'main');
 });
 
+test('github repo picker hides repos that are already added', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Repository::factory()->create(['slug' => 'acme/already-added']);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'acme/already-added',
+            'name' => 'already-added',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/already-added.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+            'private' => false,
+            'language' => 'PHP',
+        ],
+        [
+            'full_name' => 'acme/fresh',
+            'name' => 'fresh',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/fresh.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+            'private' => false,
+            'language' => 'PHP',
+        ],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->assertSee('fresh')
+        ->assertDontSee('already-added');
+});
+
 test('github repo search filters results', function () {
     config(['yak.channels.github.installation_id' => 12345]);
     Cache::put('github-installation-repos', [
