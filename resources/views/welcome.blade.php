@@ -318,13 +318,17 @@
                         opacity   0.5s ease 0.55s;
         }
         .hero-mascot:hover .mascot-img {
-            translate: 0 -22px;
+            translate: 0 -72px;
             rotate: -2deg;
             scale: 0.55;
-            /* Wait for the UFO to arrive (~1s) before the yak starts shrinking. */
-            transition: translate 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                        rotate    0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                        scale     1.8s cubic-bezier(0.42, 0, 0.58, 1) 1.0s;
+            /* Choreography on hover-in:
+               1.0s → UFO in place, yak starts shrinking
+               2.0s → yak starts drifting up into the beam (while still shrinking)
+               3.5s → yak fully receded
+               Hover-out uses the default transition (no delay, quick). */
+            transition: translate 1.8s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
+                        rotate    1.4s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
+                        scale     1.5s cubic-bezier(0.42, 0, 0.58, 1) 1.0s;
         }
         /* Wobble only touches transform + rotate so translate stays owned by the
            CSS transition (otherwise the UFO snaps on unhover). The 0%/100% frame
