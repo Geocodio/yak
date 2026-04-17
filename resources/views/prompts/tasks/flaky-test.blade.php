@@ -15,3 +15,5 @@ Fix the following flaky test:
 
 **Build URL:** {{ $buildUrl }}
 @endif
+
+@include('prompts.partials.clarification-contract')

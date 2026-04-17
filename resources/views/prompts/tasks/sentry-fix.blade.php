@@ -13,3 +13,5 @@ Fix the following Sentry error:
 
 **Instructions:**
 {{ $instructions }}
+
+@include('prompts.partials.clarification-contract')

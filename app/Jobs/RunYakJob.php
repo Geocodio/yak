@@ -276,18 +276,11 @@ class RunYakJob implements ShouldQueue
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
         TaskMetricsAccumulator::applyFresh($this->task, $result);
-
-        $this->task->update([
-            'status' => TaskStatus::AwaitingCi,
-            'result_summary' => $result->resultSummary,
-            'model_used' => config('yak.default_model'),
-        ]);
-
         DailyCost::accumulate($result->costUsd);
 
-        if ($this->task->branch_name !== null) {
-            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
+        if ($this->task->branch_name !== null) {
             // Safety check: verify not on default branch
             $branchResult = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse --abbrev-ref HEAD", timeout: 10);
             $currentBranch = trim($branchResult->output());
@@ -296,7 +289,33 @@ class RunYakJob implements ShouldQueue
                 throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
             }
 
-            // Push from inside the sandbox
+            $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
+
+            if (! $hasCommits) {
+                // Claude ran but didn't commit — treat as an answered
+                // question. Skip the push and the CI await path entirely
+                // so a stale default-branch SHA can't spin the retry loop.
+                $this->task->update([
+                    'status' => TaskStatus::Success,
+                    'completed_at' => now(),
+                    'result_summary' => $result->resultSummary,
+                    'model_used' => config('yak.default_model'),
+                ]);
+
+                TaskLogger::info($this->task, 'Answered without code changes');
+
+                $message = YakPersonality::generate(NotificationType::Result, $result->resultSummary);
+                SendNotificationJob::dispatch($this->task, NotificationType::Result, $message);
+
+                return;
+            }
+
+            $this->task->update([
+                'status' => TaskStatus::AwaitingCi,
+                'result_summary' => $result->resultSummary,
+                'model_used' => config('yak.default_model'),
+            ]);
+
             $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push origin {$this->task->branch_name}", timeout: 60);
 
             if ($pushResult->exitCode() !== 0) {
@@ -304,6 +323,12 @@ class RunYakJob implements ShouldQueue
             }
 
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
+        } else {
+            $this->task->update([
+                'status' => TaskStatus::AwaitingCi,
+                'result_summary' => $result->resultSummary,
+                'model_used' => config('yak.default_model'),
+            ]);
         }
 
         if ($repository->ci_system === 'none') {

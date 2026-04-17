@@ -26,3 +26,5 @@ No CI output was captured. Investigate the test/build failures by running the re
 2. Identify the root cause of the CI failure. If the CI output is unclear, reproduce it locally in the sandbox.
 3. Fix it — either by amending the approach, adjusting the implementation, or addressing a test flake if that's genuinely what it is.
 4. Commit the fix on the same branch and push. Yak will wait for CI to re-run.
+
+@include('prompts.partials.clarification-contract')

@@ -8,6 +8,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -159,18 +160,11 @@ class RetryYakJob implements ShouldQueue
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
         TaskMetricsAccumulator::applyAccumulated($this->task, $result);
-
-        $this->task->update([
-            'status' => TaskStatus::AwaitingCi,
-            'result_summary' => $result->resultSummary,
-            'model_used' => config('yak.default_model'),
-        ]);
-
         DailyCost::accumulate($result->costUsd);
 
-        if ($this->task->branch_name !== null) {
-            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
+        if ($this->task->branch_name !== null) {
             // Safety check
             $branchResult = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse --abbrev-ref HEAD", timeout: 10);
             $currentBranch = trim($branchResult->output());
@@ -178,6 +172,32 @@ class RetryYakJob implements ShouldQueue
             if ($currentBranch === $repository->default_branch) {
                 throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
             }
+
+            $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
+
+            if (! $hasCommits) {
+                // Retry produced no commits vs. default — same safety
+                // net as RunYakJob: mark answered, skip push + CI.
+                $this->task->update([
+                    'status' => TaskStatus::Success,
+                    'completed_at' => now(),
+                    'result_summary' => $result->resultSummary,
+                    'model_used' => config('yak.default_model'),
+                ]);
+
+                TaskLogger::info($this->task, 'Answered without code changes (retry)');
+
+                $message = YakPersonality::generate(NotificationType::Result, $result->resultSummary);
+                SendNotificationJob::dispatch($this->task, NotificationType::Result, $message);
+
+                return;
+            }
+
+            $this->task->update([
+                'status' => TaskStatus::AwaitingCi,
+                'result_summary' => $result->resultSummary,
+                'model_used' => config('yak.default_model'),
+            ]);
 
             // Force push from sandbox (retry overwrites the previous attempt)
             $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push --force-with-lease origin {$this->task->branch_name}", timeout: 60);
@@ -187,6 +207,12 @@ class RetryYakJob implements ShouldQueue
             }
 
             TaskLogger::info($this->task, 'Fix pushed — retry', ['branch' => $this->task->branch_name]);
+        } else {
+            $this->task->update([
+                'status' => TaskStatus::AwaitingCi,
+                'result_summary' => $result->resultSummary,
+                'model_used' => config('yak.default_model'),
+            ]);
         }
 
         if ($repository->ci_system === 'none') {

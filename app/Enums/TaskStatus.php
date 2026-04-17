@@ -39,7 +39,7 @@ enum TaskStatus: string implements StateMachine
     #[CanTransitionTo([self::Success, self::Retrying, self::Failed, self::Cancelled])]
     case AwaitingCi = 'awaiting_ci';
 
-    #[CanTransitionTo([self::AwaitingCi, self::Failed, self::Cancelled])]
+    #[CanTransitionTo([self::AwaitingCi, self::AwaitingClarification, self::Success, self::Failed, self::Cancelled])]
     case Retrying = 'retrying';
 
     #[FinalState]

@@ -2,14 +2,18 @@
 
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
@@ -18,6 +22,45 @@ use Tests\Support\FakeSandboxManager;
 | Successful Retry
 |--------------------------------------------------------------------------
 */
+
+test('retry marks task Success and skips push when no new commits', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_answered',
+        resultSummary: 'Looked at the CI output — flake in the network layer, no code change needed.',
+        costUsd: 0.20,
+        numTurns: 2,
+        durationMs: 6000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = (new FakeSandboxManager)->setCommitCount(0);
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'answered-retry-repo', 'path' => '/home/yak/repos/answered-retry-repo']);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'answered-retry-repo',
+        'branch_name' => 'yak/ISSUE-200',
+        'source' => 'slack',
+    ]);
+
+    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($task->pr_url)->toBeNull()
+        ->and($task->completed_at)->not->toBeNull();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Result);
+});
 
 test('successful retry transitions task to awaiting_ci and force pushes branch', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(

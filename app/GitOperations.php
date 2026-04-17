@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Services\IncusSandboxManager;
 use RuntimeException;
 
 /**
@@ -76,5 +77,31 @@ class GitOperations
         }
 
         throw new RuntimeException("Unable to find an available branch name for '{$baseName}' within {$maxAttempts} attempts.");
+    }
+
+    /**
+     * Returns true when HEAD inside the sandbox has at least one commit
+     * ahead of `origin/{defaultBranch}`. Used to distinguish "Claude
+     * actually wrote code" from "Claude answered without changing files".
+     */
+    public static function hasNewCommits(
+        IncusSandboxManager $sandbox,
+        string $containerName,
+        string $workspacePath,
+        string $defaultBranch,
+    ): bool {
+        $result = $sandbox->run(
+            $containerName,
+            "cd {$workspacePath} && git rev-list --count origin/{$defaultBranch}..HEAD",
+            timeout: 15,
+        );
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException(
+                "hasNewCommits failed (exit {$result->exitCode()}): " . $result->errorOutput()
+            );
+        }
+
+        return (int) trim($result->output()) > 0;
     }
 }

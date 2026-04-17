@@ -6,6 +6,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
@@ -22,6 +23,42 @@ use Tests\Support\FakeSandboxManager;
 | Successful Run
 |--------------------------------------------------------------------------
 */
+
+test('handleSuccess marks task Success and skips push when no new commits', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_answered',
+        resultSummary: 'The middleware is idempotent; safe to call twice.',
+        costUsd: 0.10,
+        numTurns: 3,
+        durationMs: 4000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = (new FakeSandboxManager)->setCommitCount(0);
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'answered-repo', 'path' => '/home/yak/repos/answered-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'answered-repo', 'source' => 'slack']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($task->pr_url)->toBeNull()
+        ->and($task->result_summary)->toBe('The middleware is idempotent; safe to call twice.')
+        ->and($task->completed_at)->not->toBeNull();
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Result);
+});
 
 test('successful run transitions task to awaiting_ci and pushes branch', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(

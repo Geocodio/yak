@@ -186,6 +186,18 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'agents-task-intent' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
+            'partials-clarification-contract' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
         ];
     }
 

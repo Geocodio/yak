@@ -14,3 +14,5 @@ Provide 2-4 concrete options that cover the most likely interpretations. If the 
 Fix the following issue reported via Slack by {{ $requesterName }}:
 
 {{ $description }}
+
+@include('prompts.partials.clarification-contract')

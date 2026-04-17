@@ -33,9 +33,24 @@ class FakeSandboxManager extends IncusSandboxManager
 
     private bool $hasSnapshotResult = false;
 
+    /**
+     * Value returned when the sandbox runs
+     * `git rev-list --count origin/<default>..HEAD`. Default 1 keeps
+     * pre-existing tests on the "has commits" happy path; set to 0 to
+     * exercise the answered-fix safety net.
+     */
+    private int $commitCount = 1;
+
     public function setHasSnapshot(bool $value): self
     {
         $this->hasSnapshotResult = $value;
+
+        return $this;
+    }
+
+    public function setCommitCount(int $count): self
+    {
+        $this->commitCount = $count;
 
         return $this;
     }
@@ -50,6 +65,10 @@ class FakeSandboxManager extends IncusSandboxManager
 
     public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
     {
+        if (str_contains($command, 'git rev-list --count origin/')) {
+            return Process::result((string) $this->commitCount);
+        }
+
         return Process::result('');
     }
 

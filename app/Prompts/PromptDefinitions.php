@@ -116,6 +116,13 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'partials-clarification-contract' => [
+                'view' => 'prompts.partials.clarification-contract',
+                'label' => 'Partial: Clarification Contract',
+                'category' => 'advanced',
+                'type' => 'utility',
+                'variables' => [],
+            ],
         ];
     }
 
