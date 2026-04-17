@@ -48,6 +48,22 @@ it('posts a COMMENT review with line-level comments', function () {
     });
 });
 
+it('lists open PRs with pagination', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'x', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/geocodio/api/pulls?state=open*' => Http::sequence()
+            ->push([
+                ['number' => 1, 'html_url' => 'u1', 'title' => 't', 'body' => 'b', 'draft' => false, 'user' => ['login' => 'a'], 'head' => ['ref' => 'h', 'sha' => 's1'], 'base' => ['ref' => 'main', 'sha' => 'b1']],
+                ['number' => 2, 'html_url' => 'u2', 'title' => 't', 'body' => 'b', 'draft' => true, 'user' => ['login' => 'a'], 'head' => ['ref' => 'h', 'sha' => 's2'], 'base' => ['ref' => 'main', 'sha' => 'b2']],
+            ])
+            ->push([]),
+    ]);
+
+    $prs = app(GitHubAppService::class)->listOpenPullRequests(12345, 'geocodio/api');
+
+    expect($prs)->toHaveCount(2);
+});
+
 it('dismisses a review with a message', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'x', 'expires_at' => now()->addHour()->toIso8601String()]),

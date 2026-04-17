@@ -303,6 +303,41 @@ class GitHubAppService
         return $response->json();
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listOpenPullRequests(int $installationId, string $repoSlug): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $results = [];
+        $page = 1;
+
+        while (true) {
+            $response = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls", [
+                    'state' => 'open',
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $batch = $response->json();
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return $results;
+    }
+
     public function dismissPullRequestReview(
         int $installationId,
         string $repoSlug,
