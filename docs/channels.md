@@ -54,9 +54,11 @@ If you already have a GitHub App and want to reuse it, fill in `github_app_id`, 
 The GitHub App subscribes to:
 
 - `check_suite.completed` — CI result processing
-- `pull_request.closed` — merge/close tracking
+- `pull_request.closed` — merge/close tracking (also denormalizes onto `pr_reviews`)
+- `pull_request.opened` / `ready_for_review` / `reopened` — triggers a full PR review when `pr_review_enabled` is on
+- `pull_request.synchronize` — triggers an incremental PR review
 
-Webhook URL: `https://{your-domain}/webhooks/ci/github`
+Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review events.
 
 ### Usage
 
