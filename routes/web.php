@@ -23,7 +23,8 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware('guest')->group(function () {
-    Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('login');
+    Route::view('login', 'auth.login')->name('login');
+    Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google');
     Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 });
 

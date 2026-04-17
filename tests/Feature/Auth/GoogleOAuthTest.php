@@ -4,15 +4,21 @@ use App\Models\User;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
-test('unauthenticated users are redirected to google oauth', function () {
+test('unauthenticated users are redirected to the login page', function () {
     $this->get(route('tasks'))
         ->assertRedirect(route('login'));
 });
 
-test('login route redirects to google', function () {
+test('login route renders the sign-in page', function () {
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertSee('Continue with Google');
+});
+
+test('auth.google route redirects to google', function () {
     Socialite::fake('google');
 
-    $this->get(route('login'))
+    $this->get(route('auth.google'))
         ->assertRedirect();
 });
 
