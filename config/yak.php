@@ -201,8 +201,8 @@ return [
         'enabled_globally' => (bool) env('YAK_PR_REVIEW_ENABLED_GLOBALLY', true),
         'default_path_excludes' => [
             'vendor/**', 'node_modules/**', 'public/build/**', 'public/hot',
-            'storage/**', '*.lock', '*.min.js', '*.min.css',
-            'database/migrations/**', '.idea/**', '.vscode/**',
+            'storage/**', '*.min.js', '*.min.css',
+            '.idea/**', '.vscode/**',
         ],
     ],
 
