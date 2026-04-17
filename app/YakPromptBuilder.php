@@ -59,6 +59,10 @@ class YakPromptBuilder
             return self::researchPrompt($task->description ?? '');
         }
 
+        if ($mode === TaskMode::Review) {
+            return self::reviewPrompt($metadata);
+        }
+
         return match ($task->source) {
             'sentry' => self::sentryFixPrompt($metadata),
             'flaky-test' => self::flakyTestPrompt($metadata),
@@ -190,6 +194,27 @@ class YakPromptBuilder
     {
         return Prompts::render('tasks-research', [
             'description' => $description,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private static function reviewPrompt(array $metadata): string
+    {
+        return Prompts::render('tasks-review', [
+            'prNumber' => (int) ($metadata['prNumber'] ?? 0),
+            'prTitle' => (string) ($metadata['prTitle'] ?? ''),
+            'prBody' => (string) ($metadata['prBody'] ?? ''),
+            'prAuthor' => (string) ($metadata['prAuthor'] ?? ''),
+            'baseBranch' => (string) ($metadata['baseBranch'] ?? 'main'),
+            'headBranch' => (string) ($metadata['headBranch'] ?? ''),
+            'diffSummary' => (string) ($metadata['diffSummary'] ?? ''),
+            'reviewScope' => (string) ($metadata['reviewScope'] ?? 'full'),
+            'changedFiles' => (array) ($metadata['changedFiles'] ?? []),
+            'repoAgentInstructions' => (string) ($metadata['repoAgentInstructions'] ?? ''),
+            'pathExcludes' => (array) ($metadata['pathExcludes'] ?? []),
+            'linearTicket' => $metadata['linearTicket'] ?? null,
         ]);
     }
 

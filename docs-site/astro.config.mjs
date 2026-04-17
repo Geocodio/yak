@@ -51,6 +51,7 @@ export default defineConfig({
             { slug: 'setup' },
             { slug: 'channels' },
             { slug: 'repositories' },
+            { slug: 'pr-review' },
           ],
         },
         {

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -92,7 +93,7 @@ class GitHubWebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'draft PR']);
         }
 
-        if ((string) ($pr['user']['login'] ?? '') === (string) config('yak.channels.github.app_bot_login')) {
+        if ((string) ($pr['user']['login'] ?? '') === app(GitHubAppService::class)->appBotLogin()) {
             return response()->json(['ok' => true, 'skipped' => 'yak-authored PR']);
         }
 

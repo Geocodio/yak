@@ -32,6 +32,7 @@ it('enqueues retroactive review tasks when enabling with apply_to_open_prs', fun
     $repo = Repository::factory()->create(['pr_review_enabled' => false, 'slug' => 'geocodio/api']);
 
     $github = mock(GitHubAppService::class);
+    $github->shouldReceive('appBotLogin')->andReturn('yak-bot[bot]');
     $github->shouldReceive('listOpenPullRequests')->andReturn([
         ['number' => 1, 'html_url' => 'u1', 'title' => '', 'body' => '', 'draft' => false, 'user' => ['login' => 'maria'], 'head' => ['ref' => 'h', 'sha' => 's1'], 'base' => ['ref' => 'main', 'sha' => 'b1']],
     ]);

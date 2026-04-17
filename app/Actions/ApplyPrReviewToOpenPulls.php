@@ -10,9 +10,10 @@ class ApplyPrReviewToOpenPulls
     public function __invoke(Repository $repository): int
     {
         $installationId = (int) config('yak.channels.github.installation_id');
-        $yakBot = (string) config('yak.channels.github.app_bot_login');
+        $github = app(GitHubAppService::class);
+        $yakBot = $github->appBotLogin();
 
-        $prs = app(GitHubAppService::class)->listOpenPullRequests($installationId, $repository->slug);
+        $prs = $github->listOpenPullRequests($installationId, $repository->slug);
 
         $enqueued = 0;
 
