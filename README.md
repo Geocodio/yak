@@ -20,6 +20,7 @@
 
 - **Receives tasks** from Slack, Linear, Sentry, and other channels via webhooks
 - **Executes AI-driven workflows** using Claude to fix bugs, set up repos, and research codebases
+- **Reviews pull requests** with line-level comments, `suggestion` blocks, and a feedback dashboard
 - **Integrates with CI** to verify changes pass before merging pull requests
 - **Tracks costs and progress** through a real-time Livewire dashboard
 
@@ -40,7 +41,7 @@ See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a 
 | Slack    | Yes                   | Yes                          |
 | Linear   | Yes                   | Yes                          |
 | Sentry   | Yes                   | --                           |
-| GitHub   | --                    | Yes (PR comments)            |
+| GitHub   | Yes (PR review events)| Yes (PR reviews, comments)   |
 
 ## Design Philosophy
 
@@ -56,6 +57,7 @@ Full documentation is hosted at **[geocodio.github.io/yak](https://geocodio.gith
 - [Setup](https://geocodio.github.io/yak/setup/)
 - [Channels](https://geocodio.github.io/yak/channels/)
 - [Repositories](https://geocodio.github.io/yak/repositories/)
+- [PR Review](https://geocodio.github.io/yak/pr-review/)
 - [Architecture](https://geocodio.github.io/yak/architecture/)
 - [Prompting](https://geocodio.github.io/yak/prompting/)
 - [Troubleshooting](https://geocodio.github.io/yak/troubleshooting/)
