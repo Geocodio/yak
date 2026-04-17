@@ -4,6 +4,10 @@ use App\Ai\Agents\TaskIntentClassifier;
 use App\Enums\TaskMode;
 use App\Services\TaskIntentClassification;
 
+beforeEach(function () {
+    config(['yak.intent_classifier.enabled' => true]);
+});
+
 it('returns Research when the agent responds "research"', function () {
     TaskIntentClassifier::fake(['research']);
 

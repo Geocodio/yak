@@ -35,5 +35,6 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="YAK_INTENT_CLASSIFIER_ENABLED" value="false"/>
     </php>
 </phpunit>

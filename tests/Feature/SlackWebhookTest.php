@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\TaskIntentClassifier;
 use App\Drivers\SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
@@ -241,6 +242,51 @@ it('creates a research task from research: prefix', function () {
     expect($task)->not->toBeNull();
     expect($task->mode)->toBe(TaskMode::Research);
     expect($task->description)->toBe('investigate memory leak patterns');
+});
+
+it('classifies a question as Research mode via the intent classifier', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config(['yak.intent_classifier.enabled' => true]);
+    TaskIntentClassifier::fake(['research']);
+
+    Repository::factory()->default()->create();
+
+    $body = slackMentionPayload('why does the export job retry twice?');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+
+    $task = YakTask::first();
+    expect($task)->not->toBeNull();
+    expect($task->mode)->toBe(TaskMode::Research);
+});
+
+it('skips the classifier when research: prefix is present', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config(['yak.intent_classifier.enabled' => true]);
+    TaskIntentClassifier::fake()->preventStrayPrompts();
+
+    Repository::factory()->default()->create();
+
+    $body = slackMentionPayload('research: explain caching');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+
+    $task = YakTask::first();
+    expect($task->mode)->toBe(TaskMode::Research);
 });
 
 /*

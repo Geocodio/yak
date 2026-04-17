@@ -8,6 +8,7 @@ use App\Enums\TaskMode;
 use App\Models\Repository;
 use App\Services\LinearIssueFetcher;
 use App\Services\LinearPromptContextRenderer;
+use App\Services\TaskIntentClassification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -99,7 +100,10 @@ class LinearInputDriver implements InputDriver
             return TaskMode::Research;
         }
 
-        return TaskMode::Fix;
+        $description = (string) ($issue['description'] ?? '');
+        $classifierInput = trim($title . "\n\n" . $description);
+
+        return app(TaskIntentClassification::class)->classify($classifierInput);
     }
 
     /**

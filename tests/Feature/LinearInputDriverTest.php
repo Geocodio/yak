@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\TaskIntentClassifier;
 use App\Drivers\LinearInputDriver;
 use App\Enums\TaskMode;
 use App\Models\Repository;
@@ -50,6 +51,29 @@ it('parses AgentSessionEvent.created into a normalized TaskDescription', functio
 it('detects research mode from the word "research" in the issue title', function () {
     $description = (new LinearInputDriver)->parse(agentSessionCreatedRequest([
         'title' => 'Research: audit deprecated fields',
+    ]));
+
+    expect($description->metadata['mode'])->toBe(TaskMode::Research->value);
+});
+
+it('falls back to the intent classifier when title and labels do not signal research', function () {
+    config(['yak.intent_classifier.enabled' => true]);
+    TaskIntentClassifier::fake(['research']);
+
+    $description = (new LinearInputDriver)->parse(agentSessionCreatedRequest([
+        'title' => 'How does the export job work?',
+        'description' => 'Need to understand the retry behavior before we touch it.',
+    ]));
+
+    expect($description->metadata['mode'])->toBe(TaskMode::Research->value);
+});
+
+it('skips the classifier when the title already matches research', function () {
+    config(['yak.intent_classifier.enabled' => true]);
+    TaskIntentClassifier::fake()->preventStrayPrompts();
+
+    $description = (new LinearInputDriver)->parse(agentSessionCreatedRequest([
+        'title' => 'Research: deprecate internal API',
     ]));
 
     expect($description->metadata['mode'])->toBe(TaskMode::Research->value);

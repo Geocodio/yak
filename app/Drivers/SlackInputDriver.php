@@ -6,6 +6,7 @@ use App\Contracts\InputDriver;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\TaskMode;
 use App\Models\YakTask;
+use App\Services\TaskIntentClassification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -65,7 +66,8 @@ class SlackInputDriver implements InputDriver
     }
 
     /**
-     * Detect task mode from "research:" prefix.
+     * Detect task mode. `research:` prefix wins; otherwise the LLM
+     * classifier decides Fix vs Research.
      */
     private function detectMode(string $text): TaskMode
     {
@@ -73,7 +75,7 @@ class SlackInputDriver implements InputDriver
             return TaskMode::Research;
         }
 
-        return TaskMode::Fix;
+        return app(TaskIntentClassification::class)->classify($text);
     }
 
     /**
