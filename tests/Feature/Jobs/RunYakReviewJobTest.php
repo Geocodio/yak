@@ -11,6 +11,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
+use App\Services\LinearIssueFetcher;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
@@ -84,4 +85,105 @@ it('runs a full-scope review end to end', function () {
     expect($task->status)->toBe(TaskStatus::Success)
         ->and(PrReview::where('yak_task_id', $task->id)->exists())->toBeTrue()
         ->and(PrReviewComment::count())->toBe(1);
+});
+
+it('does not fetch Linear ticket when no identifier is present', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/60',
+        'external_id' => 'https://github.com/geocodio/api/pull/60',
+        'branch_name' => 'feat/x',
+        'context' => json_encode([
+            'pr_number' => 60,
+            'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => 'plain title', 'body' => 'no ticket here',
+            'review_scope' => 'full', 'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    $fetcher = mock(LinearIssueFetcher::class);
+    $fetcher->shouldNotReceive('fetch');
+    app()->instance(LinearIssueFetcher::class, $fetcher);
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: "```json\n{\"summary\":\"\",\"verdict\":\"Approve\",\"verdict_detail\":\"\",\"findings\":[]}\n```",
+        costUsd: 0, numTurns: 1, durationMs: 1, isError: false,
+        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('t');
+    $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 1, 'comments' => []]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle(app(AgentRunner::class));
+
+    expect(PrReview::where('yak_task_id', $task->id)->exists())->toBeTrue();
+});
+
+it('skips Linear fetch when no LinearOauthConnection exists', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/61',
+        'external_id' => 'https://github.com/geocodio/api/pull/61',
+        'branch_name' => 'feat/x',
+        'context' => json_encode([
+            'pr_number' => 61,
+            'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => 't', 'body' => 'Fixes GEO-99',
+            'review_scope' => 'full', 'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    // No LinearOauthConnection exists, so fetcher should never be called.
+    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    $fetcher = mock(LinearIssueFetcher::class);
+    $fetcher->shouldNotReceive('fetch');
+    app()->instance(LinearIssueFetcher::class, $fetcher);
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: "```json\n{\"summary\":\"\",\"verdict\":\"Approve\",\"verdict_detail\":\"\",\"findings\":[]}\n```",
+        costUsd: 0, numTurns: 1, durationMs: 1, isError: false,
+        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('t');
+    $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 1, 'comments' => []]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle(app(AgentRunner::class));
+
+    expect(PrReview::where('yak_task_id', $task->id)->exists())->toBeTrue();
 });

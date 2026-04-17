@@ -11,15 +11,18 @@ use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\DailyCost;
+use App\Models\LinearOauthConnection;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
+use App\Services\LinearIssueFetcher;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Support\LinearIdentifierExtractor;
 use App\Support\PathMatcher;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
@@ -266,8 +269,48 @@ class RunYakReviewJob implements ShouldQueue
             'changedFiles' => $changedFiles,
             'repoAgentInstructions' => (string) ($repository->agent_instructions ?? ''),
             'pathExcludes' => $pathExcludes,
-            'linearTicket' => null,
+            'linearTicket' => $this->tryFetchLinearTicket($metadata),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @return array<string, string>|null
+     */
+    private function tryFetchLinearTicket(array $metadata): ?array
+    {
+        $haystack = ((string) ($metadata['body'] ?? '')) . "\n" . ((string) ($metadata['title'] ?? ''));
+        $identifier = LinearIdentifierExtractor::firstFrom($haystack);
+
+        if ($identifier === null) {
+            return null;
+        }
+
+        if (LinearOauthConnection::query()->exists() === false) {
+            return null;
+        }
+
+        try {
+            $issue = app(LinearIssueFetcher::class)->fetch($identifier);
+
+            if ($issue === null) {
+                return null;
+            }
+
+            return [
+                'identifier' => (string) $issue['identifier'],
+                'title' => (string) $issue['title'],
+                'description' => (string) $issue['description'],
+                'url' => (string) $issue['url'],
+            ];
+        } catch (\Throwable $e) {
+            Log::info('Linear fetch failed for review', [
+                'identifier' => $identifier,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     /**
