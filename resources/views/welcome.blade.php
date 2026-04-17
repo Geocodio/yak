@@ -269,10 +269,12 @@
             height: auto;
             pointer-events: none;
             opacity: 0;
-            translate: -50% -220%;
+            translate: -50% -650%;
             filter: drop-shadow(0 14px 20px rgba(61, 79, 95, 0.28));
-            transition: opacity 0.35s ease,
-                        translate 1.0s cubic-bezier(0.34, 1.2, 0.64, 1);
+            /* Hover-out: ease-in accel off-screen, opacity fades late so the UFO
+               stays visible while flying away. Entrance transition is set on :hover. */
+            transition: opacity 0.8s ease 0.55s,
+                        translate 1.4s cubic-bezier(0.42, 0, 1, 1);
             z-index: 4;
         }
         .hero-mascot .abduction-beam {
@@ -302,7 +304,9 @@
         .hero-mascot:hover .ufo {
             opacity: 1;
             translate: -50% -118%;
-            animation: ufo-hover 2.6s ease-in-out 1.1s infinite;
+            animation: ufo-wobble 2.6s ease-in-out 1.1s infinite;
+            transition: opacity 0.35s ease,
+                        translate 1.0s cubic-bezier(0.34, 1.2, 0.64, 1);
         }
         .hero-mascot:hover .abduction-beam {
             opacity: 1;
@@ -314,9 +318,11 @@
             translate: 0 -14px;
             rotate: -2deg;
         }
-        @keyframes ufo-hover {
-            0%, 100% { translate: -50% -118%; rotate: -2.5deg; }
-            50%      { translate: -50% -126%; rotate:  2.5deg; }
+        /* Wobble only touches transform + rotate so translate stays owned by the
+           CSS transition (otherwise the UFO snaps on unhover). */
+        @keyframes ufo-wobble {
+            0%, 100% { transform: translateY(0);    rotate: -2.5deg; }
+            50%      { transform: translateY(-6px); rotate:  2.5deg; }
         }
         @media (prefers-reduced-motion: reduce) {
             .hero-mascot .ufo,
