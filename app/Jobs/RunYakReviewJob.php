@@ -196,21 +196,51 @@ class RunYakReviewJob implements ShouldQueue
         IncusSandboxManager $sandbox,
         string $containerName,
         Repository $repository,
-        array $metadata,
+        array &$metadata,
     ): array {
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
-        $base = (string) $metadata['base_sha'];
         $head = (string) $metadata['head_sha'];
+
+        $scope = (string) ($metadata['review_scope'] ?? 'full');
+        $incrementalBase = $metadata['incremental_base_sha'] ?? null;
+
+        $effectiveBase = $scope === 'incremental' && $incrementalBase !== null
+            ? (string) $incrementalBase
+            : (string) $metadata['base_sha'];
+
+        if ($scope === 'incremental' && $incrementalBase !== null) {
+            $fetchResult = $sandbox->run(
+                $containerName,
+                "cd {$workspace} && git fetch origin " . escapeshellarg((string) $incrementalBase),
+                timeout: 30,
+            );
+
+            if ($fetchResult->exitCode() !== 0) {
+                Log::warning('Incremental base SHA not fetchable, degrading to full', [
+                    'task_id' => $this->task->id,
+                    'base_sha' => $incrementalBase,
+                ]);
+
+                $scope = 'full';
+                $effectiveBase = (string) $metadata['base_sha'];
+                $metadata['review_scope'] = 'full';
+                $metadata['incremental_base_sha'] = null;
+
+                $this->task->update([
+                    'context' => json_encode($metadata),
+                ]);
+            }
+        }
 
         $diffStat = $sandbox->run(
             $containerName,
-            "cd {$workspace} && git diff --stat " . escapeshellarg($base) . '...' . escapeshellarg($head),
+            "cd {$workspace} && git diff --stat " . escapeshellarg($effectiveBase) . '...' . escapeshellarg($head),
             timeout: 30,
         )->output();
 
         $changedList = $sandbox->run(
             $containerName,
-            "cd {$workspace} && git diff --name-only " . escapeshellarg($base) . '...' . escapeshellarg($head),
+            "cd {$workspace} && git diff --name-only " . escapeshellarg($effectiveBase) . '...' . escapeshellarg($head),
             timeout: 30,
         )->output();
 
@@ -232,7 +262,7 @@ class RunYakReviewJob implements ShouldQueue
             'baseBranch' => $repository->default_branch,
             'headBranch' => (string) $this->task->branch_name,
             'diffSummary' => trim($diffStat),
-            'reviewScope' => (string) ($metadata['review_scope'] ?? 'full'),
+            'reviewScope' => $scope,
             'changedFiles' => $changedFiles,
             'repoAgentInstructions' => (string) ($repository->agent_instructions ?? ''),
             'pathExcludes' => $pathExcludes,
