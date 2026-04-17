@@ -174,6 +174,30 @@ class PromptFixtures
                     ],
                 ],
             ],
+            'tasks-review' => [
+                [
+                    'label' => 'Typical PR',
+                    'data' => [
+                        'prNumber' => 42,
+                        'prTitle' => 'Add retry-on-timeout to the geocode client',
+                        'prBody' => "Fixes GEO-1234.\n\nThe geocode client was bailing after the first 5xx. Add exponential backoff retry up to 3 attempts.",
+                        'prAuthor' => 'mathiasgeocodio',
+                        'baseBranch' => 'main',
+                        'headBranch' => 'geo-1234-retry-timeout',
+                        'diffSummary' => " app/Services/GeocodeClient.php | 18 +++++++++++++++---\n tests/Unit/GeocodeClientTest.php | 24 ++++++++++++++++++++++\n 2 files changed, 39 insertions(+), 3 deletions(-)",
+                        'reviewScope' => 'full',
+                        'changedFiles' => ['app/Services/GeocodeClient.php', 'tests/Unit/GeocodeClientTest.php'],
+                        'repoAgentInstructions' => 'Use Laravel 13 conventions. Pest for tests.',
+                        'pathExcludes' => ['vendor/**', 'node_modules/**'],
+                        'linearTicket' => [
+                            'identifier' => 'GEO-1234',
+                            'title' => 'Add retry on timeout',
+                            'description' => 'Users are seeing geocode requests fail silently on transient 502s.',
+                            'url' => 'https://linear.app/geocodio/issue/GEO-1234',
+                        ],
+                    ],
+                ],
+            ],
             'channels-sentry' => [
                 [
                     'label' => 'Static content',

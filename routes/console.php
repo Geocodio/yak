@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\PollPullRequestReactionsJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -20,3 +21,4 @@ Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours();
 Schedule::command('yak:poll-drone-ci')->everyMinute()->withoutOverlapping();
+Schedule::job(PollPullRequestReactionsJob::class)->hourly()->name('poll-pr-reactions');

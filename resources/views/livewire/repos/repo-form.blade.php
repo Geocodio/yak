@@ -169,6 +169,60 @@
                         <flux:switch wire:model="is_active" label="Active" description="Enabled" />
                     </div>
                 @endif
+                <div>
+                    <flux:switch
+                        wire:model.live="pr_review_enabled"
+                        label="PR Review"
+                        description="Have Yak review every open, non-draft pull request on this repo."
+                    />
+                </div>
+                @if($pr_review_enabled && ! ($repository?->pr_review_enabled ?? false))
+                    <div class="rounded-lg border border-yak-tan/40 bg-yak-cream-dark/40 p-3">
+                        <flux:switch wire:model="apply_to_open_prs" label="Review all currently open PRs on save" />
+                    </div>
+                @endif
+                @if($this->isEditing && $pr_review_enabled && ($repository?->pr_review_enabled ?? false))
+                    <div>
+                        <flux:button wire:click="reviewAllOpenPrs" variant="outline" size="sm">
+                            Re-review all open PRs
+                        </flux:button>
+                    </div>
+                @endif
+                @if($pr_review_enabled)
+                    <div class="space-y-2">
+                        <flux:label>PR review path filters</flux:label>
+
+                        @if($using_defaults)
+                            <flux:description>Using global defaults.</flux:description>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach(config('yak.pr_review.default_path_excludes') as $p)
+                                    <flux:badge variant="outline" size="sm">{{ $p }}</flux:badge>
+                                @endforeach
+                            </div>
+                        @else
+                            <div class="flex flex-wrap gap-1">
+                                @foreach($path_excludes as $i => $p)
+                                    <flux:badge size="sm">
+                                        {{ $p }}
+                                        <button wire:click="removePathExclude({{ $i }})" type="button" class="ml-1">×</button>
+                                    </flux:badge>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        <div class="flex items-center gap-2">
+                            <flux:input wire:model="path_exclude_input" placeholder="vendor/**" size="sm" />
+                            <flux:button wire:click="addPathExclude" variant="outline" size="sm">
+                                Add pattern
+                            </flux:button>
+                            @unless($using_defaults)
+                                <flux:button wire:click="resetPathExcludes" variant="ghost" size="sm">
+                                    Reset to defaults
+                                </flux:button>
+                            @endunless
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 

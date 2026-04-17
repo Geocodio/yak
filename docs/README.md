@@ -7,6 +7,7 @@ User-facing documentation for running and operating Yak. Source of truth lives h
 - **[Setup](setup.md)** — provisioning a fresh server with Ansible, vault configuration, verification
 - **[Channels](channels.md)** — configuring Slack, Linear, Sentry, GitHub, Drone, and the manual CLI
 - **[Repositories](repositories.md)** — adding repos, the setup task, CLAUDE.md guidance, multi-repo routing
+- **[PR Review](pr-review.md)** — enabling Yak to review pull requests, path filters, dashboard, reactions
 
 ## Reference
 

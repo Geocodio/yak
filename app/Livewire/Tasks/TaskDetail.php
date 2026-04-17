@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Tasks;
 
+use App\Actions\EnqueuePrReview;
 use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
@@ -13,8 +14,11 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
+use App\Models\PrReview;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Support\TaskSourceUrl;
@@ -22,12 +26,15 @@ use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use League\CommonMark\CommonMarkConverter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 /**
  * @property-read Collection<int, TaskLog> $logs
+ * @property-read ?PrReview $prReview
+ * @property-read string $renderedReviewBody
  */
 #[Title('Task Detail')]
 class TaskDetail extends Component
@@ -224,6 +231,86 @@ class TaskDetail extends Component
     public function toggleDebug(): void
     {
         $this->showDebug = ! $this->showDebug;
+    }
+
+    public function rerunReview(): void
+    {
+        if ($this->task->mode !== TaskMode::Review) {
+            return;
+        }
+
+        $existing = YakTask::query()
+            ->where('mode', TaskMode::Review)
+            ->where('external_id', $this->task->pr_url)
+            ->whereIn('status', ['pending', 'running'])
+            ->exists();
+
+        if ($existing) {
+            Flux::toast('A review is already queued for this PR.', variant: 'warning');
+
+            return;
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $context = json_decode((string) $this->task->context, true) ?: [];
+        $prNumber = $context['pr_number'] ?? null;
+
+        if ($prNumber === null) {
+            Flux::toast('Cannot determine PR number.', variant: 'danger');
+
+            return;
+        }
+
+        $prPayload = app(GitHubAppService::class)
+            ->getPullRequest($installationId, $this->task->repo, (int) $prNumber);
+
+        if (! isset($prPayload['head']['sha'])) {
+            Flux::toast('Failed to fetch PR from GitHub.', variant: 'danger');
+
+            return;
+        }
+
+        $repo = Repository::where('slug', $this->task->repo)->firstOrFail();
+
+        app(EnqueuePrReview::class)->dispatch($repo, $prPayload, 'full');
+
+        Flux::toast('Re-running review for this PR.');
+    }
+
+    #[Computed]
+    public function prReview(): ?PrReview
+    {
+        if ($this->task->mode !== TaskMode::Review) {
+            return null;
+        }
+
+        return PrReview::where('yak_task_id', $this->task->id)
+            ->with('comments')
+            ->first();
+    }
+
+    #[Computed]
+    public function renderedReviewBody(): string
+    {
+        $review = $this->prReview;
+        if ($review === null) {
+            return '';
+        }
+
+        $parts = [];
+        $parts[] = "## Summary\n\n" . ($review->summary ?? '');
+
+        $nitpicks = $review->comments->where('severity', 'consider');
+        if ($nitpicks->isNotEmpty()) {
+            $body = $nitpicks->map(fn ($c) => "- **{$c->file_path}:{$c->line_number}** — _{$c->category}_: {$c->body}")->implode("\n");
+            $parts[] = "### Nitpicks ({$nitpicks->count()})\n\n" . $body;
+        }
+
+        $parts[] = "## Verdict\n\n**" . ($review->verdict ?? '') . '**';
+
+        $md = implode("\n\n", $parts);
+
+        return (new CommonMarkConverter)->convert($md)->getContent();
     }
 
     #[Computed]

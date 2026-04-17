@@ -72,6 +72,53 @@ class LinearIssueFetcher
         return $names;
     }
 
+    /**
+     * Fetch issue metadata for review context (title, description, url).
+     * Returns null when Linear is unavailable or the issue isn't found.
+     *
+     * @return array{identifier: string, title: string, description: string, url: string}|null
+     */
+    public function fetch(string $identifier): ?array
+    {
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $identifier === '') {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken($accessToken)
+                ->timeout(self::TIMEOUT_SECONDS)
+                ->post(self::GRAPHQL_ENDPOINT, [
+                    'query' => 'query($id: String!) { issue(id: $id) { identifier title description url } }',
+                    'variables' => ['id' => $identifier],
+                ]);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('LinearIssueFetcher: fetch failed', [
+                'identifier' => $identifier,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        /** @var array<string, mixed>|null $issue */
+        $issue = $response->json('data.issue');
+        if (! is_array($issue)) {
+            return null;
+        }
+
+        return [
+            'identifier' => (string) ($issue['identifier'] ?? $identifier),
+            'title' => (string) ($issue['title'] ?? ''),
+            'description' => (string) ($issue['description'] ?? ''),
+            'url' => (string) ($issue['url'] ?? ''),
+        ];
+    }
+
     public function hasLabel(string $identifier, string $labelName): bool
     {
         $names = $this->labelNames($identifier);

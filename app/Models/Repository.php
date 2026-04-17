@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property array<int, string>|null $pr_review_path_excludes
+ * @property int $pr_reviews_30d_count
+ */
 class Repository extends Model
 {
     /** @use HasFactory<RepositoryFactory> */
@@ -21,6 +25,7 @@ class Repository extends Model
         'is_active' => true,
         'setup_status' => 'pending',
         'default_branch' => 'main',
+        'pr_review_enabled' => false,
     ];
 
     /**
@@ -32,6 +37,8 @@ class Repository extends Model
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',
+            'pr_review_enabled' => 'boolean',
+            'pr_review_path_excludes' => 'array',
         ];
     }
 

@@ -55,6 +55,7 @@ class TaskList extends Component
     {
         return match ($tab) {
             'setup' => YakTask::query()->where('mode', TaskMode::Setup),
+            'reviews' => YakTask::query()->where('mode', TaskMode::Review),
             default => YakTask::query()->whereIn('mode', [TaskMode::Fix, TaskMode::Research]),
         };
     }
@@ -69,6 +70,12 @@ class TaskList extends Component
     public function setupCount(): int
     {
         return $this->scopedQuery('setup')->count();
+    }
+
+    #[Computed]
+    public function reviewsCount(): int
+    {
+        return $this->scopedQuery('reviews')->count();
     }
 
     public function updatedTab(): void

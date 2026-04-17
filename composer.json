@@ -16,6 +16,7 @@
         "laravel/framework": "^13.0",
         "laravel/socialite": "^5.26",
         "laravel/tinker": "^3.0",
+        "league/commonmark": "*",
         "livewire/flux": "^2.13.1",
         "livewire/livewire": "^4.1"
     },

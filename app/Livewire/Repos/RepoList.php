@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Repos;
 
+use App\Models\PrReview;
 use App\Models\Repository;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
@@ -17,7 +18,15 @@ class RepoList extends Component
     #[Computed]
     public function repositories(): Collection
     {
-        return Repository::query()
+        $cutoff = now()->subDays(30);
+
+        $reviewCounts = PrReview::query()
+            ->where('submitted_at', '>=', $cutoff)
+            ->selectRaw('repo, COUNT(*) as count')
+            ->groupBy('repo')
+            ->pluck('count', 'repo');
+
+        $repos = Repository::query()
             ->withCount([
                 'tasks',
                 'tasks as tasks_recent_count' => function ($query) {
@@ -28,6 +37,12 @@ class RepoList extends Component
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get();
+
+        foreach ($repos as $repo) {
+            $repo->pr_reviews_30d_count = (int) ($reviewCounts[$repo->slug] ?? 0);
+        }
+
+        return $repos;
     }
 
     public static function setupBadgeClasses(string $status): string

@@ -277,6 +277,116 @@ class GitHubAppService
         return "{$header}.{$payload}.{$this->base64UrlEncode($signature)}";
     }
 
+    /**
+     * @param  array<int, array{path: string, line: int, body: string}>  $comments
+     * @return array<string, mixed>
+     */
+    public function createPullRequestReview(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        string $body,
+        string $event,
+        array $comments,
+    ): array {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews", [
+                'body' => $body,
+                'event' => $event,
+                'comments' => $comments,
+            ]);
+
+        /** @var array<string, mixed> */
+        return $response->json();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listOpenPullRequests(int $installationId, string $repoSlug): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $results = [];
+        $page = 1;
+
+        while (true) {
+            $response = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls", [
+                    'state' => 'open',
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $batch = $response->json();
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return $results;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getPullRequest(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : [];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listCommentReactions(int $installationId, string $repoSlug, int $commentId): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/comments/{$commentId}/reactions");
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : [];
+    }
+
+    public function dismissPullRequestReview(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        int $reviewId,
+        string $message,
+    ): void {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->put("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}/dismissals", [
+                'message' => $message,
+                'event' => 'DISMISS',
+            ]);
+    }
+
     private function requestInstallationToken(int $installationId): string
     {
         $jwt = $this->generateJwt();

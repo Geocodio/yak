@@ -156,6 +156,12 @@ Same form pre-filled with current values. Also includes:
 - **Deactivate** toggle — soft-disables the repo (historical tasks remain; new tasks will not route here)
 - **Delete** (danger zone) — only available if the repo has zero tasks. If the repo has any task history, you must deactivate instead.
 
+## PR Review Toggle
+
+Each repo has a **PR Review** toggle on its edit page. When enabled, Yak reviews every open, non-draft PR on the repo — posting line-level comments with category + severity + (sometimes) `suggestion` blocks. See the [PR Review guide](pr-review.md) for the full flow.
+
+Path filters let you narrow what Yak reviews. The defaults (in `config/yak.php`) exclude `vendor/**`, `node_modules/**`, lockfiles, and minified assets; per-repo overrides are a chip list on the same edit page.
+
 ## Repo Refresh
 
 Yak automatically runs `git fetch origin {default_branch}` every 30 minutes via the scheduled `yak:refresh-repos` command. This keeps each repo's default branch tip up to date so that new tasks start from the latest code without a manual pull.

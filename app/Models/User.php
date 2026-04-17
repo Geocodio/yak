@@ -28,6 +28,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'has_seen_task_detail_intro_at' => 'datetime',
             'has_seen_setup_card_at' => 'datetime',
+            'has_seen_pr_review_intro_at' => 'datetime',
             'password' => 'hashed',
         ];
     }

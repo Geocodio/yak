@@ -12,7 +12,7 @@ beforeEach(function () {
 });
 
 test('unauthenticated user cannot start the Linear OAuth flow', function () {
-    $this->get('/auth/linear')->assertRedirect('/auth/google');
+    $this->get('/auth/linear')->assertRedirect('/login');
 });
 
 test('redirect route sends the user to Linear with correct params', function () {

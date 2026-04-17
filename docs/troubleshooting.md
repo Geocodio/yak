@@ -19,6 +19,24 @@ docker exec yak php artisan queue:monitor yak-claude,default
 
 If the health check is green and logs are clean, the problem is usually in the external service (Slack app, Linear webhook, GitHub App installation) rather than Yak itself.
 
+## PR Review Not Posting
+
+Symptoms: a PR opened on a repo with `pr_review_enabled = true` but no Yak review comment appears.
+
+### Checklist
+
+1. **GitHub webhook reaching Yak?** Check webhook delivery in GitHub App settings. `pull_request.opened` and `pull_request.synchronize` must be subscribed.
+2. **Repo active and enabled?** Go to `/repos/{id}/edit` and confirm **Active** and **PR Review** are both on.
+3. **PR a draft, or authored by yak-bot?** Both are intentionally skipped. Convert the draft to ready-for-review to trigger.
+4. **Task dispatched but failed?** Look in `/tasks?tab=reviews` for a failed row. Common failure modes:
+   - Sandbox checkout failure — the PR's head wasn't fetchable (force-pushed, branch deleted). Inspect the task activity log.
+   - Claude output didn't contain a valid JSON block — usually means Claude failed the review instead of producing findings. The raw output lives in the task's `result_summary`.
+5. **Path filters too aggressive?** If the PR only touches excluded paths, the review is filtered out. Check `pr_review_path_excludes` on the repo.
+
+### Resolution
+
+Manual re-run from the TaskDetail page's **Re-run review** button. If the same task keeps failing, lower the prompt's `max_findings_per_review` or check the `tasks-review` prompt at `/prompts` for custom edits.
+
 ## Task Stuck In `running`
 
 Symptoms: a task's status on the dashboard is `running` and hasn't moved for several minutes beyond the expected Claude Code duration (typically 2–10 minutes).

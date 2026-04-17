@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Repos;
 
+use App\Actions\ApplyPrReviewToOpenPulls;
 use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
@@ -42,6 +43,17 @@ class RepoForm extends Component
 
     public string $sentry_project = '';
 
+    public bool $pr_review_enabled = false;
+
+    public bool $apply_to_open_prs = true;
+
+    /** @var array<int, string> */
+    public array $path_excludes = [];
+
+    public string $path_exclude_input = '';
+
+    public bool $using_defaults = true;
+
     // GitHub repo picker (create mode only)
     public string $github_search = '';
 
@@ -73,6 +85,15 @@ class RepoForm extends Component
             $this->is_default = $repository->is_default;
             $this->ci_system = $repository->ci_system;
             $this->sentry_project = $repository->sentry_project ?? '';
+            $this->pr_review_enabled = (bool) $repository->pr_review_enabled;
+
+            if ($repository->pr_review_path_excludes !== null) {
+                $this->path_excludes = array_values($repository->pr_review_path_excludes);
+                $this->using_defaults = false;
+            } else {
+                $this->path_excludes = [];
+                $this->using_defaults = true;
+            }
         } else {
             $this->loadGitHubRepos();
         }
@@ -263,6 +284,8 @@ class RepoForm extends Component
             'is_default' => ['boolean'],
             'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone', 'none'])],
             'sentry_project' => ['nullable', 'string', 'max:255'],
+            'pr_review_enabled' => ['boolean'],
+            'apply_to_open_prs' => ['boolean'],
         ];
 
         if ($this->repository) {
@@ -308,7 +331,11 @@ class RepoForm extends Component
             'is_default' => $this->is_default,
             'ci_system' => $this->ci_system,
             'sentry_project' => $this->sentry_project ?: null,
+            'pr_review_enabled' => $this->pr_review_enabled,
+            'pr_review_path_excludes' => $this->using_defaults ? null : $this->path_excludes,
         ];
+
+        $wasEnabled = (bool) ($this->repository->pr_review_enabled ?? false);
 
         if ($this->repository) {
             $this->repository->update($data);
@@ -319,7 +346,54 @@ class RepoForm extends Component
             Flux::toast('Repository created. Setup task dispatched.');
         }
 
+        if ($this->pr_review_enabled && ! $wasEnabled && $this->apply_to_open_prs) {
+            app(ApplyPrReviewToOpenPulls::class)($this->repository);
+        }
+
         $this->redirectRoute('repos.edit', $this->repository, navigate: true);
+    }
+
+    public function addPathExclude(): void
+    {
+        $pattern = trim($this->path_exclude_input);
+
+        if ($pattern === '' || in_array($pattern, $this->path_excludes, true)) {
+            return;
+        }
+
+        if (! preg_match('#^[A-Za-z0-9_./*?\-]+$#', $pattern)) {
+            $this->addError('path_exclude_input', 'Invalid glob pattern.');
+
+            return;
+        }
+
+        $this->path_excludes[] = $pattern;
+        $this->path_exclude_input = '';
+        $this->using_defaults = false;
+    }
+
+    public function removePathExclude(int $index): void
+    {
+        unset($this->path_excludes[$index]);
+        $this->path_excludes = array_values($this->path_excludes);
+        $this->using_defaults = false;
+    }
+
+    public function resetPathExcludes(): void
+    {
+        $this->path_excludes = [];
+        $this->using_defaults = true;
+    }
+
+    public function reviewAllOpenPrs(): void
+    {
+        if (! $this->repository) {
+            return;
+        }
+
+        $count = app(ApplyPrReviewToOpenPulls::class)($this->repository);
+
+        Flux::toast("Enqueued review for {$count} open PRs.");
     }
 
     public function rerunSetup(): void
