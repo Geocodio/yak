@@ -1199,7 +1199,7 @@
                 <span><span class="dot d-linear"></span>Linear</span>
                 <span><span class="dot d-sentry"></span>Sentry</span>
                 <span><span class="dot d-github"></span>GitHub</span>
-                <span style="color: color-mix(in srgb, var(--yak-slate) 55%, transparent); font-style: italic;">+ flaky tests, research mode</span>
+                <span style="color: color-mix(in srgb, var(--yak-slate) 55%, transparent); font-style: italic;">+ flaky tests, research mode, PR reviews</span>
             </div>
         </div>
     </div>
@@ -1427,6 +1427,48 @@
                     <li>Bigger investigations produce a self-contained HTML findings page with file references, charts, risks, and an effort estimate.</li>
                     <li>Explicit overrides still work: a <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">research</span> label on Linear or a <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">research:</span> prefix in Slack skips the classifier.</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <div class="pull-row">
+            <div>
+                <span class="eyebrow">Reviews PRs, too</span>
+                <h3 style="margin-top:14px;">Every open PR gets a <em>rubric-driven</em> review — with <em>suggestion</em> blocks.</h3>
+                <p>
+                    Flip a switch on a repo and Yak reviews every non-draft PR.
+                    Findings land as GitHub line-level comments with category
+                    and severity labels; one-to-ten-line fixes come through as
+                    native <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">suggestion</span> blocks you can commit with a click.
+                </p>
+                <ul class="bullets">
+                    <li>Incremental on <span class="mono" style="color: var(--yak-orange); font-size: 14.5px;">synchronize</span>: only new commits get re-reviewed. Force-pushes safely fall back to a full review.</li>
+                    <li>Runs in the same sandbox as fixes, so it can actually run the tests and linters for the files the PR touches.</li>
+                    <li>Reaction counts (👍 / 👎) are tracked — the dashboard shows which kinds of feedback your team finds useful.</li>
+                </ul>
+            </div>
+
+            <div class="autopickup">
+                <h4>Yak · <span class="mono" style="color: var(--yak-orange);">geocodio/api #412</span></h4>
+                <p style="margin: 14px 0 10px; font-family: var(--font-mono); font-size: 12.5px; color: color-mix(in srgb, var(--yak-slate) 70%, transparent);">
+                    app/Services/GeocodeClient.php:87
+                </p>
+                <p style="margin: 0 0 14px;">
+                    <span class="mono" style="padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--yak-orange) 18%, transparent); color: var(--yak-orange); font-size: 11.5px;">Performance</span>
+                    <span class="mono" style="padding: 2px 6px; border-radius: 4px; background: color-mix(in srgb, var(--yak-slate) 18%, transparent); color: var(--yak-slate); font-size: 11.5px; margin-left: 6px;">should_fix</span>
+                </p>
+                <p style="margin: 0 0 10px;">
+                    Retry loop re-creates the <span class="mono" style="font-size:12.5px; color: var(--yak-orange);">Http::withHeaders</span> call on each attempt, losing connection reuse.
+                </p>
+                <pre style="margin: 0; padding: 10px 12px; background: color-mix(in srgb, var(--yak-slate) 6%, transparent); border-radius: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--yak-slate); overflow: auto;">```suggestion
+$client = Http::withHeaders($headers);
+foreach (range(1, 3) as $attempt) {
+    $response = $client->get($url);
+}
+```</pre>
             </div>
         </div>
     </div>
