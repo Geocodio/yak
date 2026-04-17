@@ -560,19 +560,18 @@
             gap: 12px;
         }
         .bullets li {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
+            position: relative;
+            padding-left: 20px;
             font-size: 15.5px;
             line-height: 1.5;
             color: var(--yak-slate);
         }
         .bullets li::before {
             content: '';
-            flex-shrink: 0;
-            display: inline-block;
+            position: absolute;
+            left: 0;
+            top: 10px;
             width: 8px; height: 8px;
-            margin-top: 10px;
             border-radius: 2px;
             background: var(--yak-orange);
             transform: rotate(45deg);
@@ -1033,14 +1032,20 @@
             padding: 22px 24px 24px;
             line-height: 1.75;
         }
-        .term-line { display: block; }
-        .term-line .pfx { color: var(--yak-green-muted); }
+        .term-line {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+        .term-line .pfx { color: var(--yak-green-muted); flex-shrink: 0; }
+        .term-line .cmd { flex: 1; min-width: 0; }
         .term-line .cmt { color: #6f6a62; }
-        .term-line .tag-ok { color: var(--yak-green-muted); font-weight: 600; }
-        .term-line .tag-run { color: var(--yak-orange-warm); font-weight: 600; }
+        .term-line .tag-ok { color: var(--yak-green-muted); font-weight: 600; flex-shrink: 0; }
+        .term-line .tag-run { color: var(--yak-orange-warm); font-weight: 600; flex-shrink: 0; }
         .term-line .b { color: var(--yak-blue-light); }
         .term-line .o { color: var(--yak-orange-warm); }
         .term-line .dim { color: #8b847b; }
+        .term-spacer { display: block; height: 1.75em; }
 
         .closing {
             text-align: center;
@@ -1175,7 +1180,6 @@
                         Sign in to the dashboard
                         <svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
                     </a>
-                    <span class="tagline">Google SSO · team access only</span>
                 </div>
             </div>
 
@@ -1294,9 +1298,9 @@
                 <span class="eyebrow">Goes looking for trouble</span>
                 <h3 style="margin-top:14px;">Picks up <em>Sentry</em> issues and <em>flaky tests</em> on its own.</h3>
                 <p>
-                    Point Yak at your Sentry alert rule and your CI log. It
-                    wakes up when an actionable issue crosses the threshold or
-                    when a test starts failing on <span class="mono" style="font-size: 15px; color: var(--yak-slate); background: var(--yak-cream); padding: 2px 6px; border-radius: 4px;">main</span>.
+                    Yak watches Sentry and CI in the background. It wakes up
+                    when an actionable issue crosses the threshold or when a
+                    test starts failing on <span class="mono" style="font-size: 15px; color: var(--yak-slate); background: var(--yak-cream); padding: 2px 6px; border-radius: 4px;">main</span>.
                     Then it reads the stacktrace, forms a hypothesis, and
                     writes a fix plus a regression test.
                 </p>
@@ -1531,7 +1535,7 @@
                 <ul class="bullets">
                     <li>Real Chromium navigation, authenticated session, video recorded end-to-end.</li>
                     <li>Partial captures when something blocks the full flow — never a silent skip.</li>
-                    <li>Every result ends with an explicit <span class="mono" style="font-size: 13px; color: var(--yak-green);">Visual capture: done | partial | skipped</span> status line.</li>
+                    <li>Every PR clearly states whether the capture was complete, partial, or skipped.</li>
                 </ul>
             </div>
         </div>
@@ -1567,18 +1571,53 @@
                 </div>
                 <div class="terminal-body">
                     <span class="term-line"><span class="cmt"># One-time setup inside a fresh Incus container</span></span>
-                    <span class="term-line"><span class="pfx">›</span> incus launch <span class="b">yak-base</span> <span class="o">yak-setup-api</span> <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="tag-ok">ok</span></span>
-                    <span class="term-line"><span class="pfx">›</span> reading <span class="b">README.md</span>, <span class="b">CLAUDE.md</span>, <span class="b">docker-compose.yml</span></span>
-                    <span class="term-line"><span class="pfx">›</span> docker-compose up -d <span class="dim">&nbsp;&nbsp;&nbsp;mysql · redis · meilisearch</span> <span class="tag-ok">ok</span></span>
-                    <span class="term-line"><span class="pfx">›</span> composer install &amp;&amp; npm ci &amp;&amp; npm run build <span class="dim">&nbsp;&nbsp;</span> <span class="tag-ok">ok</span></span>
-                    <span class="term-line"><span class="pfx">›</span> php artisan migrate --seed <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="tag-ok">ok</span></span>
-                    <span class="term-line"><span class="pfx">›</span> pest --compact <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="tag-ok">432 passed</span></span>
-                    <span class="term-line"><span class="pfx">›</span> <span class="cmt"># Promote to a ZFS snapshot</span></span>
-                    <span class="term-line"><span class="pfx">›</span> incus snapshot create yak-setup-api <span class="b">ready</span> <span class="dim">&nbsp;</span> <span class="tag-ok">ok</span></span>
-                    <span class="term-line"><span class="pfx">›</span> status: <span class="o">setup → ready</span></span>
-                    <br>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">incus launch <span class="b">yak-base</span> <span class="o">yak-setup-api</span></span>
+                        <span class="tag-ok">ok</span>
+                    </span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">reading <span class="b">README.md</span>, <span class="b">CLAUDE.md</span>, <span class="b">docker-compose.yml</span></span>
+                    </span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">docker-compose up -d <span class="dim">· mysql · redis · meilisearch</span></span>
+                        <span class="tag-ok">ok</span>
+                    </span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">composer install &amp;&amp; npm ci &amp;&amp; npm run build</span>
+                        <span class="tag-ok">ok</span>
+                    </span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">php artisan migrate --seed</span>
+                        <span class="tag-ok">ok</span>
+                    </span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">pest --compact</span>
+                        <span class="tag-ok">432 passed</span>
+                    </span>
+                    <span class="term-spacer"></span>
+                    <span class="term-line"><span class="cmt"># Promote to a ZFS snapshot</span></span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">incus snapshot create yak-setup-api <span class="b">ready</span></span>
+                        <span class="tag-ok">ok</span>
+                    </span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">status: <span class="o">setup → ready</span></span>
+                    </span>
+                    <span class="term-spacer"></span>
                     <span class="term-line"><span class="cmt"># Future tasks clone from snapshot → live in ~2s</span></span>
-                    <span class="term-line"><span class="pfx">›</span> incus copy yak-tpl-api/ready <span class="o">task-42</span> <span class="dim">&nbsp;&nbsp;&nbsp;&nbsp;</span> <span class="tag-ok">1.8s</span></span>
+                    <span class="term-line">
+                        <span class="pfx">›</span>
+                        <span class="cmd">incus copy yak-tpl-api/ready <span class="o">task-42</span></span>
+                        <span class="tag-ok">1.8s</span>
+                    </span>
                 </div>
             </div>
         </div>
