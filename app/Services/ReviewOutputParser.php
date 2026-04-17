@@ -52,7 +52,12 @@ class ReviewOutputParser
         }
 
         $blocks = $matches[1];
+        $last = end($blocks);
 
-        return trim(end($blocks)) ?: null;
+        if ($last === false) {
+            return null;
+        }
+
+        return trim($last) ?: null;
     }
 }

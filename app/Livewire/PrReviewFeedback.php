@@ -35,6 +35,9 @@ class PrReviewFeedback extends Component
 
     public string $active_tab = 'all';
 
+    /**
+     * @return LengthAwarePaginator<int, PrReviewComment>
+     */
     public function comments(): LengthAwarePaginator
     {
         $query = PrReviewComment::query()
@@ -74,6 +77,9 @@ class PrReviewFeedback extends Component
         ];
     }
 
+    /**
+     * @return Collection<int, PrReviewCommentReaction>
+     */
     public function reviewerStats(): Collection
     {
         return PrReviewCommentReaction::query()

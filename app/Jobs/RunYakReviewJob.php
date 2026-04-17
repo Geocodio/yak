@@ -249,6 +249,7 @@ class RunYakReviewJob implements ShouldQueue
 
         $changedFiles = array_values(array_filter(array_map('trim', explode("\n", $changedList))));
 
+        /** @var array<int, string> $pathExcludes */
         $pathExcludes = $repository->pr_review_path_excludes
             ?? (array) config('yak.pr_review.default_path_excludes', []);
 

@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property array<int, string>|null $pr_review_path_excludes
+ * @property int $pr_reviews_30d_count
+ */
 class Repository extends Model
 {
     /** @use HasFactory<RepositoryFactory> */

@@ -33,6 +33,8 @@ use Livewire\Component;
 
 /**
  * @property-read Collection<int, TaskLog> $logs
+ * @property-read ?PrReview $prReview
+ * @property-read string $renderedReviewBody
  */
 #[Title('Task Detail')]
 class TaskDetail extends Component

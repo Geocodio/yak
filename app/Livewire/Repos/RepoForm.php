@@ -335,7 +335,7 @@ class RepoForm extends Component
             'pr_review_path_excludes' => $this->using_defaults ? null : $this->path_excludes,
         ];
 
-        $wasEnabled = (bool) ($this->repository?->pr_review_enabled ?? false);
+        $wasEnabled = (bool) ($this->repository->pr_review_enabled ?? false);
 
         if ($this->repository) {
             $this->repository->update($data);
