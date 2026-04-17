@@ -46,17 +46,28 @@ class GitHubWebhookController extends Controller
         $prUrl = $request->input('pull_request.html_url', '');
 
         $task = YakTask::where('pr_url', $prUrl)->first();
-
-        if (! $task) {
-            return response()->json(['ok' => true, 'skipped' => 'no task found for PR']);
-        }
-
         $merged = (bool) $request->input('pull_request.merged', false);
 
-        if ($merged) {
-            $task->update(['pr_merged_at' => $request->input('pull_request.merged_at', now())]);
-        } else {
-            $task->update(['pr_closed_at' => $request->input('pull_request.closed_at', now())]);
+        if ($task) {
+            if ($merged) {
+                $task->update(['pr_merged_at' => $request->input('pull_request.merged_at', now())]);
+            } else {
+                $task->update(['pr_closed_at' => $request->input('pull_request.closed_at', now())]);
+            }
+        }
+
+        $prReviews = PrReview::where('pr_url', $prUrl)->get();
+
+        foreach ($prReviews as $pr) {
+            $updates = ['pr_closed_at' => $request->input('pull_request.closed_at', now())];
+            if ($merged) {
+                $updates['pr_merged_at'] = $request->input('pull_request.merged_at', now());
+            }
+            $pr->update($updates);
+        }
+
+        if (! $task && $prReviews->isEmpty()) {
+            return response()->json(['ok' => true, 'skipped' => 'no task found for PR']);
         }
 
         return response()->json(['ok' => true, 'updated' => true]);
