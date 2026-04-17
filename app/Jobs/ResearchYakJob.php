@@ -168,11 +168,15 @@ class ResearchYakJob implements ShouldQueue
         // drops the actual URL — which is exactly what the user sees.
         // Append the URL ourselves after the rewrite so it's always
         // front-and-center.
-        $context = "Research complete: {$summary}";
-        $notificationMessage = YakPersonality::generate(NotificationType::Result, $context);
-
-        if ($artifactUrl !== null) {
+        //
+        // When there's no artifact the task was a pure Q&A, so drop
+        // the "Research complete:" prefix — it reads oddly for a
+        // short factual answer.
+        if ($artifact !== null) {
+            $notificationMessage = YakPersonality::generate(NotificationType::Result, "Research complete: {$summary}");
             $notificationMessage .= "\n\n📑 **[View research report]({$artifactUrl})**";
+        } else {
+            $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
         }
 
         $this->postToSource($notificationMessage);
