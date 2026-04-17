@@ -1,10 +1,172 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Webhooks/LinearWebhookController.php
+
+		-
+			message: '#^Cannot cast array\<mixed\>\|string to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaskStatus\:\:AwaitingClarification will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Webhooks/SlackWebhookController.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Jobs/ClarificationReplyJob.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Jobs/ClarificationReplyJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/ClarificationReplyJob.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Jobs/ResearchYakJob.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Jobs/ResearchYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/ResearchYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/ResearchYakJob.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Jobs/RetryYakJob.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Jobs/RetryYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/RetryYakJob.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Jobs/RunYakJob.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Jobs/RunYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/RunYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/RunYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/RunYakReviewJob.php
+
+		-
+			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Jobs/SetupYakJob.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Jobs/SetupYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/SetupYakJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/SetupYakJob.php
+
+		-
 			message: '#^Method App\\Livewire\\Actions\\Logout\:\:__invoke\(\) has no return type specified\.$#'
 			identifier: missingType.return
 			count: 1
 			path: app/Livewire/Actions/Logout.php
+
+		-
+			message: '#^Method App\\Livewire\\Channels\\ChannelList\:\:channels\(\) should return list\<array\{slug\: string, name\: string, icon\: string, role\: string, description\: string, vault_keys\: list\<string\>, docs_url\: string, enabled\: bool, \.\.\.\}\> but returns non\-empty\-array\<0\|1\|2\|3\|4, array\{slug\: ''drone''\|''github''\|''linear''\|''sentry''\|''slack'', name\: ''Drone CI''\|''GitHub''\|''Linear''\|''Sentry''\|''Slack'', icon\: ''bolt''\|''chat\-bubble\-left''\|''code\-bracket''\|''cog\-6\-tooth''\|''shield\-exclamation'', role\: ''CI results''\|''Input \(@yak…''\|''Input \(alert rules\)''\|''Input \(issue…''\|''Output \(pull…'', description\: ''Polled for CI…''\|''Required\. Yak opens…''\|''Sentry alerts…''\|''Users mention @yak…''\|''Yak installs as a…'', vault_keys\: array\{''drone_url'', ''drone_token''\}\|array\{''github_app_id'', ''github_installation…'', ''github_webhook…''\}\|array\{''linear_oauth_client…'', ''linear_oauth_client…'', ''linear_webhook…''\}\|array\{''sentry_auth_token'', ''sentry_webhook…'', ''sentry_org_slug''\}\|array\{''slack_bot_token'', ''slack_signing_secret'', ''slack_workspace_url''\}, docs_url\: string, enabled\: bool, \.\.\.\}\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Livewire/Channels/ChannelList.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between ''drone''\|''github''\|''linear''\|''sentry''\|''slack'' and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Livewire/Channels/ChannelList.php
 
 		-
 			message: '#^Cannot call method delete\(\) on App\\Models\\User\|null\.$#'
@@ -73,6 +235,12 @@ parameters:
 			path: app/Livewire/Settings/Profile.php
 
 		-
+			message: '#^Call to an undefined method App\\Models\\User\:\:twoFactorQrCodeSvg\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Livewire/Settings/Security.php
+
+		-
 			message: '#^Cannot access property \$two_factor_confirmed_at on App\\Models\\User\|null\.$#'
 			identifier: property.nonObject
 			count: 1
@@ -109,12 +277,6 @@ parameters:
 			path: app/Livewire/Settings/Security.php
 
 		-
-			message: '#^Call to an undefined method App\\Models\\User\:\:twoFactorQrCodeSvg\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: app/Livewire/Settings/Security.php
-
-		-
 			message: '#^Cannot access property \$two_factor_recovery_codes on App\\Models\\User\|null\.$#'
 			identifier: property.nonObject
 			count: 2
@@ -131,3 +293,81 @@ parameters:
 			identifier: missingType.iterableValue
 			count: 1
 			path: app/Livewire/Settings/TwoFactor/RecoveryCodes.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 2
+			path: app/Livewire/Tasks/TaskDetail.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaskMode\:\:Review will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: app/Livewire/Tasks/TaskDetail.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaskStatus\:\:AwaitingClarification will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Livewire/Tasks/TaskDetail.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Fix will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Livewire/Tasks/TaskDetail.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Success will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Livewire/Tasks/TaskDetail.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 3
+			path: app/Livewire/Tasks/TaskDetail.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\{name\?\: string\} will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Services/LinearIssueFetcher.php
+
+		-
+			message: '#^Binary operation "\^" between string\|false and string\|false results in an error\.$#'
+			identifier: binaryOp.invalid
+			count: 1
+			path: app/Services/PerceptualHash.php
+
+		-
+			message: '#^Parameter \#1 \$num of function dechex expects int, float\|int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/PerceptualHash.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\TaskMode\:\:Review is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/TaskJobResolver.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Support/SlackBlockFormatter.php
+
+		-
+			message: '#^Method App\\Support\\SlackBlockFormatter\:\:contextChips\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Support/SlackBlockFormatter.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between list\{0\: non\-falsy\-string, 1\?\: non\-falsy\-string, 2\?\: non\-falsy\-string\} and array\{\} will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Support/SlackBlockFormatter.php
