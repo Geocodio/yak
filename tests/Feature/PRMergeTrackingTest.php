@@ -150,7 +150,7 @@ test('webhook skips non-pull_request events', function () {
 
     $response = postGitHubWebhook($this, $payload, $secret, 'check_suite');
 
-    $response->assertOk()->assertJson(['skipped' => 'not a pull_request.closed event']);
+    $response->assertOk()->assertJson(['skipped' => 'not a pull_request event']);
 });
 
 test('webhook skips when no task matches PR URL', function () {
