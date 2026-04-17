@@ -118,3 +118,21 @@ test('github channel has required credential fields', function () {
     expect($github)->toHaveKeys(['driver', 'app_id', 'private_key', 'webhook_secret'])
         ->and($github['driver'])->toBe('github');
 });
+
+/*
+|--------------------------------------------------------------------------
+| PR Review Configuration
+|--------------------------------------------------------------------------
+*/
+
+it('has pr_review config defaults', function () {
+    expect(config('yak.pr_review.reaction_poll_window_days'))->toBe(30)
+        ->and(config('yak.pr_review.max_findings_per_review'))->toBe(20)
+        ->and(config('yak.pr_review.enabled_globally'))->toBeTrue()
+        ->and(config('yak.pr_review.default_path_excludes'))->toBeArray()
+        ->and(config('yak.pr_review.default_path_excludes'))->toContain('vendor/**');
+});
+
+it('has github app_bot_login config key', function () {
+    expect(config('yak.channels.github.app_bot_login'))->not->toBeNull();
+});

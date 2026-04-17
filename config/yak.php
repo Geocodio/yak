@@ -184,8 +184,26 @@ return [
                 : env('YAK_GITHUB_PRIVATE_KEY', ''),
             'installation_id' => (int) env('YAK_GITHUB_INSTALLATION_ID'),
             'webhook_secret' => env('YAK_GITHUB_WEBHOOK_SECRET'),
+            'app_bot_login' => env('GITHUB_APP_BOT_LOGIN', 'yak-bot[bot]'),
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PR Review Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'pr_review' => [
+        'reaction_poll_window_days' => (int) env('YAK_PR_REVIEW_POLL_DAYS', 30),
+        'max_findings_per_review' => (int) env('YAK_PR_REVIEW_MAX_FINDINGS', 20),
+        'enabled_globally' => (bool) env('YAK_PR_REVIEW_ENABLED_GLOBALLY', true),
+        'default_path_excludes' => [
+            'vendor/**', 'node_modules/**', 'public/build/**', 'public/hot',
+            'storage/**', '*.lock', '*.min.js', '*.min.css',
+            'database/migrations/**', '.idea/**', '.vscode/**',
+        ],
     ],
 
 ];
