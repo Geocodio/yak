@@ -310,6 +310,34 @@ class RunYakReviewJob implements ShouldQueue
             'submitted_at' => now(),
         ]);
 
+        if ((string) ($metadata['review_scope'] ?? 'full') === 'full') {
+            $priorReviews = PrReview::where('pr_url', $this->task->pr_url)
+                ->whereNull('dismissed_at')
+                ->where('id', '!=', $review->id)
+                ->get();
+
+            foreach ($priorReviews as $prior) {
+                if ($prior->github_review_id !== null) {
+                    try {
+                        app(GitHubAppService::class)->dismissPullRequestReview(
+                            $installationId,
+                            $repository->slug,
+                            (int) $metadata['pr_number'],
+                            (int) $prior->github_review_id,
+                            'Superseded by newer commits',
+                        );
+                    } catch (\Throwable $e) {
+                        Log::warning('Failed to dismiss prior review', [
+                            'prior_id' => $prior->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                $prior->update(['dismissed_at' => now()]);
+            }
+        }
+
         $nonConsider = array_values(array_filter(
             $findings,
             fn ($f): bool => $f->severity !== 'consider',
