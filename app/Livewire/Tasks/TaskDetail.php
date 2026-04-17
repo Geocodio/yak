@@ -6,6 +6,7 @@ use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
@@ -53,6 +54,8 @@ class TaskDetail extends Component
      * @var array<int, bool>
      */
     public array $expandedGroups = [];
+
+    public string $clarificationReplyText = '';
 
     public function mount(YakTask $task): void
     {
@@ -107,6 +110,20 @@ class TaskDetail extends Component
             TaskStatus::Failed,
             TaskStatus::Expired,
         ]);
+    }
+
+    /**
+     * True when a Fix task finished successfully without producing a
+     * PR — i.e. Claude answered the question rather than writing code.
+     * Used by the task-detail view to render the result as a chat
+     * answer and hide the PR / branch / CI UI.
+     */
+    #[Computed]
+    public function isAnsweredFix(): bool
+    {
+        return $this->task->mode === TaskMode::Fix
+            && $this->task->status === TaskStatus::Success
+            && $this->task->pr_url === null;
     }
 
     #[Computed]
@@ -174,6 +191,34 @@ class TaskDetail extends Component
         unset($this->canRetry, $this->canCancel);
 
         Flux::toast('Task cancelled.');
+    }
+
+    /**
+     * Submit a clarification reply from the Yak UI. Equivalent to
+     * replying in the original Slack thread / Linear issue — both
+     * feed into ClarificationReplyJob which resumes Claude with the
+     * reply appended.
+     */
+    public function submitClarificationReply(): void
+    {
+        $this->validate([
+            'clarificationReplyText' => ['required', 'string', 'min:1'],
+        ]);
+
+        if ($this->task->status !== TaskStatus::AwaitingClarification) {
+            return;
+        }
+
+        $text = trim($this->clarificationReplyText);
+
+        ClarificationReplyJob::dispatch($this->task, $text);
+
+        TaskLogger::info($this->task, 'Clarification reply submitted via Yak UI');
+
+        $this->clarificationReplyText = '';
+        $this->task->refresh();
+
+        Flux::toast('Reply sent. Yak is continuing the task.');
     }
 
     public function toggleDebug(): void

@@ -2,6 +2,7 @@
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
@@ -20,6 +21,68 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->actingAs(User::factory()->create());
+});
+
+test('shows the clarification reply input while status is AwaitingClarification for any source', function () {
+    foreach (['slack', 'linear', 'sentry', 'flaky-test'] as $source) {
+        $task = YakTask::factory()->create([
+            'status' => TaskStatus::AwaitingClarification,
+            'source' => $source,
+            'clarification_options' => ['Option A', 'Option B'],
+            'clarification_expires_at' => now()->addDays(2),
+        ]);
+
+        Livewire::test(TaskDetail::class, ['task' => $task])
+            ->assertSeeHtml('data-testid="clarification-reply-input"')
+            ->assertSeeHtml('data-testid="clarification-reply-submit"');
+    }
+});
+
+test('submitClarificationReply dispatches ClarificationReplyJob with the text', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'sentry',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->set('clarificationReplyText', 'Trace id abc123, payload is {...}')
+        ->call('submitClarificationReply');
+
+    Queue::assertPushed(ClarificationReplyJob::class, function ($job) use ($task) {
+        return $job->task->is($task) && str_contains($job->replyText, 'abc123');
+    });
+});
+
+test('submitClarificationReply rejects empty text', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->set('clarificationReplyText', '   ')
+        ->call('submitClarificationReply')
+        ->assertHasErrors(['clarificationReplyText']);
+
+    Queue::assertNotPushed(ClarificationReplyJob::class);
+});
+
+test('renders an answered fix task without branch / PR UI', function () {
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'pr_url' => null,
+        'branch_name' => 'yak/answered-123',
+        'result_summary' => 'The middleware is idempotent; safe to call twice.',
+    ]);
+
+    $testable = Livewire::test(TaskDetail::class, ['task' => $task]);
+
+    expect($testable->instance()->isAnsweredFix())->toBeTrue();
+    $testable->assertSee('The middleware is idempotent')
+        ->assertDontSee('yak/answered-123');
 });
 
 test('it renders task info', function () {

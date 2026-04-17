@@ -194,6 +194,28 @@
                     </ul>
                 </div>
             @endif
+            @if($task->status === \App\Enums\TaskStatus::AwaitingClarification)
+                <div class="mt-5 border-t border-[rgba(200,184,154,0.3)] pt-5">
+                    <label for="clarification-reply" class="mb-2 block text-sm font-medium text-yak-slate">Your reply</label>
+                    <textarea
+                        id="clarification-reply"
+                        wire:model="clarificationReplyText"
+                        rows="3"
+                        placeholder="Type your answer… Yak will also accept replies from the original Slack thread or Linear issue."
+                        data-testid="clarification-reply-input"
+                        class="w-full rounded-xl border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange"
+                    ></textarea>
+                    @error('clarificationReplyText')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <p class="text-xs text-yak-blue">Resumes Claude with your reply appended.</p>
+                        <flux:button wire:click="submitClarificationReply" variant="primary" size="sm" data-testid="clarification-reply-submit">
+                            Send reply
+                        </flux:button>
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 
@@ -286,7 +308,7 @@
                     <span class="text-xs font-medium uppercase tracking-wider text-yak-blue">API-billed spend</span>
                     <span class="text-sm text-yak-slate" data-testid="api-spend">${{ number_format($this->apiSpendUsd, 4) }}</span>
                 </div>
-                @if($task->branch_name)
+                @if($task->branch_name && ! $this->isAnsweredFix)
                     <div class="flex flex-col gap-0.5">
                         <span class="text-xs font-medium uppercase tracking-wider text-yak-blue">Branch</span>
                         <span class="text-sm text-yak-slate"><code class="font-mono text-[13px]">{{ $task->branch_name }}</code></span>
