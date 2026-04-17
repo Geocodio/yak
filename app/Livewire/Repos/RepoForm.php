@@ -47,6 +47,13 @@ class RepoForm extends Component
 
     public bool $apply_to_open_prs = true;
 
+    /** @var array<int, string> */
+    public array $path_excludes = [];
+
+    public string $path_exclude_input = '';
+
+    public bool $using_defaults = true;
+
     // GitHub repo picker (create mode only)
     public string $github_search = '';
 
@@ -79,6 +86,14 @@ class RepoForm extends Component
             $this->ci_system = $repository->ci_system;
             $this->sentry_project = $repository->sentry_project ?? '';
             $this->pr_review_enabled = (bool) $repository->pr_review_enabled;
+
+            if ($repository->pr_review_path_excludes !== null) {
+                $this->path_excludes = array_values($repository->pr_review_path_excludes);
+                $this->using_defaults = false;
+            } else {
+                $this->path_excludes = [];
+                $this->using_defaults = true;
+            }
         } else {
             $this->loadGitHubRepos();
         }
@@ -317,6 +332,7 @@ class RepoForm extends Component
             'ci_system' => $this->ci_system,
             'sentry_project' => $this->sentry_project ?: null,
             'pr_review_enabled' => $this->pr_review_enabled,
+            'pr_review_path_excludes' => $this->using_defaults ? null : $this->path_excludes,
         ];
 
         $wasEnabled = (bool) ($this->repository?->pr_review_enabled ?? false);
@@ -335,6 +351,38 @@ class RepoForm extends Component
         }
 
         $this->redirectRoute('repos.edit', $this->repository, navigate: true);
+    }
+
+    public function addPathExclude(): void
+    {
+        $pattern = trim($this->path_exclude_input);
+
+        if ($pattern === '' || in_array($pattern, $this->path_excludes, true)) {
+            return;
+        }
+
+        if (! preg_match('#^[A-Za-z0-9_./*?\-]+$#', $pattern)) {
+            $this->addError('path_exclude_input', 'Invalid glob pattern.');
+
+            return;
+        }
+
+        $this->path_excludes[] = $pattern;
+        $this->path_exclude_input = '';
+        $this->using_defaults = false;
+    }
+
+    public function removePathExclude(int $index): void
+    {
+        unset($this->path_excludes[$index]);
+        $this->path_excludes = array_values($this->path_excludes);
+        $this->using_defaults = false;
+    }
+
+    public function resetPathExcludes(): void
+    {
+        $this->path_excludes = [];
+        $this->using_defaults = true;
     }
 
     public function reviewAllOpenPrs(): void
