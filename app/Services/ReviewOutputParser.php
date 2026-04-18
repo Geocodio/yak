@@ -45,19 +45,83 @@ class ReviewOutputParser
         );
     }
 
+    /**
+     * Extract the review's top-level JSON object from the agent output.
+     *
+     * Naive regex matching is unsafe here because `findings[].body` can
+     * contain nested ```suggestion fences which would cause a non-greedy
+     * match to stop early. Instead: find the ```json fence, then walk the
+     * following characters tracking brace depth (string-aware) until the
+     * top-level object closes. This is robust to any mix of inner fences,
+     * escaped quotes, and trailing prose.
+     */
     private function extractJsonBlock(string $output): ?string
     {
-        if (preg_match_all('/```json\s*(.*?)```/s', $output, $matches) === 0) {
+        $fencePos = strrpos($output, '```json');
+        if ($fencePos === false) {
             return null;
         }
 
-        $blocks = $matches[1];
-        $last = end($blocks);
+        $cursor = $fencePos + strlen('```json');
+        $len = strlen($output);
 
-        if ($last === false) {
+        // Advance to the first `{` after the fence marker.
+        while ($cursor < $len && $output[$cursor] !== '{') {
+            $cursor++;
+        }
+
+        if ($cursor >= $len) {
             return null;
         }
 
-        return trim($last) ?: null;
+        $start = $cursor;
+        $depth = 0;
+        $inString = false;
+        $escaped = false;
+
+        for (; $cursor < $len; $cursor++) {
+            $char = $output[$cursor];
+
+            if ($inString) {
+                if ($escaped) {
+                    $escaped = false;
+
+                    continue;
+                }
+
+                if ($char === '\\') {
+                    $escaped = true;
+
+                    continue;
+                }
+
+                if ($char === '"') {
+                    $inString = false;
+                }
+
+                continue;
+            }
+
+            if ($char === '"') {
+                $inString = true;
+
+                continue;
+            }
+
+            if ($char === '{') {
+                $depth++;
+
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return substr($output, $start, $cursor - $start + 1);
+                }
+            }
+        }
+
+        return null;
     }
 }

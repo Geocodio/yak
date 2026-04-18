@@ -121,7 +121,16 @@ class RunYakReviewJob implements ShouldQueue
             TaskMetricsAccumulator::applyFresh($this->task, $result);
             DailyCost::accumulate($result->costUsd);
 
-            $parsed = app(ReviewOutputParser::class)->parse($result->resultSummary);
+            try {
+                $parsed = app(ReviewOutputParser::class)->parse($result->resultSummary);
+            } catch (\Throwable $e) {
+                TaskLogger::error($this->task, 'Failed to parse agent review output', [
+                    'error' => $e->getMessage(),
+                    'raw_output' => mb_substr($result->resultSummary, 0, 10000),
+                ]);
+
+                throw $e;
+            }
 
             $parsed = $this->filterFindings($parsed, $promptContext['pathExcludes']);
 
