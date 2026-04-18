@@ -91,6 +91,7 @@ it('dismisses prior non-dismissed reviews on a full-scope run', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn([
         'id' => 5678,
         'comments' => [],
@@ -125,6 +126,7 @@ it('does NOT dismiss prior reviews on an incremental-scope run', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn([
         'id' => 5678,
         'comments' => [],

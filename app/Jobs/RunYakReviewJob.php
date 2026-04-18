@@ -22,6 +22,7 @@ use App\Services\LinearIssueFetcher;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Support\GitHubDiffLines;
 use App\Support\LinearIdentifierExtractor;
 use App\Support\PathMatcher;
 use App\Support\TaskContext;
@@ -356,15 +357,32 @@ class RunYakReviewJob implements ShouldQueue
     {
         $installationId = (int) config('yak.channels.github.installation_id');
         $maxFindings = (int) config('yak.pr_review.max_findings_per_review', 20);
+        $github = app(GitHubAppService::class);
+        $prNumber = (int) $metadata['pr_number'];
 
         $findings = array_slice($parsed->findings, 0, $maxFindings);
 
+        // Ask GitHub which (file, line) pairs live inside a diff hunk —
+        // only those can carry a review comment without being rejected
+        // with a 422. Everything else gets rolled into the review body.
+        $prFiles = $github->listPullRequestFiles($installationId, $repository->slug, $prNumber);
+        $validLines = GitHubDiffLines::buildMap($prFiles);
+
         $lineComments = [];
         $nitpicks = [];
+        $outOfDiff = [];
 
         foreach ($findings as $f) {
             if ($f->severity === 'consider') {
                 $nitpicks[] = $f;
+
+                continue;
+            }
+
+            $lineIsCommentable = isset($validLines[$f->file][$f->line]);
+
+            if (! $lineIsCommentable) {
+                $outOfDiff[] = $f;
 
                 continue;
             }
@@ -376,10 +394,14 @@ class RunYakReviewJob implements ShouldQueue
             ];
         }
 
-        $body = $this->renderReviewBody($parsed, $nitpicks);
+        if ($outOfDiff !== []) {
+            TaskLogger::info($this->task, 'Some findings landed outside the diff hunks — folded into review body', [
+                'out_of_diff_count' => count($outOfDiff),
+                'line_comment_count' => count($lineComments),
+            ]);
+        }
 
-        $github = app(GitHubAppService::class);
-        $prNumber = (int) $metadata['pr_number'];
+        $body = $this->renderReviewBody($parsed, $nitpicks, $outOfDiff);
 
         try {
             $response = $github->createPullRequestReview(
@@ -485,11 +507,30 @@ class RunYakReviewJob implements ShouldQueue
 
     /**
      * @param  array<int, ReviewFinding>  $nitpicks
+     * @param  array<int, ReviewFinding>  $outOfDiff
      */
-    private function renderReviewBody(ParsedReview $parsed, array $nitpicks): string
+    private function renderReviewBody(ParsedReview $parsed, array $nitpicks, array $outOfDiff = []): string
     {
         $parts = [];
         $parts[] = "## Summary\n\n" . $parsed->summary;
+
+        if ($outOfDiff !== []) {
+            $byFile = [];
+            foreach ($outOfDiff as $f) {
+                $byFile[$f->file][] = $f;
+            }
+
+            $blocks = [];
+            foreach ($byFile as $file => $items) {
+                $lines = array_map(
+                    fn (ReviewFinding $f): string => "- **[{$f->category} · " . strtoupper($f->severity) . "]** `{$f->file}:{$f->line}` — {$f->body}",
+                    $items,
+                );
+                $blocks[] = implode("\n", $lines);
+            }
+
+            $parts[] = "## Findings outside the diff\n\nThese flag code that changed behavior indirectly or wasn't touched by this PR — they couldn't be inline-commented.\n\n" . implode("\n\n", $blocks);
+        }
 
         if ($nitpicks !== []) {
             $nitsBody = collect($nitpicks)

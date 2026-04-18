@@ -79,6 +79,10 @@ it('runs a full-scope review end to end', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+        'filename' => 'app/Foo.php',
+        'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
+    ]]);
     $github->shouldReceive('createPullRequestReview')->andReturn([
         'id' => 7777,
         'comments' => [
@@ -125,10 +129,10 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
 
     fakeReviewParser(
         findings: [[
-            'file' => 'app/Foo.php', 'line' => 999, 'severity' => 'must_fix',
-            'category' => 'Performance', 'body' => 'Out of diff.',
+            'file' => 'app/Foo.php', 'line' => 12, 'severity' => 'must_fix',
+            'category' => 'Performance', 'body' => 'Commentable line.',
         ]],
-        summary: 'Review with invalid line.',
+        summary: 'Review with a commentable finding.',
         verdict: 'Request changes',
     );
 
@@ -139,8 +143,15 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
     ));
     app()->instance(AgentRunner::class, $agent);
 
+    // Simulate GitHub still 422'ing even though the line is inside the diff
+    // — e.g. phantom hunk header shifts. The fallback should kick in and
+    // re-post with no line comments.
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+        'filename' => 'app/Foo.php',
+        'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
+    ]]);
     $github->shouldReceive('createPullRequestReview')
         ->once()
         ->withArgs(fn ($_i, $_r, $_p, $_b, $_e, $comments) => count($comments) === 1)
@@ -202,6 +213,7 @@ it('does not fetch Linear ticket when no identifier is present', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('t');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 1, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -254,6 +266,7 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('t');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([['filename' => 'app/Foo.php', 'patch' => "@@ -10,5 +10,10 @@\n context\n+added"]]);
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 1, 'comments' => []]);
     app()->instance(GitHubAppService::class, $github);
 

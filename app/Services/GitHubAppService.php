@@ -317,6 +317,44 @@ class GitHubAppService
     }
 
     /**
+     * List the files changed in a PR, including each file's patch. Used
+     * to filter review findings down to lines that actually live inside a
+     * diff hunk — GitHub rejects the whole review otherwise.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPullRequestFiles(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $results = [];
+        $page = 1;
+
+        while (true) {
+            $response = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/files", [
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $batch = $response->json();
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return $results;
+    }
+
+    /**
      * @param  array<int, array{path: string, line: int, body: string}>  $comments
      * @return array<string, mixed>
      */
