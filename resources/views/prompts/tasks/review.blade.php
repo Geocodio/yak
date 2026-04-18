@@ -104,10 +104,6 @@ Evaluate the PR against each category below. **Only report findings that are gen
 - Are comments limited to explaining business logic and non-obvious decisions?
 - Are there any single-character variable names or cryptic abbreviations?
 
-### Boy Scout Rule
-- Is the code that was touched left better than it was found?
-- Were any obvious, low-effort improvements in the area missed?
-
 ### Technology & Dependencies
 - Are we using boring, proven technologies — not chasing shiny new things?
 - Are any new dependencies justified and necessary?
@@ -146,6 +142,7 @@ Evaluate the PR against each category below. **Only report findings that are gen
 
 ## Review Conduct
 
+- **Stay inside the diff.** Every finding must point to a line that was **added or modified in this PR** — a `+` line (or an adjacent context line inside the same hunk) from `git diff {{ $baseBranch ?: 'origin/main' }}...HEAD`. Reading untouched code is for context only; pre-existing issues in files the PR doesn't change are out of scope for this review. If the code is tempting to refactor but isn't part of this PR, say nothing.
 - **Be specific.** Always reference exact file paths and line numbers. Vague advice is useless.
 - **Provide alternatives.** Don't just say what's wrong — show what better looks like with a brief example or ` ```suggestion ` block when it fits.
 - **Don't nitpick formatting.** Pint and linters handle that. Focus on logic, architecture, and maintainability.
