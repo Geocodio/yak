@@ -105,7 +105,9 @@ test('boots fresh sandbox, runs agent in director tier, dispatches RenderVideoJo
     );
 
     $task->refresh();
-    expect($task->director_cut_status)->toBe('rendered');
+    // Status stays at 'rendering' after the sandbox phase — RenderVideoJob
+    // transitions it to 'ready' once the MP4 is fully rendered.
+    expect($task->director_cut_status)->toBe('rendering');
     expect(Artifact::where('yak_task_id', $task->id)->where('filename', 'director-cut.webm')->exists())->toBeTrue();
 
     Queue::assertPushed(RenderVideoJob::class, function (RenderVideoJob $job): bool {

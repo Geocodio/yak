@@ -78,14 +78,18 @@ class GenerateDirectorCutJob implements ShouldQueue
             $webm = $this->registerWebmArtifact($task);
 
             if ($webm !== null) {
+                // RenderVideoJob transitions director_cut_status to 'ready'
+                // once the MP4 has finished rendering and the PR body has
+                // been patched with the link. Leaving the status at
+                // 'rendering' here keeps the state machine linear:
+                // null → rendering → ready (or failed).
                 RenderVideoJob::dispatch($webm->id, 'director');
             } else {
                 Log::channel('yak')->warning('GenerateDirectorCutJob: no director-cut.webm produced', [
                     'task_id' => $task->id,
                 ]);
+                $task->update(['director_cut_status' => 'failed']);
             }
-
-            $task->update(['director_cut_status' => 'rendered']);
         } catch (Throwable $e) {
             $task->update(['director_cut_status' => 'failed']);
             Log::channel('yak')->error('GenerateDirectorCutJob failed', [

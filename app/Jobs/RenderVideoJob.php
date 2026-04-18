@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\Artifact;
+use App\Models\YakTask;
+use App\Services\PullRequestBodyUpdater;
 use App\Services\VideoRenderer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -68,13 +70,62 @@ class RenderVideoJob implements ShouldQueue
             throw $e;
         }
 
-        Artifact::create([
+        $cutArtifact = Artifact::create([
             'yak_task_id' => $raw->yak_task_id,
             'type' => 'video_cut',
             'filename' => $outputFilename,
             'disk_path' => $outputDiskPath,
             'size_bytes' => file_exists($outputPath) ? filesize($outputPath) : 0,
         ]);
+
+        if ($this->tier === 'director') {
+            $this->publishDirectorCut($raw->task, $cutArtifact);
+        }
+    }
+
+    /**
+     * Patch the PR body with the Director's Cut link and flip the task's
+     * director_cut_status to 'ready'. Failures patching GitHub are logged
+     * but not re-thrown: the render itself succeeded, so we don't want to
+     * retry the whole RenderVideoJob just because GitHub rejected a PATCH.
+     */
+    private function publishDirectorCut(?YakTask $task, Artifact $cutArtifact): void
+    {
+        if ($task === null) {
+            return;
+        }
+
+        $prNumber = $this->extractPrNumber($task->pr_url);
+
+        if ($prNumber !== null && $task->repo !== null && $task->repo !== '') {
+            try {
+                app(PullRequestBodyUpdater::class)->appendDirectorCut(
+                    repoFullName: $task->repo,
+                    prNumber: $prNumber,
+                    directorCutUrl: $cutArtifact->signedUrl(),
+                );
+            } catch (Throwable $e) {
+                Log::channel('yak')->warning('RenderVideoJob: failed to append Director\'s Cut to PR body', [
+                    'task_id' => $task->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $task->update(['director_cut_status' => 'ready']);
+    }
+
+    private function extractPrNumber(?string $prUrl): ?int
+    {
+        if ($prUrl === null || $prUrl === '') {
+            return null;
+        }
+
+        if (preg_match('#/pull/(\d+)#', $prUrl, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 
     public function failed(Throwable $e): void
