@@ -250,7 +250,7 @@
                 Re-run review
             </flux:button>
             <span class="text-sm text-yak-slate/70">
-                Creates a new review task from the current PR head. The existing task is left as-is.
+                Re-runs this task against the current PR head. Prior review output on GitHub stays; Yak's stored findings for this task are replaced.
             </span>
         </div>
     @endif

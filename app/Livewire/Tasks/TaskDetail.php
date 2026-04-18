@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Tasks;
 
-use App\Actions\EnqueuePrReview;
 use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
@@ -16,7 +15,6 @@ use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\PrReview;
-use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
@@ -26,6 +24,7 @@ use App\Support\TaskSourceUrl;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use League\CommonMark\CommonMarkConverter;
 use Livewire\Attributes\Computed;
@@ -241,21 +240,15 @@ class TaskDetail extends Component
             return;
         }
 
-        $existing = YakTask::query()
-            ->where('mode', TaskMode::Review)
-            ->where('external_id', $this->task->pr_url)
-            ->whereIn('status', ['pending', 'running'])
-            ->exists();
-
-        if ($existing) {
+        if (in_array($this->task->status, [TaskStatus::Pending, TaskStatus::Running], true)) {
             Flux::toast('A review is already queued for this PR.', variant: 'warning');
 
             return;
         }
 
         $installationId = (int) config('yak.channels.github.installation_id');
-        $context = json_decode((string) $this->task->context, true) ?: [];
-        $prNumber = $context['pr_number'] ?? null;
+        $oldContext = json_decode((string) $this->task->context, true) ?: [];
+        $prNumber = $oldContext['pr_number'] ?? null;
 
         if ($prNumber === null) {
             Flux::toast('Cannot determine PR number.', variant: 'danger');
@@ -263,6 +256,9 @@ class TaskDetail extends Component
             return;
         }
 
+        // Re-fetch the PR so the re-run picks up the current head, base,
+        // title, and body — not the stale values we cached on the original
+        // task.
         $prPayload = app(GitHubAppService::class)
             ->getPullRequest($installationId, $this->task->repo, (int) $prNumber);
 
@@ -272,9 +268,44 @@ class TaskDetail extends Component
             return;
         }
 
-        $repo = Repository::where('slug', $this->task->repo)->firstOrFail();
+        // Drop any prior review rows so the job starts clean.
+        PrReview::where('yak_task_id', $this->task->id)->delete();
 
-        app(EnqueuePrReview::class)->dispatch($repo, $prPayload, 'full');
+        // Raw DB update to bypass the state machine. Success is a final
+        // state by design (to guard against accidental regressions), but
+        // a user-initiated re-review explicitly wants to rewind it.
+        DB::table('tasks')->where('id', $this->task->id)->update([
+            'status' => TaskStatus::Pending->value,
+            'error_log' => null,
+            'result_summary' => null,
+            'cost_usd' => 0,
+            'duration_ms' => 0,
+            'num_turns' => 0,
+            'started_at' => null,
+            'completed_at' => null,
+            'branch_name' => (string) $prPayload['head']['ref'],
+            'context' => json_encode([
+                'pr_number' => (int) $prPayload['number'],
+                'head_sha' => (string) $prPayload['head']['sha'],
+                'head_ref' => (string) $prPayload['head']['ref'],
+                'base_sha' => (string) $prPayload['base']['sha'],
+                'base_ref' => (string) $prPayload['base']['ref'],
+                'author' => (string) ($prPayload['user']['login'] ?? ''),
+                'title' => (string) ($prPayload['title'] ?? ''),
+                'body' => (string) ($prPayload['body'] ?? ''),
+                'review_scope' => 'full',
+                'incremental_base_sha' => null,
+            ]),
+            'updated_at' => now(),
+        ]);
+
+        $this->task->refresh();
+
+        RunYakReviewJob::dispatch($this->task);
+
+        $this->visibleAttempt = (int) $this->task->attempts + 1;
+        $this->expandedLogs = [];
+        $this->expandedGroups = [];
 
         Flux::toast('Re-running review for this PR.');
     }
