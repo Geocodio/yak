@@ -244,6 +244,17 @@
     @endif
 
     {{-- Review-specific panels --}}
+    @if($task->mode === \App\Enums\TaskMode::Review)
+        <div class="mb-5 flex items-center gap-3 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:px-7">
+            <flux:button wire:click="rerunReview" variant="outline" size="sm">
+                Re-run review
+            </flux:button>
+            <span class="text-sm text-yak-slate/70">
+                Creates a new review task from the current PR head. The existing task is left as-is.
+            </span>
+        </div>
+    @endif
+
     @if($task->mode === \App\Enums\TaskMode::Review && $this->prReview)
         @php $review = $this->prReview; @endphp
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
@@ -276,11 +287,6 @@
                     </div>
                 @endif
             </dl>
-            <div class="mt-4">
-                <flux:button wire:click="rerunReview" variant="outline" size="sm">
-                    Re-run review
-                </flux:button>
-            </div>
         </div>
 
         <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
