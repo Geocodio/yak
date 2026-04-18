@@ -11,8 +11,12 @@ class YakPromptBuilder
 {
     /**
      * Build the system prompt with channel-conditional sections.
+     *
+     * The `$tier` parameter controls walkthrough grammar: pass `'director'`
+     * to append the Director's Cut partial (stricter plan rules, tutorial
+     * narration) on top of the default Reviewer grammar.
      */
-    public static function systemPrompt(YakTask $task, string $devEnvironmentInstructions = 'No specific dev environment instructions.'): string
+    public static function systemPrompt(YakTask $task, string $devEnvironmentInstructions = 'No specific dev environment instructions.', string $tier = 'reviewer'): string
     {
         $channelRules = self::buildChannelRules();
         $repoInstructions = self::resolveRepoInstructions($task);
@@ -22,6 +26,7 @@ class YakPromptBuilder
             'devEnvironmentInstructions' => $devEnvironmentInstructions,
             'channelRules' => $channelRules,
             'repoInstructions' => $repoInstructions,
+            'directorCut' => ($tier === 'director'),
         ]);
     }
 

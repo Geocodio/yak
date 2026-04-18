@@ -78,6 +78,22 @@ test('system prompt uses default dev environment instructions when none provided
     expect($prompt)->toContain('No specific dev environment instructions.');
 });
 
+test('prompt builder includes director cut partial when tier=director', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task, 'No specific dev environment instructions.', 'director');
+
+    expect($prompt)->toContain("DIRECTOR'S CUT MODE");
+});
+
+test('prompt builder excludes director partial for reviewer tier (default)', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->not->toContain("DIRECTOR'S CUT MODE");
+});
+
 /*
 |--------------------------------------------------------------------------
 | System Prompt - Channel-Conditional Sections
