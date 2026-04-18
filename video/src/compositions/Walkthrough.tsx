@@ -8,6 +8,7 @@ import { Callout } from '../primitives/Callout';
 import { CaptionStrip } from '../primitives/CaptionStrip';
 import { FastForwardBadge } from '../primitives/FastForwardBadge';
 import { MusicBed } from '../primitives/MusicBed';
+import { SmartZoom } from '../primitives/SmartZoom';
 
 export type WalkthroughProps = {
   videoUrl: string;
@@ -68,9 +69,53 @@ export const Walkthrough = ({ videoUrl, storyboard, musicTrack }: WalkthroughPro
     }
   }
 
+  type Zoom = { fromFrame: number; durationFrames: number; x: number; y: number };
+  const zooms: Zoom[] = [];
+  const zoomLifetimeFrames = Math.round(fps * 2.0);
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    if (ev.type !== 'emphasize') continue;
+    for (let j = i + 1; j < events.length; j++) {
+      const next = events[j];
+      if (next.type === 'click') {
+        zooms.push({
+          fromFrame: tToFrame(next.t, fps) - Math.round(fps * 0.1),
+          durationFrames: zoomLifetimeFrames,
+          x: next.x,
+          y: next.y,
+        });
+        break;
+      }
+      if (next.type === 'keypress') {
+        zooms.push({
+          fromFrame: tToFrame(next.t, fps) - Math.round(fps * 0.1),
+          durationFrames: zoomLifetimeFrames,
+          x: width / 2,
+          y: 80,
+        });
+        break;
+      }
+    }
+  }
+
   return (
     <AbsoluteFill style={{ background: '#000' }}>
-      <Video src={resolvedVideoUrl} />
+      {zooms.length === 0 ? (
+        <Video src={resolvedVideoUrl} />
+      ) : (
+        <>
+          <Video src={resolvedVideoUrl} />
+          {zooms.map((z, i) => (
+            <Sequence key={`zoom-${i}`} from={z.fromFrame} durationInFrames={z.durationFrames}>
+              <AbsoluteFill>
+                <SmartZoom x={z.x} y={z.y} width={width} height={height}>
+                  <Video src={resolvedVideoUrl} startFrom={z.fromFrame} />
+                </SmartZoom>
+              </AbsoluteFill>
+            </Sequence>
+          ))}
+        </>
+      )}
       {ffSegments.map((seg, i) => (
         <Sequence key={`ff-${i}`} from={seg.startFrame} durationInFrames={seg.endFrame - seg.startFrame}>
           <FastForwardBadge factor={seg.factor} />
