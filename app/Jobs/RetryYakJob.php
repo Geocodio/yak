@@ -12,6 +12,7 @@ use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -50,6 +51,7 @@ class RetryYakJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            new PausesDuringDrain,
             new EnsureRepoReady,
             new EnsureDailyBudget,
         ];

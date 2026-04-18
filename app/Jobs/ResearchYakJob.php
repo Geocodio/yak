@@ -12,6 +12,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\Artifact;
 use App\Models\DailyCost;
 use App\Models\Repository;
@@ -50,6 +51,7 @@ class ResearchYakJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            new PausesDuringDrain,
             new EnsureRepoReady,
             new EnsureDailyBudget,
         ];

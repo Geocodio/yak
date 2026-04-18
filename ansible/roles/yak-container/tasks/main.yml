@@ -31,6 +31,24 @@
     source: pull
     force_source: true
 
+# Check whether a container is already running before attempting to
+# drain. The first deploy on a new host has nothing to drain.
+- name: Check for existing Yak container
+  community.docker.docker_container_info:
+    name: "{{ yak_container_name }}"
+  register: yak_container_info
+
+- name: Drain running tasks before container recreate
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    user: www-data
+    command: "php /app/artisan yak:drain --wait={{ yak_drain_wait_seconds | default(300) }}"
+  when: yak_container_info.exists and yak_container_info.container.State.Running | default(false)
+  # Drain is best-effort — if it fails (e.g. DB unreachable) we still
+  # want the deploy to proceed rather than leave the instance stuck on
+  # a broken image.
+  failed_when: false
+
 - name: Run Yak container
   community.docker.docker_container:
     name: "{{ yak_container_name }}"
@@ -66,4 +84,22 @@
       start_period: 30s
     networks:
       - name: yak
+
+# Wait for php-fpm / workers to be ready inside the fresh container
+# before clearing the drain flag. Artisan runs through Laravel's
+# bootstrap, so the DB cache store must be reachable.
+- name: Wait for Yak container health
+  community.docker.docker_container_info:
+    name: "{{ yak_container_name }}"
+  register: yak_post_start
+  retries: 12
+  delay: 5
+  until: yak_post_start.exists and yak_post_start.container.State.Running | default(false)
+
+- name: Clear drain flag so workers resume
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    user: www-data
+    command: "php /app/artisan yak:resume"
+  failed_when: false
 

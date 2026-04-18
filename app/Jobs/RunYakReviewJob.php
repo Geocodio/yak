@@ -10,6 +10,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\LinearOauthConnection;
 use App\Models\PrReview;
@@ -50,7 +51,7 @@ class RunYakReviewJob implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [new EnsureRepoReady, new EnsureDailyBudget];
+        return [new PausesDuringDrain, new EnsureRepoReady, new EnsureDailyBudget];
     }
 
     public function handle(AgentRunner $agent): void

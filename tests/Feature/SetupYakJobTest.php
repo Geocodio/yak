@@ -5,6 +5,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\EnsureDailyBudget;
+use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\SetupYakJob;
 use App\Livewire\Repos\RepoForm;
 use App\Models\Repository;
@@ -379,7 +380,7 @@ test('SetupYakJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('SetupYakJob has EnsureDailyBudget middleware', function () {
+test('SetupYakJob has PausesDuringDrain and EnsureDailyBudget middleware', function () {
     Process::fake();
 
     $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
@@ -388,8 +389,9 @@ test('SetupYakJob has EnsureDailyBudget middleware', function () {
     $job = new SetupYakJob($task);
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(1)
-        ->and($middleware[0])->toBeInstanceOf(EnsureDailyBudget::class);
+    expect($middleware)->toHaveCount(2)
+        ->and($middleware[0])->toBeInstanceOf(PausesDuringDrain::class)
+        ->and($middleware[1])->toBeInstanceOf(EnsureDailyBudget::class);
 });
 
 /*
