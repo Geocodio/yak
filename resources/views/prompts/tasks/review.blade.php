@@ -155,13 +155,14 @@ Evaluate the PR against each category below. **Only report findings that are gen
 
 - **must_fix** — blocks merge; real bug, test failure, obvious security issue, data loss risk
 - **should_fix** — meaningful improvement but not a blocker; code smell worth addressing
-- **consider** — nits and suggestions; will be bundled into a collapsed "Nitpicks" block
+- **consider** — nits and small suggestions; posted inline on the diff so the author can accept them with one click
 
 ## Rules
 
 - Do NOT commit, push, or modify any files. This is read-only analysis.
 - Skip any file matching `pathExcludes`: @json($pathExcludes)
 - Use ` ```suggestion ` blocks only when the change is 1–10 lines AND inside the relevant diff hunk. Populate `suggestion_loc` with the line count.
+- Show, don't tell. For `consider` findings especially — if you can express the nit as a concrete 1–10 line rewrite, include a ` ```suggestion ` block so the author can one-click accept it. A nitpick without a suggestion is worth much less than one with.
 
 ## Output
 
@@ -180,7 +181,7 @@ Write the review in prose, formatted like this:
 - **[Category]** `path/to/file.php:LINE` — description and suggestion.
 
 ### Consider
-- **[Category]** `path/to/file.php:LINE` — description and suggestion.
+- **[Category]** `path/to/file.php:LINE` — description. Include a ```suggestion fenced block whenever the nit is a concrete 1–10 line rewrite.
 
 ## What's Done Well
 Highlight 2–3 specific things the PR does right. Be genuine, not patronizing.

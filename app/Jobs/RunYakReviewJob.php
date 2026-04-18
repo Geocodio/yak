@@ -370,29 +370,31 @@ class RunYakReviewJob implements ShouldQueue
         $validLines = GitHubDiffLines::buildMap($prFiles);
 
         $lineComments = [];
+        $lineCommentFindings = [];
         $nitpicks = [];
         $outOfDiff = [];
 
         foreach ($findings as $f) {
-            if ($f->severity === 'consider') {
-                $nitpicks[] = $f;
-
-                continue;
-            }
-
             $lineIsCommentable = isset($validLines[$f->file][$f->line]);
 
             if (! $lineIsCommentable) {
-                $outOfDiff[] = $f;
+                if ($f->severity === 'consider') {
+                    $nitpicks[] = $f;
+                } else {
+                    $outOfDiff[] = $f;
+                }
 
                 continue;
             }
+
+            $severityLabel = $f->severity === 'consider' ? 'NITPICK' : strtoupper($f->severity);
 
             $lineComments[] = [
                 'path' => $f->file,
                 'line' => $f->line,
-                'body' => "**[{$f->category} · " . strtoupper($f->severity) . "]**\n\n{$f->body}",
+                'body' => "**[{$f->category} · {$severityLabel}]**\n\n{$f->body}",
             ];
+            $lineCommentFindings[] = $f;
         }
 
         if ($outOfDiff !== []) {
@@ -423,7 +425,11 @@ class RunYakReviewJob implements ShouldQueue
                 'line_comment_count' => count($lineComments),
             ]);
 
-            $body = $this->renderReviewBodyWithInlineFindings($parsed, $findings, $nitpicks);
+            $allNitpicks = array_values(array_filter(
+                $findings,
+                fn (ReviewFinding $f): bool => $f->severity === 'consider',
+            ));
+            $body = $this->renderReviewBodyWithInlineFindings($parsed, $findings, $allNitpicks);
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->slug,
@@ -433,6 +439,7 @@ class RunYakReviewJob implements ShouldQueue
                 [],
             );
             $lineComments = [];
+            $lineCommentFindings = [];
         }
 
         $review = PrReview::create([
@@ -477,18 +484,13 @@ class RunYakReviewJob implements ShouldQueue
             }
         }
 
-        $nonConsider = array_values(array_filter(
-            $findings,
-            fn ($f): bool => $f->severity !== 'consider',
-        ));
-
         foreach ($response['comments'] ?? [] as $i => $returned) {
             $finding = $lineComments[$i] ?? null;
             if ($finding === null) {
                 continue;
             }
 
-            $original = $nonConsider[$i] ?? null;
+            $original = $lineCommentFindings[$i] ?? null;
             if ($original === null) {
                 continue;
             }

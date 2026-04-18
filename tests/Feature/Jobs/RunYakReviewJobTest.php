@@ -100,6 +100,163 @@ it('runs a full-scope review end to end', function () {
         ->and(PrReviewComment::count())->toBe(1);
 });
 
+it('posts consider-severity findings as inline NITPICK comments when they sit inside the diff', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'ci_system' => 'none',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/43',
+        'external_id' => 'https://github.com/geocodio/api/pull/43',
+        'branch_name' => 'feat/nits',
+        'context' => json_encode([
+            'pr_number' => 43,
+            'head_sha' => 'abc123',
+            'base_sha' => 'def456',
+            'author' => 'mathias',
+            'title' => 'Nits',
+            'body' => 'Cleanup.',
+            'review_scope' => 'full',
+            'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: "app/Foo.php\n", exitCode: 0));
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's-nit', resultSummary: 'prose', costUsd: 0.01, numTurns: 1, durationMs: 10,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    fakeReviewParser(
+        findings: [[
+            'file' => 'app/Foo.php', 'line' => 12, 'severity' => 'consider',
+            'category' => 'Clean Code', 'body' => "Rename for clarity.\n\n```suggestion\n    public int \$retryCount = 0;\n```",
+            'suggestion_loc' => 1,
+        ]],
+        summary: 'Small cleanup PR.',
+        verdict: 'Approve',
+    );
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+        'filename' => 'app/Foo.php',
+        'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
+    ]]);
+
+    $captured = null;
+    $github->shouldReceive('createPullRequestReview')
+        ->once()
+        ->withArgs(function ($_i, $_r, $_p, $body, $_e, $comments) use (&$captured) {
+            $captured = ['body' => $body, 'comments' => $comments];
+
+            return true;
+        })
+        ->andReturn([
+            'id' => 9001,
+            'comments' => [
+                ['id' => 222, 'path' => 'app/Foo.php', 'line' => 12, 'body' => 'stored'],
+            ],
+        ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($captured['comments'])->toHaveCount(1)
+        ->and($captured['comments'][0]['path'])->toBe('app/Foo.php')
+        ->and($captured['comments'][0]['line'])->toBe(12)
+        ->and($captured['comments'][0]['body'])->toContain('NITPICK')
+        ->and($captured['comments'][0]['body'])->toContain('```suggestion')
+        ->and($captured['body'])->not->toContain('<details>');
+
+    $comment = PrReviewComment::first();
+    expect($comment)->not->toBeNull()
+        ->and($comment->severity)->toBe('consider')
+        ->and($comment->is_suggestion)->toBeTrue();
+});
+
+it('keeps out-of-diff consider findings in the collapsed nitpicks block', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'ci_system' => 'none',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/44',
+        'external_id' => 'https://github.com/geocodio/api/pull/44',
+        'branch_name' => 'feat/oob',
+        'context' => json_encode([
+            'pr_number' => 44, 'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => 't', 'body' => '',
+            'review_scope' => 'full', 'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    fakeReviewParser(
+        findings: [[
+            'file' => 'app/Foo.php', 'line' => 999, 'severity' => 'consider',
+            'category' => 'Clean Code', 'body' => 'Line is not inside any diff hunk.',
+        ]],
+        summary: 'Out-of-diff nit.',
+        verdict: 'Approve',
+    );
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+        'filename' => 'app/Foo.php',
+        'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
+    ]]);
+
+    $captured = null;
+    $github->shouldReceive('createPullRequestReview')
+        ->once()
+        ->withArgs(function ($_i, $_r, $_p, $body, $_e, $comments) use (&$captured) {
+            $captured = ['body' => $body, 'comments' => $comments];
+
+            return true;
+        })
+        ->andReturn(['id' => 1, 'comments' => []]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($captured['comments'])->toBe([])
+        ->and($captured['body'])->toContain('<details>')
+        ->and($captured['body'])->toContain('Nitpicks (1)');
+});
+
 it('falls back to a body-only review when GitHub rejects the line comments', function () {
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',
