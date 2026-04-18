@@ -220,6 +220,7 @@
     cmd: ./build-for-image.sh
     chdir: "{{ playbook_dir }}/../sandbox-tools/yak-browser"
   delegate_to: localhost
+  become: false
   run_once: true
   changed_when: false
   when: base_template_check.rc != 0
