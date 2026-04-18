@@ -1,6 +1,6 @@
 import { AbsoluteFill, Sequence, Video, useVideoConfig, staticFile } from 'remotion';
 import type { Storyboard, StoryboardEvent } from '../lib/storyboard';
-import { ChapterCard } from '../primitives/ChapterCard';
+import { ChapterBanner } from '../primitives/ChapterBanner';
 import { ClickRipple } from '../primitives/ClickRipple';
 import { KeypressBadge } from '../primitives/KeypressBadge';
 import { UrlPill } from '../primitives/UrlPill';
@@ -23,7 +23,7 @@ function tToFrame(t: number, fps: number) {
 function overlayDuration(event: StoryboardEvent, fps: number) {
   switch (event.type) {
     case 'chapter':
-      return Math.round(fps * 1.0);
+      return Math.round(fps * 2.5);
     case 'narrate':
       return Math.round(fps * 3.0);
     case 'click':
@@ -83,7 +83,7 @@ export const Walkthrough = ({ videoUrl, storyboard, musicTrack }: WalkthroughPro
           case 'chapter':
             return (
               <Sequence key={i} from={frame} durationInFrames={duration}>
-                <ChapterCard title={ev.title} durationFrames={duration} />
+                <ChapterBanner title={ev.title} durationFrames={duration} />
               </Sequence>
             );
           case 'narrate':
