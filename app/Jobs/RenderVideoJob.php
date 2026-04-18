@@ -18,7 +18,7 @@ class RenderVideoJob implements ShouldQueue
 
     public int $backoff = 30;
 
-    public function __construct(public int $rawVideoArtifactId) {}
+    public function __construct(public int $rawVideoArtifactId, public string $tier = 'reviewer') {}
 
     public function handle(VideoRenderer $renderer): void
     {
@@ -45,7 +45,7 @@ class RenderVideoJob implements ShouldQueue
 
         $webmPath = $disk->path($raw->disk_path);
         $storyboardPath = $disk->path($storyboardDiskPath);
-        $outputFilename = 'reviewer-cut.mp4';
+        $outputFilename = $this->tier === 'director' ? 'director-cut.mp4' : 'reviewer-cut.mp4';
         $outputDiskPath = "{$taskDir}/{$outputFilename}";
         $outputPath = $disk->path($outputDiskPath);
 
@@ -58,7 +58,7 @@ class RenderVideoJob implements ShouldQueue
                 webmPath: $webmPath,
                 storyboardPath: $storyboardPath,
                 outputPath: $outputPath,
-                tier: 'reviewer',
+                tier: $this->tier,
             );
         } catch (Throwable $e) {
             Log::warning('RenderVideoJob: Remotion render failed', [

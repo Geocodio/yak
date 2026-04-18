@@ -78,6 +78,38 @@ test('no-op when raw artifact has wrong type', function () {
     expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0);
 });
 
+test('renders a director cut when tier is director', function () {
+    Storage::fake('artifacts');
+
+    $task = YakTask::factory()->success()->create();
+    $raw = Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video',
+        'filename' => 'director-cut.webm',
+        'disk_path' => "{$task->id}/director-cut.webm",
+    ]);
+    Storage::disk('artifacts')->put("{$task->id}/director-cut.webm", 'webm');
+    Storage::disk('artifacts')->put(
+        "{$task->id}/storyboard.json",
+        json_encode(['version' => 1, 'plan' => (object) [], 'events' => []])
+    );
+
+    $this->mock(VideoRenderer::class)
+        ->shouldReceive('render')
+        ->once()
+        ->withArgs(function ($webm, $sb, $out, $tier) {
+            return $tier === 'director' && str_contains($out, 'director-cut.mp4');
+        })
+        ->andReturnUsing(function ($w, $s, $out) {
+            file_put_contents($out, 'x');
+
+            return $out;
+        });
+
+    (new RenderVideoJob($raw->id, 'director'))->handle(app(VideoRenderer::class));
+
+    expect(Artifact::where('yak_task_id', $task->id)->where('filename', 'director-cut.mp4')->exists())->toBeTrue();
+});
+
 test('failed() logs and allows CreatePullRequestJob fallback to raw webm', function () {
     Storage::fake('artifacts');
 
