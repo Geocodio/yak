@@ -87,6 +87,12 @@ RUN npm run build
 # through to the production stage via COPY --from=build.
 RUN cd video && npm install --no-audit --no-fund
 
+# Build yak-browser bundle. IncusSandboxManager::pushYakBrowser() reads
+# sandbox-tools/yak-browser/dist/yak-browser.js at runtime and pushes it
+# into each fresh Incus sandbox, so the bundle must exist inside the
+# host image. Produces a single standalone JS file (no runtime deps).
+RUN cd sandbox-tools/yak-browser && npm install --no-audit --no-fund && npm run build
+
 # ── Production image ─────────────────────────────────────────────────
 FROM base AS production
 

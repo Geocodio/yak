@@ -213,12 +213,21 @@
   when: base_template_check.rc != 0
   changed_when: true
 
+- name: Build yak-browser bundle on the controller
+  # Produces dist/yak-browser.js on the ansible controller so the next
+  # task can stage it onto the yak host. No-op if base image is current.
+  ansible.builtin.command:
+    cmd: ./build-for-image.sh
+    chdir: "{{ playbook_dir }}/../sandbox-tools/yak-browser"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: base_template_check.rc != 0
+
 - name: Stage yak-browser bundle on the host for baking into yak-base
-  # The bundle is gitignored and produced by
-  # sandbox-tools/yak-browser/build-for-image.sh before deploy. It gets
-  # pushed from here into the yak-base container by the next task so a
-  # baked fallback is available if the push-on-launch step in
-  # IncusSandboxManager ever fails.
+  # The bundle is gitignored, produced by the preceding task, and pushed
+  # from here into the yak-base container so a baked fallback exists if
+  # the push-on-launch step in IncusSandboxManager ever fails.
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../sandbox-tools/yak-browser/dist/yak-browser.js"
     dest: /tmp/yak-browser.js
