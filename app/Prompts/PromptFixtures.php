@@ -47,6 +47,16 @@ class PromptFixtures
                         'repoInstructions' => "- Skip running the full test suite locally — CI covers it (needs 800GB of fixture data).\n- Use pnpm, not npm.",
                     ],
                 ],
+                [
+                    'label' => "Director's Cut walkthrough",
+                    'data' => [
+                        'taskId' => 'YAK-3456',
+                        'devEnvironmentInstructions' => 'Run `docker compose up -d` to start services.',
+                        'channelRules' => '',
+                        'repoInstructions' => '',
+                        'directorCut' => true,
+                    ],
+                ],
             ],
             'personality' => [
                 [

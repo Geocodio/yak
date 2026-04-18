@@ -1,0 +1,14 @@
+color=c=0x1e1e2e:s=1280x720:d=15[bg];
+[bg]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Yak Dashboard':fontsize=64:fontcolor=white:x=(w-text_w)/2:y=100:enable='between(t\,0\,5)'[s1];
+[s1]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='/tasks':fontsize=36:fontcolor=0xbbbbbb:x=(w-text_w)/2:y=200:enable='between(t\,0\,5)'[s2];
+[s2]drawbox=x=440:y=320:w=400:h=80:color=0x7c5cff@0.8:t=fill:enable='between(t\,2\,5)'[s3];
+[s3]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Create Task':fontsize=32:fontcolor=white:x=(w-text_w)/2:y=350:enable='between(t\,2\,5)'[s4];
+[s4]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='New Task Form':fontsize=56:fontcolor=white:x=(w-text_w)/2:y=100:enable='between(t\,5\,10)'[s5];
+[s5]drawbox=x=340:y=220:w=600:h=50:color=0x2a2a3e:t=fill:enable='between(t\,5\,10)'[s6];
+[s6]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Add dark mode toggle':fontsize=24:fontcolor=0xdddddd:x=360:y=235:enable='between(t\,6\,10)'[s7];
+[s7]drawbox=x=540:y=320:w=200:h=60:color=0x7c5cff:t=fill:enable='between(t\,8\,10)'[s8];
+[s8]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Submit':fontsize=24:fontcolor=white:x=(w-text_w)/2:y=340:enable='between(t\,8\,10)'[s9];
+[s9]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Task Created!':fontsize=56:fontcolor=0x7c5cff:x=(w-text_w)/2:y=100:enable='between(t\,10\,15)'[s10];
+[s10]drawbox=x=340:y=200:w=600:h=200:color=0x2a2a3e:t=fill:enable='between(t\,10\,15)'[s11];
+[s11]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Add dark mode toggle':fontsize=28:fontcolor=white:x=360:y=240:enable='between(t\,10\,15)'[s12];
+[s12]drawtext=fontfile=/System/Library/Fonts/Helvetica.ttc:text='Status\: In progress':fontsize=20:fontcolor=0x7c5cff:x=360:y=290:enable='between(t\,10\,15)'[out]

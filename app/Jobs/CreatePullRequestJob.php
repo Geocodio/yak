@@ -140,12 +140,23 @@ class CreatePullRequestJob implements ShouldQueue
             }
         }
 
-        $videos = array_filter($signedUrls, fn (array $a): bool => $a['type'] === 'video');
-        if (count($videos) > 0) {
+        // Prefer the rendered reviewer cut (Remotion output) over the raw webm.
+        // The cut is a polished mp4 with title cards, callouts, etc. — reviewers
+        // should see that. Fall back to raw video artifacts only if rendering
+        // didn't produce a cut (e.g. no storyboard, or RenderVideoJob failed).
+        $videoCut = $this->task->artifacts()->reviewerCut()->latest('id')->first();
+        if ($videoCut !== null) {
             $parts[] = '';
             $parts[] = '### Video walkthrough';
-            foreach ($videos as $video) {
-                $parts[] = "- [{$video['filename']}]({$video['url']})";
+            $parts[] = "- [{$videoCut->filename}]({$videoCut->signedUrl()})";
+        } else {
+            $videos = array_filter($signedUrls, fn (array $a): bool => $a['type'] === 'video');
+            if (count($videos) > 0) {
+                $parts[] = '';
+                $parts[] = '### Video walkthrough';
+                foreach ($videos as $video) {
+                    $parts[] = "- [{$video['filename']}]({$video['url']})";
+                }
             }
         }
 

@@ -540,6 +540,115 @@ test('PR body includes screenshot signed URLs', function () {
     });
 });
 
+test('PR body prefers reviewer cut over raw webm when both exist', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-CUT',
+        'source' => 'manual',
+        'description' => 'Prefer the cut',
+        'attempts' => 1,
+    ]);
+
+    Artifact::factory()->video()->create([
+        'yak_task_id' => $task->id,
+        'filename' => 'walkthrough.webm',
+    ]);
+
+    Artifact::factory()->videoCut()->create([
+        'yak_task_id' => $task->id,
+        'filename' => 'reviewer-cut.mp4',
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        if (! str_contains($request->url(), '/pulls')) {
+            return false;
+        }
+
+        $body = $request['body'];
+
+        return str_contains($body, '### Video walkthrough')
+            && str_contains($body, 'reviewer-cut.mp4')
+            && ! str_contains($body, 'walkthrough.webm');
+    });
+});
+
+test('PR body falls back to raw webm when no reviewer cut exists', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-NOCUT',
+        'source' => 'manual',
+        'description' => 'Fall back to raw webm',
+        'attempts' => 1,
+    ]);
+
+    // Only a raw video, no reviewer cut.
+    Artifact::factory()->video()->create([
+        'yak_task_id' => $task->id,
+        'filename' => 'walkthrough.webm',
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        if (! str_contains($request->url(), '/pulls')) {
+            return false;
+        }
+
+        $body = $request['body'];
+
+        return str_contains($body, '### Video walkthrough')
+            && str_contains($body, 'walkthrough.webm');
+    });
+});
+
 test('PR body includes video walkthrough signed URLs', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([

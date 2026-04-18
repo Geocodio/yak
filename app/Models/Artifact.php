@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\ArtifactFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,5 +43,32 @@ class Artifact extends Model
             now()->addDays($expiryDays),
             ['task' => $this->yak_task_id, 'filename' => $this->filename]
         );
+    }
+
+    /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopeVideoCuts(Builder $query): Builder
+    {
+        return $query->where('type', 'video_cut');
+    }
+
+    /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopeReviewerCut(Builder $query): Builder
+    {
+        return $query->where('type', 'video_cut')->where('filename', 'like', '%reviewer-cut%');
+    }
+
+    /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopeDirectorCut(Builder $query): Builder
+    {
+        return $query->where('type', 'video_cut')->where('filename', 'like', '%director-cut%');
     }
 }

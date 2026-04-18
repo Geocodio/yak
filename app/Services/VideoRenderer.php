@@ -1,0 +1,58 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Process;
+use RuntimeException;
+
+class VideoRenderer
+{
+    public function __construct(public string $videoDir) {}
+
+    public function render(string $webmPath, string $storyboardPath, string $outputPath, string $tier = 'reviewer'): string
+    {
+        if (! file_exists($webmPath)) {
+            throw new RuntimeException("walkthrough webm not found: {$webmPath}");
+        }
+        if (! file_exists($storyboardPath)) {
+            throw new RuntimeException("storyboard.json not found: {$storyboardPath}");
+        }
+
+        $publicDir = "{$this->videoDir}/public";
+        if (! is_dir($publicDir)) {
+            mkdir($publicDir, 0755, true);
+        }
+
+        $stagedName = '_render-' . bin2hex(random_bytes(6)) . '.webm';
+        $stagedPath = "{$publicDir}/{$stagedName}";
+        copy($webmPath, $stagedPath);
+
+        try {
+            $storyboard = json_decode(file_get_contents($storyboardPath), true);
+            $props = json_encode([
+                'videoUrl' => $stagedName,
+                'storyboard' => $storyboard,
+                'musicTrack' => null,
+                'tier' => $tier,
+            ], JSON_UNESCAPED_SLASHES);
+
+            $result = Process::path($this->videoDir)
+                ->timeout(600)
+                ->run([
+                    'npx', 'remotion', 'render',
+                    'src/index.ts', 'Walkthrough', $outputPath,
+                    '--props=' . $props,
+                ]);
+
+            if (! $result->successful()) {
+                throw new RuntimeException(
+                    "Remotion render failed (exit {$result->exitCode()}): {$result->errorOutput()}"
+                );
+            }
+
+            return $outputPath;
+        } finally {
+            @unlink($stagedPath);
+        }
+    }
+}

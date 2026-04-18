@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const bundlePath = resolve(here, '..', 'dist', 'yak-browser.js');
+if (existsSync(bundlePath)) {
+  await import(bundlePath);
+} else {
+  // Dev fallback: run source via tsx
+  await import('../src/index.ts');
+}

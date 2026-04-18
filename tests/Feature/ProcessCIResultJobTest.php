@@ -2,6 +2,7 @@
 
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
+use App\Jobs\RenderVideoJob;
 use App\Jobs\RetryYakJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
@@ -476,6 +477,109 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
     $expectedSignature = hash_hmac('sha256', $payload, (string) config('app.key'));
 
     expect(strlen($expectedSignature))->toBe(64); // SHA-256 hex digest
+});
+
+/*
+|--------------------------------------------------------------------------
+| Green Path — Video Pipeline
+|--------------------------------------------------------------------------
+*/
+
+test('dispatches RenderVideoJob when storyboard.json is present', function () {
+    Storage::fake('artifacts');
+    Queue::fake([RenderVideoJob::class]);
+
+    Http::fake([
+        'api.github.com/*' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/vid-repo/pull/1',
+        ]),
+    ]);
+
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/vid-repo',
+        'path' => '/home/yak/repos/vid-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/vid-repo',
+        'branch_name' => 'yak/FIX-VID',
+        'source' => 'manual',
+        'attempts' => 1,
+    ]);
+
+    // Sandbox pre-collected: raw webm + a matching storyboard.json.
+    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    mkdir($artifactsDir, 0755, true);
+    file_put_contents($artifactsDir . '/walkthrough.webm', 'fake-webm');
+    file_put_contents($artifactsDir . '/storyboard.json', json_encode(['version' => 1, 'plan' => (object) [], 'events' => []]));
+
+    $job = new ProcessCIResultJob($task, true);
+    $job->handle();
+
+    Queue::assertPushed(RenderVideoJob::class, function (RenderVideoJob $job) use ($task) {
+        $artifact = Artifact::find($job->rawVideoArtifactId);
+
+        return $artifact !== null
+            && $artifact->yak_task_id === $task->id
+            && $artifact->type === 'video';
+    });
+});
+
+test('dispatches RenderVideoJob even when no storyboard.json (job will no-op)', function () {
+    Storage::fake('artifacts');
+    Queue::fake([RenderVideoJob::class]);
+
+    Http::fake([
+        'api.github.com/*' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/no-sb-repo/pull/1',
+        ]),
+    ]);
+
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+        '*ffprobe*' => Process::result(''), // legacy VideoProcessor probe
+        '*ffmpeg*' => Process::result(''),  // legacy VideoProcessor transform
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/no-sb-repo',
+        'path' => '/home/yak/repos/no-sb-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/no-sb-repo',
+        'branch_name' => 'yak/FIX-NOSB',
+        'source' => 'manual',
+        'attempts' => 1,
+    ]);
+
+    // Sandbox pre-collected: raw webm but NO storyboard.json.
+    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    mkdir($artifactsDir, 0755, true);
+    file_put_contents($artifactsDir . '/walkthrough.webm', 'fake-webm');
+
+    $job = new ProcessCIResultJob($task, true);
+    $job->handle();
+
+    // RenderVideoJob still dispatched; it will no-op on its own because storyboard is missing.
+    Queue::assertPushed(RenderVideoJob::class);
+
+    // And the raw video artifact was still recorded so the PR body fallback can find it.
+    $video = Artifact::where('yak_task_id', $task->id)->where('type', 'video')->first();
+    expect($video)->not->toBeNull()
+        ->and($video->filename)->toBe('walkthrough.webm');
 });
 
 /*
