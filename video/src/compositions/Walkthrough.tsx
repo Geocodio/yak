@@ -1,4 +1,4 @@
-import { AbsoluteFill, Sequence, Video, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Sequence, Video, useVideoConfig, staticFile } from 'remotion';
 import type { Storyboard, StoryboardEvent } from '../lib/storyboard';
 import { ChapterCard } from '../primitives/ChapterCard';
 import { ClickRipple } from '../primitives/ClickRipple';
@@ -39,9 +39,17 @@ function overlayDuration(event: StoryboardEvent, fps: number) {
   }
 }
 
+function resolveVideoUrl(url: string): string {
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://') || url.startsWith('/')) {
+    return url;
+  }
+  return staticFile(url);
+}
+
 export const Walkthrough = ({ videoUrl, storyboard, musicTrack }: WalkthroughProps) => {
   const { fps, width, height } = useVideoConfig();
   const events = storyboard.events;
+  const resolvedVideoUrl = resolveVideoUrl(videoUrl);
 
   const ffSegments: Array<{ startFrame: number; endFrame: number; factor: number }> = [];
   let open: { start: number; factor: number } | null = null;
@@ -62,7 +70,7 @@ export const Walkthrough = ({ videoUrl, storyboard, musicTrack }: WalkthroughPro
 
   return (
     <AbsoluteFill style={{ background: '#000' }}>
-      <Video src={videoUrl} />
+      <Video src={resolvedVideoUrl} />
       {ffSegments.map((seg, i) => (
         <Sequence key={`ff-${i}`} from={seg.startFrame} durationInFrames={seg.endFrame - seg.startFrame}>
           <FastForwardBadge factor={seg.factor} />
