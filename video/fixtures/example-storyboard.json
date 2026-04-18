@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "plan": {
+    "tier": "reviewer",
+    "goal": "Demo creating a new task in the Yak dashboard",
+    "chapters": [
+      { "title": "Intro", "beats": ["Show the empty dashboard"] },
+      { "title": "Create task", "beats": ["Open the form", "Fill description", "Submit"] },
+      { "title": "Result", "beats": ["See the new task in the list"] }
+    ],
+    "expected_duration_seconds": 15,
+    "emphasize_budget": 2,
+    "callout_budget": 1,
+    "fastforward_segments": []
+  },
+  "events": [
+    { "t": 0.5, "type": "chapter", "title": "Intro" },
+    { "t": 1.5, "type": "narrate", "text": "Starting on the empty Yak dashboard" },
+    { "t": 3.0, "type": "emphasize" },
+    { "t": 3.2, "type": "click", "x": 640, "y": 360, "selector": "button.create-task" },
+    { "t": 4.0, "type": "navigate", "url": "/tasks/new" },
+    { "t": 5.5, "type": "chapter", "title": "Create task" },
+    { "t": 6.5, "type": "narrate", "text": "Describe what you want done in the task field" },
+    { "t": 7.0, "type": "click", "x": 640, "y": 300, "selector": "textarea" },
+    { "t": 8.5, "type": "keypress", "keys": "Tab" },
+    { "t": 9.0, "type": "emphasize" },
+    { "t": 9.2, "type": "click", "x": 820, "y": 360, "selector": "button.submit" },
+    { "t": 10.5, "type": "chapter", "title": "Result" },
+    { "t": 11.3, "type": "narrate", "text": "The task appears in the list, ready to run" },
+    { "t": 12.0, "type": "callout", "text": "Status: In progress", "selector": "span.status", "anchor": "right" }
+  ]
+}
