@@ -7,3 +7,8 @@ storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
+video/node_modules
+video/out
+video/.remotion-cache
+video/fixtures/*.webm
+video/fixtures/*.mp4

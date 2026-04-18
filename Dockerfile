@@ -82,6 +82,11 @@ RUN npm ci --include=optional
 COPY . .
 RUN npm run build
 
+# Install Remotion project deps for the video walkthrough renderer.
+# Built inside the image so node_modules is Linux-native and carried
+# through to the production stage via COPY --from=build.
+RUN cd video && npm install --no-audit --no-fund
+
 # ── Production image ─────────────────────────────────────────────────
 FROM base AS production
 
