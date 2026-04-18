@@ -116,11 +116,17 @@ export const Walkthrough = ({ videoUrl, storyboard, musicTrack }: WalkthroughPro
               .find((e) => e.t <= ev.t && e.type === 'click') as
               | Extract<StoryboardEvent, { type: 'click' }>
               | undefined;
-            const x = near?.x ?? width / 2;
-            const y = near?.y ?? height / 2;
+            const targetX = near?.x ?? width / 2;
+            const targetY = near?.y ?? height / 2;
             return (
               <Sequence key={i} from={frame} durationInFrames={duration}>
-                <Callout text={ev.text} x={x} y={y} anchor={ev.anchor} />
+                <Callout
+                  text={ev.text}
+                  targetX={targetX}
+                  targetY={targetY}
+                  rect={ev.rect}
+                  anchor={ev.anchor}
+                />
               </Sequence>
             );
           }
