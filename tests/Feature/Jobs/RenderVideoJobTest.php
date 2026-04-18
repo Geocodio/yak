@@ -4,6 +4,7 @@ use App\Jobs\RenderVideoJob;
 use App\Models\Artifact;
 use App\Models\YakTask;
 use App\Services\VideoRenderer;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 test('renders a reviewer cut when webm and storyboard both exist', function () {
@@ -75,4 +76,28 @@ test('no-op when raw artifact has wrong type', function () {
     (new RenderVideoJob($screenshot->id))->handle(app(VideoRenderer::class));
 
     expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0);
+});
+
+test('failed() logs and allows CreatePullRequestJob fallback to raw webm', function () {
+    Storage::fake('artifacts');
+
+    $task = YakTask::factory()->success()->create();
+    $raw = Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video',
+        'filename' => 'walkthrough.webm',
+        'disk_path' => "{$task->id}/walkthrough.webm",
+    ]);
+
+    Log::shouldReceive('error')
+        ->once()
+        ->with('RenderVideoJob: render failed after retries', Mockery::on(fn (array $ctx): bool => $ctx['artifact'] === $raw->id
+            && $ctx['error'] === 'boom'));
+
+    $job = new RenderVideoJob($raw->id);
+    $job->failed(new RuntimeException('boom'));
+
+    // No reviewer cut was created, but the raw video artifact is still intact
+    // so CreatePullRequestJob's fallback logic can link it.
+    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0)
+        ->and(Artifact::where('type', 'video')->where('yak_task_id', $task->id)->count())->toBe(1);
 });
