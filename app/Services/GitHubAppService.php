@@ -440,6 +440,33 @@ class GitHubAppService
     }
 
     /**
+     * Patch an existing PR. Typically used to edit the body (e.g. to append
+     * a Director's Cut link once the render completes asynchronously).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function updatePullRequest(int $installationId, string $repoSlug, int $prNumber, array $data): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->patch("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}", $data);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException(sprintf(
+                'GitHub rejected pull_request PATCH (status %d): %s',
+                $response->status(),
+                (string) $response->body(),
+            ));
+        }
+
+        /** @var array<string, mixed> */
+        return $response->json();
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function listCommentReactions(int $installationId, string $repoSlug, int $commentId): array
