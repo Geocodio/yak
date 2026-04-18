@@ -14,7 +14,14 @@ export type Plan = {
 export type StoryboardEvent =
   | { t: number; type: 'chapter'; title: string }
   | { t: number; type: 'narrate'; text: string }
-  | { t: number; type: 'callout'; text: string; selector: string; anchor?: 'top' | 'bottom' | 'left' | 'right' }
+  | {
+      t: number;
+      type: 'callout';
+      text: string;
+      selector: string;
+      anchor?: 'top' | 'bottom' | 'left' | 'right';
+      rect?: { left: number; top: number; width: number; height: number };
+    }
   | { t: number; type: 'emphasize' }
   | { t: number; type: 'fastforward'; start: boolean; factor?: number }
   | { t: number; type: 'note'; text: string }

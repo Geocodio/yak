@@ -88,7 +88,7 @@ async function main(argv: string[]): Promise<number> {
     const text = rest.find((a) => !a.startsWith('--')) ?? '';
     const selector = getFlag(rest, '--target') ?? '';
     const anchor = getFlag(rest, '--anchor') as 'top' | 'bottom' | 'left' | 'right' | undefined;
-    return runCallout({ artifactsDir: ARTIFACTS_DIR, text, selector, anchor });
+    return runCallout({ artifactsDir: ARTIFACTS_DIR, text, selector, anchor, agentBrowserPath: AGENT_BROWSER });
   }
   if (cmd === 'emphasize') {
     return runEmphasize({ artifactsDir: ARTIFACTS_DIR });

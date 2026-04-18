@@ -1,5 +1,6 @@
 import { readSession, writeSession } from '../lib/session.ts';
 import { appendEvent } from '../lib/storyboard.ts';
+import { captureRect } from '../lib/domRect.ts';
 
 const ANCHORS = new Set(['top', 'bottom', 'left', 'right']);
 
@@ -8,6 +9,7 @@ export function runCallout(opts: {
   text: string;
   selector: string;
   anchor?: 'top' | 'bottom' | 'left' | 'right';
+  agentBrowserPath?: string;
 }): number {
   const s = readSession(opts.artifactsDir);
   if (!s) {
@@ -30,6 +32,7 @@ export function runCallout(opts: {
     process.stderr.write('yak-browser callout: budget exhausted. Reduce callouts or increase callout_budget in the plan.\n');
     return 8;
   }
+  const rect = opts.agentBrowserPath ? captureRect(opts.selector, opts.agentBrowserPath) : null;
   s.calloutBudget -= 1;
   writeSession(opts.artifactsDir, s);
   appendEvent(opts.artifactsDir, {
@@ -37,6 +40,7 @@ export function runCallout(opts: {
     text: opts.text,
     selector: opts.selector,
     ...(opts.anchor ? { anchor: opts.anchor } : {}),
+    ...(rect ? { rect } : {}),
   });
   return 0;
 }
