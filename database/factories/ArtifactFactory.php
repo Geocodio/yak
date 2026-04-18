@@ -67,4 +67,18 @@ class ArtifactFactory extends Factory
             'size_bytes' => fake()->numberBetween(5000, 100000),
         ]);
     }
+
+    public function videoCut(): static
+    {
+        return $this->state(function (): array {
+            $filename = 'reviewer-cut.mp4';
+
+            return [
+                'type' => 'video_cut',
+                'filename' => $filename,
+                'disk_path' => $filename,
+                'size_bytes' => fake()->numberBetween(1000000, 50000000),
+            ];
+        });
+    }
 }
