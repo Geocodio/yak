@@ -188,12 +188,7 @@ class ProcessCIResultJob implements ShouldQueue
                 }
             }
 
-            // Post-process video walkthroughs (trim dead start, speed up idle sections)
-            if ($type === 'video') {
-                VideoProcessor::process($fullPath);
-            }
-
-            $artifacts[] = Artifact::create([
+            $artifact = Artifact::create([
                 'yak_task_id' => $this->task->id,
                 'type' => $type,
                 'filename' => $file->getFilename(),
@@ -201,6 +196,21 @@ class ProcessCIResultJob implements ShouldQueue
                 'size_bytes' => Storage::disk('artifacts')->size($storagePath),
                 'dhash' => $dhash,
             ]);
+
+            $artifacts[] = $artifact;
+
+            // For video artifacts, try the new Remotion pipeline first.
+            // RenderVideoJob no-ops when storyboard.json is missing, so we
+            // fall back to the legacy VideoProcessor in-place post-processing
+            // only when no storyboard exists (pre-storyboard repos / failures).
+            if ($type === 'video') {
+                RenderVideoJob::dispatch($artifact->id);
+
+                $storyboardPath = Storage::disk('artifacts')->path("{$this->task->id}/storyboard.json");
+                if (! file_exists($storyboardPath)) {
+                    VideoProcessor::process($fullPath);
+                }
+            }
         }
 
         // Clean up the .yak-artifacts subdirectory if it exists
