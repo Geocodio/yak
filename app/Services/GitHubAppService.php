@@ -338,6 +338,14 @@ class GitHubAppService
                 'comments' => $comments,
             ]);
 
+        if (! $response->successful()) {
+            throw new \RuntimeException(sprintf(
+                'GitHub rejected pull_request review (status %d): %s',
+                $response->status(),
+                (string) $response->body(),
+            ));
+        }
+
         /** @var array<string, mixed> */
         return $response->json();
     }

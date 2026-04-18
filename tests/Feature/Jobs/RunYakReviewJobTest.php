@@ -96,6 +96,69 @@ it('runs a full-scope review end to end', function () {
         ->and(PrReviewComment::count())->toBe(1);
 });
 
+it('falls back to a body-only review when GitHub rejects the line comments', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/99',
+        'external_id' => 'https://github.com/geocodio/api/pull/99',
+        'branch_name' => 'feat/x',
+        'context' => json_encode([
+            'pr_number' => 99, 'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => 't', 'body' => '',
+            'review_scope' => 'full', 'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    fakeReviewParser(
+        findings: [[
+            'file' => 'app/Foo.php', 'line' => 999, 'severity' => 'must_fix',
+            'category' => 'Performance', 'body' => 'Out of diff.',
+        ]],
+        summary: 'Review with invalid line.',
+        verdict: 'Request changes',
+    );
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: 'prose', costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('createPullRequestReview')
+        ->once()
+        ->withArgs(fn ($_i, $_r, $_p, $_b, $_e, $comments) => count($comments) === 1)
+        ->andThrow(new RuntimeException('GitHub rejected line comments (422)'));
+    $github->shouldReceive('createPullRequestReview')
+        ->once()
+        ->withArgs(fn ($_i, $_r, $_p, $_b, $_e, $comments) => $comments === [])
+        ->andReturn(['id' => 42, 'comments' => []]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    $review = PrReview::where('yak_task_id', $task->id)->first();
+    expect($review)->not->toBeNull()
+        ->and($review->github_review_id)->toBe(42)
+        ->and($task->fresh()->status)->toBe(TaskStatus::Success);
+});
+
 it('does not fetch Linear ticket when no identifier is present', function () {
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',

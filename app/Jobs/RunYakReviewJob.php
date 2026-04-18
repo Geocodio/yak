@@ -378,14 +378,39 @@ class RunYakReviewJob implements ShouldQueue
 
         $body = $this->renderReviewBody($parsed, $nitpicks);
 
-        $response = app(GitHubAppService::class)->createPullRequestReview(
-            $installationId,
-            $repository->slug,
-            (int) $metadata['pr_number'],
-            $body,
-            'COMMENT',
-            $lineComments,
-        );
+        $github = app(GitHubAppService::class);
+        $prNumber = (int) $metadata['pr_number'];
+
+        try {
+            $response = $github->createPullRequestReview(
+                $installationId,
+                $repository->slug,
+                $prNumber,
+                $body,
+                'COMMENT',
+                $lineComments,
+            );
+        } catch (\RuntimeException $e) {
+            // GitHub rejects line comments whose line number isn't inside a
+            // diff hunk. Rather than lose the whole review, fold the
+            // non-consider findings into the body and submit without
+            // per-line comments.
+            TaskLogger::warning($this->task, 'GitHub rejected line comments, falling back to body-only review', [
+                'error' => $e->getMessage(),
+                'line_comment_count' => count($lineComments),
+            ]);
+
+            $body = $this->renderReviewBodyWithInlineFindings($parsed, $findings, $nitpicks);
+            $response = $github->createPullRequestReview(
+                $installationId,
+                $repository->slug,
+                $prNumber,
+                $body,
+                'COMMENT',
+                [],
+            );
+            $lineComments = [];
+        }
 
         $review = PrReview::create([
             'yak_task_id' => $this->task->id,
@@ -465,6 +490,57 @@ class RunYakReviewJob implements ShouldQueue
     {
         $parts = [];
         $parts[] = "## Summary\n\n" . $parsed->summary;
+
+        if ($nitpicks !== []) {
+            $nitsBody = collect($nitpicks)
+                ->map(fn ($n) => "- **{$n->file}:{$n->line}** — _{$n->category}_: {$n->body}")
+                ->implode("\n");
+
+            $parts[] = "<details>\n<summary>Nitpicks (" . count($nitpicks) . ")</summary>\n\n" . $nitsBody . "\n</details>";
+        }
+
+        $parts[] = "## Verdict\n\n**{$parsed->verdict}** — {$parsed->verdictDetail}";
+
+        return implode("\n\n", $parts);
+    }
+
+    /**
+     * Fallback renderer used when GitHub rejects the per-line comments
+     * (typically because a finding's line isn't inside a diff hunk).
+     * Inlines every finding into the review body so the feedback still
+     * reaches the PR author, just without the native per-line threading.
+     *
+     * @param  array<int, ReviewFinding>  $findings  all findings (including consider)
+     * @param  array<int, ReviewFinding>  $nitpicks  already-separated consider findings
+     */
+    private function renderReviewBodyWithInlineFindings(ParsedReview $parsed, array $findings, array $nitpicks): string
+    {
+        $parts = [];
+        $parts[] = "## Summary\n\n" . $parsed->summary;
+
+        $grouped = ['must_fix' => [], 'should_fix' => []];
+        foreach ($findings as $f) {
+            if (isset($grouped[$f->severity])) {
+                $grouped[$f->severity][] = $f;
+            }
+        }
+
+        $sectionLabels = [
+            'must_fix' => 'Must Fix',
+            'should_fix' => 'Should Fix',
+        ];
+
+        foreach ($grouped as $severity => $items) {
+            if ($items === []) {
+                continue;
+            }
+
+            $lines = array_map(
+                fn (ReviewFinding $f): string => "- **[{$f->category}]** `{$f->file}:{$f->line}` — {$f->body}",
+                $items,
+            );
+            $parts[] = "## {$sectionLabels[$severity]}\n\n" . implode("\n", $lines);
+        }
 
         if ($nitpicks !== []) {
             $nitsBody = collect($nitpicks)
