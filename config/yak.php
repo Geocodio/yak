@@ -199,6 +199,7 @@ return [
         'reaction_poll_window_days' => (int) env('YAK_PR_REVIEW_POLL_DAYS', 30),
         'max_findings_per_review' => (int) env('YAK_PR_REVIEW_MAX_FINDINGS', 20),
         'enabled_globally' => (bool) env('YAK_PR_REVIEW_ENABLED_GLOBALLY', true),
+        'trigger_label' => env('YAK_PR_REVIEW_TRIGGER_LABEL', 'yak-review'),
         'default_path_excludes' => [
             'vendor/**', 'node_modules/**', 'public/build/**', 'public/hot',
             'storage/**', '*.min.js', '*.min.css',

@@ -34,6 +34,17 @@ class GitHubWebhookController extends Controller
             return $this->handleClosed($request);
         }
 
+        if ($action === 'labeled') {
+            $labelName = (string) $request->input('label.name', '');
+            $triggerLabel = (string) config('yak.pr_review.trigger_label', 'yak-review');
+
+            if ($labelName !== $triggerLabel) {
+                return response()->json(['ok' => true, 'skipped' => "unhandled label: {$labelName}"]);
+            }
+
+            return $this->handleReviewTrigger($request, 'labeled');
+        }
+
         if (in_array($action, ['opened', 'ready_for_review', 'reopened', 'synchronize'], true)) {
             return $this->handleReviewTrigger($request, $action);
         }

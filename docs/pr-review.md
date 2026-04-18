@@ -15,6 +15,14 @@ After that:
 
 PRs authored by the Yak app bot itself are skipped to avoid recursive reviews.
 
+## Manually Triggering A Review
+
+If you disabled the bulk "review all open PRs" option when enabling the feature — or if a PR predates PR review on the repo — you can still get Yak to review a specific PR by adding the `yak-review` label to it on GitHub. Yak listens for `pull_request.labeled` and treats that as a full-review trigger. Remove the label and re-add it to trigger another full review at the same commit.
+
+The label name is configurable via `YAK_PR_REVIEW_TRIGGER_LABEL` (default: `yak-review`). The repo must still have **PR Review** enabled for the label to do anything; the label is a trigger, not a bypass.
+
+> Why not "request Yak as a reviewer"? GitHub Apps (bots) can't be added to the Reviewers list — only human users and org teams can. The label is the simplest replacement.
+
 ## Path Filters
 
 Yak ships with sensible defaults for what to exclude from review — `vendor/**`, `node_modules/**`, build output, minified assets, editor config. The full default list is in `config/yak.php` under `pr_review.default_path_excludes`. Migrations and lockfiles are **not** excluded by default: migrations contain real logic (schema changes, indexes, destructive drops) worth a look, and lockfile diffs can surface dependency version bumps the author didn't highlight.
