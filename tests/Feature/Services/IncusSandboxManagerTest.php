@@ -3,6 +3,7 @@
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
@@ -349,6 +350,138 @@ it('skips passthrough entries whose env var is not defined on the host', functio
     Process::assertNotRan(fn ($p) => str_contains($p->command, 'environment.MISSING_VAR'));
 
     putenv('DEFINED_VAR');
+});
+
+it('pushes the host yak-browser bundle and makes it executable when creating a sandbox', function () {
+    $bundlePath = base_path('sandbox-tools/yak-browser/dist/yak-browser.js');
+    @mkdir(dirname($bundlePath), 0755, true);
+    file_put_contents($bundlePath, "#!/usr/bin/env node\nconsole.log('test');\n");
+
+    $repo = Repository::factory()->create([
+        'slug' => 'browser-push',
+        'sandbox_snapshot' => 'yak-tpl-browser-push/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'browser-push']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus file push')
+        && str_contains($p->command, 'yak-browser.js')
+        && str_contains($p->command, "{$container}/usr/local/bin/yak-browser"));
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus exec '{$container}' -- bash -c 'chmod +x /usr/local/bin/yak-browser'")
+        && ! str_contains($p->command, 'sudo -u yak'));
+});
+
+it('logs a warning and continues creating the sandbox when the yak-browser bundle is missing', function () {
+    $bundlePath = base_path('sandbox-tools/yak-browser/dist/yak-browser.js');
+    $backup = null;
+    if (file_exists($bundlePath)) {
+        $backup = $bundlePath . '.bak-' . uniqid();
+        rename($bundlePath, $backup);
+    }
+
+    try {
+        $repo = Repository::factory()->create([
+            'slug' => 'browser-missing',
+            'sandbox_snapshot' => 'yak-tpl-browser-missing/ready',
+            'sandbox_base_version' => 2,
+        ]);
+        $task = YakTask::factory()->create(['repo' => 'browser-missing']);
+
+        $container = "task-{$task->id}";
+
+        Log::shouldReceive('channel')->with('yak')->andReturnSelf();
+        Log::shouldReceive('info')->zeroOrMoreTimes();
+        Log::shouldReceive('warning')
+            ->withArgs(fn ($message, $context = []) => str_contains((string) $message, 'yak-browser bundle missing'))
+            ->atLeast()->once();
+        Log::shouldReceive('warning')->zeroOrMoreTimes();
+
+        Process::fake([
+            "incus info *{$container}*" => Process::result(exitCode: 1),
+            'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+            'incus copy *' => Process::result(exitCode: 0),
+            'incus config *' => Process::result(exitCode: 0),
+            'incus start *' => Process::result(exitCode: 0),
+            "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+            "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+            'incus exec *' => Process::result(exitCode: 0),
+            'incus file *' => Process::result(exitCode: 0),
+            '*' => Process::result(exitCode: 0),
+        ]);
+
+        $result = app(IncusSandboxManager::class)->create($task, $repo);
+
+        expect($result)->toBe($container);
+
+        // No file push for yak-browser should have happened.
+        Process::assertNotRan(fn ($p) => str_contains($p->command, 'yak-browser.js'));
+        Process::assertNotRan(fn ($p) => str_contains($p->command, 'chmod +x /usr/local/bin/yak-browser'));
+    } finally {
+        if ($backup !== null) {
+            rename($backup, $bundlePath);
+        }
+    }
+});
+
+it('logs a warning and continues when pushing the yak-browser bundle fails', function () {
+    $bundlePath = base_path('sandbox-tools/yak-browser/dist/yak-browser.js');
+    @mkdir(dirname($bundlePath), 0755, true);
+    if (! file_exists($bundlePath)) {
+        file_put_contents($bundlePath, "#!/usr/bin/env node\nconsole.log('test');\n");
+    }
+
+    $repo = Repository::factory()->create([
+        'slug' => 'browser-pushfail',
+        'sandbox_snapshot' => 'yak-tpl-browser-pushfail/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'browser-pushfail']);
+
+    $container = "task-{$task->id}";
+
+    Log::shouldReceive('channel')->with('yak')->andReturnSelf();
+    Log::shouldReceive('info')->zeroOrMoreTimes();
+    Log::shouldReceive('warning')
+        ->withArgs(fn ($message, $context = []) => str_contains((string) $message, 'yak-browser hot-update failed'))
+        ->atLeast()->once();
+    Log::shouldReceive('warning')->zeroOrMoreTimes();
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus file push *yak-browser.js*' => Process::result(exitCode: 1, errorOutput: 'network blip'),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    $result = app(IncusSandboxManager::class)->create($task, $repo);
+
+    // create() should still return a container name despite the push failing.
+    expect($result)->toBe($container);
 });
 
 it('stamps the current base_version on the repo when promoting to a template', function () {

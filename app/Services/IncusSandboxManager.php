@@ -65,6 +65,10 @@ class IncusSandboxManager
         // Wait for the container to be ready (systemd + Docker daemon)
         $this->waitForReady($containerName);
 
+        // Hot-push the host's current yak-browser bundle so walkthrough
+        // tasks pick up new builds without rebuilding the Incus base image.
+        $this->pushYakBrowser($containerName);
+
         // Push Claude config into the container
         $this->pushClaudeConfig($containerName);
 
@@ -603,6 +607,41 @@ class IncusSandboxManager
             ),
             timeout: 10,
         );
+    }
+
+    /**
+     * Push the host's current yak-browser bundle into the freshly-created
+     * sandbox, overwriting the baked fallback. On failure, log a warning
+     * and continue — the baked version installed at image-build time keeps
+     * walkthroughs working even if the hot-update can't land.
+     */
+    private function pushYakBrowser(string $containerName): void
+    {
+        $bundlePath = base_path('sandbox-tools/yak-browser/dist/yak-browser.js');
+
+        if (! file_exists($bundlePath)) {
+            Log::channel('yak')->warning('yak-browser bundle missing on host; sandbox will use baked fallback', [
+                'expected' => $bundlePath,
+                'container' => $containerName,
+            ]);
+
+            return;
+        }
+
+        try {
+            $this->pushFile($containerName, $bundlePath, '/usr/local/bin/yak-browser');
+            $this->run(
+                $containerName,
+                'chmod +x /usr/local/bin/yak-browser',
+                timeout: 10,
+                asRoot: true,
+            );
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('yak-browser hot-update failed; sandbox will use baked fallback', [
+                'container' => $containerName,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function pushMcpConfig(string $containerName): void
