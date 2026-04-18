@@ -142,15 +142,15 @@ test('PR closed without merge updates pr_closed_at on task', function () {
 |--------------------------------------------------------------------------
 */
 
-test('webhook skips non-pull_request events', function () {
+test('webhook skips unsupported events', function () {
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
 
-    $payload = ['action' => 'completed'];
+    $payload = ['action' => 'created'];
 
-    $response = postGitHubWebhook($this, $payload, $secret, 'check_suite');
+    $response = postGitHubWebhook($this, $payload, $secret, 'issue_comment');
 
-    $response->assertOk()->assertJson(['skipped' => 'not a pull_request event']);
+    $response->assertOk()->assertJson(['skipped' => 'unhandled event: issue_comment']);
 });
 
 test('webhook skips when no task matches PR URL', function () {

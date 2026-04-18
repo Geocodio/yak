@@ -7,7 +7,6 @@ use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
-use App\Http\Controllers\Webhooks\GitHubCIWebhookController;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
 use App\Http\Controllers\Webhooks\LinearWebhookController;
 use App\Http\Controllers\Webhooks\SentryWebhookController;
@@ -218,7 +217,6 @@ test('verifyWebhookSignature supports custom prefix', function () {
 test('all webhook controllers use VerifiesWebhookSignature trait', function () {
     $controllers = [
         GitHubWebhookController::class,
-        GitHubCIWebhookController::class,
         SlackWebhookController::class,
         LinearWebhookController::class,
         SentryWebhookController::class,

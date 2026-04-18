@@ -2,7 +2,7 @@
   "name": "Yak ({{ github_org }})",
   "url": "https://{{ yak_domain }}",
   "hook_attributes": {
-    "url": "https://{{ yak_domain }}/webhooks/ci/github",
+    "url": "https://{{ yak_domain }}/webhooks/github",
     "active": true
   },
   "redirect_url": "https://{{ yak_domain }}",
@@ -16,6 +16,7 @@
   },
   "default_events": [
     "check_suite",
+    "pull_request",
     "pull_request_review"
   ]
 }

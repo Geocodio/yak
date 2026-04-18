@@ -12,7 +12,6 @@ class WebhookSignaturesCheck implements HealthCheck
         'LinearWebhookController',
         'SentryWebhookController',
         'GitHubWebhookController',
-        'GitHubCIWebhookController',
     ];
 
     public function id(): string

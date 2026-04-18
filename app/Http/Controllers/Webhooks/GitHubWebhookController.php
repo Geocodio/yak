@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Webhooks;
 use App\Actions\EnqueuePrReview;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessCIResultJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -16,7 +17,7 @@ class GitHubWebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, GitHubAppService $github): JsonResponse
     {
         $this->verifyWebhookSignature(
             $request,
@@ -24,8 +25,14 @@ class GitHubWebhookController extends Controller
             'X-Hub-Signature-256',
         );
 
-        if ($request->header('X-GitHub-Event') !== 'pull_request') {
-            return response()->json(['ok' => true, 'skipped' => 'not a pull_request event']);
+        $event = (string) $request->header('X-GitHub-Event', '');
+
+        if ($event === 'check_suite') {
+            return $this->handleCheckSuite($request, $github);
+        }
+
+        if ($event !== 'pull_request') {
+            return response()->json(['ok' => true, 'skipped' => "unhandled event: {$event}"]);
         }
 
         $action = $request->input('action');
@@ -50,6 +57,50 @@ class GitHubWebhookController extends Controller
         }
 
         return response()->json(['ok' => true, 'skipped' => "unhandled action: {$action}"]);
+    }
+
+    private function handleCheckSuite(Request $request, GitHubAppService $github): JsonResponse
+    {
+        if ($request->input('action') !== 'completed') {
+            return response()->json(['ok' => true, 'skipped' => 'not a check_suite.completed event']);
+        }
+
+        /** @var string $branch */
+        $branch = $request->input('check_suite.head_branch', '');
+
+        if (! str_starts_with($branch, 'yak/')) {
+            return response()->json(['ok' => true, 'skipped' => 'not a yak branch']);
+        }
+
+        $task = YakTask::where('branch_name', $branch)->first();
+
+        if (! $task) {
+            return response()->json(['ok' => true, 'skipped' => 'no task found for branch']);
+        }
+
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if (! $repository || $repository->ci_system !== 'github_actions') {
+            return response()->json(['ok' => true, 'skipped' => 'wrong CI system']);
+        }
+
+        /** @var string $conclusion */
+        $conclusion = $request->input('check_suite.conclusion', 'failure');
+        $passed = $conclusion === 'success';
+
+        $output = null;
+        if (! $passed) {
+            $installationId = (int) config('yak.channels.github.installation_id');
+            $commitSha = (string) $request->input('check_suite.head_sha', '');
+
+            if ($installationId > 0 && $commitSha !== '') {
+                $output = $github->getFailedCheckRunOutput($installationId, $task->repo, $commitSha);
+            }
+        }
+
+        ProcessCIResultJob::dispatch($task, $passed, $output);
+
+        return response()->json(['ok' => true, 'dispatched' => true]);
     }
 
     private function handleClosed(Request $request): JsonResponse

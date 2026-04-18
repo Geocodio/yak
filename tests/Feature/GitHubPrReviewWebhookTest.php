@@ -16,6 +16,36 @@ function signGhPayload(string $payload): string
     return 'sha256=' . hash_hmac('sha256', $payload, 'secret');
 }
 
+it('handles pull_request events at the legacy /webhooks/ci/github URL', function () {
+    Bus::fake();
+
+    Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'is_active' => true,
+        'pr_review_enabled' => true,
+        'git_url' => 'https://github.com/geocodio/api.git',
+    ]);
+
+    $payload = [
+        'action' => 'opened',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/99',
+            'number' => 99, 'title' => '', 'body' => '',
+            'draft' => false, 'user' => ['login' => 'mathias'],
+            'head' => ['ref' => 'x', 'sha' => 'a'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/ci/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload($body),
+    ])->assertOk();
+
+    expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
+});
+
 it('enqueues a full review task for pull_request.opened on a non-draft PR', function () {
     Bus::fake();
 

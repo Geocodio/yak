@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use App\Channel;
-use App\Http\Controllers\Webhooks\GitHubCIWebhookController;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
 use App\Http\Controllers\Webhooks\LinearWebhookController;
 use App\Http\Controllers\Webhooks\SentryWebhookController;
@@ -69,12 +68,12 @@ class ChannelServiceProvider extends ServiceProvider
                     ->name('webhooks.slack.interactive');
             }
 
-            // CI-specific webhook routes
-            Route::prefix('ci')->group(function (): void {
-                // GitHub CI is always registered. Drone has no webhook —
-                // it's polled by yak:poll-drone-ci on a schedule.
-                Route::post('github', GitHubCIWebhookController::class)->name('webhooks.ci.github');
-            });
+            // Legacy CI-specific route — kept for existing GitHub App
+            // installations whose webhook URL still points here. Both
+            // pull_request and check_suite events are now handled by
+            // GitHubWebhookController, so new installs should use the
+            // canonical `/webhooks/github` URL.
+            Route::post('ci/github', GitHubWebhookController::class)->name('webhooks.ci.github');
         });
     }
 }
