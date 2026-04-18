@@ -1,101 +1,98 @@
 <?php
 
+use App\Ai\Agents\ReviewStructurer;
 use App\Services\ReviewOutputParser;
+use Laravel\Ai\Responses\Data\Meta;
+use Laravel\Ai\Responses\Data\Usage;
+use Laravel\Ai\Responses\StructuredAgentResponse;
 
-it('parses a well-formed JSON block from the agent output', function () {
-    $output = <<<'TEXT'
-Here is my review.
-
-```json
+function fakeStructurer(array $structured): ReviewStructurer
 {
-  "summary": "This PR adds retry.",
-  "verdict": "Approve with suggestions",
-  "verdict_detail": "One blocker found.",
-  "findings": [
-    {"file": "app/Foo.php", "line": 12, "severity": "must_fix", "category": "Performance", "body": "Null check", "suggestion_loc": 2}
-  ]
+    $mock = Mockery::mock(ReviewStructurer::class);
+    $mock->shouldReceive('prompt')->andReturn(
+        new StructuredAgentResponse(
+            invocationId: 'inv-test',
+            structured: $structured,
+            text: '',
+            usage: new Usage(0, 0, 0, 0),
+            meta: new Meta(model: 'claude-haiku-4-5-20251001', provider: 'anthropic'),
+        ),
+    );
+
+    return $mock;
 }
-```
-TEXT;
 
-    $parsed = app(ReviewOutputParser::class)->parse($output);
+it('builds ParsedReview from the structurer output', function () {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 'Adds retry with backoff.',
+        'verdict' => 'Approve with suggestions',
+        'verdict_detail' => 'One blocker found.',
+        'findings' => [[
+            'file' => 'app/Foo.php',
+            'line' => 12,
+            'severity' => 'must_fix',
+            'category' => 'Performance',
+            'body' => 'Null check missing.',
+            'suggestion_loc' => 2,
+        ]],
+    ]));
 
-    expect($parsed->summary)->toBe('This PR adds retry.')
+    $parsed = $parser->parse('## Summary\nAdds retry with backoff.\n...');
+
+    expect($parsed->summary)->toBe('Adds retry with backoff.')
         ->and($parsed->verdict)->toBe('Approve with suggestions')
         ->and($parsed->findings)->toHaveCount(1)
         ->and($parsed->findings[0]->severity)->toBe('must_fix')
         ->and($parsed->findings[0]->suggestionLoc)->toBe(2);
 });
 
-it('throws when no JSON block is present', function () {
-    app(ReviewOutputParser::class)->parse('No JSON here');
-})->throws(RuntimeException::class);
-
-it('throws when required keys are missing', function () {
-    app(ReviewOutputParser::class)->parse("```json\n{\"summary\": \"x\"}\n```");
-})->throws(RuntimeException::class);
-
-it('extracts JSON even when findings contain nested suggestion fences', function () {
-    $suggestion = "```suggestion\n\$client = Http::withHeaders(\$headers);\nforeach (range(1, 3) as \$attempt) {\n    \$response = \$client->get(\$url);\n}\n```";
-
-    $body = "Retry loop re-creates the client each iteration. Reuse it:\n\n{$suggestion}";
-
-    $json = json_encode([
-        'summary' => 'PR review with a suggestion block.',
-        'verdict' => 'Approve with suggestions',
-        'verdict_detail' => 'One performance suggestion.',
-        'findings' => [[
-            'file' => 'app/Services/Foo.php',
-            'line' => 87,
-            'severity' => 'should_fix',
-            'category' => 'Performance',
-            'body' => $body,
-            'suggestion_loc' => 4,
-        ]],
-    ], JSON_PRETTY_PRINT);
-
-    $output = "Review complete.\n\n```json\n{$json}\n```\n";
-
-    $parsed = app(ReviewOutputParser::class)->parse($output);
-
-    expect($parsed->findings)->toHaveCount(1)
-        ->and($parsed->findings[0]->body)->toContain('```suggestion')
-        ->and($parsed->findings[0]->suggestionLoc)->toBe(4);
-});
-
-it('handles trailing text after the closing fence', function () {
-    $output = <<<'TEXT'
-```json
-{
-  "summary": "x",
-  "verdict": "Approve",
-  "verdict_detail": "y",
-  "findings": []
-}
-```
-
-I'm done now.
-TEXT;
-
-    $parsed = app(ReviewOutputParser::class)->parse($output);
-
-    expect($parsed->summary)->toBe('x')
-        ->and($parsed->findings)->toBeEmpty();
-});
-
 it('accepts a finding without suggestion_loc', function () {
-    $output = <<<'TEXT'
-```json
-{
-  "summary": "x",
-  "verdict": "Approve",
-  "verdict_detail": "y",
-  "findings": [{"file":"a.php","line":1,"severity":"consider","category":"Simplicity","body":"b"}]
-}
-```
-TEXT;
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 'x',
+        'verdict' => 'Approve',
+        'verdict_detail' => 'y',
+        'findings' => [[
+            'file' => 'a.php',
+            'line' => 1,
+            'severity' => 'consider',
+            'category' => 'Simplicity',
+            'body' => 'b',
+        ]],
+    ]));
 
-    $parsed = app(ReviewOutputParser::class)->parse($output);
+    $parsed = $parser->parse('text');
 
     expect($parsed->findings[0]->suggestionLoc)->toBeNull();
 });
+
+it('accepts an empty findings list for a clean PR', function () {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 'Small doc fix.',
+        'verdict' => 'Approve',
+        'verdict_detail' => 'Nothing to flag.',
+        'findings' => [],
+    ]));
+
+    $parsed = $parser->parse('text');
+
+    expect($parsed->findings)->toBeEmpty()
+        ->and($parsed->verdict)->toBe('Approve');
+});
+
+it('throws when the agent output is empty', function () {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 'unused', 'verdict' => 'Approve', 'verdict_detail' => '', 'findings' => [],
+    ]));
+
+    $parser->parse('   ');
+})->throws(RuntimeException::class, 'no review output');
+
+it('throws when the structurer returns missing keys', function () {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 'x',
+        'verdict' => 'Approve',
+        // verdict_detail + findings missing
+    ]));
+
+    $parser->parse('text');
+})->throws(RuntimeException::class, 'missing required key');

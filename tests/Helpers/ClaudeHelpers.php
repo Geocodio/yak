@@ -1,7 +1,39 @@
 <?php
 
+use App\DataTransferObjects\ParsedReview;
+use App\DataTransferObjects\ReviewFinding;
+use App\Services\ReviewOutputParser;
 use Illuminate\Process\FakeProcessResult;
 use Illuminate\Support\Facades\Process;
+
+/**
+ * Bind a ReviewOutputParser mock that returns a canned ParsedReview, so
+ * job tests don't call the real Laravel AI structurer. Pass a list of
+ * raw finding arrays; sensible defaults fill the rest.
+ *
+ * @param  array<int, array<string, mixed>>  $findings
+ */
+function fakeReviewParser(
+    array $findings = [],
+    string $summary = 'Fake review for tests.',
+    string $verdict = 'Approve',
+    string $verdictDetail = 'ok',
+): void {
+    $dtoFindings = array_map(
+        fn (array $raw): ReviewFinding => ReviewFinding::fromArray($raw),
+        $findings,
+    );
+
+    $parser = Mockery::mock(ReviewOutputParser::class);
+    $parser->shouldReceive('parse')->andReturn(new ParsedReview(
+        summary: $summary,
+        verdict: $verdict,
+        verdictDetail: $verdictDetail,
+        findings: $dtoFindings,
+    ));
+
+    app()->instance(ReviewOutputParser::class, $parser);
+}
 
 /**
  * Build the standard set of git/docker fakes used across job tests.

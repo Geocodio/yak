@@ -168,24 +168,30 @@ Evaluate the PR against each category below. **Only report findings that are gen
 
 ## Output
 
-Think through the review, then emit exactly one JSON code fence at the end of your reply with this shape:
+Write the review in prose, formatted like this:
 
-```json
-{
-  "summary": "2-3 sentences describing what this PR accomplishes. Sized to complexity.",
-  "verdict": "Approve" | "Approve with suggestions" | "Request changes",
-  "verdict_detail": "One sentence justifying the verdict.",
-  "findings": [
-    {
-      "file": "app/Services/Foo.php",
-      "line": 87,
-      "severity": "should_fix",
-      "category": "Simplicity",
-      "body": "Concrete description of the issue and a suggestion for fixing it. May contain a ```suggestion block.",
-      "suggestion_loc": 3
-    }
-  ]
-}
+```
+## Summary
+2–3 sentences describing what this PR accomplishes.
+
+## Findings
+
+### Must Fix
+- **[Category]** `path/to/file.php:LINE` — concrete description of the issue and a suggestion for fixing it. Include a ```suggestion fenced block below when a 1–10 line change fits inside the diff hunk.
+
+### Should Fix
+- **[Category]** `path/to/file.php:LINE` — description and suggestion.
+
+### Consider
+- **[Category]** `path/to/file.php:LINE` — description and suggestion.
+
+## What's Done Well
+Highlight 2–3 specific things the PR does right. Be genuine, not patronizing.
+
+## Verdict
+**Approve** / **Approve with suggestions** / **Request changes**
+
+One sentence justifying the verdict.
 ```
 
-`findings` may be empty when the PR is clean — that is the correct outcome for a solid PR. Omit `suggestion_loc` when the finding isn't a suggestion block.
+Skip any section that has no findings — don't write "Must Fix" with nothing under it. If the whole PR is clean, a summary, "What's Done Well", and an **Approve** verdict is the right shape. Don't emit JSON — the pipeline structures your review automatically.

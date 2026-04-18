@@ -2,29 +2,39 @@
 
 namespace App\Services;
 
+use App\Ai\Agents\ReviewStructurer;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
+use Laravel\Ai\Responses\StructuredAgentResponse;
 
+/**
+ * Turn a free-form PR review (prose text from the sandboxed agent) into
+ * our ParsedReview DTO.
+ *
+ * The translation uses Laravel AI SDK's structured output so we never
+ * hand-parse JSON from the agent's output — the schema on ReviewStructurer
+ * guarantees the shape we get back.
+ */
 class ReviewOutputParser
 {
+    public function __construct(private readonly ReviewStructurer $structurer = new ReviewStructurer) {}
+
     public function parse(string $agentOutput): ParsedReview
     {
-        $json = $this->extractJsonBlock($agentOutput);
-
-        if ($json === null) {
-            throw new \RuntimeException('Agent did not emit a JSON code block.');
+        $trimmed = trim($agentOutput);
+        if ($trimmed === '') {
+            throw new \RuntimeException('Agent produced no review output to structure.');
         }
 
-        /** @var array<string, mixed>|null $decoded */
-        $decoded = json_decode($json, true);
+        /** @var StructuredAgentResponse $response */
+        $response = $this->structurer->prompt($trimmed);
 
-        if (! is_array($decoded)) {
-            throw new \RuntimeException('Agent JSON block did not decode to an object.');
-        }
+        /** @var array<string, mixed> $decoded */
+        $decoded = $response->structured;
 
         foreach (['summary', 'verdict', 'verdict_detail', 'findings'] as $required) {
             if (! array_key_exists($required, $decoded)) {
-                throw new \RuntimeException("Review output missing required key: {$required}");
+                throw new \RuntimeException("Structured review missing required key: {$required}");
             }
         }
 
@@ -43,85 +53,5 @@ class ReviewOutputParser
             verdictDetail: (string) $decoded['verdict_detail'],
             findings: $findings,
         );
-    }
-
-    /**
-     * Extract the review's top-level JSON object from the agent output.
-     *
-     * Naive regex matching is unsafe here because `findings[].body` can
-     * contain nested ```suggestion fences which would cause a non-greedy
-     * match to stop early. Instead: find the ```json fence, then walk the
-     * following characters tracking brace depth (string-aware) until the
-     * top-level object closes. This is robust to any mix of inner fences,
-     * escaped quotes, and trailing prose.
-     */
-    private function extractJsonBlock(string $output): ?string
-    {
-        $fencePos = strrpos($output, '```json');
-        if ($fencePos === false) {
-            return null;
-        }
-
-        $cursor = $fencePos + strlen('```json');
-        $len = strlen($output);
-
-        // Advance to the first `{` after the fence marker.
-        while ($cursor < $len && $output[$cursor] !== '{') {
-            $cursor++;
-        }
-
-        if ($cursor >= $len) {
-            return null;
-        }
-
-        $start = $cursor;
-        $depth = 0;
-        $inString = false;
-        $escaped = false;
-
-        for (; $cursor < $len; $cursor++) {
-            $char = $output[$cursor];
-
-            if ($inString) {
-                if ($escaped) {
-                    $escaped = false;
-
-                    continue;
-                }
-
-                if ($char === '\\') {
-                    $escaped = true;
-
-                    continue;
-                }
-
-                if ($char === '"') {
-                    $inString = false;
-                }
-
-                continue;
-            }
-
-            if ($char === '"') {
-                $inString = true;
-
-                continue;
-            }
-
-            if ($char === '{') {
-                $depth++;
-
-                continue;
-            }
-
-            if ($char === '}') {
-                $depth--;
-                if ($depth === 0) {
-                    return substr($output, $start, $cursor - $start + 1);
-                }
-            }
-        }
-
-        return null;
     }
 }

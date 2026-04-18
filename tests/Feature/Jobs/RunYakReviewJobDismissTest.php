@@ -52,10 +52,12 @@ function setUpReviewJobMocks(string $scope = 'full'): YakTask
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
+    fakeReviewParser();
+
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's-1',
-        resultSummary: "```json\n{\"summary\":\"ok\",\"verdict\":\"Approve\",\"verdict_detail\":\"ok\",\"findings\":[]}\n```",
+        resultSummary: 'prose review',
         costUsd: 0.01,
         numTurns: 1,
         durationMs: 100,

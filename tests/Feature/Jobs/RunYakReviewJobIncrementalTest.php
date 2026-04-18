@@ -53,10 +53,12 @@ it('computes diff against incremental_base_sha in incremental scope', function (
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
+    fakeReviewParser();
+
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's',
-        resultSummary: "```json\n{\"summary\":\"ok\",\"verdict\":\"Approve\",\"verdict_detail\":\"ok\",\"findings\":[]}\n```",
+        resultSummary: 'prose review',
         costUsd: 0.01, numTurns: 1, durationMs: 100,
         isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
     ));
@@ -114,10 +116,12 @@ it('falls back to full review when incremental base fetch fails', function () {
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
+    fakeReviewParser();
+
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's',
-        resultSummary: "```json\n{\"summary\":\"ok\",\"verdict\":\"Approve\",\"verdict_detail\":\"ok\",\"findings\":[]}\n```",
+        resultSummary: 'prose review',
         costUsd: 0.01, numTurns: 1, durationMs: 100,
         isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
     ));

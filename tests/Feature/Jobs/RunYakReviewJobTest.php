@@ -57,7 +57,7 @@ it('runs a full-scope review end to end', function () {
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's-1',
-        resultSummary: "Review done.\n\n```json\n{\"summary\":\"Adds retry.\",\"verdict\":\"Approve with suggestions\",\"verdict_detail\":\"ok\",\"findings\":[{\"file\":\"app/Foo.php\",\"line\":12,\"severity\":\"must_fix\",\"category\":\"Performance\",\"body\":\"Null check missing.\"}]}\n```",
+        resultSummary: 'Prose review from the sandboxed agent.',
         costUsd: 0.12,
         numTurns: 3,
         durationMs: 1000,
@@ -67,6 +67,15 @@ it('runs a full-scope review end to end', function () {
         rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
+
+    fakeReviewParser(
+        findings: [[
+            'file' => 'app/Foo.php', 'line' => 12, 'severity' => 'must_fix',
+            'category' => 'Performance', 'body' => 'Null check missing.',
+        ]],
+        summary: 'Adds retry.',
+        verdict: 'Approve with suggestions',
+    );
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
@@ -119,11 +128,12 @@ it('does not fetch Linear ticket when no identifier is present', function () {
     $fetcher->shouldNotReceive('fetch');
     app()->instance(LinearIssueFetcher::class, $fetcher);
 
+    fakeReviewParser();
+
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's', resultSummary: "```json\n{\"summary\":\"\",\"verdict\":\"Approve\",\"verdict_detail\":\"\",\"findings\":[]}\n```",
-        costUsd: 0, numTurns: 1, durationMs: 1, isError: false,
-        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        sessionId: 's', resultSummary: 'prose review', costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -170,11 +180,12 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     $fetcher->shouldNotReceive('fetch');
     app()->instance(LinearIssueFetcher::class, $fetcher);
 
+    fakeReviewParser();
+
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's', resultSummary: "```json\n{\"summary\":\"\",\"verdict\":\"Approve\",\"verdict_detail\":\"\",\"findings\":[]}\n```",
-        costUsd: 0, numTurns: 1, durationMs: 1, isError: false,
-        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        sessionId: 's', resultSummary: 'prose review', costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
