@@ -243,6 +243,11 @@
         </div>
     @endif
 
+    {{-- Video walkthrough (Reviewer Cut + Director's Cut) --}}
+    @if($task->mode !== \App\Enums\TaskMode::Review)
+        <livewire:tasks.video-walkthrough-card :task="$task" :key="'video-walkthrough-' . $task->id" />
+    @endif
+
     {{-- Review-specific panels --}}
     @if($task->mode === \App\Enums\TaskMode::Review)
         <div class="mb-5 flex items-center gap-3 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:px-7">
