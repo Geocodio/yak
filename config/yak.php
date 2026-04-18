@@ -72,7 +72,7 @@ return [
         // bumped in the same commit. On the next task clone, any repo
         // template whose stored `sandbox_base_version` differs gets
         // destroyed and re-provisioned from the fresh yak-base.
-        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 2),
+        'base_version' => (int) env('YAK_SANDBOX_BASE_VERSION', 3),
 
         'cpu_limit' => (int) env('YAK_SANDBOX_CPU_LIMIT', 4),
         'memory_limit' => env('YAK_SANDBOX_MEMORY_LIMIT', '8GB'),

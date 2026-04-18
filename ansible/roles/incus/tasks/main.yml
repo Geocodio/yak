@@ -213,6 +213,20 @@
   when: base_template_check.rc != 0
   changed_when: true
 
+- name: Stage yak-browser bundle on the host for baking into yak-base
+  # The bundle is gitignored and produced by
+  # sandbox-tools/yak-browser/build-for-image.sh before deploy. It gets
+  # pushed from here into the yak-base container by the next task so a
+  # baked fallback is available if the push-on-launch step in
+  # IncusSandboxManager ever fails.
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../sandbox-tools/yak-browser/dist/yak-browser.js"
+    dest: /tmp/yak-browser.js
+    owner: root
+    group: root
+    mode: "0755"
+  when: base_template_check.rc != 0
+
 - name: Create base template container
   ansible.builtin.shell: |
     set -euo pipefail
@@ -302,6 +316,13 @@
       mkdir -p /etc/yak
       touch /etc/yak/base-version-{{ yak_sandbox_base_version }}
     '
+
+    # Bake the yak-browser fallback bundle into the container at a
+    # stable path. IncusSandboxManager pushes a fresh copy on launch
+    # (see Task 4) to avoid rebuilding this image for every change, but
+    # this baked copy guarantees video walkthroughs still work if the
+    # push-on-launch step ever fails.
+    incus file push /tmp/yak-browser.js yak-base/usr/local/bin/yak-browser --mode=0755
 
     # Install the curated Claude Code skills as the yak user
     for skill_def in \
