@@ -101,7 +101,7 @@ class ClarificationReplyJob implements ShouldQueue
             ));
 
             if ($result->isError) {
-                $this->handleError($result->resultSummary ?: 'Agent returned an error or malformed output');
+                $this->handleError($result->failureMessage());
 
                 return;
             }

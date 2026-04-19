@@ -398,6 +398,7 @@ class SandboxedAgentRunner implements AgentRunner
             Log::channel('yak')->info('Claude result event (sandboxed)', [
                 'task_id' => $request->task->id,
                 'is_error' => $resultEvent['is_error'] ?? false,
+                'subtype' => $resultEvent['subtype'] ?? null,
                 'result' => substr((string) ($resultEvent['result'] ?? ''), 0, 500),
                 'num_turns' => $resultEvent['num_turns'] ?? null,
                 'total_cost_usd' => $resultEvent['total_cost_usd'] ?? null,

@@ -19,16 +19,20 @@ class ClaudeCodeOutputParser
         // Check for clarification at top level first, then in the result text
         $clarification = self::extractClarification($decoded, $resultText);
 
+        $isError = ($decoded['is_error'] ?? false) === true;
+        $subtype = isset($decoded['subtype']) ? (string) $decoded['subtype'] : null;
+
         return new AgentRunResult(
             sessionId: (string) ($decoded['session_id'] ?? ''),
             resultSummary: $resultText,
             costUsd: (float) ($decoded['total_cost_usd'] ?? $decoded['cost_usd'] ?? 0),
             numTurns: (int) ($decoded['num_turns'] ?? 0),
             durationMs: (int) ($decoded['duration_ms'] ?? 0),
-            isError: ($decoded['is_error'] ?? false) === true,
+            isError: $isError,
             clarificationNeeded: $clarification['needed'],
             clarificationOptions: $clarification['options'],
             rawOutput: $output,
+            errorSubtype: $isError ? $subtype : null,
         );
     }
 

@@ -118,7 +118,7 @@ class SetupYakJob implements ShouldQueue
             if ($result->isError) {
                 $this->handleError(
                     $repository,
-                    $result->resultSummary ?: 'Agent returned an error or malformed output',
+                    $result->failureMessage(),
                 );
 
                 return;
