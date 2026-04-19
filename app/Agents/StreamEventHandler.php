@@ -12,6 +12,13 @@ class StreamEventHandler
 
     private ?string $pendingToolName = null;
 
+    /**
+     * Original message for the in-flight tool log, captured the first
+     * time heartbeat() appends a duration suffix so repeated heartbeats
+     * rewrite rather than accumulate "(1m) (2m) (3m)".
+     */
+    private ?string $pendingToolBaseMessage = null;
+
     /** @var array<string, mixed>|null */
     private ?array $resultEvent = null;
 
@@ -21,6 +28,35 @@ class StreamEventHandler
     public function __construct(
         private readonly YakTask $task,
     ) {}
+
+    /**
+     * Called from the stream loop when Claude has been silent for a
+     * while but the exec process is still alive (typically during long
+     * `Bash` calls like `docker build`). Two jobs:
+     *
+     *   1. Touch the task so `yak:reap-orphaned-tasks` doesn't consider
+     *      it orphaned — its SQL filter is `updated_at < threshold`, so
+     *      a heartbeat keeps it out of the candidate set.
+     *   2. Update the in-flight tool_use log's message with an elapsed
+     *      duration so the task detail UI reflects that work is still
+     *      happening. No new log rows are created.
+     */
+    public function heartbeat(int $idleSeconds): void
+    {
+        $this->task->touch();
+
+        if ($this->pendingToolLog === null) {
+            return;
+        }
+
+        if ($this->pendingToolBaseMessage === null) {
+            $this->pendingToolBaseMessage = $this->pendingToolLog->message;
+        }
+
+        $this->pendingToolLog->update([
+            'message' => $this->pendingToolBaseMessage . ' ' . $this->formatElapsed($idleSeconds),
+        ]);
+    }
 
     /**
      * Process a single line of stream-json output.
@@ -109,6 +145,7 @@ class StreamEventHandler
             'tool' => $toolName,
             'input' => $this->truncateInput($toolName, $input),
         ]);
+        $this->pendingToolBaseMessage = null;
 
         // Track tool ID for correlating with tool_result events
         $toolId = $event['id'] ?? null;
@@ -141,8 +178,10 @@ class StreamEventHandler
         $metadata['output_lines'] = substr_count($output, "\n") + 1;
         $metadata['is_error'] = $isError;
 
-        // Update message with result summary for bash commands
-        $message = $this->pendingToolLog->message;
+        // Strip any heartbeat duration suffix before appending the exit
+        // summary so the final message reads "⚡ cmd → exit 0", not
+        // "⚡ cmd (3m) → exit 0".
+        $message = $this->pendingToolBaseMessage ?? $this->pendingToolLog->message;
         if ($this->pendingToolName === 'Bash') {
             $exitCode = $this->extractExitCode($output, $isError);
             $message .= " → exit {$exitCode}";
@@ -156,6 +195,7 @@ class StreamEventHandler
 
         $this->pendingToolLog = null;
         $this->pendingToolName = null;
+        $this->pendingToolBaseMessage = null;
     }
 
     /**
@@ -391,6 +431,17 @@ class StreamEventHandler
         return implode("\n", $head)
             . "\n\n… (" . ($totalLines - 10) . ' lines hidden) …' . "\n\n"
             . implode("\n", $tail);
+    }
+
+    private function formatElapsed(int $seconds): string
+    {
+        if ($seconds < 60) {
+            return "({$seconds}s)";
+        }
+
+        $minutes = intdiv($seconds, 60);
+
+        return "({$minutes}m)";
     }
 
     private function extractExitCode(string $output, bool $isError): int

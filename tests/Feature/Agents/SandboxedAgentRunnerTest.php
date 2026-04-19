@@ -261,6 +261,43 @@ it('terminates and reports failure when the stream is idle with no result event'
     expect($elapsed)->toBeLessThan(5.0);
 });
 
+it('heartbeats the task while the stream is silent so the orphan reaper spares it', function () {
+    $task = YakTask::factory()->running()->create();
+    $originalUpdatedAt = now()->subMinutes(20);
+    YakTask::query()->where('id', $task->id)->update(['updated_at' => $originalUpdatedAt]);
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+            // Silent, long-running process — mirrors Claude waiting on a
+            // long Bash call (e.g. docker build) with no stream output.
+            $process = proc_open(['sleep', '2'], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner(
+        sandbox: $sandbox,
+        postResultGraceSeconds: 60,
+        streamIdleTimeoutSeconds: 5,
+        streamPollIntervalSeconds: 0,
+        heartbeatIntervalSeconds: 0.1,
+    );
+
+    $runner->run(buildAgentRunRequest($task));
+
+    expect($task->fresh()->updated_at->greaterThan($originalUpdatedAt))->toBeTrue();
+});
+
 it('records the exact prompt and system prompt on task_logs when a task is attached', function () {
     $task = YakTask::factory()->create();
 

@@ -35,6 +35,7 @@ class SandboxedAgentRunner implements AgentRunner
         private readonly float $postResultGraceSeconds = 15.0,
         private readonly float $streamIdleTimeoutSeconds = 600.0,
         private readonly int $streamPollIntervalSeconds = 5,
+        private readonly float $heartbeatIntervalSeconds = 60.0,
     ) {}
 
     public function run(AgentRunRequest $request): AgentRunResult
@@ -199,6 +200,7 @@ class SandboxedAgentRunner implements AgentRunner
         $lastLineAt = microtime(true);
         $resultReceivedAt = null;
         $forcedTermination = null;
+        $lastHeartbeatAt = $lastLineAt;
 
         while (true) {
             $read = [$stdout];
@@ -218,6 +220,7 @@ class SandboxedAgentRunner implements AgentRunner
                 }
                 $lineCount++;
                 $lastLineAt = microtime(true);
+                $lastHeartbeatAt = $lastLineAt;
                 $this->processLine($line, $handler);
 
                 if ($resultReceivedAt === null && $handler->getResultEvent() !== null) {
@@ -234,6 +237,11 @@ class SandboxedAgentRunner implements AgentRunner
                 }
 
                 $now = microtime(true);
+
+                if ($resultReceivedAt === null && ($now - $lastHeartbeatAt) >= $this->heartbeatIntervalSeconds) {
+                    $handler->heartbeat((int) ($now - $lastLineAt));
+                    $lastHeartbeatAt = $now;
+                }
 
                 if ($resultReceivedAt !== null && ($now - $resultReceivedAt) >= $this->postResultGraceSeconds) {
                     Log::channel('yak')->info('Claude stream: terminating after post-result grace', [

@@ -434,3 +434,63 @@ test('tool_result works after tool_use extracted from assistant message', functi
     expect($log->message)->toContain('→ exit 0');
     expect($log->metadata['output'])->toBe('hello');
 });
+
+test('heartbeat touches the task and appends elapsed-duration suffix to the pending tool log', function () {
+    $before = $this->task->fresh()->updated_at;
+
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'Bash',
+        'input' => ['command' => 'docker build .', 'description' => 'Build image'],
+    ]);
+
+    $this->travel(5)->minutes();
+    $this->handler->heartbeat(125);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('⚡ Build image (2m)');
+    expect($this->task->fresh()->updated_at->greaterThan($before))->toBeTrue();
+});
+
+test('repeated heartbeats rewrite the duration suffix instead of stacking it', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'Bash',
+        'input' => ['command' => 'docker build .', 'description' => 'Build image'],
+    ]);
+
+    $this->handler->heartbeat(60);
+    $this->handler->heartbeat(180);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('⚡ Build image (3m)');
+});
+
+test('tool_result strips the heartbeat suffix so the final message reads "→ exit N"', function () {
+    $this->handler->handle([
+        'type' => 'tool_use',
+        'tool' => 'Bash',
+        'input' => ['command' => 'docker build .', 'description' => 'Build image'],
+        'id' => 'toolu_heartbeat',
+    ]);
+    $this->handler->heartbeat(240);
+
+    $this->handler->handle([
+        'type' => 'tool_result',
+        'tool_use_id' => 'toolu_heartbeat',
+        'content' => 'Successfully tagged image:latest',
+    ]);
+
+    $log = TaskLog::where('yak_task_id', $this->task->id)->first();
+    expect($log->message)->toBe('⚡ Build image → exit 0');
+});
+
+test('heartbeat is a no-op when no tool is pending but still touches the task', function () {
+    $before = $this->task->fresh()->updated_at;
+
+    $this->travel(5)->minutes();
+    $this->handler->heartbeat(30);
+
+    expect(TaskLog::where('yak_task_id', $this->task->id)->count())->toBe(0);
+    expect($this->task->fresh()->updated_at->greaterThan($before))->toBeTrue();
+});
