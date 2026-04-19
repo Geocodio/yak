@@ -223,6 +223,67 @@ it('terminates the exec process after the post-result grace period, preserving t
     expect($elapsed)->toBeLessThan(5.0);
 });
 
+it('escalates to SIGKILL when the exec child ignores SIGTERM (e.g. backgrounded docker build holding the pipe)', function () {
+    $task = YakTask::factory()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            $resultEvent = json_encode([
+                'type' => 'result',
+                'is_error' => false,
+                'result' => 'looks done',
+                'num_turns' => 3,
+                'total_cost_usd' => 0.1,
+                'duration_ms' => 500,
+                'session_id' => 'sess_sigkill',
+            ]);
+
+            // Single perl process that ignores SIGTERM and sleeps.
+            // Using `sh -c 'printf; sleep'` would leak stdout to the
+            // `sleep` child, keeping the pipe alive even after SIGKILLing
+            // sh. Staying in one process means SIGKILL actually closes
+            // the pipe.
+            $perl = sprintf(
+                '$| = 1; $SIG{TERM} = "IGNORE"; print %s, "\n"; while (1) { sleep 1 }',
+                var_export($resultEvent, true),
+            );
+            $process = proc_open(['perl', '-e', $perl], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner(
+        sandbox: $sandbox,
+        postResultGraceSeconds: 0.3,
+        streamIdleTimeoutSeconds: 60,
+        streamPollIntervalSeconds: 0,
+        heartbeatIntervalSeconds: 60,
+        sigkillEscalationSeconds: 0.3,
+    );
+
+    $start = microtime(true);
+    $result = $runner->run(buildAgentRunRequest($task));
+    $elapsed = microtime(true) - $start;
+
+    // The success result from the result event is preserved even though
+    // we had to SIGKILL. And the whole thing completes quickly rather
+    // than blocking in proc_close for the full 30s sleep.
+    expect($result->isError)->toBeFalse();
+    expect($result->resultSummary)->toBe('looks done');
+    expect($elapsed)->toBeLessThan(5.0);
+});
+
 it('terminates and reports failure when the stream is idle with no result event', function () {
     $task = YakTask::factory()->create();
 

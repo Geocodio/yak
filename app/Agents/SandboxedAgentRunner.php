@@ -36,6 +36,7 @@ class SandboxedAgentRunner implements AgentRunner
         private readonly float $streamIdleTimeoutSeconds = 600.0,
         private readonly int $streamPollIntervalSeconds = 5,
         private readonly float $heartbeatIntervalSeconds = 60.0,
+        private readonly float $sigkillEscalationSeconds = 5.0,
     ) {}
 
     public function run(AgentRunRequest $request): AgentRunResult
@@ -201,6 +202,8 @@ class SandboxedAgentRunner implements AgentRunner
         $resultReceivedAt = null;
         $forcedTermination = null;
         $lastHeartbeatAt = $lastLineAt;
+        $sigtermAt = null;
+        $sigkillSent = false;
 
         while (true) {
             $read = [$stdout];
@@ -244,25 +247,54 @@ class SandboxedAgentRunner implements AgentRunner
                 }
 
                 if ($resultReceivedAt !== null && ($now - $resultReceivedAt) >= $this->postResultGraceSeconds) {
-                    Log::channel('yak')->info('Claude stream: terminating after post-result grace', [
-                        'task_id' => $request->task->id,
-                        'container' => $containerName,
-                        'grace_seconds' => $this->postResultGraceSeconds,
-                    ]);
-                    proc_terminate($process);
-                    $forcedTermination = 'post_result_grace';
+                    if ($sigtermAt === null) {
+                        Log::channel('yak')->info('Claude stream: terminating after post-result grace', [
+                            'task_id' => $request->task->id,
+                            'container' => $containerName,
+                            'grace_seconds' => $this->postResultGraceSeconds,
+                        ]);
+                        proc_terminate($process);
+                        $sigtermAt = $now;
+                        $forcedTermination = 'post_result_grace';
+                    } elseif (! $sigkillSent && ($now - $sigtermAt) >= $this->sigkillEscalationSeconds) {
+                        // SIGTERM didn't land — usually because the incus
+                        // exec's child (e.g. a backgrounded docker build)
+                        // is holding the pipe open. Escalate to SIGKILL
+                        // so proc_close doesn't block the worker past the
+                        // queue's visibility timeout, which would cause
+                        // Laravel to re-dispatch the job while we're
+                        // still holding it.
+                        Log::channel('yak')->warning('Claude stream: escalating to SIGKILL', [
+                            'task_id' => $request->task->id,
+                            'container' => $containerName,
+                            'sigterm_elapsed' => $now - $sigtermAt,
+                        ]);
+                        proc_terminate($process, 9);
+                        $sigkillSent = true;
+                    }
 
                     continue;
                 }
 
                 if ($resultReceivedAt === null && ($now - $lastLineAt) >= $this->streamIdleTimeoutSeconds) {
-                    Log::channel('yak')->warning('Claude stream: idle timeout, terminating', [
-                        'task_id' => $request->task->id,
-                        'container' => $containerName,
-                        'idle_seconds' => $this->streamIdleTimeoutSeconds,
-                    ]);
-                    proc_terminate($process);
-                    $forcedTermination = 'stream_idle_timeout';
+                    if ($sigtermAt === null) {
+                        Log::channel('yak')->warning('Claude stream: idle timeout, terminating', [
+                            'task_id' => $request->task->id,
+                            'container' => $containerName,
+                            'idle_seconds' => $this->streamIdleTimeoutSeconds,
+                        ]);
+                        proc_terminate($process);
+                        $sigtermAt = $now;
+                        $forcedTermination = 'stream_idle_timeout';
+                    } elseif (! $sigkillSent && ($now - $sigtermAt) >= $this->sigkillEscalationSeconds) {
+                        Log::channel('yak')->warning('Claude stream: escalating to SIGKILL after idle timeout', [
+                            'task_id' => $request->task->id,
+                            'container' => $containerName,
+                            'sigterm_elapsed' => $now - $sigtermAt,
+                        ]);
+                        proc_terminate($process, 9);
+                        $sigkillSent = true;
+                    }
 
                     continue;
                 }
