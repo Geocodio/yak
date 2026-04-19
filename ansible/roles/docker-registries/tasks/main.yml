@@ -10,12 +10,18 @@
     state: directory
     owner: "{{ yak_user }}"
     group: "{{ yak_user }}"
-    mode: "0700"
+    mode: "0755"
 
+# Mode 0644 (not 0600) on purpose: the Yak container's queue worker runs
+# as www-data (uid 33), not the host's yak user (uid 1000). The bind
+# mount preserves host UIDs, so a 0600 file would be unreadable from
+# inside the Yak container and pushDockerConfig() would silently skip.
+# The host isn't a multi-tenant machine, and the sandbox copy chmods
+# back to 0600 after landing.
 - name: Template Docker client config
   ansible.builtin.template:
     src: config.json.j2
     dest: "{{ yak_home }}/.docker/config.json"
     owner: "{{ yak_user }}"
     group: "{{ yak_user }}"
-    mode: "0600"
+    mode: "0644"
