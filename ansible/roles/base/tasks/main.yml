@@ -132,3 +132,4 @@
     - "{{ yak_data_path }}"
     - "{{ yak_claude_path }}"
     - "{{ yak_home }}/yak"
+    - "{{ yak_home }}/.docker"

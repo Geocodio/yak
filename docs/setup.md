@@ -126,6 +126,22 @@ This does two things automatically:
 
 Only vars listed here are forwarded — app secrets like `DB_PASSWORD` and `APP_KEY` are never exposed to the agent.
 
+#### Private Docker Registries
+
+Repos that pull private Docker images (e.g. bases shared across services, internal tooling) can authenticate from inside every sandbox without rebuilding locally. Add credentials to `docker_registries` in your vault:
+
+```yaml
+docker_registries:
+  ghcr.io:
+    username: "your-github-username"
+    password: "ghp_..."              # PAT with `read:packages` scope
+  registry.example.com:
+    username: "deploy"
+    password: "..."
+```
+
+Ansible renders these into `~/.docker/config.json` on the host, bind-mounts them into the Yak container, and the sandbox manager pushes the file to `/home/yak/.docker/config.json` in each new sandbox. `docker pull` and `docker-compose up` pick it up automatically.
+
 The `google_oauth_allowed_domains` field is **required**. Login is rejected for any email whose domain is not in the list.
 
 ### Where to get credentials

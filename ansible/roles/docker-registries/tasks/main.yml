@@ -1,0 +1,21 @@
+---
+# Renders ~/.docker/config.json on the host with credentials from the
+# Ansible vault. The file is bind-mounted into the Yak container so
+# IncusSandboxManager can `incus file push` it into every sandbox,
+# letting `docker pull` fetch private images without rebuilding locally.
+
+- name: Ensure .docker directory exists on host
+  ansible.builtin.file:
+    path: "{{ yak_home }}/.docker"
+    state: directory
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0700"
+
+- name: Template Docker client config
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: "{{ yak_home }}/.docker/config.json"
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0600"

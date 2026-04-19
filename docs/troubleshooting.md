@@ -269,6 +269,40 @@ To verify the var is set inside a running sandbox:
 incus exec task-<id> -- printenv NODE_AUTH_TOKEN
 ```
 
+## Private Docker Images Fail to Pull
+
+Symptoms: setup or task execution fails with `docker pull` errors like `unauthorized` or `denied: requested access to the resource is denied` when the repo's `docker-compose.yml` references images from a private registry (ghcr.io, a self-hosted registry, etc.).
+
+### Cause
+
+Sandboxes start with no Docker authentication. Without credentials, the in-container Docker daemon can only pull public images. Base images shared across services typically live in private registries, so the first `docker-compose up` in setup fails and the whole snapshot never materialises.
+
+### Resolution
+
+Add registry credentials to `docker_registries` in your Ansible vault:
+
+```yaml
+docker_registries:
+  ghcr.io:
+    username: "your-github-username"
+    password: "ghp_..."            # PAT with `read:packages` scope
+  registry.example.com:
+    username: "deploy"
+    password: "..."
+```
+
+Redeploy. Ansible renders these into `~/.docker/config.json` on the host, bind-mounts the file into the Yak container, and `IncusSandboxManager` pushes it into every sandbox at `/home/yak/.docker/config.json`. `docker pull`, `docker-compose up`, and BuildKit pick it up automatically — no `docker login` call needed inside the sandbox.
+
+Re-run the affected repo's setup task so the snapshot picks up the newly-cached images.
+
+To verify the file landed inside a running sandbox:
+
+```bash
+incus exec task-<id> -- cat /home/yak/.docker/config.json
+```
+
+Credentials live on the host as `0600` and inside the sandbox as `0600` owned by `yak:yak`, so they aren't readable by other processes the agent spawns.
+
 ## Emergency: Kill Everything And Restart
 
 If Yak is in a bad state and you can't figure out what's wrong:

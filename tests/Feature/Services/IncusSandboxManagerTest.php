@@ -484,6 +484,83 @@ it('logs a warning and continues when pushing the yak-browser bundle fails', fun
     expect($result)->toBe($container);
 });
 
+it('pushes the host docker config.json into the sandbox and tightens permissions when present', function () {
+    $dockerConfig = tempnam(sys_get_temp_dir(), 'yak-docker-');
+    file_put_contents($dockerConfig, '{"auths":{"ghcr.io":{"auth":"dGVzdDp0ZXN0"}}}');
+    config()->set('yak.sandbox.docker_config_source', $dockerConfig);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'docker-auth',
+        'sandbox_snapshot' => 'yak-tpl-docker-auth/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'docker-auth']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    try {
+        app(IncusSandboxManager::class)->create($task, $repo);
+
+        // mkdir runs as root so the push into /home/yak/.docker doesn't fail.
+        Process::assertRan(fn ($p) => str_contains($p->command, "incus exec '{$container}' -- bash -c 'mkdir -p /home/yak/.docker'")
+            && ! str_contains($p->command, 'sudo -u yak'));
+
+        Process::assertRan(fn ($p) => str_contains($p->command, 'incus file push')
+            && str_contains($p->command, escapeshellarg($dockerConfig))
+            && str_contains($p->command, "'{$container}'/home/yak/.docker/config.json"));
+
+        Process::assertRan(fn ($p) => str_contains($p->command, 'chown -R yak:yak /home/yak/.docker')
+            && str_contains($p->command, 'chmod 600 /home/yak/.docker/config.json'));
+    } finally {
+        @unlink($dockerConfig);
+    }
+});
+
+it('skips pushing the docker config when the host source file is missing', function () {
+    $missing = sys_get_temp_dir() . '/yak-docker-missing-' . uniqid() . '.json';
+    config()->set('yak.sandbox.docker_config_source', $missing);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'no-docker-auth',
+        'sandbox_snapshot' => 'yak-tpl-no-docker-auth/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'no-docker-auth']);
+
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertNotRan(fn ($p) => str_contains($p->command, '/home/yak/.docker/config.json'));
+    Process::assertNotRan(fn ($p) => str_contains($p->command, 'mkdir -p /home/yak/.docker'));
+});
+
 it('stamps the current base_version on the repo when promoting to a template', function () {
     $repo = Repository::factory()->create([
         'slug' => 'promote',

@@ -86,6 +86,10 @@
     - role: mcp-config
       tags: [mcp-config, yak-app, secrets]
 
+    - role: docker-registries
+      tags: [docker-registries, yak-app, secrets]
+      when: docker_registries is defined and docker_registries | length > 0
+
     - role: channel-slack
       tags: [channel-slack]
       when: slack_bot_token is defined and slack_bot_token | length > 0

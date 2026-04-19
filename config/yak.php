@@ -80,6 +80,7 @@ return [
         'workspace_path' => env('YAK_SANDBOX_WORKSPACE_PATH', '/workspace'),
         'results_path' => env('YAK_SANDBOX_RESULTS_PATH', '/results'),
         'claude_config_source' => env('YAK_SANDBOX_CLAUDE_CONFIG', '/home/yak/.claude'),
+        'docker_config_source' => env('YAK_SANDBOX_DOCKER_CONFIG', '/home/yak/.docker/config.json'),
         'network' => env('YAK_SANDBOX_NETWORK', 'yak-sandbox'),
         'cleanup_after_hours' => (int) env('YAK_SANDBOX_CLEANUP_HOURS', 24),
     ],

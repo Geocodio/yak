@@ -233,6 +233,8 @@ Three guarantees make sandboxed execution safe at scale:
 
 Repo dev environments using Docker Compose work natively inside Incus containers. `security.nesting=true` gives each container its own Docker daemon. There's no shared Docker socket, no port override files, no DinD hacks.
 
+Private registry auth follows the same push-then-start pattern as Claude config and MCP config: Ansible renders `~/.docker/config.json` on the host from the `docker_registries` vault var, the Yak container bind-mounts it read-only, and `IncusSandboxManager` pushes the file into each fresh sandbox at `/home/yak/.docker/config.json` before `docker pull` ever runs. Repos that only need public images leave the vault var unset and the push is skipped entirely.
+
 ## Jobs and Queues
 
 Two queues separate Claude Code work from everything else:

@@ -75,6 +75,10 @@ class IncusSandboxManager
         // Push MCP config if configured
         $this->pushMcpConfig($containerName);
 
+        // Push Docker registry auth so `docker pull` inside the sandbox
+        // can fetch images from private registries without rebuilding locally.
+        $this->pushDockerConfig($containerName);
+
         // Normalize /workspace ownership so every git operation — whether
         // run by the agent or by job code — sees a consistently yak-owned
         // tree. Legacy templates were built with `git clone` as root, which
@@ -662,6 +666,46 @@ class IncusSandboxManager
             escapeshellarg($mcpConfigPath),
             escapeshellarg($containerName),
         ));
+    }
+
+    /**
+     * Push the host's Docker client config (~/.docker/config.json) into the
+     * sandbox so `docker pull` can fetch from private registries without
+     * rebuilding images locally. The file holds base64-encoded auth tokens
+     * per registry; ansible renders it from vault credentials.
+     *
+     * Silently skips when the host file doesn't exist — repos that only need
+     * public images keep working unchanged.
+     */
+    private function pushDockerConfig(string $containerName): void
+    {
+        $dockerConfigSource = (string) config('yak.sandbox.docker_config_source', '/home/yak/.docker/config.json');
+
+        if (! file_exists($dockerConfigSource)) {
+            return;
+        }
+
+        $this->run(
+            $containerName,
+            'mkdir -p /home/yak/.docker',
+            timeout: 10,
+            asRoot: true,
+        );
+
+        Process::run(sprintf(
+            'incus file push %s %s/home/yak/.docker/config.json',
+            escapeshellarg($dockerConfigSource),
+            escapeshellarg($containerName),
+        ));
+
+        // `incus file push` lands files as root; chown + tighten perms so
+        // the embedded auth tokens aren't world-readable inside the sandbox.
+        $this->run(
+            $containerName,
+            'chown -R yak:yak /home/yak/.docker && chmod 600 /home/yak/.docker/config.json',
+            timeout: 10,
+            asRoot: true,
+        );
     }
 
     private function exec(string $command): void

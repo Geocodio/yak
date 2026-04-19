@@ -1,0 +1,10 @@
+{
+  "auths": {
+{% for registry, creds in docker_registries.items() %}
+    "{{ registry }}": {
+      "auth": "{{ (creds.username ~ ':' ~ creds.password) | b64encode }}"
+    }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+  }
+}
