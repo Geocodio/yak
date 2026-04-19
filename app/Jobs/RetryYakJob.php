@@ -16,6 +16,7 @@ use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ArtifactPersister;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
@@ -184,8 +185,14 @@ class RetryYakJob implements ShouldQueue
             $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
 
             if (! $hasCommits) {
-                // Retry produced no commits vs. default — same safety
-                // net as RunYakJob: mark answered, skip push + CI.
+                if (GitOperations::hasUncommittedChanges($sandbox, $containerName, $workspacePath)) {
+                    throw new \RuntimeException(
+                        'Agent finished retry with uncommitted changes — run `git add -A && git commit` before returning.'
+                    );
+                }
+
+                ArtifactPersister::persist($this->task);
+
                 $this->task->update([
                     'status' => TaskStatus::Success,
                     'completed_at' => now(),

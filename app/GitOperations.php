@@ -104,4 +104,31 @@ class GitOperations
 
         return (int) trim($result->output()) > 0;
     }
+
+    /**
+     * Returns true when the sandbox working tree has uncommitted changes.
+     *
+     * Paired with hasNewCommits to catch the "agent edited files but
+     * forgot to commit" failure mode. Yak's global gitignore excludes
+     * .yak-artifacts/, so capture files never show up here.
+     */
+    public static function hasUncommittedChanges(
+        IncusSandboxManager $sandbox,
+        string $containerName,
+        string $workspacePath,
+    ): bool {
+        $result = $sandbox->run(
+            $containerName,
+            "cd {$workspacePath} && git status --porcelain",
+            timeout: 15,
+        );
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException(
+                "hasUncommittedChanges failed (exit {$result->exitCode()}): " . $result->errorOutput()
+            );
+        }
+
+        return trim($result->output()) !== '';
+    }
 }

@@ -16,6 +16,7 @@ use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ArtifactPersister;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
@@ -294,9 +295,23 @@ class RunYakJob implements ShouldQueue
             $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
 
             if (! $hasCommits) {
-                // Claude ran but didn't commit — treat as an answered
-                // question. Skip the push and the CI await path entirely
-                // so a stale default-branch SHA can't spin the retry loop.
+                // Dirty tree + no commits means the agent edited files but
+                // forgot to `git add && git commit` before returning. Treat
+                // as a real failure so the retry path (RetryYakJob) picks it
+                // up with a clearer hint — otherwise the work silently
+                // disappears and the task claims success.
+                if (GitOperations::hasUncommittedChanges($sandbox, $containerName, $workspacePath)) {
+                    throw new \RuntimeException(
+                        'Agent finished with uncommitted changes — run `git add -A && git commit` before returning.'
+                    );
+                }
+
+                // Clean tree + no commits: the agent legitimately answered
+                // without writing code. Persist any captured artifacts
+                // (walkthrough video, screenshots, research HTML) so they
+                // still show up on the task page, then skip push + CI.
+                ArtifactPersister::persist($this->task);
+
                 $this->task->update([
                     'status' => TaskStatus::Success,
                     'completed_at' => now(),

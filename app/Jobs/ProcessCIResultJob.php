@@ -5,21 +5,17 @@ namespace App\Jobs;
 use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
-use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ArtifactPersister;
 use App\Services\GitHubAppService;
-use App\Services\PerceptualHash;
 use App\Services\TaskLogger;
-use App\Services\VideoProcessor;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ProcessCIResultJob implements ShouldQueue
 {
@@ -70,7 +66,7 @@ class ProcessCIResultJob implements ShouldQueue
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
-        $this->collectArtifacts($repository);
+        ArtifactPersister::persist($this->task);
 
         $loc = $this->countLinesOfCode($repository);
         $isLargeChange = $loc > (int) config('yak.large_change_threshold');
@@ -124,129 +120,6 @@ class ProcessCIResultJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $failureSummary]);
-    }
-
-    /**
-     * Collect artifacts from the local artifacts disk.
-     *
-     * Artifacts are pre-collected from the sandbox by the agent jobs
-     * (RunYakJob, RetryYakJob) via SandboxArtifactCollector before
-     * the sandbox container is destroyed. By the time this job runs,
-     * the files are already on the host at {task_id}/ on the artifacts disk.
-     *
-     * @return array<int, Artifact>
-     */
-    private function collectArtifacts(Repository $repository): array
-    {
-        $taskDir = Storage::disk('artifacts')->path((string) $this->task->id);
-
-        // Check for artifacts collected from sandbox
-        // They may be in a .yak-artifacts subdirectory (from pullDirectory)
-        $artifactsPath = is_dir($taskDir . '/.yak-artifacts')
-            ? $taskDir . '/.yak-artifacts'
-            : $taskDir;
-
-        if (! File::isDirectory($artifactsPath)) {
-            return [];
-        }
-
-        $files = File::files($artifactsPath);
-        $artifacts = [];
-        $screenshotHashes = [];
-
-        foreach ($files as $file) {
-            $storagePath = "{$this->task->id}/{$file->getFilename()}";
-            $type = $this->detectArtifactType($file->getExtension());
-
-            // If the file came from the .yak-artifacts subdirectory, move it up
-            if ($artifactsPath !== $taskDir) {
-                $targetPath = Storage::disk('artifacts')->path($storagePath);
-                if ($file->getPathname() !== $targetPath) {
-                    File::move($file->getPathname(), $targetPath);
-                }
-            }
-
-            $fullPath = Storage::disk('artifacts')->path($storagePath);
-
-            // Drop screenshots that are perceptually identical to one we've
-            // already kept for this task. dHash distance ≤ 2 tolerates PNG
-            // encoding noise without collapsing real UI state changes.
-            $dhash = null;
-            if ($type === 'screenshot') {
-                $dhash = PerceptualHash::dhash($fullPath);
-                if ($dhash !== null && $this->isDuplicateScreenshot($dhash, $screenshotHashes)) {
-                    TaskLogger::info($this->task, 'Dropped duplicate screenshot', [
-                        'filename' => $file->getFilename(),
-                        'dhash' => $dhash,
-                    ]);
-                    File::delete($fullPath);
-
-                    continue;
-                }
-                if ($dhash !== null) {
-                    $screenshotHashes[] = $dhash;
-                }
-            }
-
-            $artifact = Artifact::create([
-                'yak_task_id' => $this->task->id,
-                'type' => $type,
-                'filename' => $file->getFilename(),
-                'disk_path' => $storagePath,
-                'size_bytes' => Storage::disk('artifacts')->size($storagePath),
-                'dhash' => $dhash,
-            ]);
-
-            $artifacts[] = $artifact;
-
-            // For video artifacts, try the new Remotion pipeline first.
-            // RenderVideoJob no-ops when storyboard.json is missing, so we
-            // fall back to the legacy VideoProcessor in-place post-processing
-            // only when no storyboard exists (pre-storyboard repos / failures).
-            if ($type === 'video') {
-                RenderVideoJob::dispatch($artifact->id);
-
-                $storyboardPath = Storage::disk('artifacts')->path("{$this->task->id}/storyboard.json");
-                if (! file_exists($storyboardPath)) {
-                    VideoProcessor::process($fullPath);
-                }
-            }
-        }
-
-        // Clean up the .yak-artifacts subdirectory if it exists
-        if ($artifactsPath !== $taskDir) {
-            File::deleteDirectory($artifactsPath);
-        }
-
-        return $artifacts;
-    }
-
-    /**
-     * @param  array<int, string>  $knownHashes
-     */
-    private function isDuplicateScreenshot(string $dhash, array $knownHashes): bool
-    {
-        foreach ($knownHashes as $known) {
-            if (PerceptualHash::hamming($dhash, $known) <= 2) {
-                return true;
-            }
-        }
-
-        return Artifact::where('yak_task_id', $this->task->id)
-            ->where('type', 'screenshot')
-            ->whereNotNull('dhash')
-            ->pluck('dhash')
-            ->contains(fn (string $known) => PerceptualHash::hamming($dhash, $known) <= 2);
-    }
-
-    private function detectArtifactType(string $extension): string
-    {
-        return match (strtolower($extension)) {
-            'png', 'jpg', 'jpeg', 'gif', 'webp' => 'screenshot',
-            'mp4', 'webm' => 'video',
-            'html' => 'research',
-            default => 'file',
-        };
     }
 
     private function countLinesOfCode(Repository $repository): int
