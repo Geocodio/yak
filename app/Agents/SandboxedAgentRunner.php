@@ -38,6 +38,7 @@ class SandboxedAgentRunner implements AgentRunner
         private readonly int $streamPollIntervalSeconds = 5,
         private readonly float $heartbeatIntervalSeconds = 60.0,
         private readonly float $sigkillEscalationSeconds = 5.0,
+        private readonly float $memorySnapshotIntervalSeconds = 30.0,
     ) {}
 
     public function run(AgentRunRequest $request): AgentRunResult
@@ -254,10 +255,32 @@ class SandboxedAgentRunner implements AgentRunner
         $resultReceivedAt = null;
         $forcedTermination = null;
         $lastHeartbeatAt = $lastLineAt;
+        $lastMemorySnapshotAt = $lastLineAt;
         $sigtermAt = null;
         $sigkillSent = false;
 
         while (true) {
+            // Wall-clock memory breadcrumb, independent of stream activity.
+            // The idle heartbeat below only fires after 60s of silence — but
+            // tasks 4406 and 4407 both died mid-stream (active tool_use),
+            // so the idle heartbeat never emitted. This snapshot fires on
+            // a steady cadence regardless of stream state so the last
+            // yak.log line before a silent kill carries worker memory,
+            // sandbox memory, and line count.
+            $loopNow = microtime(true);
+            if (($loopNow - $lastMemorySnapshotAt) >= $this->memorySnapshotIntervalSeconds) {
+                Log::channel('yak')->info('Claude stream: memory snapshot', [
+                    'task_id' => $request->task->id,
+                    'container' => $containerName,
+                    'lines_so_far' => $lineCount,
+                    'worker_rss_mb' => (int) round(memory_get_usage(true) / 1024 / 1024),
+                    'worker_peak_mb' => (int) round(memory_get_peak_usage(true) / 1024 / 1024),
+                    'sandbox_memory_mb' => $this->sandboxMemoryMb($containerName),
+                    'idle_seconds' => (int) ($loopNow - $lastLineAt),
+                ]);
+                $lastMemorySnapshotAt = $loopNow;
+            }
+
             $read = [$stdout];
             $write = null;
             $except = null;
@@ -294,23 +317,12 @@ class SandboxedAgentRunner implements AgentRunner
                 $now = microtime(true);
 
                 if ($resultReceivedAt === null && ($now - $lastHeartbeatAt) >= $this->heartbeatIntervalSeconds) {
+                    // Idle heartbeat — touches the task so yak:reap-orphaned-tasks
+                    // doesn't flag it, and refreshes the tool_use UI duration.
+                    // Memory snapshots are handled at the top of the loop on
+                    // a wall-clock schedule instead of piggybacking here.
                     $handler->heartbeat((int) ($now - $lastLineAt));
                     $lastHeartbeatAt = $now;
-
-                    // Breadcrumb so a SIGKILL mid-stream leaves a trail.
-                    // Without this the last yak.log line is whatever
-                    // tool_use Claude started — with it, we see worker
-                    // memory and sandbox memory grow (or not) right up
-                    // to the moment the process dies.
-                    Log::channel('yak')->info('Claude stream: heartbeat', [
-                        'task_id' => $request->task->id,
-                        'container' => $containerName,
-                        'idle_seconds' => (int) ($now - $lastLineAt),
-                        'lines_so_far' => $lineCount,
-                        'worker_rss_mb' => (int) round(memory_get_usage(true) / 1024 / 1024),
-                        'worker_peak_mb' => (int) round(memory_get_peak_usage(true) / 1024 / 1024),
-                        'sandbox_memory_mb' => $this->sandboxMemoryMb($containerName),
-                    ]);
                 }
 
                 if ($resultReceivedAt !== null && ($now - $resultReceivedAt) >= $this->postResultGraceSeconds) {
