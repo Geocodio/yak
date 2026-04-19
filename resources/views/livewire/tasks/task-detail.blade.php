@@ -519,7 +519,7 @@
                 </a>
             </div>
 
-            <div class="mb-5 flex items-center justify-between">
+            <div class="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <h2 class="text-lg font-medium text-yak-slate">Activity</h2>
                 <span class="text-xs text-yak-blue">
                     {{ $this->logs->count() }} entries
@@ -578,11 +578,11 @@
                             wire:key="group-{{ $groupIndex }}"
                             data-testid="log-entry"
                         >
-                            <button wire:click="toggleGroup({{ $groupIndex }})" class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)]">
+                            <button wire:click="toggleGroup({{ $groupIndex }})" class="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)] sm:flex-nowrap sm:gap-x-3 sm:gap-y-0">
                                 <flux:icon.chevron-right class="!size-3.5 shrink-0 text-yak-tan transition-transform duration-150 {{ $isGroupExpanded ? 'rotate-90' : '' }}" />
                                 <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.1)] px-2 py-0.5 font-mono text-[11px] font-semibold text-yak-blue" data-testid="thinking-steps-badge">{{ $entry['count'] }} thinking steps</span>
-                                <span class="min-w-0 flex-1 truncate text-[13px] italic text-yak-blue">{{ $lastLog->message }}</span>
-                                <span class="shrink-0 font-mono text-[11px] text-yak-tan">
+                                <span class="order-last min-w-0 basis-full truncate text-[13px] italic text-yak-blue sm:order-none sm:basis-0 sm:flex-1">{{ $lastLog->message }}</span>
+                                <span class="ml-auto shrink-0 font-mono text-[11px] text-yak-tan sm:ml-0">
                                     @if($this->isActiveStatus())
                                         {{ $lastLog->created_at->diffForHumans() }}
                                     @else
@@ -631,7 +631,7 @@
                             wire:key="log-{{ $log->id }}"
                             data-testid="{{ $isMilestone ? 'milestone-log' : 'log-entry' }}"
                         >
-                            <button wire:click="toggleLog({{ $index }})" class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)] {{ $isMilestone ? 'bg-[rgba(245,240,232,0.3)]' : '' }}">
+                            <button wire:click="toggleLog({{ $index }})" class="flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)] sm:flex-nowrap sm:gap-x-3 sm:gap-y-0 {{ $isMilestone ? 'bg-[rgba(245,240,232,0.3)]' : '' }}">
                                 @if($hasExpandableContent && !$isMilestone)
                                     <flux:icon.chevron-right class="!size-3.5 shrink-0 text-yak-tan transition-transform duration-150 {{ $isExpanded ? 'rotate-90' : '' }}" />
                                 @else
@@ -651,13 +651,13 @@
                                         {{ $log->level }}
                                     </span>
                                 @endif
-                                <span class="min-w-0 flex-1 truncate text-[13px] {{ $isAssistant ? 'italic text-yak-blue' : 'text-yak-slate' }} {{ $isMilestone ? 'font-semibold' : '' }}">{{ $log->message }}</span>
+                                <span class="order-last min-w-0 basis-full truncate text-[13px] sm:order-none sm:basis-0 sm:flex-1 {{ $isAssistant ? 'italic text-yak-blue' : 'text-yak-slate' }} {{ $isMilestone ? 'font-semibold' : '' }}">{{ $log->message }}</span>
                                 @if($hasOutput)
                                     <span class="shrink-0 rounded-md bg-[rgba(107,143,163,0.08)] px-1.5 py-0.5 font-mono text-[10px] text-yak-blue">
                                         {{ $log->metadata['output_lines'] ?? '?' }} lines
                                     </span>
                                 @endif
-                                <span class="shrink-0 font-mono text-[11px] text-yak-tan">
+                                <span class="ml-auto shrink-0 font-mono text-[11px] text-yak-tan sm:ml-0">
                                     @if($this->isActiveStatus())
                                         {{ $log->created_at->diffForHumans() }}
                                     @else
