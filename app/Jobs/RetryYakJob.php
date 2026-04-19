@@ -113,8 +113,8 @@ class RetryYakJob implements ShouldQueue
                 return;
             }
 
-            // Collect artifacts before sandbox is destroyed
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+            ArtifactPersister::persist($this->task);
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
@@ -190,8 +190,6 @@ class RetryYakJob implements ShouldQueue
                         'Agent finished retry with uncommitted changes — run `git add -A && git commit` before returning.'
                     );
                 }
-
-                ArtifactPersister::persist($this->task);
 
                 $this->task->update([
                     'status' => TaskStatus::Success,

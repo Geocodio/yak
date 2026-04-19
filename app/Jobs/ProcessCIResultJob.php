@@ -7,7 +7,6 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\ArtifactPersister;
 use App\Services\GitHubAppService;
 use App\Services\TaskLogger;
 use App\Services\YakPersonality;
@@ -66,7 +65,11 @@ class ProcessCIResultJob implements ShouldQueue
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
-        ArtifactPersister::persist($this->task);
+        // Artifacts are persisted upstream in RunYakJob/RetryYakJob/
+        // ClarificationReplyJob right after SandboxArtifactCollector pulls
+        // them out of the sandbox — that way the walkthrough video +
+        // screenshots show up on the task page and Remotion rendering
+        // runs in parallel with Drone CI instead of sequentially.
 
         $loc = $this->countLinesOfCode($repository);
         $isLargeChange = $loc > (int) config('yak.large_change_threshold');

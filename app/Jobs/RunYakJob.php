@@ -165,8 +165,16 @@ class RunYakJob implements ShouldQueue
                 return;
             }
 
-            // Collect artifacts before sandbox is destroyed
+            // Pull .yak-artifacts/ out of the sandbox…
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+
+            // …then immediately turn the files into Artifact DB rows and
+            // dispatch RenderVideoJob. This used to happen only after CI
+            // went green (inside ProcessCIResultJob), which meant the
+            // walkthrough video + screenshots weren't visible on the task
+            // page until the full Drone build finished, and Remotion
+            // rendering sat idle instead of running in parallel with CI.
+            ArtifactPersister::persist($this->task);
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
@@ -312,11 +320,8 @@ class RunYakJob implements ShouldQueue
                 }
 
                 // Clean tree + no commits: the agent legitimately answered
-                // without writing code. Persist any captured artifacts
-                // (walkthrough video, screenshots, research HTML) so they
-                // still show up on the task page, then skip push + CI.
-                ArtifactPersister::persist($this->task);
-
+                // without writing code. Artifacts were already persisted
+                // in the main handle() flow above. Skip push + CI.
                 $this->task->update([
                     'status' => TaskStatus::Success,
                     'completed_at' => now(),

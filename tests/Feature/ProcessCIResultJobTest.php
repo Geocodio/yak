@@ -2,7 +2,6 @@
 
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
-use App\Jobs\RenderVideoJob;
 use App\Jobs\RetryYakJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
@@ -12,7 +11,6 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 99999);
@@ -317,7 +315,11 @@ test('green path does not apply large-change label when LOC is under threshold',
 |--------------------------------------------------------------------------
 */
 
-test('green path collects artifacts pre-collected by sandbox', function () {
+test('green path preserves artifact rows already persisted by the agent job', function () {
+    // Artifacts are persisted earlier now (in RunYakJob/RetryYakJob/
+    // ClarificationReplyJob right after SandboxArtifactCollector pulls
+    // them out of the sandbox). ProcessCIResultJob must not duplicate,
+    // delete, or otherwise mess with those rows on the green path.
     Http::fake([
         'api.github.com/*' => Http::response([
             'number' => 1,
@@ -332,7 +334,7 @@ test('green path collects artifacts pre-collected by sandbox', function () {
         '*git branch -D *' => Process::result(''),
     ]);
 
-    $repository = Repository::factory()->create([
+    Repository::factory()->create([
         'slug' => 'org/art-repo',
         'path' => '/home/yak/repos/art-repo',
     ]);
@@ -344,83 +346,18 @@ test('green path collects artifacts pre-collected by sandbox', function () {
         'attempts' => 1,
     ]);
 
-    // Simulate artifacts pre-collected by SandboxArtifactCollector into .yak-artifacts subdir
-    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
-    mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir . '/screenshot.png', 'fake-png-data');
-    file_put_contents($artifactsDir . '/report.html', '<html>report</html>');
+    Artifact::factory()->screenshot()->create(['yak_task_id' => $task->id, 'filename' => 'screenshot.png', 'disk_path' => "{$task->id}/screenshot.png"]);
+    Artifact::factory()->research()->create(['yak_task_id' => $task->id, 'disk_path' => "{$task->id}/research.html"]);
 
     $job = new ProcessCIResultJob($task, true);
     $job->handle();
 
     expect(Artifact::where('yak_task_id', $task->id)->count())->toBe(2);
-
-    $screenshot = Artifact::where('yak_task_id', $task->id)->where('filename', 'screenshot.png')->first();
-    expect($screenshot)->not->toBeNull()
-        ->and($screenshot->type)->toBe('screenshot');
-
-    $report = Artifact::where('yak_task_id', $task->id)->where('filename', 'report.html')->first();
-    expect($report)->not->toBeNull()
-        ->and($report->type)->toBe('research');
 });
 
-test('green path drops perceptually identical screenshots', function () {
-    Http::fake([
-        'api.github.com/*' => Http::response([
-            'number' => 1,
-            'html_url' => 'https://github.com/org/dup-repo/pull/1',
-        ]),
-    ]);
-
-    Process::fake([
-        '*git diff --name-only *' => Process::result(''),
-        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        '*git checkout *' => Process::result(''),
-        '*git branch -D *' => Process::result(''),
-    ]);
-
-    Repository::factory()->create([
-        'slug' => 'org/dup-repo',
-        'path' => '/home/yak/repos/dup-repo',
-    ]);
-
-    $task = YakTask::factory()->awaitingCi()->create([
-        'repo' => 'org/dup-repo',
-        'branch_name' => 'yak/FIX-DUP',
-        'source' => 'manual',
-        'attempts' => 1,
-    ]);
-
-    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
-    mkdir($artifactsDir, 0755, true);
-
-    // Two visually identical PNGs (same bytes written under different names),
-    // one visually distinct PNG. Expect the two dupes to collapse to one.
-    $leftHalf = makePatternPng('left-half');
-    $rightHalf = makePatternPng('right-half');
-
-    file_put_contents($artifactsDir . '/01-initial.png', $leftHalf);
-    file_put_contents($artifactsDir . '/02-same.png', $leftHalf);
-    file_put_contents($artifactsDir . '/03-different.png', $rightHalf);
-
-    $job = new ProcessCIResultJob($task, true);
-    $job->handle();
-
-    $screenshots = Artifact::where('yak_task_id', $task->id)
-        ->where('type', 'screenshot')
-        ->get();
-
-    expect($screenshots)->toHaveCount(2)
-        ->and($screenshots->pluck('filename')->sort()->values()->all())
-        ->toEqual(['01-initial.png', '03-different.png']);
-
-    // The dropped file should be gone from disk.
-    $droppedPath = Storage::disk('artifacts')->path("{$task->id}/02-same.png");
-    expect(file_exists($droppedPath))->toBeFalse();
-
-    // Surviving screenshots should have their dhash persisted.
-    expect($screenshots->pluck('dhash')->filter()->count())->toBe(2);
-});
+// Screenshot dedup logic moved out of ProcessCIResultJob — now owned by
+// ArtifactPersister and covered in ArtifactPersisterTest. See:
+// `creates one Artifact row per file and moves files out of the .yak-artifacts subdir`
 
 test('green path generates signed URLs with HMAC-SHA256 for artifacts', function () {
     Http::fake([
@@ -437,7 +374,7 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
         '*git branch -D *' => Process::result(''),
     ]);
 
-    $repository = Repository::factory()->create([
+    Repository::factory()->create([
         'slug' => 'org/sig-repo',
         'path' => '/home/yak/repos/sig-repo',
     ]);
@@ -449,10 +386,8 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
         'attempts' => 1,
     ]);
 
-    // Simulate artifacts pre-collected by SandboxArtifactCollector
-    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
-    mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir . '/capture.png', 'fake-png');
+    // Artifact rows are already created upstream by the agent job.
+    Artifact::factory()->screenshot()->create(['yak_task_id' => $task->id, 'filename' => 'capture.png', 'disk_path' => "{$task->id}/capture.png"]);
 
     $job = new ProcessCIResultJob($task, true);
     $job->handle();
@@ -479,108 +414,9 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
     expect(strlen($expectedSignature))->toBe(64); // SHA-256 hex digest
 });
 
-/*
-|--------------------------------------------------------------------------
-| Green Path — Video Pipeline
-|--------------------------------------------------------------------------
-*/
-
-test('dispatches RenderVideoJob when storyboard.json is present', function () {
-    Storage::fake('artifacts');
-    Queue::fake([RenderVideoJob::class]);
-
-    Http::fake([
-        'api.github.com/*' => Http::response([
-            'number' => 1,
-            'html_url' => 'https://github.com/org/vid-repo/pull/1',
-        ]),
-    ]);
-
-    Process::fake([
-        '*git diff --name-only *' => Process::result(''),
-        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        '*git checkout *' => Process::result(''),
-        '*git branch -D *' => Process::result(''),
-    ]);
-
-    Repository::factory()->create([
-        'slug' => 'org/vid-repo',
-        'path' => '/home/yak/repos/vid-repo',
-    ]);
-
-    $task = YakTask::factory()->awaitingCi()->create([
-        'repo' => 'org/vid-repo',
-        'branch_name' => 'yak/FIX-VID',
-        'source' => 'manual',
-        'attempts' => 1,
-    ]);
-
-    // Sandbox pre-collected: raw webm + a matching storyboard.json.
-    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
-    mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir . '/walkthrough.webm', 'fake-webm');
-    file_put_contents($artifactsDir . '/storyboard.json', json_encode(['version' => 1, 'plan' => (object) [], 'events' => []]));
-
-    $job = new ProcessCIResultJob($task, true);
-    $job->handle();
-
-    Queue::assertPushed(RenderVideoJob::class, function (RenderVideoJob $job) use ($task) {
-        $artifact = Artifact::find($job->rawVideoArtifactId);
-
-        return $artifact !== null
-            && $artifact->yak_task_id === $task->id
-            && $artifact->type === 'video';
-    });
-});
-
-test('dispatches RenderVideoJob even when no storyboard.json (job will no-op)', function () {
-    Storage::fake('artifacts');
-    Queue::fake([RenderVideoJob::class]);
-
-    Http::fake([
-        'api.github.com/*' => Http::response([
-            'number' => 1,
-            'html_url' => 'https://github.com/org/no-sb-repo/pull/1',
-        ]),
-    ]);
-
-    Process::fake([
-        '*git diff --name-only *' => Process::result(''),
-        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
-        '*git checkout *' => Process::result(''),
-        '*git branch -D *' => Process::result(''),
-        '*ffprobe*' => Process::result(''), // legacy VideoProcessor probe
-        '*ffmpeg*' => Process::result(''),  // legacy VideoProcessor transform
-    ]);
-
-    Repository::factory()->create([
-        'slug' => 'org/no-sb-repo',
-        'path' => '/home/yak/repos/no-sb-repo',
-    ]);
-
-    $task = YakTask::factory()->awaitingCi()->create([
-        'repo' => 'org/no-sb-repo',
-        'branch_name' => 'yak/FIX-NOSB',
-        'source' => 'manual',
-        'attempts' => 1,
-    ]);
-
-    // Sandbox pre-collected: raw webm but NO storyboard.json.
-    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
-    mkdir($artifactsDir, 0755, true);
-    file_put_contents($artifactsDir . '/walkthrough.webm', 'fake-webm');
-
-    $job = new ProcessCIResultJob($task, true);
-    $job->handle();
-
-    // RenderVideoJob still dispatched; it will no-op on its own because storyboard is missing.
-    Queue::assertPushed(RenderVideoJob::class);
-
-    // And the raw video artifact was still recorded so the PR body fallback can find it.
-    $video = Artifact::where('yak_task_id', $task->id)->where('type', 'video')->first();
-    expect($video)->not->toBeNull()
-        ->and($video->filename)->toBe('walkthrough.webm');
-});
+// Video-pipeline dispatch tests moved to ArtifactPersisterTest — the
+// agent jobs call ArtifactPersister immediately after SandboxArtifactCollector
+// so Remotion runs in parallel with Drone CI instead of waiting for it.
 
 /*
 |--------------------------------------------------------------------------

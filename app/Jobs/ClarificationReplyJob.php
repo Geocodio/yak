@@ -15,6 +15,7 @@ use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ArtifactPersister;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
@@ -106,8 +107,8 @@ class ClarificationReplyJob implements ShouldQueue
                 return;
             }
 
-            // Collect artifacts before sandbox is destroyed
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+            ArtifactPersister::persist($this->task);
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
