@@ -34,7 +34,12 @@ class RunYakJob implements ShouldQueue
     use HandlesAgentJobFailure;
     use Queueable;
 
-    public int $timeout = 600;
+    // Agent sessions involving browser capture, docker-compose warmup,
+    // or long tool calls regularly exceed 10 minutes. Laravel enforces
+    // this via pcntl_alarm → posix_kill(getmypid(), SIGKILL), so setting
+    // it too low silently murders the worker mid-stream and leaves the
+    // sandbox + reserved job orphaned. 3600s matches SetupYakJob's budget.
+    public int $timeout = 3600;
 
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];

@@ -34,7 +34,7 @@ class ResearchYakJob implements ShouldQueue
     use HandlesAgentJobFailure;
     use Queueable;
 
-    public int $timeout = 600;
+    public int $timeout = 3600;
 
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];
