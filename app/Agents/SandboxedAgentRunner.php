@@ -11,6 +11,7 @@ use App\Services\ClaudeAuthDetector;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Throwable;
 
 /**
@@ -186,7 +187,58 @@ class SandboxedAgentRunner implements AgentRunner
             'task_id' => $request->task->id,
             'container' => $containerName,
             'command_length' => strlen($command),
+            'worker_pid' => getmypid(),
+            'worker_rss_mb' => (int) round(memory_get_usage(true) / 1024 / 1024),
         ]);
+
+        // Install a shutdown handler so if the worker process dies with a
+        // PHP fatal (memory_limit, parse error) we get a breadcrumb. The
+        // handler no-ops when $streamCompleted is true — we set that in
+        // a finally block below so exceptions (which Laravel catches and
+        // keeps the worker alive) don't trip a false positive later when
+        // the worker eventually exits for unrelated reasons. SIGKILL
+        // bypasses shutdown handlers entirely; for that case the periodic
+        // heartbeat log below is the last breadcrumb trail we have.
+        $shutdownTaskId = $request->task->id;
+        $shutdownContainer = $containerName;
+        $streamCompleted = false;
+        register_shutdown_function(function () use (&$streamCompleted, $shutdownTaskId, $shutdownContainer) {
+            if ($streamCompleted) {
+                return;
+            }
+            $err = error_get_last();
+            Log::channel('yak')->error('Claude stream: worker shutdown mid-run', [
+                'task_id' => $shutdownTaskId,
+                'container' => $shutdownContainer,
+                'last_error' => $err,
+                'peak_memory_mb' => (int) round(memory_get_peak_usage(true) / 1024 / 1024),
+            ]);
+        });
+
+        try {
+            return $this->runStreamingInner(
+                $request,
+                $containerName,
+                $command,
+                $handler,
+            );
+        } finally {
+            $streamCompleted = true;
+        }
+    }
+
+    /**
+     * The actual streaming loop, split out so runStreaming() can wrap it
+     * in a try/finally that marks the register_shutdown_function guard
+     * regardless of exception vs return.
+     */
+    private function runStreamingInner(
+        AgentRunRequest $request,
+        string $containerName,
+        string $command,
+        StreamEventHandler $handler,
+    ): AgentRunResult {
+        assert($request->task !== null);
 
         [$process, $pipes] = $this->sandbox->streamExec($containerName, $command);
 
@@ -244,6 +296,21 @@ class SandboxedAgentRunner implements AgentRunner
                 if ($resultReceivedAt === null && ($now - $lastHeartbeatAt) >= $this->heartbeatIntervalSeconds) {
                     $handler->heartbeat((int) ($now - $lastLineAt));
                     $lastHeartbeatAt = $now;
+
+                    // Breadcrumb so a SIGKILL mid-stream leaves a trail.
+                    // Without this the last yak.log line is whatever
+                    // tool_use Claude started — with it, we see worker
+                    // memory and sandbox memory grow (or not) right up
+                    // to the moment the process dies.
+                    Log::channel('yak')->info('Claude stream: heartbeat', [
+                        'task_id' => $request->task->id,
+                        'container' => $containerName,
+                        'idle_seconds' => (int) ($now - $lastLineAt),
+                        'lines_so_far' => $lineCount,
+                        'worker_rss_mb' => (int) round(memory_get_usage(true) / 1024 / 1024),
+                        'worker_peak_mb' => (int) round(memory_get_peak_usage(true) / 1024 / 1024),
+                        'sandbox_memory_mb' => $this->sandboxMemoryMb($containerName),
+                    ]);
                 }
 
                 if ($resultReceivedAt !== null && ($now - $resultReceivedAt) >= $this->postResultGraceSeconds) {
@@ -351,6 +418,39 @@ class SandboxedAgentRunner implements AgentRunner
             "Claude Code stream ended without result event (lines={$lineCount}, exit={$exitCode}){$terminationNote}",
             '',
         );
+    }
+
+    /**
+     * Parse `incus info {container}` for the "Memory (current)" line and
+     * return megabytes. Returns null on any failure so the heartbeat log
+     * degrades gracefully rather than masking the breadcrumb we care about.
+     */
+    private function sandboxMemoryMb(string $containerName): ?int
+    {
+        try {
+            $result = Process::timeout(5)
+                ->run(['incus', 'info', $containerName]);
+
+            if ($result->exitCode() !== 0) {
+                return null;
+            }
+
+            if (! preg_match('/Memory \(current\):\s*([\d.]+)(KiB|MiB|GiB|KB|MB|GB)/i', $result->output(), $m)) {
+                return null;
+            }
+
+            $value = (float) $m[1];
+            $unit = strtoupper($m[2]);
+
+            return (int) round(match ($unit) {
+                'KIB', 'KB' => $value / 1024,
+                'MIB', 'MB' => $value,
+                'GIB', 'GB' => $value * 1024,
+                default => 0,
+            });
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function runBatch(AgentRunRequest $request): AgentRunResult
