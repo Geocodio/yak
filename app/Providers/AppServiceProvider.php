@@ -6,6 +6,7 @@ use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Listeners\RecordAiUsage;
 use App\Services\IncusSandboxManager;
+use App\Services\VideoRenderer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(IncusSandboxManager::class);
 
         $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
+
+        // VideoRenderer's constructor takes a primitive `string $videoDir`
+        // which Laravel's container can't auto-resolve; without a binding,
+        // RenderVideoJob fails to instantiate and every walkthrough ships
+        // as the raw browser webm with no Remotion composite.
+        $this->app->bind(VideoRenderer::class, fn () => new VideoRenderer(videoDir: base_path('video')));
     }
 
     /**
