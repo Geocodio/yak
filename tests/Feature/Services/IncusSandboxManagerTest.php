@@ -507,3 +507,33 @@ it('stamps the current base_version on the repo when promoting to a template', f
     $repo->refresh();
     expect($repo->sandbox_base_version)->toBe(2);
 });
+
+it('builds streamExec argv with no shell wrapper so proc_terminate reaches incus directly', function () {
+    config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN,NPM_TOKEN');
+
+    $manager = app(IncusSandboxManager::class);
+    $reflection = new ReflectionClass($manager);
+    $method = $reflection->getMethod('buildExecArgv');
+    $method->setAccessible(true);
+
+    $argv = $method->invoke($manager, 'task-42', 'echo hi', false);
+
+    // Argv is executed directly (proc_open array form). The first token
+    // must be `incus` — not `sh` / `bash` — so PHP's child pid IS the
+    // incus process and proc_terminate signals hit it.
+    expect($argv[0])->toBe('incus');
+    expect($argv)->toContain('task-42');
+    expect($argv)->toContain('sudo', '-u', 'yak', '-H', 'bash', '-c', 'echo hi');
+    expect($argv)->toContain('--preserve-env=NODE_AUTH_TOKEN,NPM_TOKEN');
+});
+
+it('builds streamExec argv without sudo when run as root', function () {
+    $manager = app(IncusSandboxManager::class);
+    $reflection = new ReflectionClass($manager);
+    $method = $reflection->getMethod('buildExecArgv');
+    $method->setAccessible(true);
+
+    $argv = $method->invoke($manager, 'task-42', 'echo hi', true);
+
+    expect($argv)->toBe(['incus', 'exec', 'task-42', '--', 'bash', '-c', 'echo hi']);
+});

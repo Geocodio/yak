@@ -126,7 +126,7 @@ class IncusSandboxManager
      */
     public function streamExec(string $containerName, string $command, bool $asRoot = false): array
     {
-        $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
+        $argv = $this->buildExecArgv($containerName, $command, $asRoot);
 
         $descriptors = [
             0 => ['pipe', 'r'],  // stdin
@@ -134,7 +134,12 @@ class IncusSandboxManager
             2 => ['pipe', 'w'],  // stderr
         ];
 
-        $process = proc_open($cmd, $descriptors, $pipes);
+        // Array-form proc_open avoids `/bin/sh -c ...`: PHP execs incus
+        // directly as its child. Without this, proc_terminate targets
+        // the shell wrapper, leaves the real `incus` running as an
+        // orphan, and proc_close blocks the worker past the queue's
+        // visibility timeout.
+        $process = proc_open($argv, $descriptors, $pipes);
 
         if (! is_resource($process)) {
             throw new RuntimeException("Failed to start process in sandbox {$containerName}");
@@ -695,6 +700,24 @@ class IncusSandboxManager
     }
 
     /**
+     * Argv form of the same command, for proc_open without a shell.
+     *
+     * @return list<string>
+     */
+    private function buildExecArgv(string $containerName, string $command, bool $asRoot): array
+    {
+        $tail = $asRoot
+            ? ['bash', '-c', $command]
+            : array_merge(
+                ['sudo', '-u', 'yak'],
+                $this->preserveEnvArgs(),
+                ['-H', 'bash', '-c', $command],
+            );
+
+        return array_merge(['incus', 'exec', $containerName, '--'], $tail);
+    }
+
+    /**
      * Build the `--preserve-env=NAME1,NAME2` flag for sudo, based on
      * `yak.agent_passthrough_env`. Returns an empty string when
      * nothing is configured so the sudo invocation stays clean.
@@ -712,5 +735,25 @@ class IncusSandboxManager
         }
 
         return ' --preserve-env=' . escapeshellarg(implode(',', $names));
+    }
+
+    /**
+     * Argv form of preserveEnvFlag — returns 0 or 1 element.
+     *
+     * @return list<string>
+     */
+    private function preserveEnvArgs(): array
+    {
+        $passthrough = (string) config('yak.agent_passthrough_env', '');
+        if ($passthrough === '') {
+            return [];
+        }
+
+        $names = array_filter(array_map('trim', explode(',', $passthrough)));
+        if ($names === []) {
+            return [];
+        }
+
+        return ['--preserve-env=' . implode(',', $names)];
     }
 }

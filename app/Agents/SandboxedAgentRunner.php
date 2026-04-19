@@ -33,7 +33,7 @@ class SandboxedAgentRunner implements AgentRunner
     public function __construct(
         private readonly IncusSandboxManager $sandbox,
         private readonly float $postResultGraceSeconds = 15.0,
-        private readonly float $streamIdleTimeoutSeconds = 600.0,
+        private readonly float $streamIdleTimeoutSeconds = 1200.0,
         private readonly int $streamPollIntervalSeconds = 5,
         private readonly float $heartbeatIntervalSeconds = 60.0,
         private readonly float $sigkillEscalationSeconds = 5.0,
