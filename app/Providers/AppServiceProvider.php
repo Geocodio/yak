@@ -7,6 +7,7 @@ use App\Contracts\AgentRunner;
 use App\Listeners\RecordAiUsage;
 use App\Services\IncusSandboxManager;
 use App\Services\VideoRenderer;
+use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,10 @@ class AppServiceProvider extends ServiceProvider
         // RenderVideoJob fails to instantiate and every walkthrough ships
         // as the raw browser webm with no Remotion composite.
         $this->app->bind(VideoRenderer::class, fn () => new VideoRenderer(videoDir: base_path('video')));
+
+        $this->app->bind(VideoThumbnailer::class, fn () => new VideoThumbnailer(
+            overlayPath: base_path('video/fixtures/play-overlay.png'),
+        ));
     }
 
     /**

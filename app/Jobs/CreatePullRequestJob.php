@@ -7,6 +7,7 @@ use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
+use App\Services\PullRequestBodyUpdater;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -146,9 +147,14 @@ class CreatePullRequestJob implements ShouldQueue
         // didn't produce a cut (e.g. no storyboard, or RenderVideoJob failed).
         $videoCut = $this->task->artifacts()->reviewerCut()->latest('id')->first();
         if ($videoCut !== null) {
+            $thumbnail = $this->task->artifacts()->reviewerThumbnail()->latest('id')->first();
             $parts[] = '';
             $parts[] = '### Video walkthrough';
-            $parts[] = "- [{$videoCut->filename}]({$videoCut->signedUrl()})";
+            $parts[] = PullRequestBodyUpdater::videoMarkdown(
+                videoUrl: $videoCut->signedUrl(),
+                filename: $videoCut->filename,
+                thumbnailUrl: $thumbnail?->signedUrl(),
+            );
         } else {
             $videos = array_filter($signedUrls, fn (array $a): bool => $a['type'] === 'video');
             if (count($videos) > 0) {

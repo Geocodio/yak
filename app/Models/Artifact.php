@@ -71,4 +71,13 @@ class Artifact extends Model
     {
         return $query->where('type', 'video_cut')->where('filename', 'like', '%director-cut%');
     }
+
+    /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopeReviewerThumbnail(Builder $query): Builder
+    {
+        return $query->where('type', 'video_thumbnail')->where('filename', 'like', '%reviewer-cut%');
+    }
 }

@@ -21,6 +21,7 @@ class PullRequestBodyUpdater
         int $prNumber,
         string $reviewerCutUrl,
         string $filename = 'reviewer-cut.mp4',
+        ?string $thumbnailUrl = null,
     ): void {
         $installationId = (int) config('yak.channels.github.installation_id');
 
@@ -34,14 +35,14 @@ class PullRequestBodyUpdater
             return;
         }
 
-        $newLine = "- [{$filename}]({$reviewerCutUrl})";
+        $markdown = self::videoMarkdown($reviewerCutUrl, $filename, $thumbnailUrl);
 
         if (str_contains($body, '### Video walkthrough')) {
             // Replace whatever single link lives under the heading (the raw
             // webm fallback dropped in by CreatePullRequestJob).
             $replaced = preg_replace(
-                '/(### Video walkthrough\s*\n\s*\n)- \[[^\]]+\]\([^)]+\)/',
-                "$1{$newLine}",
+                '/(### Video walkthrough\s*\n\s*\n).+?(?=\n{2,}#{1,6} |\n*$)/s',
+                "$1{$markdown}",
                 $body,
                 1,
                 $count,
@@ -51,12 +52,27 @@ class PullRequestBodyUpdater
                 $body = $replaced;
             } else {
                 // Section exists but shape is unexpected; append the link.
-                $body .= "\n{$newLine}\n";
+                $body .= "\n{$markdown}\n";
             }
         } else {
-            $body .= "\n\n### Video walkthrough\n\n{$newLine}\n";
+            $body .= "\n\n### Video walkthrough\n\n{$markdown}\n";
         }
 
         $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $body]);
+    }
+
+    /**
+     * Clickable-thumbnail markdown when a poster image exists, else a
+     * plain link. GitHub doesn't embed video inline but will render the
+     * thumbnail and make it clickable, which is the closest thing to a
+     * preview we can ship in a PR body.
+     */
+    public static function videoMarkdown(string $videoUrl, string $filename, ?string $thumbnailUrl): string
+    {
+        if ($thumbnailUrl === null || $thumbnailUrl === '') {
+            return "- [{$filename}]({$videoUrl})";
+        }
+
+        return "[![Watch {$filename}]({$thumbnailUrl})]({$videoUrl})";
     }
 }

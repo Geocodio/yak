@@ -6,6 +6,7 @@ use App\Models\Artifact;
 use App\Models\YakTask;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\VideoRenderer;
+use App\Services\VideoThumbnailer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -87,7 +88,41 @@ class RenderVideoJob implements ShouldQueue
             return;
         }
 
-        $this->publishReviewerCut($raw->task, $cutArtifact);
+        $thumbnailArtifact = $this->renderThumbnail($raw, $outputPath, $taskDir);
+
+        $this->publishReviewerCut($raw->task, $cutArtifact, $thumbnailArtifact);
+    }
+
+    /**
+     * Extract a poster frame from the rendered mp4 with a play-button
+     * overlay so GitHub can embed a clickable thumbnail in the PR body.
+     * Failures are logged and swallowed — the mp4 itself is still linked
+     * textually, so a broken thumbnail shouldn't fail the whole job.
+     */
+    private function renderThumbnail(Artifact $raw, string $videoPath, string $taskDir): ?Artifact
+    {
+        $thumbnailFilename = 'reviewer-cut-thumbnail.jpg';
+        $thumbnailDiskPath = "{$taskDir}/{$thumbnailFilename}";
+        $thumbnailPath = Storage::disk('artifacts')->path($thumbnailDiskPath);
+
+        try {
+            app(VideoThumbnailer::class)->generate($videoPath, $thumbnailPath);
+        } catch (Throwable $e) {
+            Log::channel('yak')->warning('RenderVideoJob: thumbnail generation failed', [
+                'task_id' => $raw->yak_task_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        return Artifact::create([
+            'yak_task_id' => $raw->yak_task_id,
+            'type' => 'video_thumbnail',
+            'filename' => $thumbnailFilename,
+            'disk_path' => $thumbnailDiskPath,
+            'size_bytes' => file_exists($thumbnailPath) ? filesize($thumbnailPath) : 0,
+        ]);
     }
 
     /**
@@ -98,7 +133,7 @@ class RenderVideoJob implements ShouldQueue
      * itself succeeded, so we don't want to retry the whole job just
      * because GitHub rejected the PATCH.
      */
-    private function publishReviewerCut(?YakTask $task, Artifact $cutArtifact): void
+    private function publishReviewerCut(?YakTask $task, Artifact $cutArtifact, ?Artifact $thumbnailArtifact): void
     {
         if ($task === null) {
             return;
@@ -116,6 +151,7 @@ class RenderVideoJob implements ShouldQueue
                 prNumber: $prNumber,
                 reviewerCutUrl: $cutArtifact->signedUrl(),
                 filename: $cutArtifact->filename,
+                thumbnailUrl: $thumbnailArtifact?->signedUrl(),
             );
         } catch (Throwable $e) {
             Log::channel('yak')->warning('RenderVideoJob: failed to publish reviewer cut to PR body', [
