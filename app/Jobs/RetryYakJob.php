@@ -143,27 +143,36 @@ class RetryYakJob implements ShouldQueue
     {
         $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        // Configure git credentials
+        // Configure git identity
         $gitName = config('yak.git_user_name', 'Yak');
         $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
         $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
         $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
 
-        $installationId = (int) config('yak.channels.github.installation_id');
-        if ($installationId) {
-            $token = app(GitHubAppService::class)->getInstallationToken($installationId);
-            $sandbox->run(
-                $containerName,
-                'git config --global credential.https://github.com.helper ' .
-                escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
-                timeout: 10,
-            );
-        }
+        $this->injectGitCredentials($sandbox, $containerName);
 
         // Fetch the task branch and check it out
         $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
         $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
+    }
+
+    private function injectGitCredentials(IncusSandboxManager $sandbox, string $containerName): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if (! $installationId) {
+            return;
+        }
+
+        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+
+        $sandbox->run(
+            $containerName,
+            'git config --global credential.https://github.com.helper ' .
+            escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
+            timeout: 10,
+        );
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
@@ -211,6 +220,11 @@ class RetryYakJob implements ShouldQueue
                 'result_summary' => $result->resultSummary,
                 'model_used' => config('yak.default_model'),
             ]);
+
+            // Refresh the baked-in credential helper — the agent may have run
+            // long enough for the token fetched during prepareRetryBranch() to
+            // expire, which would surface as a 401 on push.
+            $this->injectGitCredentials($sandbox, $containerName);
 
             // Force push from sandbox (retry overwrites the previous attempt)
             $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push --force-with-lease origin {$this->task->branch_name}", timeout: 60);

@@ -11,7 +11,9 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
@@ -141,6 +143,73 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
     // Sandbox was created and destroyed
     expect($fakeSandbox->createdContainers)->toHaveCount(1)
         ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
+});
+
+test('refreshes git credential helper immediately before push', function () {
+    // Regression: token was baked in at prepareRetryBranch and expired during
+    // long agent runs, causing the push to fail with a 401.
+    config()->set('yak.channels.github.installation_id', 4242);
+
+    $tokens = ['stale-token', 'fresh-token'];
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')
+        ->with(4242)
+        ->andReturnUsing(function () use (&$tokens): string {
+            return array_shift($tokens) ?? 'fresh-token';
+        });
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_refresh',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    $recorder = new class extends FakeSandboxManager
+    {
+        /** @var array<int, string> */
+        public array $commands = [];
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        {
+            $this->commands[] = $command;
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'retry-refresh-repo', 'path' => '/home/yak/repos/retry-refresh-repo']);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'retry-refresh-repo',
+        'branch_name' => 'yak/ISSUE-42',
+    ]);
+
+    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+
+    $credentialCommands = array_keys(array_filter(
+        $recorder->commands,
+        fn (string $cmd) => str_contains($cmd, 'credential.https://github.com.helper'),
+    ));
+    $pushIndex = null;
+    foreach ($recorder->commands as $i => $cmd) {
+        if (str_contains($cmd, 'git push --force-with-lease origin')) {
+            $pushIndex = $i;
+            break;
+        }
+    }
+
+    expect($credentialCommands)->toHaveCount(2)
+        ->and($pushIndex)->not->toBeNull()
+        ->and(max($credentialCommands))->toBeLessThan($pushIndex)
+        ->and($recorder->commands[max($credentialCommands)])->toContain('fresh-token');
 });
 
 test('successful retry accumulates cost and turns on task', function () {

@@ -8,7 +8,9 @@ use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
@@ -69,6 +71,76 @@ test('successful clarification reply transitions task to awaiting_ci and force p
 | Status Transitions
 |--------------------------------------------------------------------------
 */
+
+test('refreshes git credential helper immediately before push', function () {
+    // Regression: token was baked in at prepareBranch and expired during long
+    // agent runs, causing the push to fail with a 401.
+    config()->set('yak.channels.github.installation_id', 4242);
+
+    $tokens = ['stale-token', 'fresh-token'];
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')
+        ->with(4242)
+        ->andReturnUsing(function () use (&$tokens): string {
+            return array_shift($tokens) ?? 'fresh-token';
+        });
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_clar_refresh',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $recorder = new class extends FakeSandboxManager
+    {
+        /** @var array<int, string> */
+        public array $commands = [];
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        {
+            $this->commands[] = $command;
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'clar-refresh-repo', 'path' => '/home/yak/repos/clar-refresh-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'repo' => 'clar-refresh-repo',
+        'branch_name' => 'yak/ISSUE-77',
+        'session_id' => 'sess_original',
+    ]);
+
+    (new ClarificationReplyJob($task, 'go with option A'))->handle($fake);
+
+    $credentialCommands = array_keys(array_filter(
+        $recorder->commands,
+        fn (string $cmd) => str_contains($cmd, 'credential.https://github.com.helper'),
+    ));
+    $pushIndex = null;
+    foreach ($recorder->commands as $i => $cmd) {
+        if (str_contains($cmd, 'git push --force-with-lease origin')) {
+            $pushIndex = $i;
+            break;
+        }
+    }
+
+    expect($credentialCommands)->toHaveCount(2)
+        ->and($pushIndex)->not->toBeNull()
+        ->and(max($credentialCommands))->toBeLessThan($pushIndex)
+        ->and($recorder->commands[max($credentialCommands)])->toContain('fresh-token');
+});
 
 test('transitions from awaiting_clarification to running during execution', function () {
     $statuses = [];

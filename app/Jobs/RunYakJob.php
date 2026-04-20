@@ -343,6 +343,11 @@ class RunYakJob implements ShouldQueue
                 'model_used' => config('yak.default_model'),
             ]);
 
+            // Refresh the baked-in credential helper — the agent may have run
+            // long enough for the token fetched during prepareBranch() to
+            // expire, which would surface as a 401 on push.
+            $this->injectGitCredentials($sandbox, $containerName);
+
             $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push origin {$this->task->branch_name}", timeout: 60);
 
             if ($pushResult->exitCode() !== 0) {
