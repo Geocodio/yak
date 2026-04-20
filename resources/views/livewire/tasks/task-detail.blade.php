@@ -51,6 +51,22 @@
                     @if($this->canCancel)
                         <flux:button variant="ghost" size="sm" icon="x-circle" wire:click="cancel" wire:confirm="Cancel this task? The sandbox will be destroyed and the agent will stop." data-testid="cancel-button">Cancel</flux:button>
                     @endif
+                    @if($this->canReroute && $this->rerouteOptions->isNotEmpty())
+                        <flux:dropdown>
+                            <flux:button variant="ghost" size="sm" icon="arrow-path-rounded-square" icon:trailing="chevron-down" data-testid="reroute-trigger">Move repo</flux:button>
+                            <flux:menu data-testid="reroute-menu">
+                                @foreach($this->rerouteOptions as $option)
+                                    <flux:menu.item
+                                        wire:click="rerouteRepo('{{ $option->slug }}')"
+                                        wire:confirm="Move this task to {{ $option->slug }}? The current sandbox (if any) will be destroyed and the task will restart there."
+                                        data-testid="reroute-to-{{ $option->slug }}"
+                                    >
+                                        {{ $option->slug }}
+                                    </flux:menu.item>
+                                @endforeach
+                            </flux:menu>
+                        </flux:dropdown>
+                    @endif
                 </div>
                 @if($this->isResearchTask() && $this->researchArtifact)
                     <a

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
@@ -10,6 +11,7 @@ use App\Jobs\SetupYakJob;
 use App\Livewire\Tasks\TaskDetail;
 use App\Models\Artifact;
 use App\Models\LinearOauthConnection;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
@@ -916,6 +918,235 @@ test('nextSteps nudge is hidden for statuses with their own call-to-action', fun
 
     Livewire::test(TaskDetail::class, ['task' => $task])
         ->assertDontSeeHtml('data-testid="next-steps"');
+});
+
+test('canReroute is true for Fix and Research tasks without a PR', function () {
+    foreach ([TaskMode::Fix, TaskMode::Research] as $mode) {
+        $task = YakTask::factory()->create(['mode' => $mode, 'pr_url' => null]);
+
+        Livewire::test(TaskDetail::class, ['task' => $task])
+            ->assertSet('canReroute', true);
+    }
+});
+
+test('canReroute is false for Setup and Review modes', function () {
+    foreach ([TaskMode::Setup, TaskMode::Review] as $mode) {
+        $task = YakTask::factory()->create(['mode' => $mode]);
+
+        Livewire::test(TaskDetail::class, ['task' => $task])
+            ->assertSet('canReroute', false);
+    }
+});
+
+test('canReroute is false when a PR already exists', function () {
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'pr_url' => 'https://github.com/org/repo/pull/42',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSet('canReroute', false);
+});
+
+test('rerouteOptions excludes the current repo and inactive repos', function () {
+    $current = Repository::factory()->create(['slug' => 'org/current']);
+    $other = Repository::factory()->create(['slug' => 'org/other']);
+    Repository::factory()->inactive()->create(['slug' => 'org/inactive']);
+
+    $task = YakTask::factory()->create(['repo' => $current->slug, 'mode' => TaskMode::Fix]);
+
+    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
+    $options = $component->get('rerouteOptions');
+
+    expect($options->pluck('slug')->all())->toBe(['org/other']);
+});
+
+test('rerouteRepo updates repo, resets state, dispatches job and notification', function () {
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'org/old']);
+    Repository::factory()->create(['slug' => 'org/new']);
+
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/old',
+        'pr_url' => null,
+        'branch_name' => 'yak/leftover',
+        'result_summary' => 'Nothing to do here',
+        'cost_usd' => 1.23,
+        'duration_ms' => 90_000,
+        'num_turns' => 7,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/new');
+
+    $task->refresh();
+    expect($task->repo)->toBe('org/new')
+        ->and($task->status)->toBe(TaskStatus::Pending)
+        ->and($task->branch_name)->toBeNull()
+        ->and($task->result_summary)->toBeNull()
+        ->and((float) $task->cost_usd)->toBe(0.0)
+        ->and((int) $task->duration_ms)->toBe(0)
+        ->and((int) $task->num_turns)->toBe(0)
+        ->and($task->started_at)->toBeNull()
+        ->and($task->completed_at)->toBeNull();
+
+    Queue::assertPushed(RunYakJob::class, fn ($job) => $job->task->id === $task->id);
+    Queue::assertPushed(SendNotificationJob::class, function ($job) use ($task) {
+        return $job->task->id === $task->id
+            && $job->type === NotificationType::Retry
+            && str_contains($job->message, 'org/old')
+            && str_contains($job->message, 'org/new');
+    });
+
+    expect(TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'like', '%rerouted from org/old to org/new%')
+        ->exists())->toBeTrue();
+});
+
+test('rerouteRepo dispatches ResearchYakJob for research-mode tasks', function () {
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Research,
+        'repo' => 'org/source',
+        'pr_url' => null,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/target');
+
+    Queue::assertPushed(ResearchYakJob::class, fn ($job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('rerouteRepo tears down sandbox for in-flight tasks', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->running()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/source',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/target');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete'));
+});
+
+test('rerouteRepo is a no-op when the target repo is the same as the current repo', function () {
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'org/same']);
+
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/same',
+        'pr_url' => null,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/same');
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertNotPushed(SendNotificationJob::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Success);
+});
+
+test('rerouteRepo is a no-op when the target repo is unknown', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/source',
+        'pr_url' => null,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/missing');
+
+    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh()->repo)->toBe('org/source');
+});
+
+test('rerouteRepo is blocked when the task already has a PR', function () {
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/source',
+        'pr_url' => 'https://github.com/org/source/pull/1',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/target');
+
+    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh()->repo)->toBe('org/source');
+});
+
+test('rerouteRepo is blocked for Setup mode tasks', function () {
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Setup,
+        'repo' => 'org/source',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('rerouteRepo', 'org/target');
+
+    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh()->repo)->toBe('org/source');
+});
+
+test('reroute dropdown renders when canReroute and options exist', function () {
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/source',
+        'pr_url' => null,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="reroute-trigger"')
+        ->assertSeeHtml('data-testid="reroute-to-org/target"');
+});
+
+test('reroute dropdown is hidden when mode is Review', function () {
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => 'org/source',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="reroute-trigger"');
+});
+
+test('reroute dropdown is hidden when a PR already exists', function () {
+    Repository::factory()->create(['slug' => 'org/target']);
+
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/source',
+        'pr_url' => 'https://github.com/org/source/pull/1',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="reroute-trigger"');
 });
 
 test('milestone stepper links to the architecture docs', function () {

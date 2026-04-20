@@ -15,6 +15,7 @@ use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\PrReview;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
@@ -118,6 +119,131 @@ class TaskDetail extends Component
             TaskStatus::Failed,
             TaskStatus::Expired,
         ]);
+    }
+
+    /**
+     * Whether the "Move repo" action should be offered. Hidden for task
+     * modes that are inherently repo-scoped (Setup, Review) and for
+     * tasks that have already opened a PR — if the PR is on the wrong
+     * repo, the user needs to close it manually before rerouting.
+     */
+    #[Computed]
+    public function canReroute(): bool
+    {
+        /** @var TaskMode $mode */
+        $mode = $this->task->mode;
+
+        if (in_array($mode, [TaskMode::Setup, TaskMode::Review], true)) {
+            return false;
+        }
+
+        return $this->task->pr_url === null;
+    }
+
+    /**
+     * Active repos the task can be moved to — excludes the current repo.
+     *
+     * @return Collection<int, Repository>
+     */
+    #[Computed]
+    public function rerouteOptions(): Collection
+    {
+        return Repository::where('is_active', true)
+            ->where('slug', '!=', (string) $this->task->repo)
+            ->orderBy('slug')
+            ->get();
+    }
+
+    /**
+     * Move the task to a different repo and restart it there. Used when
+     * the router (or a human) initially picked the wrong repo — common
+     * failure mode: task ends in Success with no PR because the agent
+     * correctly detected the relevant files don't live here.
+     */
+    public function rerouteRepo(string $slug): void
+    {
+        if (! $this->canReroute) {
+            return;
+        }
+
+        $newRepo = Repository::where('slug', $slug)
+            ->where('is_active', true)
+            ->first();
+
+        if ($newRepo === null) {
+            Flux::toast('Repository not found or inactive.', variant: 'danger');
+
+            return;
+        }
+
+        $oldRepo = (string) $this->task->repo;
+
+        if ($newRepo->slug === $oldRepo) {
+            return;
+        }
+
+        $inFlight = in_array($this->task->status, [
+            TaskStatus::Running,
+            TaskStatus::AwaitingClarification,
+            TaskStatus::AwaitingCi,
+            TaskStatus::Retrying,
+        ], true);
+
+        if ($inFlight) {
+            try {
+                app(IncusSandboxManager::class)->destroy('task-' . $this->task->id);
+            } catch (\Throwable $e) {
+                Log::channel('yak')->warning('Sandbox destroy failed during reroute', [
+                    'task_id' => $this->task->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Raw DB update to bypass the state machine — Success and
+        // Cancelled are final, but a user-initiated reroute explicitly
+        // wants to rewind. Same pattern as rerunReview().
+        DB::table('tasks')->where('id', $this->task->id)->update([
+            'repo' => $newRepo->slug,
+            'status' => TaskStatus::Pending->value,
+            'branch_name' => null,
+            'error_log' => null,
+            'result_summary' => null,
+            'cost_usd' => 0,
+            'duration_ms' => 0,
+            'num_turns' => 0,
+            'started_at' => null,
+            'completed_at' => null,
+            'updated_at' => now(),
+        ]);
+
+        $this->task->refresh();
+
+        TaskLogger::info($this->task, "Task rerouted from {$oldRepo} to {$newRepo->slug}");
+
+        /** @var TaskMode $mode */
+        $mode = $this->task->mode;
+
+        $job = match ($mode) {
+            TaskMode::Research => new ResearchYakJob($this->task),
+            default => new RunYakJob($this->task),
+        };
+
+        dispatch($job);
+
+        SendNotificationJob::dispatch(
+            $this->task,
+            NotificationType::Retry,
+            "Moved from {$oldRepo} to {$newRepo->slug} — restarting there.",
+        );
+
+        $this->visibleAttempt = (int) $this->task->attempts + 1;
+        $this->expandedLogs = [];
+        $this->expandedGroups = [];
+
+        unset($this->canRetry, $this->canCancel, $this->canReroute, $this->rerouteOptions);
+
+        Flux::toast("Task moved to {$newRepo->slug}.");
     }
 
     /**
