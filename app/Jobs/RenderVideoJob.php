@@ -141,7 +141,7 @@ class RenderVideoJob implements ShouldQueue
 
         $prNumber = $this->extractPrNumber($task->pr_url);
 
-        if ($prNumber === null || $task->repo === null || $task->repo === '') {
+        if ($prNumber === null || $task->repo === '') {
             return;
         }
 

@@ -28,7 +28,11 @@ class VideoRenderer
         copy($webmPath, $stagedPath);
 
         try {
-            $storyboard = json_decode(file_get_contents($storyboardPath), true);
+            $storyboardJson = file_get_contents($storyboardPath);
+            if ($storyboardJson === false) {
+                throw new RuntimeException("failed to read storyboard.json: {$storyboardPath}");
+            }
+            $storyboard = json_decode($storyboardJson, true);
             $props = json_encode([
                 'videoUrl' => $stagedName,
                 'storyboard' => $storyboard,

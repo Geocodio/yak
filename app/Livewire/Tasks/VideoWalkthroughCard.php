@@ -6,6 +6,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\GenerateDirectorCutJob;
 use App\Models\Artifact;
 use App\Models\YakTask;
+use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -44,7 +45,10 @@ class VideoWalkthroughCard extends Component
     #[Computed]
     public function canGenerateDirectorCut(): bool
     {
-        return $this->task->status === TaskStatus::Success
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+
+        return $status === TaskStatus::Success
             && ! empty($this->task->pr_url)
             && in_array($this->task->director_cut_status, [null, 'failed'], true);
     }
@@ -76,7 +80,7 @@ class VideoWalkthroughCard extends Component
         $this->task->refresh();
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.tasks.video-walkthrough-card');
     }

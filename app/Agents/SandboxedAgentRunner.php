@@ -202,6 +202,7 @@ class SandboxedAgentRunner implements AgentRunner
         // heartbeat log below is the last breadcrumb trail we have.
         $shutdownTaskId = $request->task->id;
         $shutdownContainer = $containerName;
+        /** @var bool $streamCompleted */
         $streamCompleted = false;
         register_shutdown_function(function () use (&$streamCompleted, $shutdownTaskId, $shutdownContainer) {
             if ($streamCompleted) {

@@ -36,6 +36,7 @@ use Livewire\Component;
  * @property-read Collection<int, TaskLog> $logs
  * @property-read ?PrReview $prReview
  * @property-read string $renderedReviewBody
+ * @property-read bool $canReroute
  */
 #[Title('Task Detail')]
 class TaskDetail extends Component
@@ -182,7 +183,10 @@ class TaskDetail extends Component
             return;
         }
 
-        $inFlight = in_array($this->task->status, [
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+
+        $inFlight = in_array($status, [
             TaskStatus::Running,
             TaskStatus::AwaitingClarification,
             TaskStatus::AwaitingCi,
