@@ -4,58 +4,18 @@ How Yak works under the hood. This page exists for the person who wants to under
 
 ## The Core Loop
 
-Every Yak task goes through the same pipeline, regardless of where it came from:
+Every fix task goes through the same pipeline, regardless of where it came from:
 
-```
-┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-│  Sentry  │  │   Drone  │  │  Linear  │  │  Slack   │
-│ webhook  │  │ /GH scan │  │ webhook  │  │ @yak msg │
-└────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
-  (optional)   (optional)    (optional)    (optional)
-     │             │             │              │
-     └──────┬──────┴─────────────┴──────┬───────┘
-            ▼                            ▼
-     ┌─────────────────────────────────────────┐
-     │             Yak (Laravel 13)             │
-     │                                          │
-     │  Channel Drivers → YakTask → Jobs:       │
-     │                                          │
-     │  ┌─────────────────────────────────────┐ │
-     │  │ 1. RunYakJob                         │ │
-     │  │    Create branch                     │ │
-     │  │    Claude -p (write code)            │ │
-     │  │    Run relevant tests locally        │ │
-     │  │    Commit + push branch              │ │
-     │  │    → status: awaiting_ci             │ │
-     │  └──────────────┬──────────────────────┘ │
-     │                 │                        │
-     │      (CI runs on branch automatically)   │
-     │                 │                        │
-     │  ┌──────────────▼──────────────────────┐ │
-     │  │ 2. CI webhook arrives                │ │
-     │  │    Match to task by branch name      │ │
-     │  │    → ProcessCIResultJob              │ │
-     │  └──────────────┬──────────────────────┘ │
-     │                 │                        │
-     │  ┌──────────────▼──────────────────────┐ │
-     │  │ 3. ProcessCIResultJob                │ │
-     │  │    CI green → create PR, notify      │ │
-     │  │    CI red + attempt 1 → RetryYakJob  │ │
-     │  │    CI red + attempt 2 → mark failed  │ │
-     │  └──────────────┬──────────────────────┘ │
-     │                 │                        │
-     │  ┌──────────────▼──────────────────────┐ │
-     │  │ 4. RetryYakJob                       │ │
-     │  │    claude -p --resume (same session) │ │
-     │  │    Feed CI failure output            │ │
-     │  │    Run relevant tests locally        │ │
-     │  │    Push again                        │ │
-     │  │    → status: awaiting_ci             │ │
-     │  └─────────────────────────────────────┘ │
-     └─────────────────────────────────────────┘
-```
+![Fix task flow — entry, branch creation, the parallel fork into video rendering and CI, and PR convergence](fix-task-flow.png)
 
-Tasks never block the queue while CI runs. The worker finishes a job, CI runs asynchronously, and a webhook triggers the next step.
+After the agent finishes, work splits into two parallel streams:
+
+- **Stream B (push → CI → PR)** pushes the branch, waits for CI, and on green creates the PR.
+- **Stream A (video pipeline)** renders the polished Remotion walkthrough from the raw webm artifact and patches the PR body once the mp4 is ready.
+
+Both streams converge on the same PR — whichever finishes first writes its piece, the other fills in later. Tasks never block the queue while CI runs: the worker finishes a job, CI runs asynchronously, and a webhook triggers the next step.
+
+The diagram source is [`fix-task-flow.dot`](fix-task-flow.dot) (Graphviz). Regenerate with `dot -Tpng docs/fix-task-flow.dot -o docs/fix-task-flow.png -Gdpi=150`.
 
 ## Two-Tier AI
 

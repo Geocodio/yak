@@ -1,0 +1,148 @@
+digraph YakFixFlow {
+  rankdir=TB;
+  nodesep=0.35;
+  ranksep=0.55;
+  bgcolor="#fafafa";
+  node [fontname="Helvetica", fontsize=11, style="filled,rounded", shape=box, penwidth=1.2];
+  edge [fontname="Helvetica", fontsize=9, color="#555555", penwidth=1.1];
+
+  // ----- Legend-ish color scheme -----
+  // webhooks / entry  : #fde68a  (amber)
+  // jobs              : #c7d2fe  (indigo)
+  // status            : #ddd6fe  (lavender)
+  // side effects      : #bbf7d0  (green)
+  // decisions         : #e5e7eb  (gray)
+
+  // ==== ENTRY ====
+  subgraph cluster_entry {
+    label="Entry points";
+    style=rounded;
+    color="#9ca3af";
+    fontname="Helvetica-Bold";
+    slack   [label="Slack @yak fix",        fillcolor="#fde68a"];
+    linear  [label="Linear agent",          fillcolor="#fde68a"];
+    sentry  [label="Sentry webhook",        fillcolor="#fde68a"];
+  }
+
+  create [label="YakTask created\nstatus=Pending, mode=fix", fillcolor="#ddd6fe"];
+
+  slack  -> create;
+  linear -> create;
+  sentry -> create;
+
+  // ==== RUN YAK JOB ====
+  runyak [label="RunYakJob\nqueue: yak-claude  |  timeout: 1h",
+          fillcolor="#c7d2fe", fontname="Helvetica-Bold"];
+  create -> runyak [label="dispatch"];
+
+  status_running [label="status = Running", fillcolor="#ddd6fe"];
+  runyak -> status_running;
+
+  sandbox  [label="Boot sandbox from repo snapshot", fillcolor="#bbf7d0"];
+  branch   [label="git checkout -b {branch}\nbranch_name persisted\n(BRANCH CREATED in sandbox)",
+            fillcolor="#bbf7d0"];
+  agent    [label="Invoke Claude agent\n(AgentRunner, long-running)", fillcolor="#bbf7d0"];
+
+  status_running -> sandbox -> branch -> agent;
+
+  // ==== AGENT OUTCOMES ====
+  decide [label="Agent outcome?", shape=diamond, fillcolor="#e5e7eb"];
+  agent -> decide;
+
+  clarify [label="AwaitingClarification\n(agent asked user)\n— pause —", fillcolor="#ddd6fe"];
+  failed1 [label="Failed\n(agent/repo error)", fillcolor="#ddd6fe"];
+  nocode  [label="Success\n(answer-only, no code changes)", fillcolor="#ddd6fe"];
+
+  decide -> clarify  [label="needs input"];
+  decide -> failed1  [label="error"];
+  decide -> nocode   [label="no diff"];
+
+  // ==== ARTIFACT PERSIST + FORK ====
+  persist [label="ArtifactPersister::persist()\ncollect artifacts → DB",
+           fillcolor="#bbf7d0", fontname="Helvetica-Bold"];
+  decide -> persist [label="code changes"];
+
+  fork [label="PARALLEL FORK", shape=oval, fillcolor="#fef3c7", fontname="Helvetica-Bold"];
+  persist -> fork;
+
+  // ==== STREAM A: VIDEO ====
+  subgraph cluster_A {
+    label="Stream A — Video pipeline  (queue: yak-render)";
+    style="rounded,filled";
+    fillcolor="#f5f3ff";
+    color="#8b5cf6";
+    fontname="Helvetica-Bold";
+
+    render [label="RenderVideoJob\n(dispatch from ArtifactPersister:87)",
+            fillcolor="#c7d2fe"];
+    remotion [label="Remotion render\nwebm → reviewer-cut.mp4 + thumbnail",
+              fillcolor="#bbf7d0"];
+    publish [label="publishReviewerCut()\nPATCH PR body with mp4 + thumbnail",
+             fillcolor="#bbf7d0"];
+
+    render -> remotion -> publish;
+  }
+
+  // ==== STREAM B: CI + PR ====
+  subgraph cluster_B {
+    label="Stream B — Push → CI → PR  (queue: default)";
+    style="rounded,filled";
+    fillcolor="#eff6ff";
+    color="#3b82f6";
+    fontname="Helvetica-Bold";
+
+    push       [label="git push origin {branch}\n(BRANCH PUSHED to GitHub)",
+                fillcolor="#bbf7d0"];
+    status_aci [label="status = AwaitingCi", fillcolor="#ddd6fe"];
+    wait_ci    [label="Wait for CI webhook\n(GitHub Actions / Drone / none)",
+                fillcolor="#e5e7eb"];
+    process    [label="ProcessCIResultJob",  fillcolor="#c7d2fe"];
+    ci_ok      [label="CI passed?", shape=diamond, fillcolor="#e5e7eb"];
+    createpr   [label="CreatePullRequestJob\n(PR CREATED on GitHub,\ntask.pr_url set)",
+                fillcolor="#c7d2fe"];
+    status_succ [label="status = Success", fillcolor="#ddd6fe"];
+
+    retry_d    [label="retries left?", shape=diamond, fillcolor="#e5e7eb"];
+    status_retry [label="status = Retrying", fillcolor="#ddd6fe"];
+    retryjob   [label="RetryYakJob\n(→ loops back to agent)",
+                fillcolor="#c7d2fe"];
+    status_fail [label="status = Failed", fillcolor="#ddd6fe"];
+
+    push -> status_aci -> wait_ci -> process -> ci_ok;
+    ci_ok -> createpr    [label="pass"];
+    createpr -> status_succ;
+
+    ci_ok -> retry_d     [label="fail"];
+    retry_d -> status_retry [label="yes"];
+    status_retry -> retryjob;
+    retry_d -> status_fail  [label="no"];
+  }
+
+  fork -> render [color="#8b5cf6", penwidth=2];
+  fork -> push   [color="#3b82f6", penwidth=2];
+
+  // ==== CONVERGENCE ====
+  pr_node [label="Pull Request on GitHub\n(body has CI status + polished video)",
+           shape=note, fillcolor="#fef9c3"];
+  createpr -> pr_node [style=dashed, color="#3b82f6"];
+  publish  -> pr_node [style=dashed, color="#8b5cf6", label="patches"];
+
+  // RetryYakJob loops back
+  retryjob -> runyak [style=dotted, constraint=false,
+                      label="loop back", color="#ef4444"];
+
+  // Legend
+  subgraph cluster_legend {
+    label="Legend";
+    style=rounded;
+    color="#9ca3af";
+    fontname="Helvetica-Bold";
+    rank=sink;
+    l1 [label="Entry / webhook",   fillcolor="#fde68a", shape=box];
+    l2 [label="Job",               fillcolor="#c7d2fe", shape=box];
+    l3 [label="Side effect",       fillcolor="#bbf7d0", shape=box];
+    l4 [label="Status transition", fillcolor="#ddd6fe", shape=box];
+    l5 [label="Decision",          fillcolor="#e5e7eb", shape=diamond];
+    l1 -> l2 -> l3 -> l4 -> l5 [style=invis];
+  }
+}
