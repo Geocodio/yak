@@ -1,5 +1,5 @@
 import { Composition, staticFile } from 'remotion';
-import { Walkthrough, WalkthroughProps } from './compositions/Walkthrough';
+import { Walkthrough, WalkthroughProps, walkthroughCompositionDuration } from './compositions/Walkthrough';
 import { FakeUI } from './compositions/FakeUI';
 import exampleStoryboard from '../fixtures/example-storyboard.json';
 import type { Storyboard } from './lib/storyboard';
@@ -26,13 +26,14 @@ export const RemotionRoot = () => (
       defaultProps={{
         videoUrl: staticFile('example-walkthrough.webm'),
         storyboard: exampleStoryboard as Storyboard,
+        videoDurationSeconds: null,
         musicTrack: null,
         tier: 'reviewer',
       }}
       calculateMetadata={({ props }) => {
-        const last = props.storyboard.events[props.storyboard.events.length - 1];
-        const durationSeconds = last ? Math.max(last.t + 3, 15) : 15;
-        return { durationInFrames: Math.round(durationSeconds * FPS) };
+        const seconds = walkthroughCompositionDuration(props.storyboard, props.videoDurationSeconds);
+        const withTail = Math.max(seconds, 5);
+        return { durationInFrames: Math.round(withTail * FPS) };
       }}
     />
   </>

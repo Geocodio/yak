@@ -11,7 +11,7 @@ export const FastForwardBadge = ({ factor }: { factor: number }) => {
       <div
         style={{
           position: 'absolute',
-          top: 28,
+          top: 84,
           right: 28,
           padding: '8px 14px',
           background: colors.accent,

@@ -32,6 +32,7 @@ class VideoRenderer
             $props = json_encode([
                 'videoUrl' => $stagedName,
                 'storyboard' => $storyboard,
+                'videoDurationSeconds' => $this->probeDurationSeconds($webmPath),
                 'musicTrack' => null,
                 'tier' => $tier,
             ], JSON_UNESCAPED_SLASHES);
@@ -54,5 +55,23 @@ class VideoRenderer
         } finally {
             @unlink($stagedPath);
         }
+    }
+
+    private function probeDurationSeconds(string $webmPath): ?float
+    {
+        $result = Process::run([
+            'ffprobe', '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            $webmPath,
+        ]);
+
+        if (! $result->successful()) {
+            return null;
+        }
+
+        $duration = (float) trim($result->output());
+
+        return $duration > 0 ? $duration : null;
     }
 }

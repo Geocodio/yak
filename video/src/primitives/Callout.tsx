@@ -4,19 +4,15 @@ import { clampPoint, Bounds } from '../lib/viewport';
 
 type Anchor = 'top' | 'bottom' | 'left' | 'right';
 
-const LABEL_WIDTH = 240;
-const LABEL_HEIGHT = 48;
+const LABEL_WIDTH = 280;
+const LABEL_HEIGHT = 52;
 
 export const Callout = ({
   text,
-  targetX,
-  targetY,
   rect,
   anchor = 'top',
 }: {
   text: string;
-  targetX: number;
-  targetY: number;
   rect?: Bounds;
   anchor?: Anchor;
 }) => {
@@ -27,14 +23,49 @@ export const Callout = ({
   const fadeOut = interpolate(frame, [lifetimeFrames - fps * 0.3, lifetimeFrames], [1, 0], { extrapolateLeft: 'clamp' });
   const opacity = Math.min(fadeIn, fadeOut);
 
-  const ax = rect ? rect.left + rect.width / 2 : targetX;
-  const ay = rect ? rect.top + rect.height / 2 : targetY;
+  if (!rect) {
+    const fallbackTop = anchor === 'bottom' ? height - LABEL_HEIGHT - 120 : 120;
+    const { left, top } = clampPoint(
+      width / 2 - LABEL_WIDTH / 2,
+      fallbackTop,
+      LABEL_WIDTH,
+      LABEL_HEIGHT,
+      width,
+      height,
+    );
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left,
+          top,
+          width: LABEL_WIDTH,
+          minHeight: LABEL_HEIGHT,
+          background: colors.captionBg,
+          color: colors.fg,
+          fontFamily: fonts.primary,
+          fontSize: 20,
+          padding: '12px 18px',
+          borderRadius: 8,
+          textAlign: 'center',
+          border: `1px solid ${colors.accentDim}`,
+          boxSizing: 'border-box',
+          opacity,
+        }}
+      >
+        {text}
+      </div>
+    );
+  }
+
+  const ax = rect.left + rect.width / 2;
+  const ay = rect.top + rect.height / 2;
 
   const offsets: Record<Anchor, { dx: number; dy: number }> = {
     top: { dx: 0, dy: -120 },
     bottom: { dx: 0, dy: 120 },
-    left: { dx: -200, dy: 0 },
-    right: { dx: 200, dy: 0 },
+    left: { dx: -220, dy: 0 },
+    right: { dx: 220, dy: 0 },
   };
   const { dx, dy } = offsets[anchor];
 
@@ -46,7 +77,7 @@ export const Callout = ({
     LABEL_WIDTH,
     LABEL_HEIGHT,
     width,
-    height
+    height,
   );
 
   const labelCx = left + LABEL_WIDTH / 2;
@@ -76,19 +107,17 @@ export const Callout = ({
         strokeWidth="3"
         markerEnd="url(#yak-arrowhead)"
       />
-      {rect && (
-        <rect
-          x={rect.left}
-          y={rect.top}
-          width={rect.width}
-          height={rect.height}
-          fill="none"
-          stroke={colors.accent}
-          strokeWidth="2"
-          strokeDasharray="6 4"
-          rx="6"
-        />
-      )}
+      <rect
+        x={rect.left}
+        y={rect.top}
+        width={rect.width}
+        height={rect.height}
+        fill="none"
+        stroke={colors.accent}
+        strokeWidth="2"
+        strokeDasharray="6 4"
+        rx="6"
+      />
       <foreignObject x={left} y={top} width={LABEL_WIDTH} height={LABEL_HEIGHT}>
         <div
           style={{
