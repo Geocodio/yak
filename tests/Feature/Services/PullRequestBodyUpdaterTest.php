@@ -7,8 +7,8 @@ beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 77);
 });
 
-test('appends director cut link to existing Video walkthrough section, preserving reviewer link', function () {
-    $existing = "## Yak Automated PR\n\nSome summary\n\n### Video walkthrough\n\n- [reviewer-cut.mp4](https://example.com/reviewer.mp4)\n\n### Files changed\n\n- `foo.php`";
+test('swaps the raw webm fallback link for the rendered reviewer cut', function () {
+    $existing = "## Yak Automated PR\n\nSome summary\n\n### Video walkthrough\n\n- [walkthrough.webm](https://signed.example/webm?exp=1)\n\n### Files changed\n\n- `foo.php`";
 
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')
@@ -22,18 +22,17 @@ test('appends director cut link to existing Video walkthrough section, preservin
             return $installationId === 77
                 && $repo === 'owner/repo'
                 && $num === 42
-                && str_contains($data['body'], "Director's Cut")
-                && str_contains($data['body'], 'director.mp4')
-                && str_contains($data['body'], 'reviewer.mp4')
+                && str_contains($data['body'], '[reviewer-cut.mp4](https://signed.example/mp4)')
+                && ! str_contains($data['body'], 'walkthrough.webm')
                 && str_contains($data['body'], '### Files changed');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->appendDirectorCut(
+    $updater->setReviewerCut(
         repoFullName: 'owner/repo',
         prNumber: 42,
-        directorCutUrl: 'https://example.com/director.mp4',
+        reviewerCutUrl: 'https://signed.example/mp4',
     );
 });
 
@@ -50,13 +49,12 @@ test('creates the Video walkthrough section if missing', function () {
         ->once()
         ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
             return str_contains($data['body'], '### Video walkthrough')
-                && str_contains($data['body'], "Director's Cut")
-                && str_contains($data['body'], 'director.mp4');
+                && str_contains($data['body'], '[reviewer-cut.mp4](https://signed.example/mp4)');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->appendDirectorCut('owner/repo', 42, 'https://example.com/director.mp4');
+    $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/mp4');
 });
 
 test('handles empty body by creating the Video walkthrough section', function () {
@@ -69,16 +67,16 @@ test('handles empty body by creating the Video walkthrough section', function ()
         ->once()
         ->withArgs(function ($installationId, $repo, $num, array $data): bool {
             return str_contains($data['body'], '### Video walkthrough')
-                && str_contains($data['body'], "Director's Cut");
+                && str_contains($data['body'], '[reviewer-cut.mp4]');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->appendDirectorCut('owner/repo', 42, 'https://example.com/director.mp4');
+    $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/mp4');
 });
 
-test('is idempotent when Director\'s Cut link already present', function () {
-    $existing = "### Video walkthrough\n\n- [reviewer-cut.mp4](https://example.com/reviewer.mp4)\n- [▶ Watch Director's Cut](https://example.com/director.mp4)\n";
+test('is idempotent when the reviewer cut filename is already linked', function () {
+    $existing = "### Video walkthrough\n\n- [reviewer-cut.mp4](https://signed.example/old?exp=1)\n";
 
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')
@@ -88,5 +86,6 @@ test('is idempotent when Director\'s Cut link already present', function () {
     $github->shouldNotReceive('updatePullRequest');
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->appendDirectorCut('owner/repo', 42, 'https://example.com/director.mp4');
+    // New signed URL for the same filename — must still no-op.
+    $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/new?exp=2');
 });

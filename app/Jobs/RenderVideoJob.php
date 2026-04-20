@@ -82,17 +82,23 @@ class RenderVideoJob implements ShouldQueue
         ]);
 
         if ($this->tier === 'director') {
-            $this->publishDirectorCut($raw->task, $cutArtifact);
+            $raw->task?->update(['director_cut_status' => 'ready']);
+
+            return;
         }
+
+        $this->publishReviewerCut($raw->task, $cutArtifact);
     }
 
     /**
-     * Patch the PR body with the Director's Cut link and flip the task's
-     * director_cut_status to 'ready'. Failures patching GitHub are logged
-     * but not re-thrown: the render itself succeeded, so we don't want to
-     * retry the whole RenderVideoJob just because GitHub rejected a PATCH.
+     * Swap the PR body's raw-webm fallback link for the rendered reviewer
+     * cut. If the PR was created while the render was still in flight, the
+     * body points at the raw webm; this upgrades it to the polished mp4.
+     * Failures patching GitHub are logged but not re-thrown — the render
+     * itself succeeded, so we don't want to retry the whole job just
+     * because GitHub rejected the PATCH.
      */
-    private function publishDirectorCut(?YakTask $task, Artifact $cutArtifact): void
+    private function publishReviewerCut(?YakTask $task, Artifact $cutArtifact): void
     {
         if ($task === null) {
             return;
@@ -100,22 +106,23 @@ class RenderVideoJob implements ShouldQueue
 
         $prNumber = $this->extractPrNumber($task->pr_url);
 
-        if ($prNumber !== null && $task->repo !== null && $task->repo !== '') {
-            try {
-                app(PullRequestBodyUpdater::class)->appendDirectorCut(
-                    repoFullName: $task->repo,
-                    prNumber: $prNumber,
-                    directorCutUrl: $cutArtifact->signedUrl(),
-                );
-            } catch (Throwable $e) {
-                Log::channel('yak')->warning('RenderVideoJob: failed to append Director\'s Cut to PR body', [
-                    'task_id' => $task->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if ($prNumber === null || $task->repo === null || $task->repo === '') {
+            return;
         }
 
-        $task->update(['director_cut_status' => 'ready']);
+        try {
+            app(PullRequestBodyUpdater::class)->setReviewerCut(
+                repoFullName: $task->repo,
+                prNumber: $prNumber,
+                reviewerCutUrl: $cutArtifact->signedUrl(),
+                filename: $cutArtifact->filename,
+            );
+        } catch (Throwable $e) {
+            Log::channel('yak')->warning('RenderVideoJob: failed to publish reviewer cut to PR body', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     private function extractPrNumber(?string $prUrl): ?int

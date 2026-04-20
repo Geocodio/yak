@@ -3,55 +3,58 @@
 namespace App\Services;
 
 /**
- * Edits an existing PR's body on GitHub to append (or create) a Director's
- * Cut link inside the "Video walkthrough" section. Used by RenderVideoJob
- * once the director-tier MP4 finishes rendering — the original PR was
- * already created with only the reviewer cut, so we patch in the extended
- * cut after the fact instead of blocking PR creation on the long render.
+ * Edits an existing PR's body on GitHub to swap the video walkthrough link
+ * for the rendered reviewer-cut mp4 once the Remotion pipeline finishes.
+ * PR creation may happen while the render is still in flight, so the
+ * initial body links the raw webm as a fallback; this updater upgrades
+ * that link to the polished cut after the render lands.
+ *
+ * Director cuts are intentionally not published to the PR — they're a
+ * manually triggered, viewer-facing artifact on the task detail page.
  */
 class PullRequestBodyUpdater
 {
     public function __construct(public GitHubAppService $github) {}
 
-    /**
-     * Append a "Watch Director's Cut" link to the PR body. If the PR body
-     * already contains a "### Video walkthrough" section, the link is
-     * inserted into that section; otherwise a new section is created at
-     * the end of the body.
-     */
-    public function appendDirectorCut(string $repoFullName, int $prNumber, string $directorCutUrl): void
-    {
+    public function setReviewerCut(
+        string $repoFullName,
+        int $prNumber,
+        string $reviewerCutUrl,
+        string $filename = 'reviewer-cut.mp4',
+    ): void {
         $installationId = (int) config('yak.channels.github.installation_id');
 
         $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
         $body = (string) ($pr['body'] ?? '');
 
-        $line = "[▶ Watch Director's Cut]({$directorCutUrl})";
-
-        if (str_contains($body, "Director's Cut")) {
-            // Already linked — don't duplicate on retries.
+        // Idempotent: if the reviewer cut filename already appears linked,
+        // don't bother re-patching (signed URLs rotate, so we match on the
+        // stable filename rather than the URL).
+        if (preg_match('/\[' . preg_quote($filename, '/') . '\]\(/', $body) === 1) {
             return;
         }
 
+        $newLine = "- [{$filename}]({$reviewerCutUrl})";
+
         if (str_contains($body, '### Video walkthrough')) {
-            // Insert the new link at the end of the Video walkthrough
-            // section (delimited by the next heading or end-of-body),
-            // preserving whatever reviewer-cut link is already there.
-            $updated = preg_replace(
-                '/(### Video walkthrough\n(?:.|\n)*?)(\n(?:#{1,6}|---)|$)/',
-                "$1\n- {$line}\n$2",
+            // Replace whatever single link lives under the heading (the raw
+            // webm fallback dropped in by CreatePullRequestJob).
+            $replaced = preg_replace(
+                '/(### Video walkthrough\s*\n\s*\n)- \[[^\]]+\]\([^)]+\)/',
+                "$1{$newLine}",
                 $body,
                 1,
                 $count,
             );
 
-            if ($count > 0 && is_string($updated)) {
-                $body = $updated;
+            if (is_string($replaced) && $count > 0) {
+                $body = $replaced;
             } else {
-                $body .= "\n- {$line}\n";
+                // Section exists but shape is unexpected; append the link.
+                $body .= "\n{$newLine}\n";
             }
         } else {
-            $body .= "\n\n### Video walkthrough\n\n- {$line}\n";
+            $body .= "\n\n### Video walkthrough\n\n{$newLine}\n";
         }
 
         $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $body]);
