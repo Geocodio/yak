@@ -6,18 +6,24 @@
     <h2 class="mb-4 text-lg font-medium text-yak-slate">Video walkthrough</h2>
 
     @if($this->reviewerCut)
-        <div class="mb-4 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]">
-            <video controls preload="metadata" class="w-full max-w-xl" src="{{ $this->reviewerCut->signedUrl() }}"></video>
-            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">Reviewer Cut</div>
+        @php $reviewerUrl = $this->reviewerCut->signedUrl(); @endphp
+        <div class="mb-4 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+            <video controls preload="metadata" class="w-full max-w-xl" src="{{ $reviewerUrl }}"></video>
+            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
+                <a href="{{ $reviewerUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Reviewer Cut</a>
+            </div>
         </div>
     @else
         <p class="mb-4 text-sm text-yak-blue">No reviewer cut available yet.</p>
     @endif
 
     @if($this->directorCutStatus === 'ready' && $this->directorCut)
-        <div class="mb-4 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]">
-            <video controls preload="metadata" class="w-full max-w-xl" src="{{ $this->directorCut->signedUrl() }}"></video>
-            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">Director's Cut</div>
+        @php $directorUrl = $this->directorCut->signedUrl(); @endphp
+        <div class="mb-4 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+            <video controls preload="metadata" class="w-full max-w-xl" src="{{ $directorUrl }}"></video>
+            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
+                <a href="{{ $directorUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Director's Cut</a>
+            </div>
         </div>
     @elseif($this->directorCutStatus === 'queued' || $this->directorCutStatus === 'rendering')
         <div class="mb-4 flex items-center gap-3 text-sm text-yak-blue" data-testid="director-cut-progress">

@@ -339,11 +339,14 @@
             @if($this->screenshots->isNotEmpty())
                 <div class="flex flex-wrap gap-5">
                     @foreach($this->screenshots as $screenshot)
+                        @php $screenshotUrl = $screenshot->signedUrl(); @endphp
                         <div>
-                            <a href="{{ $screenshot->signedUrl() }}" target="_blank" class="block">
-                                <img src="{{ $screenshot->signedUrl() }}" alt="{{ $screenshot->filename }}" class="h-[200px] w-[300px] rounded-[14px] border border-[rgba(200,184,154,0.4)] object-cover" loading="lazy" />
+                            <a href="{{ $screenshotUrl }}" target="_blank" rel="noopener noreferrer" class="block">
+                                <img src="{{ $screenshotUrl }}" alt="{{ $screenshot->filename }}" class="h-[200px] w-[300px] rounded-[14px] border border-[rgba(200,184,154,0.4)] object-cover" loading="lazy" />
                             </a>
-                            <div class="mt-2 text-center text-xs text-yak-blue">{{ $screenshot->filename }}</div>
+                            <div class="mt-2 text-center text-xs">
+                                <a href="{{ $screenshotUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">{{ $screenshot->filename }}</a>
+                            </div>
                         </div>
                     @endforeach
                 </div>
@@ -351,11 +354,14 @@
             @if($this->videos->isNotEmpty())
                 <div class="mt-4 space-y-3">
                     @foreach($this->videos as $video)
-                        <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]">
+                        @php $videoUrl = $video->signedUrl(); @endphp
+                        <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
                             <video controls class="w-full max-w-xl">
-                                <source src="{{ $video->signedUrl() }}" type="video/mp4">
+                                <source src="{{ $videoUrl }}" type="video/mp4">
                             </video>
-                            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">{{ $video->filename }}</div>
+                            <div class="bg-yak-cream-dark px-3 py-2 text-xs">
+                                <a href="{{ $videoUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">{{ $video->filename }}</a>
+                            </div>
                         </div>
                     @endforeach
                 </div>
