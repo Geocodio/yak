@@ -278,3 +278,63 @@ test('passthrough forwards to agent-browser and returns its exit code', () => {
   });
   assert.strictEqual(code, 42);
 });
+
+test('passthrough emits a navigate event when a click changes the URL', () => {
+  setupSession();
+  const shim = join(dir, 'agent-browser');
+  // Shim answers "get url" with different URLs on successive calls (emulating
+  // a click that caused navigation) and succeeds for every other command.
+  writeFileSync(
+    shim,
+    `#!/bin/sh
+STATE=${JSON.stringify(join(dir, '.shim-state'))}
+N=$(cat "$STATE" 2>/dev/null || echo 0)
+if [ "$1" = "get" ] && [ "$2" = "url" ]; then
+  if [ "$N" = "0" ]; then
+    echo "https://app.example/before"
+    echo 1 > "$STATE"
+  else
+    echo "https://app.example/after"
+  fi
+  exit 0
+fi
+exit 0
+`,
+  );
+  chmodSync(shim, 0o755);
+  const code = runPassthrough({
+    argv: ['click', '--selector', 'a.billing'],
+    agentBrowserPath: shim,
+    artifactsDir: dir,
+  });
+  assert.strictEqual(code, 0);
+  const evs = events();
+  const click = evs.find((e: { type: string }) => e.type === 'click');
+  const nav = evs.find((e: { type: string }) => e.type === 'navigate');
+  assert.ok(click, 'click event should be emitted');
+  assert.ok(nav, 'navigate event should be auto-emitted');
+  assert.strictEqual(nav.url, 'https://app.example/after');
+});
+
+test('passthrough does not emit navigate when URL is unchanged', () => {
+  setupSession();
+  const shim = join(dir, 'agent-browser');
+  writeFileSync(
+    shim,
+    `#!/bin/sh
+if [ "$1" = "get" ] && [ "$2" = "url" ]; then
+  echo "https://app.example/same"
+  exit 0
+fi
+exit 0
+`,
+  );
+  chmodSync(shim, 0o755);
+  runPassthrough({
+    argv: ['click', '--selector', 'button.noop'],
+    agentBrowserPath: shim,
+    artifactsDir: dir,
+  });
+  const nav = events().find((e: { type: string }) => e.type === 'navigate');
+  assert.strictEqual(nav, undefined);
+});

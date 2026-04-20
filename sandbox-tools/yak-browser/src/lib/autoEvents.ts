@@ -45,6 +45,29 @@ function findFlag(argv: string[], flag: string): string | undefined {
   return argv[idx + 1];
 }
 
+/**
+ * Commands that can change the page URL. For these we snapshot the URL
+ * before the command runs and diff it afterwards to auto-emit a `navigate`
+ * storyboard event when the page actually moved — so the URL pill in the
+ * rendered video stays in sync even when the agent navigates via a click
+ * on an anchor instead of `yak-browser navigate`.
+ */
+export function navigationMayHaveOccurred(argv: string[]): boolean {
+  if (argv.length === 0) return false;
+  const cmd = argv[0];
+  return (
+    cmd === 'click' ||
+    cmd === 'left_click' ||
+    cmd === 'double_click' ||
+    cmd === 'dblclick' ||
+    cmd === 'press' ||
+    cmd === 'key' ||
+    cmd === 'back' ||
+    cmd === 'forward' ||
+    cmd === 'reload'
+  );
+}
+
 export function emitAutoEvents(artifactsDir: string, argv: string[]): void {
   if (argv.length === 0) return;
   const s = readSession(artifactsDir);
