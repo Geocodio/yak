@@ -2,6 +2,7 @@
 
 use App\Models\GitHubInstallationToken;
 use App\Services\GitHubAppService;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -110,3 +111,35 @@ it('places repos with null pushed_at at the end', function () {
         'acme/unknown',
     ]);
 });
+
+it('throws when GitHub returns a non-2xx for installation token mint', function () {
+    GitHubInstallationToken::query()->delete();
+
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '999');
+    config()->set('yak.channels.github.private_key', $privateKey);
+
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['message' => 'Bad credentials'], 401),
+    ]);
+
+    app(GitHubAppService::class)->getInstallationToken(42);
+})->throws(RequestException::class);
+
+it('throws when GitHub returns a 2xx with an empty token body', function () {
+    GitHubInstallationToken::query()->delete();
+
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '999');
+    config()->set('yak.channels.github.private_key', $privateKey);
+
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([], 200),
+    ]);
+
+    app(GitHubAppService::class)->getInstallationToken(42);
+
+    expect(GitHubInstallationToken::where('installation_id', 42)->exists())->toBeFalse();
+})->throws(RuntimeException::class, 'empty installation token');

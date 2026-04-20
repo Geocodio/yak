@@ -505,13 +505,15 @@ class GitHubAppService
 
         $response = Http::withToken($jwt)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->throw()
             ->post("https://api.github.com/app/installations/{$installationId}/access_tokens");
 
-        /** @var string $token */
         $token = $response->json('token');
-
-        /** @var string $expiresAt */
         $expiresAt = $response->json('expires_at');
+
+        if (! is_string($token) || $token === '' || ! is_string($expiresAt) || $expiresAt === '') {
+            throw new \RuntimeException("GitHub returned an empty installation token for installation {$installationId}");
+        }
 
         GitHubInstallationToken::updateOrCreate(
             ['installation_id' => $installationId],
