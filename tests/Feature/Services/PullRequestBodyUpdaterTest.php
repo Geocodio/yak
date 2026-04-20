@@ -75,7 +75,7 @@ test('handles empty body by creating the Video walkthrough section', function ()
     $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/mp4');
 });
 
-test('is idempotent when the reviewer cut filename is already linked', function () {
+test('is idempotent when the plain-link form is already present and no thumbnail is supplied', function () {
     $existing = "### Video walkthrough\n\n- [reviewer-cut.mp4](https://signed.example/old?exp=1)\n";
 
     $github = $this->mock(GitHubAppService::class);
@@ -86,6 +86,52 @@ test('is idempotent when the reviewer cut filename is already linked', function 
     $github->shouldNotReceive('updatePullRequest');
 
     $updater = new PullRequestBodyUpdater($github);
-    // New signed URL for the same filename — must still no-op.
+    // Plain-text link already present, we're not offering a thumbnail — no-op.
     $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/new?exp=2');
+});
+
+test('upgrades plain-text link to image embed when a thumbnail becomes available', function () {
+    $existing = "### Video walkthrough\n\n- [reviewer-cut.mp4](https://signed.example/video?exp=1)\n\n### Files changed\n\n- `foo.php`";
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')
+        ->once()
+        ->andReturn(['body' => $existing]);
+
+    $github->shouldReceive('updatePullRequest')
+        ->once()
+        ->withArgs(function ($i, $r, $n, array $data): bool {
+            return str_contains($data['body'], '![Watch reviewer-cut.mp4](https://signed.example/thumb)')
+                && str_contains($data['body'], '](https://signed.example/video)')
+                && ! str_contains($data['body'], '- [reviewer-cut.mp4]')
+                && str_contains($data['body'], '### Files changed');
+        })
+        ->andReturn(['body' => 'ok']);
+
+    $updater = new PullRequestBodyUpdater($github);
+    $updater->setReviewerCut(
+        repoFullName: 'owner/repo',
+        prNumber: 42,
+        reviewerCutUrl: 'https://signed.example/video',
+        thumbnailUrl: 'https://signed.example/thumb',
+    );
+});
+
+test('is idempotent when the image-embed form is already present', function () {
+    $existing = "### Video walkthrough\n\n[![Watch reviewer-cut.mp4](https://signed.example/thumb?exp=1)](https://signed.example/video?exp=1)\n";
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')
+        ->once()
+        ->andReturn(['body' => $existing]);
+
+    $github->shouldNotReceive('updatePullRequest');
+
+    $updater = new PullRequestBodyUpdater($github);
+    $updater->setReviewerCut(
+        repoFullName: 'owner/repo',
+        prNumber: 42,
+        reviewerCutUrl: 'https://signed.example/video?exp=2',
+        thumbnailUrl: 'https://signed.example/thumb?exp=2',
+    );
 });

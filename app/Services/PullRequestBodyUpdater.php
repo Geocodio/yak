@@ -28,14 +28,19 @@ class PullRequestBodyUpdater
         $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
         $body = (string) ($pr['body'] ?? '');
 
-        // Idempotent: if the reviewer cut filename already appears linked,
-        // don't bother re-patching (signed URLs rotate, so we match on the
-        // stable filename rather than the URL).
-        if (preg_match('/\[' . preg_quote($filename, '/') . '\]\(/', $body) === 1) {
+        $markdown = self::videoMarkdown($reviewerCutUrl, $filename, $thumbnailUrl);
+
+        // Idempotent: if the body already has this filename in the same
+        // shape we'd produce (image-embed when a thumbnail is available,
+        // plain link otherwise), leave it alone. Signed URLs rotate, so
+        // the test has to be shape-based rather than URL-based.
+        $alreadyEmbedded = $thumbnailUrl !== null
+            ? str_contains($body, "![Watch {$filename}](")
+            : preg_match('/\[' . preg_quote($filename, '/') . '\]\(/', $body) === 1 && ! str_contains($body, "![Watch {$filename}](");
+
+        if ($alreadyEmbedded) {
             return;
         }
-
-        $markdown = self::videoMarkdown($reviewerCutUrl, $filename, $thumbnailUrl);
 
         if (str_contains($body, '### Video walkthrough')) {
             // Replace whatever single link lives under the heading (the raw
