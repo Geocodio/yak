@@ -43,10 +43,16 @@ class PullRequestBodyUpdater
         }
 
         if (str_contains($body, '### Video walkthrough')) {
-            // Replace whatever single link lives under the heading (the raw
-            // webm fallback dropped in by CreatePullRequestJob).
+            // Replace exactly the one link-like line that sits directly
+            // under the heading. Matches either the plain-text form
+            // (`- [filename](url)`) emitted by CreatePullRequestJob or
+            // the image-embed form produced by this updater on an earlier
+            // pass. Keeps the regex local so nothing downstream of the
+            // section (### Files changed, `---`, warning callout) gets
+            // swallowed when the walkthrough is the last heading.
+            $linkLine = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\))';
             $replaced = preg_replace(
-                '/(### Video walkthrough\s*\n\s*\n).+?(?=\n{2,}#{1,6} |\n*$)/s',
+                "/(### Video walkthrough\s*\n\s*\n){$linkLine}/",
                 "$1{$markdown}",
                 $body,
                 1,
