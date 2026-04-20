@@ -20,7 +20,10 @@ class RenderVideoJob implements ShouldQueue
 
     public int $backoff = 30;
 
-    public function __construct(public int $rawVideoArtifactId, public string $tier = 'reviewer') {}
+    public function __construct(public int $rawVideoArtifactId, public string $tier = 'reviewer')
+    {
+        $this->onQueue('yak-render');
+    }
 
     public function handle(VideoRenderer $renderer): void
     {

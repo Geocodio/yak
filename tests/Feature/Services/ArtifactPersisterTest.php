@@ -45,6 +45,7 @@ it('dispatches RenderVideoJob for webm artifacts so the Remotion pipeline picks 
     expect($video)->not->toBeNull();
 
     Queue::assertPushed(RenderVideoJob::class, fn ($job) => $job->rawVideoArtifactId === $video->id);
+    Queue::assertPushedOn('yak-render', RenderVideoJob::class);
 });
 
 it('returns an empty array when no artifacts directory exists', function () {
