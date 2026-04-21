@@ -202,6 +202,45 @@ test('successful run notifies source that task is awaiting CI', function () {
     Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Progress && $job->task->id === $task->id);
 });
 
+test('task does not transition to awaiting_ci when ci_system is none', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_nociaw',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create([
+        'slug' => 'no-ci-status-repo',
+        'path' => '/home/yak/repos/no-ci-status-repo',
+        'ci_system' => 'none',
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'no-ci-status-repo']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+
+    // For ci_system=none, AwaitingCi is a meaningless transient state —
+    // ProcessCIResultJob transitions the task to Success. The task should
+    // never end up stranded at AwaitingCi just because PR creation failed.
+    expect($task->status)->not->toBe(TaskStatus::AwaitingCi);
+
+    Queue::assertPushed(ProcessCIResultJob::class, fn ($job) => $job->task->id === $task->id && $job->passed === true);
+});
+
 test('no awaiting-CI notification dispatched when ci_system is none', function () {
     Queue::fake();
 

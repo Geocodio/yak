@@ -337,11 +337,7 @@ class RunYakJob implements ShouldQueue
                 return;
             }
 
-            $this->task->update([
-                'status' => TaskStatus::AwaitingCi,
-                'result_summary' => $result->resultSummary,
-                'model_used' => config('yak.default_model'),
-            ]);
+            $this->task->update($this->postAgentUpdate($repository, $result));
 
             // Refresh the baked-in credential helper — the agent may have run
             // long enough for the token fetched during prepareBranch() to
@@ -356,11 +352,7 @@ class RunYakJob implements ShouldQueue
 
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         } else {
-            $this->task->update([
-                'status' => TaskStatus::AwaitingCi,
-                'result_summary' => $result->resultSummary,
-                'model_used' => config('yak.default_model'),
-            ]);
+            $this->task->update($this->postAgentUpdate($repository, $result));
         }
 
         if ($repository->ci_system === 'none') {
@@ -369,6 +361,29 @@ class RunYakJob implements ShouldQueue
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function postAgentUpdate(Repository $repository, AgentRunResult $result): array
+    {
+        $update = [
+            'result_summary' => $result->resultSummary,
+            'model_used' => config('yak.default_model'),
+        ];
+
+        // For repos with real CI, park the task in AwaitingCi until the
+        // webhook/poll flips it. For ci_system=none there's nothing to wait
+        // for; leave the status as Running so ProcessCIResultJob can move
+        // straight to Success — and, if PR creation blows up, the failed()
+        // recovery path moves it to Failed instead of stranding it in a
+        // misleading "awaiting_ci" state on a repo with no CI.
+        if ($repository->ci_system !== 'none') {
+            $update['status'] = TaskStatus::AwaitingCi;
+        }
+
+        return $update;
     }
 
     private function handleClarification(AgentRunResult $result): void

@@ -215,11 +215,7 @@ class RetryYakJob implements ShouldQueue
                 return;
             }
 
-            $this->task->update([
-                'status' => TaskStatus::AwaitingCi,
-                'result_summary' => $result->resultSummary,
-                'model_used' => config('yak.default_model'),
-            ]);
+            $this->task->update($this->postAgentUpdate($repository, $result));
 
             // Refresh the baked-in credential helper — the agent may have run
             // long enough for the token fetched during prepareRetryBranch() to
@@ -235,11 +231,7 @@ class RetryYakJob implements ShouldQueue
 
             TaskLogger::info($this->task, 'Fix pushed — retry', ['branch' => $this->task->branch_name]);
         } else {
-            $this->task->update([
-                'status' => TaskStatus::AwaitingCi,
-                'result_summary' => $result->resultSummary,
-                'model_used' => config('yak.default_model'),
-            ]);
+            $this->task->update($this->postAgentUpdate($repository, $result));
         }
 
         if ($repository->ci_system === 'none') {
@@ -248,6 +240,23 @@ class RetryYakJob implements ShouldQueue
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed retry on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function postAgentUpdate(Repository $repository, AgentRunResult $result): array
+    {
+        $update = [
+            'result_summary' => $result->resultSummary,
+            'model_used' => config('yak.default_model'),
+        ];
+
+        if ($repository->ci_system !== 'none') {
+            $update['status'] = TaskStatus::AwaitingCi;
+        }
+
+        return $update;
     }
 
     private function handleClarification(AgentRunResult $result): void

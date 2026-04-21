@@ -173,11 +173,19 @@ class ClarificationReplyJob implements ShouldQueue
     {
         TaskMetricsAccumulator::applyAccumulated($this->task, $result);
 
-        $this->task->update([
-            'status' => TaskStatus::AwaitingCi,
+        $update = [
             'result_summary' => $result->resultSummary,
             'model_used' => config('yak.default_model'),
-        ]);
+        ];
+
+        // Park at AwaitingCi only when there's actually CI to wait for. For
+        // ci_system=none the next step is PR creation via ProcessCIResultJob,
+        // so keep the task in Running until that finalizes.
+        if ($repository->ci_system !== 'none') {
+            $update['status'] = TaskStatus::AwaitingCi;
+        }
+
+        $this->task->update($update);
 
         DailyCost::accumulate($result->costUsd);
 
