@@ -2,6 +2,8 @@
 
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
+use App\Jobs\RunYakJob;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Queue;
@@ -142,4 +144,32 @@ it('ignores interactions for unknown tasks', function () {
     )->assertOk();
 
     Queue::assertNothingPushed();
+});
+
+it('resolves repo and dispatches RunYakJob when a repo-clarification button is clicked', function () {
+    $secret = enableSlackForInteractive();
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'acme/marketing-site', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'session_id' => null,
+        'clarification_options' => ['acme/marketing-site', 'acme/deployer'],
+    ]);
+
+    $body = buildClarifyButtonBody($task->id, 'acme/marketing-site');
+
+    $this->call('POST', '/webhooks/slack/interactive', content: $body,
+        server: signSlackInteractivePayload($body, $secret)
+    )->assertOk();
+
+    $task->refresh();
+    expect($task->repo)->toBe('acme/marketing-site');
+    expect($task->status)->toBe(TaskStatus::Pending);
+
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(ClarificationReplyJob::class);
 });

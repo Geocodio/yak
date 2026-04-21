@@ -72,6 +72,31 @@ test('submitClarificationReply rejects empty text', function () {
     Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
+test('submitClarificationReply resolves the repo and dispatches RunYakJob when the task is awaiting a repo pick', function () {
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'acme/marketing-site', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'session_id' => null,
+        'clarification_options' => ['acme/marketing-site', 'acme/deployer'],
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->set('clarificationReplyText', 'acme/marketing-site')
+        ->call('submitClarificationReply');
+
+    $task->refresh();
+    expect($task->repo)->toBe('acme/marketing-site');
+    expect($task->status)->toBe(TaskStatus::Pending);
+
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(ClarificationReplyJob::class);
+});
+
 test('renders an answered fix task without branch / PR UI', function () {
     $task = YakTask::factory()->success()->create([
         'mode' => TaskMode::Fix,

@@ -20,6 +20,7 @@ use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
+use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use App\Support\TaskSourceUrl;
 use Flux\Flux;
@@ -349,9 +350,13 @@ class TaskDetail extends Component
 
         $text = trim($this->clarificationReplyText);
 
-        ClarificationReplyJob::dispatch($this->task, $text);
-
         TaskLogger::info($this->task, 'Clarification reply submitted via Yak UI');
+
+        if (RepoClarificationResolver::awaitingRepoChoice($this->task)) {
+            RepoClarificationResolver::resolve($this->task, $text);
+        } else {
+            ClarificationReplyJob::dispatch($this->task, $text);
+        }
 
         $this->clarificationReplyText = '';
         $this->task->refresh();

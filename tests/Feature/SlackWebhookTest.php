@@ -346,6 +346,31 @@ it('enters awaiting_clarification when no repo specified and multiple active rep
     });
 });
 
+it('omits the repo list from the clarification text (buttons carry it)', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->create(['slug' => 'acme/one']);
+    Repository::factory()->create(['slug' => 'acme/two']);
+
+    $body = slackMentionPayload('fix something');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ]);
+
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Clarification
+            && ! str_contains($job->message, 'acme/one')
+            && ! str_contains($job->message, 'acme/two')
+            && ! str_contains(strtolower($job->message), 'options');
+    });
+});
+
 it('uses single active repo without clarification for slack', function () {
     $secret = enableSlackChannel();
     Queue::fake();
@@ -582,7 +607,12 @@ it('re-prompts when repo clarification reply does not match any option', functio
 
     Queue::assertNotPushed(RunYakJob::class);
     Queue::assertNotPushed(ClarificationReplyJob::class);
-    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Clarification);
+    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
+        return $job->type === NotificationType::Clarification
+            && ! str_contains($job->message, 'acme/marketing-site')
+            && ! str_contains($job->message, 'acme/deployer')
+            && ! str_contains(strtolower($job->message), 'options');
+    });
 });
 
 it('dispatches ClarificationReplyJob for agent clarification (not repo)', function () {

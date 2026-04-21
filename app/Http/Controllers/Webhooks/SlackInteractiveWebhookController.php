@@ -7,6 +7,7 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
 use App\Models\YakTask;
+use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use App\Support\SlackBlockFormatter;
 use Illuminate\Http\JsonResponse;
@@ -57,7 +58,11 @@ class SlackInteractiveWebhookController extends Controller
 
         TaskLogger::info($task, 'Clarification received via button', ['option' => $optionText]);
 
-        ClarificationReplyJob::dispatch($task, $optionText);
+        if (RepoClarificationResolver::awaitingRepoChoice($task)) {
+            RepoClarificationResolver::resolve($task, $optionText);
+        } else {
+            ClarificationReplyJob::dispatch($task, $optionText);
+        }
 
         return response()->json(['ok' => true]);
     }
