@@ -715,6 +715,58 @@ test('second failure does not dispatch RetryYakJob', function () {
 
 /*
 |--------------------------------------------------------------------------
+| Job-Level Failure — Recovery Path
+|--------------------------------------------------------------------------
+*/
+
+test('failed() transitions non-final task to Failed with error_log', function () {
+    Http::fake(['slack.com/*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'slack-token');
+
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-JOBFAIL',
+        'source' => 'slack',
+        'slack_channel' => 'C-fail',
+        'slack_thread_ts' => '1.2',
+        'attempts' => 1,
+    ]);
+
+    $job = new ProcessCIResultJob($task, true);
+    $job->failed(new RuntimeException('PR creation exploded: malformed UTF-8'));
+
+    $task->refresh();
+
+    expect($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toContain('PR creation exploded')
+        ->and($task->completed_at)->not->toBeNull();
+
+    Http::assertSent(fn ($r) => str_contains($r->url(), 'slack.com/api/chat.postMessage'));
+});
+
+test('failed() does not downgrade an already-final task', function () {
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->create([
+        'repo' => 'org/my-repo',
+        'status' => TaskStatus::Success,
+        'completed_at' => now()->subMinutes(5),
+        'pr_url' => 'https://github.com/org/my-repo/pull/1',
+    ]);
+
+    $job = new ProcessCIResultJob($task, true);
+    $job->failed(new RuntimeException('Post-success failure should be ignored'));
+
+    $task->refresh();
+
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($task->pr_url)->toBe('https://github.com/org/my-repo/pull/1');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Job Queue Configuration
 |--------------------------------------------------------------------------
 */

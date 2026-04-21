@@ -35,11 +35,43 @@ class ProcessCIResultJob implements ShouldQueue
 
     public function failed(?\Throwable $e): void
     {
+        $errorMessage = $e?->getMessage() ?? 'Job failed without exception';
+
         Log::channel('yak')->error(self::class . ' failed', [
             'task_id' => $this->task->id,
-            'error' => $e?->getMessage() ?? 'Job failed without exception',
+            'error' => $errorMessage,
             'exception_class' => $e !== null ? get_class($e) : null,
         ]);
+
+        $fresh = $this->task->fresh();
+
+        // Don't disturb a task that's already settled (Success or Cancelled).
+        // For anything else — typically AwaitingCi or Running when PR creation
+        // throws — flip to Failed so the UI stops displaying a misleading
+        // transient state and the user can retry.
+        if ($fresh === null || $fresh->status->isFinal()) {
+            return;
+        }
+
+        $fresh->update([
+            'status' => TaskStatus::Failed,
+            'error_log' => $errorMessage,
+            'completed_at' => now(),
+        ]);
+
+        TaskLogger::error($fresh, 'Task failed during CI result processing', ['error' => $errorMessage]);
+
+        try {
+            $this->postToSource(YakPersonality::generate(
+                NotificationType::Error,
+                "Task failed while finalizing: {$errorMessage}",
+            ));
+        } catch (\Throwable $notifyError) {
+            Log::channel('yak')->warning(self::class . ' failed() notification errored', [
+                'task_id' => $this->task->id,
+                'error' => $notifyError->getMessage(),
+            ]);
+        }
     }
 
     public function handle(): void
