@@ -287,6 +287,59 @@ test('PR title uses Yak Research prefix for research mode tasks', function () {
     });
 });
 
+test('PR title truncation preserves multi-byte characters at the boundary', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    // 56 ASCII chars + 3-byte • (bullet) would land byte 57 — the old
+    // substr(0, 57) boundary — inside the multi-byte sequence, leaving
+    // an orphan 0xE2 that Guzzle's json_encode rejects.
+    $description = str_repeat('a', 56) . '• followed by more text to push past 60';
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-MB',
+        'source' => 'manual',
+        'description' => $description,
+        'attempts' => 1,
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        if (! str_contains($request->url(), '/pulls')) {
+            return false;
+        }
+
+        $title = $request['title'];
+
+        return mb_check_encoding($title, 'UTF-8')
+            && str_starts_with($title, 'Yak Fix: ')
+            && str_ends_with($title, '...')
+            && str_contains($title, '•');
+    });
+});
+
 test('PR title truncates long descriptions', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([

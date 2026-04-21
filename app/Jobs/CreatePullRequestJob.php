@@ -43,11 +43,18 @@ class CreatePullRequestJob implements ShouldQueue
         $installationId = (int) config('yak.channels.github.installation_id');
         $signedUrls = $this->generateSignedUrls();
 
+        // Defensive: agent-produced strings (description, result_summary)
+        // occasionally contain byte sequences that aren't valid UTF-8, which
+        // Guzzle's json_encode rejects and leaves the task stranded. Strip
+        // invalid bytes at the boundary so a stray character can't block the PR.
+        $title = mb_convert_encoding($this->buildPrTitle(), 'UTF-8', 'UTF-8');
+        $body = mb_convert_encoding($this->buildPrBody($signedUrls), 'UTF-8', 'UTF-8');
+
         $prResponse = $gitHub->createPullRequest($installationId, $repository->slug, [
-            'title' => $this->buildPrTitle(),
+            'title' => $title,
             'head' => $this->task->branch_name,
             'base' => $repository->default_branch,
-            'body' => $this->buildPrBody($signedUrls),
+            'body' => $body,
         ]);
 
         if (! isset($prResponse['number'], $prResponse['html_url'])) {
@@ -80,8 +87,10 @@ class CreatePullRequestJob implements ShouldQueue
 
         $description = $this->task->description;
 
-        if (strlen($description) > 60) {
-            $description = substr($description, 0, 57) . '...';
+        // Character-aware truncation. `substr` slicing bytes mid-sequence
+        // produces orphan continuation bytes that Guzzle refuses to encode.
+        if (mb_strlen($description) > 60) {
+            $description = mb_substr($description, 0, 57) . '...';
         }
 
         return "{$prefix}: {$description}";
