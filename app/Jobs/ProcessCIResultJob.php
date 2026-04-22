@@ -49,7 +49,8 @@ class ProcessCIResultJob implements ShouldQueue
         // For anything else — typically AwaitingCi or Running when PR creation
         // throws — flip to Failed so the UI stops displaying a misleading
         // transient state and the user can retry.
-        if ($fresh === null || $fresh->status->isFinal()) {
+        $settled = [TaskStatus::Success, TaskStatus::Cancelled];
+        if ($fresh === null || in_array($fresh->status, $settled, true)) {
             return;
         }
 

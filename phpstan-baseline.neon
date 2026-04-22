@@ -43,6 +43,12 @@ parameters:
 			path: app/Jobs/ClarificationReplyJob.php
 
 		-
+			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Jobs/ProcessCIResultJob.php
+
+		-
 			message: '#^Result of && is always false\.$#'
 			identifier: booleanAnd.alwaysFalse
 			count: 1
