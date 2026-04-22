@@ -12,8 +12,8 @@
  * src/content/docs/.
  */
 
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { readdirSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -42,6 +42,10 @@ const PAGES = [
 
 // Exclude the GitHub-facing folder index. Starlight has its own homepage.
 const EXCLUDED = new Set(['README.md']);
+
+// Image/asset extensions copied alongside the markdown so relative
+// references like ![](foo.png) resolve under Astro's asset pipeline.
+const ASSET_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.avif']);
 
 function stripFirstHeading(content) {
   const lines = content.split('\n');
@@ -87,9 +91,11 @@ function main() {
   }
   mkdirSync(TARGET_DIR, { recursive: true });
 
-  const sourceFiles = readdirSync(SOURCE_DIR).filter(
+  const entries = readdirSync(SOURCE_DIR);
+  const sourceFiles = entries.filter(
     (name) => name.endsWith('.md') && !EXCLUDED.has(name),
   );
+  const assetFiles = entries.filter((name) => ASSET_EXTENSIONS.has(extname(name).toLowerCase()));
 
   let synced = 0;
   for (const filename of sourceFiles) {
@@ -108,6 +114,12 @@ function main() {
 
     const targetPath = join(TARGET_DIR, filename);
     writeFileSync(targetPath, output, 'utf8');
+    synced += 1;
+    console.log(`  ✓ ${filename}`);
+  }
+
+  for (const filename of assetFiles) {
+    copyFileSync(join(SOURCE_DIR, filename), join(TARGET_DIR, filename));
     synced += 1;
     console.log(`  ✓ ${filename}`);
   }
