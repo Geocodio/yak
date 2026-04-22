@@ -185,12 +185,13 @@ This project has domain-specific skills available. You MUST activate the relevan
 
 ## Project Structure
 
-- `app/Contracts/` -- interfaces for drivers and services
+- `app/Channels/` -- one folder per integration channel; each contains the channel's entry class, drivers, webhook controllers, support classes, and health check
+- `app/Channels/Contracts/` -- capability interfaces (InputDriver, NotificationDriver, CIDriver, CIBuildScanner)
+- `app/Channels/ChannelRegistry.php` -- runtime lookup by channel name
+- `app/Channels/Channel.php` -- interface each channel entry class implements
 - `app/DataTransferObjects/` -- readonly DTOs with static factory methods
-- `app/Drivers/` -- channel input and notification driver implementations
 - `app/Enums/` -- TaskStatus (state machine), TaskMode, NotificationType
 - `app/GitOperations.php` -- centralized git commands via Process facade
-- `app/Http/Controllers/Webhooks/` -- invokable webhook controllers
 - `app/Http/Concerns/` -- HTTP traits (e.g. VerifiesWebhookSignature)
 - `app/Jobs/` -- queued jobs; middleware in `app/Jobs/Middleware/`
 - `app/Livewire/` -- Livewire component classes (MFC format)
