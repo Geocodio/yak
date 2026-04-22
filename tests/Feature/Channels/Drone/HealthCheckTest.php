@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\HealthCheck\Channel\DroneChannelCheck;
+use App\Channels\Drone\HealthCheck as DroneHealthCheck;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Http;
 
@@ -16,7 +16,7 @@ it('returns Ok when /api/user returns 200', function () {
         'drone.example.com/api/user' => Http::response(['login' => 'yak-bot', 'email' => 'yak@example.com']),
     ]);
 
-    $result = (new DroneChannelCheck)->run();
+    $result = (new DroneHealthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Ok);
     expect($result->detail)->toContain('yak-bot');
@@ -27,7 +27,7 @@ it('returns Error on 401', function () {
         'drone.example.com/api/user' => Http::response('unauthorized', 401),
     ]);
 
-    $result = (new DroneChannelCheck)->run();
+    $result = (new DroneHealthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error);
     expect($result->detail)->toContain('401');

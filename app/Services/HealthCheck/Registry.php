@@ -3,7 +3,7 @@
 namespace App\Services\HealthCheck;
 
 use App\Channel;
-use App\Services\HealthCheck\Channel\DroneChannelCheck;
+use App\Channels\Drone\HealthCheck as DroneChannelCheck;
 use App\Services\HealthCheck\Channel\GitHubChannelCheck;
 use App\Services\HealthCheck\Channel\LinearChannelCheck;
 use App\Services\HealthCheck\Channel\SentryChannelCheck;

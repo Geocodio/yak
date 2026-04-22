@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\Drone;
 
 use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\BuildResult;
@@ -11,7 +11,7 @@ use DateTimeInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
-class DroneBuildScanner implements CIBuildScanner
+class BuildScanner implements CIBuildScanner
 {
     /**
      * @return Collection<int, CIBuildFailure>

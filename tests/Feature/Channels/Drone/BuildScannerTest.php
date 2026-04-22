@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Repository;
-use App\Services\DroneBuildScanner;
+use App\Channels\Drone\BuildScanner;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -52,7 +52,7 @@ test('scans all branches, only fetches logs for failed steps, and parses Pest FA
         ]),
     ]);
 
-    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+    $failures = app(BuildScanner::class)->getRecentFailures($repo, 48);
 
     expect($failures)->toHaveCount(1);
     expect($failures->first()->testName)->toContain('MultipleSessionsTest');
@@ -70,7 +70,7 @@ test('pollBranchStatus returns null when no builds exist for the branch', functi
         'drone.example.com/api/repos/acme/app/builds*' => Http::response([]),
     ]);
 
-    $result = app(DroneBuildScanner::class)->pollBranchStatus($repo, 'yak/abc', now()->subMinute());
+    $result = app(BuildScanner::class)->pollBranchStatus($repo, 'yak/abc', now()->subMinute());
 
     expect($result)->toBeNull();
     Http::assertSent(fn ($req) => str_contains($req->url(), 'branch=yak%2Fabc'));
@@ -90,7 +90,7 @@ test('pollBranchStatus returns null while the build is still running', function 
         ]),
     ]);
 
-    expect(app(DroneBuildScanner::class)->pollBranchStatus($repo, 'yak/abc', now()->subMinute()))
+    expect(app(BuildScanner::class)->pollBranchStatus($repo, 'yak/abc', now()->subMinute()))
         ->toBeNull();
 });
 
@@ -109,7 +109,7 @@ test('pollBranchStatus returns passed BuildResult on success', function () {
         ]),
     ]);
 
-    $result = app(DroneBuildScanner::class)
+    $result = app(BuildScanner::class)
         ->pollBranchStatus($repo, 'yak/abc', now()->subMinute());
 
     expect($result)->not->toBeNull();
@@ -144,7 +144,7 @@ test('pollBranchStatus returns failed BuildResult with logs on failure', functio
         ]),
     ]);
 
-    $result = app(DroneBuildScanner::class)
+    $result = app(BuildScanner::class)
         ->pollBranchStatus($repo, 'yak/abc', now()->subMinute());
 
     expect($result->passed)->toBeFalse();
@@ -170,7 +170,7 @@ test('pollBranchStatus ignores builds started before the cutoff (retry race)', f
     ]);
 
     // Should return null — the only build is older than the cutoff.
-    expect(app(DroneBuildScanner::class)->pollBranchStatus($repo, 'yak/abc', $taskResetAt))
+    expect(app(BuildScanner::class)->pollBranchStatus($repo, 'yak/abc', $taskResetAt))
         ->toBeNull();
 });
 
@@ -200,7 +200,7 @@ test('parser rejects FAILED lines without a Class > description shape', function
         ]),
     ]);
 
-    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+    $failures = app(BuildScanner::class)->getRecentFailures($repo, 48);
 
     expect($failures)->toHaveCount(1);
     expect($failures->first()->testName)->toBe('Tests\\LoginTest > it logs in');
@@ -230,7 +230,7 @@ test('parser strips ANSI colour codes before matching', function () {
         ]),
     ]);
 
-    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+    $failures = app(BuildScanner::class)->getRecentFailures($repo, 48);
 
     expect($failures)->toHaveCount(1);
     expect($failures->first()->testName)->toBe('Tests\\LoginTest > it logs in');
@@ -258,7 +258,7 @@ test('scanner populates branch and commit sha from the Drone build payload', fun
         ]),
     ]);
 
-    $failures = app(DroneBuildScanner::class)->getRecentFailures($repo, 48);
+    $failures = app(BuildScanner::class)->getRecentFailures($repo, 48);
 
     expect($failures->first()->branch)->toBe('feature/xyz');
     expect($failures->first()->commitSha)->toBe('commit-sha-9');
@@ -282,7 +282,7 @@ test('skips builds older than the cutoff', function () {
         ]),
     ]);
 
-    expect(app(DroneBuildScanner::class)->getRecentFailures($repo, 48))->toHaveCount(0);
+    expect(app(BuildScanner::class)->getRecentFailures($repo, 48))->toHaveCount(0);
 
     // Should not have fetched build detail for an out-of-window build.
     Http::assertNotSent(fn ($req) => str_contains($req->url(), '/builds/99'));

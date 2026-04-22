@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Console\Commands;
+namespace App\Channels\Drone;
 
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\DroneBuildScanner;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -15,9 +14,9 @@ use Illuminate\Support\Facades\Log;
 
 #[Signature('yak:poll-drone-ci')]
 #[Description('Poll Drone CI for awaiting_ci tasks (Drone has no outbound webhooks)')]
-class PollDroneCiCommand extends Command
+class PollCommand extends Command
 {
-    public function handle(DroneBuildScanner $scanner): int
+    public function handle(BuildScanner $scanner): int
     {
         $droneRepoSlugs = Repository::where('ci_system', 'drone')
             ->pluck('slug')

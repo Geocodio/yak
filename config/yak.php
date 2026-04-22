@@ -1,5 +1,7 @@
 <?php
 
+use App\Channels\Drone\DroneChannel;
+
 return [
 
     /*
@@ -204,7 +206,7 @@ return [
     */
 
     'channel_classes' => [
-        // Filled in as each channel migrates — see Phases 1–5.
+        DroneChannel::class,
     ],
 
     /*

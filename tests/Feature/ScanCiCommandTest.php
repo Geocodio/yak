@@ -1,11 +1,11 @@
 <?php
 
 use App\Channels\Contracts\CIBuildScanner;
+use App\Channels\Drone\BuildScanner as DroneBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\DroneBuildScanner;
 use App\Services\GitHubActionsBuildScanner;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Queue;
