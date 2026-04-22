@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Channel;
+use App\Channels\ChannelRegistry;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\Registry;
@@ -54,9 +54,9 @@ class HealthCheckCommand extends Command
      */
     private function notifySlack(array $failures): void
     {
-        $slack = new Channel('slack');
+        $slack = app(ChannelRegistry::class)->for('slack');
 
-        if (! $slack->enabled()) {
+        if ($slack === null || ! $slack->enabled()) {
             $this->components->warn('Slack not configured — skipping notification.');
 
             return;

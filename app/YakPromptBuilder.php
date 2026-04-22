@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Channels\ChannelRegistry;
 use App\Enums\TaskMode;
 use App\Facades\Prompts;
 use App\Models\Repository;
@@ -127,8 +128,8 @@ class YakPromptBuilder
         // server-side via LinearNotificationDriver. Claude isn't expected
         // to interact with Linear directly during a run.
 
-        $sentry = new Channel('sentry');
-        if ($sentry->enabled()) {
+        $sentry = app(ChannelRegistry::class)->for('sentry');
+        if ($sentry !== null && $sentry->enabled()) {
             $rules[] = Prompts::render('channels-sentry');
         }
 

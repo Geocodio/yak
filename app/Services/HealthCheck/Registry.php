@@ -2,7 +2,7 @@
 
 namespace App\Services\HealthCheck;
 
-use App\Channel;
+use App\Channels\ChannelRegistry;
 use App\Channels\Drone\HealthCheck as DroneChannelCheck;
 use App\Channels\GitHub\HealthCheck as GitHubChannelCheck;
 use App\Channels\Linear\HealthCheck as LinearChannelCheck;
@@ -59,7 +59,7 @@ class Registry
                 continue;
             }
 
-            if ($section === HealthSection::Channels && ! (new Channel($id))->enabled()) {
+            if ($section === HealthSection::Channels && ! (app(ChannelRegistry::class)->for($id)?->enabled() ?? false)) {
                 continue;
             }
 

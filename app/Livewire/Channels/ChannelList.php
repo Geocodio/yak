@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Channels;
 
-use App\Channel;
+use App\Channels\ChannelRegistry;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\Registry;
 use App\Support\Docs;
@@ -86,9 +86,10 @@ class ChannelList extends Component
     public function channels(): array
     {
         $registry = app(Registry::class);
+        $channels = app(ChannelRegistry::class);
 
-        return array_map(function (array $meta) use ($registry): array {
-            $enabled = (new Channel($meta['slug']))->enabled();
+        return array_map(function (array $meta) use ($registry, $channels): array {
+            $enabled = $channels->for($meta['slug'])?->enabled() ?? false;
             $status = null;
 
             if ($enabled && $meta['health_check_id'] !== null) {

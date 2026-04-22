@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Channel;
 use App\Channels\ChannelRegistry;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -62,7 +61,8 @@ class ChannelServiceProvider extends ServiceProvider
                 continue; // migrated — skip legacy wiring
             }
 
-            if ((new Channel($name))->enabled()) {
+            $channel = $registry->for($name);
+            if ($channel !== null && $channel->enabled()) {
                 Route::post($name, $controller)->name("webhooks.{$name}");
             }
         }
