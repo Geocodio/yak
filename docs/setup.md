@@ -38,14 +38,27 @@ See the [Channels](channels.md) page for the full configuration of each channel.
 
 ## Quick Start
 
-### 1. Clone Yak
+You run steps 1–5 **on your own machine** (laptop or workstation). Ansible reads the inventory file, connects to your target server over SSH, and provisions everything remotely. You only SSH into the server itself for step 6 (the one-time Claude Code login). Step 7 happens in your browser.
+
+### 1. Install Ansible (on your local machine)
+
+Ansible 2.15 or newer is required. If you don't already have it:
+
+```bash
+pip install ansible        # or: brew install ansible
+ansible --version          # confirm 2.15+
+```
+
+You also need SSH access to the target server as `root` (or another user with passwordless sudo) before continuing.
+
+### 2. Clone Yak (on your local machine)
 
 ```bash
 git clone https://github.com/geocodio/yak.git
 cd yak
 ```
 
-### 2. Configure Secrets
+### 3. Configure Secrets (on your local machine)
 
 ```bash
 cp ansible/vault/secrets.example.yml ansible/vault/secrets.yml
@@ -238,7 +251,9 @@ Drone has no outbound webhooks — Yak polls the Drone API every minute for CI r
 
 See [Channels → Drone CI](channels.md#drone-ci-optional) for usage and gotchas.
 
-### 3. Configure Inventory
+### 4. Configure Inventory (on your local machine)
+
+Tell Ansible which server to provision:
 
 ```bash
 cp ansible/inventory/hosts.example.yml ansible/inventory/hosts.yml
@@ -253,7 +268,9 @@ all:
       ansible_python_interpreter: /usr/bin/python3
 ```
 
-### 4. Provision
+### 5. Provision (run from your local machine)
+
+This connects to the server over SSH and provisions everything:
 
 ```bash
 ansible-playbook ansible/playbook.yml
@@ -273,9 +290,9 @@ This single command runs the following roles in order:
 
 Total time: about 10 minutes.
 
-### 5. Log In To Claude Code
+### 6. Log In To Claude Code (on the server)
 
-Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
+This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
 
 ```bash
 docker exec -it yak claude login
@@ -285,7 +302,7 @@ Follow the browser-based OAuth flow. The session token persists in the mounted `
 
 The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
 
-### 6. Add Your Repositories
+### 7. Add Your Repositories (in your browser)
 
 Repositories are managed through the dashboard — not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
 
