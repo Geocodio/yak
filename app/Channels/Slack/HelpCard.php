@@ -1,13 +1,15 @@
 <?php
 
-namespace App\Support;
+namespace App\Channels\Slack;
+
+use App\Support\Docs;
 
 /**
  * Builds the Block Kit payload for the `@yak help` response — a
  * capabilities card posted in-thread when a user asks what Yak can do.
  * No task gets created; this is a pure informational response.
  */
-class SlackHelpCard
+class HelpCard
 {
     /**
      * Recognise a help query from stripped @yak mention text. Treats

@@ -6,8 +6,8 @@ use App\Channel;
 use App\Channels\Drone\HealthCheck as DroneChannelCheck;
 use App\Channels\Linear\HealthCheck as LinearChannelCheck;
 use App\Channels\Sentry\HealthCheck as SentryChannelCheck;
+use App\Channels\Slack\HealthCheck as SlackChannelCheck;
 use App\Services\HealthCheck\Channel\GitHubChannelCheck;
-use App\Services\HealthCheck\Channel\SlackChannelCheck;
 use InvalidArgumentException;
 
 class Registry

@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\HealthCheck\Channel\SlackChannelCheck;
+use App\Channels\Slack\HealthCheck as SlackChannelCheck;
 use App\Services\HealthCheck\HealthSection;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Http\Client\ConnectionException;

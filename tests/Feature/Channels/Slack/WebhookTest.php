@@ -1,7 +1,7 @@
 <?php
 
 use App\Ai\Agents\TaskIntentClassifier;
-use App\Drivers\SlackNotificationDriver;
+use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;

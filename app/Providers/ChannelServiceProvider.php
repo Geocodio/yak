@@ -5,8 +5,6 @@ namespace App\Providers;
 use App\Channel;
 use App\Channels\ChannelRegistry;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
-use App\Http\Controllers\Webhooks\SlackInteractiveWebhookController;
-use App\Http\Controllers\Webhooks\SlackWebhookController;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -21,7 +19,6 @@ class ChannelServiceProvider extends ServiceProvider
      * @var array<string, class-string>
      */
     private const LEGACY_CONTROLLERS = [
-        'slack' => SlackWebhookController::class,
     ];
 
     public function register(): void
@@ -50,21 +47,7 @@ class ChannelServiceProvider extends ServiceProvider
             Route::post('github', GitHubWebhookController::class)->name('webhooks.github');
 
             // Legacy path — only for channels that have NOT migrated yet.
-            foreach (self::LEGACY_CONTROLLERS as $name => $controller) {
-                if ($registry->for($name) !== null) {
-                    continue; // migrated — skip legacy wiring
-                }
-
-                if ((new Channel($name))->enabled()) {
-                    Route::post($name, $controller)->name("webhooks.{$name}");
-                }
-            }
-
-            // Legacy Slack interactive — removed when Slack migrates (Phase 4).
-            if ($registry->for('slack') === null && (new Channel('slack'))->enabled()) {
-                Route::post('slack/interactive', SlackInteractiveWebhookController::class)
-                    ->name('webhooks.slack.interactive');
-            }
+            $this->registerLegacyRoutes($registry);
 
             // Registry path — migrated channels register their own routes.
             foreach ($registry->enabled() as $channel) {
@@ -76,5 +59,21 @@ class ChannelServiceProvider extends ServiceProvider
             // migrates and takes over route registration itself.
             Route::post('ci/github', GitHubWebhookController::class)->name('webhooks.ci.github');
         });
+    }
+
+    private function registerLegacyRoutes(ChannelRegistry $registry): void
+    {
+        /** @var array<string, class-string> $controllers */
+        $controllers = self::LEGACY_CONTROLLERS;
+
+        foreach ($controllers as $name => $controller) {
+            if ($registry->for($name) !== null) {
+                continue; // migrated — skip legacy wiring
+            }
+
+            if ((new Channel($name))->enabled()) {
+                Route::post($name, $controller)->name("webhooks.{$name}");
+            }
+        }
     }
 }

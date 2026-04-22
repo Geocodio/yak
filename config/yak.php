@@ -3,6 +3,7 @@
 use App\Channels\Drone\DroneChannel;
 use App\Channels\Linear\LinearChannel;
 use App\Channels\Sentry\SentryChannel;
+use App\Channels\Slack\SlackChannel;
 
 return [
 
@@ -211,6 +212,7 @@ return [
         DroneChannel::class,
         SentryChannel::class,
         LinearChannel::class,
+        SlackChannel::class,
     ],
 
     /*

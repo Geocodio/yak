@@ -1,9 +1,10 @@
 <?php
 
-namespace App\Support;
+namespace App\Channels\Slack;
 
 use App\Enums\NotificationType;
 use App\Models\YakTask;
+use App\Support\Docs;
 
 /**
  * Builds Slack Block Kit payloads for outbound notifications. Every
@@ -12,7 +13,7 @@ use App\Models\YakTask;
  * NotificationType. Keep this class pure: take a task + message +
  * dashboard URL, return an array of blocks.
  */
-class SlackBlockFormatter
+class BlockFormatter
 {
     /**
      * Block Kit action_id used for clarification option buttons.

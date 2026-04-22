@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Webhooks;
+namespace App\Channels\Slack;
 
-use App\Drivers\SlackInputDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Http\Concerns\VerifiesWebhookSignature;
@@ -16,14 +15,12 @@ use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use App\Support\Docs;
-use App\Support\SlackHelpCard;
-use App\Support\SlackUserTracker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-class SlackWebhookController extends Controller
+class WebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
@@ -80,12 +77,12 @@ class SlackWebhookController extends Controller
      */
     private function handleMention(Request $request): JsonResponse
     {
-        $driver = new SlackInputDriver;
+        $driver = new InputDriver;
         $description = $driver->parse($request);
 
         // Intercept help queries (`@yak`, `@yak help`, `@yak ?`) before
         // creating a task — post a capabilities card instead and exit.
-        if (SlackHelpCard::isHelpQuery($description->body)) {
+        if (HelpCard::isHelpQuery($description->body)) {
             $this->postHelpCard(
                 channel: (string) ($description->metadata['slack_channel'] ?? ''),
                 threadTs: (string) ($description->metadata['slack_thread_ts'] ?? ''),
@@ -182,7 +179,7 @@ class SlackWebhookController extends Controller
     /**
      * Handle `app_home_opened` — fires whenever a user opens Yak's App
      * Home tab. We DM the user a welcome card the first time they do
-     * so, then mark them as seen via SlackUserTracker so the in-channel
+     * so, then mark them as seen via UserTracker so the in-channel
      * first-timer block doesn't fire on top of it later.
      *
      * @param  array{user?: string, tab?: string}  $event
@@ -191,7 +188,7 @@ class SlackWebhookController extends Controller
     {
         $userId = (string) ($event['user'] ?? '');
 
-        if ($userId === '' || ! SlackUserTracker::markSeen($userId)) {
+        if ($userId === '' || ! UserTracker::markSeen($userId)) {
             return response()->json(['ok' => true]);
         }
 
@@ -271,8 +268,8 @@ class SlackWebhookController extends Controller
             ->post('https://slack.com/api/chat.postMessage', [
                 'channel' => $channel,
                 'thread_ts' => $threadTs,
-                'text' => SlackHelpCard::fallbackText(),
-                'blocks' => SlackHelpCard::blocks(),
+                'text' => HelpCard::fallbackText(),
+                'blocks' => HelpCard::blocks(),
             ]);
     }
 

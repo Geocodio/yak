@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Webhooks;
+namespace App\Channels\Slack;
 
 use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
@@ -9,7 +9,6 @@ use App\Jobs\ClarificationReplyJob;
 use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
-use App\Support\SlackBlockFormatter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,7 +20,7 @@ use Illuminate\Http\Request;
  * selected option as the reply text, so the flow reaches Claude
  * identically to a thread-reply answer.
  */
-class SlackInteractiveWebhookController extends Controller
+class InteractiveWebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
@@ -44,7 +43,7 @@ class SlackInteractiveWebhookController extends Controller
         }
 
         $actionId = (string) ($action['action_id'] ?? '');
-        if (! str_starts_with($actionId, SlackBlockFormatter::CLARIFY_ACTION_ID)) {
+        if (! str_starts_with($actionId, BlockFormatter::CLARIFY_ACTION_ID)) {
             return response()->json(['ok' => true]);
         }
 

@@ -1,15 +1,15 @@
 <?php
 
+use App\Channels\Slack\BlockFormatter;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
-use App\Support\SlackBlockFormatter;
 
 it('builds a header section, context chips, and a View task button for acknowledgments', function () {
     $task = YakTask::factory()->create([
         'repo' => 'acme/web',
     ]);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Acknowledgment,
         'Chewing through this now! 🐃',
@@ -40,7 +40,7 @@ it('builds a header section, context chips, and a View task button for acknowled
 it('omits context chips for Progress notifications to reduce noise', function () {
     $task = YakTask::factory()->create(['repo' => 'acme/web']);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Progress,
         'Still working… ⏳',
@@ -54,7 +54,7 @@ it('omits context chips for Progress notifications to reduce noise', function ()
 it('omits context chips for Clarification because the message already carries the options', function () {
     $task = YakTask::factory()->create(['repo' => 'acme/web']);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Clarification,
         'Need input: option a or option b? ❓',
@@ -71,7 +71,7 @@ it('adds a View PR button when the task has a PR URL', function () {
         'pr_url' => 'https://github.com/acme/web/pull/42',
     ]);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Result,
         'PR opened — hooves up! ✅',
@@ -89,7 +89,7 @@ it('uses primary button style for Acknowledgment and Result only', function () {
     $task = YakTask::factory()->create();
 
     foreach (NotificationType::cases() as $type) {
-        $blocks = SlackBlockFormatter::blocks(
+        $blocks = BlockFormatter::blocks(
             $task,
             $type,
             'msg',
@@ -109,12 +109,12 @@ it('uses primary button style for Acknowledgment and Result only', function () {
 });
 
 it('converts markdown bold and links to Slack mrkdwn', function () {
-    expect(SlackBlockFormatter::mrkdwn('**bold** and [link](https://example.com)'))
+    expect(BlockFormatter::mrkdwn('**bold** and [link](https://example.com)'))
         ->toBe('*bold* and <https://example.com|link>');
 });
 
 it('produces a fallback text suitable for Slack notification previews', function () {
-    expect(SlackBlockFormatter::fallbackText('**Done!** [PR](https://github.com/a/b/pull/1)'))
+    expect(BlockFormatter::fallbackText('**Done!** [PR](https://github.com/a/b/pull/1)'))
         ->toBe('*Done!* <https://github.com/a/b/pull/1|PR>');
 });
 
@@ -123,7 +123,7 @@ it('renders one button per clarification option', function () {
         'clarification_options' => ['acme/api', 'acme/web', 'acme/worker'],
     ]);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Clarification,
         'Which repo should I work in?',
@@ -145,7 +145,7 @@ it('renders one button per clarification option', function () {
 it('skips clarification option buttons when the task has no options', function () {
     $task = YakTask::factory()->create(['clarification_options' => null]);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Clarification,
         'Hmm?',
@@ -160,7 +160,7 @@ it('skips clarification buttons on non-Clarification notification types', functi
         'clarification_options' => ['a', 'b'],
     ]);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Progress,
         'working',
@@ -174,7 +174,7 @@ it('truncates long option labels to fit Slack\'s 75-char button limit', function
     $long = str_repeat('x', 100);
     $task = YakTask::factory()->create(['clarification_options' => [$long]]);
 
-    $blocks = SlackBlockFormatter::blocks(
+    $blocks = BlockFormatter::blocks(
         $task,
         NotificationType::Clarification,
         'Pick one',

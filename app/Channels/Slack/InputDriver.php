@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\Slack;
 
-use App\Channels\Contracts\InputDriver;
+use App\Channels\Contracts\InputDriver as InputDriverContract;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\TaskMode;
 use App\Models\YakTask;
@@ -10,7 +10,7 @@ use App\Services\TaskIntentClassification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-class SlackInputDriver implements InputDriver
+class InputDriver implements InputDriverContract
 {
     /**
      * Parse a Slack app_mention event into a normalized task description.

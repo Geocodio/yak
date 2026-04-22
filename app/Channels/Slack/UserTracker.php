@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Support;
+namespace App\Channels\Slack;
 
 use Illuminate\Support\Facades\Cache;
 
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
  * show the first-timer intro block once. Cache-backed so there's no
  * schema change — intro is a transient nudge, not a durable fact.
  */
-class SlackUserTracker
+class UserTracker
 {
     /** Year TTL — long enough that "has this user ever seen Yak" doesn't re-fire for normal users. */
     private const CACHE_TTL_SECONDS = 60 * 60 * 24 * 365;

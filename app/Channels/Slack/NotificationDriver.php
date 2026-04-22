@@ -1,15 +1,13 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\Slack;
 
-use App\Channels\Contracts\NotificationDriver;
+use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
-use App\Support\SlackBlockFormatter;
-use App\Support\SlackUserTracker;
 use Illuminate\Support\Facades\Http;
 
-class SlackNotificationDriver implements NotificationDriver
+class NotificationDriver implements NotificationDriverContract
 {
     /**
      * Maps notification types to the emoji reaction we apply on the
@@ -40,20 +38,20 @@ class SlackNotificationDriver implements NotificationDriver
         $personalizedMessage = $this->prependMention($task, $type, $message);
 
         // Show the first-time intro once per Slack user, only on the
-        // initial acknowledgment — SlackUserTracker::markSeen returns
+        // initial acknowledgment — UserTracker::markSeen returns
         // true on the very first call per user, false thereafter.
         $firstTimeIntro = $type === NotificationType::Acknowledgment
             && $task->slack_user_id
-            && SlackUserTracker::markSeen((string) $task->slack_user_id);
+            && UserTracker::markSeen((string) $task->slack_user_id);
 
-        $blocks = SlackBlockFormatter::blocks(
+        $blocks = BlockFormatter::blocks(
             $task,
             $type,
             $personalizedMessage,
             $dashboardUrl,
             firstTimeIntro: $firstTimeIntro,
         );
-        $fallbackText = SlackBlockFormatter::fallbackText($personalizedMessage);
+        $fallbackText = BlockFormatter::fallbackText($personalizedMessage);
 
         Http::withToken($token)
             ->post('https://slack.com/api/chat.postMessage', [
