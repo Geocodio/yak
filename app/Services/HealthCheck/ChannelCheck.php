@@ -1,10 +1,7 @@
 <?php
 
-namespace App\Services\HealthCheck\Channel;
+namespace App\Services\HealthCheck;
 
-use App\Services\HealthCheck\HealthCheck;
-use App\Services\HealthCheck\HealthResult;
-use App\Services\HealthCheck\HealthSection;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 

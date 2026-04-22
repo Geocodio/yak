@@ -2,7 +2,7 @@
 
 namespace App\Channels\Slack;
 
-use App\Services\HealthCheck\Channel\ChannelCheck;
+use App\Services\HealthCheck\ChannelCheck;
 use App\Services\HealthCheck\HealthResult;
 use Illuminate\Support\Facades\Http;
 

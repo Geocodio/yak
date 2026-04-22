@@ -3,22 +3,16 @@
 namespace App\Services\HealthCheck;
 
 use App\Channels\ChannelRegistry;
-use App\Channels\Drone\HealthCheck as DroneChannelCheck;
-use App\Channels\GitHub\HealthCheck as GitHubChannelCheck;
-use App\Channels\Linear\HealthCheck as LinearChannelCheck;
-use App\Channels\Sentry\HealthCheck as SentryChannelCheck;
-use App\Channels\Slack\HealthCheck as SlackChannelCheck;
 use InvalidArgumentException;
 
 class Registry
 {
     /**
-     * Ordered list of every check we know about. System checks always run;
-     * channel checks only appear when the channel is enabled.
+     * System-level checks. Channel checks now come from ChannelRegistry.
      *
      * @var array<string, class-string<HealthCheck>>
      */
-    private const CHECKS = [
+    private const SYSTEM_CHECKS = [
         'queue-worker' => QueueWorkerCheck::class,
         'last-task-completed' => LastTaskCompletedCheck::class,
         'incus-daemon' => IncusDaemonCheck::class,
@@ -27,16 +21,11 @@ class Registry
         'claude-auth' => ClaudeAuthCheck::class,
         'repositories' => RepositoriesCheck::class,
         'webhook-signatures' => WebhookSignaturesCheck::class,
-        'slack' => SlackChannelCheck::class,
-        'linear' => LinearChannelCheck::class,
-        'sentry' => SentryChannelCheck::class,
-        'github' => GitHubChannelCheck::class,
-        'drone' => DroneChannelCheck::class,
     ];
 
-    /**
-     * @return list<HealthCheck>
-     */
+    public function __construct(private readonly ChannelRegistry $channels) {}
+
+    /** @return list<HealthCheck> */
     public function all(): array
     {
         return array_merge(
@@ -45,25 +34,18 @@ class Registry
         );
     }
 
-    /**
-     * @return list<HealthCheck>
-     */
+    /** @return list<HealthCheck> */
     public function forSection(HealthSection $section): array
     {
+        if ($section === HealthSection::System) {
+            return array_values(array_map(fn (string $class): HealthCheck => app($class), self::SYSTEM_CHECKS));
+        }
+
         $checks = [];
-
-        foreach (self::CHECKS as $id => $class) {
-            $check = app($class);
-
-            if ($check->section() !== $section) {
-                continue;
+        foreach ($this->channels->enabled() as $channel) {
+            foreach ($channel->healthChecks() as $check) {
+                $checks[] = $check;
             }
-
-            if ($section === HealthSection::Channels && ! (app(ChannelRegistry::class)->for($id)?->enabled() ?? false)) {
-                continue;
-            }
-
-            $checks[] = $check;
         }
 
         return $checks;
@@ -71,11 +53,19 @@ class Registry
 
     public function get(string $id): HealthCheck
     {
-        if (! isset(self::CHECKS[$id])) {
-            throw new InvalidArgumentException("Unknown health check: {$id}");
+        if (isset(self::SYSTEM_CHECKS[$id])) {
+            return app(self::SYSTEM_CHECKS[$id]);
         }
 
-        return app(self::CHECKS[$id]);
+        $channel = $this->channels->for($id);
+        if ($channel !== null) {
+            $checks = $channel->healthChecks();
+            if ($checks !== []) {
+                return $checks[0];
+            }
+        }
+
+        throw new InvalidArgumentException("Unknown health check: {$id}");
     }
 
     public function nameFor(string $id): string
@@ -83,11 +73,12 @@ class Registry
         return $this->get($id)->name();
     }
 
-    /**
-     * @return list<string>
-     */
+    /** @return list<string> */
     public function ids(): array
     {
-        return array_keys(self::CHECKS);
+        return array_merge(
+            array_keys(self::SYSTEM_CHECKS),
+            array_keys($this->channels->all()),
+        );
     }
 }
