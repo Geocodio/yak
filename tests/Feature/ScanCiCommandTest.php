@@ -1,6 +1,6 @@
 <?php
 
-use App\Contracts\CIBuildScanner;
+use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;

@@ -2,7 +2,7 @@
 
 namespace App\Drivers;
 
-use App\Contracts\InputDriver;
+use App\Channels\Contracts\InputDriver;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\TaskMode;
 use App\Models\YakTask;

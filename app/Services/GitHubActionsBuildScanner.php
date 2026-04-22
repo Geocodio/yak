@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Contracts\CIBuildScanner;
+use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Models\Repository;
 use Illuminate\Support\Collection;

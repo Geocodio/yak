@@ -1,8 +1,8 @@
 <?php
 
-use App\Contracts\CIDriver;
-use App\Contracts\InputDriver;
-use App\Contracts\NotificationDriver;
+use App\Channels\Contracts\CIDriver;
+use App\Channels\Contracts\InputDriver;
+use App\Channels\Contracts\NotificationDriver;
 use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\NotificationType;

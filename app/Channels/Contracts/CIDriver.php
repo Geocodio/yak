@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Contracts;
+namespace App\Channels\Contracts;
 
 use App\DataTransferObjects\BuildResult;
 use Illuminate\Http\Request;

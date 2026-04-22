@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Contracts\CIBuildScanner;
+use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
 use App\Jobs\RunYakJob;

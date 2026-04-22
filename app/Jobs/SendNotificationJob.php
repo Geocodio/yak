@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Channel;
-use App\Contracts\NotificationDriver;
+use App\Channels\Contracts\NotificationDriver;
 use App\Drivers\GitHubNotificationDriver;
 use App\Drivers\LinearNotificationDriver;
 use App\Drivers\SlackNotificationDriver;

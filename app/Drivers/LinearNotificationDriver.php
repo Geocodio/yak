@@ -2,7 +2,7 @@
 
 namespace App\Drivers;
 
-use App\Contracts\NotificationDriver;
+use App\Channels\Contracts\NotificationDriver;
 use App\Enums\NotificationType;
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
