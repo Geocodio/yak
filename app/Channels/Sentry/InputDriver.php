@@ -1,15 +1,15 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\Sentry;
 
-use App\Channels\Contracts\InputDriver;
+use App\Channels\Contracts\InputDriver as InputDriverContract;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\TaskMode;
 use App\Models\Repository;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-class SentryInputDriver implements InputDriver
+class InputDriver implements InputDriverContract
 {
     /**
      * Parse a Sentry webhook issue alert event into a normalized task description.

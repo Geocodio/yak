@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Drone\DroneChannel;
+use App\Channels\Sentry\SentryChannel;
 
 return [
 
@@ -207,6 +208,7 @@ return [
 
     'channel_classes' => [
         DroneChannel::class,
+        SentryChannel::class,
     ],
 
     /*

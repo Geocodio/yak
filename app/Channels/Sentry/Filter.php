@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\Sentry;
 
-class SentryFilter
+class Filter
 {
     /**
      * CSP directive keywords that indicate a Content Security Policy violation.

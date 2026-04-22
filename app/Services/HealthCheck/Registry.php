@@ -4,9 +4,9 @@ namespace App\Services\HealthCheck;
 
 use App\Channel;
 use App\Channels\Drone\HealthCheck as DroneChannelCheck;
+use App\Channels\Sentry\HealthCheck as SentryChannelCheck;
 use App\Services\HealthCheck\Channel\GitHubChannelCheck;
 use App\Services\HealthCheck\Channel\LinearChannelCheck;
-use App\Services\HealthCheck\Channel\SentryChannelCheck;
 use App\Services\HealthCheck\Channel\SlackChannelCheck;
 use InvalidArgumentException;
 

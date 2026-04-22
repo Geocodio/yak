@@ -1,9 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Webhooks;
+namespace App\Channels\Sentry;
 
-use App\Drivers\SentryFilter;
-use App\Drivers\SentryInputDriver;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
@@ -13,7 +11,7 @@ use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SentryWebhookController extends Controller
+class WebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
@@ -44,7 +42,7 @@ class SentryWebhookController extends Controller
         $hasPriorityTag = in_array('yak-priority', $tags, true);
 
         // Apply filtering rules
-        $rejection = SentryFilter::rejectionReason(
+        $rejection = Filter::rejectionReason(
             culprit: (string) ($issue['culprit'] ?? ''),
             title: (string) ($issue['title'] ?? ''),
             actionability: (string) ($issue['seerActionability'] ?? 'not_actionable'),
@@ -59,7 +57,7 @@ class SentryWebhookController extends Controller
         }
 
         // Parse the payload into a task description
-        $driver = new SentryInputDriver;
+        $driver = new InputDriver;
         $description = $driver->parse($request);
 
         $detector = new RepoDetector;

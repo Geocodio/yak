@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Services\HealthCheck\Channel;
+namespace App\Channels\Sentry;
 
+use App\Services\HealthCheck\Channel\ChannelCheck;
 use App\Services\HealthCheck\HealthResult;
 use Illuminate\Support\Facades\Http;
 
-class SentryChannelCheck extends ChannelCheck
+class HealthCheck extends ChannelCheck
 {
     public function id(): string
     {

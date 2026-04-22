@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\Sentry;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class SentryService
+class Service
 {
     /**
      * @return array<int, array{slug: string, name: string}>

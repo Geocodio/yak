@@ -1,6 +1,6 @@
 <?php
 
-use App\Drivers\SentryFilter;
+use App\Channels\Sentry\Filter as SentryFilter;
 
 /*
 |--------------------------------------------------------------------------

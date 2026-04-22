@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\HealthCheck\Channel\SentryChannelCheck;
+use App\Channels\Sentry\HealthCheck as SentryChannelCheck;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Http;
 
