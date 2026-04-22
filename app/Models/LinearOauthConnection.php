@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
+use App\Channels\Linear\OAuthService as LinearOAuthService;
 use App\Exceptions\LinearOAuthRefreshFailedException;
-use App\Services\LinearOAuthService;
 use Database\Factories\LinearOauthConnectionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

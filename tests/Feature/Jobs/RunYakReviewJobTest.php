@@ -1,5 +1,7 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
@@ -9,9 +11,7 @@ use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
-use App\Services\LinearIssueFetcher;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {

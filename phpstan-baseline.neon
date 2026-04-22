@@ -4,37 +4,37 @@ parameters:
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
-			path: app/Http/Controllers/Webhooks/LinearWebhookController.php
+			path: app/Channels/Linear/WebhookController.php
 
 		-
 			message: '#^Cannot cast array\<mixed\>\|string to string\.$#'
 			identifier: cast.string
 			count: 1
-			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+			path: app/Channels/Slack/InteractiveWebhookController.php
 
 		-
 			message: '#^Result of \|\| is always true\.$#'
 			identifier: booleanOr.alwaysTrue
 			count: 1
-			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+			path: app/Channels/Slack/InteractiveWebhookController.php
 
 		-
 			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\TaskStatus\:\:AwaitingClarification will always evaluate to true\.$#'
 			identifier: notIdentical.alwaysTrue
 			count: 1
-			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+			path: app/Channels/Slack/InteractiveWebhookController.php
 
 		-
 			message: '#^Unreachable statement \- code above always terminates\.$#'
 			identifier: deadCode.unreachable
 			count: 1
-			path: app/Http/Controllers/Webhooks/SlackInteractiveWebhookController.php
+			path: app/Channels/Slack/InteractiveWebhookController.php
 
 		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
-			path: app/Http/Controllers/Webhooks/SlackWebhookController.php
+			path: app/Channels/Slack/WebhookController.php
 
 		-
 			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
@@ -340,7 +340,7 @@ parameters:
 			message: '#^Call to function is_array\(\) with array\{name\?\: string\} will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
-			path: app/Services/LinearIssueFetcher.php
+			path: app/Channels/Linear/IssueFetcher.php
 
 		-
 			message: '#^Binary operation "\^" between string\|false and string\|false results in an error\.$#'
@@ -364,16 +364,16 @@ parameters:
 			message: '#^Cannot access property \$value on string\.$#'
 			identifier: property.nonObject
 			count: 1
-			path: app/Support/SlackBlockFormatter.php
+			path: app/Channels/Slack/BlockFormatter.php
 
 		-
-			message: '#^Method App\\Support\\SlackBlockFormatter\:\:contextChips\(\) never returns null so it can be removed from the return type\.$#'
+			message: '#^Method App\\Channels\\Slack\\BlockFormatter\:\:contextChips\(\) never returns null so it can be removed from the return type\.$#'
 			identifier: return.unusedType
 			count: 1
-			path: app/Support/SlackBlockFormatter.php
+			path: app/Channels/Slack/BlockFormatter.php
 
 		-
 			message: '#^Strict comparison using \=\=\= between list\{0\: non\-falsy\-string, 1\?\: non\-falsy\-string, 2\?\: non\-falsy\-string\} and array\{\} will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
-			path: app/Support/SlackBlockFormatter.php
+			path: app/Channels/Slack/BlockFormatter.php

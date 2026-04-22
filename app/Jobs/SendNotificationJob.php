@@ -2,11 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Channel;
-use App\Contracts\NotificationDriver;
-use App\Drivers\GitHubNotificationDriver;
-use App\Drivers\LinearNotificationDriver;
-use App\Drivers\SlackNotificationDriver;
+use App\Channels\ChannelRegistry;
+use App\Channels\Contracts\NotificationDriver;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
 use App\Services\YakPersonality;
@@ -41,12 +38,12 @@ class SendNotificationJob implements ShouldQueue
         ]);
     }
 
-    public function handle(): void
+    public function handle(ChannelRegistry $registry): void
     {
         TaskContext::set($this->task);
 
         try {
-            $driver = $this->resolveDriver();
+            $driver = $this->resolveDriver($registry);
 
             if ($driver === null) {
                 return;
@@ -59,39 +56,24 @@ class SendNotificationJob implements ShouldQueue
         }
     }
 
-    private function resolveDriver(): ?NotificationDriver
+    private function resolveDriver(ChannelRegistry $registry): ?NotificationDriver
     {
         $source = (string) $this->task->source;
+        $sourceChannel = $registry->for($source);
 
-        $driver = $this->driverForSource($source);
+        if ($sourceChannel !== null && $sourceChannel->enabled()) {
+            $driver = $sourceChannel->notificationDriver();
 
-        if ($driver !== null && $this->isSourceChannelEnabled($source)) {
-            return $driver;
+            if ($driver !== null) {
+                return $driver;
+            }
         }
 
-        return $this->fallbackDriver();
-    }
-
-    private function driverForSource(string $source): ?NotificationDriver
-    {
-        return match ($source) {
-            'slack' => new SlackNotificationDriver,
-            'linear' => new LinearNotificationDriver,
-            default => null,
-        };
-    }
-
-    private function isSourceChannelEnabled(string $source): bool
-    {
-        return (new Channel($source))->enabled();
-    }
-
-    private function fallbackDriver(): ?NotificationDriver
-    {
+        // Fallback: if the task has an open PR, notify via GitHub.
         if ($this->task->pr_url === null) {
             return null;
         }
 
-        return app(GitHubNotificationDriver::class);
+        return $registry->for('github')?->notificationDriver();
     }
 }

@@ -1,16 +1,16 @@
 <?php
 
-use App\Contracts\CIDriver;
-use App\Contracts\InputDriver;
-use App\Contracts\NotificationDriver;
+use App\Channels\Contracts\CIDriver;
+use App\Channels\Contracts\InputDriver;
+use App\Channels\Contracts\NotificationDriver;
+use App\Channels\GitHub\WebhookController as GitHubWebhookController;
+use App\Channels\Linear\WebhookController as LinearWebhookController;
+use App\Channels\Sentry\WebhookController as SentryWebhookController;
+use App\Channels\Slack\WebhookController as SlackWebhookController;
 use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
-use App\Http\Controllers\Webhooks\GitHubWebhookController;
-use App\Http\Controllers\Webhooks\LinearWebhookController;
-use App\Http\Controllers\Webhooks\SentryWebhookController;
-use App\Http\Controllers\Webhooks\SlackWebhookController;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Http\Request;
@@ -234,7 +234,16 @@ test('all webhook controllers use VerifiesWebhookSignature trait', function () {
 |--------------------------------------------------------------------------
 */
 
-test('GitHub webhook route is always registered', function () {
+test('GitHub webhook route is registered when credentials are configured', function () {
+    config()->set('yak.channels.github', [
+        'app_id' => '123',
+        'private_key' => 'key',
+        'webhook_secret' => 'secret',
+    ]);
+
+    $provider = new ChannelServiceProvider($this->app);
+    $provider->boot();
+
     $this->post('/webhooks/github')->assertStatus(403);
 });
 

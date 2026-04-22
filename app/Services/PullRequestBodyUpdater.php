@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
+
 /**
  * Edits an existing PR's body on GitHub to swap the video walkthrough link
  * for the rendered reviewer-cut mp4 once the Remotion pipeline finishes.

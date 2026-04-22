@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Tasks;
 
-use App\Channel;
+use App\Channels\ChannelRegistry;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
@@ -113,8 +113,9 @@ class TaskList extends Component
     public function setupChecklist(): array
     {
         $anyRepo = Repository::count() > 0;
+        $registry = app(ChannelRegistry::class);
         $anyChannelEnabled = collect(['slack', 'linear', 'sentry', 'github', 'drone'])
-            ->contains(fn (string $channel) => (new Channel($channel))->enabled());
+            ->contains(fn (string $channel) => $registry->for($channel)?->enabled() ?? false);
         $anyTask = YakTask::count() > 0;
 
         return [

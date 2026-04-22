@@ -6,12 +6,18 @@ use Illuminate\Support\Facades\Cache;
 
 class WebhookSignaturesCheck implements HealthCheck
 {
-    /** @var list<string> */
-    private const CONTROLLERS = [
-        'SlackWebhookController',
-        'LinearWebhookController',
-        'SentryWebhookController',
-        'GitHubWebhookController',
+    /**
+     * Channel keys whose webhook controllers call VerifiesWebhookSignature.
+     * Each entry is the lowercase channel name (matches the key the trait
+     * writes under) paired with a display label.
+     *
+     * @var array<string, string>
+     */
+    private const CHANNELS = [
+        'slack' => 'Slack',
+        'linear' => 'Linear',
+        'sentry' => 'Sentry',
+        'github' => 'GitHub',
     ];
 
     public function id(): string
@@ -33,11 +39,10 @@ class WebhookSignaturesCheck implements HealthCheck
     {
         $failures = [];
 
-        foreach (self::CONTROLLERS as $controller) {
-            $count = (int) Cache::get("webhook-signature-failures:{$controller}", 0);
+        foreach (self::CHANNELS as $key => $label) {
+            $count = (int) Cache::get("webhook-signature-failures:{$key}", 0);
             if ($count > 0) {
-                $name = str_replace('WebhookController', '', $controller);
-                $failures[] = "{$name} ({$count})";
+                $failures[] = "{$label} ({$count})";
             }
         }
 

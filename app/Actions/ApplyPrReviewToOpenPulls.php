@@ -2,8 +2,8 @@
 
 namespace App\Actions;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Models\Repository;
-use App\Services\GitHubAppService;
 
 class ApplyPrReviewToOpenPulls
 {

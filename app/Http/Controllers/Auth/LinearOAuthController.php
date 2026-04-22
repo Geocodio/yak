@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Channels\Linear\OAuthService as LinearOAuthService;
 use App\Http\Controllers\Controller;
-use App\Services\LinearOAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;

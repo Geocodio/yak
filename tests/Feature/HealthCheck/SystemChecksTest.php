@@ -73,8 +73,8 @@ it('webhook signatures check passes when no failures', function () {
 });
 
 it('webhook signatures check reports rejected webhooks', function () {
-    Cache::put('webhook-signature-failures:LinearWebhookController', 3);
-    Cache::put('webhook-signature-failures:SlackWebhookController', 1);
+    Cache::put('webhook-signature-failures:linear', 3);
+    Cache::put('webhook-signature-failures:slack', 1);
 
     $result = (new WebhookSignaturesCheck)->run();
 

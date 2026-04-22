@@ -3,11 +3,11 @@
 namespace App\Livewire;
 
 use App\Actions\EnqueuePrReview;
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;

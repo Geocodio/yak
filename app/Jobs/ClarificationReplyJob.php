@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -16,7 +17,6 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
-use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;

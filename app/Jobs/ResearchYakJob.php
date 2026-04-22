@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
-use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;

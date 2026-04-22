@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -8,7 +9,6 @@ use App\Jobs\RenderVideoJob;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Queue;

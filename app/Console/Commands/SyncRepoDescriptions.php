@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Models\Repository;
-use App\Services\GitHubAppService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;

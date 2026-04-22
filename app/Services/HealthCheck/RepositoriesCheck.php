@@ -2,8 +2,8 @@
 
 namespace App\Services\HealthCheck;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Models\Repository;
-use App\Services\GitHubAppService;
 use Illuminate\Support\Facades\Http;
 
 /**

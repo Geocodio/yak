@@ -1,5 +1,11 @@
 <?php
 
+use App\Channels\Drone\DroneChannel;
+use App\Channels\GitHub\GitHubChannel;
+use App\Channels\Linear\LinearChannel;
+use App\Channels\Sentry\SentryChannel;
+use App\Channels\Slack\SlackChannel;
+
 return [
 
     /*
@@ -188,6 +194,27 @@ return [
             'app_bot_login' => env('GITHUB_APP_BOT_LOGIN', 'yak-bot[bot]'),
         ],
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Channel Classes
+    |--------------------------------------------------------------------------
+    |
+    | Fully-qualified class names of channel entry classes. Each must
+    | implement App\Channels\Channel. Populated incrementally as each
+    | channel is migrated into app/Channels/{Name}/. Until a channel
+    | appears here, ChannelServiceProvider still uses the legacy
+    | hardcoded controller map for that channel's webhook routes.
+    |
+    */
+
+    'channel_classes' => [
+        GitHubChannel::class,   // always-on
+        DroneChannel::class,
+        SentryChannel::class,
+        LinearChannel::class,
+        SlackChannel::class,
     ],
 
     /*

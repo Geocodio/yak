@@ -1,6 +1,6 @@
 <?php
 
-use App\Jobs\PollPullRequestReactionsJob;
+use App\Channels\GitHub\PollPullRequestReactionsJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;

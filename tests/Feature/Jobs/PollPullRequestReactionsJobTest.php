@@ -1,10 +1,10 @@
 <?php
 
-use App\Jobs\PollPullRequestReactionsJob;
+use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Channels\GitHub\PollPullRequestReactionsJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\PrReviewCommentReaction;
-use App\Services\GitHubAppService;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 12345);
