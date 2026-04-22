@@ -192,6 +192,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Channel Classes
+    |--------------------------------------------------------------------------
+    |
+    | Fully-qualified class names of channel entry classes. Each must
+    | implement App\Channels\Channel. Populated incrementally as each
+    | channel is migrated into app/Channels/{Name}/. Until a channel
+    | appears here, ChannelServiceProvider still uses the legacy
+    | hardcoded controller map for that channel's webhook routes.
+    |
+    */
+
+    'channel_classes' => [
+        // Filled in as each channel migrates — see Phases 1–5.
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | PR Review Configuration
     |--------------------------------------------------------------------------
     */
