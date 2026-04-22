@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\GitHub;
 
 use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
@@ -8,10 +8,10 @@ use App\Models\Repository;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
-class GitHubActionsBuildScanner implements CIBuildScanner
+class ActionsBuildScanner implements CIBuildScanner
 {
     public function __construct(
-        private readonly GitHubAppService $gitHubAppService,
+        private readonly AppService $gitHubAppService,
     ) {}
 
     /**

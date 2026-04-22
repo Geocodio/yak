@@ -1,8 +1,8 @@
 <?php
 
+use App\Channels\GitHub\NotificationDriver as GitHubNotificationDriver;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
-use App\Drivers\GitHubNotificationDriver;
 use App\Enums\NotificationType;
 use App\Jobs\SendNotificationJob;
 use App\Models\GitHubInstallationToken;
@@ -546,7 +546,7 @@ it('SendNotificationJob routes to Slack driver for Slack tasks', function () {
     ]);
 
     $job = new SendNotificationJob($task, NotificationType::Progress, 'fix pushed, waiting on CI');
-    $job->handle();
+    app()->call([$job, 'handle']);
 
     assertSlackThreadReply('C_JOB_TEST', '9999999999.999999', 'fix pushed, waiting on CI');  // Personality fallback interpolates context
 });
@@ -567,7 +567,7 @@ it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
     ]);
 
     $job = new SendNotificationJob($task, NotificationType::Acknowledgment, 'On it.');
-    $job->handle();
+    app()->call([$job, 'handle']);
 
     assertLinearActivity('On it — On it.');  // Personality fallback interpolates context
 });
@@ -597,7 +597,7 @@ it('SendNotificationJob falls back to GitHub PR comment when source channel is d
     ]);
 
     $job = new SendNotificationJob($task, NotificationType::Result, 'PR merged');
-    $job->handle();
+    app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
         return str_contains($request->url(), 'repos/org/repo/issues/55/comments')
@@ -620,7 +620,7 @@ it('SendNotificationJob sends nothing when source disabled and no PR URL', funct
     ]);
 
     $job = new SendNotificationJob($task, NotificationType::Progress, 'no route');
-    $job->handle();
+    app()->call([$job, 'handle']);
 
     Http::assertNothingSent();
 });
@@ -643,7 +643,7 @@ it('SendNotificationJob falls back for non-Slack/Linear sources with PR', functi
     ]);
 
     $job = new SendNotificationJob($task, NotificationType::Result, 'Fix applied');
-    $job->handle();
+    app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
         return str_contains($request->url(), 'repos/org/sentry-repo/issues/7/comments');

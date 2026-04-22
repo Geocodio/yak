@@ -4,11 +4,18 @@ use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Bus;
 
 beforeEach(function () {
-    config()->set('yak.channels.github.webhook_secret', 'secret');
-    config()->set('yak.channels.github.app_bot_login', 'yak-bot[bot]');
+    config()->set('yak.channels.github', [
+        'app_id' => '123',
+        'private_key' => 'key',
+        'webhook_secret' => 'secret',
+        'app_bot_login' => 'yak-bot[bot]',
+    ]);
+
+    (new ChannelServiceProvider(app()))->boot();
 });
 
 function signGhPayload(string $payload): string

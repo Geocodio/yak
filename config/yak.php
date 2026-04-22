@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Drone\DroneChannel;
+use App\Channels\GitHub\GitHubChannel;
 use App\Channels\Linear\LinearChannel;
 use App\Channels\Sentry\SentryChannel;
 use App\Channels\Slack\SlackChannel;
@@ -209,6 +210,7 @@ return [
     */
 
     'channel_classes' => [
+        GitHubChannel::class,   // always-on
         DroneChannel::class,
         SentryChannel::class,
         LinearChannel::class,

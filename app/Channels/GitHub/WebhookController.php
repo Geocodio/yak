@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Webhooks;
+namespace App\Channels\GitHub;
 
 use App\Actions\EnqueuePrReview;
 use App\Http\Concerns\VerifiesWebhookSignature;
@@ -9,15 +9,14 @@ use App\Jobs\ProcessCIResultJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class GitHubWebhookController extends Controller
+class WebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
-    public function __invoke(Request $request, GitHubAppService $github): JsonResponse
+    public function __invoke(Request $request, AppService $github): JsonResponse
     {
         $this->verifyWebhookSignature(
             $request,
@@ -59,7 +58,7 @@ class GitHubWebhookController extends Controller
         return response()->json(['ok' => true, 'skipped' => "unhandled action: {$action}"]);
     }
 
-    private function handleCheckSuite(Request $request, GitHubAppService $github): JsonResponse
+    private function handleCheckSuite(Request $request, AppService $github): JsonResponse
     {
         if ($request->input('action') !== 'completed') {
             return response()->json(['ok' => true, 'skipped' => 'not a check_suite.completed event']);
@@ -155,7 +154,7 @@ class GitHubWebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'draft PR']);
         }
 
-        if ((string) ($pr['user']['login'] ?? '') === app(GitHubAppService::class)->appBotLogin()) {
+        if ((string) ($pr['user']['login'] ?? '') === app(AppService::class)->appBotLogin()) {
             return response()->json(['ok' => true, 'skipped' => 'yak-authored PR']);
         }
 

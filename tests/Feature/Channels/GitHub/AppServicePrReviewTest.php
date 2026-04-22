@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\GitHubAppService;
+use App\Channels\GitHub\AppService as GitHubAppService;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {

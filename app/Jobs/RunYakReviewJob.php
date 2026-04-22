@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\IdentifierExtractor as LinearIdentifierExtractor;
 use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
@@ -19,7 +20,6 @@ use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;

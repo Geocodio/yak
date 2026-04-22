@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakReviewJob;
@@ -8,7 +9,6 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Illuminate\Support\Facades\Bus;
 use Livewire\Livewire;
 

@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\GitHub;
 
 use App\Models\GitHubInstallationToken;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-class GitHubAppService
+class AppService
 {
     private const TOKEN_BUFFER_SECONDS = 300;
 

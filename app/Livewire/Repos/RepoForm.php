@@ -3,12 +3,12 @@
 namespace App\Livewire\Repos;
 
 use App\Actions\ApplyPrReviewToOpenPulls;
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Sentry\Service as SentryService;
 use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;

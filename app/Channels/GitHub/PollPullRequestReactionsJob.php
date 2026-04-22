@@ -1,10 +1,9 @@
 <?php
 
-namespace App\Jobs;
+namespace App\Channels\GitHub;
 
 use App\Models\PrReviewComment;
 use App\Models\PrReviewCommentReaction;
-use App\Services\GitHubAppService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +19,7 @@ class PollPullRequestReactionsJob implements ShouldQueue
         $this->onQueue('yak-poll');
     }
 
-    public function handle(GitHubAppService $github): void
+    public function handle(AppService $github): void
     {
         $windowDays = (int) config('yak.pr_review.reaction_poll_window_days', 30);
         $installationId = (int) config('yak.channels.github.installation_id');
@@ -48,7 +47,7 @@ class PollPullRequestReactionsJob implements ShouldQueue
         });
     }
 
-    private function pollOne(GitHubAppService $github, int $installationId, PrReviewComment $comment): void
+    private function pollOne(AppService $github, int $installationId, PrReviewComment $comment): void
     {
         $review = $comment->review;
         if ($review === null) {

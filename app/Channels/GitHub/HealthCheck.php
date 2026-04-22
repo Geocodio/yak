@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Services\HealthCheck\Channel;
+namespace App\Channels\GitHub;
 
-use App\Services\GitHubAppService;
+use App\Services\HealthCheck\Channel\ChannelCheck;
 use App\Services\HealthCheck\HealthResult;
 use Illuminate\Support\Facades\Http;
 
-class GitHubChannelCheck extends ChannelCheck
+class HealthCheck extends ChannelCheck
 {
-    public function __construct(private readonly GitHubAppService $gitHubAppService) {}
+    public function __construct(private readonly AppService $gitHubAppService) {}
 
     public function id(): string
     {

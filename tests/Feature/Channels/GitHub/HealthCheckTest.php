@@ -1,7 +1,7 @@
 <?php
 
+use App\Channels\GitHub\HealthCheck as GitHubChannelCheck;
 use App\Models\GitHubInstallationToken;
-use App\Services\HealthCheck\Channel\GitHubChannelCheck;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Http;
 

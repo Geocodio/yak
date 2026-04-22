@@ -1,12 +1,12 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Livewire\PrReviewForPr;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Livewire\Livewire;
 
 beforeEach(function () {

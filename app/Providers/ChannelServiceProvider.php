@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Channel;
 use App\Channels\ChannelRegistry;
-use App\Http\Controllers\Webhooks\GitHubWebhookController;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -43,9 +42,6 @@ class ChannelServiceProvider extends ServiceProvider
         $registry = $this->app->make(ChannelRegistry::class);
 
         Route::prefix('webhooks')->group(function () use ($registry): void {
-            // GitHub is always registered (required channel) until it migrates in Phase 5.
-            Route::post('github', GitHubWebhookController::class)->name('webhooks.github');
-
             // Legacy path — only for channels that have NOT migrated yet.
             $this->registerLegacyRoutes($registry);
 
@@ -53,11 +49,6 @@ class ChannelServiceProvider extends ServiceProvider
             foreach ($registry->enabled() as $channel) {
                 $channel->registerRoutes(Route::getFacadeRoot());
             }
-
-            // Legacy CI-specific route — kept for existing GitHub App installations
-            // whose webhook URL still points here. Removed in Phase 5 when GitHub
-            // migrates and takes over route registration itself.
-            Route::post('ci/github', GitHubWebhookController::class)->name('webhooks.ci.github');
         });
     }
 

@@ -4,8 +4,16 @@ use App\Jobs\ProcessCIResultJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+
+beforeEach(function () {
+    config()->set('yak.channels.github', array_merge(
+        (array) config('yak.channels.github'),
+        ['app_id' => '123', 'private_key' => 'key'],
+    ));
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -21,6 +29,11 @@ function signGitHubPayload(array $payload, string $secret): string
     return 'sha256=' . hash_hmac('sha256', json_encode($payload), $secret);
 }
 
+function bootGitHubRoutes(): void
+{
+    (new ChannelServiceProvider(app()))->boot();
+}
+
 /*
 |--------------------------------------------------------------------------
 | GitHub CI Webhook — Route Registration
@@ -29,6 +42,7 @@ function signGitHubPayload(array $payload, string $secret): string
 
 test('GitHub CI webhook route is always registered', function () {
     config()->set('yak.channels.github.webhook_secret', 'test-secret');
+    bootGitHubRoutes();
 
     // Route exists — returns 403 because no valid signature
     $this->postJson('/webhooks/ci/github')->assertStatus(403);
@@ -42,6 +56,7 @@ test('GitHub CI webhook route is always registered', function () {
 
 test('GitHub CI webhook rejects invalid signature', function () {
     config()->set('yak.channels.github.webhook_secret', 'test-secret');
+    bootGitHubRoutes();
 
     $this->postJson('/webhooks/ci/github', [], [
         'X-Hub-Signature-256' => 'sha256=invalid',
@@ -60,6 +75,7 @@ test('GitHub check_suite.completed dispatches ProcessCIResultJob', function () {
 
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubRoutes();
 
     $repo = Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -101,6 +117,7 @@ test('GitHub check_suite.completed with failure fetches check_run output from AP
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
     config()->set('yak.channels.github.installation_id', 12345);
+    bootGitHubRoutes();
 
     // Pre-populate a cached installation token so we skip JWT generation
     GitHubInstallationToken::create([
@@ -180,6 +197,7 @@ test('GitHub CI webhook ignores non-yak branches', function () {
 
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubRoutes();
 
     $payload = [
         'action' => 'completed',
@@ -213,6 +231,7 @@ test('GitHub CI webhook ignores task when repo uses different CI system', functi
 
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubRoutes();
 
     Repository::factory()->create([
         'slug' => 'org/drone-repo',

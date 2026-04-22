@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Tasks;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
@@ -18,7 +19,6 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;

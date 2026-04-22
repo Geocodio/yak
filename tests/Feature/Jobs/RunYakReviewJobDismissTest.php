@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
@@ -7,7 +8,6 @@ use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
 

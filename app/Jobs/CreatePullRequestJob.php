@@ -2,11 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use App\Services\PullRequestBodyUpdater;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;

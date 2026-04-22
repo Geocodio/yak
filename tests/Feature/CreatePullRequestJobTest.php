@@ -1,11 +1,11 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Jobs\CreatePullRequestJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 

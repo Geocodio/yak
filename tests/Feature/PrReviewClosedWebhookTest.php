@@ -3,9 +3,15 @@
 use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\YakTask;
+use App\Providers\ChannelServiceProvider;
 
 beforeEach(function () {
-    config()->set('yak.channels.github.webhook_secret', 'secret');
+    config()->set('yak.channels.github', [
+        'app_id' => '123',
+        'private_key' => 'key',
+        'webhook_secret' => 'secret',
+    ]);
+    (new ChannelServiceProvider(app()))->boot();
 });
 
 function signClosedPayload(string $payload): string

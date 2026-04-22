@@ -2,7 +2,20 @@
 
 use App\Livewire\CostDashboard;
 use App\Models\YakTask;
+use App\Providers\ChannelServiceProvider;
 use Illuminate\Testing\TestResponse;
+
+beforeEach(function () {
+    config()->set('yak.channels.github', array_merge(
+        (array) config('yak.channels.github'),
+        ['app_id' => '123', 'private_key' => 'key'],
+    ));
+});
+
+function bootGitHubPrMergeRoutes(): void
+{
+    (new ChannelServiceProvider(app()))->boot();
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -64,6 +77,7 @@ test('pr_merged_at and pr_closed_at are nullable by default', function () {
 
 test('GitHub webhook rejects invalid signature', function () {
     config()->set('yak.channels.github.webhook_secret', 'test-secret');
+    bootGitHubPrMergeRoutes();
 
     $this->postJson('/webhooks/github', [], [
         'X-Hub-Signature-256' => 'sha256=invalid',
@@ -80,6 +94,7 @@ test('GitHub webhook rejects invalid signature', function () {
 test('PR merged updates pr_merged_at on task', function () {
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubPrMergeRoutes();
 
     $task = YakTask::factory()->success()->create([
         'pr_url' => 'https://github.com/org/repo/pull/42',
@@ -113,6 +128,7 @@ test('PR merged updates pr_merged_at on task', function () {
 test('PR closed without merge updates pr_closed_at on task', function () {
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubPrMergeRoutes();
 
     $task = YakTask::factory()->success()->create([
         'pr_url' => 'https://github.com/org/repo/pull/43',
@@ -145,6 +161,7 @@ test('PR closed without merge updates pr_closed_at on task', function () {
 test('webhook skips unsupported events', function () {
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubPrMergeRoutes();
 
     $payload = ['action' => 'created'];
 
@@ -156,6 +173,7 @@ test('webhook skips unsupported events', function () {
 test('webhook skips when no task matches PR URL', function () {
     $secret = 'github-webhook-secret';
     config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubPrMergeRoutes();
 
     $payload = [
         'action' => 'closed',

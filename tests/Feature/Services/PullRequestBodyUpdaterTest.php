@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\GitHubAppService;
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Services\PullRequestBodyUpdater;
 
 beforeEach(function () {

@@ -1,16 +1,15 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\GitHub;
 
-use App\Channels\Contracts\NotificationDriver;
+use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Illuminate\Support\Facades\Http;
 
-class GitHubNotificationDriver implements NotificationDriver
+class NotificationDriver implements NotificationDriverContract
 {
-    public function __construct(private readonly GitHubAppService $gitHubAppService) {}
+    public function __construct(private readonly AppService $gitHubAppService) {}
 
     public function send(YakTask $task, NotificationType $type, string $message): void
     {

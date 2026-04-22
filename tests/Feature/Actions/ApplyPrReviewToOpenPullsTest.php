@@ -1,10 +1,10 @@
 <?php
 
 use App\Actions\ApplyPrReviewToOpenPulls;
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubAppService;
 use Illuminate\Support\Facades\Bus;
 
 beforeEach(function () {

@@ -4,12 +4,12 @@ namespace App\Console\Commands;
 
 use App\Channels\Contracts\CIBuildScanner;
 use App\Channels\Drone\BuildScanner as DroneBuildScanner;
+use App\Channels\GitHub\ActionsBuildScanner as GitHubActionsBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\GitHubActionsBuildScanner;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;

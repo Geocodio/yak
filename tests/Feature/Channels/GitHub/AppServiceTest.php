@@ -1,7 +1,7 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Models\GitHubInstallationToken;
-use App\Services\GitHubAppService;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
