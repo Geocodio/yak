@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Repository;
 use App\Channels\Drone\BuildScanner;
+use App\Models\Repository;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
