@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Channel;
 use App\Channels\ChannelRegistry;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
-use App\Http\Controllers\Webhooks\LinearWebhookController;
 use App\Http\Controllers\Webhooks\SlackInteractiveWebhookController;
 use App\Http\Controllers\Webhooks\SlackWebhookController;
 use Illuminate\Contracts\Foundation\Application;
@@ -23,7 +22,6 @@ class ChannelServiceProvider extends ServiceProvider
      */
     private const LEGACY_CONTROLLERS = [
         'slack' => SlackWebhookController::class,
-        'linear' => LinearWebhookController::class,
     ];
 
     public function register(): void

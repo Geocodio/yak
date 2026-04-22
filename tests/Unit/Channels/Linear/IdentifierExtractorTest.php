@@ -1,6 +1,6 @@
 <?php
 
-use App\Support\LinearIdentifierExtractor;
+use App\Channels\Linear\IdentifierExtractor as LinearIdentifierExtractor;
 
 it('extracts a ticket id from body text', function () {
     expect(LinearIdentifierExtractor::firstFrom('Fixes GEO-1234.'))->toBe('GEO-1234');

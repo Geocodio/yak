@@ -3,13 +3,13 @@
 use App\Channels\Contracts\CIDriver;
 use App\Channels\Contracts\InputDriver;
 use App\Channels\Contracts\NotificationDriver;
+use App\Channels\Linear\WebhookController as LinearWebhookController;
 use App\Channels\Sentry\WebhookController as SentryWebhookController;
 use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\NotificationType;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Webhooks\GitHubWebhookController;
-use App\Http\Controllers\Webhooks\LinearWebhookController;
 use App\Http\Controllers\Webhooks\SlackWebhookController;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;

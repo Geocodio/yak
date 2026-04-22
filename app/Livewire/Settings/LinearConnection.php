@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Settings;
 
+use App\Channels\Linear\OAuthService as LinearOAuthService;
 use App\Models\LinearOauthConnection;
-use App\Services\LinearOAuthService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;

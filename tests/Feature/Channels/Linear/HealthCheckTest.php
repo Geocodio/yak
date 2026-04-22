@@ -1,7 +1,7 @@
 <?php
 
+use App\Channels\Linear\HealthCheck as LinearChannelCheck;
 use App\Models\LinearOauthConnection;
-use App\Services\HealthCheck\Channel\LinearChannelCheck;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Http;
 

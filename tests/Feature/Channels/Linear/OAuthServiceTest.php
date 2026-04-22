@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\LinearOAuthService;
+use App\Channels\Linear\OAuthService as LinearOAuthService;
 
 it('requests app:assignable and app:mentionable scopes on the authorize URL', function () {
     config()->set('yak.channels.linear.oauth_client_id', 'cid');

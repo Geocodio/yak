@@ -1,8 +1,8 @@
 <?php
 
+use App\Channels\Linear\OAuthService as LinearOAuthService;
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
-use App\Services\LinearOAuthService;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {

@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Drivers\LinearNotificationDriver;
+use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Models\Repository;

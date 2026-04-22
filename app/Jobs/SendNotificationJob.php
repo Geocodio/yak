@@ -4,8 +4,8 @@ namespace App\Jobs;
 
 use App\Channel;
 use App\Channels\Contracts\NotificationDriver;
+use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Drivers\GitHubNotificationDriver;
-use App\Drivers\LinearNotificationDriver;
 use App\Drivers\SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Models\YakTask;

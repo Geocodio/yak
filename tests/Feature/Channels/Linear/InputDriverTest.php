@@ -1,7 +1,7 @@
 <?php
 
 use App\Ai\Agents\TaskIntentClassifier;
-use App\Drivers\LinearInputDriver;
+use App\Channels\Linear\InputDriver as LinearInputDriver;
 use App\Enums\TaskMode;
 use App\Models\Repository;
 use Illuminate\Http\Request;

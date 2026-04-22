@@ -1,7 +1,7 @@
 <?php
 
+use App\Channels\Linear\HealthCheck as LinearChannelCheck;
 use App\Services\HealthCheck\Channel\GitHubChannelCheck;
-use App\Services\HealthCheck\Channel\LinearChannelCheck;
 use App\Services\HealthCheck\Channel\SlackChannelCheck;
 use App\Services\HealthCheck\HealthSection;
 use App\Services\HealthCheck\QueueWorkerCheck;

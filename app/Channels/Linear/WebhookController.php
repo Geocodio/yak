@@ -1,9 +1,7 @@
 <?php
 
-namespace App\Http\Controllers\Webhooks;
+namespace App\Channels\Linear;
 
-use App\Drivers\LinearInputDriver;
-use App\Drivers\LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Http\Concerns\VerifiesWebhookSignature;
@@ -18,7 +16,7 @@ use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class LinearWebhookController extends Controller
+class WebhookController extends Controller
 {
     use VerifiesWebhookSignature;
 
@@ -67,7 +65,7 @@ class LinearWebhookController extends Controller
      */
     private function handleCreated(Request $request): JsonResponse
     {
-        $description = app(LinearInputDriver::class)->parse($request);
+        $description = app(InputDriver::class)->parse($request);
 
         $existing = YakTask::where('source', 'linear')
             ->where('external_id', $description->externalId)
@@ -114,7 +112,7 @@ class LinearWebhookController extends Controller
             "Issue: {$description->body}",
             timeoutSeconds: 2,
         );
-        app(LinearNotificationDriver::class)
+        app(NotificationDriver::class)
             ->send($task, NotificationType::Acknowledgment, $ackMessage);
 
         $this->dispatchAgentJob($task);
@@ -162,7 +160,7 @@ class LinearWebhookController extends Controller
             timeoutSeconds: 2,
         );
 
-        app(LinearNotificationDriver::class)->postAgentActivity(
+        app(NotificationDriver::class)->postAgentActivity(
             $sessionId,
             type: 'error',
             body: $body,

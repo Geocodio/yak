@@ -1,7 +1,7 @@
 <?php
 
+use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Drivers\GitHubNotificationDriver;
-use App\Drivers\LinearNotificationDriver;
 use App\Drivers\SlackNotificationDriver;
 use App\Enums\NotificationType;
 use App\Jobs\SendNotificationJob;

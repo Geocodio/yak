@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\Linear;
 
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Log;
 /**
  * Small GraphQL client for reading Linear issue metadata that
  * `AgentSessionEvent.created` webhook payloads don't include —
- * currently just labels. Kept separate from `LinearNotificationDriver`
+ * currently just labels. Kept separate from `NotificationDriver`
  * (which is write-only) so the concerns don't drift.
  */
-class LinearIssueFetcher
+class IssueFetcher
 {
     private const GRAPHQL_ENDPOINT = 'https://api.linear.app/graphql';
 
@@ -137,7 +137,7 @@ class LinearIssueFetcher
         }
 
         try {
-            return $connection->freshAccessToken(app(LinearOAuthService::class));
+            return $connection->freshAccessToken(app(OAuthService::class));
         } catch (LinearOAuthRefreshFailedException $e) {
             Log::channel('yak')->warning('LinearIssueFetcher: OAuth refresh failed', [
                 'error' => $e->getMessage(),

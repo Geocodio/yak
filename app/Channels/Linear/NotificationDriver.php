@@ -1,17 +1,16 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\Linear;
 
-use App\Channels\Contracts\NotificationDriver;
+use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
-use App\Services\LinearOAuthService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class LinearNotificationDriver implements NotificationDriver
+class NotificationDriver implements NotificationDriverContract
 {
     private const GRAPHQL_ENDPOINT = 'https://api.linear.app/graphql';
 
@@ -185,7 +184,7 @@ class LinearNotificationDriver implements NotificationDriver
         }
 
         try {
-            return $connection->freshAccessToken(app(LinearOAuthService::class));
+            return $connection->freshAccessToken(app(OAuthService::class));
         } catch (LinearOAuthRefreshFailedException $e) {
             Log::warning('LinearNotificationDriver skipped: refresh failed', [
                 'message' => $e->getMessage(),

@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Tasks;
 
-use App\Drivers\LinearNotificationDriver;
+use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;

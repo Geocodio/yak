@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\Linear;
 
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
-class LinearOAuthService
+class OAuthService
 {
     private const AUTHORIZE_URL = 'https://linear.app/oauth/authorize';
 

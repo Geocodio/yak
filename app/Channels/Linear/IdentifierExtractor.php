@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Support;
+namespace App\Channels\Linear;
 
-class LinearIdentifierExtractor
+class IdentifierExtractor
 {
     public static function firstFrom(?string $text): ?string
     {

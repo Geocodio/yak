@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Channels\Linear\IdentifierExtractor as LinearIdentifierExtractor;
+use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\ParsedReview;
@@ -19,12 +21,10 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\GitHubAppService;
 use App\Services\IncusSandboxManager;
-use App\Services\LinearIssueFetcher;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Support\GitHubDiffLines;
-use App\Support\LinearIdentifierExtractor;
 use App\Support\PathMatcher;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;

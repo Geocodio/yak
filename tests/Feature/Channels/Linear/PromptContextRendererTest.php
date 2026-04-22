@@ -1,6 +1,6 @@
 <?php
 
-use App\Services\LinearPromptContextRenderer;
+use App\Channels\Linear\PromptContextRenderer as LinearPromptContextRenderer;
 
 it('renders an issue block with title, description, project, and labels', function () {
     $xml = <<<'XML'

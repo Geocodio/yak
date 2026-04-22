@@ -1,27 +1,25 @@
 <?php
 
-namespace App\Drivers;
+namespace App\Channels\Linear;
 
-use App\Channels\Contracts\InputDriver;
+use App\Channels\Contracts\InputDriver as InputDriverContract;
 use App\DataTransferObjects\TaskDescription;
 use App\Enums\TaskMode;
 use App\Models\Repository;
-use App\Services\LinearIssueFetcher;
-use App\Services\LinearPromptContextRenderer;
 use App\Services\TaskIntentClassification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-class LinearInputDriver implements InputDriver
+class InputDriver implements InputDriverContract
 {
     public function __construct(
-        private readonly LinearPromptContextRenderer $contextRenderer = new LinearPromptContextRenderer,
-        private readonly ?LinearIssueFetcher $fetcher = null,
+        private readonly PromptContextRenderer $contextRenderer = new PromptContextRenderer,
+        private readonly ?IssueFetcher $fetcher = null,
     ) {}
 
-    private function fetcher(): LinearIssueFetcher
+    private function fetcher(): IssueFetcher
     {
-        return $this->fetcher ?? app(LinearIssueFetcher::class);
+        return $this->fetcher ?? app(IssueFetcher::class);
     }
 
     /**
@@ -77,7 +75,7 @@ class LinearInputDriver implements InputDriver
      *
      * Linear's `AgentSessionEvent.created` webhook omits labels from
      * the issue payload, so the in-payload check rarely fires — the
-     * authoritative check is a GraphQL lookup via LinearIssueFetcher,
+     * authoritative check is a GraphQL lookup via IssueFetcher,
      * which runs with a short timeout and falls back to fix mode on
      * any failure (so a Linear outage can't block task creation).
      *

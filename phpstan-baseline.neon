@@ -4,7 +4,7 @@ parameters:
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
-			path: app/Http/Controllers/Webhooks/LinearWebhookController.php
+			path: app/Channels/Linear/WebhookController.php
 
 		-
 			message: '#^Cannot cast array\<mixed\>\|string to string\.$#'
@@ -334,7 +334,7 @@ parameters:
 			message: '#^Call to function is_array\(\) with array\{name\?\: string\} will always evaluate to true\.$#'
 			identifier: function.alreadyNarrowedType
 			count: 1
-			path: app/Services/LinearIssueFetcher.php
+			path: app/Channels/Linear/IssueFetcher.php
 
 		-
 			message: '#^Binary operation "\^" between string\|false and string\|false results in an error\.$#'

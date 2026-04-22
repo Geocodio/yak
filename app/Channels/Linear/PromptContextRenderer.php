@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Services;
+namespace App\Channels\Linear;
 
 use SimpleXMLElement;
 use Throwable;
 
-class LinearPromptContextRenderer
+class PromptContextRenderer
 {
     /**
      * Convert Linear's `promptContext` XML blob into a markdown block the

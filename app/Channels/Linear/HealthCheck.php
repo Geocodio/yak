@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Services\HealthCheck\Channel;
+namespace App\Channels\Linear;
 
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
+use App\Services\HealthCheck\Channel\ChannelCheck;
 use App\Services\HealthCheck\HealthAction;
 use App\Services\HealthCheck\HealthResult;
-use App\Services\LinearOAuthService;
 use Illuminate\Support\Facades\Http;
 
-class LinearChannelCheck extends ChannelCheck
+class HealthCheck extends ChannelCheck
 {
-    public function __construct(private readonly LinearOAuthService $oauthService) {}
+    public function __construct(private readonly OAuthService $oauthService) {}
 
     public function id(): string
     {
