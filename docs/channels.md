@@ -1,5 +1,7 @@
 # Channels
 
+> **Scope.** The channel driver interfaces in this document (InputDriver, NotificationDriver, CIDriver, CIBuildScanner) are task-workflow scoped. Yak's other two workflows — PR Review and Branch Deployments — integrate with GitHub directly rather than going through a channel driver.
+
 Every external integration in Yak is a pluggable channel. A channel can fill up to three roles:
 
 | Role | What it does | Example |
