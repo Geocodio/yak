@@ -27,7 +27,7 @@
             <dt class="font-medium text-zinc-600 dark:text-zinc-400">Last accessed</dt>
             <dd>{{ $deployment->last_accessed_at?->diffForHumans() ?? 'Never' }}</dd>
 
-            @if ($deployment->failure_reason)
+            @if ($deployment->status === \App\Enums\DeploymentStatus::Failed && $deployment->failure_reason)
                 <dt class="font-medium text-zinc-600 dark:text-zinc-400">Failure</dt>
                 <dd class="text-red-600">{{ $deployment->failure_reason }}</dd>
             @endif
