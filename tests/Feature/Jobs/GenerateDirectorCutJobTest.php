@@ -75,6 +75,7 @@ test('boots fresh sandbox, runs agent in director tier, dispatches RenderVideoJo
             file_put_contents($local . '/director-cut.webm', 'webm-bytes');
             file_put_contents($local . '/storyboard.json', '{"version":1,"plan":{},"events":[]}');
         });
+    $sandbox->shouldReceive('pullClaudeCredentials')->once()->with('task-director-1');
     $sandbox->shouldReceive('destroy')->once()->with('task-director-1');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -148,6 +149,7 @@ test('marks director_cut_status failed and destroys sandbox on error', function 
     $sandbox = Mockery::mock(IncusSandboxManager::class);
     $sandbox->shouldReceive('create')->once()->andReturn('task-director-2');
     $sandbox->shouldReceive('run')->andReturnUsing(fn () => fakeOkProcessResult());
+    $sandbox->shouldReceive('pullClaudeCredentials')->once()->with('task-director-2');
     $sandbox->shouldReceive('destroy')->once()->with('task-director-2');
     app()->instance(IncusSandboxManager::class, $sandbox);
 

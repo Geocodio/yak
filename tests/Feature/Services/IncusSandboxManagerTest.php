@@ -614,3 +614,130 @@ it('builds streamExec argv without sudo when run as root', function () {
 
     expect($argv)->toBe(['incus', 'exec', 'task-42', '--', 'bash', '-c', 'echo hi']);
 });
+
+/**
+ * Helper: prepare an isolated claude config dir with a host credentials file
+ * whose claudeAiOauth.expiresAt is set to $hostExpiresAt. Returns the path.
+ */
+function primeClaudeConfigDir(int $hostExpiresAt): string
+{
+    $dir = sys_get_temp_dir() . '/yak-claude-test-' . uniqid();
+    mkdir($dir, 0700, true);
+    file_put_contents($dir . '/.credentials.json', json_encode([
+        'claudeAiOauth' => [
+            'accessToken' => 'host-access',
+            'refreshToken' => 'host-refresh',
+            'expiresAt' => $hostExpiresAt,
+            'scopes' => ['user:inference'],
+            'subscriptionType' => 'max',
+        ],
+    ]));
+    config()->set('yak.sandbox.claude_config_source', $dir);
+
+    return $dir;
+}
+
+/**
+ * Helper: Process::fake closure that simulates `incus file pull` by extracting
+ * the destination path from the command and writing $payload there. Non-pull
+ * commands return exit 0 so the surrounding flow can run.
+ */
+function fakeIncusFilePullThatWrites(string $payload): void
+{
+    Process::fake(function ($process) use ($payload) {
+        $command = is_string($process->command) ? $process->command : implode(' ', (array) $process->command);
+        if (str_contains($command, 'incus file pull')) {
+            // The command ends `... <remote> '<localDest>' 2>/dev/null` — pull the
+            // last single-quoted token before the stderr redirect.
+            if (preg_match("/'([^']+)'\\s+2>\\/dev\\/null\$/", $command, $m)) {
+                file_put_contents($m[1], $payload);
+            }
+
+            return Process::result(exitCode: 0);
+        }
+
+        return Process::result(exitCode: 0);
+    });
+}
+
+it('adopts sandbox credentials when pulled expiresAt is newer than host', function () {
+    $dir = primeClaudeConfigDir(hostExpiresAt: 1_000_000_000_000);
+
+    $rotated = json_encode([
+        'claudeAiOauth' => [
+            'accessToken' => 'rotated-access',
+            'refreshToken' => 'rotated-refresh',
+            'expiresAt' => 2_000_000_000_000,
+            'scopes' => ['user:inference'],
+            'subscriptionType' => 'max',
+        ],
+    ]);
+
+    fakeIncusFilePullThatWrites($rotated);
+
+    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
+
+    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
+    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('rotated-refresh');
+    expect($decoded['claudeAiOauth']['expiresAt'])->toBe(2_000_000_000_000);
+});
+
+it('leaves host credentials untouched when pulled expiresAt is not newer', function () {
+    $dir = primeClaudeConfigDir(hostExpiresAt: 2_000_000_000_000);
+
+    $stale = json_encode([
+        'claudeAiOauth' => [
+            'accessToken' => 'host-access',
+            'refreshToken' => 'host-refresh',
+            'expiresAt' => 2_000_000_000_000,
+            'scopes' => ['user:inference'],
+            'subscriptionType' => 'max',
+        ],
+    ]);
+
+    fakeIncusFilePullThatWrites($stale);
+
+    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
+
+    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
+    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
+});
+
+it('leaves host credentials untouched when pulled file lacks expiresAt', function () {
+    $dir = primeClaudeConfigDir(hostExpiresAt: 1_000_000_000_000);
+
+    fakeIncusFilePullThatWrites(json_encode(['firstStartTime' => '2026-01-01']));
+
+    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
+
+    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
+    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
+});
+
+it('is a no-op when host has no credentials file yet', function () {
+    $dir = sys_get_temp_dir() . '/yak-claude-test-' . uniqid();
+    mkdir($dir, 0700, true);
+    config()->set('yak.sandbox.claude_config_source', $dir);
+
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+
+    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
+
+    // No incus file pull should have been attempted at all.
+    Process::assertNotRan(fn ($p) => str_contains($p->command, 'incus file pull'));
+    expect(is_file($dir . '/.credentials.json'))->toBeFalse();
+});
+
+it('leaves host credentials untouched when incus file pull fails', function () {
+    $dir = primeClaudeConfigDir(hostExpiresAt: 1_000_000_000_000);
+
+    Process::fake([
+        'incus file pull *' => Process::result(exitCode: 1),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
+
+    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
+    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
+});

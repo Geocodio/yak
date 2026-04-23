@@ -69,6 +69,10 @@ trait HandlesAgentJobFailure
             $sandbox = app(IncusSandboxManager::class);
             $containerName = $sandbox->containerName($task);
             if ($sandbox->containerExists($containerName)) {
+                // Rescue any refresh-token rotation that landed before the
+                // timeout/crash — expiresAt gating makes this safe even if
+                // claude never ran in this sandbox.
+                $sandbox->pullClaudeCredentials($containerName);
                 $sandbox->destroy($containerName);
             }
         } catch (Throwable $reapError) {
