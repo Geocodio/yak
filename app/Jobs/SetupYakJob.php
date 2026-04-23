@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
@@ -209,8 +210,16 @@ class SetupYakJob implements ShouldQueue
     {
         TaskMetricsAccumulator::applyFresh($this->task, $result);
 
+        // Capture the preview_manifest if the agent emitted one.
+        $manifest = ClaudeCodeOutputParser::extractPreviewManifest($result->resultSummary);
+        if ($manifest !== null) {
+            $repository->preview_manifest = $manifest;
+            $repository->save();
+        }
+
         // Promote the setup container to a repo template with snapshot.
         // Future tasks for this repo will clone from this snapshot (instant CoW).
+        // This also bumps current_template_version to 1+ so DeployBranchJob can proceed.
         $snapshotRef = $sandbox->promoteToTemplate($containerName, $repository);
 
         $this->task->update([

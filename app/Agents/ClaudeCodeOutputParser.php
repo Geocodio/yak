@@ -37,6 +37,25 @@ class ClaudeCodeOutputParser
     }
 
     /**
+     * Extract a preview manifest from a fenced preview_manifest code block in the result text.
+     *
+     * The agent emits the manifest as a fenced code block tagged `preview_manifest` at the
+     * end of its response. Returns the decoded array, or null if absent or malformed.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function extractPreviewManifest(string $resultText): ?array
+    {
+        if (! preg_match('/```preview_manifest\s*\n(.+?)\n```/s', $resultText, $m)) {
+            return null;
+        }
+
+        $decoded = json_decode(trim($m[1]), true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
      * Extract clarification from top-level keys or from embedded JSON in the result text.
      *
      * The agent may return clarification as a top-level key or as a JSON code block
