@@ -68,14 +68,6 @@ class BranchDeploymentFactory extends Factory
         ]);
     }
 
-    public function destroying(): static
-    {
-        return $this->state(fn (): array => [
-            'status' => DeploymentStatus::Destroying,
-            'current_commit_sha' => fake()->sha1(),
-        ]);
-    }
-
     public function destroyed(): static
     {
         return $this->state(fn (): array => [
