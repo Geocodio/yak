@@ -5,10 +5,15 @@ namespace App\Channels\GitHub;
 use App\Actions\EnqueuePrReview;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
+use App\Jobs\Deployments\DeployBranchJob;
+use App\Jobs\Deployments\DestroyDeploymentJob;
+use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Jobs\ProcessCIResultJob;
+use App\Models\BranchDeployment;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\BranchDeploymentProvisioner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,6 +35,14 @@ class WebhookController extends Controller
             return $this->handleCheckSuite($request, $github);
         }
 
+        if ($event === 'push') {
+            return $this->handleDeploymentPush($request);
+        }
+
+        if ($event === 'delete') {
+            return $this->handleDeploymentDelete($request);
+        }
+
         if ($event !== 'pull_request') {
             return response()->json(['ok' => true, 'skipped' => "unhandled event: {$event}"]);
         }
@@ -37,6 +50,8 @@ class WebhookController extends Controller
         $action = $request->input('action');
 
         if ($action === 'closed') {
+            $this->maybeDispatchDeployment($request, 'closed');
+
             return $this->handleClosed($request);
         }
 
@@ -52,6 +67,8 @@ class WebhookController extends Controller
         }
 
         if (in_array($action, ['opened', 'ready_for_review', 'reopened', 'synchronize'], true)) {
+            $this->maybeDispatchDeployment($request, $action);
+
             return $this->handleReviewTrigger($request, $action);
         }
 
@@ -133,6 +150,124 @@ class WebhookController extends Controller
         }
 
         return response()->json(['ok' => true, 'updated' => true]);
+    }
+
+    private function maybeDispatchDeployment(Request $request, string $action): void
+    {
+        $repo = $this->resolveRepositoryFromPayload($request);
+
+        if ($repo === null || ! $repo->deployments_enabled) {
+            return;
+        }
+
+        if (in_array($action, ['opened', 'reopened'], true)) {
+            $branch = (string) $request->input('pull_request.head.ref');
+            $sha = (string) $request->input('pull_request.head.sha');
+            $prNumber = (int) $request->input('pull_request.number');
+
+            $deployment = app(BranchDeploymentProvisioner::class)->provision($repo, $branch);
+            $deployment->update([
+                'pr_number' => $prNumber,
+                'pr_state' => 'open',
+                'current_commit_sha' => $sha,
+            ]);
+            DeployBranchJob::dispatch($deployment->id);
+
+            return;
+        }
+
+        if ($action === 'synchronize') {
+            $branch = (string) $request->input('pull_request.head.ref');
+            $sha = (string) $request->input('pull_request.head.sha');
+
+            $deployment = BranchDeployment::where('repository_id', $repo->id)
+                ->where('branch_name', $branch)
+                ->whereNotIn('status', ['destroying', 'destroyed'])
+                ->first();
+
+            if ($deployment !== null) {
+                UpdateDeploymentJob::dispatch($deployment->id, $sha);
+            }
+
+            return;
+        }
+
+        if ($action === 'closed') {
+            $branch = (string) $request->input('pull_request.head.ref');
+            $merged = (bool) $request->input('pull_request.merged', false);
+
+            $deployment = BranchDeployment::where('repository_id', $repo->id)
+                ->where('branch_name', $branch)
+                ->whereNotIn('status', ['destroying', 'destroyed'])
+                ->first();
+
+            if ($deployment !== null) {
+                $deployment->update(['pr_state' => $merged ? 'merged' : 'closed']);
+                DestroyDeploymentJob::dispatch($deployment->id);
+            }
+        }
+    }
+
+    private function handleDeploymentPush(Request $request): JsonResponse
+    {
+        $repo = $this->resolveRepositoryFromPayload($request);
+
+        if ($repo === null || ! $repo->deployments_enabled) {
+            return response()->json(['ok' => true, 'skipped' => 'deployments disabled or repo not found']);
+        }
+
+        $ref = (string) $request->input('ref', '');
+
+        if (! str_starts_with($ref, 'refs/heads/')) {
+            return response()->json(['ok' => true, 'skipped' => 'not a branch push']);
+        }
+
+        $branch = substr($ref, strlen('refs/heads/'));
+        $sha = (string) $request->input('after');
+
+        $deployment = BranchDeployment::where('repository_id', $repo->id)
+            ->where('branch_name', $branch)
+            ->whereNotIn('status', ['destroying', 'destroyed'])
+            ->first();
+
+        if ($deployment !== null) {
+            UpdateDeploymentJob::dispatch($deployment->id, $sha);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function handleDeploymentDelete(Request $request): JsonResponse
+    {
+        if ((string) $request->input('ref_type') !== 'branch') {
+            return response()->json(['ok' => true, 'skipped' => 'not a branch delete']);
+        }
+
+        $repo = $this->resolveRepositoryFromPayload($request);
+
+        if ($repo === null || ! $repo->deployments_enabled) {
+            return response()->json(['ok' => true, 'skipped' => 'deployments disabled or repo not found']);
+        }
+
+        $branch = (string) $request->input('ref');
+
+        $deployment = BranchDeployment::where('repository_id', $repo->id)
+            ->where('branch_name', $branch)
+            ->whereNotIn('status', ['destroying', 'destroyed'])
+            ->first();
+
+        if ($deployment !== null) {
+            DestroyDeploymentJob::dispatch($deployment->id);
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function resolveRepositoryFromPayload(Request $request): ?Repository
+    {
+        $fullName = (string) $request->input('repository.full_name');
+
+        return $fullName === '' ? null : Repository::where('slug', $fullName)->first();
     }
 
     private function handleReviewTrigger(Request $request, string $action): JsonResponse
