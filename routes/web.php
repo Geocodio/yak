@@ -69,11 +69,15 @@ Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
     ->name('artifacts.show')
     ->where('filename', '.*');
 
-Route::prefix('internal/deployments')
-    ->middleware(['restrict-to-ingress', 'auth'])
-    ->group(function () {
-        Route::get('/wake', DeploymentWakeController::class)->name('deployments.wake');
-        Route::get('/status', DeploymentStatusController::class)->name('deployments.status');
-    });
+// Wake allows anonymous access with a valid share token OR cookie;
+// otherwise falls through to requiring an authenticated session.
+Route::middleware(['restrict-to-ingress'])
+    ->get('/internal/deployments/wake', DeploymentWakeController::class)
+    ->name('deployments.wake');
+
+// Status is used by the shim JS on an already-trusted page; keep `auth`.
+Route::middleware(['restrict-to-ingress', 'auth'])
+    ->get('/internal/deployments/status', DeploymentStatusController::class)
+    ->name('deployments.status');
 
 require __DIR__ . '/settings.php';
