@@ -81,8 +81,12 @@ Route::middleware(['restrict-to-ingress'])
 // Public bounce endpoint on the dashboard. The wake endpoint redirects
 // unauthenticated preview visits here; this controller either forwards
 // already-authed users back to the preview or kicks off the OAuth flow
-// with the preview URL stored as url.intended.
+// with the preview URL stored as url.intended. Signature prevents an
+// attacker from crafting standalone phishing links to the endpoint —
+// only the wake endpoint (which validates the `to` hostname against
+// an existing deployment) can mint a valid URL.
 Route::get('/deployments/auth-bounce', AuthBounceController::class)
+    ->middleware('signed')
     ->name('deployments.auth-bounce');
 
 // Status is used by the shim JS on an already-trusted page; keep `auth`.

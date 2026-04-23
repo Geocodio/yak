@@ -64,10 +64,8 @@ it('redirects anonymous without share prefix and without cookie to auth-bounce',
         'X-Forwarded-Uri' => '/dashboard',
     ])->get('/internal/deployments/wake');
 
-    $response->assertRedirect(
-        config('app.url') . '/deployments/auth-bounce?to='
-            . urlencode('https://share.yak.example.com/dashboard')
-    );
+    $response->assertRedirectContains('/deployments/auth-bounce');
+    $response->assertRedirectContains('signature=');
 });
 
 it('still allows authenticated OAuth users (backwards compatible)', function () {

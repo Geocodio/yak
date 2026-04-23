@@ -6,6 +6,7 @@ use App\Models\BranchDeployment;
 use App\Services\DeploymentShareTokens;
 use App\Services\DeploymentWaker;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 class DeploymentWakeController
@@ -65,7 +66,11 @@ class DeploymentWakeController
         // redirect()->intended() drops them back on the preview).
         if ($request->user() === null && ! $cookieOk) {
             $returnTo = 'https://' . $hostname . $forwardedUri;
-            $bounce = config('app.url') . '/deployments/auth-bounce?to=' . urlencode($returnTo);
+            $bounce = URL::temporarySignedRoute(
+                'deployments.auth-bounce',
+                now()->addMinutes(10),
+                ['to' => $returnTo],
+            );
 
             return redirect($bounce);
         }

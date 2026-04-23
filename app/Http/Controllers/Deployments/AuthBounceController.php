@@ -27,6 +27,17 @@ class AuthBounceController
             abort(400, 'Invalid preview URL.');
         }
 
+        // Expire any legacy apex-scoped copies of the session/CSRF
+        // cookies. Before SESSION_DOMAIN was widened to .{yak_domain},
+        // these were set with Domain=<apex>; two cookies with the same
+        // name but different Domain attributes coexist in the browser
+        // and PHP picks between them unpredictably, which caused a
+        // redirect loop on the very first bounce after the rollout.
+        $suffix = (string) config('yak.deployments.hostname_suffix');
+        foreach ([(string) config('session.cookie'), 'XSRF-TOKEN'] as $name) {
+            cookie()->queue(cookie()->forget($name, '/', $suffix));
+        }
+
         if ($request->user() !== null) {
             return redirect()->to($to);
         }
@@ -40,18 +51,22 @@ class AuthBounceController
     {
         $parts = parse_url($url);
 
-        if (! is_array($parts) || ($parts['scheme'] ?? '') !== 'https' || ! isset($parts['host'])) {
+        if (! is_array($parts) || ! isset($parts['host'])) {
             return false;
         }
 
-        $suffix = (string) config('yak.deployments.hostname_suffix');
+        // Lower-case scheme + host before comparing: DNS hosts are
+        // case-insensitive, while str_ends_with is byte-exact.
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) $parts['host']);
+        $suffix = strtolower((string) config('yak.deployments.hostname_suffix'));
 
-        if ($suffix === '') {
+        if ($scheme !== 'https' || $suffix === '') {
             return false;
         }
 
         // Only accept *.{suffix} — the apex is served by the dashboard
         // itself and doesn't need this bounce flow.
-        return str_ends_with($parts['host'], '.' . $suffix);
+        return str_ends_with($host, '.' . $suffix);
     }
 }
