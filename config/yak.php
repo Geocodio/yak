@@ -244,6 +244,11 @@ return [
             // the Docker bridge gateway (172.18.0.1). The default covers that case.
             'ingress_ip_cidr' => env('YAK_DEPLOYMENTS_INGRESS_IP_CIDR', '172.18.0.0/16'),
         ],
+
+        'share' => [
+            'default_days' => (int) env('YAK_DEPLOYMENTS_SHARE_DEFAULT_DAYS', 7),
+            'max_days' => (int) env('YAK_DEPLOYMENTS_SHARE_MAX_DAYS', 30),
+        ],
     ],
 
     /*
