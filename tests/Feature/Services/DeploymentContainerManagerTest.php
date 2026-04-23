@@ -98,3 +98,53 @@ it('raises when the health probe never goes green', function () {
 
     app(DeploymentContainerManager::class)->start($deployment);
 })->throws(DeploymentStartTimeoutException::class);
+
+it('runs git fetch + checkout and the manifest refresh', function () {
+    Process::fake([
+        'incus exec * -- test -f /app/.yak/preview.sh' => Process::result(exitCode: 1),
+        'incus exec *' => Process::result(exitCode: 0),
+    ]);
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => [
+            'checkout_refresh' => 'docker compose restart web',
+            'checkout_refresh_timeout_seconds' => 10,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-42',
+        'dirty' => true,
+    ]);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'abcdef1234567890');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'git fetch --all --prune'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'git checkout --force abcdef1234567890'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'docker compose restart web'));
+
+    $deployment->refresh();
+    expect($deployment->current_commit_sha)->toBe('abcdef1234567890');
+    expect($deployment->dirty)->toBeFalse();
+});
+
+it('prefers .yak/preview.sh when present in the repo', function () {
+    Process::fake([
+        'incus exec * -- test -f /app/.yak/preview.sh' => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+    ]);
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => [
+            'checkout_refresh' => 'FALLBACK_SHOULD_NOT_RUN',
+            'checkout_refresh_timeout_seconds' => 10,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-42',
+    ]);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'sha1234');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, '/app/.yak/preview.sh sha1234'));
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'FALLBACK_SHOULD_NOT_RUN'));
+});

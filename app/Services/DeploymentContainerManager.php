@@ -39,12 +39,7 @@ class DeploymentContainerManager
         }
 
         if ($manifest->coldStart !== '') {
-            $coldStartResult = Process::timeout($manifest->coldStartTimeoutSeconds)
-                ->run("incus exec {$deployment->container_name} -- bash -lc " . escapeshellarg($manifest->coldStart));
-
-            if ($coldStartResult->exitCode() !== 0) {
-                throw new RuntimeException("Cold start failed: {$coldStartResult->errorOutput()}");
-            }
+            $this->exec($deployment->container_name, $manifest->coldStart, $manifest->coldStartTimeoutSeconds);
         }
 
         $ip = $this->resolveContainerIp($deployment->container_name);
@@ -74,6 +69,40 @@ class DeploymentContainerManager
         }
 
         throw new DeploymentStartTimeoutException('ip_resolution', "No IPv4 for container {$containerName}");
+    }
+
+    public function applyCheckoutRefresh(BranchDeployment $deployment, string $commitSha): void
+    {
+        $deployment->loadMissing('repository');
+        $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
+        $container = $deployment->container_name;
+
+        $this->exec($container, 'cd /app && git fetch --all --prune', $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($container, "cd /app && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+
+        $hasRepoHook = Process::run("incus exec {$container} -- test -f /app/.yak/preview.sh")
+            ->exitCode() === 0;
+
+        if ($hasRepoHook) {
+            $this->exec($container, "/app/.yak/preview.sh {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+        } elseif ($manifest->checkoutRefresh !== '') {
+            $this->exec($container, $manifest->checkoutRefresh, $manifest->checkoutRefreshTimeoutSeconds);
+        }
+
+        $deployment->update([
+            'current_commit_sha' => $commitSha,
+            'dirty' => false,
+        ]);
+    }
+
+    private function exec(string $container, string $command, int $timeoutSeconds): void
+    {
+        $result = Process::timeout($timeoutSeconds)
+            ->run("incus exec {$container} -- bash -lc " . escapeshellarg($command));
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException("Command failed in container {$container}: {$result->errorOutput()}");
+        }
     }
 
     private function waitForHealthProbe(string $ip, int $port, string $path, int $timeoutSeconds): void
