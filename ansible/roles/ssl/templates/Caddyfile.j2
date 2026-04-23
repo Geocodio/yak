@@ -7,3 +7,40 @@
         output file /var/log/caddy/access.log
     }
 }
+
+{% if caddy_dns_provider is defined and caddy_dns_provider_api_token is defined and caddy_dns_provider_api_token | length > 0 %}
+# Branch preview deployments — wildcard TLS via DNS-01
+*.{{ yak_domain }} {
+    tls {
+        dns {{ caddy_dns_provider }} {{ caddy_dns_provider_api_token }}
+    }
+
+    @preview host *.{{ yak_domain }}
+    handle @preview {
+        # `route` preserves Caddyfile line order of its children. Required so
+        # that forward_auth sees the ORIGINAL {uri} (Phase 7 adds a
+        # `uri path_regexp` rewrite inside this same route block; without
+        # `route`, `uri` would run before `forward_auth` in Caddy's default
+        # ordering and forward_auth would get the post-rewrite URI).
+        route {
+            forward_auth localhost:8080 {
+                uri /internal/deployments/wake
+                copy_headers X-Upstream-Host X-Upstream-Port X-Yak-Deployment-Id
+                # X-Forwarded-Host is auto-set by forward_auth.
+                # X-Forwarded-Uri is explicit; Phase 7 reads it for share tokens.
+                header_up X-Forwarded-Uri {uri}
+            }
+
+            # Phase 7 adds a `uri path_regexp` rewrite here.
+
+            reverse_proxy {http.request.header.X-Upstream-Host}:{http.request.header.X-Upstream-Port} {
+                header_up Host {host}
+            }
+        }
+    }
+
+    log {
+        output file /var/log/caddy/preview-access.log
+    }
+}
+{% endif %}
