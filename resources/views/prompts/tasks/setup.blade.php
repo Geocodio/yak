@@ -30,9 +30,13 @@ Once the dev environment is up and reachable, emit a JSON preview manifest as th
 }
 ```
 
-- `port` is the container port where the app serves HTTP
-- `health_probe_path` is a path that returns 2xx when the app is ready
-- `cold_start` is what to run when the container boots from stopped; empty if services auto-start
-- `checkout_refresh` is what to run after a branch checkout; empty if `git checkout` alone is enough
+Field requirements — ALL of these apply and past manifests have been rejected for violating them:
+
+- `port` — the **plain-HTTP** port the app listens on inside the sandbox. Yak's health probe is plain HTTP (`curl http://<ip>:<port><health_probe_path>`); a TLS-only port (443) will always fail. If the app talks TLS only, pick the sibling HTTP port (often 80), or add one. Check `docker compose ps` or `ss -tlnp` to see what's actually listening on which port.
+- `health_probe_path` — returns 2xx **without authentication**. `/up` is the Laravel default health route; `/` works if the root doesn't redirect to `/login`. Pick something that's green the moment the app is up. Do **not** use `/login`, `/dashboard`, or any other auth-gated path — the probe gets a 3xx/4xx and times out.
+- `cold_start` — the **full shell command**, including any `cd` into the repo directory. The command runs via `incus exec <container> -- bash -lc '<your command>'`, which starts in the user's home dir, not at the repo root. If your command is `docker compose up -d …`, write `cd /app && docker compose up -d …` (or wherever the repo lives in your sandbox). Empty string is only correct if services truly auto-start from `incus start`.
+- `checkout_refresh` — same rule: include `cd /app &&` (or equivalent) before any compose/composer/npm/artisan commands. Runs after `git fetch && git checkout $sha`. Empty string is only correct if a plain checkout is enough (no build, no migration, no asset compile).
+
+Before emitting the manifest, **verify the values**: run `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<port><health_probe_path>` inside the container (or the sandbox) and confirm you get 2xx. If you can't, pick different values and retry — don't emit a manifest that hasn't been probed.
 
 Emit the manifest exactly once, in a single `preview_manifest` code block. Skip this section if the repo is not a web app (libraries, CLI tools, etc.).
