@@ -176,6 +176,15 @@
                         description="Have Yak review every open, non-draft pull request on this repo."
                     />
                 </div>
+                @if($this->isEditing)
+                    <div>
+                        <flux:switch
+                            wire:model.live="deployments_enabled"
+                            label="Branch Deployments"
+                            description="Serve preview deployments for PR branches at <slug>-<branch>.{{ config('yak.deployments.hostname_suffix') }}."
+                        />
+                    </div>
+                @endif
                 @if($pr_review_enabled && ! ($repository?->pr_review_enabled ?? false))
                     <div class="rounded-lg border border-yak-tan/40 bg-yak-cream-dark/40 p-3">
                         <flux:switch wire:model="apply_to_open_prs" label="Review all currently open PRs on save" />
@@ -260,6 +269,16 @@
             <flux:button variant="ghost" :href="route('repos')" wire:navigate>{{ __('Cancel') }}</flux:button>
         </div>
     </form>
+
+    @if($this->isEditing && $repository->deployments_enabled)
+        <div class="mt-10 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-6 dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="mb-4 flex items-center justify-between gap-3">
+                <flux:heading size="lg">{{ __('Branch Deployments') }}</flux:heading>
+                <livewire:repositories.rebuild-all-deployments-action :repository="$repository" />
+            </div>
+            <livewire:deployments.manifest-form :repository="$repository" />
+        </div>
+    @endif
 
     @if($this->isEditing)
         @php($currentBaseVersion = (int) config('yak.sandbox.base_version', 1))

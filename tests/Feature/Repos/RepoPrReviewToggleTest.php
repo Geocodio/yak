@@ -27,6 +27,17 @@ it('toggles pr_review_enabled', function () {
     expect($repo->fresh()->pr_review_enabled)->toBeTrue();
 });
 
+it('toggles deployments_enabled', function () {
+    $repo = Repository::factory()->create(['deployments_enabled' => false]);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->set('deployments_enabled', true)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($repo->fresh()->deployments_enabled)->toBeTrue();
+});
+
 it('enqueues retroactive review tasks when enabling with apply_to_open_prs', function () {
     Bus::fake();
     $repo = Repository::factory()->create(['pr_review_enabled' => false, 'slug' => 'geocodio/api']);

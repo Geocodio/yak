@@ -150,6 +150,9 @@
         </div>
     </div>
 
+    {{-- Branch deployment preview (renders only when the task's branch has an active deployment) --}}
+    <livewire:tasks.preview-widget :task="$task" />
+
     {{-- Section 2: Description --}}
     <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
         <h2 class="mb-4 text-lg font-medium text-yak-slate">Description</h2>

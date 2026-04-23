@@ -47,6 +47,8 @@ class RepoForm extends Component
 
     public bool $apply_to_open_prs = true;
 
+    public bool $deployments_enabled = false;
+
     /** @var array<int, string> */
     public array $path_excludes = [];
 
@@ -86,6 +88,7 @@ class RepoForm extends Component
             $this->ci_system = $repository->ci_system;
             $this->sentry_project = $repository->sentry_project ?? '';
             $this->pr_review_enabled = (bool) $repository->pr_review_enabled;
+            $this->deployments_enabled = (bool) $repository->deployments_enabled;
 
             if ($repository->pr_review_path_excludes !== null) {
                 $this->path_excludes = array_values($repository->pr_review_path_excludes);
@@ -286,6 +289,7 @@ class RepoForm extends Component
             'sentry_project' => ['nullable', 'string', 'max:255'],
             'pr_review_enabled' => ['boolean'],
             'apply_to_open_prs' => ['boolean'],
+            'deployments_enabled' => ['boolean'],
         ];
 
         if ($this->repository) {
@@ -333,6 +337,7 @@ class RepoForm extends Component
             'sentry_project' => $this->sentry_project ?: null,
             'pr_review_enabled' => $this->pr_review_enabled,
             'pr_review_path_excludes' => $this->using_defaults ? null : $this->path_excludes,
+            'deployments_enabled' => $this->deployments_enabled,
         ];
 
         $wasEnabled = (bool) ($this->repository->pr_review_enabled ?? false);
