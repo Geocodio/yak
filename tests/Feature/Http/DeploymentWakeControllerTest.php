@@ -10,7 +10,7 @@ beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
 });
 
-it('redirects anonymous visitors to a signed auth-bounce URL', function () {
+it('redirects anonymous visitors to a signed auth-bounce URL on the dashboard apex', function () {
     config()->set('app.url', 'https://yak.example.com');
     BranchDeployment::factory()->running()->create(['hostname' => 'anon.yak.example.com']);
 
@@ -19,9 +19,10 @@ it('redirects anonymous visitors to a signed auth-bounce URL', function () {
         'X-Forwarded-Uri' => '/docs/api',
     ])->get('/internal/deployments/wake');
 
-    $response->assertRedirectContains('/deployments/auth-bounce');
+    // Must be rooted at the apex — signature validation uses the
+    // apex URL when the browser follows the bounce link.
+    $response->assertRedirectContains('https://yak.example.com/deployments/auth-bounce');
     $response->assertRedirectContains('to=' . urlencode('https://anon.yak.example.com/docs/api'));
-    // Signed URL shape: Laravel appends `expires=...&signature=...`.
     $response->assertRedirectContains('signature=');
 });
 

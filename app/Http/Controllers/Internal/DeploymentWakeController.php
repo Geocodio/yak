@@ -66,6 +66,16 @@ class DeploymentWakeController
         // redirect()->intended() drops them back on the preview).
         if ($request->user() === null && ! $cookieOk) {
             $returnTo = 'https://' . $hostname . $forwardedUri;
+            // Pin the URL generator to the dashboard apex + https.
+            // Without this Laravel would build the signed URL against
+            // the forwarded preview subdomain (trusted-proxies honors
+            // X-Forwarded-Host) on http (the forward_auth sub-request
+            // itself is plain HTTP to localhost:8080). Either would
+            // cause signature validation to fail when the browser
+            // follows the bounce to the apex over https.
+            $appUrl = (string) config('app.url');
+            URL::forceRootUrl($appUrl);
+            URL::forceScheme(parse_url($appUrl, PHP_URL_SCHEME) ?: 'https');
             $bounce = URL::temporarySignedRoute(
                 'deployments.auth-bounce',
                 now()->addMinutes(10),
