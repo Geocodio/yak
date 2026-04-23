@@ -31,7 +31,8 @@
                 header_up X-Forwarded-Uri {uri}
             }
 
-            # Phase 7 adds a `uri path_regexp` rewrite here.
+            # Strip the share-token prefix from the outbound request to the sandbox.
+            uri path_regexp ^/_share/[^/]+(/.*)?$ $1
 
             reverse_proxy {http.request.header.X-Upstream-Host}:{http.request.header.X-Upstream-Port} {
                 header_up Host {host}
