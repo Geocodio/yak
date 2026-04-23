@@ -25,14 +25,18 @@ class DeploymentWakeController
 
         $deployment = BranchDeployment::where('hostname', $hostname)->first();
         if ($deployment === null) {
-            return response('Unknown preview hostname.', 404);
+            return response()->view('deployments.errors.unknown_hostname', [
+                'hostname' => $hostname,
+            ], 404);
         }
 
         // Branch 1: share token in the URL path → 302 + Set-Cookie.
         $shareToken = $this->extractShareToken($forwardedUri);
         if ($shareToken !== null) {
             if (! $this->tokens->verify($deployment, $shareToken)) {
-                return response('Invalid share link.', 401);
+                return response()->view('deployments.errors.invalid_share', [
+                    'hostname' => $hostname,
+                ], 401);
             }
 
             $redirectPath = preg_replace('#^/_share/[^/]+#', '', $forwardedUri);

@@ -26,10 +26,29 @@ it('redirects anonymous visitors to a signed auth-bounce URL on the dashboard ap
     $response->assertRedirectContains('signature=');
 });
 
-it('returns 404 for an unknown hostname when authenticated', function () {
-    $this->actingAs(User::factory()->create())
-        ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'unknown.yak.example.com'])
-        ->assertStatus(404);
+it('returns 404 + mascot page for an unknown hostname when authenticated', function () {
+    $response = $this->actingAs(User::factory()->create())
+        ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'unknown.yak.example.com']);
+
+    $response->assertStatus(404);
+    $response->assertSee('No preview here');
+    $response->assertSee('unknown.yak.example.com');
+});
+
+it('returns 401 + mascot page for an invalid share token', function () {
+    BranchDeployment::factory()->running()->create(['hostname' => 'foo.yak.example.com']);
+
+    $response = $this->actingAs(User::factory()->create())->get(
+        '/internal/deployments/wake',
+        [
+            'X-Forwarded-Host' => 'foo.yak.example.com',
+            'X-Forwarded-Uri' => '/_share/notavalidtoken/docs',
+        ],
+    );
+
+    $response->assertStatus(401);
+    $response->assertSee("share link isn't valid", false);
+    $response->assertSee('foo.yak.example.com');
 });
 
 it('returns upstream headers for a running deployment', function () {
