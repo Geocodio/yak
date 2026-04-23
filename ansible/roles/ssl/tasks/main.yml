@@ -24,6 +24,23 @@
     state: present
     update_cache: true
 
+- name: Download Caddy binary with DNS-01 provider plugin
+  ansible.builtin.get_url:
+    url: "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com%2Fcaddy-dns%2F{{ caddy_dns_provider }}"
+    dest: /usr/bin/caddy
+    mode: "0755"
+    owner: root
+    group: root
+    force: true
+  when: caddy_dns_provider | default('') | length > 0
+  notify: restart caddy
+
+- name: Ensure Caddy has capability to bind privileged ports
+  ansible.builtin.command:
+    cmd: setcap cap_net_bind_service=+ep /usr/bin/caddy
+  changed_when: false
+  when: caddy_dns_provider | default('') | length > 0
+
 - name: Configure Caddy
   ansible.builtin.template:
     src: Caddyfile.j2
