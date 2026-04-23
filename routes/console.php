@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\GitHub\PollPullRequestReactionsJob;
+use App\Jobs\Deployments\GarbageCollectTemplateSnapshotsJob;
 use App\Jobs\Deployments\HibernateIdleDeploymentsJob;
 use App\Jobs\Deployments\SweepExpiredDeploymentsJob;
 use Illuminate\Foundation\Inspiring;
@@ -26,3 +27,4 @@ Schedule::command('yak:poll-drone-ci')->everyMinute()->withoutOverlapping();
 Schedule::job(PollPullRequestReactionsJob::class)->hourly()->name('poll-pr-reactions');
 Schedule::job(HibernateIdleDeploymentsJob::class)->everyMinute()->name('deployments:hibernate-idle')->withoutOverlapping();
 Schedule::job(SweepExpiredDeploymentsJob::class)->hourly()->name('deployments:sweep-expired')->withoutOverlapping();
+Schedule::job(GarbageCollectTemplateSnapshotsJob::class)->hourly()->name('deployments:gc-template-snapshots')->withoutOverlapping();
