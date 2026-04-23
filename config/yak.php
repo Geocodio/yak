@@ -235,6 +235,13 @@ return [
         'default_cold_start_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_COLD_START_TIMEOUT_SECONDS', 60),
         'default_checkout_refresh_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_CHECKOUT_REFRESH_TIMEOUT_SECONDS', 60),
         'default_health_probe_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_TIMEOUT_SECONDS', 30),
+
+        'internal' => [
+            // CIDR range of the reverse-proxy (ingress) source. Yak's default install
+            // runs Caddy on the host; requests to /internal/deployments/* arrive via
+            // the Docker bridge gateway (172.18.0.1). The default covers that case.
+            'ingress_ip_cidr' => env('YAK_DEPLOYMENTS_INGRESS_IP_CIDR', '172.18.0.0/16'),
+        ],
     ],
 
     /*
