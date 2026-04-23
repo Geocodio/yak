@@ -3,6 +3,7 @@
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
+use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Livewire\Channels\ChannelList;
@@ -54,7 +55,9 @@ Route::middleware(['auth'])->group(function () {
         ->where('prNumber', '[0-9]+');
 
     Route::livewire('deployments', DeploymentIndex::class)->name('deployments');
-    Route::livewire('deployments/{deployment}', DeploymentShow::class)->name('deployments.show');
+    Route::livewire('deployments/{deployment}', DeploymentShow::class)
+        ->name('deployments.show')
+        ->where('deployment', '[0-9]+');
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
@@ -74,6 +77,13 @@ Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
 Route::middleware(['restrict-to-ingress'])
     ->get('/internal/deployments/wake', DeploymentWakeController::class)
     ->name('deployments.wake');
+
+// Public bounce endpoint on the dashboard. The wake endpoint redirects
+// unauthenticated preview visits here; this controller either forwards
+// already-authed users back to the preview or kicks off the OAuth flow
+// with the preview URL stored as url.intended.
+Route::get('/deployments/auth-bounce', AuthBounceController::class)
+    ->name('deployments.auth-bounce');
 
 // Status is used by the shim JS on an already-trusted page; keep `auth`.
 Route::middleware(['restrict-to-ingress', 'auth'])

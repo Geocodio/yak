@@ -57,18 +57,17 @@ class DeploymentWakeController
         $cookieIn = $request->cookie(self::SHARE_COOKIE_NAME);
         $cookieOk = $cookieIn !== null && $this->tokens->verifyCookie($deployment, $cookieIn);
 
-        // Branch 3: OAuth. Redirect to the dashboard login with the
-        // preview URL stored as the intended post-login destination,
-        // so the Google OAuth callback's `redirect()->intended()` drops
-        // the user straight back on the preview they were trying to
-        // reach. Caddy's forward_auth copies this 302 response back to
-        // the browser (including the new session cookie carrying the
-        // intended URL).
+        // Branch 3: OAuth. Redirect to the dashboard's auth-bounce
+        // endpoint which runs in the dashboard's own session context —
+        // it can tell whether the user is already authed (redirect to
+        // the preview) or needs to sign in (store the preview URL as
+        // url.intended, then the Google OAuth callback's
+        // redirect()->intended() drops them back on the preview).
         if ($request->user() === null && ! $cookieOk) {
             $returnTo = 'https://' . $hostname . $forwardedUri;
-            $request->session()->put('url.intended', $returnTo);
+            $bounce = config('app.url') . '/deployments/auth-bounce?to=' . urlencode($returnTo);
 
-            return redirect(config('app.url') . '/login');
+            return redirect($bounce);
         }
 
         $deployment->update(['last_accessed_at' => now()]);

@@ -10,7 +10,7 @@ beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
 });
 
-it('redirects anonymous visitors to the dashboard login', function () {
+it('redirects anonymous visitors to the dashboard auth-bounce endpoint', function () {
     config()->set('app.url', 'https://yak.example.com');
     BranchDeployment::factory()->running()->create(['hostname' => 'anon.yak.example.com']);
 
@@ -19,8 +19,10 @@ it('redirects anonymous visitors to the dashboard login', function () {
         'X-Forwarded-Uri' => '/docs/api',
     ])->get('/internal/deployments/wake');
 
-    $response->assertRedirect('https://yak.example.com/login');
-    expect(session('url.intended'))->toBe('https://anon.yak.example.com/docs/api');
+    $response->assertRedirect(
+        'https://yak.example.com/deployments/auth-bounce?to='
+            . urlencode('https://anon.yak.example.com/docs/api')
+    );
 });
 
 it('returns 404 for an unknown hostname when authenticated', function () {

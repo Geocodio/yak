@@ -56,14 +56,18 @@ it('rejects an anonymous request with an invalid share token', function () {
         ->assertStatus(401);
 });
 
-it('redirects anonymous without share prefix and without cookie to login', function () {
+it('redirects anonymous without share prefix and without cookie to auth-bounce', function () {
     BranchDeployment::factory()->running()->create(['hostname' => 'share.yak.example.com']);
 
-    $this->withHeaders([
+    $response = $this->withHeaders([
         'X-Forwarded-Host' => 'share.yak.example.com',
         'X-Forwarded-Uri' => '/dashboard',
-    ])->get('/internal/deployments/wake')
-        ->assertRedirect(config('app.url') . '/login');
+    ])->get('/internal/deployments/wake');
+
+    $response->assertRedirect(
+        config('app.url') . '/deployments/auth-bounce?to='
+            . urlencode('https://share.yak.example.com/dashboard')
+    );
 });
 
 it('still allows authenticated OAuth users (backwards compatible)', function () {
