@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -241,7 +242,8 @@ class IncusSandboxManager
     public function promoteToTemplate(string $containerName, Repository $repository): string
     {
         $templateName = $this->templateName($repository);
-        $snapshotName = (string) config('yak.sandbox.snapshot_name', 'ready');
+        $newVersion = max((int) ($repository->current_template_version ?? 0), 0) + 1;
+        $snapshotName = "ready-v{$newVersion}";
 
         // Delete old template if it exists
         Process::run("incus delete {$templateName} --force 2>/dev/null");
@@ -252,14 +254,17 @@ class IncusSandboxManager
         // Copy task container as the new template
         $this->exec("incus copy {$containerName} {$templateName}");
 
-        // Snapshot the template
+        // Snapshot the template with the versioned snapshot name
         $this->exec("incus snapshot create {$templateName} {$snapshotName}");
+
+        $ref = new TemplateSnapshotRef($repository->slug, $newVersion);
 
         // Stamp the repo with the yak-base version the template inherits
         // from. A later bump to config('yak.sandbox.base_version') will
         // trigger ensureTemplateVersionCurrent() to invalidate this template.
         $repository->update([
             'sandbox_base_version' => (int) config('yak.sandbox.base_version', 1),
+            'current_template_version' => $newVersion,
         ]);
 
         Log::channel('yak')->info('Promoted sandbox to repo template', [
@@ -267,9 +272,14 @@ class IncusSandboxManager
             'template' => $templateName,
             'snapshot' => $snapshotName,
             'base_version' => $repository->sandbox_base_version,
+            'template_version' => $newVersion,
         ]);
 
-        return "{$templateName}/{$snapshotName}";
+        // IMPORTANT: `sandbox_snapshot` must now hold the versioned ref, so
+        // `resolveSource()` keeps working for the task-sandbox clone path.
+        $repository->update(['sandbox_snapshot' => $ref->name()]);
+
+        return $ref->name();
     }
 
     /**
