@@ -11,6 +11,8 @@ enum DeploymentStatus: string implements StateMachine
 {
     use IsStateMachine;
 
+    public const DEFAULT = self::Pending;
+
     #[CanTransitionTo([self::Starting])]
     case Pending = 'pending';
 
