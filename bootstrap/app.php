@@ -2,9 +2,12 @@
 
 use App\Channels\Drone\PollCommand;
 use App\Http\Middleware\RestrictToIngress;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -22,5 +25,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Internal endpoints (forward_auth targets) must return 401, not a login redirect.
+        $exceptions->render(function (AuthenticationException $e, Request $request): ?Response {
+            if ($request->is('internal/*')) {
+                return response('Unauthenticated.', 401);
+            }
+
+            return null;
+        });
     })->create();
