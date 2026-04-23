@@ -21,3 +21,14 @@ it('rejects a request from outside the CIDR', function () {
         ->get('/__test_restrict')
         ->assertForbidden();
 });
+
+it('ignores X-Forwarded-For when a trusted proxy forwards the request', function () {
+    // A request that physically comes from 10.0.0.5 (inside the CIDR) but
+    // carries an X-Forwarded-For header pointing at a public browser IP
+    // must still be allowed — the gate authenticates the socket peer, not
+    // the forwarded chain. This is the production scenario where Caddy on
+    // the host forwards through the Docker bridge gateway.
+    $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.5'])
+        ->get('/__test_restrict', ['X-Forwarded-For' => '203.0.113.42'])
+        ->assertOk();
+});
