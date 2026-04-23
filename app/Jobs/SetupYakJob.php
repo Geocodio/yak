@@ -143,6 +143,7 @@ class SetupYakJob implements ShouldQueue
         } finally {
             // Always clean up the sandbox on setup (we snapshot first on success)
             if ($containerName !== null) {
+                $sandbox->pullClaudeCredentials($containerName);
                 $sandbox->destroy($containerName);
             }
         }

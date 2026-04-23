@@ -588,6 +588,111 @@ class IncusSandboxManager
     }
 
     /**
+     * Pull rotated Claude OAuth credentials out of a sandbox before teardown.
+     *
+     * Claude Code's OAuth refresh tokens rotate on every use: each refresh
+     * invalidates the prior refresh token server-side. When a sandbox's
+     * Claude CLI rotates (access-token expiry during the task, or normal
+     * lazy refresh), the new refresh token is written to the sandbox's
+     * copy of `.credentials.json` — and unless we pull it back before
+     * destroying the container, it's lost, leaving the host holding a
+     * refresh token that now 401s. That's the root cause of the recurring
+     * "Invalid authentication credentials" task failures.
+     *
+     * Adoption is gated on `expiresAt` so a pull-back from a sandbox that
+     * never rotated can't clobber a host file that a concurrent sandbox
+     * already updated. Best-effort: any failure is logged and swallowed
+     * — teardown must not be blocked by credential bookkeeping.
+     */
+    public function pullClaudeCredentials(string $containerName): void
+    {
+        try {
+            $claudeConfigSource = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
+            $hostFile = $claudeConfigSource . '/.credentials.json';
+
+            if (! is_file($hostFile)) {
+                return;
+            }
+
+            $tempFile = $hostFile . '.pull.' . bin2hex(random_bytes(6));
+
+            $result = Process::run(sprintf(
+                'incus file pull %s %s 2>/dev/null',
+                escapeshellarg($containerName . '/home/yak/.claude/.credentials.json'),
+                escapeshellarg($tempFile),
+            ));
+
+            try {
+                if (! $result->successful() || ! is_file($tempFile)) {
+                    return;
+                }
+
+                $pulledExpiresAt = $this->extractCredentialsExpiresAt($tempFile);
+                if ($pulledExpiresAt === null) {
+                    return;
+                }
+
+                $lockHandle = @fopen($hostFile, 'r');
+                if ($lockHandle === false) {
+                    return;
+                }
+
+                try {
+                    if (! flock($lockHandle, LOCK_EX)) {
+                        return;
+                    }
+
+                    $hostExpiresAt = $this->extractCredentialsExpiresAt($hostFile);
+                    if ($hostExpiresAt !== null && $pulledExpiresAt <= $hostExpiresAt) {
+                        return;
+                    }
+
+                    if (! @rename($tempFile, $hostFile)) {
+                        return;
+                    }
+
+                    @chmod($hostFile, 0600);
+
+                    Log::channel('yak')->info('Adopted rotated Claude credentials from sandbox', [
+                        'container' => $containerName,
+                        'pulled_expires_at' => $pulledExpiresAt,
+                        'host_expires_at' => $hostExpiresAt,
+                    ]);
+                } finally {
+                    flock($lockHandle, LOCK_UN);
+                    fclose($lockHandle);
+                }
+            } finally {
+                if (is_file($tempFile)) {
+                    @unlink($tempFile);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('pullClaudeCredentials failed', [
+                'container' => $containerName,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function extractCredentialsExpiresAt(string $path): ?int
+    {
+        $contents = @file_get_contents($path);
+        if ($contents === false || $contents === '') {
+            return null;
+        }
+
+        $decoded = json_decode($contents, true);
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $expiresAt = $decoded['claudeAiOauth']['expiresAt'] ?? null;
+
+        return is_int($expiresAt) ? $expiresAt : null;
+    }
+
+    /**
      * Write a global git ignore file that excludes sandbox-only artifacts
      * from every commit inside the container.
      *

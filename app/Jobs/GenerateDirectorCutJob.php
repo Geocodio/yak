@@ -100,6 +100,7 @@ class GenerateDirectorCutJob implements ShouldQueue
         } finally {
             if ($containerName !== null) {
                 try {
+                    $sandbox->pullClaudeCredentials($containerName);
                     $sandbox->destroy($containerName);
                 } catch (Throwable) {
                     // Swallow destroy failures — stale sandboxes are

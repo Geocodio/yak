@@ -78,15 +78,4 @@ php artisan migrate --force --no-interaction
 php artisan route:cache --no-interaction
 php artisan view:cache --no-interaction
 
-# Refresh the Claude Max OAuth token before workers start. The
-# scheduled refresh runs hourly, but a deploy can leave the on-disk
-# credentials file already 7+ hours old (the ~8h access-token TTL),
-# which 401s the first task picked up post-boot. This walks the CLI's
-# refresh path so the credentials file is fresh before supervisord
-# brings workers online. Failures are non-fatal — worst case tasks
-# fall back to the scheduled hourly refresh within 60 minutes.
-echo "Refreshing Claude auth..."
-runuser -u www-data -- php artisan yak:refresh-claude-auth \
-    || echo "WARNING: startup Claude auth refresh failed — hourly scheduler will retry"
-
 exec "$@"

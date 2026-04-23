@@ -194,6 +194,7 @@ class RunYakJob implements ShouldQueue
             $this->handleError($e->getMessage());
         } finally {
             if ($containerName !== null) {
+                $sandbox->pullClaudeCredentials($containerName);
                 $sandbox->destroy($containerName);
             }
         }
