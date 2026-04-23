@@ -25,29 +25,4 @@ class DeploymentLogFactory extends Factory
             'metadata' => null,
         ];
     }
-
-    public function info(): static
-    {
-        return $this->state(fn (): array => [
-            'level' => 'info',
-            'message' => fake()->sentence(),
-        ]);
-    }
-
-    public function warning(): static
-    {
-        return $this->state(fn (): array => [
-            'level' => 'warning',
-            'message' => 'Warning: ' . fake()->sentence(),
-        ]);
-    }
-
-    public function error(): static
-    {
-        return $this->state(fn (): array => [
-            'level' => 'error',
-            'message' => 'Error: ' . fake()->sentence(),
-            'metadata' => ['trace' => fake()->text(200)],
-        ]);
-    }
 }
