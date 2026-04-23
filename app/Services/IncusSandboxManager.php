@@ -468,13 +468,21 @@ class IncusSandboxManager
 
     /**
      * Resolve the source template/snapshot to clone from for a repository.
+     *
+     * Primary path: use the versioned ref stored by promoteToTemplate().
+     * Legacy fallback: repos set up before Phase 5 (no versioned snapshot).
      */
-    private function resolveSource(Repository $repository): string
+    public function resolveSource(Repository $repository): string
     {
+        // Primary: the canonical versioned ref stored by promoteToTemplate.
+        if (! empty($repository->sandbox_snapshot)) {
+            return $repository->sandbox_snapshot;
+        }
+
+        // Legacy fallback: repos set up before Phase 5 (before versioned snapshots).
         $templateName = $this->templateName($repository);
         $snapshotName = (string) config('yak.sandbox.snapshot_name', 'ready');
 
-        // Prefer repo-specific template with snapshot
         if ($this->hasSnapshot($repository)) {
             return "{$templateName}/{$snapshotName}";
         }
