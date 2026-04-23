@@ -148,3 +148,34 @@ it('prefers .yak/preview.sh when present in the repo', function () {
     Process::assertRan(fn ($p) => str_contains($p->command, '/app/.yak/preview.sh sha1234'));
     Process::assertDidntRun(fn ($p) => str_contains($p->command, 'FALLBACK_SHOULD_NOT_RUN'));
 });
+
+it('stops the container via incus stop', function () {
+    Process::fake();
+
+    $deployment = BranchDeployment::factory()->running()->create(['container_name' => 'deploy-42']);
+
+    app(DeploymentContainerManager::class)->stop($deployment);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus stop deploy-42'));
+});
+
+it('destroys the container via incus delete --force', function () {
+    Process::fake();
+
+    $deployment = BranchDeployment::factory()->running()->create(['container_name' => 'deploy-42']);
+
+    app(DeploymentContainerManager::class)->destroy($deployment);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete --force deploy-42'));
+});
+
+it('is idempotent on destroy when the container is already gone', function () {
+    Process::fake([
+        'incus delete --force *' => Process::result(exitCode: 1, errorOutput: 'Error: Not Found'),
+    ]);
+
+    $deployment = BranchDeployment::factory()->running()->create(['container_name' => 'deploy-gone']);
+
+    app(DeploymentContainerManager::class)->destroy($deployment);
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete --force deploy-gone'));
+});

@@ -95,6 +95,24 @@ class DeploymentContainerManager
         ]);
     }
 
+    public function stop(BranchDeployment $deployment): void
+    {
+        $result = Process::run("incus stop {$deployment->container_name}");
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException("Failed to stop container: {$result->errorOutput()}");
+        }
+    }
+
+    public function destroy(BranchDeployment $deployment): void
+    {
+        $result = Process::run("incus delete --force {$deployment->container_name}");
+
+        if (! $result->successful() && ! str_contains(strtolower($result->errorOutput()), 'not found')) {
+            throw new RuntimeException("Failed to destroy container: {$result->errorOutput()}");
+        }
+    }
+
     private function exec(string $container, string $command, int $timeoutSeconds): void
     {
         $result = Process::timeout($timeoutSeconds)
