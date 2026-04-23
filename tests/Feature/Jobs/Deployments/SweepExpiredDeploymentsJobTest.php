@@ -30,3 +30,16 @@ it('skips already-destroyed deployments', function () {
 
     Bus::assertNothingDispatched();
 });
+
+it('clears expired share tokens', function () {
+    $d = BranchDeployment::factory()->running()->create([
+        'public_share_token_hash' => 'somehash',
+        'public_share_expires_at' => now()->subHour(),
+    ]);
+
+    (new SweepExpiredDeploymentsJob)->handle();
+
+    $fresh = $d->fresh();
+    expect($fresh->public_share_token_hash)->toBeNull();
+    expect($fresh->public_share_expires_at)->toBeNull();
+});

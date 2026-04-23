@@ -28,5 +28,14 @@ class SweepExpiredDeploymentsJob implements ShouldQueue
             ->where('last_accessed_at', '<', $cutoff)
             ->pluck('id')
             ->each(fn ($id) => DestroyDeploymentJob::dispatch($id));
+
+        // Clean up expired share tokens so the dashboard shows accurate state.
+        BranchDeployment::query()
+            ->whereNotNull('public_share_expires_at')
+            ->where('public_share_expires_at', '<', now())
+            ->update([
+                'public_share_token_hash' => null,
+                'public_share_expires_at' => null,
+            ]);
     }
 }
