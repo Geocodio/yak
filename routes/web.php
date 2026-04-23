@@ -62,4 +62,14 @@ Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
     ->name('artifacts.show')
     ->where('filename', '.*');
 
+use App\Http\Controllers\Internal\DeploymentStatusController;
+use App\Http\Controllers\Internal\DeploymentWakeController;
+
+Route::prefix('internal/deployments')
+    ->middleware(['restrict-to-ingress', 'auth'])
+    ->group(function () {
+        Route::get('/wake', DeploymentWakeController::class)->name('deployments.wake');
+        Route::get('/status', DeploymentStatusController::class)->name('deployments.status');
+    });
+
 require __DIR__ . '/settings.php';
