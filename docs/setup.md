@@ -391,6 +391,27 @@ docker exec yak php artisan yak:setup-repo my-app
 
 Or click **Re-run Setup** on the repo's edit page in the dashboard.
 
+## Branch deployments
+
+Branch preview deployments use wildcard subdomains of `yak_domain` (e.g. `my-repo-feat-x.yak.example.com`). Two pieces of infrastructure beyond the base Yak install are required:
+
+### Wildcard DNS
+
+Add a wildcard CNAME for `*.yak.example.com` pointing at the Yak host, same target as the main `yak_domain` A record. Verify with `dig +short anything.yak.example.com`.
+
+### DNS-01 TLS + provider API token
+
+Wildcard certificates require DNS-01 (HTTP-01 does not issue wildcards). Caddy needs a provider plugin baked into its binary.
+
+1. Set `caddy_dns_provider` in `ansible/group_vars/yak.yml` to one of [Caddy's supported providers](https://github.com/caddy-dns) (e.g. `cloudflare`, `route53`, `digitalocean`).
+2. Add the provider's API token to `ansible/vault/secrets.yml`:
+   ```yaml
+   caddy_dns_provider_api_token: "<token with zone:edit permission for your yak_domain zone>"
+   ```
+3. Re-run the provisioning playbook (`./deploy.sh` or `ansible-playbook ansible/playbook.yml`). The `ssl` role will download a Caddy binary bundled with the chosen plugin and enable the wildcard Caddyfile block.
+
+If either value is unset, the Caddyfile falls back to dashboard-only routing. Preview deployments will not work until both are configured.
+
 ## Where To Go Next
 
 - [Channels](channels.md) — per-channel configuration and usage
