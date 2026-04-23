@@ -25,7 +25,7 @@ class RecordingSandboxManager extends IncusSandboxManager
         $this->responses[$pattern] = $result;
     }
 
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
     {
         $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -103,7 +103,7 @@ it('logs the before/after Claude versions on the task when a task is attached', 
     {
         private int $versionCalls = 0;
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -143,7 +143,7 @@ it('logs a friendlier line when Claude was already up to date (no version change
 
     $sandbox = new class extends RecordingSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -423,7 +423,7 @@ it('is tolerant of a failed npm install and still invokes claude -p', function (
 
     $sandbox = new class extends RecordingSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -475,4 +475,153 @@ test('claude command contains no environment-export prefix (env comes from Incus
         ->not->toContain('ghp_should_not_appear_here');
 
     putenv('NODE_AUTH_TOKEN');
+});
+
+test('user prompt is piped to claude -p via stdin, never embedded as an argv argument', function () {
+    // Regression: a 144KB PR review prompt (task 4505) overflowed
+    // Linux's MAX_ARG_STRLEN (~128KB per argv entry) when embedded in
+    // the shell command, producing
+    // "proc_open(): posix_spawn() failed: Argument list too long".
+    // The prompt must travel through stdin — which has no ARG_MAX —
+    // not through argv.
+    $task = YakTask::factory()->running()->create();
+
+    $largePrompt = str_repeat('A', 200_000) . '[SENTINEL-MARKER]';
+    $capturedStdin = tempnam(sys_get_temp_dir(), 'yak-stdin-');
+
+    $sandbox = new class($capturedStdin) extends RecordingSandboxManager
+    {
+        public function __construct(public string $stdinCaptureFile) {}
+
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            // Drain stdin to a capture file, then emit a valid result
+            // event so the runner exits cleanly. bash makes the stdin
+            // redirection a separate process step from the printf,
+            // which lets us capture AFTER the runner finishes writing.
+            $resultEvent = json_encode([
+                'type' => 'result',
+                'is_error' => false,
+                'result' => 'prompt received',
+                'num_turns' => 1,
+                'total_cost_usd' => 0.0,
+                'duration_ms' => 1,
+                'session_id' => 'sess_stdin_capture',
+            ]);
+
+            $shellCommand = sprintf(
+                'cat > %s; printf "%%s\n" %s',
+                escapeshellarg($this->stdinCaptureFile),
+                escapeshellarg($resultEvent),
+            );
+
+            $process = proc_open(['bash', '-c', $shellCommand], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner(
+        sandbox: $sandbox,
+        postResultGraceSeconds: 0.5,
+        streamIdleTimeoutSeconds: 30,
+        streamPollIntervalSeconds: 0,
+    );
+
+    $request = new AgentRunRequest(
+        prompt: $largePrompt,
+        systemPrompt: 'you are yak agent',
+        containerName: 'task-stdin-test',
+        timeoutSeconds: 600,
+        maxBudgetUsd: 5.0,
+        maxTurns: 300,
+        model: 'opus',
+        task: $task,
+    );
+
+    $result = $runner->run($request);
+
+    $claudeCall = collect($sandbox->calls)
+        ->first(fn (array $c): bool => str_contains($c['command'], 'claude -p'));
+
+    expect($claudeCall)->not->toBeNull();
+    // argv-size guard: the shell command we hand to proc_open must
+    // stay far below MAX_ARG_STRLEN regardless of prompt size.
+    expect(strlen($claudeCall['command']))->toBeLessThan(10_000);
+    expect($claudeCall['command'])->not->toContain('[SENTINEL-MARKER]');
+    expect($claudeCall['command'])->not->toContain(str_repeat('A', 1000));
+
+    // stdin path: the prompt arrived at the child process via the
+    // stdin pipe, byte-for-byte.
+    expect(file_get_contents($capturedStdin))->toBe($largePrompt);
+
+    expect($result->isError)->toBeFalse();
+    expect($result->resultSummary)->toBe('prompt received');
+
+    @unlink($capturedStdin);
+});
+
+test('batch mode feeds the prompt to claude -p via stdin, not argv', function () {
+    // Same regression as the streaming test, but for runBatch() —
+    // invoked when AgentRunRequest has no task attached.
+    $largePrompt = str_repeat('B', 180_000) . '[BATCH-SENTINEL]';
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public ?string $capturedInput = null;
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
+
+            if (str_contains($command, 'claude -p')) {
+                $this->capturedInput = $input;
+
+                return Process::result(json_encode([
+                    'type' => 'result',
+                    'is_error' => false,
+                    'result' => 'batch ok',
+                    'num_turns' => 1,
+                    'total_cost_usd' => 0.0,
+                    'duration_ms' => 1,
+                    'session_id' => 'sess_batch',
+                ]));
+            }
+
+            if (str_contains($command, 'claude --version')) {
+                return Process::result("2.1.118 (Claude Code)\n");
+            }
+
+            return Process::result('');
+        }
+    };
+
+    $request = new AgentRunRequest(
+        prompt: $largePrompt,
+        systemPrompt: 'system',
+        containerName: 'task-batch-stdin',
+        timeoutSeconds: 600,
+        maxBudgetUsd: 5.0,
+        maxTurns: 50,
+        model: 'opus',
+    );
+
+    $runner = new SandboxedAgentRunner($sandbox);
+    $runner->run($request);
+
+    $claudeCall = collect($sandbox->calls)
+        ->first(fn (array $c): bool => str_contains($c['command'], 'claude -p'));
+
+    expect($claudeCall)->not->toBeNull();
+    expect(strlen($claudeCall['command']))->toBeLessThan(10_000);
+    expect($claudeCall['command'])->not->toContain('[BATCH-SENTINEL]');
+    expect($sandbox->capturedInput)->toBe($largePrompt);
 });

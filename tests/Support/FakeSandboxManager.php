@@ -63,7 +63,7 @@ class FakeSandboxManager extends IncusSandboxManager
         return $name;
     }
 
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
     {
         if (str_contains($command, 'git rev-list --count origin/')) {
             return Process::result((string) $this->commitCount);

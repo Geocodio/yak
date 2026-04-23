@@ -110,11 +110,15 @@ class IncusSandboxManager
      *
      * Returns the raw process result for callers that need stdout/stderr.
      */
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
     {
         $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
 
         $process = Process::timeout($timeout ?? 600);
+
+        if ($input !== null) {
+            $process = $process->input($input);
+        }
 
         return $process->run($cmd);
     }

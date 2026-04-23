@@ -334,7 +334,7 @@ test('branch name gets a counter suffix when remote already has the branch', fun
         /** @param  array<int, string>  $existingRemoteBranches */
         public function __construct(private array $existingRemoteBranches) {}
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
         {
             if (preg_match("/git ls-remote --heads origin '([^']+)'/", $command, $m)) {
                 return in_array($m[1], $this->existingRemoteBranches, true)
@@ -805,7 +805,7 @@ test('refreshes git credential helper immediately before push', function () {
         /** @var array<int, string> */
         public array $commands = [];
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
         {
             $this->commands[] = $command;
 
