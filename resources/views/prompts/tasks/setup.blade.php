@@ -16,3 +16,23 @@ Set up the development environment for this repository.
 - The dev environment must persist after setup — subsequent tasks will use `docker-compose start` / `docker-compose stop`.
 - Do NOT make any code changes. This is an environment setup task only.
 - If any step fails, report the failure with full error details so it can be diagnosed.
+
+## Preview manifest (required if the repo supports branch preview deployments)
+
+Once the dev environment is up and reachable, emit a JSON preview manifest as the final thing in your response, wrapped in a fenced code block tagged `preview_manifest`. Shape:
+
+```preview_manifest
+{
+  "port": <int>,
+  "health_probe_path": "/",
+  "cold_start": "<command to bring services up from a stopped container>",
+  "checkout_refresh": "<command to run after git fetch && git checkout $sha to pick up changes>"
+}
+```
+
+- `port` is the container port where the app serves HTTP
+- `health_probe_path` is a path that returns 2xx when the app is ready
+- `cold_start` is what to run when the container boots from stopped; empty if services auto-start
+- `checkout_refresh` is what to run after a branch checkout; empty if `git checkout` alone is enough
+
+Emit the manifest exactly once, in a single `preview_manifest` code block. Skip this section if the repo is not a web app (libraries, CLI tools, etc.).

@@ -358,6 +358,33 @@ docker start yak-mariadb
 docker exec yak php artisan migrate --force
 ```
 
+## Branch deployments
+
+### A PR didn't get a preview URL
+
+Check, in order:
+
+1. Is `deployments_enabled` true on the repository row? If not, the webhook is a no-op.
+2. Did `DeployBranchJob` fail? Look at the `branch_deployments` row. If `status = failed`, `failure_reason` has the cause.
+3. Is SetupYakJob done for this repo? If `current_template_version = 0`, there is no versioned snapshot to clone from. Run setup first.
+4. Is the `yak-deployments` queue being processed? `supervisorctl status` on the Yak host.
+
+### Preview shows a loading shim that never resolves
+
+- Check the deployment detail page for the failure reason and which phase stalled.
+- Check the Incus host: is `incus list` showing the container? Is it `RUNNING` or `STOPPED`?
+- Look at the sandbox's internal logs: `incus exec deploy-<id> -- journalctl -xe` or run `docker compose logs` inside the sandbox.
+
+### Template snapshots accumulating on disk
+
+Check the hourly `deployments:gc-template-snapshots` schedule: is it running? (`php artisan schedule:list` lists it.) Any recent warnings in `storage/logs/laravel.log`?
+
+Manual cleanup of a specific version: `incus snapshot delete yak-tpl-<repo>/ready-v<n>`, but only if no `branch_deployments` row has `template_version = n`.
+
+### "At capacity" responses on a wake attempt
+
+Every running deployment was active within the last 5 minutes; eviction was refused. Either wait for someone to stop using a preview, bump `YAK_DEPLOYMENTS_RUNNING_CAP`, or `incus stop` one manually.
+
 ## Collecting Diagnostics For A Bug Report
 
 When filing an issue, collect:

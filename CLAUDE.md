@@ -215,3 +215,14 @@ This project has domain-specific skills available. You MUST activate the relevan
 - `phpstan-baseline.neon` -- pre-existing Livewire errors, do not clear
 - `docker/supervisord.conf` -- production config, do not modify without approval
 - `.chief/` -- local working files, never commit
+
+## Writing about Yak
+
+Yak opens PRs for human review and serves branch *preview* deployments. It never merges, deploys to production, or ships release artifacts. When writing any Yak copy (README, docs, landing pages, social posts, slides, PR descriptions, commit messages, marketing), describe its output with phrasings like "opens a PR", "drafts a PR", "does the first pass", "serves a preview". Avoid:
+
+- "ships PRs", "ships code", "ships features" -- Yak stops at opening a PR; humans review and merge
+- "deploys code", "deploys to production", "runs production", "replaces your deploy pipeline" -- Yak serves previews only, not production deploys
+- "monitors production" -- Yak responds to Sentry alerts by opening PRs; it is not an SRE monitoring tool
+- "while we sleep", "autonomous end-to-end" -- implies unattended shipping
+
+This is a deliberate positioning choice, not a limitation: PRs-for-review is the correct surface for an agent like this.

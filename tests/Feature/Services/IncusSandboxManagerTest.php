@@ -566,6 +566,7 @@ it('stamps the current base_version on the repo when promoting to a template', f
         'slug' => 'promote',
         'sandbox_snapshot' => null,
         'sandbox_base_version' => null,
+        'current_template_version' => 0,
     ]);
     $task = YakTask::factory()->create(['repo' => 'promote']);
 
@@ -579,10 +580,12 @@ it('stamps the current base_version on the repo when promoting to a template', f
 
     $ref = app(IncusSandboxManager::class)->promoteToTemplate("task-{$task->id}", $repo);
 
-    expect($ref)->toBe('yak-tpl-promote/ready');
+    expect($ref)->toBe('yak-tpl-promote/ready-v1');
 
     $repo->refresh();
     expect($repo->sandbox_base_version)->toBe(2);
+    expect($repo->current_template_version)->toBe(1);
+    expect($repo->sandbox_snapshot)->toBe('yak-tpl-promote/ready-v1');
 });
 
 it('builds streamExec argv with no shell wrapper so proc_terminate reaches incus directly', function () {

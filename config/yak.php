@@ -219,6 +219,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Branch Deployments Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'deployments' => [
+        'hostname_suffix' => env('YAK_DEPLOYMENTS_HOSTNAME_SUFFIX', 'yak.example.com'),
+        'running_cap' => (int) env('YAK_DEPLOYMENTS_RUNNING_CAP', 6),
+        'idle_minutes' => (int) env('YAK_DEPLOYMENTS_IDLE_MINUTES', 15),
+        'destroy_days' => (int) env('YAK_DEPLOYMENTS_DESTROY_DAYS', 30),
+        'eviction_grace_minutes' => (int) env('YAK_DEPLOYMENTS_EVICTION_GRACE_MINUTES', 5),
+        'default_port' => (int) env('YAK_DEPLOYMENTS_DEFAULT_PORT', 80),
+        'default_health_probe_path' => env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_PATH', '/'),
+        'default_wake_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_WAKE_TIMEOUT_SECONDS', 120),
+        'default_cold_start_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_COLD_START_TIMEOUT_SECONDS', 60),
+        'default_checkout_refresh_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_CHECKOUT_REFRESH_TIMEOUT_SECONDS', 60),
+        'default_health_probe_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_TIMEOUT_SECONDS', 30),
+
+        'wake_request_budget_seconds' => (int) env('YAK_DEPLOYMENTS_WAKE_REQUEST_BUDGET_SECONDS', 3),
+
+        'internal' => [
+            // CIDR range of the reverse-proxy (ingress) source. Yak's default install
+            // runs Caddy on the host; requests to /internal/deployments/* arrive via
+            // the Docker bridge gateway (172.18.0.1). The default covers that case.
+            'ingress_ip_cidr' => env('YAK_DEPLOYMENTS_INGRESS_IP_CIDR', '172.18.0.0/16'),
+        ],
+
+        'share' => [
+            'default_days' => (int) env('YAK_DEPLOYMENTS_SHARE_DEFAULT_DAYS', 7),
+            'max_days' => (int) env('YAK_DEPLOYMENTS_SHARE_MAX_DAYS', 30),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | PR Review Configuration
     |--------------------------------------------------------------------------
     */

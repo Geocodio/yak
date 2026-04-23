@@ -8,6 +8,12 @@ yak_container_name: yak
 
 swap_size_mb: 4096
 
+# Branch deployments: DNS-01 wildcard TLS
+# Set caddy_dns_provider to one of Caddy's supported providers (cloudflare, route53, etc.)
+# Leave empty/undefined to keep the dashboard-only Caddyfile. Requires setting
+# caddy_dns_provider_api_token in the vault.
+caddy_dns_provider: cloudflare
+
 ufw_allowed_ports:
   - "22"
   - "80"

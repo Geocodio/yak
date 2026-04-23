@@ -499,6 +499,64 @@ class AppService
             ]);
     }
 
+    public function createDeployment(
+        int $installationId,
+        string $repoSlug,
+        string $ref,
+        string $environment,
+        string $description = '',
+    ): int {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/deployments", [
+                'ref' => $ref,
+                'environment' => $environment,
+                'description' => $description,
+                'transient_environment' => true,
+                'auto_merge' => false,
+                'required_contexts' => [],
+            ])
+            ->throw();
+
+        return (int) $response->json('id');
+    }
+
+    public function createDeploymentStatus(
+        int $installationId,
+        string $repoSlug,
+        int $deploymentId,
+        string $state,
+        ?string $environmentUrl = null,
+        ?string $logUrl = null,
+        string $description = '',
+    ): void {
+        $token = $this->getInstallationToken($installationId);
+
+        $payload = array_filter([
+            'state' => $state,
+            'environment_url' => $environmentUrl,
+            'log_url' => $logUrl,
+            'description' => $description,
+        ]);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/deployments/{$deploymentId}/statuses", $payload)
+            ->throw();
+    }
+
+    public function deleteDeployment(int $installationId, string $repoSlug, int $deploymentId): void
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->delete("https://api.github.com/repos/{$repoSlug}/deployments/{$deploymentId}")
+            ->throw();
+    }
+
     private function requestInstallationToken(int $installationId): string
     {
         $jwt = $this->generateJwt();
