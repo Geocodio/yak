@@ -61,11 +61,17 @@ class DeploymentContainerManager
 
         $line = trim($result->output());
 
-        if (preg_match('/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/', $line, $m)) {
+        // `incus list -c 4` returns one "ip (iface)" entry per line per
+        // container NIC. We want the Incus-bridge-facing interface (eth0),
+        // not any docker0 / br-<hash> the container might create when the
+        // app spins up its own Docker daemon. Those inner-bridge IPs
+        // (172.17.x.x, 172.18.x.x) happen to sort first in the CSV and
+        // are unreachable from the Yak container's network.
+        if (preg_match('/\b(\d{1,3}(?:\.\d{1,3}){3})\s*\(eth0\)/', $line, $m)) {
             return $m[1];
         }
 
-        throw new DeploymentStartTimeoutException('ip_resolution', "No IPv4 for container {$containerName}");
+        throw new DeploymentStartTimeoutException('ip_resolution', "No eth0 IPv4 for container {$containerName}");
     }
 
     public function applyCheckoutRefresh(BranchDeployment $deployment, string $commitSha): void

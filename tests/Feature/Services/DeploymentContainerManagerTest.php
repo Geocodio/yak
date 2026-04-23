@@ -47,7 +47,10 @@ it('starts the container, runs cold_start, polls health probe, and returns the i
     Process::fake([
         'incus start deploy-42' => Process::result(exitCode: 0),
         'incus exec deploy-42 *' => Process::result(exitCode: 0, output: ''),
-        'incus list deploy-42 *' => Process::result(exitCode: 0, output: '10.0.0.42'),
+        'incus list deploy-42 *' => Process::result(exitCode: 0, output: <<<'CSV'
+            deploy-42,"172.17.0.1 (docker0)
+            10.0.0.42 (eth0)"
+            CSV),
     ]);
 
     Http::fake([
@@ -80,7 +83,7 @@ it('raises when the health probe never goes green', function () {
     Process::fake([
         'incus start *' => Process::result(exitCode: 0),
         'incus exec *' => Process::result(exitCode: 0, output: ''),
-        'incus list *' => Process::result(exitCode: 0, output: '10.0.0.42'),
+        'incus list *' => Process::result(exitCode: 0, output: 'deploy-x,10.0.0.42 (eth0)'),
     ]);
 
     Http::fake([
