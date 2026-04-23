@@ -101,7 +101,7 @@ it('raises when the health probe never goes green', function () {
 
 it('runs git fetch + checkout and the manifest refresh', function () {
     Process::fake([
-        'incus exec * -- test -f /app/.yak/preview.sh' => Process::result(exitCode: 1),
+        'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 1),
         'incus exec *' => Process::result(exitCode: 0),
     ]);
 
@@ -129,7 +129,7 @@ it('runs git fetch + checkout and the manifest refresh', function () {
 
 it('prefers .yak/preview.sh when present in the repo', function () {
     Process::fake([
-        'incus exec * -- test -f /app/.yak/preview.sh' => Process::result(exitCode: 0),
+        'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 0),
         'incus exec *' => Process::result(exitCode: 0),
     ]);
 
@@ -145,7 +145,7 @@ it('prefers .yak/preview.sh when present in the repo', function () {
 
     app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'sha1234');
 
-    Process::assertRan(fn ($p) => str_contains($p->command, '/app/.yak/preview.sh sha1234'));
+    Process::assertRan(fn ($p) => str_contains($p->command, '/workspace/.yak/preview.sh sha1234'));
     Process::assertDidntRun(fn ($p) => str_contains($p->command, 'FALLBACK_SHOULD_NOT_RUN'));
 });
 

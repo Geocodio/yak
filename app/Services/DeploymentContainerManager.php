@@ -73,15 +73,16 @@ class DeploymentContainerManager
         $deployment->loadMissing('repository');
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
         $container = $deployment->container_name;
+        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        $this->exec($container, 'cd /app && git fetch --all --prune', $manifest->checkoutRefreshTimeoutSeconds);
-        $this->exec($container, "cd /app && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($container, "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($container, "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 
-        $hasRepoHook = Process::run("incus exec {$container} -- test -f /app/.yak/preview.sh")
+        $hasRepoHook = Process::run("incus exec {$container} -- test -f {$workspace}/.yak/preview.sh")
             ->exitCode() === 0;
 
         if ($hasRepoHook) {
-            $this->exec($container, "/app/.yak/preview.sh {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+            $this->exec($container, "{$workspace}/.yak/preview.sh {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
         } elseif ($manifest->checkoutRefresh !== '') {
             $this->exec($container, $manifest->checkoutRefresh, $manifest->checkoutRefreshTimeoutSeconds);
         }
