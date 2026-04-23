@@ -57,7 +57,11 @@
     restart_policy: unless-stopped
     shm_size: 256M
     ports:
-      - "8080:80"
+      # Bind to loopback only: Caddy on the host reverse-proxies from
+      # localhost:8080 → the container. Publishing to 0.0.0.0 would
+      # expose the dashboard on the public internet over plain HTTP,
+      # since Docker's iptables rules bypass UFW.
+      - "127.0.0.1:8080:80"
     volumes:
       - "{{ yak_data_path }}:/data"
       - "{{ yak_claude_path }}:/home/yak/.claude"
