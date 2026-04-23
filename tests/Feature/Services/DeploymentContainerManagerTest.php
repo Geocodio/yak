@@ -1,15 +1,15 @@
 <?php
 
+use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Services\DeploymentContainerManager;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 
-beforeEach(function () {
-    Process::fake();
-});
-
 it('clones from the pinned template snapshot', function () {
+    Process::fake();
+
     $repo = Repository::factory()->create([
         'slug' => 'example-repo',
         'current_template_version' => 5,
@@ -26,6 +26,8 @@ it('clones from the pinned template snapshot', function () {
 });
 
 it('uses the deployment template_version (not repo current)', function () {
+    Process::fake();
+
     $repo = Repository::factory()->create([
         'slug' => 'example-repo',
         'current_template_version' => 9,
@@ -40,3 +42,59 @@ it('uses the deployment template_version (not repo current)', function () {
     Process::assertRan(fn ($process) => str_contains($process->command, 'yak-tpl-example-repo/ready-v3')
     );
 });
+
+it('starts the container, runs cold_start, polls health probe, and returns the ip', function () {
+    Process::fake([
+        'incus start deploy-42' => Process::result(exitCode: 0),
+        'incus exec deploy-42 *' => Process::result(exitCode: 0, output: ''),
+        'incus list deploy-42 *' => Process::result(exitCode: 0, output: '10.0.0.42'),
+    ]);
+
+    Http::fake([
+        'http://10.0.0.42*' => Http::response('ok', 200),
+    ]);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'example-repo',
+        'preview_manifest' => [
+            'port' => 80,
+            'health_probe_path' => '/up',
+            'cold_start' => 'docker compose up -d',
+            'health_probe_timeout_seconds' => 5,
+            'cold_start_timeout_seconds' => 5,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-42',
+        'template_version' => 1,
+    ]);
+
+    $ip = app(DeploymentContainerManager::class)->start($deployment);
+
+    expect($ip)->toBe('10.0.0.42');
+    Process::assertRan(fn ($process) => str_contains($process->command, 'incus start deploy-42'));
+    Process::assertRan(fn ($process) => str_contains($process->command, 'docker compose up -d'));
+});
+
+it('raises when the health probe never goes green', function () {
+    Process::fake([
+        'incus start *' => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0, output: ''),
+        'incus list *' => Process::result(exitCode: 0, output: '10.0.0.42'),
+    ]);
+
+    Http::fake([
+        'http://10.0.0.42*' => Http::response('no', 500),
+    ]);
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => [
+            'health_probe_path' => '/up',
+            'health_probe_timeout_seconds' => 1,
+            'cold_start_timeout_seconds' => 1,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create(['container_name' => 'deploy-x']);
+
+    app(DeploymentContainerManager::class)->start($deployment);
+})->throws(DeploymentStartTimeoutException::class);

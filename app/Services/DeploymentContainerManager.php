@@ -2,8 +2,12 @@
 
 namespace App\Services;
 
+use App\DataTransferObjects\PreviewManifest;
+use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use RuntimeException;
 
 class DeploymentContainerManager
 {
@@ -19,7 +23,74 @@ class DeploymentContainerManager
         $result = Process::run("incus copy {$snapshot} {$deployment->container_name}");
 
         if ($result->exitCode() !== 0) {
-            throw new \RuntimeException("Failed to clone template snapshot: {$result->errorOutput()}");
+            throw new RuntimeException("Failed to clone template snapshot: {$result->errorOutput()}");
         }
+    }
+
+    public function start(BranchDeployment $deployment): string
+    {
+        $deployment->loadMissing('repository');
+        $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
+
+        $result = Process::run("incus start {$deployment->container_name}");
+
+        if ($result->exitCode() !== 0) {
+            throw new RuntimeException("Failed to start container: {$result->errorOutput()}");
+        }
+
+        if ($manifest->coldStart !== '') {
+            $coldStartResult = Process::timeout($manifest->coldStartTimeoutSeconds)
+                ->run("incus exec {$deployment->container_name} -- bash -lc " . escapeshellarg($manifest->coldStart));
+
+            if ($coldStartResult->exitCode() !== 0) {
+                throw new RuntimeException("Cold start failed: {$coldStartResult->errorOutput()}");
+            }
+        }
+
+        $ip = $this->resolveContainerIp($deployment->container_name);
+
+        $this->waitForHealthProbe(
+            $ip,
+            $manifest->port,
+            $manifest->healthProbePath,
+            $manifest->healthProbeTimeoutSeconds,
+        );
+
+        return $ip;
+    }
+
+    public function resolveContainerIp(string $containerName): string
+    {
+        $result = Process::run("incus list {$containerName} -c n,4 -f csv");
+
+        if ($result->exitCode() !== 0) {
+            throw new DeploymentStartTimeoutException('ip_resolution', "Failed to list container {$containerName}");
+        }
+
+        $line = trim($result->output());
+
+        if (preg_match('/\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/', $line, $m)) {
+            return $m[1];
+        }
+
+        throw new DeploymentStartTimeoutException('ip_resolution', "No IPv4 for container {$containerName}");
+    }
+
+    private function waitForHealthProbe(string $ip, int $port, string $path, int $timeoutSeconds): void
+    {
+        $deadline = microtime(true) + $timeoutSeconds;
+        $url = sprintf('http://%s:%d%s', $ip, $port, $path);
+
+        while (microtime(true) < $deadline) {
+            $response = Http::timeout(2)->get($url);
+
+            if ($response->successful()) {
+                return;
+            }
+
+            usleep(500_000); // 0.5s
+        }
+
+        throw new DeploymentStartTimeoutException('health_probe', "Health probe never returned 2xx at {$url}");
     }
 }
