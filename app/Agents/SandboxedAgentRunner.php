@@ -244,7 +244,8 @@ class SandboxedAgentRunner implements AgentRunner
 
         [$process, $pipes] = $this->sandbox->streamExec($containerName, $command);
 
-        fclose($pipes[0]); // Close stdin
+        $this->writePromptToStdin($pipes[0], $request->prompt);
+        fclose($pipes[0]);
 
         $lineCount = 0;
         $stdout = $pipes[1];
@@ -472,13 +473,66 @@ class SandboxedAgentRunner implements AgentRunner
         $containerName = $request->containerName;
         $command = $this->buildClaudeCommand($request);
 
-        $result = $this->sandbox->run($containerName, $command, $request->timeoutSeconds);
+        $result = $this->sandbox->run(
+            $containerName,
+            $command,
+            $request->timeoutSeconds,
+            input: $request->prompt,
+        );
 
         if (ClaudeAuthDetector::isAuthError($result)) {
             throw new ClaudeAuthException(ClaudeAuthDetector::formatErrorMessage($result));
         }
 
         return ClaudeCodeOutputParser::parse(trim($result->output()));
+    }
+
+    /**
+     * Write the prompt to `claude -p`'s stdin, draining the pipe via
+     * stream_select so we don't deadlock when the prompt exceeds the
+     * OS pipe buffer (64KB on Linux by default, up to 1MB). claude
+     * reads stdin as the user prompt when no positional prompt arg
+     * is given — this is the documented `cat | claude -p` pattern.
+     *
+     * @param  resource  $stdin
+     */
+    private function writePromptToStdin($stdin, string $prompt): void
+    {
+        if ($prompt === '') {
+            return;
+        }
+
+        stream_set_blocking($stdin, false);
+
+        $len = strlen($prompt);
+        $offset = 0;
+        $startedAt = microtime(true);
+
+        while ($offset < $len) {
+            if ((microtime(true) - $startedAt) > 60.0) {
+                Log::channel('yak')->warning('Claude stream: stdin write timed out', [
+                    'bytes_written' => $offset,
+                    'bytes_total' => $len,
+                ]);
+                break;
+            }
+
+            $write = [$stdin];
+            $read = null;
+            $except = null;
+
+            if (@stream_select($read, $write, $except, 5) === false) {
+                break;
+            }
+
+            $bytes = @fwrite($stdin, substr($prompt, $offset));
+
+            if ($bytes === false) {
+                break;
+            }
+
+            $offset += $bytes;
+        }
     }
 
     private function processLine(string $line, StreamEventHandler $handler): void
@@ -517,10 +571,15 @@ class SandboxedAgentRunner implements AgentRunner
 
         $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
 
+        // The user prompt is streamed to `claude -p` via stdin rather
+        // than embedded as an argv argument. Linux caps a single argv
+        // entry at MAX_ARG_STRLEN (~128KB); a large PR review prompt
+        // exceeds that and `proc_open()` fails with E2BIG
+        // ("posix_spawn(): Argument list too long"). Documented claude
+        // -p pattern: `cat context.txt | claude -p --flags...`.
         $command = sprintf(
-            'cd %s && claude -p %s --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            'cd %s && claude -p --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
             escapeshellarg($workspacePath),
-            escapeshellarg($request->prompt),
             $outputFormat,
             $verboseFlag,
             escapeshellarg($request->model),

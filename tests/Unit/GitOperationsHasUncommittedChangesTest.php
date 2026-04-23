@@ -13,7 +13,7 @@ function fakeSandboxReturningPorcelain(string $stdout, int $exit = 0): IncusSand
 
         public function __construct(private string $stdout, private int $exit) {}
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
         {
             $this->lastCommand = $command;
 
