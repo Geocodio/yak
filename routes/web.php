@@ -3,8 +3,12 @@
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
+use App\Http\Controllers\Internal\DeploymentStatusController;
+use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
+use App\Livewire\Deployments\DeploymentIndex;
+use App\Livewire\Deployments\DeploymentShow;
 use App\Livewire\Health;
 use App\Livewire\PromptEditor;
 use App\Livewire\PrReviewFeedback;
@@ -49,6 +53,9 @@ Route::middleware(['auth'])->group(function () {
         ->where('repoSlug', '.+')
         ->where('prNumber', '[0-9]+');
 
+    Route::livewire('deployments', DeploymentIndex::class)->name('deployments');
+    Route::livewire('deployments/{deployment}', DeploymentShow::class)->name('deployments.show');
+
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
 });
@@ -61,9 +68,6 @@ Route::get('artifacts/{task}/viewer/{filename}', [ArtifactController::class, 'vi
 Route::get('artifacts/{task}/{filename}', [ArtifactController::class, 'show'])
     ->name('artifacts.show')
     ->where('filename', '.*');
-
-use App\Http\Controllers\Internal\DeploymentStatusController;
-use App\Http\Controllers\Internal\DeploymentWakeController;
 
 Route::prefix('internal/deployments')
     ->middleware(['restrict-to-ingress', 'auth'])
