@@ -2,7 +2,33 @@
 
 How Yak works under the hood. This page exists for the person who wants to understand the system before trusting it — or for someone debugging unexpected behavior who needs a mental model.
 
-## The Core Loop
+## Three workflows, one substrate
+
+Yak is an autonomous coding agent for papercuts, a line-by-line PR reviewer, and a per-branch preview server. One shared sandbox fleet powers all three workflows.
+
+```
+              ┌────────────────────────────────────────────┐
+              │              Workflows (surfaces)          │
+              │                                            │
+              │  Coding Agent    PR Review    Branch       │
+              │  (papercuts)     (line-level  Deployments  │
+              │                   comments)                │
+              └────────────────────────────────────────────┘
+                                 │
+              ┌────────────────────────────────────────────┐
+              │              Substrate (shared)            │
+              │                                            │
+              │  Repos ⟷ GitHub App ⟷ Ingress ⟷ Auth       │
+              │  Sandboxes (Incus + ZFS CoW + per-repo     │
+              │  templates from SetupYakJob)               │
+              │  Jobs / Queues / Scheduler                 │
+              │  Dashboard / Artifacts / Logs / Costs      │
+              └────────────────────────────────────────────┘
+```
+
+The substrate is the load-bearing part. Workflows are the user-facing surfaces. New workflows in the future plug into the same substrate without reshaping the base.
+
+## Coding Agent Workflow
 
 Every fix task goes through the same pipeline, regardless of where it came from:
 
@@ -48,6 +74,8 @@ Implementation runs on a Claude Max subscription, not the API key. The subscript
 
 ## Channel Driver Architecture
 
+Channel drivers are task-workflow scoped. PR reviews and branch deployments both operate directly on the GitHub integration rather than going through the channel driver interfaces.
+
 Every external integration is a pluggable channel. Channels are enabled by the presence of credentials — no credentials, no channel. The app detects which channels are active at boot and registers only those routes, webhooks, and MCP servers.
 
 ```
@@ -91,7 +119,7 @@ The rule is **respond where you were asked**. Every task has a `source` column i
 
 See the [Channels](channels.md) page for the full list of channels and their roles.
 
-## The State Machine
+## Task State Machine
 
 Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition` — the enum enforces the rules, not the job code.
 
@@ -276,6 +304,39 @@ One row per configured repo. Minimal schema — slug, name, path, default branch
 
 Primary key is `date`. Tracks routing-layer API costs for budget enforcement. Updated after each task completes. Read by the `EnsureDailyBudget` middleware before any Claude Code invocation.
 
+### `branch_deployments`
+
+One row per open PR on an opted-in repository. Key columns:
+
+| Column | Purpose |
+|---|---|
+| `status` | State machine: `pending`, `provisioning`, `running`, `hibernated`, `failed`, `destroyed` |
+| `template_version` | Pinned to the `current_template_version` of the repo at creation time. The deployment clones from that snapshot version for its whole lifetime. |
+| `last_accessed_at` | Updated on every inbound request. Used as the idle signal for hibernation (15 minutes) and eviction ordering. |
+| `public_share_token_hash` | SHA-256 hash of the raw share token. Raw token is shown once at mint time and never persisted. Null when no share link is active. |
+
+## PR Review Workflow
+
+Yak reviews pull requests in a dedicated workflow that runs alongside the coding agent. The review agent runs in a sandbox fork of the same per-repo template, reads the PR diff, and leaves line-level comments (`suggestion` blocks where the fix is obvious, prose when it needs explanation).
+
+The review workflow reuses the substrate: same GitHub App, same sandbox infrastructure, same dashboard surface. It has its own state machine separate from the task state machine. Reviewer output is surfaced as native GitHub PR review comments.
+
+For the full flow, see [docs/pr-review.md](pr-review.md).
+
+## Branch Deployments Workflow
+
+Every open PR on an opted-in repo gets a live preview URL at `<repo>-<branch>.<hostname>`, wired up automatically from the `pull_request.opened` webhook. Previews are:
+
+- OAuth-gated by default, with optional time-boxed public-share tokens for external reviewers
+- Hibernated when idle after 15 minutes, resumed on the next request (first-hit latency 5 to 15 seconds)
+- Destroyed when the PR closes, merges, or is deleted, or after 30 days of inactivity
+
+Each preview runs in its own Incus container cloned from the same per-repo template snapshot that powers task sandboxes. A reverse proxy (Caddy in the default install) handles wildcard TLS, OAuth enforcement via forward-auth, and upstream resolution per request.
+
+Preview state is mirrored to GitHub's native Deployments API, so the PR UI shows a "View deployment" button automatically.
+
+For the end-to-end user guide, see [docs/branch-deployments.md](branch-deployments.md).
+
 ## Safety Model
 
 The safety guarantees are deliberate design choices, not afterthoughts.
@@ -337,3 +398,4 @@ Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed UR
 - **Not a long-running agent.** Every task is one-shot. No back-and-forth refinement. If a task needs iterative discussion, use a normal Claude session.
 - **Not a frontend framework.** Dashboard is Livewire (server-rendered) with Livewire polling for live updates. No SPA, no websockets.
 - **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.
+- **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere; the existing production deploy pipeline remains the source of truth.
