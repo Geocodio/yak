@@ -22,7 +22,7 @@
                 <div class="glass elevation-2 overflow-hidden">
                     {{-- Mascot video --}}
                     <div class="relative aspect-video overflow-hidden bg-yak-cream">
-                        <video autoplay loop muted playsinline class="h-full w-full object-cover">
+                        <video autoplay muted playsinline class="h-full w-full object-cover">
                             <source src="{{ asset('videos/yak-v3-hair-lift-1.mp4') }}" type="video/mp4">
                         </video>
                         <div class="pointer-events-none absolute inset-x-0 bottom-0 h-[60px] bg-gradient-to-t from-white/75 to-transparent"></div>
