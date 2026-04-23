@@ -36,6 +36,12 @@
 
             reverse_proxy {http.request.header.X-Upstream-Host}:{http.request.header.X-Upstream-Port} {
                 header_up Host {host}
+                # Strip the Yak dashboard session/CSRF cookies before
+                # forwarding the request into the untrusted preview
+                # sandbox. SESSION_DOMAIN=.{{ yak_domain }} makes the
+                # browser send these on every subdomain; sandboxes run
+                # arbitrary user code and must not see them.
+                header_up Cookie "(yak-session|XSRF-TOKEN)=[^;]*(?:;\s*|$)" ""
             }
         }
     }

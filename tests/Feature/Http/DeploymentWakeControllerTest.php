@@ -10,13 +10,17 @@ beforeEach(function () {
     config()->set('yak.deployments.internal.ingress_ip_cidr', '0.0.0.0/0');
 });
 
-it('returns 401 when there is no auth and no share token or cookie', function () {
-    // Known hostname but no authenticated user, share token, or cookie.
+it('redirects anonymous visitors to the dashboard login', function () {
+    config()->set('app.url', 'https://yak.example.com');
     BranchDeployment::factory()->running()->create(['hostname' => 'anon.yak.example.com']);
 
-    $this->withHeaders(['X-Forwarded-Host' => 'anon.yak.example.com'])
-        ->get('/internal/deployments/wake')
-        ->assertStatus(401);
+    $response = $this->withHeaders([
+        'X-Forwarded-Host' => 'anon.yak.example.com',
+        'X-Forwarded-Uri' => '/docs/api',
+    ])->get('/internal/deployments/wake');
+
+    $response->assertRedirect('https://yak.example.com/login');
+    expect(session('url.intended'))->toBe('https://anon.yak.example.com/docs/api');
 });
 
 it('returns 404 for an unknown hostname when authenticated', function () {
