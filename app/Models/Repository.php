@@ -39,6 +39,10 @@ class Repository extends Model
             'sandbox_base_version' => 'integer',
             'pr_review_enabled' => 'boolean',
             'pr_review_path_excludes' => 'array',
+            'deployments_enabled' => 'boolean',
+            'preview_manifest' => 'array',
+            'preview_env_overrides' => 'array',
+            'current_template_version' => 'integer',
         ];
     }
 
@@ -70,5 +74,13 @@ class Repository extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(YakTask::class, 'repo', 'slug');
+    }
+
+    /**
+     * @return HasMany<BranchDeployment, $this>
+     */
+    public function branchDeployments(): HasMany
+    {
+        return $this->hasMany(BranchDeployment::class);
     }
 }
