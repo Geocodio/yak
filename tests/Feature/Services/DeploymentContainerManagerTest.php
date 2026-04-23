@@ -182,3 +182,26 @@ it('is idempotent on destroy when the container is already gone', function () {
     app(DeploymentContainerManager::class)->destroy($deployment);
     Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete --force deploy-gone'));
 });
+
+it('is idempotent on start when the container is already running', function () {
+    Process::fake([
+        'incus start *' => Process::result(exitCode: 1, errorOutput: 'Error: The instance is already running'),
+        'incus exec *' => Process::result(exitCode: 0, output: ''),
+        'incus list *' => Process::result(exitCode: 0, output: 'deploy-42,10.0.0.42 (eth0)'),
+    ]);
+    Http::fake(['http://10.0.0.42*' => Http::response('ok', 200)]);
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => [
+            'port' => 80,
+            'health_probe_path' => '/',
+            'cold_start' => '',
+            'health_probe_timeout_seconds' => 5,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create(['container_name' => 'deploy-42']);
+
+    $ip = app(DeploymentContainerManager::class)->start($deployment);
+
+    expect($ip)->toBe('10.0.0.42');
+});
