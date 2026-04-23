@@ -7,6 +7,16 @@ it('formats a snapshot name', function () {
     expect($ref->name())->toBe('yak-tpl-example-repo/ready-v5');
 });
 
+it('sanitizes the slug when formatting — owner/repo slugs become dash-joined', function () {
+    $ref = new TemplateSnapshotRef('Geocodio/geocodio', 1);
+    expect($ref->name())->toBe('yak-tpl-geocodio-geocodio/ready-v1');
+});
+
+it('sanitizes uppercase and unsafe characters', function () {
+    $ref = new TemplateSnapshotRef('Acme Corp/My_Repo.v2', 3);
+    expect($ref->name())->toBe('yak-tpl-acme-corp-my-repo-v2/ready-v3');
+});
+
 it('parses a snapshot name', function () {
     $ref = TemplateSnapshotRef::parse('yak-tpl-example-repo/ready-v7');
     expect($ref->repoSlug)->toBe('example-repo');
