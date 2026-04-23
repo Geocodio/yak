@@ -29,6 +29,7 @@ it('pull_request.opened on a deployments-enabled repo dispatches DeployBranchJob
         'slug' => 'example-org/example-repo',
         'is_active' => true,
         'deployments_enabled' => true,
+        'current_template_version' => 1,
     ]);
 
     $payload = [
@@ -188,4 +189,35 @@ it('delete event with ref_type tag is ignored', function () {
     ])->assertOk();
 
     Bus::assertNotDispatched(DestroyDeploymentJob::class);
+});
+
+it('skips deployment when repo has no versioned template (current_template_version = 0)', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'example-org/example-repo',
+        'is_active' => true,
+        'deployments_enabled' => true,
+        'current_template_version' => 0,
+    ]);
+
+    $payload = [
+        'action' => 'opened',
+        'pull_request' => [
+            'html_url' => 'https://github.com/example-org/example-repo/pull/99',
+            'number' => 99, 'title' => '', 'body' => '', 'draft' => false,
+            'user' => ['login' => 'dev'],
+            'head' => ['ref' => 'feat/needs-setup', 'sha' => 'abc'],
+            'base' => ['ref' => 'main', 'sha' => 'b'],
+            'state' => 'open',
+        ],
+        'repository' => ['full_name' => 'example-org/example-repo'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/ci/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGitHubWebhook($body),
+    ])->assertOk();
+
+    Bus::assertNotDispatched(DeployBranchJob::class);
+    $this->assertDatabaseCount('branch_deployments', 0);
 });

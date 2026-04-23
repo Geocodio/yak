@@ -16,6 +16,7 @@ use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -161,6 +162,18 @@ class WebhookController extends Controller
         }
 
         if (in_array($action, ['opened', 'reopened'], true)) {
+            if ((int) ($repo->current_template_version ?? 0) < 1) {
+                // Repo hasn't been set up under the versioned-template regime yet.
+                // Log and skip; operator needs to re-run SetupYakJob.
+                Log::warning('Skipping deployment: repo has no versioned template', [
+                    'repository_id' => $repo->id,
+                    'repository_slug' => $repo->slug,
+                    'branch' => $request->input('pull_request.head.ref'),
+                ]);
+
+                return;
+            }
+
             $branch = (string) $request->input('pull_request.head.ref');
             $sha = (string) $request->input('pull_request.head.sha');
             $prNumber = (int) $request->input('pull_request.number');
