@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('repositories', function (Blueprint $table) {
+        Schema::table('repositories', function (Blueprint $table): void {
             $table->boolean('deployments_enabled')->default(false)->after('slug');
             $table->json('preview_manifest')->nullable()->after('deployments_enabled');
             $table->json('preview_env_overrides')->nullable()->after('preview_manifest');
@@ -18,7 +18,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('repositories', function (Blueprint $table) {
+        Schema::table('repositories', function (Blueprint $table): void {
             $table->dropColumn([
                 'deployments_enabled',
                 'preview_manifest',
