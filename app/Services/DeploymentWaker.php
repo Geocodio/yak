@@ -5,6 +5,7 @@ namespace App\Services;
 use App\DataTransferObjects\PreviewManifest;
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
+use App\Models\DeploymentLog;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -47,6 +48,8 @@ class DeploymentWaker
             $deployment->status = DeploymentStatus::Starting;
             $deployment->save();
 
+            DeploymentLog::record($deployment, 'info', 'lifecycle', 'Waking from hibernation');
+
             $host = $this->manager->start($deployment);
 
             if ($deployment->dirty && $deployment->current_commit_sha !== null) {
@@ -74,6 +77,8 @@ class DeploymentWaker
             $deployment->status = DeploymentStatus::Failed;
             $deployment->failure_reason = 'wake: ' . $e->getMessage();
             $deployment->save();
+
+            DeploymentLog::record($deployment, 'error', 'lifecycle', 'Wake failed: ' . $e->getMessage());
 
             return ['state' => 'failed', 'reason' => $e->getMessage()];
         } finally {

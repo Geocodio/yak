@@ -94,3 +94,21 @@ it('returns failed for a destroyed deployment', function () {
 
     expect($result['state'])->toBe('failed');
 });
+
+it('writes a lifecycle log when waking a hibernated deployment', function () {
+    $deployment = BranchDeployment::factory()->hibernated()->create([
+        'current_commit_sha' => 'abc',
+        'dirty' => true,
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('start')->once()->andReturn('10.0.0.9');
+    $manager->shouldReceive('applyCheckoutRefresh')->once();
+
+    app(DeploymentWaker::class)->ensureReady($deployment);
+
+    $log = $deployment->logs()->where('phase', 'lifecycle')->latest('id')->first();
+    expect($log)->not->toBeNull();
+    expect($log->message)->toContain('Waking');
+});
