@@ -36,4 +36,25 @@ class DeploymentLog extends Model
     {
         return $this->belongsTo(BranchDeployment::class);
     }
+
+    /**
+     * Record a deployment log entry. Centralized here so every call site is terse.
+     *
+     * @param  array<string, mixed>  $metadata
+     */
+    public static function record(
+        BranchDeployment $deployment,
+        string $level,
+        string $phase,
+        string $message,
+        array $metadata = [],
+    ): self {
+        return self::create([
+            'branch_deployment_id' => $deployment->id,
+            'level' => $level,
+            'phase' => $phase,
+            'message' => $message,
+            'metadata' => $metadata === [] ? null : $metadata,
+        ]);
+    }
 }
