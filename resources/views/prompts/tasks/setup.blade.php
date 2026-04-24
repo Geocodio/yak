@@ -36,9 +36,57 @@ Field requirements — ALL of these apply and past manifests have been rejected 
 - `health_probe_path` — returns 2xx **without authentication**. `/up` is the Laravel default health route; `/` works if the root doesn't redirect to `/login`. Pick something that's green the moment the app is up. Do **not** use `/login`, `/dashboard`, or any other auth-gated path — the probe gets a 3xx/4xx and times out.
 - `cold_start` — the **full shell command**, including any `cd` into the repo directory. The command runs via `incus exec <container> -- bash -lc '<your command>'`, which starts in the user's home dir, not at the repo root. The repo in a Yak sandbox lives at `/workspace`, so write `cd /workspace && docker compose up -d …`. Empty string is only correct if services truly auto-start from `incus start`.
   - **If the command uses Docker**, prefix it with a wait loop — `incus start` returns before systemd finishes bringing dockerd up, so the first `docker` invocation races the daemon. Use: `cd /workspace && until docker info >/dev/null 2>&1; do sleep 1; done && docker compose up -d …`. Without this the cold start fails with `dial unix /var/run/docker.sock: no such file or directory`.
-- `checkout_refresh` — the **full** shell command sequence to bring a running deployment up-to-date after a new commit is checked out. This is the workflow that runs on every push to the branch. It must handle **everything the app needs to reflect the new code**, including (if applicable): Docker image rebuilds (`docker compose build`), service restarts (`docker compose up -d`), PHP dependencies (`composer install`), JS dependencies + asset builds (`npm ci && npm run prod` or `npm run build`), database migrations (`php artisan migrate --force`), cache clears, and any other step that's normally part of a deploy. Do **not** try to be selective about "only rebuild if the Dockerfile changed" — the underlying tools (Docker layer cache, npm cache, composer cache) already make no-op runs cheap. Write the full pipeline; let the caches handle skipping. Prefix with `cd /workspace && …`. Empty string is only correct if a plain `git checkout` already reflects all necessary state (very rare — basically static HTML).
+- `checkout_refresh` — the **full** shell command sequence to bring a running deployment up-to-date after a new commit is checked out. This is what runs on every push to the branch. It must handle **everything the app needs to reflect the new code**. Prefix with `cd /workspace && …`.
 
-  **Verify before emitting:** after you've brought the dev environment up and before you emit the manifest, run your proposed `checkout_refresh` command once from a clean `git` state (e.g. `git fetch && git checkout --force <current sha> && <your refresh command>`). Confirm it exits 0 and the app still responds at the health probe. If it fails, fix the script before emitting — a manifest whose refresh command is broken will break every push to the branch.
+  **Figure out the right shape by answering these in order. Don't skip steps.**
+
+  **1) What's actually live inside the container (or on the sandbox) when code changes?** Grep the compose file for volume mounts, or note if there's no Docker at all:
+    - **Bind-mount like `./:/var/www` or `./src:/app`** → files under that host path propagate the moment `git checkout` runs. No rebuild needed for anything inside the mount. Identify exactly which subtree is mounted.
+    - **No compose bind-mount for app code** (pure `image:` with data-only volumes, or `build:` with no source volume) → the container's filesystem reflects whatever was built/pulled. Every code change needs a rebuild or pull.
+    - **No Docker** (`php artisan serve`, `npm start`, `rails s`, Python venv, etc.) → the sandbox filesystem IS live. `git checkout` is enough for code; only deps, assets, and migrations need steps.
+
+  **2) What's baked into the image but NOT covered by the mounts?** If Docker is involved, grep the Dockerfile for `COPY` / `ADD` targeting paths outside the mount subtree. Typical culprits: `/etc/nginx/`, `/etc/php/`, `/etc/supervisor/`, compiled binaries, system config, installed packages. Those do **NOT** propagate via `git checkout` — a push that changes them needs an image refresh to show up in the preview.
+
+  **3) If step 2 found anything, pick how to rebuild the image.** In order of preference:
+    - A repo-provided local build entrypoint: `Makefile` target (`make build`), `Taskfile.yml` task (`task build`), `package.json` script (e.g. `npm run docker:build`), or plain `docker compose build` if compose has a `build:` context.
+    - Direct `docker build` against the Dockerfile, with the tag the compose file references.
+    - If the image is only published by CI (no way to build locally from source) **and** CI does not publish per-branch tags → flag this in your setup report as a limitation; the branch's baked-state changes won't appear in the preview. Emit `checkout_refresh` without a build step and note the gap.
+
+  Docker's layer cache makes warm rebuilds fast — a single file change in a late-stage layer invalidates only that layer and after. Don't try to gate on "what changed"; the cache handles it.
+
+  **4) Skip steps that genuinely don't apply.** No `composer.json` → skip composer. No `package.json` → skip npm. No migrations → skip migrate. A pure static-HTML repo can legitimately emit `checkout_refresh: ""`.
+
+  **Common shapes:**
+
+  Docker with bind-mounted source + image-baked config (e.g. nginx/php configs in the Dockerfile):
+  ```
+  cd /workspace && until docker info >/dev/null 2>&1; do sleep 1; done \
+    && make build \
+    && docker compose up -d --force-recreate <app-service> <other services> \
+    && docker compose exec -T <app> composer install --no-interaction \
+    && docker compose exec -T <app> sh -c 'npm ci && npm run prod' \
+    && docker compose exec -T <app> php artisan migrate --force
+  ```
+
+  Docker with everything baked into the image (no source mount), using compose `build:` context:
+  ```
+  cd /workspace && until docker info >/dev/null 2>&1; do sleep 1; done \
+    && docker compose build \
+    && docker compose up -d --force-recreate \
+    && docker compose exec -T <app> php artisan migrate --force
+  ```
+
+  Non-Docker Laravel (`php artisan serve` style):
+  ```
+  cd /workspace && composer install --no-interaction && npm ci && npm run prod && php artisan migrate --force
+  ```
+
+  Static site or pre-built SPA:
+  ```
+  cd /workspace && npm ci && npm run build
+  ```
+
+  **Verify before emitting:** run your proposed `checkout_refresh` command once from a clean `git` state (e.g. `git fetch && git checkout --force <current sha> && <your refresh command>`). Confirm it exits 0 and the health probe returns 2xx. If it fails, fix the script before emitting — a manifest whose refresh command is broken will break every push to the branch.
 
 Before emitting the manifest, **verify the values**: run `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<port><health_probe_path>` inside the container (or the sandbox) and confirm you get 2xx. If you can't, pick different values and retry — don't emit a manifest that hasn't been probed.
 
