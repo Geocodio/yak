@@ -45,14 +45,28 @@ Field requirements — ALL of these apply and past manifests have been rejected 
     - **No compose bind-mount for app code** (pure `image:` with data-only volumes, or `build:` with no source volume) → the container's filesystem reflects whatever was built/pulled. Every code change needs a rebuild or pull.
     - **No Docker** (`php artisan serve`, `npm start`, `rails s`, Python venv, etc.) → the sandbox filesystem IS live. `git checkout` is enough for code; only deps, assets, and migrations need steps.
 
-  **2) What's baked into the image but NOT covered by the mounts?** If Docker is involved, grep the Dockerfile for `COPY` / `ADD` targeting paths outside the mount subtree. Typical culprits: `/etc/nginx/`, `/etc/php/`, `/etc/supervisor/`, compiled binaries, system config, installed packages. Those do **NOT** propagate via `git checkout` — a push that changes them needs an image refresh to show up in the preview.
+  **2) REQUIRED: Run this grep and include its output in your final report.** If Docker is involved, you MUST check what's baked into the image but not covered by the mount(s). Do not skip or skim this step — past agents have missed it and shipped broken manifests.
 
-  **3) If step 2 found anything, pick how to rebuild the image.** In order of preference:
-    - A repo-provided local build entrypoint: `Makefile` target (`make build`), `Taskfile.yml` task (`task build`), `package.json` script (e.g. `npm run docker:build`), or plain `docker compose build` if compose has a `build:` context.
-    - Direct `docker build` against the Dockerfile, with the tag the compose file references.
-    - If the image is only published by CI (no way to build locally from source) **and** CI does not publish per-branch tags → flag this in your setup report as a limitation; the branch's baked-state changes won't appear in the preview. Emit `checkout_refresh` without a build step and note the gap.
+  Run (substituting `<mount-path>` with whatever path the bind-mount covers in the container, e.g. `/var/www` for a `./:/var/www` mount — chain multiple with `\|`):
 
-  Docker's layer cache makes warm rebuilds fast — a single file change in a late-stage layer invalidates only that layer and after. Don't try to gate on "what changed"; the cache handles it.
+  ```
+  grep -nE '^(COPY|ADD)' Dockerfile | grep -vE ' <mount-path>(/|$)'
+  ```
+
+  **Any non-empty output = image-baked state that does NOT propagate via `git checkout`.** Common results: `COPY docker/nginx /etc/nginx`, `COPY docker/php/... /etc/php/...`, `COPY docker/supervisord.conf /etc/supervisor/...`, binaries copied to `/usr/local/bin/`, system configs under `/etc/`. Paste the raw output in your report under a heading like "Dockerfile COPY/ADD scan" so the decision is auditable. **If the output is non-empty, step 3 is mandatory — even when compose uses `image:` to pull from a registry.** Rationale: without a local image rebuild, pushes that touch any baked path (nginx config, php-fpm config, supervisord config, system packages) will never appear in branch previews. This has already burned us once.
+
+  If the grep output is empty (every Dockerfile `COPY`/`ADD` targets a path inside the mount, making the image a thin runtime with source loaded entirely from the bind-mount), you can skip step 3.
+
+  **3) Pick a local build entry point and include it in `checkout_refresh`.** Even if compose uses `image:` to pull from a registry — always prefer local build for branch previews, because (a) the branch's CI-built image may not exist yet when a push fires the refresh, and (b) most CIs only publish `:master`/`:latest` on merge, not per-branch. Search the repo for a local build entry point in this order, and use the first one you find (don't stop until you've actively checked each):
+
+    1. **Makefile** — run `grep -nE '^[a-z_-]*build' Makefile 2>/dev/null || echo "no Makefile"` and report what you find. If a `build:` target exists and invokes `docker build` (directly or via dependencies), use `make build`.
+    2. **Taskfile.yml / taskfile.yaml** — grep for a `build` or `docker-build` task. If present, use `task build`.
+    3. **package.json scripts** — `jq '.scripts' package.json 2>/dev/null` and look for `docker:build`, `build:image`, or similar.
+    4. **Compose `build:` context** — grep the compose file; if the app service has `build:`, use `docker compose build <app-service>`.
+    5. **Direct `docker build`** — if none of the above but a Dockerfile exists at the repo root, use `docker build -t <tag-matching-compose-image> .` with the tag the compose file's `image:` references.
+    6. **Genuinely no local build path** (rare — image is built by external tooling with artifacts Yak doesn't have) → flag the gap in your setup report and emit `checkout_refresh` without a build step. Say clearly that baked-state changes won't propagate.
+
+  Report the entry point you chose and the exact command. Docker's layer cache makes warm rebuilds fast — a single file change in a late-stage layer invalidates only that layer onward. Don't try to be selective; the cache handles it.
 
   **4) Skip steps that genuinely don't apply.** No `composer.json` → skip composer. No `package.json` → skip npm. No migrations → skip migrate. A pure static-HTML repo can legitimately emit `checkout_refresh: ""`.
 
