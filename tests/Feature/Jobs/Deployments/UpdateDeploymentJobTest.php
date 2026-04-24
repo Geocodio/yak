@@ -40,3 +40,32 @@ it('is a no-op on a failed or destroyed deployment', function () {
     (new UpdateDeploymentJob($deployment->id, 'new-sha'))
         ->handle(app(DeploymentContainerManager::class));
 });
+
+it('writes a lifecycle log when refreshing a running deployment', function () {
+    $deployment = BranchDeployment::factory()->running()->create();
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('applyCheckoutRefresh')->once();
+
+    (new UpdateDeploymentJob($deployment->id, 'new-sha'))
+        ->handle(app(DeploymentContainerManager::class));
+
+    $log = $deployment->logs()->where('phase', 'lifecycle')->latest('id')->first();
+    expect($log)->not->toBeNull();
+    expect($log->message)->toContain('Refreshing to new-sha');
+});
+
+it('writes a dirty-marker lifecycle log when hibernated', function () {
+    $deployment = BranchDeployment::factory()->hibernated()->create();
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldNotReceive('applyCheckoutRefresh');
+
+    (new UpdateDeploymentJob($deployment->id, 'new-sha'))
+        ->handle(app(DeploymentContainerManager::class));
+
+    $log = $deployment->logs()->where('phase', 'lifecycle')->latest('id')->first();
+    expect($log->message)->toContain('Marked dirty');
+});

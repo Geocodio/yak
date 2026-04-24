@@ -4,6 +4,7 @@ namespace App\Jobs\Deployments;
 
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
+use App\Models\DeploymentLog;
 use App\Services\DeploymentContainerManager;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -24,6 +25,7 @@ class UpdateDeploymentJob implements ShouldQueue
         $deployment = BranchDeployment::findOrFail($this->deploymentId);
 
         if ($deployment->status === DeploymentStatus::Running) {
+            DeploymentLog::record($deployment, 'info', 'lifecycle', "Refreshing to {$this->commitSha}");
             $manager->applyCheckoutRefresh($deployment, $this->commitSha);
 
             return;
@@ -34,10 +36,9 @@ class UpdateDeploymentJob implements ShouldQueue
                 'dirty' => true,
                 'current_commit_sha' => $this->commitSha,
             ]);
+            DeploymentLog::record($deployment, 'info', 'lifecycle', "Marked dirty at {$this->commitSha} (hibernated — refresh on wake)");
 
             return;
         }
-
-        // Pending, Starting, Failed, Destroying, Destroyed: no-op.
     }
 }

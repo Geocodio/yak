@@ -45,3 +45,28 @@ it('records failure and re-throws on exception', function () {
     expect($fresh->status)->toBe(DeploymentStatus::Failed);
     expect($fresh->failure_reason)->toContain('destroy failed');
 });
+
+it('writes lifecycle logs across the rebuild path', function () {
+    $repo = Repository::factory()->create([
+        'current_template_version' => 3,
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->running()->create([
+        'template_version' => 1,
+        'current_commit_sha' => 'abc',
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('destroy')->once();
+    $manager->shouldReceive('createFromTemplate')->once();
+    $manager->shouldReceive('start')->once()->andReturn('10.0.0.8');
+    $manager->shouldReceive('applyCheckoutRefresh')->once();
+
+    (new RebuildDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+
+    $phases = $deployment->logs()->where('phase', 'lifecycle')->orderBy('id')->pluck('message')->all();
+    expect(implode("\n", $phases))
+        ->toContain('Destroying container')
+        ->toContain('Cloning template snapshot')
+        ->toContain('Deployment ready');
+});
