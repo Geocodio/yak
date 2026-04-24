@@ -21,6 +21,10 @@ Every open PR on an opted-in repo gets a live preview URL. Click it, sign in wit
 7. When the PR is closed, merged, or the branch is deleted, the preview is torn down.
 8. Preview state never lives longer than 30 days of idle, regardless of PR state.
 
+## Activity log
+
+Each deployment's detail page shows a timestamped, phase-tagged activity log. Every container command Yak runs (fetch, checkout, refresh, cold start) and every lifecycle transition (cloning template, starting, ready, failed, waking) gets an entry with its captured stdout/stderr and exit code. When a push fails to refresh, the log is the first place to look — the failing command and its output are right there, scoped to that deployment.
+
 ## First-hit timing
 
 - Fresh deployment (PR just opened): up to ~2 minutes for the initial provision
@@ -52,12 +56,14 @@ Every repo's manifest describes how to boot the dev environment as a preview:
 | `port` | Container port serving HTTP |
 | `health_probe_path` | Path that returns 2xx when the app is ready |
 | `cold_start` | Command to bring services up from a stopped container |
-| `checkout_refresh` | Command to run after `git fetch && git checkout $sha` |
+| `checkout_refresh` | Full post-push rebuild (image builds, asset builds, dep installs, migrations) |
 | `wake_timeout_seconds` | Overall cap on wake + refresh time |
 
 SetupYakJob authors the manifest automatically based on how it booted the dev env. Edit it later via the repository settings page.
 
-Alternative: drop a `.yak/preview.sh` script into your repo. If present, Yak runs `/app/.yak/preview.sh $SHA` after checkout instead of the manifest's `checkout_refresh`.
+`checkout_refresh` is the **full** post-push rebuild pipeline — not a lightweight post-checkout tweak. It runs on every push to the branch and should do everything the preview needs to reflect the new code: `docker compose build`, `docker compose up -d`, `composer install`, `npm ci && npm run build`, `php artisan migrate --force`, cache clears. There's no path-gating; the Docker layer cache, npm cache, and composer cache all make no-op pushes cheap, so it's safe to run the whole pipeline every time.
+
+Alternative: drop a `.yak/preview.sh` script into your repo. If present, Yak runs `/workspace/.yak/preview.sh $SHA` after checkout instead of the manifest's `checkout_refresh`. This is the escape hatch for repos whose refresh logic is easier to maintain in-tree.
 
 ## Idle hibernation and resource caps
 
