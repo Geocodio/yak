@@ -27,7 +27,12 @@ class DeploymentShow extends Component
     #[Computed]
     public function recentLogs(): Collection
     {
-        return $this->deployment->logs()->latest()->limit(50)->get();
+        return $this->deployment->logs()
+            ->latest('id')
+            ->limit(200)
+            ->get()
+            ->reverse()
+            ->values();
     }
 
     public function rebuild(): void

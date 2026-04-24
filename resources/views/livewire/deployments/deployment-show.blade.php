@@ -46,14 +46,24 @@
         </flux:button>
     </div>
 
-    <flux:heading size="lg" class="mt-6">Recent activity</flux:heading>
-    <ul class="my-2 space-y-1 font-mono text-sm">
-        @foreach ($this->recentLogs as $log)
-            <li>
-                <span class="text-zinc-500">[{{ $log->created_at->format('H:i:s') }}]</span>
-                [{{ $log->level }}]
-                {{ $log->message }}
-            </li>
-        @endforeach
-    </ul>
+    <flux:heading size="lg" class="mt-6">Activity log</flux:heading>
+    <div class="my-2 rounded border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 max-h-[28rem] overflow-y-auto">
+        @forelse ($this->recentLogs as $log)
+            <div class="flex gap-2 border-b border-zinc-200 px-3 py-2 text-sm last:border-b-0 dark:border-zinc-800">
+                <span class="shrink-0 font-mono text-xs text-zinc-500">{{ $log->created_at->format('H:i:s') }}</span>
+                @if ($log->phase)
+                    <flux:badge size="sm" :color="match($log->phase) {
+                        'fetch', 'checkout' => 'zinc',
+                        'refresh' => 'blue',
+                        'cold_start' => 'purple',
+                        'lifecycle' => 'amber',
+                        default => 'zinc',
+                    }">{{ $log->phase }}</flux:badge>
+                @endif
+                <pre class="{{ $log->level === 'error' ? 'text-red-600 dark:text-red-400' : 'text-zinc-800 dark:text-zinc-200' }} whitespace-pre-wrap break-words font-mono text-xs flex-1">{{ $log->message }}</pre>
+            </div>
+        @empty
+            <div class="p-3 text-sm text-zinc-500">No activity yet.</div>
+        @endforelse
+    </div>
 </div>
