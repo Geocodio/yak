@@ -36,3 +36,48 @@ it('marks failed and records the reason on exception', function () {
     expect($fresh->status)->toBe(DeploymentStatus::Failed);
     expect($fresh->failure_reason)->toContain('clone failed');
 });
+
+it('writes lifecycle logs across the happy path', function () {
+    $deployment = BranchDeployment::factory()->create([
+        'status' => DeploymentStatus::Pending,
+        'current_commit_sha' => 'abc123',
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('createFromTemplate')->once();
+    $manager->shouldReceive('start')->once()->andReturn('10.0.0.5');
+    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'abc123');
+
+    (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+
+    $phases = $deployment->logs()->orderBy('id')->pluck('phase')->all();
+    expect($phases)->toContain('lifecycle');
+
+    $last = $deployment->logs()->latest('id')->first();
+    expect($last->message)->toContain('Deployment ready');
+});
+
+it('writes an error lifecycle log on failure', function () {
+    $deployment = BranchDeployment::factory()->create([
+        'status' => DeploymentStatus::Pending,
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('createFromTemplate')->andThrow(new RuntimeException('template missing'));
+
+    try {
+        (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+    } catch (Throwable) {
+        // expected — job rethrows
+    }
+
+    $errorLog = $deployment->logs()
+        ->where('level', 'error')
+        ->where('phase', 'lifecycle')
+        ->latest('id')
+        ->first();
+    expect($errorLog)->not->toBeNull();
+    expect($errorLog->message)->toContain('template missing');
+});
