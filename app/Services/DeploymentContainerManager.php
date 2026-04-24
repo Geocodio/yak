@@ -6,6 +6,7 @@ use App\DataTransferObjects\PreviewManifest;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
+use App\Models\DeploymentLog;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
@@ -43,7 +44,7 @@ class DeploymentContainerManager
         }
 
         if ($manifest->coldStart !== '') {
-            $this->exec($deployment->container_name, $manifest->coldStart, $manifest->coldStartTimeoutSeconds);
+            $this->exec($deployment, 'cold_start', $manifest->coldStart, $manifest->coldStartTimeoutSeconds);
         }
 
         $ip = $this->resolveContainerIp($deployment->container_name);
@@ -85,19 +86,18 @@ class DeploymentContainerManager
     {
         $deployment->loadMissing('repository');
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
-        $container = $deployment->container_name;
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        $this->exec($container, "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
-        $this->exec($container, "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 
-        $hasRepoHook = Process::run("incus exec {$container} -- test -f {$workspace}/.yak/preview.sh")
+        $hasRepoHook = Process::run("incus exec {$deployment->container_name} -- test -f {$workspace}/.yak/preview.sh")
             ->exitCode() === 0;
 
         if ($hasRepoHook) {
-            $this->exec($container, "{$workspace}/.yak/preview.sh {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+            $this->exec($deployment, 'refresh', "{$workspace}/.yak/preview.sh {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
         } elseif ($manifest->checkoutRefresh !== '') {
-            $this->exec($container, $manifest->checkoutRefresh, $manifest->checkoutRefreshTimeoutSeconds);
+            $this->exec($deployment, 'refresh', $manifest->checkoutRefresh, $manifest->checkoutRefreshTimeoutSeconds);
         }
 
         $deployment->update([
@@ -124,13 +124,32 @@ class DeploymentContainerManager
         }
     }
 
-    private function exec(string $container, string $command, int $timeoutSeconds): void
+    private function exec(BranchDeployment $deployment, string $phase, string $command, int $timeoutSeconds): void
     {
+        $container = $deployment->container_name;
+        $startedAt = microtime(true);
+
         $result = Process::timeout($timeoutSeconds)
             ->run("incus exec {$container} -- bash -lc " . escapeshellarg($command));
 
+        $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
+        $combined = trim($result->output() . "\n" . $result->errorOutput());
+
+        // Cap at 64 KiB per entry — enough to eyeball but bounds the row size.
+        if (strlen($combined) > 65_536) {
+            $combined = substr($combined, 0, 65_536) . "\n[… truncated]";
+        }
+
+        DeploymentLog::record(
+            deployment: $deployment,
+            level: $result->exitCode() === 0 ? 'info' : 'error',
+            phase: $phase,
+            message: "\$ {$command}" . ($combined === '' ? '' : "\n{$combined}"),
+            metadata: ['exit_code' => $result->exitCode(), 'duration_ms' => $durationMs],
+        );
+
         if ($result->exitCode() !== 0) {
-            throw new RuntimeException("Command failed in container {$container}: {$result->errorOutput()}");
+            throw new RuntimeException("Command failed in container {$container} (phase={$phase}): {$result->errorOutput()}");
         }
     }
 
