@@ -68,6 +68,8 @@ Field requirements — ALL of these apply and past manifests have been rejected 
 
   Report the entry point you chose and the exact command. Docker's layer cache makes warm rebuilds fast — a single file change in a late-stage layer invalidates only that layer onward. Don't try to be selective; the cache handles it.
 
+  **Before concluding "no local build path" because of a build arg or secret**, verify: grep the Dockerfile for `^ARG ` and for each ARG, check whether the name is already in the sandbox's environment by running `printenv <ARG_NAME>` (or `echo ${<ARG_NAME>-MISSING}`) **in the sandbox shell, not inside a nested `docker compose exec` session** — Incus sets container-level env vars that are inherited by `incus exec` processes but NOT by nested Docker containers. Common ones Yak already forwards: `NODE_AUTH_TOKEN`, `NPM_TOKEN`, and others listed in `YAK_AGENT_PASSTHROUGH_ENV`. If the ARG is present in the sandbox env AND the build command (e.g. the Makefile target) passes it through as `--build-arg NAME=$(NAME)` or `--build-arg NAME`, you can build locally. Only conclude "no local build path" if (a) the ARG is genuinely missing from the sandbox env, or (b) the build command doesn't forward it and you can't reasonably modify the invocation. Report the `printenv` result in your "Dockerfile COPY/ADD scan" section so the decision is auditable.
+
   **4) Skip steps that genuinely don't apply.** No `composer.json` → skip composer. No `package.json` → skip npm. No migrations → skip migrate. A pure static-HTML repo can legitimately emit `checkout_refresh: ""`.
 
   **Common shapes:**
