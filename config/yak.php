@@ -234,7 +234,7 @@ return [
         'default_wake_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_WAKE_TIMEOUT_SECONDS', 120),
         'default_cold_start_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_COLD_START_TIMEOUT_SECONDS', 60),
         'default_checkout_refresh_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_CHECKOUT_REFRESH_TIMEOUT_SECONDS', 60),
-        'default_health_probe_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_TIMEOUT_SECONDS', 30),
+        'default_health_probe_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_TIMEOUT_SECONDS', 60),
 
         'wake_request_budget_seconds' => (int) env('YAK_DEPLOYMENTS_WAKE_REQUEST_BUDGET_SECONDS', 3),
 
