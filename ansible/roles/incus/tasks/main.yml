@@ -266,18 +266,42 @@
       # Add NodeSource repository
       curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 
-      # Install everything
+      # Add GitHub CLI repository (gh — used by agents to read/manage
+      # PRs and issues from inside the sandbox).
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | dd of=/etc/apt/keyrings/githubcli-archive-keyring.gpg
+      chmod 0644 /etc/apt/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list
+
+      # Install everything. Categories:
+      #   - Container/runtime: docker, nodejs, PHP CLI + extensions
+      #   - Build essentials: build-essential, pkg-config, python3
+      #     (node-gyp, native composer/npm modules, asset pipelines)
+      #   - CLI utilities: jq, ripgrep, vim, less, tree, rsync, xz-utils
+      #   - Network/debug: dnsutils, iputils-ping, netcat-openbsd
+      #   - Database clients: mariadb, postgres, redis, sqlite3
+      #   - Git ecosystem: git-lfs, gh
+      #   - Media/process: ffmpeg, htop
+      #   - Build tooling: make, unzip, zip
       apt-get update
       apt-get install -y \
         docker-ce docker-ce-cli containerd.io docker-compose-plugin \
         nodejs \
         php8.3-cli php8.3-common php8.3-curl php8.3-mbstring php8.3-xml php8.3-zip php8.3-mysql php8.3-sqlite3 php8.3-gd php8.3-bcmath \
-        ffmpeg \
-        make \
-        unzip zip
+        build-essential pkg-config python3 python3-pip python3-venv \
+        jq ripgrep vim less tree rsync xz-utils \
+        dnsutils iputils-ping netcat-openbsd \
+        mariadb-client postgresql-client redis-tools sqlite3 \
+        git-lfs gh \
+        ffmpeg htop \
+        make unzip zip
 
       # Install Composer
       curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+      # Yarn + pnpm as npm globals — many JS repos pin one or both.
+      # Installed alongside the Yak agent toolchain below.
+      npm install -g yarn pnpm
 
       # Install Claude Code CLI + agent-browser. chromium-browser on
       # Ubuntu 24.04 is a snap redirect that breaks inside Incus (snap
