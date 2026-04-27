@@ -111,7 +111,7 @@ class IncusSandboxManager
      *
      * Returns the raw process result for callers that need stdout/stderr.
      */
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
     {
         $cmd = $this->buildExecCommand($containerName, $command, $asRoot);
 
@@ -121,7 +121,13 @@ class IncusSandboxManager
             $process = $process->input($input);
         }
 
-        return $process->run($cmd);
+        // The optional `$output` callback receives ('out'|'err', $chunk)
+        // for each stdout/stderr buffer flush — used by deployment refresh
+        // to stream live progress into deployment_logs while long-running
+        // builds (docker build, composer install, etc.) are still running.
+        return $output !== null
+            ? $process->run($cmd, $output)
+            : $process->run($cmd);
     }
 
     /**

@@ -146,27 +146,78 @@ class DeploymentContainerManager
         $container = $deployment->container_name;
         $startedAt = microtime(true);
 
-        // Delegates the sudo-as-yak wrapping to IncusSandboxManager so
-        // deployments and Yak tasks share one definition of "run a
-        // command inside a sandbox". Adds the deployment_logs entry +
-        // exit-code throw on top.
-        $result = $this->sandbox->run($container, $command, timeout: $timeoutSeconds, asRoot: $asRoot);
+        // Stream output into a single growing log row instead of writing
+        // it all at the end. The Livewire poll on the deployment page
+        // picks up the message as it grows, so users see docker build /
+        // composer install / npm ci progress live instead of a multi-
+        // minute black hole followed by one giant blob.
+        $log = DeploymentLog::create([
+            'branch_deployment_id' => $deployment->id,
+            'level' => 'info',
+            'phase' => $phase,
+            'message' => "\$ {$command}",
+            'metadata' => null,
+        ]);
 
-        $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
-        $combined = trim($result->output() . "\n" . $result->errorOutput());
+        $cap = 65_536;
+        $buffer = '';
+        $lastFlush = microtime(true);
+        $accumulated = "\$ {$command}";
 
-        // Cap at 64 KiB per entry — enough to eyeball but bounds the row size.
-        if (strlen($combined) > 65_536) {
-            $combined = substr($combined, 0, 65_536) . "\n[… truncated]";
+        $flush = function () use (&$buffer, &$accumulated, $log, $cap): void {
+            if ($buffer === '') {
+                return;
+            }
+            $accumulated .= "\n" . $buffer;
+            if (strlen($accumulated) > $cap) {
+                $accumulated = substr($accumulated, 0, $cap) . "\n[… truncated]";
+            }
+            $log->update(['message' => $accumulated]);
+            $buffer = '';
+        };
+
+        $result = $this->sandbox->run(
+            $container,
+            $command,
+            timeout: $timeoutSeconds,
+            asRoot: $asRoot,
+            output: function (string $type, string $chunk) use (&$buffer, &$lastFlush, $flush): void {
+                $buffer .= $chunk;
+                // Throttle DB writes: flush at most every 500ms or when
+                // the buffer crosses 4 KiB so a chatty build doesn't
+                // hammer deployment_logs with tiny updates.
+                $now = microtime(true);
+                if ($now - $lastFlush > 0.5 || strlen($buffer) > 4096) {
+                    $flush();
+                    $lastFlush = $now;
+                }
+            },
+        );
+
+        $flush();
+
+        // Fallback: when streaming produced no output (Process::fake
+        // doesn't drive the callback, and very fast commands may also
+        // exit before the first chunk fires), splice in the final
+        // captured stdout/stderr so the log row still reflects what
+        // ran. Skipped when streaming already populated `$accumulated`.
+        if ($accumulated === "\$ {$command}") {
+            $combined = trim($result->output() . "\n" . $result->errorOutput());
+            if ($combined !== '') {
+                $accumulated = "\$ {$command}\n{$combined}";
+                if (strlen($accumulated) > $cap) {
+                    $accumulated = substr($accumulated, 0, $cap) . "\n[… truncated]";
+                }
+                $log->update(['message' => $accumulated]);
+            }
         }
 
-        DeploymentLog::record(
-            deployment: $deployment,
-            level: $result->exitCode() === 0 ? 'info' : 'error',
-            phase: $phase,
-            message: "\$ {$command}" . ($combined === '' ? '' : "\n{$combined}"),
-            metadata: ['exit_code' => $result->exitCode(), 'duration_ms' => $durationMs],
-        );
+        $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
+
+        $log->update([
+            'level' => $result->exitCode() === 0 ? 'info' : 'error',
+            'metadata' => ['exit_code' => $result->exitCode(), 'duration_ms' => $durationMs],
+        ]);
 
         if ($result->exitCode() !== 0) {
             throw new RuntimeException("Command failed in container {$container} (phase={$phase}): {$result->errorOutput()}");
