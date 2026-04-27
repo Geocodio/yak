@@ -155,8 +155,10 @@ it('runs git fetch + checkout and the manifest refresh', function () {
 
     app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'abcdef1234567890');
 
-    Process::assertRan(fn ($p) => str_contains($p->command, 'git -c safe.directory=/workspace fetch --all --prune'));
-    Process::assertRan(fn ($p) => str_contains($p->command, 'git -c safe.directory=/workspace checkout --force abcdef1234567890'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'git fetch --all --prune'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'git checkout --force abcdef1234567890'));
+    // Container exec must run as the `yak` user (workspace is yak-owned).
+    Process::assertRan(fn ($p) => str_contains($p->command, 'sudo -u yak -H bash -lc'));
     Process::assertRan(fn ($p) => str_contains($p->command, 'docker compose restart web'));
 
     $deployment->refresh();
@@ -242,7 +244,7 @@ it('is idempotent on start when the container is already running', function () {
 
 it('writes a refresh log entry with captured output and exit code', function () {
     Process::fake([
-        'incus exec deploy-log -- bash -lc *' => Process::result(
+        'incus exec deploy-log -- sudo -u yak -H bash -lc *' => Process::result(
             exitCode: 0,
             output: "fetched refs\nchecked out\n",
         ),
@@ -274,7 +276,7 @@ it('writes a refresh log entry with captured output and exit code', function () 
 
 it('writes an error-level log when a command fails, then throws', function () {
     Process::fake([
-        'incus exec deploy-fail -- bash -lc *' => Process::result(
+        'incus exec deploy-fail -- sudo -u yak -H bash -lc *' => Process::result(
             exitCode: 1,
             output: 'some stdout',
             errorOutput: 'boom on fetch',

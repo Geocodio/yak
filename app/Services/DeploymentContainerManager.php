@@ -89,12 +89,8 @@ class DeploymentContainerManager
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        // `incus exec` runs as root by default, but the workspace was
-        // created during template build by an unprivileged user, so git
-        // refuses with "dubious ownership in repository". `-c
-        // safe.directory=...` bypasses the check just for this command.
-        $this->exec($deployment, 'fetch', "cd {$workspace} && git -c safe.directory={$workspace} fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
-        $this->exec($deployment, 'checkout', "cd {$workspace} && git -c safe.directory={$workspace} checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 
         $hasRepoHook = Process::run("incus exec {$deployment->container_name} -- test -f {$workspace}/.yak/preview.sh")
             ->exitCode() === 0;
@@ -129,13 +125,22 @@ class DeploymentContainerManager
         }
     }
 
-    private function exec(BranchDeployment $deployment, string $phase, string $command, int $timeoutSeconds): void
+    private function exec(BranchDeployment $deployment, string $phase, string $command, int $timeoutSeconds, bool $asRoot = false): void
     {
         $container = $deployment->container_name;
         $startedAt = microtime(true);
 
+        // Default to the `yak` user so file ownership and git's
+        // safe.directory check stay consistent with the template (which
+        // was built by Yak-task jobs running as `yak` via
+        // IncusSandboxManager). `incus exec` would otherwise run as
+        // root, breaking git operations against a yak-owned workspace.
+        $shell = $asRoot
+            ? 'bash -lc ' . escapeshellarg($command)
+            : 'sudo -u yak -H bash -lc ' . escapeshellarg($command);
+
         $result = Process::timeout($timeoutSeconds)
-            ->run("incus exec {$container} -- bash -lc " . escapeshellarg($command));
+            ->run("incus exec {$container} -- {$shell}");
 
         $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
         $combined = trim($result->output() . "\n" . $result->errorOutput());
