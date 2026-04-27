@@ -329,7 +329,8 @@ it('writes a refresh log entry with captured output and exit code', function () 
     expect($logs[2]->phase)->toBe('checkout');
     expect($logs[3]->phase)->toBe('refresh');
     expect($logs[3]->level)->toBe('info');
-    expect($logs[3]->message)->toContain('fetched refs');
+    expect($logs[3]->message)->toContain('composer install');
+    expect($logs[3]->output())->toContain('fetched refs');
     expect($logs[3]->metadata['exit_code'])->toBe(0);
 });
 
@@ -358,6 +359,6 @@ it('writes an error-level log when a command fails, then throws', function () {
     $log = $deployment->logs()->latest('id')->first();
     expect($log->level)->toBe('error');
     expect($log->phase)->toBe('fetch');
-    expect($log->message)->toContain('boom on fetch');
+    expect($log->output())->toContain('boom on fetch');
     expect($log->metadata['exit_code'])->toBe(1);
 });

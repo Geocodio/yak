@@ -6,6 +6,7 @@ use Database\Factories\DeploymentLogFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DeploymentLog extends Model
 {
@@ -35,6 +36,23 @@ class DeploymentLog extends Model
     public function branchDeployment(): BelongsTo
     {
         return $this->belongsTo(BranchDeployment::class);
+    }
+
+    /**
+     * @return HasMany<DeploymentLogChunk, $this>
+     */
+    public function chunks(): HasMany
+    {
+        return $this->hasMany(DeploymentLogChunk::class)->orderBy('id');
+    }
+
+    /**
+     * Concatenated streaming output for this log entry. Empty for older
+     * rows (pre-chunks) — those carry their full output in `message`.
+     */
+    public function output(): string
+    {
+        return $this->chunks->pluck('chunk')->implode('');
     }
 
     /**

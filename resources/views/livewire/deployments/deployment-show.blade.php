@@ -81,7 +81,8 @@
                             default => 'zinc',
                         }">{{ $log->phase }}</flux:badge>
                     @endif
-                    <pre class="{{ $log->level === 'error' ? 'text-red-600 dark:text-red-400' : 'text-zinc-800 dark:text-zinc-200' }} whitespace-pre-wrap break-words font-mono text-xs flex-1">{{ $log->message }}</pre>
+                    <pre class="{{ $log->level === 'error' ? 'text-red-600 dark:text-red-400' : 'text-zinc-800 dark:text-zinc-200' }} whitespace-pre-wrap break-words font-mono text-xs flex-1">{{ $log->message }}@php $output = $log->output(); @endphp@if ($output !== '')
+{{ $output }}@endif</pre>
                 </div>
             @empty
                 <div class="p-3 text-sm text-zinc-500">No activity yet.</div>

@@ -29,6 +29,7 @@ class DeploymentShow extends Component
     public function recentLogs(): Collection
     {
         return $this->deployment->logs()
+            ->with('chunks')
             ->latest('id')
             ->limit(200)
             ->get()

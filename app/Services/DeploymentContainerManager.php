@@ -146,11 +146,11 @@ class DeploymentContainerManager
         $container = $deployment->container_name;
         $startedAt = microtime(true);
 
-        // Stream output into a single growing log row instead of writing
-        // it all at the end. The Livewire poll on the deployment page
-        // picks up the message as it grows, so users see docker build /
-        // composer install / npm ci progress live instead of a multi-
-        // minute black hole followed by one giant blob.
+        // Phase row carries the command and meta. Streaming output lands
+        // in deployment_log_chunks (INSERT-only, longText) so a chatty
+        // docker build doesn't get capped or hammer UPDATEs on a growing
+        // row. The deployment page concatenates chunks for display, like
+        // a CI log viewer.
         $log = DeploymentLog::create([
             'branch_deployment_id' => $deployment->id,
             'level' => 'info',
@@ -159,20 +159,17 @@ class DeploymentContainerManager
             'metadata' => null,
         ]);
 
-        $cap = 65_536;
         $buffer = '';
         $lastFlush = microtime(true);
-        $accumulated = "\$ {$command}";
 
-        $flush = function () use (&$buffer, &$accumulated, $log, $cap): void {
+        $flush = function () use (&$buffer, $log): void {
             if ($buffer === '') {
                 return;
             }
-            $accumulated .= "\n" . $buffer;
-            if (strlen($accumulated) > $cap) {
-                $accumulated = substr($accumulated, 0, $cap) . "\n[… truncated]";
-            }
-            $log->update(['message' => $accumulated]);
+            $log->chunks()->create([
+                'chunk' => $buffer,
+                'created_at' => now(),
+            ]);
             $buffer = '';
         };
 
@@ -183,9 +180,9 @@ class DeploymentContainerManager
             asRoot: $asRoot,
             output: function (string $type, string $chunk) use (&$buffer, &$lastFlush, $flush): void {
                 $buffer .= $chunk;
-                // Throttle DB writes: flush at most every 500ms or when
-                // the buffer crosses 4 KiB so a chatty build doesn't
-                // hammer deployment_logs with tiny updates.
+                // Throttle: at most one chunk row per 500ms or when the
+                // buffer crosses 4 KiB. Keeps row count reasonable on
+                // very chatty builds without losing live-feel.
                 $now = microtime(true);
                 if ($now - $lastFlush > 0.5 || strlen($buffer) > 4096) {
                     $flush();
@@ -196,19 +193,17 @@ class DeploymentContainerManager
 
         $flush();
 
-        // Fallback: when streaming produced no output (Process::fake
+        // Fallback: when streaming produced no chunks (Process::fake
         // doesn't drive the callback, and very fast commands may also
-        // exit before the first chunk fires), splice in the final
-        // captured stdout/stderr so the log row still reflects what
-        // ran. Skipped when streaming already populated `$accumulated`.
-        if ($accumulated === "\$ {$command}") {
+        // exit before the first flush), insert the final captured
+        // stdout/stderr as a single chunk so the UI still reflects it.
+        if (! $log->chunks()->exists()) {
             $combined = trim($result->output() . "\n" . $result->errorOutput());
             if ($combined !== '') {
-                $accumulated = "\$ {$command}\n{$combined}";
-                if (strlen($accumulated) > $cap) {
-                    $accumulated = substr($accumulated, 0, $cap) . "\n[… truncated]";
-                }
-                $log->update(['message' => $accumulated]);
+                $log->chunks()->create([
+                    'chunk' => $combined,
+                    'created_at' => now(),
+                ]);
             }
         }
 
