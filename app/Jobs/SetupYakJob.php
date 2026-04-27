@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Agents\ClaudeCodeOutputParser;
-use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -160,8 +159,9 @@ class SetupYakJob implements ShouldQueue
 
         TaskLogger::info($this->task, "Cloning {$repository->git_url} in sandbox");
 
-        // Configure git credentials inside the sandbox
-        $this->configureGitInSandbox($sandbox, $containerName);
+        // Configure git identity + credentials inside the sandbox.
+        $sandbox->configureGitIdentity($containerName);
+        $sandbox->injectGitCredentials($containerName);
 
         $result = $sandbox->run(
             $containerName,
@@ -172,39 +172,6 @@ class SetupYakJob implements ShouldQueue
         if ($result->exitCode() !== 0) {
             throw new \RuntimeException("Failed to clone repository in sandbox: {$result->errorOutput()}");
         }
-    }
-
-    private function configureGitInSandbox(IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $gitName = config('yak.git_user_name', 'Yak');
-        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
-
-        $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
-        $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
-
-        $this->injectGitCredentials($sandbox, $containerName);
-    }
-
-    /**
-     * Inject a short-lived GitHub App installation token into the sandbox
-     * as a git credential helper for github.com.
-     */
-    private function injectGitCredentials(IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $installationId = (int) config('yak.channels.github.installation_id');
-
-        if (! $installationId) {
-            return;
-        }
-
-        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
-
-        $sandbox->run(
-            $containerName,
-            'git config --global credential.https://github.com.helper ' .
-            escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
-            timeout: 10,
-        );
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void

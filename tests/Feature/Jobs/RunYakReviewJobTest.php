@@ -46,7 +46,7 @@ it('runs a full-scope review end to end', function () {
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
     $sandbox->shouldReceive('run')->andReturn(
         Process::result(output: "app/Foo.php\n", exitCode: 0),
@@ -128,7 +128,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "app/Foo.php\n", exitCode: 0));
     $sandbox->shouldReceive('pullClaudeCredentials');
@@ -212,7 +212,7 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
     $sandbox->shouldReceive('pullClaudeCredentials');
@@ -281,7 +281,7 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
     $sandbox->shouldReceive('pullClaudeCredentials');
@@ -353,7 +353,7 @@ it('does not fetch Linear ticket when no identifier is present', function () {
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
     $sandbox->shouldReceive('pullClaudeCredentials');
@@ -407,7 +407,7 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     ]);
 
     // No LinearOauthConnection exists, so fetcher should never be called.
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
     $sandbox->shouldReceive('pullClaudeCredentials');

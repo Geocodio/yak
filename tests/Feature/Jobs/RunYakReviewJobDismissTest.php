@@ -44,7 +44,7 @@ function setUpReviewJobMocks(string $scope = 'full'): YakTask
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
     $sandbox->shouldReceive('run')->andReturn(
         Process::result(output: "app/Foo.php\n", exitCode: 0),

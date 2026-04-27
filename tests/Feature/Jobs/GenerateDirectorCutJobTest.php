@@ -51,7 +51,7 @@ test('boots fresh sandbox, runs agent in director tier, dispatches RenderVideoJo
         'branch_name' => 'yak/fix-login-bug',
     ]);
 
-    $sandbox = Mockery::mock(IncusSandboxManager::class);
+    $sandbox = Mockery::mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->once()->andReturn('task-director-1');
     // Allow any shell commands the job runs inside the sandbox.
     $sandbox->shouldReceive('run')->andReturnUsing(fn () => fakeOkProcessResult());
@@ -123,7 +123,7 @@ test('throws when task has no open PR branch', function () {
         'branch_name' => null,
     ]);
 
-    $sandbox = Mockery::mock(IncusSandboxManager::class);
+    $sandbox = Mockery::mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldNotReceive('create');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -146,7 +146,7 @@ test('marks director_cut_status failed and destroys sandbox on error', function 
         'branch_name' => 'yak/fix-login-bug',
     ]);
 
-    $sandbox = Mockery::mock(IncusSandboxManager::class);
+    $sandbox = Mockery::mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->once()->andReturn('task-director-2');
     $sandbox->shouldReceive('run')->andReturnUsing(fn () => fakeOkProcessResult());
     $sandbox->shouldReceive('pullClaudeCredentials')->once()->with('task-director-2');

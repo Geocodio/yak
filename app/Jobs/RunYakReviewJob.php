@@ -185,16 +185,7 @@ class RunYakReviewJob implements ShouldQueue
         // $task->branch_name (which other jobs mutate for push flows).
         $localBranch = "yak-review/pr-{$prNumber}";
 
-        $installationId = (int) config('yak.channels.github.installation_id');
-        if ($installationId > 0) {
-            $token = app(GitHubAppService::class)->getInstallationToken($installationId);
-            $sandbox->run(
-                $containerName,
-                'git config --global credential.https://github.com.helper ' .
-                escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
-                timeout: 10,
-            );
-        }
+        $sandbox->injectGitCredentials($containerName);
 
         // Fetch the PR's head commit and check it out at the exact SHA
         // stored on the task. Pinning to the SHA guards against races with

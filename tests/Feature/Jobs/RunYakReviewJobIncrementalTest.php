@@ -43,7 +43,7 @@ it('computes diff against incremental_base_sha in incremental scope', function (
     ]);
 
     $capturedCommands = [];
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('container');
     $sandbox->shouldReceive('run')->andReturnUsing(function ($name, $cmd) use (&$capturedCommands) {
         $capturedCommands[] = $cmd;
@@ -106,7 +106,7 @@ it('falls back to full review when incremental base fetch fails', function () {
         ]),
     ]);
 
-    $sandbox = mock(IncusSandboxManager::class);
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('container');
     $sandbox->shouldReceive('run')->andReturnUsing(function ($name, $cmd) {
         if (str_contains($cmd, 'git fetch origin ') && str_contains($cmd, 'missing-sha')) {

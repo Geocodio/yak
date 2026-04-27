@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -206,8 +205,9 @@ class RunYakJob implements ShouldQueue
         $baseBranchName = GitOperations::branchName($this->task->external_id);
         $defaultBranch = $repository->default_branch;
 
-        // Configure git credentials in the sandbox
-        $this->configureGitInSandbox($sandbox, $containerName);
+        // Configure git identity + credentials in the sandbox
+        $sandbox->configureGitIdentity($containerName);
+        $sandbox->injectGitCredentials($containerName);
 
         // Fetch latest default branch
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$defaultBranch}", timeout: 60);
@@ -231,35 +231,6 @@ class RunYakJob implements ShouldQueue
         $sandbox->run($containerName, "cd {$workspacePath} && git checkout -b {$branchName} origin/{$defaultBranch}", timeout: 30);
 
         $this->task->update(['branch_name' => $branchName]);
-    }
-
-    private function configureGitInSandbox(IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $gitName = config('yak.git_user_name', 'Yak');
-        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
-
-        $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
-        $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
-
-        $this->injectGitCredentials($sandbox, $containerName);
-    }
-
-    private function injectGitCredentials(IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $installationId = (int) config('yak.channels.github.installation_id');
-
-        if (! $installationId) {
-            return;
-        }
-
-        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
-
-        $sandbox->run(
-            $containerName,
-            'git config --global credential.https://github.com.helper ' .
-            escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
-            timeout: 10,
-        );
     }
 
     private function assemblePrompt(): string
@@ -343,7 +314,7 @@ class RunYakJob implements ShouldQueue
             // Refresh the baked-in credential helper — the agent may have run
             // long enough for the token fetched during prepareBranch() to
             // expire, which would surface as a 401 on push.
-            $this->injectGitCredentials($sandbox, $containerName);
+            $sandbox->injectGitCredentials($containerName);
 
             $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push origin {$this->task->branch_name}", timeout: 60);
 

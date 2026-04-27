@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\Models\Artifact;
@@ -125,34 +124,11 @@ class GenerateDirectorCutJob implements ShouldQueue
         $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
         $branchName = (string) $task->branch_name;
 
-        $this->configureGitInSandbox($sandbox, $containerName);
+        $sandbox->configureGitIdentity($containerName);
+        $sandbox->injectGitCredentials($containerName);
 
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
         $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
-    }
-
-    private function configureGitInSandbox(IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $gitName = config('yak.git_user_name', 'Yak');
-        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
-
-        $sandbox->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
-        $sandbox->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
-
-        $installationId = (int) config('yak.channels.github.installation_id');
-
-        if (! $installationId) {
-            return;
-        }
-
-        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
-
-        $sandbox->run(
-            $containerName,
-            'git config --global credential.https://github.com.helper ' .
-            escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
-            timeout: 10,
-        );
     }
 
     /**

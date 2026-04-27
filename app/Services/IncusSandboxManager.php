@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
@@ -155,6 +156,50 @@ class IncusSandboxManager
         }
 
         return [$process, $pipes];
+    }
+
+    /**
+     * Set git user.name and user.email globally inside the sandbox.
+     *
+     * Required by jobs that produce commits in-sandbox. Read-only callers
+     * (fetch/checkout) don't need this — call {@see injectGitCredentials}
+     * alone instead.
+     */
+    public function configureGitIdentity(string $containerName): void
+    {
+        $gitName = config('yak.git_user_name', 'Yak');
+        $gitEmail = config('yak.git_user_email', 'yak@noreply.github.com');
+
+        $this->run($containerName, 'git config --global user.name ' . escapeshellarg($gitName), timeout: 10);
+        $this->run($containerName, 'git config --global user.email ' . escapeshellarg($gitEmail), timeout: 10);
+    }
+
+    /**
+     * Inject a fresh GitHub App installation token into the sandbox as a
+     * git credential helper for github.com.
+     *
+     * Tokens TTL out after ~1 hour, so callers should re-invoke this
+     * before each git network operation rather than relying on the
+     * helper baked in at template-build time.
+     *
+     * No-op when no installation_id is configured (e.g. local dev).
+     */
+    public function injectGitCredentials(string $containerName): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if ($installationId === 0) {
+            return;
+        }
+
+        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+
+        $this->run(
+            $containerName,
+            'git config --global credential.https://github.com.helper '
+            . escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
+            timeout: 10,
+        );
     }
 
     /**
