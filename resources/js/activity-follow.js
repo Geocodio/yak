@@ -19,9 +19,14 @@ export const activityFollow = () => ({
             }
         });
 
+        // characterData catches in-place text updates (e.g. a streaming
+        // log row whose message field grows over time via Livewire
+        // morph), not just node add/remove. Without it, the auto-scroll
+        // only kicks in when a *new* entry appears.
         this.observer.observe(this.$refs.logList, {
             childList: true,
             subtree: true,
+            characterData: true,
         });
     },
     destroy() {
