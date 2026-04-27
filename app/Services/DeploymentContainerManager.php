@@ -7,6 +7,7 @@ use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
@@ -159,10 +160,16 @@ class DeploymentContainerManager
         $url = sprintf('http://%s:%d%s', $ip, $port, $path);
 
         while (microtime(true) < $deadline) {
-            $response = Http::timeout(2)->get($url);
+            try {
+                $response = Http::timeout(2)->get($url);
 
-            if ($response->successful()) {
-                return;
+                if ($response->successful()) {
+                    return;
+                }
+            } catch (ConnectionException) {
+                // Connection refused / DNS failure while the in-sandbox
+                // application stack is still booting (e.g. nginx/docker
+                // proxy not yet bound). Keep polling until the deadline.
             }
 
             usleep(500_000); // 0.5s

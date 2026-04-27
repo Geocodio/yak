@@ -4,6 +4,7 @@ use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Services\DeploymentContainerManager;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 
@@ -77,6 +78,39 @@ it('starts the container, runs cold_start, polls health probe, and returns the i
     expect($ip)->toBe('10.0.0.42');
     Process::assertRan(fn ($process) => str_contains($process->command, 'incus start deploy-42'));
     Process::assertRan(fn ($process) => str_contains($process->command, 'docker compose up -d'));
+});
+
+it('keeps polling the health probe when the connection is refused before the app binds', function () {
+    Process::fake([
+        'incus start *' => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0, output: ''),
+        'incus list *' => Process::result(exitCode: 0, output: 'deploy-42,10.0.0.42 (eth0)'),
+    ]);
+
+    $callCount = 0;
+    Http::fake(function () use (&$callCount) {
+        $callCount++;
+        if ($callCount < 3) {
+            throw new ConnectionException('cURL error 7: Failed to connect');
+        }
+
+        return Http::response('ok', 200);
+    });
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => [
+            'port' => 80,
+            'health_probe_path' => '/',
+            'cold_start' => '',
+            'health_probe_timeout_seconds' => 5,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create(['container_name' => 'deploy-42']);
+
+    $ip = app(DeploymentContainerManager::class)->start($deployment);
+
+    expect($ip)->toBe('10.0.0.42');
+    expect($callCount)->toBeGreaterThanOrEqual(3);
 });
 
 it('raises when the health probe never goes green', function () {
