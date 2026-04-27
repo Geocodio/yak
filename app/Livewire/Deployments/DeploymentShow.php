@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Deployments;
 
+use App\Enums\DeploymentStatus;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\RebuildDeploymentJob;
 use App\Models\BranchDeployment;
@@ -33,6 +34,21 @@ class DeploymentShow extends Component
             ->get()
             ->reverse()
             ->values();
+    }
+
+    /**
+     * Faster polling while the deployment is actively transitioning so
+     * the activity log feels responsive; back off on settled states.
+     */
+    #[Computed]
+    public function pollInterval(): string
+    {
+        return match ($this->deployment->status) {
+            DeploymentStatus::Pending,
+            DeploymentStatus::Starting,
+            DeploymentStatus::Destroying => '2s',
+            default => '15s',
+        };
     }
 
     public function rebuild(): void
