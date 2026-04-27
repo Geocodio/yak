@@ -569,7 +569,7 @@ class SandboxedAgentRunner implements AgentRunner
         $outputFormat = $streaming ? 'stream-json' : 'json';
         $verboseFlag = $streaming ? ' --verbose' : '';
 
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
 
         // The user prompt is streamed to `claude -p` via stdin rather
         // than embedded as an argv argument. Linux caps a single argv

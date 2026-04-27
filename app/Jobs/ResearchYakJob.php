@@ -99,7 +99,7 @@ class ResearchYakJob implements ShouldQueue
             TaskLogger::info($this->task, 'Sandbox created for research', ['container' => $containerName]);
 
             // Ensure we're on the default branch with latest code
-            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+            $workspacePath = IncusSandboxManager::workspacePath();
             $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
 
             $result = $agent->run(new AgentRunRequest(
@@ -209,7 +209,7 @@ class ResearchYakJob implements ShouldQueue
 
     private function collectHtmlArtifact(IncusSandboxManager $sandbox, string $containerName): ?Artifact
     {
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
         $remotePath = "{$workspacePath}/.yak-artifacts/research.html";
 
         if (! $sandbox->fileExists($containerName, $remotePath)) {

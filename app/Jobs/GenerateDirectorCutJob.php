@@ -121,7 +121,7 @@ class GenerateDirectorCutJob implements ShouldQueue
      */
     private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, YakTask $task): void
     {
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
         $branchName = (string) $task->branch_name;
 
         $sandbox->configureGitIdentity($containerName);

@@ -4,7 +4,6 @@ namespace App\Channels\GitHub;
 
 use App\Services\HealthCheck\ChannelCheck;
 use App\Services\HealthCheck\HealthResult;
-use Illuminate\Support\Facades\Http;
 
 class HealthCheck extends ChannelCheck
 {
@@ -29,10 +28,8 @@ class HealthCheck extends ChannelCheck
                 return HealthResult::error('installation_id is not configured');
             }
 
-            $token = $this->gitHubAppService->getInstallationToken($installationId);
-
-            $response = Http::withToken($token)
-                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            $response = $this->gitHubAppService
+                ->installationClient($installationId)
                 ->timeout(5)
                 ->get('https://api.github.com/installation/repositories', ['per_page' => 1])
                 ->throw();

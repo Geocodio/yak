@@ -176,7 +176,7 @@ class RunYakReviewJob implements ShouldQueue
      */
     private function checkoutPrHead(IncusSandboxManager $sandbox, string $containerName, array $metadata): void
     {
-        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspace = IncusSandboxManager::workspacePath();
         $prNumber = (int) $metadata['pr_number'];
         $headSha = (string) $metadata['head_sha'];
 
@@ -212,7 +212,7 @@ class RunYakReviewJob implements ShouldQueue
         Repository $repository,
         array &$metadata,
     ): array {
-        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspace = IncusSandboxManager::workspacePath();
         $head = (string) $metadata['head_sha'];
 
         $scope = (string) ($metadata['review_scope'] ?? 'full');

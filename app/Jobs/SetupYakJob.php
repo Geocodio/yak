@@ -97,7 +97,7 @@ class SetupYakJob implements ShouldQueue
             $this->cloneRepoInSandbox($sandbox, $containerName, $repository);
 
             // Checkout default branch
-            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+            $workspacePath = IncusSandboxManager::workspacePath();
             $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
 
             TaskLogger::info($this->task, 'Starting Claude agent');
@@ -155,7 +155,7 @@ class SetupYakJob implements ShouldQueue
             throw new \RuntimeException("Repository {$repository->slug} has no git_url configured.");
         }
 
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
 
         TaskLogger::info($this->task, "Cloning {$repository->git_url} in sandbox");
 

@@ -85,10 +85,9 @@ class IncusSandboxManager
         // run by the agent or by job code — sees a consistently yak-owned
         // tree. Legacy templates were built with `git clone` as root, which
         // left `.git` root-owned and tripped git's dubious-ownership check.
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
         $this->run(
             $containerName,
-            'chown -R yak:yak ' . escapeshellarg($workspacePath),
+            'chown -R yak:yak ' . escapeshellarg(self::workspacePath()),
             timeout: 30,
             asRoot: true,
         );
@@ -156,6 +155,19 @@ class IncusSandboxManager
         }
 
         return [$process, $pipes];
+    }
+
+    /**
+     * Workspace mount point inside every sandbox container.
+     *
+     * Single source of truth for the path that callers use to scope
+     * `cd …` / `git -C` operations. Static so non-sandbox-holding code
+     * (e.g. agent runners that only have a YakTask in scope) can read
+     * it without resolving the manager from the container.
+     */
+    public static function workspacePath(): string
+    {
+        return (string) config('yak.sandbox.workspace_path', '/workspace');
     }
 
     /**

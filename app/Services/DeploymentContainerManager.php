@@ -89,7 +89,7 @@ class DeploymentContainerManager
     {
         $deployment->loadMissing('repository');
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
-        $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspace = IncusSandboxManager::workspacePath();
 
         // GitHub App installation tokens TTL out after ~1 hour, so the
         // helper baked into the template at setup time is stale by the
@@ -146,17 +146,11 @@ class DeploymentContainerManager
         $container = $deployment->container_name;
         $startedAt = microtime(true);
 
-        // Default to the `yak` user so file ownership and git's
-        // safe.directory check stay consistent with the template (which
-        // was built by Yak-task jobs running as `yak` via
-        // IncusSandboxManager). `incus exec` would otherwise run as
-        // root, breaking git operations against a yak-owned workspace.
-        $shell = $asRoot
-            ? 'bash -lc ' . escapeshellarg($command)
-            : 'sudo -u yak -H bash -lc ' . escapeshellarg($command);
-
-        $result = Process::timeout($timeoutSeconds)
-            ->run("incus exec {$container} -- {$shell}");
+        // Delegates the sudo-as-yak wrapping to IncusSandboxManager so
+        // deployments and Yak tasks share one definition of "run a
+        // command inside a sandbox". Adds the deployment_logs entry +
+        // exit-code throw on top.
+        $result = $this->sandbox->run($container, $command, timeout: $timeoutSeconds, asRoot: $asRoot);
 
         $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
         $combined = trim($result->output() . "\n" . $result->errorOutput());

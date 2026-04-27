@@ -48,7 +48,7 @@ it('uses the deployment template_version (not repo current)', function () {
 it('starts the container, runs cold_start, polls health probe, and returns the ip', function () {
     Process::fake([
         'incus start deploy-42' => Process::result(exitCode: 0),
-        'incus exec deploy-42 *' => Process::result(exitCode: 0, output: ''),
+        "incus exec 'deploy-42' *" => Process::result(exitCode: 0, output: ''),
         'incus list deploy-42 *' => Process::result(exitCode: 0, output: <<<'CSV'
             deploy-42,"172.17.0.1 (docker0)
             10.0.0.42 (eth0)"
@@ -214,7 +214,7 @@ it('runs git fetch + checkout and the manifest refresh', function () {
     Process::assertRan(fn ($p) => str_contains($p->command, 'git fetch --all --prune'));
     Process::assertRan(fn ($p) => str_contains($p->command, 'git checkout --force abcdef1234567890'));
     // Container exec must run as the `yak` user (workspace is yak-owned).
-    Process::assertRan(fn ($p) => str_contains($p->command, 'sudo -u yak -H bash -lc'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'sudo -u yak -H bash -c'));
     Process::assertRan(fn ($p) => str_contains($p->command, 'docker compose restart web'));
 
     $deployment->refresh();
@@ -301,8 +301,8 @@ it('is idempotent on start when the container is already running', function () {
 it('writes a refresh log entry with captured output and exit code', function () {
     Process::fake([
         // reclaim_workspace runs as root (no sudo wrapper); match it loosely.
-        'incus exec deploy-log -- bash -lc *' => Process::result(exitCode: 0),
-        'incus exec deploy-log -- sudo -u yak -H bash -lc *' => Process::result(
+        "incus exec 'deploy-log' -- bash -c *" => Process::result(exitCode: 0),
+        "incus exec 'deploy-log' -- sudo -u yak -H bash -c *" => Process::result(
             exitCode: 0,
             output: "fetched refs\nchecked out\n",
         ),
@@ -336,8 +336,8 @@ it('writes a refresh log entry with captured output and exit code', function () 
 it('writes an error-level log when a command fails, then throws', function () {
     Process::fake([
         // reclaim_workspace (root) succeeds; only the fetch step fails.
-        'incus exec deploy-fail -- bash -lc *' => Process::result(exitCode: 0),
-        'incus exec deploy-fail -- sudo -u yak -H bash -lc *' => Process::result(
+        "incus exec 'deploy-fail' -- bash -c *" => Process::result(exitCode: 0),
+        "incus exec 'deploy-fail' -- sudo -u yak -H bash -c *" => Process::result(
             exitCode: 1,
             output: 'some stdout',
             errorOutput: 'boom on fetch',

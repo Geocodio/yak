@@ -3,6 +3,7 @@
 namespace App\Channels\GitHub;
 
 use App\Models\GitHubInstallationToken;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -57,6 +58,20 @@ class AppService
         }
 
         return $this->requestInstallationToken($installationId);
+    }
+
+    /**
+     * Build an HTTP client pre-configured with the installation token and
+     * the standard `Accept: application/vnd.github+json` header.
+     *
+     * Callers chain `->timeout()`, `->get()`, etc. as usual. Centralizes
+     * the auth+header setup that the four channel/health/notification
+     * sites used to repeat verbatim.
+     */
+    public function installationClient(int $installationId): PendingRequest
+    {
+        return Http::withToken($this->getInstallationToken($installationId))
+            ->withHeaders(['Accept' => 'application/vnd.github+json']);
     }
 
     /**

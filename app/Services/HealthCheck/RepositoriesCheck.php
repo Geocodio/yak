@@ -4,7 +4,6 @@ namespace App\Services\HealthCheck;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Models\Repository;
-use Illuminate\Support\Facades\Http;
 
 /**
  * Verifies the GitHub App installation can reach each active repository.
@@ -43,7 +42,7 @@ class RepositoriesCheck implements HealthCheck
             return HealthResult::error('GitHub App installation_id not configured');
         }
 
-        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+        $client = app(GitHubAppService::class)->installationClient($installationId)->timeout(10);
 
         $total = $repos->count();
         $reachable = 0;
@@ -51,10 +50,7 @@ class RepositoriesCheck implements HealthCheck
 
         foreach ($repos as $repo) {
             try {
-                $response = Http::withToken($token)
-                    ->withHeaders(['Accept' => 'application/vnd.github+json'])
-                    ->timeout(10)
-                    ->get("https://api.github.com/repos/{$repo->slug}");
+                $response = $client->get("https://api.github.com/repos/{$repo->slug}");
 
                 if ($response->successful()) {
                     $reachable++;

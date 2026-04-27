@@ -5,8 +5,8 @@ namespace App\Channels\GitHub;
 use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Models\Repository;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 
 class ActionsBuildScanner implements CIBuildScanner
 {
@@ -20,12 +20,11 @@ class ActionsBuildScanner implements CIBuildScanner
     public function getRecentFailures(Repository $repository, int $maxAgeHours): Collection
     {
         $installationId = (int) config('yak.channels.github.installation_id');
-        $token = $this->gitHubAppService->getInstallationToken($installationId);
+        $client = $this->gitHubAppService->installationClient($installationId);
         $cutoff = now()->subHours($maxAgeHours)->toIso8601String();
 
         /** @var array<string, mixed> $response */
-        $response = Http::withToken($token)
-            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+        $response = $client
             ->get("https://api.github.com/repos/{$repository->slug}/actions/runs", [
                 'branch' => $repository->default_branch,
                 'status' => 'failure',
@@ -40,7 +39,7 @@ class ActionsBuildScanner implements CIBuildScanner
         $failures = collect();
 
         foreach ($runs as $run) {
-            $annotations = $this->getFailureAnnotations($token, $repository->slug, (int) $run['id']);
+            $annotations = $this->getFailureAnnotations($client, $repository->slug, (int) $run['id']);
 
             foreach ($annotations as $annotation) {
                 $failures->push(new CIBuildFailure(
@@ -60,11 +59,10 @@ class ActionsBuildScanner implements CIBuildScanner
     /**
      * @return array<int, array{title: string, message: string}>
      */
-    private function getFailureAnnotations(string $token, string $repoSlug, int $runId): array
+    private function getFailureAnnotations(PendingRequest $client, string $repoSlug, int $runId): array
     {
         /** @var array<string, mixed> $checkRunsResponse */
-        $checkRunsResponse = Http::withToken($token)
-            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+        $checkRunsResponse = $client
             ->get("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/check-runs", [
                 'filter' => 'latest',
             ])
@@ -76,8 +74,7 @@ class ActionsBuildScanner implements CIBuildScanner
 
         foreach ($checkRuns as $checkRun) {
             /** @var array<int, array{annotation_level: string, title: string, message: string}> $checkAnnotations */
-            $checkAnnotations = Http::withToken($token)
-                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            $checkAnnotations = $client
                 ->get("https://api.github.com/repos/{$repoSlug}/check-runs/{$checkRun['id']}/annotations")
                 ->json();
 

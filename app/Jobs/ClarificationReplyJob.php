@@ -135,7 +135,7 @@ class ClarificationReplyJob implements ShouldQueue
 
     private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
 
         $sandbox->configureGitIdentity($containerName);
         $sandbox->injectGitCredentials($containerName);
@@ -167,7 +167,7 @@ class ClarificationReplyJob implements ShouldQueue
         DailyCost::accumulate($result->costUsd);
 
         if ($this->task->branch_name !== null) {
-            $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+            $workspacePath = IncusSandboxManager::workspacePath();
 
             // Safety check
             $branchResult = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse --abbrev-ref HEAD", timeout: 10);

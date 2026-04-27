@@ -5,7 +5,6 @@ namespace App\Channels\GitHub;
 use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
-use Illuminate\Support\Facades\Http;
 
 class NotificationDriver implements NotificationDriverContract
 {
@@ -29,10 +28,8 @@ class NotificationDriver implements NotificationDriverContract
         $dashboardLink = $this->taskDashboardLink($task);
         $body = $this->formatComment($type, $message, $dashboardLink);
 
-        $token = $this->gitHubAppService->getInstallationToken($installationId);
-
-        Http::withToken($token)
-            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+        $this->gitHubAppService
+            ->installationClient($installationId)
             ->post("https://api.github.com/repos/{$repo}/issues/{$prNumber}/comments", [
                 'body' => $body,
             ]);

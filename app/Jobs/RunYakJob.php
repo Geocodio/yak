@@ -201,7 +201,7 @@ class RunYakJob implements ShouldQueue
 
     private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
         $baseBranchName = GitOperations::branchName($this->task->external_id);
         $defaultBranch = $repository->default_branch;
 
@@ -266,7 +266,7 @@ class RunYakJob implements ShouldQueue
         TaskMetricsAccumulator::applyFresh($this->task, $result);
         DailyCost::accumulate($result->costUsd);
 
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
 
         if ($this->task->branch_name !== null) {
             // Safety check: verify not on default branch

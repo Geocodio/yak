@@ -23,7 +23,7 @@ class SandboxArtifactCollector
      */
     public static function collect(IncusSandboxManager $sandbox, string $containerName, YakTask $task): void
     {
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
         $remotePath = "{$workspacePath}/.yak-artifacts";
 
         if (! $sandbox->fileExists($containerName, $remotePath)) {

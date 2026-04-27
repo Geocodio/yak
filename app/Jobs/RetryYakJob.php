@@ -141,7 +141,7 @@ class RetryYakJob implements ShouldQueue
 
     private function prepareRetryBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
 
         $sandbox->configureGitIdentity($containerName);
         $sandbox->injectGitCredentials($containerName);
@@ -157,7 +157,7 @@ class RetryYakJob implements ShouldQueue
         TaskMetricsAccumulator::applyAccumulated($this->task, $result);
         DailyCost::accumulate($result->costUsd);
 
-        $workspacePath = (string) config('yak.sandbox.workspace_path', '/workspace');
+        $workspacePath = IncusSandboxManager::workspacePath();
 
         if ($this->task->branch_name !== null) {
             // Safety check
