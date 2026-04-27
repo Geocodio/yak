@@ -89,8 +89,12 @@ class DeploymentContainerManager
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
 
-        $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
-        $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
+        // `incus exec` runs as root by default, but the workspace was
+        // created during template build by an unprivileged user, so git
+        // refuses with "dubious ownership in repository". `-c
+        // safe.directory=...` bypasses the check just for this command.
+        $this->exec($deployment, 'fetch', "cd {$workspace} && git -c safe.directory={$workspace} fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
+        $this->exec($deployment, 'checkout', "cd {$workspace} && git -c safe.directory={$workspace} checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 
         $hasRepoHook = Process::run("incus exec {$deployment->container_name} -- test -f {$workspace}/.yak/preview.sh")
             ->exitCode() === 0;

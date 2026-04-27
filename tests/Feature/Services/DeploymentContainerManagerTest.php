@@ -155,8 +155,8 @@ it('runs git fetch + checkout and the manifest refresh', function () {
 
     app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'abcdef1234567890');
 
-    Process::assertRan(fn ($p) => str_contains($p->command, 'git fetch --all --prune'));
-    Process::assertRan(fn ($p) => str_contains($p->command, 'git checkout --force abcdef1234567890'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'git -c safe.directory=/workspace fetch --all --prune'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'git -c safe.directory=/workspace checkout --force abcdef1234567890'));
     Process::assertRan(fn ($p) => str_contains($p->command, 'docker compose restart web'));
 
     $deployment->refresh();
