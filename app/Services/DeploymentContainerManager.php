@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\DataTransferObjects\PreviewManifest;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Exceptions\DeploymentStartTimeoutException;
@@ -89,6 +90,12 @@ class DeploymentContainerManager
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
 
+        // GitHub App installation tokens TTL out after ~1 hour, so the
+        // helper baked into the template at setup time is stale by the
+        // time we re-fetch. Re-inject a fresh token before each fetch,
+        // matching the per-job pattern used in SetupYakJob/RunYakJob/etc.
+        $this->injectGitCredentials($deployment);
+
         $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
         $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 
@@ -122,6 +129,36 @@ class DeploymentContainerManager
 
         if (! $result->successful() && ! str_contains(strtolower($result->errorOutput()), 'not found')) {
             throw new RuntimeException("Failed to destroy container: {$result->errorOutput()}");
+        }
+    }
+
+    /**
+     * Inject a fresh short-lived GitHub App installation token into the
+     * sandbox so `git fetch` against private repos succeeds.
+     *
+     * Bypasses {@see exec()} (and therefore deployment_logs) because the
+     * token would otherwise land in plaintext in the log message.
+     */
+    private function injectGitCredentials(BranchDeployment $deployment): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if ($installationId === 0) {
+            return;
+        }
+
+        $token = app(GitHubAppService::class)->getInstallationToken($installationId);
+
+        $command = 'git config --global credential.https://github.com.helper '
+            . escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f");
+
+        $shell = 'sudo -u yak -H bash -lc ' . escapeshellarg($command);
+
+        $result = Process::timeout(15)
+            ->run("incus exec {$deployment->container_name} -- {$shell}");
+
+        if (! $result->successful()) {
+            throw new RuntimeException("Failed to configure git credentials: {$result->errorOutput()}");
         }
     }
 

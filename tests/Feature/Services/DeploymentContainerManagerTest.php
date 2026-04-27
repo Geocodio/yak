@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
@@ -135,6 +136,61 @@ it('raises when the health probe never goes green', function () {
 
     app(DeploymentContainerManager::class)->start($deployment);
 })->throws(DeploymentStartTimeoutException::class);
+
+it('injects a fresh installation token before fetching, without logging it', function () {
+    Process::fake([
+        'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 1),
+        'incus exec *' => Process::result(exitCode: 0),
+    ]);
+
+    config()->set('yak.channels.github.installation_id', 4242);
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')
+        ->with(4242)
+        ->once()
+        ->andReturn('ghs_fresh_token_xyz');
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => ['checkout_refresh_timeout_seconds' => 10],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-cred',
+    ]);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'sha123');
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'credential.https://github.com.helper')
+        && str_contains($p->command, 'ghs_fresh_token_xyz')
+    );
+
+    // Token must never end up in deployment_logs
+    foreach ($deployment->logs()->get() as $log) {
+        expect($log->message)->not->toContain('ghs_fresh_token_xyz');
+    }
+});
+
+it('skips credential injection when no installation_id is configured', function () {
+    Process::fake([
+        'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 1),
+        'incus exec *' => Process::result(exitCode: 0),
+    ]);
+
+    config()->set('yak.channels.github.installation_id', 0);
+
+    // GitHubAppService must NOT be resolved when installation_id is unset.
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldNotReceive('getInstallationToken');
+
+    $repo = Repository::factory()->create();
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-no-id',
+    ]);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'sha123');
+
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'credential.https://github.com.helper'));
+});
 
 it('runs git fetch + checkout and the manifest refresh', function () {
     Process::fake([
