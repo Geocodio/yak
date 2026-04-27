@@ -73,7 +73,14 @@
       # host (new inode) would leave the container stuck referencing a
       # stale, deleted socket. Mounting the parent dir re-resolves the
       # socket path on each access.
-      - "/var/lib/incus:/var/lib/incus"
+      #
+      # rslave propagation: host-side mount/unmount events (Incus
+      # creating/destroying ZFS-backed sandbox containers) propagate
+      # into Yak's namespace. Without this, default rprivate would let
+      # stale mounts of destroyed containers accumulate inside Yak,
+      # pinning their ZFS datasets and breaking subsequent rebuilds
+      # with "dataset is busy".
+      - "/var/lib/incus:/var/lib/incus:rslave"
     env_file: /etc/yak/env
     recreate: true
     healthcheck:
