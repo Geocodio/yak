@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\DataTransferObjects\TemplateSnapshotRef;
+use App\Enums\DeploymentStatus;
 use App\Enums\TaskStatus;
+use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -403,13 +405,18 @@ class IncusSandboxManager
     }
 
     /**
-     * Delete leftover task sandbox containers.
+     * Delete leftover task and deployment sandbox containers.
      *
-     * Covers two cases:
+     * Covers four cases:
      *  - STOPPED task-* containers (normal leftovers from completed jobs)
      *  - RUNNING task-* containers whose YakTask is in a terminal state
      *    (orphans from worker hard-kills on timeout — the `finally` block
      *    never got a chance to destroy the container)
+     *  - deploy-* containers with no matching branch_deployments row
+     *    (the row was deleted but DestroyDeploymentJob never ran or
+     *    failed mid-way)
+     *  - deploy-* containers whose branch_deployments row is Destroyed
+     *    (the row finished its lifecycle but the container survived)
      */
     public function cleanupStale(): int
     {
@@ -430,20 +437,29 @@ class IncusSandboxManager
             $name = trim($parts[0]);
             $status = trim($parts[1] ?? '');
 
-            if (! str_starts_with($name, 'task-')) {
+            if (str_starts_with($name, 'task-')) {
+                if ($status === 'STOPPED') {
+                    Process::run("incus delete {$name} --force");
+                    $deleted++;
+
+                    continue;
+                }
+
+                if ($status === 'RUNNING' && $this->isOrphaned($name)) {
+                    Log::channel('yak')->warning('Cleaning up orphaned sandbox', [
+                        'container' => $name,
+                    ]);
+                    Process::run("incus delete {$name} --force");
+                    $deleted++;
+                }
+
                 continue;
             }
 
-            if ($status === 'STOPPED') {
-                Process::run("incus delete {$name} --force");
-                $deleted++;
-
-                continue;
-            }
-
-            if ($status === 'RUNNING' && $this->isOrphaned($name)) {
-                Log::channel('yak')->warning('Cleaning up orphaned sandbox', [
+            if (str_starts_with($name, 'deploy-') && $this->isDeploymentOrphan($name)) {
+                Log::channel('yak')->warning('Cleaning up orphaned deployment sandbox', [
                     'container' => $name,
+                    'status' => $status,
                 ]);
                 Process::run("incus delete {$name} --force");
                 $deleted++;
@@ -531,6 +547,28 @@ class IncusSandboxManager
             TaskStatus::Failed,
             TaskStatus::Expired,
         ], true);
+    }
+
+    /**
+     * True when a deploy-* container has no branch_deployments row, or
+     * its row has reached Destroyed.
+     *
+     * Active states (Pending/Starting/Running/Hibernated/Destroying/
+     * Failed) are intentionally NOT swept here — they're either in use,
+     * paused for hibernation, or about to be destroyed by the proper
+     * DestroyDeploymentJob path. SweepExpiredDeploymentsJob handles
+     * row-driven destruction; this method handles the inverse case
+     * (containers without rows).
+     */
+    private function isDeploymentOrphan(string $containerName): bool
+    {
+        $deployment = BranchDeployment::where('container_name', $containerName)->first();
+
+        if ($deployment === null) {
+            return true;
+        }
+
+        return $deployment->status === DeploymentStatus::Destroyed;
     }
 
     /**

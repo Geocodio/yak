@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\DeploymentStatus;
+use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
@@ -743,4 +745,65 @@ it('leaves host credentials untouched when incus file pull fails', function () {
 
     $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
     expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
+});
+
+it('cleanupStale deletes deploy-* containers with no branch_deployments row', function () {
+    $listOutput = "deploy-orphan,STOPPED\ndeploy-orphan-running,RUNNING\n";
+
+    Process::fake([
+        'incus list --format csv -c n,s 2>/dev/null' => Process::result(exitCode: 0, output: $listOutput),
+        'incus delete *' => Process::result(exitCode: 0),
+    ]);
+
+    $deleted = app(IncusSandboxManager::class)->cleanupStale();
+
+    expect($deleted)->toBe(2);
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete deploy-orphan --force'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete deploy-orphan-running --force'));
+});
+
+it('cleanupStale deletes deploy-* containers whose row is Destroyed', function () {
+    $repo = Repository::factory()->create();
+    BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-dead',
+        'status' => DeploymentStatus::Destroyed,
+    ]);
+
+    Process::fake([
+        'incus list --format csv -c n,s 2>/dev/null' => Process::result(exitCode: 0, output: "deploy-dead,STOPPED\n"),
+        'incus delete *' => Process::result(exitCode: 0),
+    ]);
+
+    $deleted = app(IncusSandboxManager::class)->cleanupStale();
+
+    expect($deleted)->toBe(1);
+    Process::assertRan(fn ($p) => str_contains($p->command, 'incus delete deploy-dead --force'));
+});
+
+it('cleanupStale leaves active deploy-* containers alone', function () {
+    $repo = Repository::factory()->create();
+
+    foreach ([
+        'deploy-running' => DeploymentStatus::Running,
+        'deploy-hibernated' => DeploymentStatus::Hibernated,
+        'deploy-starting' => DeploymentStatus::Starting,
+        'deploy-failed' => DeploymentStatus::Failed,
+    ] as $name => $status) {
+        BranchDeployment::factory()->for($repo)->create([
+            'container_name' => $name,
+            'status' => $status,
+        ]);
+    }
+
+    $listOutput = "deploy-running,RUNNING\ndeploy-hibernated,STOPPED\ndeploy-starting,RUNNING\ndeploy-failed,STOPPED\n";
+
+    Process::fake([
+        'incus list --format csv -c n,s 2>/dev/null' => Process::result(exitCode: 0, output: $listOutput),
+        'incus delete *' => Process::result(exitCode: 0),
+    ]);
+
+    $deleted = app(IncusSandboxManager::class)->cleanupStale();
+
+    expect($deleted)->toBe(0);
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'incus delete deploy-'));
 });
