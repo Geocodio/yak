@@ -96,6 +96,13 @@ class DeploymentContainerManager
         // matching the per-job pattern used in SetupYakJob/RunYakJob/etc.
         $this->injectGitCredentials($deployment);
 
+        // cold_start typically runs `docker compose up`, whose inner
+        // containers bind-mount /workspace and create directories
+        // (Laravel's bootstrap/cache, storage/*) as their own user
+        // (root or www-data). Yak then can't unlink files inside those
+        // dirs during checkout. Reclaim ownership as root first.
+        $this->exec($deployment, 'reclaim_workspace', "chown -R yak:yak {$workspace}", $manifest->checkoutRefreshTimeoutSeconds, asRoot: true);
+
         $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
         $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 

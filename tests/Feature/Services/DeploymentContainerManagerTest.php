@@ -300,6 +300,8 @@ it('is idempotent on start when the container is already running', function () {
 
 it('writes a refresh log entry with captured output and exit code', function () {
     Process::fake([
+        // reclaim_workspace runs as root (no sudo wrapper); match it loosely.
+        'incus exec deploy-log -- bash -lc *' => Process::result(exitCode: 0),
         'incus exec deploy-log -- sudo -u yak -H bash -lc *' => Process::result(
             exitCode: 0,
             output: "fetched refs\nchecked out\n",
@@ -320,18 +322,21 @@ it('writes a refresh log entry with captured output and exit code', function () 
 
     $logs = $deployment->logs()->orderBy('id')->get();
 
-    // fetch + checkout + refresh = 3 entries minimum
-    expect($logs)->toHaveCount(3);
-    expect($logs[0]->phase)->toBe('fetch');
-    expect($logs[1]->phase)->toBe('checkout');
-    expect($logs[2]->phase)->toBe('refresh');
-    expect($logs[2]->level)->toBe('info');
-    expect($logs[2]->message)->toContain('fetched refs');
-    expect($logs[2]->metadata['exit_code'])->toBe(0);
+    // reclaim_workspace + fetch + checkout + refresh = 4 entries
+    expect($logs)->toHaveCount(4);
+    expect($logs[0]->phase)->toBe('reclaim_workspace');
+    expect($logs[1]->phase)->toBe('fetch');
+    expect($logs[2]->phase)->toBe('checkout');
+    expect($logs[3]->phase)->toBe('refresh');
+    expect($logs[3]->level)->toBe('info');
+    expect($logs[3]->message)->toContain('fetched refs');
+    expect($logs[3]->metadata['exit_code'])->toBe(0);
 });
 
 it('writes an error-level log when a command fails, then throws', function () {
     Process::fake([
+        // reclaim_workspace (root) succeeds; only the fetch step fails.
+        'incus exec deploy-fail -- bash -lc *' => Process::result(exitCode: 0),
         'incus exec deploy-fail -- sudo -u yak -H bash -lc *' => Process::result(
             exitCode: 1,
             output: 'some stdout',
