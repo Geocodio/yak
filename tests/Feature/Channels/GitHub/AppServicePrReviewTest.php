@@ -165,3 +165,42 @@ it('throws when GraphQL responds with errors', function () {
 
     app(GitHubAppService::class)->listReviewThreads(12345, 'geocodio/api', 42);
 })->throws(RuntimeException::class, 'GraphQL');
+
+it('posts a reply to an existing review comment', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/geocodio/api/pulls/42/comments/9999/replies' => Http::response([
+            'id' => 88888,
+            'body' => 'Fixed in c0ffee1.',
+        ]),
+    ]);
+
+    $reply = app(GitHubAppService::class)->replyToReviewComment(12345, 'geocodio/api', 42, 9999, 'Fixed in c0ffee1.');
+
+    expect($reply['id'])->toBe(88888);
+
+    Http::assertSent(function ($request): bool {
+        if (! str_ends_with($request->url(), '/comments/9999/replies')) {
+            return false;
+        }
+        $body = json_decode((string) $request->body(), true);
+
+        return $body === ['body' => 'Fixed in c0ffee1.'];
+    });
+});
+
+it('throws on reply API failure', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/geocodio/api/pulls/42/comments/9999/replies' => Http::response(
+            ['message' => 'Not Found'],
+            404,
+        ),
+    ]);
+
+    app(GitHubAppService::class)->replyToReviewComment(12345, 'geocodio/api', 42, 9999, 'body');
+})->throws(RuntimeException::class, 'GitHub rejected review-comment reply');

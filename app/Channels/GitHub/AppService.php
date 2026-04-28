@@ -565,6 +565,37 @@ class AppService
         );
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function replyToReviewComment(
+        int $installationId,
+        string $repoSlug,
+        int $prNumber,
+        int $parentCommentId,
+        string $body,
+    ): array {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post(
+                "https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/comments/{$parentCommentId}/replies",
+                ['body' => $body],
+            );
+
+        if (! $response->successful()) {
+            throw new \RuntimeException(sprintf(
+                'GitHub rejected review-comment reply (status %d): %s',
+                $response->status(),
+                (string) $response->body(),
+            ));
+        }
+
+        /** @var array<string, mixed> */
+        return $response->json();
+    }
+
     public function dismissPullRequestReview(
         int $installationId,
         string $repoSlug,
