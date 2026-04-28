@@ -96,3 +96,72 @@ it('dismisses a review with a message', function () {
         return str_contains((string) $request->body(), 'Superseded');
     });
 });
+
+it('lists review threads with isResolved and comment database ids', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'tok-abc',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/graphql' => Http::response([
+            'data' => [
+                'repository' => [
+                    'pullRequest' => [
+                        'reviewThreads' => [
+                            'nodes' => [
+                                [
+                                    'id' => 'PRRT_1',
+                                    'isResolved' => true,
+                                    'comments' => ['nodes' => [['databaseId' => 1001]]],
+                                ],
+                                [
+                                    'id' => 'PRRT_2',
+                                    'isResolved' => false,
+                                    'comments' => ['nodes' => [
+                                        ['databaseId' => 2001],
+                                        ['databaseId' => 2002],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]),
+    ]);
+
+    $threads = app(GitHubAppService::class)->listReviewThreads(12345, 'geocodio/api', 42);
+
+    expect($threads)->toHaveCount(2)
+        ->and($threads[0])->toBe([
+            'thread_id' => 'PRRT_1',
+            'is_resolved' => true,
+            'comment_database_ids' => [1001],
+        ])
+        ->and($threads[1]['is_resolved'])->toBeFalse()
+        ->and($threads[1]['comment_database_ids'])->toBe([2001, 2002]);
+
+    Http::assertSent(function ($request): bool {
+        if (! str_ends_with($request->url(), '/graphql')) {
+            return false;
+        }
+        $body = json_decode((string) $request->body(), true);
+
+        return is_string($body['query'] ?? null)
+            && str_contains($body['query'], 'reviewThreads')
+            && $body['variables'] === ['owner' => 'geocodio', 'name' => 'api', 'number' => 42];
+    });
+});
+
+it('throws when GraphQL responds with errors', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/graphql' => Http::response([
+            'errors' => [['message' => 'Resource not accessible by integration']],
+        ]),
+    ]);
+
+    app(GitHubAppService::class)->listReviewThreads(12345, 'geocodio/api', 42);
+})->throws(RuntimeException::class, 'GraphQL');

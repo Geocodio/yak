@@ -497,6 +497,74 @@ class AppService
         return is_array($json) ? $json : [];
     }
 
+    /**
+     * Fetch the PR's review threads with their resolution status and the
+     * GitHub database ids of each comment in the thread. Used to filter
+     * prior findings down to those whose threads the PR author hasn't
+     * already resolved.
+     *
+     * @return array<int, array{thread_id: string, is_resolved: bool, comment_database_ids: array<int, int>}>
+     */
+    public function listReviewThreads(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        [$owner, $name] = explode('/', $repoSlug, 2);
+
+        $query = <<<'GRAPHQL'
+    query($owner: String!, $name: String!, $number: Int!) {
+      repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) {
+          reviewThreads(first: 100) {
+            nodes {
+              id
+              isResolved
+              comments(first: 50) { nodes { databaseId } }
+            }
+          }
+        }
+      }
+    }
+    GRAPHQL;
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post('https://api.github.com/graphql', [
+                'query' => $query,
+                'variables' => ['owner' => $owner, 'name' => $name, 'number' => $prNumber],
+            ]);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException(sprintf(
+                'GitHub GraphQL request failed (status %d): %s',
+                $response->status(),
+                (string) $response->body(),
+            ));
+        }
+
+        $json = (array) $response->json();
+
+        if (isset($json['errors']) && is_array($json['errors']) && $json['errors'] !== []) {
+            $first = $json['errors'][0]['message'] ?? 'unknown';
+            throw new \RuntimeException("GitHub GraphQL returned errors: {$first}");
+        }
+
+        /** @var array<int, array<string, mixed>> $nodes */
+        $nodes = $json['data']['repository']['pullRequest']['reviewThreads']['nodes'] ?? [];
+
+        return array_map(
+            fn (array $node): array => [
+                'thread_id' => (string) $node['id'],
+                'is_resolved' => (bool) $node['isResolved'],
+                'comment_database_ids' => array_map(
+                    fn (array $c): int => (int) $c['databaseId'],
+                    $node['comments']['nodes'] ?? [],
+                ),
+            ],
+            $nodes,
+        );
+    }
+
     public function dismissPullRequestReview(
         int $installationId,
         string $repoSlug,
