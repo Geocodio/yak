@@ -21,6 +21,7 @@ use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\PriorFindingsHydrator;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -269,6 +270,15 @@ class RunYakReviewJob implements ShouldQueue
             fn (string $f): bool => ! PathMatcher::matches($f, $pathExcludes),
         ));
 
+        $priorFindings = $scope === 'incremental'
+            ? app(PriorFindingsHydrator::class)->hydrate(
+                $repository->slug,
+                (int) $metadata['pr_number'],
+                $this->task->pr_url,
+                $changedFiles,
+            )
+            : [];
+
         return [
             'prNumber' => (int) $metadata['pr_number'],
             'prTitle' => (string) $metadata['title'],
@@ -282,6 +292,7 @@ class RunYakReviewJob implements ShouldQueue
             'repoAgentInstructions' => (string) ($repository->agent_instructions ?? ''),
             'pathExcludes' => $pathExcludes,
             'linearTicket' => $this->tryFetchLinearTicket($metadata),
+            'priorFindings' => $priorFindings,
         ];
     }
 
