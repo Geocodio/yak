@@ -176,3 +176,50 @@ it('skips replying when resolution_reply_github_id is already set (idempotent re
     // Only the still_outstanding finding (1002) should have triggered a reply
     expect($callCount)->toBe(1);
 });
+
+it('falls back to today\'s incremental flow when GraphQL fetch fails', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api', 'pr_review_enabled' => true,
+        'default_branch' => 'main', 'is_active' => true,
+    ]);
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review, 'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/61',
+        'external_id' => 'https://github.com/geocodio/api/pull/61',
+        'branch_name' => 'feat/x',
+        'context' => json_encode([
+            'pr_number' => 61, 'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => '', 'body' => '',
+            'review_scope' => 'incremental', 'incremental_base_sha' => 'old',
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
+    $sandbox->shouldReceive('create')->andReturn('container');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('pullClaudeCredentials');
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    fakeReviewParser();
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: 'prose', costUsd: 0,
+        numTurns: 1, durationMs: 100, isError: false,
+        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([]);
+    $github->shouldReceive('listReviewThreads')->andThrow(new \RuntimeException('graphql exploded'));
+    $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 9, 'comments' => []]);
+    $github->shouldNotReceive('replyToReviewComment');
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle(app(AgentRunner::class));
+
+    expect($task->fresh()->status)->toBe(\App\Enums\TaskStatus::Success);
+});
