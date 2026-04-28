@@ -411,11 +411,13 @@ class RunYakReviewJob implements ShouldQueue
                     'resolution_reply_github_id' => $replyId,
                 ]);
             }
-
-            $rollupLine = app(PriorFindingsRollup::class)->render($priorFindings);
         }
 
         $findings = array_slice($parsed->findings, 0, $maxFindings);
+
+        if ($priorFindings !== []) {
+            $rollupLine = app(PriorFindingsRollup::class)->render($priorFindings, count($findings));
+        }
 
         // Ask GitHub which (file, line) pairs live inside a diff hunk —
         // only those can carry a review comment without being rejected

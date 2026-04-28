@@ -18,13 +18,24 @@ it('builds the rollup line from a mix of statuses', function () {
     );
 });
 
-it('renders "All prior concerns addressed" when everything is fixed', function () {
+it('renders "All prior concerns addressed" when everything is fixed and no new findings landed', function () {
     $rollup = (new PriorFindingsRollup)->render([
         new ParsedPriorFinding(1, 'fixed', 'a'),
         new ParsedPriorFinding(2, 'fixed', 'b'),
-    ]);
+    ], newFindingsCount: 0);
 
     expect($rollup)->toBe('**Status of prior findings:** All prior concerns addressed.');
+});
+
+it('falls back to count breakdown when prior is all fixed but new findings landed', function () {
+    $rollup = (new PriorFindingsRollup)->render([
+        new ParsedPriorFinding(1, 'fixed', 'a'),
+        new ParsedPriorFinding(2, 'fixed', 'b'),
+    ], newFindingsCount: 3);
+
+    expect($rollup)->toBe(
+        '**Status of prior findings:** 2 fixed. See thread replies for detail.',
+    );
 });
 
 it('returns empty string when there are no prior findings', function () {

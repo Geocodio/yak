@@ -84,6 +84,53 @@ it('skips findings that already have a resolution_reply_github_id (idempotent on
     expect($hydrated)->toBe([]);
 });
 
+it('skips sticky decisions whose reply failed (does not retry on next push)', function () {
+    $review = PrReview::factory()->create([
+        'pr_url' => 'https://github.com/geocodio/api/pull/77',
+    ]);
+
+    // FIXED with no reply id (reply API failed): sticky, do not re-present.
+    PrReviewComment::factory()->create([
+        'pr_review_id' => $review->id,
+        'github_comment_id' => 4001,
+        'resolution_status' => 'fixed',
+        'resolution_reply_github_id' => null,
+    ]);
+    // STILL_OUTSTANDING with no reply id: sticky, do not re-present.
+    PrReviewComment::factory()->create([
+        'pr_review_id' => $review->id,
+        'github_comment_id' => 4002,
+        'resolution_status' => 'still_outstanding',
+        'resolution_reply_github_id' => null,
+    ]);
+    // UNTOUCHED on a previous push: re-present (file may now be touched).
+    PrReviewComment::factory()->create([
+        'pr_review_id' => $review->id,
+        'github_comment_id' => 4003,
+        'resolution_status' => 'untouched',
+        'resolution_reply_github_id' => null,
+        'file_path' => 'app/Foo.php',
+        'line_number' => 1,
+        'severity' => 'should_fix',
+        'category' => 'Simplicity',
+        'body' => 'still around',
+    ]);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('listReviewThreads')->andReturn([
+        ['thread_id' => 't1', 'is_resolved' => false, 'comment_database_ids' => [4001]],
+        ['thread_id' => 't2', 'is_resolved' => false, 'comment_database_ids' => [4002]],
+        ['thread_id' => 't3', 'is_resolved' => false, 'comment_database_ids' => [4003]],
+    ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    $hydrated = app(PriorFindingsHydrator::class)
+        ->hydrate('geocodio/api', 77, 'https://github.com/geocodio/api/pull/77', ['app/Foo.php']);
+
+    $ids = array_column($hydrated, 'comment_id');
+    expect($ids)->toBe([4003]);
+});
+
 it('returns empty array and logs warning when GraphQL fails', function () {
     PrReviewComment::factory()->create(['github_comment_id' => 1001]);
 

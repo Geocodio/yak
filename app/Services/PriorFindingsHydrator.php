@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\Models\PrReviewComment;
 use Illuminate\Support\Facades\Log;
 
@@ -47,9 +48,18 @@ class PriorFindingsHydrator
         $changedSet = array_flip($changedFiles);
         $cap = (int) config('yak.pr_review.max_findings_per_review', 20);
 
+        // Re-present rows the agent hasn't decided on yet, plus rows the
+        // agent previously marked UNTOUCHED (the file may now have changed).
+        // FIXED / STILL_OUTSTANDING / WITHDRAWN are sticky decisions — even
+        // if the reply API failed (resolution_reply_github_id stays null),
+        // we don't retry on the next push.
         $comments = PrReviewComment::query()
             ->whereHas('review', fn ($q) => $q->where('pr_url', $prUrl))
             ->whereNull('resolution_reply_github_id')
+            ->where(fn ($q) => $q
+                ->whereNull('resolution_status')
+                ->orWhere('resolution_status', ParsedPriorFinding::STATUS_UNTOUCHED)
+            )
             ->orderBy('created_at')
             ->get();
 

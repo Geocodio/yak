@@ -9,7 +9,7 @@ class PriorFindingsRollup
     /**
      * @param  array<int, ParsedPriorFinding>  $priorFindings
      */
-    public function render(array $priorFindings): string
+    public function render(array $priorFindings, int $newFindingsCount = 0): string
     {
         if ($priorFindings === []) {
             return '';
@@ -27,7 +27,7 @@ class PriorFindingsRollup
         }
 
         $total = array_sum($counts);
-        if ($total > 0 && $counts[ParsedPriorFinding::STATUS_FIXED] === $total) {
+        if ($total > 0 && $counts[ParsedPriorFinding::STATUS_FIXED] === $total && $newFindingsCount === 0) {
             return '**Status of prior findings:** All prior concerns addressed.';
         }
 
