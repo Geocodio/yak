@@ -3,18 +3,11 @@
 namespace App\Services;
 
 use App\Ai\Agents\ReviewStructurer;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 
-/**
- * Turn a free-form PR review (prose text from the sandboxed agent) into
- * our ParsedReview DTO.
- *
- * The translation uses Laravel AI SDK's structured output so we never
- * hand-parse JSON from the agent's output — the schema on ReviewStructurer
- * guarantees the shape we get back.
- */
 class ReviewOutputParser
 {
     public function __construct(private readonly ReviewStructurer $structurer = new ReviewStructurer) {}
@@ -47,11 +40,22 @@ class ReviewOutputParser
             $decoded['findings'],
         );
 
+        $rawPrior = $decoded['prior_findings'] ?? [];
+        if (! is_array($rawPrior)) {
+            throw new \RuntimeException('`prior_findings` must be an array.');
+        }
+
+        $priorFindings = array_map(
+            fn (array $raw): ParsedPriorFinding => ParsedPriorFinding::fromArray($raw),
+            $rawPrior,
+        );
+
         return new ParsedReview(
             summary: (string) $decoded['summary'],
             verdict: (string) $decoded['verdict'],
             verdictDetail: (string) $decoded['verdict_detail'],
             findings: $findings,
+            priorFindings: $priorFindings,
         );
     }
 }

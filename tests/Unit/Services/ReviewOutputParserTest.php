@@ -96,3 +96,35 @@ it('throws when the structurer returns missing keys', function () {
 
     $parser->parse('text');
 })->throws(RuntimeException::class, 'missing required key');
+
+it('parses prior_findings into ParsedPriorFinding DTOs', function () {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 's', 'verdict' => 'Approve', 'verdict_detail' => 'd',
+        'findings' => [],
+        'prior_findings' => [
+            ['id' => 11, 'status' => 'fixed', 'reply_body' => 'Fixed in deadbee.'],
+            ['id' => 12, 'status' => 'untouched'],
+            ['id' => 13, 'status' => 'still_outstanding', 'reply_body' => 'Still busted on line 89.'],
+        ],
+    ]));
+
+    $parsed = $parser->parse('text');
+
+    expect($parsed->priorFindings)->toHaveCount(3)
+        ->and($parsed->priorFindings[0]->commentId)->toBe(11)
+        ->and($parsed->priorFindings[0]->status)->toBe('fixed')
+        ->and($parsed->priorFindings[0]->replyBody)->toBe('Fixed in deadbee.')
+        ->and($parsed->priorFindings[1]->status)->toBe('untouched')
+        ->and($parsed->priorFindings[1]->replyBody)->toBe('');
+});
+
+it('defaults priorFindings to empty when missing from structured output', function () {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 's', 'verdict' => 'Approve', 'verdict_detail' => 'd',
+        'findings' => [],
+    ]));
+
+    $parsed = $parser->parse('text');
+
+    expect($parsed->priorFindings)->toBe([]);
+});
