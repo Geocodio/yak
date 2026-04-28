@@ -26,6 +26,9 @@ class PrReviewCommentFactory extends Factory
             'is_suggestion' => false,
             'thumbs_up' => 0,
             'thumbs_down' => 0,
+            'resolution_status' => null,
+            'resolved_in_review_id' => null,
+            'resolution_reply_github_id' => null,
         ];
     }
 }
