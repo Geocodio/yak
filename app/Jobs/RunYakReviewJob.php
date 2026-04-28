@@ -7,6 +7,7 @@ use App\Channels\Linear\IdentifierExtractor as LinearIdentifierExtractor;
 use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
+use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
 use App\Enums\TaskStatus;
@@ -22,6 +23,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\PriorFindingsHydrator;
+use App\Services\PriorFindingsRollup;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -351,6 +353,7 @@ class RunYakReviewJob implements ShouldQueue
             verdict: $parsed->verdict,
             verdictDetail: $parsed->verdictDetail,
             findings: $allowed,
+            priorFindings: $parsed->priorFindings,
         );
     }
 
@@ -363,6 +366,54 @@ class RunYakReviewJob implements ShouldQueue
         $maxFindings = (int) config('yak.pr_review.max_findings_per_review', 20);
         $github = app(GitHubAppService::class);
         $prNumber = (int) $metadata['pr_number'];
+
+        $priorFindings = $parsed->priorFindings;
+        $rollupLine = '';
+
+        if ($priorFindings !== []) {
+            $existingComments = PrReviewComment::query()
+                ->whereIn('github_comment_id', array_map(fn ($pf) => $pf->commentId, $priorFindings))
+                ->get()
+                ->keyBy('github_comment_id');
+
+            foreach ($priorFindings as $pf) {
+                $row = $existingComments->get($pf->commentId);
+                if ($row === null) {
+                    continue;
+                }
+
+                if ($row->resolution_reply_github_id !== null) {
+                    // Already handled on a prior attempt — idempotent skip.
+                    continue;
+                }
+
+                $replyId = null;
+                if ($pf->status !== ParsedPriorFinding::STATUS_UNTOUCHED) {
+                    try {
+                        $replyResp = $github->replyToReviewComment(
+                            $installationId,
+                            $repository->slug,
+                            $prNumber,
+                            $pf->commentId,
+                            $pf->replyBody,
+                        );
+                        $replyId = isset($replyResp['id']) ? (int) $replyResp['id'] : null;
+                    } catch (\Throwable $e) {
+                        TaskLogger::warning($this->task, 'Failed to post prior-finding reply', [
+                            'comment_id' => $pf->commentId,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                $row->update([
+                    'resolution_status' => $pf->status,
+                    'resolution_reply_github_id' => $replyId,
+                ]);
+            }
+
+            $rollupLine = app(PriorFindingsRollup::class)->render($priorFindings);
+        }
 
         $findings = array_slice($parsed->findings, 0, $maxFindings);
 
@@ -408,6 +459,9 @@ class RunYakReviewJob implements ShouldQueue
         }
 
         $body = $this->renderReviewBody($parsed, $nitpicks, $outOfDiff);
+        if ($rollupLine !== '') {
+            $body = $rollupLine . "\n\n" . $body;
+        }
 
         try {
             $response = $github->createPullRequestReview(
@@ -433,6 +487,9 @@ class RunYakReviewJob implements ShouldQueue
                 fn (ReviewFinding $f): bool => $f->severity === 'consider',
             ));
             $body = $this->renderReviewBodyWithInlineFindings($parsed, $findings, $allNitpicks);
+            if ($rollupLine !== '') {
+                $body = $rollupLine . "\n\n" . $body;
+            }
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->slug,
@@ -458,6 +515,13 @@ class RunYakReviewJob implements ShouldQueue
             'verdict' => $parsed->verdict,
             'submitted_at' => now(),
         ]);
+
+        if ($priorFindings !== []) {
+            PrReviewComment::query()
+                ->whereIn('github_comment_id', array_map(fn ($pf) => $pf->commentId, $priorFindings))
+                ->whereNull('resolved_in_review_id')
+                ->update(['resolved_in_review_id' => $review->id]);
+        }
 
         if ((string) ($metadata['review_scope'] ?? 'full') === 'full') {
             $priorReviews = PrReview::where('pr_url', $this->task->pr_url)
