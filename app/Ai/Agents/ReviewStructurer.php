@@ -49,6 +49,12 @@ Rules:
 - If the reviewer offered no verdict, infer it from the findings:
   any must_fix = "Request changes"; else any should_fix = "Approve with
   suggestions"; else "Approve".
+- For incremental reviews you'll receive a "Prior findings" section. Emit one
+  `prior_findings` entry per prior finding the source review addresses. Map
+  the source review's status keyword (FIXED / STILL_OUTSTANDING / UNTOUCHED /
+  WITHDRAWN) to lower-case for `status`. Copy the reply body verbatim. For
+  UNTOUCHED entries omit `reply_body`.
+- For non-incremental reviews emit `prior_findings: []`.
 PROMPT;
     }
 
@@ -71,6 +77,17 @@ PROMPT;
                 ->description('Number of lines inside the suggestion block. Omit when the body has no suggestion fence.'),
         ]);
 
+        $priorFinding = $schema->object([
+            'id' => $schema->integer()->required()
+                ->description('GitHub comment id of the prior finding (matches `pr_review_comments.github_comment_id`).'),
+            'status' => $schema->string()
+                ->enum(['fixed', 'still_outstanding', 'untouched', 'withdrawn'])
+                ->required()
+                ->description('Resolution decision for this prior finding.'),
+            'reply_body' => $schema->string()
+                ->description('Markdown body to post as the thread reply. Required for fixed/still_outstanding/withdrawn; ignored for untouched.'),
+        ]);
+
         return [
             'summary' => $schema->string()->required()
                 ->description('2–3 sentence walkthrough of what the PR does.'),
@@ -80,6 +97,8 @@ PROMPT;
             'verdict_detail' => $schema->string()->required()
                 ->description('One sentence justifying the verdict.'),
             'findings' => $schema->array()->items($finding)->required(),
+            'prior_findings' => $schema->array()->items($priorFinding)
+                ->description('Resolution decisions for prior unresolved findings, when this is an incremental review.'),
         ];
     }
 }
