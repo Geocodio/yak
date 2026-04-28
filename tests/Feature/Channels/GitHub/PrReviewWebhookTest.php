@@ -223,6 +223,7 @@ it('triggers incremental review on synchronize when prior exists', function () {
     $priorTask = YakTask::factory()->create([
         'mode' => TaskMode::Review,
         'repo' => $repo->slug,
+        'external_id' => 'https://github.com/geocodio/api/pull/20',
         'pr_url' => 'https://github.com/geocodio/api/pull/20',
     ]);
 
