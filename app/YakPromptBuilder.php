@@ -221,6 +221,7 @@ class YakPromptBuilder
             'repoAgentInstructions' => (string) ($metadata['repoAgentInstructions'] ?? ''),
             'pathExcludes' => (array) ($metadata['pathExcludes'] ?? []),
             'linearTicket' => $metadata['linearTicket'] ?? null,
+            'priorFindings' => (array) ($metadata['priorFindings'] ?? []),
         ]);
     }
 

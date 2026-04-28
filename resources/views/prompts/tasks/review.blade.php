@@ -7,7 +7,36 @@ You are reviewing pull request #{{ $prNumber }} in `{{ $baseBranch ?: 'main' }}`
 @if ($reviewScope === 'incremental')
 This is an **incremental review**. Only review changes since the previous Yak review; do NOT re-review code outside that range.
 @endif
+@if ($reviewScope === 'incremental' && ! empty($priorFindings ?? []))
+## Prior findings (unresolved threads)
 
+For each finding below, decide its status by reading the new code:
+
+- **FIXED** — the concern is addressed in this push. Reply on the thread with `Fixed in <SHA>` and one short sentence pointing to where.
+- **STILL_OUTSTANDING** — the file was changed in this push but the concern persists or only partially landed. Reply explaining what's still off.
+- **UNTOUCHED** — the file was not changed in this push. Stay silent (no reply).
+- **WITHDRAWN** — on re-reading you now think the original finding was wrong. Reply retracting it and asking the author to resolve.
+
+Findings:
+
+@foreach ($priorFindings as $pf)
+- id={{ $pf['comment_id'] }} file={{ $pf['file'] }}:{{ $pf['line'] }} severity={{ $pf['severity'] }} category={{ $pf['category'] }}
+  File changed in this push: {{ $pf['file_changed_in_this_push'] ? 'yes' : 'no' }}
+  Original comment:
+  {!! $pf['body'] !!}
+
+@endforeach
+
+When you write your output, include a `## Prior Findings Resolution` section with one entry per finding above:
+
+```
+- id=<comment_id> status=FIXED|STILL_OUTSTANDING|UNTOUCHED|WITHDRAWN
+  Reply: <markdown body>
+```
+
+Omit the `Reply:` line for UNTOUCHED entries. The pipeline lowercases the status when persisting.
+
+@endif
 **Changed files (already filtered through path excludes):**
 ```
 @foreach ($changedFiles as $f)
