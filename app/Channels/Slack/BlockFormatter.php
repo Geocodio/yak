@@ -153,8 +153,12 @@ class BlockFormatter
 
         // View task — always present so users can click through to the
         // live dashboard. Primary button on lifecycle milestones.
+        // action_id is required by Slack's renderer even on URL-only
+        // buttons; without it the client shows a "Slack cannot handle
+        // payload" warning next to the button.
         $viewTask = [
             'type' => 'button',
+            'action_id' => 'yak_view_task',
             'text' => [
                 'type' => 'plain_text',
                 'text' => 'View task',
@@ -174,6 +178,7 @@ class BlockFormatter
         if (! empty($task->pr_url)) {
             $elements[] = [
                 'type' => 'button',
+                'action_id' => 'yak_view_pr',
                 'text' => [
                     'type' => 'plain_text',
                     'text' => 'View PR',

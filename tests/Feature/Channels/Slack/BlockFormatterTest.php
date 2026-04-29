@@ -31,6 +31,7 @@ it('builds a header section, context chips, and a View task button for acknowled
     expect($blocks[2]['type'])->toBe('actions');
     expect($blocks[2]['elements'][0])->toMatchArray([
         'type' => 'button',
+        'action_id' => 'yak_view_task',
         'text' => ['type' => 'plain_text', 'text' => 'View task'],
         'url' => 'https://yak.example.com/tasks/' . $task->id,
         'style' => 'primary',
@@ -83,6 +84,13 @@ it('adds a View PR button when the task has a PR URL', function () {
 
     expect($urls)->toContain('https://yak.example.com/tasks/' . $task->id);
     expect($urls)->toContain('https://github.com/acme/web/pull/42');
+
+    // Slack's renderer warns ("Slack cannot handle payload") on URL
+    // buttons that lack an action_id, so every button needs one even
+    // though the interactive webhook never sees a callback for them.
+    $actionIds = collect($actionBlock['elements'])->pluck('action_id')->all();
+    expect($actionIds)->toContain('yak_view_task');
+    expect($actionIds)->toContain('yak_view_pr');
 });
 
 it('uses primary button style for Acknowledgment and Result only', function () {
