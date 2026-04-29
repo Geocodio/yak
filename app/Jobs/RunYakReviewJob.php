@@ -44,6 +44,14 @@ class RunYakReviewJob implements ShouldQueue
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];
 
+    /**
+     * Allow the suggestion fence to differ from the comment's line range
+     * by a few lines (consolidations, small expansions). Beyond this we
+     * assume the model picked the wrong end-of-range and strip the fence
+     * to avoid a click-accept that deletes unchanged code.
+     */
+    private const SUGGESTION_RANGE_TOLERANCE = 5;
+
     public function __construct(public YakTask $task)
     {
         $this->onQueue('yak-claude');
@@ -445,11 +453,8 @@ class RunYakReviewJob implements ShouldQueue
 
             $severityLabel = $f->severity === 'consider' ? 'NITPICK' : strtoupper($f->severity);
 
-            $comment = [
-                'path' => $f->file,
-                'line' => $f->line,
-                'body' => "**[{$f->category} · {$severityLabel}]**\n\n{$f->body}",
-            ];
+            $body = $f->body;
+            $startLine = null;
 
             // GitHub treats a comment without `start_line` as single-line:
             // a ```suggestion fence with N lines replaces only `line`,
@@ -457,18 +462,46 @@ class RunYakReviewJob implements ShouldQueue
             // when the model marked one and every line in it lives in a
             // diff hunk.
             if ($f->startLine !== null && $f->startLine < $f->line) {
-                $rangeIsCommentable = true;
-                for ($l = $f->startLine; $l <= $f->line; $l++) {
-                    if (! isset($validLines[$f->file][$l])) {
-                        $rangeIsCommentable = false;
-                        break;
+                $rangeSize = $f->line - $f->startLine + 1;
+                $fenceSize = $f->suggestionLoc ?? 0;
+
+                // Defensive: when the line range is substantially larger
+                // than the fence, accepting the suggestion would delete
+                // the unchanged lines in between (e.g. the model anchors
+                // a docblock rewrite to the end of the function body).
+                // Strip the fence rather than post a destructive
+                // click-accept; the prose still lands as a comment.
+                if ($fenceSize > 0 && $rangeSize - $fenceSize > self::SUGGESTION_RANGE_TOLERANCE) {
+                    $body = $this->stripSuggestionFence(
+                        $f->body,
+                        '_(Suggestion fence omitted: the proposed range covered ' . $rangeSize
+                            . ' lines but the replacement is only ' . $fenceSize
+                            . ' lines, which would delete unchanged code if accepted.)_',
+                    );
+                } else {
+                    $rangeIsCommentable = true;
+                    for ($l = $f->startLine; $l <= $f->line; $l++) {
+                        if (! isset($validLines[$f->file][$l])) {
+                            $rangeIsCommentable = false;
+                            break;
+                        }
+                    }
+
+                    if ($rangeIsCommentable) {
+                        $startLine = $f->startLine;
                     }
                 }
+            }
 
-                if ($rangeIsCommentable) {
-                    $comment['start_line'] = $f->startLine;
-                    $comment['start_side'] = 'RIGHT';
-                }
+            $comment = [
+                'path' => $f->file,
+                'line' => $f->line,
+                'body' => "**[{$f->category} · {$severityLabel}]**\n\n{$body}",
+            ];
+
+            if ($startLine !== null) {
+                $comment['start_line'] = $startLine;
+                $comment['start_side'] = 'RIGHT';
             }
 
             $lineComments[] = $comment;
@@ -597,6 +630,20 @@ class RunYakReviewJob implements ShouldQueue
                 'is_suggestion' => $original->suggestionLoc !== null,
             ]);
         }
+    }
+
+    /**
+     * Replace each ```suggestion fenced block in $body with $replacement.
+     * Used when posting the suggestion as-is would be destructive (range
+     * size doesn't match the fence content).
+     */
+    private function stripSuggestionFence(string $body, string $replacement): string
+    {
+        return (string) preg_replace(
+            '/```suggestion\b[^\n]*\R.*?```/s',
+            $replacement,
+            $body,
+        );
     }
 
     /**

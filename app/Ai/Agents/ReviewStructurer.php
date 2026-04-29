@@ -40,11 +40,18 @@ Rules:
   including any ```suggestion fenced blocks.
 - Set `suggestion_loc` to the number of changed lines in the
   suggestion block (only when a ```suggestion fence is present in the body).
-- When the source review's suggestion replaces a *range* of original lines
-  (e.g. `tests/Foo.php:138-140`), set `line` to the LAST line of the range
-  and `start_line` to the FIRST line. Omit `start_line` for single-line
-  suggestions and for findings without a suggestion fence. Never set
-  `start_line` equal to or greater than `line`.
+- Only set `start_line` when the source review's prose explicitly names a
+  `LINE-LINE` range (e.g. `path/to/file.php:138-140`, "lines 138 through
+  140"). Do NOT infer a range by looking at the suggestion fence content
+  or the surrounding diff. If the prose names a single line, leave
+  `start_line` null even when the fence has multiple lines.
+- The range `(line - start_line + 1)` must approximately match
+  `suggestion_loc` — the fence REPLACES every line in the range. If the
+  prose's range is much wider than the fence (e.g. covering an entire
+  function when the fence is just a docblock), DROP the range: leave
+  `start_line` null and only emit `line`. Posting the wider range would
+  delete the unchanged lines in between when the suggestion is accepted.
+- Never set `start_line` equal to or greater than `line`.
 - Map verdict wording to one of: "Approve", "Approve with suggestions",
   "Request changes". If the reviewer uses different wording, pick the
   closest match.
