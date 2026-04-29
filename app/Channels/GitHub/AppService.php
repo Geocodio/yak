@@ -370,7 +370,7 @@ class AppService
     }
 
     /**
-     * @param  array<int, array{path: string, line: int, body: string}>  $comments
+     * @param  array<int, array{path: string, line: int, body: string, start_line?: int, start_side?: string}>  $comments
      * @return array<string, mixed>
      */
     public function createPullRequestReview(

@@ -191,6 +191,7 @@ Evaluate the PR against each category below. **Only report findings that are gen
 - Do NOT commit, push, or modify any files. This is read-only analysis.
 - Skip any file matching `pathExcludes`: @json($pathExcludes)
 - Use ` ```suggestion ` blocks only when the change is 1–10 lines AND inside the relevant diff hunk. Populate `suggestion_loc` with the line count.
+- **Match the original line range.** A suggestion fence replaces the lines its comment is anchored to. If the rewrite covers a range (e.g. lines 138–140), say so explicitly in the finding (`path/to/file.php:138-140`) so the pipeline can post a multi-line suggestion. If you only call out a single line but the fence has more replacement lines than that, the suggestion will silently inject duplicates around the unchanged neighbors — a single-line anchor must use a single-line replacement.
 - Show, don't tell. For `consider` findings especially — if you can express the nit as a concrete 1–10 line rewrite, include a ` ```suggestion ` block so the author can one-click accept it. A nitpick without a suggestion is worth much less than one with.
 
 ## Output
@@ -207,10 +208,10 @@ Write the review in prose, formatted like this:
 - **[Category]** `path/to/file.php:LINE` — concrete description of the issue and a suggestion for fixing it. Include a ```suggestion fenced block below when a 1–10 line change fits inside the diff hunk.
 
 ### Should Fix
-- **[Category]** `path/to/file.php:LINE` — description and suggestion.
+- **[Category]** `path/to/file.php:LINE` — description and suggestion. Use `LINE-LINE` (e.g. `tests/Foo.php:138-140`) when the suggestion replaces a multi-line range.
 
 ### Consider
-- **[Category]** `path/to/file.php:LINE` — description. Include a ```suggestion fenced block whenever the nit is a concrete 1–10 line rewrite.
+- **[Category]** `path/to/file.php:LINE` — description. Include a ```suggestion fenced block whenever the nit is a concrete 1–10 line rewrite. Use `LINE-LINE` when the suggestion replaces a multi-line range.
 
 ## What's Done Well
 Highlight 2–3 specific things the PR does right. Be genuine, not patronizing.

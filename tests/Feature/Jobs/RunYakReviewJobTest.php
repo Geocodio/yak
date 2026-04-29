@@ -190,6 +190,163 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($comment->is_suggestion)->toBeTrue();
 });
 
+it('passes start_line to GitHub for multi-line suggestion ranges', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'ci_system' => 'none',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/45',
+        'external_id' => 'https://github.com/geocodio/api/pull/45',
+        'branch_name' => 'feat/range',
+        'context' => json_encode([
+            'pr_number' => 45, 'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => 't', 'body' => '',
+            'review_scope' => 'full', 'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
+    $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('pullClaudeCredentials');
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    fakeReviewParser(
+        findings: [[
+            'file' => 'tests/Foo.php', 'line' => 12, 'start_line' => 10,
+            'severity' => 'should_fix', 'category' => 'Test Quality',
+            'body' => "Collapse these.\n\n```suggestion\nA\nB\nC\n```",
+            'suggestion_loc' => 3,
+        ]],
+        summary: 'Range suggestion.',
+        verdict: 'Approve with suggestions',
+    );
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+        'filename' => 'tests/Foo.php',
+        'patch' => "@@ -10,3 +10,3 @@\n+added 10\n+added 11\n+added 12",
+    ]]);
+
+    $captured = null;
+    $github->shouldReceive('createPullRequestReview')
+        ->once()
+        ->withArgs(function ($_i, $_r, $_p, $_b, $_e, $comments) use (&$captured) {
+            $captured = $comments;
+
+            return true;
+        })
+        ->andReturn([
+            'id' => 1,
+            'comments' => [
+                ['id' => 333, 'path' => 'tests/Foo.php', 'line' => 12, 'body' => 'stored'],
+            ],
+        ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($captured)->toHaveCount(1)
+        ->and($captured[0]['line'])->toBe(12)
+        ->and($captured[0]['start_line'])->toBe(10)
+        ->and($captured[0]['start_side'])->toBe('RIGHT');
+});
+
+it('omits start_line when any line in the range is outside the diff hunk', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'default_branch' => 'main',
+        'ci_system' => 'none',
+        'is_active' => true,
+    ]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'repo' => $repo->slug,
+        'pr_url' => 'https://github.com/geocodio/api/pull/46',
+        'external_id' => 'https://github.com/geocodio/api/pull/46',
+        'branch_name' => 'feat/partial-range',
+        'context' => json_encode([
+            'pr_number' => 46, 'head_sha' => 'h', 'base_sha' => 'b',
+            'author' => 'm', 'title' => 't', 'body' => '',
+            'review_scope' => 'full', 'incremental_base_sha' => null,
+        ]),
+    ]);
+
+    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
+    $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
+    $sandbox->shouldReceive('pullClaudeCredentials');
+    $sandbox->shouldReceive('destroy');
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    $agent = mock(AgentRunner::class);
+    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
+        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+    ));
+    app()->instance(AgentRunner::class, $agent);
+
+    // Range claims lines 8–12, but the hunk only covers 10–14.
+    fakeReviewParser(
+        findings: [[
+            'file' => 'tests/Foo.php', 'line' => 12, 'start_line' => 8,
+            'severity' => 'consider', 'category' => 'Test Quality',
+            'body' => "tweak\n\n```suggestion\nA\nB\nC\n```",
+            'suggestion_loc' => 3,
+        ]],
+        summary: 'Partial range.',
+        verdict: 'Approve',
+    );
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('getInstallationToken')->andReturn('tok');
+    $github->shouldReceive('listPullRequestFiles')->andReturn([[
+        'filename' => 'tests/Foo.php',
+        'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
+    ]]);
+
+    $captured = null;
+    $github->shouldReceive('createPullRequestReview')
+        ->once()
+        ->withArgs(function ($_i, $_r, $_p, $_b, $_e, $comments) use (&$captured) {
+            $captured = $comments;
+
+            return true;
+        })
+        ->andReturn([
+            'id' => 2,
+            'comments' => [
+                ['id' => 444, 'path' => 'tests/Foo.php', 'line' => 12, 'body' => 'stored'],
+            ],
+        ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    (new RunYakReviewJob($task))->handle($agent);
+
+    expect($captured)->toHaveCount(1)
+        ->and($captured[0]['line'])->toBe(12)
+        ->and($captured[0])->not->toHaveKey('start_line')
+        ->and($captured[0])->not->toHaveKey('start_side');
+});
+
 it('keeps out-of-diff consider findings in the collapsed nitpicks block', function () {
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',

@@ -40,6 +40,11 @@ Rules:
   including any ```suggestion fenced blocks.
 - Set `suggestion_loc` to the number of changed lines in the
   suggestion block (only when a ```suggestion fence is present in the body).
+- When the source review's suggestion replaces a *range* of original lines
+  (e.g. `tests/Foo.php:138-140`), set `line` to the LAST line of the range
+  and `start_line` to the FIRST line. Omit `start_line` for single-line
+  suggestions and for findings without a suggestion fence. Never set
+  `start_line` equal to or greater than `line`.
 - Map verdict wording to one of: "Approve", "Approve with suggestions",
   "Request changes". If the reviewer uses different wording, pick the
   closest match.
@@ -67,7 +72,9 @@ PROMPT;
             'file' => $schema->string()->required()
                 ->description('Repo-relative path to the file, e.g. `app/Services/Foo.php`.'),
             'line' => $schema->integer()->required()
-                ->description('Line number the comment applies to.'),
+                ->description('Line the comment anchors to. For range suggestions, this is the LAST line in the range.'),
+            'start_line' => $schema->integer()
+                ->description('First line of the original range a multi-line suggestion replaces. Must be strictly less than `line`. Omit for single-line suggestions or findings without a suggestion fence.'),
             'severity' => $schema->string()->enum(['must_fix', 'should_fix', 'consider'])->required(),
             'category' => $schema->string()->required()
                 ->description('Rubric category, e.g. `Simplicity`, `Test Quality`, `Performance`.'),

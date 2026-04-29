@@ -445,11 +445,33 @@ class RunYakReviewJob implements ShouldQueue
 
             $severityLabel = $f->severity === 'consider' ? 'NITPICK' : strtoupper($f->severity);
 
-            $lineComments[] = [
+            $comment = [
                 'path' => $f->file,
                 'line' => $f->line,
                 'body' => "**[{$f->category} · {$severityLabel}]**\n\n{$f->body}",
             ];
+
+            // GitHub treats a comment without `start_line` as single-line:
+            // a ```suggestion fence with N lines replaces only `line`,
+            // injecting N-1 duplicate lines around it. Send the range
+            // when the model marked one and every line in it lives in a
+            // diff hunk.
+            if ($f->startLine !== null && $f->startLine < $f->line) {
+                $rangeIsCommentable = true;
+                for ($l = $f->startLine; $l <= $f->line; $l++) {
+                    if (! isset($validLines[$f->file][$l])) {
+                        $rangeIsCommentable = false;
+                        break;
+                    }
+                }
+
+                if ($rangeIsCommentable) {
+                    $comment['start_line'] = $f->startLine;
+                    $comment['start_side'] = 'RIGHT';
+                }
+            }
+
+            $lineComments[] = $comment;
             $lineCommentFindings[] = $f;
         }
 
