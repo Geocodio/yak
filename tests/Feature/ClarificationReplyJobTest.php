@@ -103,7 +103,7 @@ test('refreshes git credential helper immediately before push', function () {
         /** @var array<int, string> */
         public array $commands = [];
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
             $this->commands[] = $command;
 

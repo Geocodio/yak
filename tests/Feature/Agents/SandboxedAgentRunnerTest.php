@@ -25,7 +25,7 @@ class RecordingSandboxManager extends IncusSandboxManager
         $this->responses[$pattern] = $result;
     }
 
-    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+    public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
     {
         $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -103,7 +103,7 @@ it('logs the before/after Claude versions on the task when a task is attached', 
     {
         private int $versionCalls = 0;
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -143,7 +143,7 @@ it('logs a friendlier line when Claude was already up to date (no version change
 
     $sandbox = new class extends RecordingSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -423,7 +423,7 @@ it('is tolerant of a failed npm install and still invokes claude -p', function (
 
     $sandbox = new class extends RecordingSandboxManager
     {
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
@@ -578,7 +578,7 @@ test('batch mode feeds the prompt to claude -p via stdin, not argv', function ()
     {
         public ?string $capturedInput = null;
 
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null): ProcessResult
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
         {
             $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
 
