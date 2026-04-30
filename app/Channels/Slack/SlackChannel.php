@@ -60,6 +60,9 @@ final class SlackChannel implements Channel
      */
     public function healthChecks(): array
     {
-        return [app(HealthCheck::class)];
+        return [
+            app(HealthCheck::class),
+            app(InteractivityHealthCheck::class),
+        ];
     }
 }

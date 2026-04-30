@@ -61,7 +61,22 @@ class NotificationDriver implements NotificationDriverContract
                 'blocks' => $blocks,
             ]);
 
+        // If we just sent a clarification with click-to-answer buttons,
+        // count it for the Interactivity health check. The check pairs
+        // this counter with received-payload count to catch installs
+        // where the Slack app has no Interactivity request URL.
+        if ($type === NotificationType::Clarification && self::hasClarificationOptions($task)) {
+            InteractivityTracker::recordSent();
+        }
+
         $this->react($task, $type, $token);
+    }
+
+    private static function hasClarificationOptions(YakTask $task): bool
+    {
+        $options = $task->clarification_options;
+
+        return is_array($options) && $options !== [];
     }
 
     /**

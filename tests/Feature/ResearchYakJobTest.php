@@ -434,17 +434,26 @@ test('posts summary and findings URL as Slack thread reply', function () {
     $job = new ResearchYakJob($task);
     $job->handle($fake);
 
-    Http::assertSent(function ($request) {
+    Http::assertSent(function ($request) use ($task) {
         if ($request->url() !== 'https://slack.com/api/chat.postMessage') {
             return false;
         }
 
         $body = $request->data();
+        $text = (string) ($body['text'] ?? '');
 
         return ($body['channel'] ?? '') === 'C12345'
             && ($body['thread_ts'] ?? '') === '1234567890.123456'
-            && str_contains($body['text'] ?? '', 'Analysis shows three bottlenecks')
-            && str_contains($body['text'] ?? '', '/artifacts/');
+            && str_contains($text, 'Analysis shows three bottlenecks')
+            // Auth-gated viewer URL — the previous custom-signed URL
+            // 404'd because it embedded artifact_id rather than task_id
+            // and the signature didn't match Laravel's scheme.
+            && str_contains($text, "/artifacts/{$task->id}/viewer/research.html")
+            // Slack mrkdwn — the previous output leaked Markdown
+            // (`**[View research report](...)**`) which Slack rendered
+            // as raw text. mrkdwn collapses to `*…*` and `<url|label>`.
+            && str_contains($text, '|View research report>')
+            && ! str_contains($text, '[View research report]');
     });
 });
 

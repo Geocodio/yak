@@ -577,6 +577,43 @@ it('resolves repo from clarification reply with spaces instead of hyphens', func
     Queue::assertPushed(RunYakJob::class);
 });
 
+it('prefers exact full-slug match over a shorter slug that appears as a substring', function () {
+    // Regression: typing "acme/web-app" used to match "acme/web" first
+    // because str_contains("acme/web-app", "acme/web") is true. The
+    // resolver now exact-matches the full slug before falling back to
+    // substring containment.
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'acme/web-app', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'repo' => 'unknown',
+        'status' => TaskStatus::AwaitingClarification,
+        'session_id' => null,
+        'slack_channel' => 'C_REPO_TRAP',
+        'slack_thread_ts' => '1010101010.101010',
+        'clarification_options' => ['acme/web', 'acme/web-app'],
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $body = slackThreadReplyPayload('acme/web-app', 'C_REPO_TRAP', '1010101010.101010');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task->refresh();
+    expect($task->repo)->toBe('acme/web-app');
+
+    Queue::assertPushed(RunYakJob::class);
+});
+
 it('re-prompts when repo clarification reply does not match any option', function () {
     $secret = enableSlackChannel();
     Queue::fake();

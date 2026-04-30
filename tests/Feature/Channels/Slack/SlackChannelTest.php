@@ -2,6 +2,7 @@
 
 use App\Channels\Slack\HealthCheck;
 use App\Channels\Slack\InputDriver;
+use App\Channels\Slack\InteractivityHealthCheck;
 use App\Channels\Slack\NotificationDriver;
 use App\Channels\Slack\SlackChannel;
 
@@ -41,10 +42,13 @@ it('returns null for non-applicable capabilities', function (): void {
     expect($channel->ciBuildScanner())->toBeNull();
 });
 
-it('provides a health check', function (): void {
+it('provides health checks for the bot connection and the interactivity URL', function (): void {
     expect((new SlackChannel)->healthChecks())
-        ->toHaveCount(1)
-        ->sequence(fn ($check) => $check->toBeInstanceOf(HealthCheck::class));
+        ->toHaveCount(2)
+        ->sequence(
+            fn ($check) => $check->toBeInstanceOf(HealthCheck::class),
+            fn ($check) => $check->toBeInstanceOf(InteractivityHealthCheck::class),
+        );
 });
 
 it('registers webhook and interactive routes', function (): void {

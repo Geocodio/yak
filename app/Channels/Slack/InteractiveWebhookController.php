@@ -9,8 +9,10 @@ use App\Jobs\ClarificationReplyJob;
 use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 /**
  * Handles Slack's Interactivity & Shortcuts webhook — fires when a
@@ -27,6 +29,12 @@ class InteractiveWebhookController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $this->verifySlackSignature($request);
+
+        // Record receipt as soon as the signature checks out — the
+        // health check uses this to detect a missing Interactivity
+        // request URL on the Slack side. We record before further
+        // payload validation so even a future button type counts.
+        InteractivityTracker::recordReceived();
 
         $payload = json_decode((string) $this->extractPayload($request), true);
 
@@ -57,13 +65,57 @@ class InteractiveWebhookController extends Controller
 
         TaskLogger::info($task, 'Clarification received via button', ['option' => $optionText]);
 
-        if (RepoClarificationResolver::awaitingRepoChoice($task)) {
+        $isRepoChoice = RepoClarificationResolver::awaitingRepoChoice($task);
+
+        if ($isRepoChoice) {
             RepoClarificationResolver::resolve($task, $optionText);
         } else {
             ClarificationReplyJob::dispatch($task, $optionText);
         }
 
+        // Slack hides the click feedback after a moment but doesn't
+        // otherwise update the message, so a successful click looks
+        // identical to one that went nowhere. Replace the original
+        // (button-bearing) message in-place via response_url so the
+        // user gets immediate confirmation. We only ack on a confirmed
+        // resolution — for repo choices the resolver flips the status
+        // synchronously; for in-flight agent clarifications the dispatch
+        // itself is the point of no return, so ack there too.
+        $resolved = $isRepoChoice
+            ? $task->fresh()?->status !== TaskStatus::AwaitingClarification
+            : true;
+
+        if ($resolved) {
+            $this->ackClick(
+                responseUrl: (string) ($payload['response_url'] ?? ''),
+                optionText: $optionText,
+            );
+        }
+
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Replace the original message containing the clicked button with
+     * a short confirmation. response_url is a one-shot Slack-issued
+     * webhook bound to the originating message; posting `replace_original`
+     * swaps in new text and drops the now-stale buttons.
+     */
+    private function ackClick(string $responseUrl, string $optionText): void
+    {
+        if ($responseUrl === '' || $optionText === '') {
+            return;
+        }
+
+        try {
+            Http::timeout(3)->post($responseUrl, [
+                'replace_original' => true,
+                'text' => "Got it — `{$optionText}` 🐃",
+            ]);
+        } catch (ConnectionException) {
+            // Best-effort feedback. The dispatched job will still run
+            // and post its normal lifecycle notifications.
+        }
     }
 
     /**

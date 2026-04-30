@@ -40,17 +40,43 @@ class RepoClarificationResolver
     {
         /** @var list<string> $options */
         $options = $task->clarification_options ?? [];
-        $replyNormalized = str($replyText)->lower()->trim()->replaceMatches('/[\s\-_]+/', '-');
+        $replyNormalized = (string) str($replyText)->lower()->trim()->replaceMatches('/[\s\-_]+/', '-');
 
-        // Normalises spaces/hyphens/underscores so "geocodio website"
-        // matches "geocodio-website", and matches either the full slug
-        // (acme/marketing-site) or just the repo name (marketing-site).
-        $matchedSlug = collect($options)->first(function (string $slug) use ($replyNormalized) {
-            $fullNorm = str($slug)->lower()->replaceMatches('/[\s\-_]+/', '-');
-            $nameNorm = str($slug)->afterLast('/')->lower()->replaceMatches('/[\s\-_]+/', '-');
+        // Three-pass match. The earlier passes guard against the
+        // substring trap where "geocodio/laracondb" would otherwise
+        // match the shorter "geocodio" repo via str_contains. Order:
+        //   1. Exact full-slug match  ("geocodio/laracondb")
+        //   2. Exact name-only match  ("laracondb")
+        //   3. Substring fallback, longest slug first, so that
+        //      "the geocodio website is broken" still resolves to
+        //      "geocodio-website" and not "geocodio".
+        $normalize = fn (string $s): string => (string) str($s)
+            ->lower()
+            ->replaceMatches('/[\s\-_]+/', '-');
 
-            return $replyNormalized->contains($fullNorm) || $replyNormalized->contains($nameNorm);
-        });
+        $matchedSlug = collect($options)->first(
+            fn (string $slug) => $normalize($slug) === $replyNormalized,
+        );
+
+        if ($matchedSlug === null) {
+            $matchedSlug = collect($options)->first(
+                fn (string $slug) => $normalize((string) str($slug)->afterLast('/')) === $replyNormalized,
+            );
+        }
+
+        if ($matchedSlug === null) {
+            $sorted = collect($options)
+                ->sortByDesc(fn (string $slug) => mb_strlen($slug))
+                ->values();
+
+            $matchedSlug = $sorted->first(function (string $slug) use ($replyNormalized, $normalize) {
+                $fullNorm = $normalize($slug);
+                $nameNorm = $normalize((string) str($slug)->afterLast('/'));
+
+                return str_contains($replyNormalized, $fullNorm)
+                    || str_contains($replyNormalized, $nameNorm);
+            });
+        }
 
         if ($matchedSlug === null) {
             TaskLogger::warning($task, 'Could not match repo from reply', ['reply' => $replyText, 'options' => $options]);

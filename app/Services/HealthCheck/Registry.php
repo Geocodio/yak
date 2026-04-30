@@ -41,14 +41,7 @@ class Registry
             return array_values(array_map(fn (string $class): HealthCheck => app($class), self::SYSTEM_CHECKS));
         }
 
-        $checks = [];
-        foreach ($this->channels->enabled() as $channel) {
-            foreach ($channel->healthChecks() as $check) {
-                $checks[] = $check;
-            }
-        }
-
-        return $checks;
+        return $this->channelChecks();
     }
 
     public function get(string $id): HealthCheck
@@ -57,11 +50,9 @@ class Registry
             return app(self::SYSTEM_CHECKS[$id]);
         }
 
-        $channel = $this->channels->for($id);
-        if ($channel !== null) {
-            $checks = $channel->healthChecks();
-            if ($checks !== []) {
-                return $checks[0];
+        foreach ($this->channelChecks() as $check) {
+            if ($check->id() === $id) {
+                return $check;
             }
         }
 
@@ -78,7 +69,31 @@ class Registry
     {
         return array_merge(
             array_keys(self::SYSTEM_CHECKS),
-            array_keys($this->channels->all()),
+            array_map(fn (HealthCheck $c): string => $c->id(), $this->channelChecks()),
         );
+    }
+
+    /**
+     * Flat list of all channel-supplied checks across enabled channels.
+     * A single channel may expose more than one check (Slack ships
+     * `slack` for the bot connection and `slack-interactivity` for the
+     * Interactivity URL heuristic, for example).
+     *
+     * @return list<HealthCheck>
+     */
+    private function channelChecks(): array
+    {
+        $checks = [];
+        foreach ($this->channels->all() as $channel) {
+            if (! $channel->enabled()) {
+                continue;
+            }
+
+            foreach ($channel->healthChecks() as $check) {
+                $checks[] = $check;
+            }
+        }
+
+        return $checks;
     }
 }

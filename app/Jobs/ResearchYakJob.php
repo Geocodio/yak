@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
+use App\Channels\Slack\BlockFormatter as SlackBlockFormatter;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -150,7 +151,7 @@ class ResearchYakJob implements ShouldQueue
         $summary = $result->resultSummary;
 
         $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
-        $artifactUrl = $artifact !== null ? $this->generateSignedUrl($artifact) : null;
+        $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
 
         TaskMetricsAccumulator::applyFresh($this->task, $result);
 
@@ -185,20 +186,14 @@ class ResearchYakJob implements ShouldQueue
         $this->postToSource($notificationMessage);
 
         if ($this->task->source === 'linear') {
-            // Attach the viewer URL (auth-gated, stable forever) to the
-            // Linear issue itself so the research report stays findable
-            // long after the agent session wraps up. The signed URL in
-            // the response activity above is for quick access; this
-            // attachment is for persistence.
-            if ($artifact !== null) {
-                $viewerUrl = route('artifacts.viewer', [
-                    'task' => $this->task->id,
-                    'filename' => $artifact->filename,
-                ]);
+            // Mirror the viewer URL onto the Linear issue itself so the
+            // research report stays findable long after the agent
+            // session wraps up.
+            if ($artifact !== null && $artifactUrl !== null) {
                 app(LinearNotificationDriver::class)->createIssueAttachment(
                     $this->task,
                     title: 'Research report',
-                    url: $viewerUrl,
+                    url: $artifactUrl,
                     subtitle: 'Detailed findings from Yak · HTML',
                 );
             }
@@ -236,13 +231,17 @@ class ResearchYakJob implements ShouldQueue
         ]);
     }
 
-    private function generateSignedUrl(Artifact $artifact): string
+    /**
+     * Auth-gated viewer URL — same one we attach to Linear issues. The
+     * controller redirects unauthenticated visitors through the dashboard
+     * login, so a Slack click works once the user has a session.
+     */
+    private function viewerUrl(Artifact $artifact): string
     {
-        $expires = now()->addDays(7)->timestamp;
-        $payload = "{$artifact->id}:{$expires}";
-        $signature = hash_hmac('sha256', $payload, (string) config('app.key'));
-
-        return url("/artifacts/{$artifact->id}?expires={$expires}&signature={$signature}");
+        return route('artifacts.viewer', [
+            'task' => $this->task->id,
+            'filename' => $artifact->filename,
+        ]);
     }
 
     private function handleError(string $errorMessage): void
@@ -278,11 +277,15 @@ class ResearchYakJob implements ShouldQueue
             return;
         }
 
+        // The message arrives as common Markdown (`**bold**`,
+        // `[label](url)`) so the Linear path renders correctly. Slack
+        // uses mrkdwn (`*bold*`, `<url|label>`); convert before posting
+        // or the link surfaces as raw markdown text in the thread.
         Http::withToken($token)
             ->post('https://slack.com/api/chat.postMessage', [
                 'channel' => $this->task->slack_channel,
                 'thread_ts' => $this->task->slack_thread_ts,
-                'text' => $message,
+                'text' => SlackBlockFormatter::mrkdwn($message),
             ]);
     }
 
