@@ -228,6 +228,8 @@ return [
         'running_cap' => (int) env('YAK_DEPLOYMENTS_RUNNING_CAP', 6),
         'idle_minutes' => (int) env('YAK_DEPLOYMENTS_IDLE_MINUTES', 15),
         'destroy_days' => (int) env('YAK_DEPLOYMENTS_DESTROY_DAYS', 30),
+        'stuck_starting_minutes' => (int) env('YAK_DEPLOYMENTS_STUCK_STARTING_MINUTES', 30),
+        'stuck_destroying_minutes' => (int) env('YAK_DEPLOYMENTS_STUCK_DESTROYING_MINUTES', 60),
         'eviction_grace_minutes' => (int) env('YAK_DEPLOYMENTS_EVICTION_GRACE_MINUTES', 5),
         'default_port' => (int) env('YAK_DEPLOYMENTS_DEFAULT_PORT', 80),
         'default_health_probe_path' => env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_PATH', '/'),

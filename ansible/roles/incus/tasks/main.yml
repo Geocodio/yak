@@ -50,6 +50,28 @@
   when: zpool_check.rc != 0 and incus_zfs_device is not defined
   changed_when: true
 
+# Grow an existing file-backed pool when `incus_zfs_pool_size` is bumped.
+# `zpool create` above only runs on first install (zpool_check.rc != 0),
+# so a config bump otherwise has no effect. Idempotent: truncate refuses
+# to shrink, and `zpool online -e` is a no-op once the pool already sees
+# the new size. Skipped on dedicated-disk installs.
+- name: Stat the file-backed ZFS pool image
+  ansible.builtin.stat:
+    path: /var/lib/incus/zfs-pool.img
+  register: zfs_pool_image
+  when: incus_zfs_device is not defined
+
+- name: Grow file-backed ZFS pool when configured size exceeds current size
+  ansible.builtin.shell: |
+    set -euo pipefail
+    truncate -s {{ incus_zfs_pool_size | default('100G') }} /var/lib/incus/zfs-pool.img
+    zpool online -e incus-pool /var/lib/incus/zfs-pool.img
+  when:
+    - incus_zfs_device is not defined
+    - zfs_pool_image.stat.exists | default(false)
+    - zfs_pool_image.stat.size < (incus_zfs_pool_size | default('100G') | human_to_bytes)
+  changed_when: true
+
 - name: Configure ZFS ARC max memory
   ansible.builtin.copy:
     dest: /etc/modprobe.d/zfs.conf

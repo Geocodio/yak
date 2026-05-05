@@ -26,3 +26,17 @@ it('is a no-op on an already-destroyed deployment', function () {
 
     (new DestroyDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 });
+
+it('force-destroys from Starting (state-machine guard bypassed)', function () {
+    // Starting → Destroying isn't a permitted transition, so a save()-based
+    // flip would throw. The watchdog relies on the raw-update bypass.
+    $deployment = BranchDeployment::factory()->starting()->create();
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('destroy')->once();
+
+    (new DestroyDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+
+    expect($deployment->fresh()->status)->toBe(DeploymentStatus::Destroyed);
+});

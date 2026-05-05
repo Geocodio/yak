@@ -20,12 +20,22 @@ class SweepExpiredDeploymentsJob implements ShouldQueue
     {
         $cutoff = now()->subDays((int) config('yak.deployments.destroy_days'));
 
+        // last_accessed_at is NULL for deployments that never reached
+        // Running (stuck Starting, Failed, abandoned). The original
+        // `<` predicate excluded those rows entirely, so they would
+        // accumulate forever. Fall back to created_at when null.
         BranchDeployment::query()
             ->whereNotIn('status', [
                 DeploymentStatus::Destroyed->value,
                 DeploymentStatus::Destroying->value,
             ])
-            ->where('last_accessed_at', '<', $cutoff)
+            ->where(function ($q) use ($cutoff) {
+                $q->where('last_accessed_at', '<', $cutoff)
+                    ->orWhere(function ($q) use ($cutoff) {
+                        $q->whereNull('last_accessed_at')
+                            ->where('created_at', '<', $cutoff);
+                    });
+            })
             ->pluck('id')
             ->each(fn ($id) => DestroyDeploymentJob::dispatch($id));
 

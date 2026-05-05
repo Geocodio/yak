@@ -31,6 +31,24 @@ it('skips already-destroyed deployments', function () {
     Bus::assertNothingDispatched();
 });
 
+it('sweeps deployments with NULL last_accessed_at past destroy_days using created_at', function () {
+    config()->set('yak.deployments.destroy_days', 30);
+
+    $oldFailed = BranchDeployment::factory()->failed()->create([
+        'last_accessed_at' => null,
+        'created_at' => now()->subDays(31),
+    ]);
+    $recentFailed = BranchDeployment::factory()->failed()->create([
+        'last_accessed_at' => null,
+        'created_at' => now()->subDays(5),
+    ]);
+
+    (new SweepExpiredDeploymentsJob)->handle();
+
+    Bus::assertDispatched(DestroyDeploymentJob::class, fn ($job) => $job->deploymentId === $oldFailed->id);
+    Bus::assertNotDispatched(DestroyDeploymentJob::class, fn ($job) => $job->deploymentId === $recentFailed->id);
+});
+
 it('clears expired share tokens', function () {
     $d = BranchDeployment::factory()->running()->create([
         'public_share_token_hash' => 'somehash',

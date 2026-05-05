@@ -27,12 +27,16 @@ class DestroyDeploymentJob implements ShouldQueue
             return;
         }
 
-        $deployment->status = DeploymentStatus::Destroying;
-        $deployment->save();
+        // Forced destroy must work from any status (incl. stuck Starting
+        // or Pending), so bypass the state-machine guard and use a raw
+        // update — same pattern as RebuildDeploymentJob.
+        BranchDeployment::query()->where('id', $deployment->id)
+            ->update(['status' => DeploymentStatus::Destroying->value]);
+        $deployment->refresh();
 
         $manager->destroy($deployment);
 
-        $deployment->status = DeploymentStatus::Destroyed;
-        $deployment->save();
+        BranchDeployment::query()->where('id', $deployment->id)
+            ->update(['status' => DeploymentStatus::Destroyed->value]);
     }
 }

@@ -6,6 +6,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskStatus;
+use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -347,6 +348,23 @@ class IncusSandboxManager
         // IMPORTANT: `sandbox_snapshot` must now hold the versioned ref, so
         // `resolveSource()` keeps working for the task-sandbox clone path.
         $repository->update(['sandbox_snapshot' => $ref->name()]);
+
+        // Rebuild any non-destroyed deployments still pinned to an older
+        // template_version. Until they're rebased, the prior template's
+        // ZFS dataset is held alive under incus-pool/deleted/, since
+        // ZFS clones reference the parent's @copy snapshot.
+        $hasStaleClones = BranchDeployment::query()
+            ->where('repository_id', $repository->id)
+            ->whereNotIn('status', [
+                DeploymentStatus::Destroyed->value,
+                DeploymentStatus::Destroying->value,
+            ])
+            ->where('template_version', '<', $newVersion)
+            ->exists();
+
+        if ($hasStaleClones) {
+            RebuildRepositoryDeploymentsJob::dispatch($repository->id);
+        }
 
         return $ref->name();
     }
