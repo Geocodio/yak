@@ -2,6 +2,8 @@
     'title' => 'Yak',
     'failed' => false,
     'autoRefresh' => false,
+    'mascot' => 'mascot.png',
+    'sleeping' => false,
 ])
 
 <!doctype html>
@@ -11,10 +13,11 @@
     <title>{{ $title }} &mdash; Yak</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     @if ($autoRefresh)
-        {{-- Auto-refresh while the sandbox is warming. Once wake
-             returns 200, Caddy proxies to the sandbox and the page is
-             replaced by whatever the preview app serves. --}}
-        <meta http-equiv="refresh" content="3">
+        {{-- Fallback while the sandbox is warming. JS below polls more
+             aggressively and reloads the moment the wake endpoint stops
+             returning the shim — the meta-refresh just guarantees the
+             page recovers if JS is disabled or breaks. --}}
+        <meta http-equiv="refresh" content="15">
     @endif
     <link rel="icon" href="{{ config('app.url') }}/favicon.ico" sizes="any">
     <link rel="icon" href="{{ config('app.url') }}/favicon.png" type="image/png">
@@ -81,6 +84,9 @@
             z-index: 1;
             animation: breathe 2.8s ease-in-out infinite;
         }
+        .mascot.sleeping {
+            animation: snooze 5.2s ease-in-out infinite;
+        }
         .mascot.failed {
             animation: none;
             filter: saturate(0.55) drop-shadow(0 18px 24px rgba(92, 74, 58, 0.15));
@@ -88,6 +94,33 @@
         @keyframes breathe {
             0%, 100% { transform: translateY(0)    scale(1);     }
             50%      { transform: translateY(-4px) scale(1.012); }
+        }
+        @keyframes snooze {
+            0%, 100% { transform: translateY(0)    scale(1);     }
+            50%      { transform: translateY(-2px) scale(1.018); }
+        }
+        .dots {
+            display: inline-flex;
+            gap: 5px;
+            vertical-align: middle;
+            margin-left: 4px;
+        }
+        .dots span {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: color-mix(in srgb, var(--yak-slate) 55%, transparent);
+            animation: blink 1.4s ease-in-out infinite both;
+        }
+        .dots span:nth-child(2) { animation-delay: 0.2s; }
+        .dots span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+            40%           { opacity: 1;    transform: translateY(-2px); }
+        }
+        .progress-hint {
+            margin-top: 22px;
+            font-size: 13px;
+            color: color-mix(in srgb, var(--yak-slate) 55%, transparent);
         }
         h1 {
             font-family: 'Instrument Serif', Georgia, serif;
@@ -154,8 +187,8 @@
 <body>
 <div class="card">
     <div class="mascot-wrap">
-        <img class="mascot{{ $failed ? ' failed' : '' }}"
-             src="{{ config('app.url') }}/mascot.png"
+        <img class="mascot{{ $failed ? ' failed' : ($sleeping ? ' sleeping' : '') }}"
+             src="{{ config('app.url') }}/{{ $mascot }}"
              alt=""
              aria-hidden="true">
     </div>

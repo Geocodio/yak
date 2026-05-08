@@ -35,11 +35,9 @@ class DeploymentContainerManager
 
         $result = Process::run("incus start {$deployment->container_name}");
 
-        // Idempotent: DeployBranchJob and DeploymentWaker both call start()
-        // without coordinating. If the Job starts the container and sets
-        // status=Running afterwards, a preview request arriving in that
-        // window triggers Waker, which sees status!=Running and calls
-        // start() a second time. Treat "already running" as success.
+        // Idempotent: DeployBranchJob and WakeHibernatedDeploymentJob can
+        // race in pathological scenarios (e.g. a wake dispatched before the
+        // first deploy finishes). Treat "already running" as success.
         if ($result->exitCode() !== 0
             && ! str_contains(strtolower($result->errorOutput()), 'already running')
         ) {

@@ -238,8 +238,6 @@ return [
         'default_checkout_refresh_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_CHECKOUT_REFRESH_TIMEOUT_SECONDS', 900),
         'default_health_probe_timeout_seconds' => (int) env('YAK_DEPLOYMENTS_DEFAULT_HEALTH_PROBE_TIMEOUT_SECONDS', 60),
 
-        'wake_request_budget_seconds' => (int) env('YAK_DEPLOYMENTS_WAKE_REQUEST_BUDGET_SECONDS', 3),
-
         'internal' => [
             // CIDR range of the reverse-proxy (ingress) source. Yak's default install
             // runs Caddy on the host; requests to /internal/deployments/* arrive via
