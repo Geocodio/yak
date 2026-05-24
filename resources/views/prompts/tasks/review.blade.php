@@ -104,7 +104,7 @@ If running the full suite would take longer than a minute or two, skip it — ta
 
 ## Step 4: Review Against Development Principles
 
-Evaluate the PR against each category below. **Only report findings that are genuinely actionable** — skip categories where everything looks fine.
+Evaluate the PR against each category below. **Only report findings that are genuinely actionable** — skip categories where everything looks fine. The bar for emitting a finding is high: if you're not sure it's worth raising, don't raise it.
 
 ### Simplicity (KISS)
 - Is there a simpler, less complex way to solve this problem?
@@ -174,17 +174,24 @@ Evaluate the PR against each category below. **Only report findings that are gen
 - **Stay inside the diff.** Every finding must point to a line that was **added or modified in this PR** — a `+` line (or an adjacent context line inside the same hunk) from `git diff {{ $baseBranch ?: 'origin/main' }}...HEAD`. Reading untouched code is for context only; pre-existing issues in files the PR doesn't change are out of scope for this review. If the code is tempting to refactor but isn't part of this PR, say nothing.
 - **Be specific.** Always reference exact file paths and line numbers. Vague advice is useless.
 - **Provide alternatives.** Don't just say what's wrong — show what better looks like with a brief example or ` ```suggestion ` block when it fits.
-- **Don't nitpick formatting.** Pint and linters handle that. Focus on logic, architecture, and maintainability.
-- **Don't over-report.** A review with 3 sharp findings beats one with 20 trivial notes. Quality over quantity — **maximum 20 findings total**, cull ruthlessly.
+- **Do NOT report any of these.** They are noise, not findings:
+    - Anything an auto-formatter handles: indentation, trailing commas, quote style, spacing, line length, import order. Pint, Prettier, ESLint, Biome, etc. handle these.
+    - Naming preferences: variable names, function names, file names — unless the name is actively misleading (says the opposite of what the code does).
+    - Comment phrasing, docblock wording, or "this comment could be clearer".
+    - Type-hint style choices (`?string` vs `string|null`, union order) when both forms are already used in the codebase.
+    - Log/exception message wording or test name aesthetics.
+    - "Could be slightly more readable" or "I'd personally prefer" rewrites with no concrete benefit.
+    - Suggesting an extracted helper, constant, or abstraction for code that appears once or twice. Rule of three.
+- **Cull ruthlessly.** A review with 3 sharp findings beats one with 20 trivial notes. **Hard caps: max 10 findings total, max 3 `consider` findings.** If you're at the cap, drop the weakest ones.
 - **Consider the whole.** Review the PR as a cohesive change, not just individual files. Does the overall approach make sense?
 - **Be direct.** Say "this should change" not "you might consider possibly changing". Respectful but clear.
-- **Skip clean categories.** If a category has no findings, don't include it. Silence means approval.
+- **Skip clean categories.** If a category has no findings, don't include it. Silence means approval. Most reviews should have zero or one `consider` finding — three is the exception, not the target.
 
 ## Severity Buckets
 
 - **must_fix** — blocks merge; real bug, test failure, obvious security issue, data loss risk
-- **should_fix** — meaningful improvement but not a blocker; code smell worth addressing
-- **consider** — nits and small suggestions; posted inline on the diff so the author can accept them with one click
+- **should_fix** — meaningful improvement but not a blocker; code smell with a concrete maintainability or correctness cost
+- **consider** — small but real improvements with a concrete user-visible or maintainability benefit. NOT a place to dump style preferences, naming opinions, or "while you're here" suggestions. If you can't name the benefit in one short sentence, don't post it.
 
 ## Rules
 
@@ -192,7 +199,7 @@ Evaluate the PR against each category below. **Only report findings that are gen
 - Skip any file matching `pathExcludes`: @json($pathExcludes)
 - Use ` ```suggestion ` blocks only when the change is 1–10 lines AND inside the relevant diff hunk. Populate `suggestion_loc` with the line count.
 - **The fence REPLACES the lines in the comment's range — exactly those, nothing else.** Pick the range to cover ONLY the lines that should disappear when the suggestion is accepted, not the surrounding context. Example: to rewrite a docblock above a function, the range is the existing docblock's lines (or the single line above the function if there is no docblock yet) — NEVER the function body or its closing brace. A range that covers extra lines will silently delete them on accept. A single-line range with a multi-line fence is also wrong: it expands one line into many, leaving the lines you meant to replace untouched. Match the range to the fence size precisely.
-- Show, don't tell. For `consider` findings especially — if you can express the nit as a concrete 1–10 line rewrite, include a ` ```suggestion ` block so the author can one-click accept it. A nitpick without a suggestion is worth much less than one with.
+- Suggestion blocks are optional, not expected. Only attach one when the rewrite is unambiguous and obviously correct. A finding without a suggestion is fine.
 
 ## Output
 

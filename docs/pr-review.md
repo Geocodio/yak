@@ -1,6 +1,6 @@
 # PR Review
 
-Yak can review pull requests on every enabled repository. When a PR is opened, updated, or marked ready for review, Yak dispatches a `review` task that runs the same Claude Code pipeline used for fixes and research — this time with read-only access and a rubric tuned for code review. The output is posted back to GitHub as a line-level review, complete with `suggestion` blocks where they fit.
+Yak can review pull requests on every enabled repository. When a PR is opened or marked ready for review, Yak dispatches a `review` task that runs the same Claude Code pipeline used for fixes and research — this time with read-only access and a rubric tuned for code review. The output is posted back to GitHub as a line-level review, complete with `suggestion` blocks where they fit.
 
 ## Enabling It
 
@@ -11,17 +11,15 @@ After that:
 - Opening a new PR triggers a full review.
 - Marking a draft PR ready-for-review triggers a full review.
 - Reopening a closed PR triggers a full review.
-- Pushing new commits to an already-reviewed PR (`synchronize`) triggers an **incremental** review — only the commits since Yak's last review are considered. Force-pushes fall back to a full review automatically.
+- **Pushing new commits does NOT trigger another review.** Yak intentionally stays quiet while you keep iterating — otherwise a rapid series of commits would produce a wall of overlapping reviews.
 
 PRs authored by the Yak app bot itself are skipped to avoid recursive reviews.
 
-## Manually Triggering A Review
+## Asking For Another Review
 
-If you disabled the bulk "review all open PRs" option when enabling the feature — or if a PR predates PR review on the repo — you can still get Yak to review a specific PR by adding the `yak-review` label to it on GitHub. Yak listens for `pull_request.labeled` and treats that as a full-review trigger. Remove the label and re-add it to trigger another full review at the same commit.
+When you're ready for a fresh pass, click **Re-request review** next to the Yak bot in the PR's Reviewers sidebar on GitHub. Yak runs an **incremental** review — only the commits since its last review are considered. If no prior Yak review exists on the PR, it falls back to a full review. Force-pushes between reviews also fall back to a full review automatically.
 
-The label name is configurable via `YAK_PR_REVIEW_TRIGGER_LABEL` (default: `yak-review`). The repo must still have **PR Review** enabled for the label to do anything; the label is a trigger, not a bypass.
-
-> Why not "request Yak as a reviewer"? GitHub Apps (bots) can't be added to the Reviewers list — only human users and org teams can. The label is the simplest replacement.
+This is the only re-review trigger: there's no slash command and no label. The button is GitHub-native and only appears after Yak has submitted at least one review on the PR.
 
 ## Path Filters
 
@@ -78,7 +76,7 @@ TaskDetail (`/tasks/{id}`) for a `review` task shows three additional panels: re
 
 - Yak does not post **approvals** — the verdict is advisory. GitHub's branch protection still requires a human reviewer if configured that way.
 - Review accuracy scales with the prompt; expect some noise on `consider` findings. Use the 👎 reaction to signal false positives — the dashboard surfaces patterns.
-- The `max_findings_per_review` cap (default 20) keeps reviews focused. Tune via `config/yak.php` if needed.
+- The `max_findings_per_review` cap (default 10) keeps reviews focused. Tune via `config/yak.php` if needed.
 - Incremental reviews only compute the diff between Yak's last reviewed SHA and the current head. Re-reviews of the full PR can always be triggered from TaskDetail.
 
 ## Troubleshooting

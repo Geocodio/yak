@@ -127,7 +127,7 @@ test('github channel has required credential fields', function () {
 
 it('has pr_review config defaults', function () {
     expect(config('yak.pr_review.reaction_poll_window_days'))->toBe(30)
-        ->and(config('yak.pr_review.max_findings_per_review'))->toBe(20)
+        ->and(config('yak.pr_review.max_findings_per_review'))->toBe(10)
         ->and(config('yak.pr_review.enabled_globally'))->toBeTrue()
         ->and(config('yak.pr_review.default_path_excludes'))->toBeArray()
         ->and(config('yak.pr_review.default_path_excludes'))->toContain('vendor/**');

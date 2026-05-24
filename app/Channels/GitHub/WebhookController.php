@@ -56,21 +56,29 @@ class WebhookController extends Controller
             return $this->handleClosed($request);
         }
 
-        if ($action === 'labeled') {
-            $labelName = (string) $request->input('label.name', '');
-            $triggerLabel = (string) config('yak.pr_review.trigger_label', 'yak-review');
+        if ($action === 'synchronize') {
+            // Pushes still refresh the branch deployment, but no longer
+            // auto-trigger a re-review — the author asks for one via
+            // GitHub's "Re-request review" button when they're ready.
+            $this->maybeDispatchDeployment($request, $action);
 
-            if ($labelName !== $triggerLabel) {
-                return response()->json(['ok' => true, 'skipped' => "unhandled label: {$labelName}"]);
-            }
-
-            return $this->handleReviewTrigger($request, 'labeled');
+            return response()->json(['ok' => true, 'skipped' => 'synchronize does not trigger review']);
         }
 
-        if (in_array($action, ['opened', 'ready_for_review', 'reopened', 'synchronize'], true)) {
+        if (in_array($action, ['opened', 'ready_for_review', 'reopened'], true)) {
             $this->maybeDispatchDeployment($request, $action);
 
             return $this->handleReviewTrigger($request, $action);
+        }
+
+        if ($action === 'review_requested') {
+            $requestedLogin = (string) $request->input('requested_reviewer.login', '');
+
+            if ($requestedLogin === '' || $requestedLogin !== app(AppService::class)->appBotLogin()) {
+                return response()->json(['ok' => true, 'skipped' => 'review requested from someone other than yak']);
+            }
+
+            return $this->handleReviewTrigger($request, 'review_requested');
         }
 
         return response()->json(['ok' => true, 'skipped' => "unhandled action: {$action}"]);
@@ -306,7 +314,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'yak-authored PR']);
         }
 
-        $scope = $action === 'synchronize' ? 'incremental' : 'full';
+        $scope = $action === 'review_requested' ? 'incremental' : 'full';
         $incrementalBase = null;
 
         if ($scope === 'incremental') {

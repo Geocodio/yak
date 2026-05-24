@@ -429,7 +429,7 @@ it('keeps the suggestion fence for legitimate small consolidations', function ()
         ->and($captured[0]['body'])->toContain('```suggestion');
 });
 
-it('omits start_line when any line in the range is outside the diff hunk', function () {
+it('strips the suggestion fence and omits start_line when any range line is outside the diff hunk', function () {
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',
         'pr_review_enabled' => true,
@@ -505,7 +505,9 @@ it('omits start_line when any line in the range is outside the diff hunk', funct
     expect($captured)->toHaveCount(1)
         ->and($captured[0]['line'])->toBe(12)
         ->and($captured[0])->not->toHaveKey('start_line')
-        ->and($captured[0])->not->toHaveKey('start_side');
+        ->and($captured[0])->not->toHaveKey('start_side')
+        ->and($captured[0]['body'])->not->toContain('```suggestion')
+        ->and($captured[0]['body'])->toContain('Suggestion fence omitted');
 });
 
 it('keeps out-of-diff consider findings in the collapsed nitpicks block', function () {

@@ -489,6 +489,20 @@ class RunYakReviewJob implements ShouldQueue
 
                     if ($rangeIsCommentable) {
                         $startLine = $f->startLine;
+                    } elseif ($fenceSize > 1) {
+                        // Range can't be posted (some line isn't in a diff
+                        // hunk), so GitHub will anchor the comment to a
+                        // single line. A multi-line fence on a single-line
+                        // anchor expands one line into many on accept,
+                        // leaving the original lines in place. Strip the
+                        // fence so the prose still lands but no click-
+                        // accept can corrupt the file.
+                        $body = $this->stripSuggestionFence(
+                            $f->body,
+                            '_(Suggestion fence omitted: the proposed range spans ' . $rangeSize
+                                . ' lines but some of those lines fall outside the diff hunk, so GitHub can only anchor the comment to a single line. Accepting a ' . $fenceSize
+                                . '-line replacement against a single-line anchor would duplicate the surrounding code.)_',
+                        );
                     }
                 }
             }
