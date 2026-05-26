@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
 use App\Livewire\Deployments\DeploymentIndex;
@@ -38,6 +39,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::livewire('tasks', TaskList::class)->name('tasks');
     Route::livewire('tasks/{task}', TaskDetail::class)->name('tasks.show');
+    Route::get('tasks/{task}/re-request-review', RequestReReviewController::class)
+        ->name('tasks.re-request-review');
     Route::livewire('costs', CostDashboard::class)->name('costs');
     Route::livewire('repos', RepoList::class)->name('repos');
     Route::livewire('repos/create', RepoForm::class)->name('repos.create');

@@ -697,6 +697,8 @@ class RunYakReviewJob implements ShouldQueue
 
         $parts[] = "## Verdict\n\n**{$parsed->verdict}** — {$parsed->verdictDetail}";
 
+        $parts[] = $this->reReviewFooter();
+
         return implode("\n\n", $parts);
     }
 
@@ -748,7 +750,16 @@ class RunYakReviewJob implements ShouldQueue
 
         $parts[] = "## Verdict\n\n**{$parsed->verdict}** — {$parsed->verdictDetail}";
 
+        $parts[] = $this->reReviewFooter();
+
         return implode("\n\n", $parts);
+    }
+
+    private function reReviewFooter(): string
+    {
+        $url = route('tasks.re-request-review', $this->task);
+
+        return "---\n\n_Made an update? [Request a re-review →]({$url})_";
     }
 
     private function handleError(string $message): void
