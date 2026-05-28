@@ -53,7 +53,7 @@ class GenerateDirectorCutJob implements ShouldQueue
             $containerName = $sandbox->create($task, $repository);
             TaskLogger::info($task, "Director's Cut sandbox created", ['container' => $containerName]);
 
-            $this->prepareBranch($sandbox, $containerName, $task);
+            $this->prepareBranch($sandbox, $containerName, $task, $repository);
 
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::taskPrompt($task, self::parseMetadata($task->context)),
@@ -119,13 +119,17 @@ class GenerateDirectorCutJob implements ShouldQueue
      * Mirrors the RetryYakJob pattern (fetch + checkout existing branch)
      * rather than RunYakJob's (create new branch off default).
      */
-    private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, YakTask $task): void
+    private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, YakTask $task, Repository $repository): void
     {
         $workspacePath = IncusSandboxManager::workspacePath();
         $branchName = (string) $task->branch_name;
 
         $sandbox->configureGitIdentity($containerName);
         $sandbox->injectGitCredentials($containerName);
+
+        // Refresh origin/{default} so any diff or comparison the agent
+        // does against master sees commits merged since the snapshot.
+        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
 
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
         $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);

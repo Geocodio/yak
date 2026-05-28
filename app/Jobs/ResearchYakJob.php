@@ -99,9 +99,15 @@ class ResearchYakJob implements ShouldQueue
             $containerName = $sandbox->create($this->task, $repository);
             TaskLogger::info($this->task, 'Sandbox created for research', ['container' => $containerName]);
 
-            // Ensure we're on the default branch with latest code
+            // Ensure we're on the default branch with latest code. The
+            // sandbox snapshot was taken whenever Setup last ran, so we
+            // must fetch + reset to origin to pick up commits merged
+            // since then — otherwise the agent reads stale source.
             $workspacePath = IncusSandboxManager::workspacePath();
+            $sandbox->injectGitCredentials($containerName);
+            $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
             $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
+            $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard origin/{$repository->default_branch}", timeout: 30);
 
             $result = $agent->run(new AgentRunRequest(
                 prompt: YakPromptBuilder::taskPrompt($this->task),

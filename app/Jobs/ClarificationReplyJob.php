@@ -140,6 +140,10 @@ class ClarificationReplyJob implements ShouldQueue
         $sandbox->configureGitIdentity($containerName);
         $sandbox->injectGitCredentials($containerName);
 
+        // Refresh origin/{default} so any diff or comparison the agent
+        // does against master sees commits merged since the snapshot.
+        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
+
         // Fetch and checkout the task branch
         $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);

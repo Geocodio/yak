@@ -9,6 +9,7 @@ use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -135,6 +136,76 @@ test('research does not create any branch', function () {
     expect($task->branch_name)->toBeNull();
 
     Process::assertNotRan(fn ($process) => str_contains($process->command, 'git checkout -b'));
+});
+
+test('research fetches and resets default branch to origin before agent runs', function () {
+    // Regression for task 4998: the sandbox snapshot can be weeks old,
+    // so without `git fetch origin <default>` + `git reset --hard
+    // origin/<default>` the agent reads stale source and reports that
+    // recently-added files do not exist.
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_fetch',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $recorder = new class extends FakeSandboxManager
+    {
+        /** @var array<int, string> */
+        public array $commands = [];
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            $this->commands[] = $command;
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+
+    Repository::factory()->create([
+        'slug' => 'test-repo',
+        'path' => '/home/yak/repos/test-repo',
+        'default_branch' => 'main',
+    ]);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'test-repo',
+        'source' => 'manual',
+        'mode' => 'research',
+    ]);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    $fetchIndex = null;
+    $checkoutIndex = null;
+    $resetIndex = null;
+    foreach ($recorder->commands as $i => $cmd) {
+        if ($fetchIndex === null && str_contains($cmd, 'git fetch origin main')) {
+            $fetchIndex = $i;
+        }
+        if ($checkoutIndex === null && str_contains($cmd, 'git checkout main')) {
+            $checkoutIndex = $i;
+        }
+        if ($resetIndex === null && str_contains($cmd, 'git reset --hard origin/main')) {
+            $resetIndex = $i;
+        }
+    }
+
+    expect($fetchIndex)->not->toBeNull('expected `git fetch origin main` to be run')
+        ->and($checkoutIndex)->not->toBeNull('expected `git checkout main` to be run')
+        ->and($resetIndex)->not->toBeNull('expected `git reset --hard origin/main` to be run')
+        ->and($fetchIndex)->toBeLessThan($checkoutIndex, 'fetch must run before checkout')
+        ->and($checkoutIndex)->toBeLessThan($resetIndex, 'checkout must run before reset');
 });
 
 /*

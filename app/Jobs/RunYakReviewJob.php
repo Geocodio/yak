@@ -106,7 +106,7 @@ class RunYakReviewJob implements ShouldQueue
             $containerName = $sandbox->create($this->task, $repository);
             TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
 
-            $this->checkoutPrHead($sandbox, $containerName, $metadata);
+            $this->checkoutPrHead($sandbox, $containerName, $repository, $metadata);
             $promptContext = $this->buildPromptContext($sandbox, $containerName, $repository, $metadata);
 
             $prompt = YakPromptBuilder::taskPrompt($this->task, $promptContext);
@@ -185,7 +185,7 @@ class RunYakReviewJob implements ShouldQueue
     /**
      * @param  array<string, mixed>  $metadata
      */
-    private function checkoutPrHead(IncusSandboxManager $sandbox, string $containerName, array $metadata): void
+    private function checkoutPrHead(IncusSandboxManager $sandbox, string $containerName, Repository $repository, array $metadata): void
     {
         $workspace = IncusSandboxManager::workspacePath();
         $prNumber = (int) $metadata['pr_number'];
@@ -197,6 +197,15 @@ class RunYakReviewJob implements ShouldQueue
         $localBranch = "yak-review/pr-{$prNumber}";
 
         $sandbox->injectGitCredentials($containerName);
+
+        // Refresh origin/{default} so the review agent's context queries
+        // against master (e.g. "is this file already changed elsewhere?")
+        // see commits merged since the sandbox snapshot was built.
+        $sandbox->run(
+            $containerName,
+            "cd {$workspace} && git fetch origin {$repository->default_branch}",
+            timeout: 60,
+        );
 
         // Fetch the PR's head commit and check it out at the exact SHA
         // stored on the task. Pinning to the SHA guards against races with
