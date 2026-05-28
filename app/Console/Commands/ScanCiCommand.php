@@ -76,10 +76,9 @@ class ScanCiCommand extends Command
 
         $tasksCreated = 0;
 
-        // Group by normalized test name, then apply the flaky threshold:
-        //   - default branch:      any single failure counts
-        //   - other branches:      need >=2 failures from >=2 distinct commits
-        // (Same-commit reruns are the PR author's problem, not a flake.)
+        // Only failures on the repo's default branch (main/master) qualify.
+        // Failures on feature branches are the PR author's problem, not a flake —
+        // chasing them spams the repo with fix PRs for one-off CI hiccups.
         $grouped = $failures->groupBy(
             fn (CIBuildFailure $f): string => CIBuildFailure::normalizeTestName($f->testName),
         );
@@ -99,8 +98,12 @@ class ScanCiCommand extends Command
                 continue;
             }
 
-            // Use the most recent failure as the canonical representative.
-            $canonical = $occurrences->sortByDesc('buildId')->first();
+            // Use the most recent default-branch failure as the canonical
+            // representative — that's the failure that qualified the task.
+            $canonical = $occurrences
+                ->filter(fn (CIBuildFailure $f): bool => $f->branch === $repository->default_branch)
+                ->sortByDesc('buildId')
+                ->first();
 
             if ($canonical === null) {
                 continue;
@@ -150,12 +153,9 @@ class ScanCiCommand extends Command
     }
 
     /**
-     * A test crosses the flaky threshold when it has either:
-     *   - failed on the repo's default branch (any single failure counts), or
-     *   - failed in >=2 builds from >=2 distinct commits on other branches.
-     *
-     * Same-commit failures on a feature branch are not flakes — they're a
-     * broken PR that the author should fix.
+     * A test crosses the flaky threshold only when it has failed at least once
+     * on the repo's default branch. Feature-branch failures are excluded so we
+     * don't open fix PRs for one-off CI hiccups on someone's in-flight work.
      *
      * @param  Collection<int, CIBuildFailure>  $occurrences
      */
@@ -163,15 +163,9 @@ class ScanCiCommand extends Command
     {
         $defaultBranch = $repository->default_branch;
 
-        if ($occurrences->contains(
+        return $occurrences->contains(
             fn (CIBuildFailure $f): bool => $f->branch === $defaultBranch,
-        )) {
-            return true;
-        }
-
-        $distinctCommits = $occurrences->pluck('commitSha')->filter()->unique();
-
-        return $distinctCommits->count() >= 2;
+        );
     }
 
     private function resolveScanner(Repository $repository): ?CIBuildScanner

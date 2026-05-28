@@ -301,7 +301,7 @@ test('task context lists every distinct build URL where the test failed', functi
             output: 'flaky',
             buildUrl: 'https://ci.example.com/runs/101',
             buildId: '101',
-            branch: 'feature/foo',
+            branch: 'main',
             commitSha: 'sha-a',
         ),
         new CIBuildFailure(
@@ -309,7 +309,7 @@ test('task context lists every distinct build URL where the test failed', functi
             output: 'flaky',
             buildUrl: 'https://ci.example.com/runs/102',
             buildId: '102',
-            branch: 'feature/foo',
+            branch: 'main',
             commitSha: 'sha-b',
         ),
         new CIBuildFailure(
@@ -317,7 +317,7 @@ test('task context lists every distinct build URL where the test failed', functi
             output: 'flaky',
             buildUrl: 'https://ci.example.com/runs/103',
             buildId: '103',
-            branch: 'feature/foo',
+            branch: 'main',
             commitSha: 'sha-c',
         ),
     );
@@ -335,7 +335,7 @@ test('task context lists every distinct build URL where the test failed', functi
     expect($context['failure_count'])->toBe(3);
 });
 
-test('flaky threshold: two failures from DIFFERENT commits on a feature branch DO create a task', function () {
+test('flaky threshold: feature-branch failures across distinct commits do NOT create a task', function () {
     Repository::factory()->create([
         'slug' => 'thresh-repo',
         'ci_system' => 'github_actions',
@@ -356,15 +356,49 @@ test('flaky threshold: two failures from DIFFERENT commits on a feature branch D
             output: 'flaky',
             buildUrl: 'https://example.com/runs/2',
             buildId: '2',
-            branch: 'feature/foo',
+            branch: 'feature/bar',
             commitSha: 'sha-b',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])
+        ->assertSuccessful()
+        ->expectsOutputToContain('Below flaky threshold');
+
+    expect(YakTask::where('repo', 'thresh-repo')->count())->toBe(0);
+    Queue::assertNotPushed(RunYakJob::class);
+});
+
+test('canonical failure is always picked from the default branch', function () {
+    Repository::factory()->create([
+        'slug' => 'thresh-repo',
+        'ci_system' => 'github_actions',
+        'default_branch' => 'main',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky on main',
+            buildUrl: 'https://example.com/runs/10',
+            buildId: '10',
+            branch: 'main',
+            commitSha: 'sha-main',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'flaky on feature',
+            buildUrl: 'https://example.com/runs/99',
+            buildId: '99',
+            branch: 'feature/foo',
+            commitSha: 'sha-feature',
         ),
     );
 
     $this->artisan('yak:scan-ci', ['--repo' => 'thresh-repo'])->assertSuccessful();
 
-    expect(YakTask::where('repo', 'thresh-repo')->count())->toBe(1);
-    Queue::assertPushed(RunYakJob::class);
+    $task = YakTask::where('repo', 'thresh-repo')->first();
+    expect($task->external_url)->toBe('https://example.com/runs/10');
 });
 
 test('flaky threshold: a single failure on the default branch DOES create a task', function () {
@@ -414,7 +448,7 @@ test('flaky threshold: truncated test names dedup via trailing-ellipsis strippin
             output: '',
             buildUrl: 'https://example.com/runs/1',
             buildId: '1',
-            branch: 'feature/foo',
+            branch: 'main',
             commitSha: 'sha-a',
         ),
         new CIBuildFailure(
@@ -422,7 +456,7 @@ test('flaky threshold: truncated test names dedup via trailing-ellipsis strippin
             output: '',
             buildUrl: 'https://example.com/runs/2',
             buildId: '2',
-            branch: 'feature/foo',
+            branch: 'main',
             commitSha: 'sha-b',
         ),
     );
