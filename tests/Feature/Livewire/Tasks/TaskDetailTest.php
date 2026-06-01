@@ -1185,3 +1185,52 @@ test('milestone stepper links to the architecture docs', function () {
         ->assertSeeHtml('data-testid="milestone-docs-link"')
         ->assertSeeHtml('href="https://geocodio.github.io/yak/architecture/#the-core-loop"');
 });
+
+test('shows a success banner when a re-review was just started', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
+
+    session()->flash('reReview', 'started');
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="re-review-notice"')
+        ->assertSee('Re-review requested')
+        ->assertSeeHtml('data-testid="dismiss-re-review-notice"');
+});
+
+test('shows an in-progress banner when the re-review was already queued', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
+
+    session()->flash('reReview', 'in_progress');
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="re-review-notice"')
+        ->assertSee('already in progress');
+});
+
+test('shows a warning banner when the PR is not open for re-review', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
+
+    session()->flash('reReview', 'not_open');
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="re-review-notice"')
+        ->assertSee("isn't open for review");
+});
+
+test('hides the re-review banner when no notice is flashed', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="re-review-notice"');
+});
+
+test('the re-review banner can be dismissed', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
+
+    session()->flash('reReview', 'started');
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="re-review-notice"')
+        ->call('dismissReReviewNotice')
+        ->assertDontSeeHtml('data-testid="re-review-notice"');
+});

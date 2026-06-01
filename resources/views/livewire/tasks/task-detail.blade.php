@@ -1,4 +1,36 @@
 <div wire:poll.{{ $this->pollInterval }}>
+    {{-- Re-review request outcome banner --}}
+    @php
+        $reReview = $this->reReviewNoticeContent();
+        $reReviewTones = [
+            'success' => ['border' => 'border-yak-green/30', 'bg' => 'bg-yak-green/5', 'iconBg' => 'bg-yak-green/15', 'iconText' => 'text-yak-green'],
+            'info' => ['border' => 'border-yak-blue-light/40', 'bg' => 'bg-yak-blue-light/10', 'iconBg' => 'bg-yak-blue-light/20', 'iconText' => 'text-yak-blue'],
+            'warning' => ['border' => 'border-yak-orange-warm/30', 'bg' => 'bg-yak-orange-warm/5', 'iconBg' => 'bg-yak-orange-warm/15', 'iconText' => 'text-yak-orange-warm'],
+        ];
+    @endphp
+    @if($reReview)
+        @php
+            $tone = $reReviewTones[$reReview['tone']];
+        @endphp
+        <div class="mb-5 rounded-[20px] border {{ $tone['border'] }} {{ $tone['bg'] }} p-4 sm:p-5" data-testid="re-review-notice" role="status" wire:key="re-review-{{ $reReview['tone'] }}">
+            <div class="flex items-start gap-4">
+                <div class="shrink-0 rounded-full {{ $tone['iconBg'] }} p-2">
+                    <flux:icon :icon="$reReview['icon']" class="!size-5 {{ $tone['iconText'] }}" />
+                </div>
+                <p class="flex-1 text-sm leading-relaxed text-yak-slate">{{ $reReview['message'] }}</p>
+                <button
+                    type="button"
+                    wire:click="dismissReReviewNotice"
+                    class="shrink-0 text-yak-tan hover:text-yak-slate transition-colors"
+                    aria-label="Dismiss notice"
+                    data-testid="dismiss-re-review-notice"
+                >
+                    <flux:icon.x-mark class="!size-4" />
+                </button>
+            </div>
+        </div>
+    @endif
+
     {{-- First-visit intro banner --}}
     @if($this->showIntroBanner)
         <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-yak-orange/5 p-4 sm:p-5" data-testid="task-detail-intro">

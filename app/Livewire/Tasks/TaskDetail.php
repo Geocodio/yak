@@ -67,10 +67,56 @@ class TaskDetail extends Component
 
     public string $clarificationReplyText = '';
 
+    /**
+     * Outcome of a re-review request that redirected here, surfaced as a
+     * dismissible banner. One of 'started', 'in_progress', 'not_open', or
+     * null. Read once from the session flash on mount so it survives the
+     * wire:poll re-renders without re-reading consumed flash data.
+     */
+    public ?string $reReviewNotice = null;
+
     public function mount(YakTask $task): void
     {
         $this->task = $task;
         $this->visibleAttempt = max(1, (int) $task->attempts);
+
+        $notice = session('reReview');
+        if (in_array($notice, ['started', 'in_progress', 'not_open'], true)) {
+            $this->reReviewNotice = $notice;
+        }
+    }
+
+    /**
+     * Banner copy and styling for a re-review redirect, or null when there's
+     * nothing to show.
+     *
+     * @return array{message: string, tone: string, icon: string}|null
+     */
+    public function reReviewNoticeContent(): ?array
+    {
+        return match ($this->reReviewNotice) {
+            'started' => [
+                'message' => 'Re-review requested. A fresh review is now running for this PR — this page updates live as it progresses.',
+                'tone' => 'success',
+                'icon' => 'arrow-path',
+            ],
+            'in_progress' => [
+                'message' => 'A re-review for this PR is already in progress. Showing the run that\'s already underway.',
+                'tone' => 'info',
+                'icon' => 'clock',
+            ],
+            'not_open' => [
+                'message' => 'This pull request isn\'t open for review (it may be closed, merged, or in draft), so there\'s nothing to re-review.',
+                'tone' => 'warning',
+                'icon' => 'exclamation-triangle',
+            ],
+            default => null,
+        };
+    }
+
+    public function dismissReReviewNotice(): void
+    {
+        $this->reReviewNotice = null;
     }
 
     public function retry(): void

@@ -89,7 +89,8 @@ it('dispatches an incremental review when a prior review exists, then redirects 
 
     $this->actingAs(User::factory()->create())
         ->get(route('tasks.re-request-review', $task))
-        ->assertRedirect();
+        ->assertRedirect()
+        ->assertSessionHas('reReview', 'started');
 
     $new = YakTask::query()
         ->where('mode', TaskMode::Review)
@@ -139,7 +140,8 @@ it('redirects to the existing in-flight task when a review for the same head SHA
 
     $this->actingAs(User::factory()->create())
         ->get(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('tasks.show', $existing));
+        ->assertRedirect(route('tasks.show', $existing))
+        ->assertSessionHas('reReview', 'in_progress');
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(2);
 });
@@ -150,7 +152,8 @@ it('bails to the original task page for closed PRs', function () {
 
     $this->actingAs(User::factory()->create())
         ->get(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('reReview', 'not_open');
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
@@ -161,7 +164,8 @@ it('bails to the original task page for draft PRs', function () {
 
     $this->actingAs(User::factory()->create())
         ->get(route('tasks.re-request-review', $task))
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('reReview', 'not_open');
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
