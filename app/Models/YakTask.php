@@ -113,6 +113,9 @@ class YakTask extends Model
      * parent is the previous head, so the chain is walked up to the root
      * and then fully down.
      *
+     * Issues one query per node in the chain; intended for short follow-up
+     * chains, not large trees.
+     *
      * @return Collection<int, YakTask>
      */
     public function conversation(): Collection
@@ -125,7 +128,7 @@ class YakTask extends Model
         /** @var Collection<int, YakTask> $chain */
         $chain = collect([$root]);
 
-        $gather = function (YakTask $task) use (&$gather, $chain): void {
+        $gather = function (YakTask $task) use (&$gather, &$chain): void {
             foreach ($task->followUps()->get() as $child) {
                 $chain->push($child);
                 $gather($child);

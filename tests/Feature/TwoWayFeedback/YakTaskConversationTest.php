@@ -28,3 +28,9 @@ test('conversation returns the full chain ordered by created_at', function () {
         ->and($root->followUps()->pluck('id')->all())->toBe([$child->id])
         ->and($child->parent->id)->toBe($root->id);
 });
+
+test('conversation on a lone task returns just itself', function () {
+    $solo = YakTask::factory()->success()->create(['branch_name' => 'yak/SOLO-1']);
+
+    expect($solo->conversation()->pluck('id')->all())->toBe([$solo->id]);
+});
