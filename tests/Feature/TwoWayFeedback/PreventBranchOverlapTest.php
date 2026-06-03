@@ -19,3 +19,12 @@ test('RunFollowUpJob is guarded by PreventBranchOverlap', function () {
 
     expect($classes)->toContain(PreventBranchOverlap::class);
 });
+
+test('PreventBranchOverlap falls back to task id when branch is null and configures TTLs', function () {
+    $task = YakTask::factory()->create(['repo' => 'web', 'branch_name' => null]);
+    $mw = new PreventBranchOverlap($task);
+
+    expect($mw->key)->toBe('web:task-' . $task->id)
+        ->and($mw->releaseAfter)->toBe(30)
+        ->and($mw->expiresAfter)->toBe(4200);
+});
