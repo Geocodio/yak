@@ -12,7 +12,7 @@ trait ResumesAgentOnExistingBranch
      * existing task branch. Never creates a branch — the branch already
      * exists from the original run.
      */
-    private function prepareExistingBranch(
+    protected function prepareExistingBranch(
         IncusSandboxManager $sandbox,
         string $containerName,
         Repository $repository,
@@ -33,7 +33,7 @@ trait ResumesAgentOnExistingBranch
      * helper (the token may have expired during a long run), then force-push
      * with lease.
      */
-    private function pushExistingBranch(
+    protected function pushExistingBranch(
         IncusSandboxManager $sandbox,
         string $containerName,
         Repository $repository,
