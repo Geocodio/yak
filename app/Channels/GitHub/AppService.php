@@ -237,13 +237,17 @@ class AppService
             ]);
     }
 
-    public function addReaction(int $installationId, string $repoSlug, int $commentId, string $content): void
+    public function addReaction(int $installationId, string $repoSlug, int $commentId, string $content, bool $isReviewComment = false): void
     {
         $token = $this->getInstallationToken($installationId);
 
+        $path = $isReviewComment
+            ? "https://api.github.com/repos/{$repoSlug}/pulls/comments/{$commentId}/reactions"
+            : "https://api.github.com/repos/{$repoSlug}/issues/comments/{$commentId}/reactions";
+
         Http::withToken($token)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
-            ->post("https://api.github.com/repos/{$repoSlug}/issues/comments/{$commentId}/reactions", [
+            ->post($path, [
                 'content' => $content,
             ]);
     }

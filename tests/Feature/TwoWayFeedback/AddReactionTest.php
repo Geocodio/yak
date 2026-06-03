@@ -26,6 +26,13 @@ test('addReaction posts the reaction content to the issue comment reactions endp
         && $request['content'] === 'eyes');
 });
 
+test('addReaction targets the pulls endpoint for review comments', function () {
+    config()->set('yak.channels.github.installation_id', 4242);
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+    app(AppService::class)->addReaction(4242, 'acme/web', 77, 'eyes', isReviewComment: true);
+    Http::assertSent(fn ($r) => str_contains($r->url(), '/repos/acme/web/pulls/comments/77/reactions'));
+});
+
 test('followup config exposes github prefixes and batch window', function () {
     expect(config('yak.followup.github_prefixes'))->not->toBeNull()
         ->and((int) config('yak.followup.github_batch_window_seconds'))->toBeGreaterThan(0);
