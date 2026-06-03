@@ -310,27 +310,28 @@
                                     <span class="text-[13px] text-yak-slate">{{ $turn->description }}</span>
                                 </div>
                             @endif
-                            {{-- "Yak" line: result summary or PR outcome --}}
-                            @if($turn->result_summary || $turn->pr_url)
+                            {{-- "Yak" line: result summary (with outcome) --}}
+                            @if($turn->result_summary)
                                 <div class="flex items-start gap-2">
                                     <span class="mt-0.5 shrink-0 rounded-full bg-yak-green/15 px-2 py-0.5 text-[11px] font-medium text-yak-green">Yak</span>
                                     <div class="flex flex-col gap-0.5">
-                                        @if($turn->result_summary)
-                                            <span class="text-[13px] text-yak-slate">{{ Str::limit($turn->result_summary, 200) }}</span>
-                                        @endif
-                                        @if($turn->pr_url)
-                                            <a href="{{ $turn->pr_url }}" target="_blank" class="text-[13px] font-medium text-yak-orange hover:text-yak-orange-warm">{{ $turn->pr_url }}</a>
-                                        @endif
+                                        <span class="text-[13px] text-yak-slate">{{ Str::limit($turn->result_summary, 200) }}</span>
                                     </div>
                                 </div>
                             @endif
-                            {{-- Timestamp + run link for non-root turns only --}}
-                            @if(! $turn->is($this->conversation->first()))
-                                <div class="ml-16 flex items-center gap-3">
-                                    <span class="font-mono text-[11px] text-yak-tan">{{ $turn->created_at->diffForHumans() }}</span>
+                            {{-- Timestamp + run link for non-root turns --}}
+                            <div class="ml-16 flex items-center gap-3">
+                                <span class="font-mono text-[11px] text-yak-tan">
+                                    @if($this->isActiveStatus())
+                                        {{ $turn->created_at->diffForHumans() }}
+                                    @else
+                                        {{ $turn->created_at->format('g:i:s A') }}
+                                    @endif
+                                </span>
+                                @if(! $turn->is($this->conversation->first()))
                                     <a href="{{ route('tasks.show', $turn) }}" class="text-[11px] text-yak-blue hover:text-yak-slate">open run</a>
-                                </div>
-                            @endif
+                                @endif
+                            </div>
                         </div>
                         @if(! $loop->last)
                             <div class="border-t border-[rgba(200,184,154,0.2)]"></div>
