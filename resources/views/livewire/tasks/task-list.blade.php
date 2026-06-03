@@ -1,4 +1,4 @@
-<div wire:poll.15s>
+<div wire:poll.15s x-data="{ newTaskOpen: false }">
     {{-- Getting started card (shown when the install is bare and the user hasn't dismissed it) --}}
     @if($this->showSetupCard)
         <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-gradient-to-br from-yak-orange/5 to-yak-cream p-5" data-testid="setup-card">
@@ -117,6 +117,16 @@
         @if($status !== '' || $source !== '' || $repo !== '')
             <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="clearFilters" data-testid="clear-filters">Clear</flux:button>
         @endif
+
+        <div class="ml-auto">
+            <flux:button
+                size="sm"
+                variant="primary"
+                icon="plus"
+                @click="newTaskOpen = true"
+                data-testid="new-task-trigger"
+            >New task</flux:button>
+        </div>
     </div>
 
     <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -201,4 +211,38 @@
             {{ $this->tasks->links() }}
         </div>
     @endif
+
+    {{-- New task slideover --}}
+    <div x-show="newTaskOpen" x-cloak class="fixed inset-0 z-50" style="display:none">
+        {{-- Backdrop --}}
+        <div
+            class="fixed inset-0 bg-black/30"
+            @click="newTaskOpen = false"
+            x-transition.opacity
+        ></div>
+        {{-- Panel --}}
+        <div
+            class="fixed inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white p-6 shadow-2xl dark:bg-zinc-900"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="translate-x-full"
+            x-transition:enter-end="translate-x-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="translate-x-full"
+            @keydown.escape.window="newTaskOpen = false"
+        >
+            <div class="mb-4 flex items-center justify-between">
+                <h2 class="text-lg font-medium text-yak-slate dark:text-zinc-100">New task</h2>
+                <button
+                    type="button"
+                    @click="newTaskOpen = false"
+                    aria-label="Close"
+                    class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                >
+                    <flux:icon.x-mark class="size-5" />
+                </button>
+            </div>
+            <livewire:tasks.create-task />
+        </div>
+    </div>
 </div>
