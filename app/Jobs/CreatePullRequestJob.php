@@ -41,12 +41,31 @@ class CreatePullRequestJob implements ShouldQueue
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $installationId = (int) config('yak.channels.github.installation_id');
+
+        // A follow-up pushes to an existing branch, so a PR already exists.
+        // Detect it and post a summary comment instead of POSTing a new PR
+        // (which GitHub rejects with 422).
+        $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->slug, (string) $this->task->branch_name);
+
+        if ($existing !== null) {
+            $this->task->update([
+                'pr_url' => $existing['html_url'],
+                'pr_number' => $existing['number'],
+            ]);
+
+            $summary = $this->task->result_summary ?? '_No summary available._';
+            $gitHub->commentOnPullRequest(
+                $installationId,
+                $repository->slug,
+                (int) $existing['number'],
+                mb_convert_encoding("Yak pushed changes addressing your feedback:\n\n{$summary}", 'UTF-8', 'UTF-8'),
+            );
+
+            return;
+        }
+
         $signedUrls = $this->generateSignedUrls();
 
-        // Defensive: agent-produced strings (description, result_summary)
-        // occasionally contain byte sequences that aren't valid UTF-8, which
-        // Guzzle's json_encode rejects and leaves the task stranded. Strip
-        // invalid bytes at the boundary so a stray character can't block the PR.
         $title = mb_convert_encoding($this->buildPrTitle(), 'UTF-8', 'UTF-8');
         $body = mb_convert_encoding($this->buildPrBody($signedUrls), 'UTF-8', 'UTF-8');
 
@@ -72,7 +91,7 @@ class CreatePullRequestJob implements ShouldQueue
 
         $gitHub->addLabels($installationId, $repository->slug, $prNumber, $labels);
 
-        $this->task->update(['pr_url' => $prUrl]);
+        $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber]);
     }
 
     private function buildPrTitle(): string

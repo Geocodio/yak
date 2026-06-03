@@ -202,6 +202,42 @@ class AppService
     }
 
     /**
+     * Return the first open PR whose head is the given branch, or null.
+     * Used to keep PR creation idempotent — a follow-up pushes to an
+     * existing branch, so a PR already exists.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findOpenPullRequestForBranch(int $installationId, string $repoSlug, string $branch): ?array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $owner = explode('/', $repoSlug)[0];
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls", [
+                'head' => "{$owner}:{$branch}",
+                'state' => 'open',
+            ]);
+
+        /** @var array<int, array<string, mixed>> $prs */
+        $prs = $response->successful() ? $response->json() : [];
+
+        return $prs[0] ?? null;
+    }
+
+    public function commentOnPullRequest(int $installationId, string $repoSlug, int $prNumber, string $body): void
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/issues/{$prNumber}/comments", [
+                'body' => $body,
+            ]);
+    }
+
+    /**
      * @param  array<int, string>  $labels
      */
     public function addLabels(int $installationId, string $repoSlug, int $prNumber, array $labels): void
