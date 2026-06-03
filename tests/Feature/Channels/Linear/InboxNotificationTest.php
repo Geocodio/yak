@@ -134,6 +134,35 @@ it('returns 200 ok for an inbox notification from an unknown workspace', functio
     Http::assertNothingSent();
 });
 
+// --- Security: LIKE wildcard injection ---
+
+test('an unassignment with a wildcard issue id cancels nothing (LIKE injection blocked)', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Http::fake();
+
+    // A legitimate in-flight task with a real issue id in context.
+    $task = YakTask::factory()->running()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-wildcard-test',
+        'context' => json_encode([
+            'linear_issue_id' => 'issue-legit-123',
+            'linear_issue_identifier' => 'ENG-99',
+        ]),
+    ]);
+
+    // Attacker sends issueId='%' — a LIKE wildcard that would match everything.
+    $body = inboxNotificationPayload(['issueId' => '%', 'type' => 'issueUnassignedFromYou']);
+
+    postLinearWebhook($body, $secret, 'InboxNotificationEvent')->assertSuccessful();
+
+    // The wildcard must NOT cancel the legitimate task.
+    expect($task->fresh()->status)->toBe(TaskStatus::Running);
+
+    // No Linear API calls should have been made.
+    Http::assertNothingSent();
+});
+
 // --- Robustness: payload with missing fields ---
 
 it('handles inbox notifications with a missing notification.issue gracefully', function () {

@@ -102,6 +102,14 @@ class WebhookController extends Controller
 
         // Unassignment: stop any in-flight work on that issue.
         if (str_contains(strtolower($type), 'unassign') && $issueId !== '') {
+            // Reject ids that contain LIKE metacharacters (%, _) or other
+            // characters outside the Linear id alphabet. This blocks wildcard
+            // injection: a payload with issueId='%' would otherwise broaden
+            // the LIKE match to every in-flight Linear task and cancel them all.
+            if (! preg_match('/^[A-Za-z0-9_-]+$/', $issueId)) {
+                return response()->json(['ok' => true]);
+            }
+
             $cancellable = [
                 TaskStatus::Pending,
                 TaskStatus::Running,
@@ -110,8 +118,17 @@ class WebhookController extends Controller
                 TaskStatus::Retrying,
             ];
 
+            // Escape LIKE metacharacters as defense-in-depth (the regex above
+            // already rejects '%', but this keeps the query correct if the
+            // allowlist ever widens). Linear issue ids are globally-unique UUIDs,
+            // so cross-workspace task collisions are not practical; a per-workspace
+            // DB filter would require a schema change (YakTask has no workspace_id
+            // column). The resolveConnection() guard above already ensures only
+            // events from connected workspaces reach this point.
+            $escaped = addcslashes($issueId, '%_\\');
+
             $tasks = YakTask::where('source', 'linear')
-                ->where('context', 'like', '%' . $issueId . '%')
+                ->where('context', 'like', '%' . $escaped . '%')
                 ->get()
                 ->filter(fn (YakTask $t) => in_array($t->status, $cancellable, strict: true));
 
