@@ -48,6 +48,10 @@ class CreatePullRequestJob implements ShouldQueue
         $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->slug, (string) $this->task->branch_name);
 
         if ($existing !== null) {
+            if (! isset($existing['number'], $existing['html_url'])) {
+                throw new \RuntimeException('GitHub returned an existing PR without expected fields.');
+            }
+
             $this->task->update([
                 'pr_url' => $existing['html_url'],
                 'pr_number' => $existing['number'],

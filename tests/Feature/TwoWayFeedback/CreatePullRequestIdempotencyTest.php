@@ -55,3 +55,19 @@ test('creates a PR and stores pr_number when none exists', function () {
     expect($task->pr_url)->toBe('https://github.com/acme/web/pull/12')
         ->and($task->pr_number)->toBe(12);
 });
+
+test('throws when an existing PR is returned without expected fields', function () {
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('findOpenPullRequestForBranch')->once()->andReturn(['html_url' => 'https://github.com/acme/web/pull/9']); // missing 'number'
+    $github->shouldNotReceive('createPullRequest');
+    $github->shouldNotReceive('commentOnPullRequest');
+
+    Repository::factory()->create(['slug' => 'acme/web', 'path' => '/home/yak/repos/web']);
+    $task = YakTask::factory()->success()->create([
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/CSV-1',
+    ]);
+
+    expect(fn () => (new CreatePullRequestJob($task))->handle($github))
+        ->toThrow(RuntimeException::class);
+});
