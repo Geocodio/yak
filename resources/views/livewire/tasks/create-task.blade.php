@@ -19,6 +19,7 @@
                 <button
                     type="button"
                     wire:click="$set('taskMode', 'fix')"
+                    data-testid="mode-fix"
                     class="rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors {{ $taskMode === 'fix' ? 'border-yak-orange bg-yak-orange/10 text-yak-orange' : 'border-yak-tan/50 bg-transparent text-yak-blue hover:border-yak-orange/50 hover:text-yak-orange' }}"
                 >
                     Fix
@@ -26,6 +27,7 @@
                 <button
                     type="button"
                     wire:click="$set('taskMode', 'research')"
+                    data-testid="mode-research"
                     class="rounded-lg border px-4 py-1.5 text-sm font-medium transition-colors {{ $taskMode === 'research' ? 'border-yak-orange bg-yak-orange/10 text-yak-orange' : 'border-yak-tan/50 bg-transparent text-yak-blue hover:border-yak-orange/50 hover:text-yak-orange' }}"
                 >
                     Research
@@ -51,6 +53,6 @@
         </div>
 
         {{-- Submit --}}
-        <flux:button variant="primary" wire:click="save" data-testid="new-task-submit">Start task</flux:button>
+        <flux:button type="submit" variant="primary" data-testid="new-task-submit">Start task</flux:button>
     </form>
 </div>
