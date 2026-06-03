@@ -154,6 +154,12 @@ class WebhookController extends Controller
             }
         }
 
+        // Stamp the whole follow-up chain (children share the root's pr_url) so
+        // the merged/closed guard (prIsOpen) is correct for every task in the
+        // conversation, not just the first row found.
+        $timestampColumn = $merged ? 'pr_merged_at' : 'pr_closed_at';
+        YakTask::where('pr_url', $prUrl)->whereNull($timestampColumn)->update([$timestampColumn => now()]);
+
         $prReviews = PrReview::where('pr_url', $prUrl)->get();
 
         foreach ($prReviews as $pr) {
