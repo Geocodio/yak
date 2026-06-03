@@ -18,6 +18,7 @@ use App\Services\TaskLogger;
 use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class WebhookController extends Controller
 {
@@ -31,6 +32,18 @@ class WebhookController extends Controller
             'Linear-Signature',
             prefix: '',
         );
+
+        // Replay protection: reject stale events when Linear includes a timestamp.
+        $timestampMs = $request->input('webhookTimestamp');
+        if ($timestampMs !== null && abs(now()->getTimestampMs() - (int) $timestampMs) > 60_000) {
+            return response()->json(['ok' => true, 'skipped' => 'stale webhook']);
+        }
+
+        // Idempotency: skip a delivery we've already processed (Linear retries).
+        $deliveryId = (string) $request->header('Linear-Delivery', '');
+        if ($deliveryId !== '' && ! Cache::add("linear-delivery:{$deliveryId}", true, now()->addMinutes(10))) {
+            return response()->json(['ok' => true, 'skipped' => 'duplicate delivery']);
+        }
 
         if ($request->header('Linear-Event') !== 'AgentSessionEvent') {
             return response()->json(['ok' => true]);
