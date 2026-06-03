@@ -9,6 +9,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\PausesDuringDrain;
@@ -31,6 +32,7 @@ class ClarificationReplyJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
     use Queueable;
+    use ResumesAgentOnExistingBranch;
 
     public int $timeout = 3600;
 
@@ -135,19 +137,9 @@ class ClarificationReplyJob implements ShouldQueue
 
     private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
     {
-        $workspacePath = IncusSandboxManager::workspacePath();
-
-        $sandbox->configureGitIdentity($containerName);
-        $sandbox->injectGitCredentials($containerName);
-
-        // Refresh origin/{default} so any diff or comparison the agent
-        // does against master sees commits merged since the snapshot.
-        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
-
-        // Fetch and checkout the task branch
         $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
-        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
-        $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
+
+        $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
@@ -171,27 +163,7 @@ class ClarificationReplyJob implements ShouldQueue
         DailyCost::accumulate($result->costUsd);
 
         if ($this->task->branch_name !== null) {
-            $workspacePath = IncusSandboxManager::workspacePath();
-
-            // Safety check
-            $branchResult = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse --abbrev-ref HEAD", timeout: 10);
-            $currentBranch = trim($branchResult->output());
-
-            if ($currentBranch === $repository->default_branch) {
-                throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
-            }
-
-            // Refresh the baked-in credential helper — the agent may have run
-            // long enough for the token fetched during prepareBranch() to
-            // expire, which would surface as a 401 on push.
-            $sandbox->injectGitCredentials($containerName);
-
-            // Force push from sandbox
-            $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push --force-with-lease origin {$this->task->branch_name}", timeout: 60);
-
-            if ($pushResult->exitCode() !== 0) {
-                throw new \RuntimeException("Git push failed in sandbox: {$pushResult->errorOutput()}");
-            }
+            $this->pushExistingBranch($sandbox, $containerName, $repository, $this->task->branch_name);
 
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }
