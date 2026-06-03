@@ -131,6 +131,11 @@ class WebhookController extends Controller
         app(NotificationDriver::class)
             ->send($task, NotificationType::Acknowledgment, $ackMessage);
 
+        $startedStateId = (string) config('yak.channels.linear.started_state_id');
+        if ($startedStateId !== '') {
+            app(NotificationDriver::class)->setIssueState($task, $startedStateId);
+        }
+
         $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);

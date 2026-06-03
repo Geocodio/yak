@@ -158,6 +158,7 @@ return [
             'done_state_id' => env('YAK_LINEAR_DONE_STATE_ID'),
             'cancelled_state_id' => env('YAK_LINEAR_CANCELLED_STATE_ID'),
             'in_review_state_id' => env('YAK_LINEAR_IN_REVIEW_STATE_ID'),
+            'started_state_id' => env('YAK_LINEAR_STARTED_STATE_ID'),
 
             // OAuth2 app credentials — used by the outbound driver to post
             // comments and update issue state as the Yak app.
