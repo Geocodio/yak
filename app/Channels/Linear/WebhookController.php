@@ -45,7 +45,13 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'duplicate delivery']);
         }
 
-        if ($request->header('Linear-Event') !== 'AgentSessionEvent') {
+        $event = (string) $request->header('Linear-Event', '');
+
+        if ($event === 'InboxNotificationEvent') {
+            return $this->handleInboxNotification($request);
+        }
+
+        if ($event !== 'AgentSessionEvent') {
             return response()->json(['ok' => true]);
         }
 
@@ -72,6 +78,62 @@ class WebhookController extends Controller
         }
 
         return LinearOauthConnection::activeForWorkspace($workspaceId);
+    }
+
+    /**
+     * Handle Linear's InboxNotificationEvent webhook.
+     *
+     * - issueUnassignedFromYou → cancel any in-flight task for that issue.
+     * - Reaction types (e.g. issueEmojiReaction) → acknowledge, no action needed.
+     * - All other inbox types → ignore.
+     *
+     * Defensive throughout: missing or unexpected fields silently return ok.
+     *
+     * TODO: confirm InboxNotificationEvent payload shape against a real Linear delivery.
+     */
+    private function handleInboxNotification(Request $request): JsonResponse
+    {
+        if ($this->resolveConnection($request) === null) {
+            return response()->json(['ok' => true]);
+        }
+
+        $type = (string) $request->input('notification.type', '');
+        $issueId = (string) $request->input('notification.issue.id', '');
+
+        // Unassignment: stop any in-flight work on that issue.
+        if (str_contains(strtolower($type), 'unassign') && $issueId !== '') {
+            $cancellable = [
+                TaskStatus::Pending,
+                TaskStatus::Running,
+                TaskStatus::AwaitingCi,
+                TaskStatus::AwaitingClarification,
+                TaskStatus::Retrying,
+            ];
+
+            $tasks = YakTask::where('source', 'linear')
+                ->where('context', 'like', '%' . $issueId . '%')
+                ->get()
+                ->filter(fn (YakTask $t) => in_array($t->status, $cancellable, strict: true));
+
+            foreach ($tasks as $task) {
+                $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+                TaskLogger::info($task, 'Cancelled — unassigned from the Linear issue');
+
+                $sessionId = (string) $task->linear_agent_session_id;
+                if ($sessionId !== '') {
+                    app(NotificationDriver::class)->postAgentActivity(
+                        $sessionId,
+                        type: 'thought',
+                        body: 'Stopped — I was unassigned from this issue.',
+                    );
+                }
+            }
+
+            return response()->json(['ok' => true]);
+        }
+
+        // Reactions and other inbox types: acknowledge, no action needed.
+        return response()->json(['ok' => true]);
     }
 
     /**
