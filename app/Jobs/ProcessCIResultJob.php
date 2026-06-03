@@ -117,6 +117,12 @@ class ProcessCIResultJob implements ShouldQueue
         $this->postToSource($message);
 
         if ($this->task->source === 'linear') {
+            if ($prUrl !== '') {
+                $sessionId = (string) $this->task->linear_agent_session_id;
+                app(LinearNotificationDriver::class)
+                    ->postAction($sessionId, 'Opened pull request', $prUrl);
+            }
+
             $this->moveLinearToInReview();
         }
 
