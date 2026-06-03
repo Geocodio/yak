@@ -77,11 +77,17 @@ class RunFollowUpJob implements ShouldQueue
         $this->task->update(['status' => TaskStatus::Running]);
         TaskLogger::info($this->task, 'Picked up by worker — follow-up');
 
+        if ($this->task->branch_name === null) {
+            $this->handleError('Follow-up task has no branch to push to.');
+
+            return;
+        }
+
         try {
             $containerName = $sandbox->create($this->task, $repository);
             TaskLogger::info($this->task, 'Sandbox created for follow-up', ['container' => $containerName]);
 
-            $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
+            $branchName = $this->task->branch_name;
             $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
 
             $result = $agent->run(new AgentRunRequest(
@@ -139,7 +145,7 @@ class RunFollowUpJob implements ShouldQueue
 
         DailyCost::accumulate($result->costUsd);
 
-        $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
+        $branchName = $this->task->branch_name;
         $this->pushExistingBranch($sandbox, $containerName, $repository, $branchName);
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 

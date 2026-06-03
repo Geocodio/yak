@@ -3,12 +3,15 @@
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RunFollowUpJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
@@ -117,4 +120,48 @@ test('RunFollowUpJob dispatches to the yak-claude queue', function () {
     $task = YakTask::factory()->make(['branch_name' => 'yak/Q-1']);
 
     expect((new RunFollowUpJob($task))->queue)->toBe('yak-claude');
+});
+
+test('RunFollowUpJob with ci_system=none dispatches ProcessCIResultJob instead of waiting for CI', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*git rev-parse *' => Process::result(output: 'yak/NOCI-1'), '*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'noci-repo', 'path' => '/home/yak/repos/noci-repo', 'ci_system' => 'none']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'noci-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/NOCI-1',
+        'pr_url' => 'https://github.com/acme/noci-repo/pull/5',
+        'description' => 'tweak',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $task->id);
+    Queue::assertNotPushed(SendNotificationJob::class, fn ($job) => str_contains((string) ($job->message ?? ''), 'waiting for CI'));
+});
+
+test('RunFollowUpJob fails when the task has no branch', function () {
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'nobranch-repo', 'path' => '/home/yak/repos/nobranch-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'nobranch-repo',
+        'branch_name' => null,
+        'pr_url' => 'https://github.com/acme/nobranch-repo/pull/1',
+        'description' => 'tweak',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
 });
