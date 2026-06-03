@@ -128,8 +128,11 @@ test('green path creates PR via GitHub API with correct payload', function () {
     $job->handle();
 
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'api.github.com/repos/org/my-repo/pulls')
-            && $request['head'] === 'yak/FIX-99'
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), 'api.github.com/repos/org/my-repo/pulls')) {
+            return false;
+        }
+
+        return $request['head'] === 'yak/FIX-99'
             && $request['base'] === 'main'
             && str_contains($request['title'], 'Yak Fix:');
     });
@@ -174,7 +177,7 @@ test('PR body contains source, repo, and result summary', function () {
     $job->handle();
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -394,7 +397,7 @@ test('green path generates signed URLs with HMAC-SHA256 for artifacts', function
 
     // Verify artifact was created with signed URL in PR body
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
