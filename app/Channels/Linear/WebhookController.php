@@ -4,12 +4,15 @@ namespace App\Channels\Linear;
 
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
+use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use App\Services\YakPersonality;
@@ -138,11 +141,16 @@ class WebhookController extends Controller
     }
 
     /**
-     * Handle follow-up messages inside an existing agent session. Yak
-     * does not currently support multi-turn Linear conversations —
-     * respond with a polite error so the session surfaces the guidance.
-     * Runs the message through the personality agent (timed) so the
-     * voice stays consistent with the rest of the session.
+     * Handle follow-up messages inside an existing agent session. Routes
+     * the prompt to the correct handler based on task state:
+     *
+     * - stop signal → cancel the task
+     * - AwaitingClarification → dispatch ClarificationReplyJob
+     * - open PR → create a chained follow-up via FollowUpTaskFactory
+     * - merged/closed → post a polite decline
+     * - unknown session → no-op (200 OK)
+     *
+     * Always posts an immediate thought ack within the 10-second SLA.
      */
     private function handlePrompted(Request $request): JsonResponse
     {
@@ -152,18 +160,62 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $context = "I can't continue this conversation inside Linear. To adjust the task, comment on the pull request or mention me in a fresh Linear issue.";
-
-        $body = YakPersonality::generateWithTimeout(
-            NotificationType::Error,
-            $context,
+        // Immediate ack within the 10-second SLA — use same personality
+        // call as handleCreated (2-second timeout, falls back to template).
+        $ackMessage = YakPersonality::generateWithTimeout(
+            NotificationType::Acknowledgment,
+            'Follow-up received',
             timeoutSeconds: 2,
         );
+        app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'thought', body: $ackMessage);
+
+        $task = YakTask::where('linear_agent_session_id', $sessionId)->latest()->first();
+
+        if ($task === null) {
+            return response()->json(['ok' => true]);
+        }
+
+        // Read the message body from either the nested content shape
+        // (agentActivity.content.body) or the flat shape (agentActivity.body).
+        $message = (string) ($request->input('agentActivity.content.body')
+            ?? $request->input('agentActivity.body')
+            ?? '');
+        $signal = (string) ($request->input('agentActivity.signal') ?? '');
+
+        if ($signal === 'stop') {
+            $cancellable = [
+                TaskStatus::Pending,
+                TaskStatus::Running,
+                TaskStatus::AwaitingCi,
+                TaskStatus::AwaitingClarification,
+                TaskStatus::Retrying,
+            ];
+
+            if (in_array($task->status, $cancellable, strict: true)) {
+                $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+            }
+
+            app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'response', body: 'Stopped.');
+
+            return response()->json(['ok' => true]);
+        }
+
+        if ($task->status === TaskStatus::AwaitingClarification) {
+            ClarificationReplyJob::dispatch($task, $message);
+
+            return response()->json(['ok' => true]);
+        }
+
+        if ($task->prIsOpen()) {
+            app(FollowUpTaskFactory::class)->create($task, $message, 'linear');
+
+            return response()->json(['ok' => true]);
+        }
 
         app(NotificationDriver::class)->postAgentActivity(
             $sessionId,
-            type: 'error',
-            body: $body,
+            type: 'response',
+            body: "This PR is already merged or closed — mention me in a fresh issue and I'll pick it up.",
         );
 
         return response()->json(['ok' => true]);

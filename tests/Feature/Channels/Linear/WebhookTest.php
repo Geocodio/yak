@@ -369,18 +369,14 @@ it('ignores unrelated webhook event headers', function () {
     Queue::assertNotPushed(RunYakJob::class);
 });
 
-// --- AgentSessionEvent.prompted responds with a polite error ---
+// --- AgentSessionEvent.prompted posts an immediate thought ack ---
 
-it('responds to prompted events with an error activity pointing to the dashboard', function () {
+it('responds to prompted events with an immediate thought acknowledgment', function () {
     $secret = enableLinearChannel();
     linearConnection();
-    LinearOauthConnection::query()->delete(); // recreate with known token
-    LinearOauthConnection::factory()->create([
-        'workspace_id' => TEST_WORKSPACE_ID,
-        'installer_user_id' => TEST_YAK_ACTOR_ID,
-    ]);
     Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
 
+    // No matching task — unknown session gets a thought ack only.
     postLinearWebhook(agentSessionPromptedPayload(['sessionId' => 'session-xyz']), $secret)
         ->assertSuccessful();
 
@@ -391,7 +387,7 @@ it('responds to prompted events with an error activity pointing to the dashboard
         $vars = $request->data()['variables'] ?? [];
 
         return ($vars['input']['agentSessionId'] ?? null) === 'session-xyz'
-            && ($vars['input']['content']['type'] ?? null) === 'error';
+            && ($vars['input']['content']['type'] ?? null) === 'thought';
     });
 });
 
