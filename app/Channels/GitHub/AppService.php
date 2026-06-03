@@ -237,6 +237,17 @@ class AppService
             ]);
     }
 
+    public function addReaction(int $installationId, string $repoSlug, int $commentId, string $content): void
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/issues/comments/{$commentId}/reactions", [
+                'content' => $content,
+            ]);
+    }
+
     /**
      * @param  array<int, string>  $labels
      */

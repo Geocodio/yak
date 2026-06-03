@@ -253,6 +253,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Follow-Up Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'followup' => [
+        'github_prefixes' => env('YAK_FOLLOWUP_GITHUB_PREFIXES', '/yak,@yak-bot[bot],yak:'),
+        'github_batch_window_seconds' => (int) env('YAK_FOLLOWUP_GITHUB_BATCH_WINDOW_SECONDS', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | PR Review Configuration
     |--------------------------------------------------------------------------
     */
