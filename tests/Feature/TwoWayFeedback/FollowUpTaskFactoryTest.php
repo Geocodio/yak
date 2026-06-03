@@ -64,3 +64,28 @@ test('chains onto the newest task in the conversation', function () {
 
     expect($child->parent_task_id)->toBe($head->id);
 });
+
+test('first follow-up external_id is rooted and not compounding', function () {
+    Queue::fake();
+
+    $root = YakTask::factory()->success()->create(['external_id' => 'LINEAR-ENG-42', 'branch_name' => 'yak/E-1']);
+
+    $child = app(FollowUpTaskFactory::class)->create($root, 'do it', 'dashboard');
+
+    expect($child->external_id)->toStartWith('LINEAR-ENG-42-followup-')
+        ->and(substr_count($child->external_id, '-followup-'))->toBe(1);
+});
+
+test('chaining off an existing follow-up does not compound the external_id', function () {
+    Queue::fake();
+
+    $root = YakTask::factory()->success()->create(['external_id' => 'LINEAR-ENG-42', 'branch_name' => 'yak/E-2']);
+    $followUp = app(FollowUpTaskFactory::class)->create($root, 'first', 'dashboard');
+
+    // Now chain off the follow-up itself (passing the follow-up, not the root).
+    $second = app(FollowUpTaskFactory::class)->create($followUp, 'second', 'dashboard');
+
+    expect($second->external_id)->toStartWith('LINEAR-ENG-42-followup-')
+        ->and(substr_count($second->external_id, '-followup-'))->toBe(1)
+        ->and($second->parent_task_id)->toBe($followUp->id);
+});

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\TaskStatus;
 use App\Jobs\RunFollowUpJob;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\DB;
 
 class FollowUpTaskFactory
 {
@@ -15,46 +16,49 @@ class FollowUpTaskFactory
      */
     public function create(YakTask $parent, string $instructions, string $source): ?YakTask
     {
-        $head = $this->chainHead($parent);
+        // One conversation() walk gives us both ends of the chain: the root
+        // (stable base for external_id) and the head (newest task — its branch
+        // /session/PR state is what a follow-up continues from).
+        $chain = $parent->conversation();
+        $head = $chain->last() ?? $parent;
+        $root = $chain->first() ?? $parent;
 
         if (! $head->prIsOpen()) {
             return null;
         }
 
-        $followUpNumber = $head->conversation()->count();
+        $child = DB::transaction(function () use ($head, $root, $instructions, $source): YakTask {
+            $child = YakTask::create([
+                'parent_task_id' => $head->id,
+                'source' => $source,
+                'repo' => $head->repo,
+                'mode' => $head->mode,
+                'branch_name' => $head->branch_name,
+                'session_id' => $head->session_id,
+                'pr_url' => $head->pr_url,
+                'pr_number' => $head->pr_number,
+                'linear_agent_session_id' => $head->linear_agent_session_id,
+                'slack_channel' => $head->slack_channel,
+                'slack_thread_ts' => $head->slack_thread_ts,
+                'slack_user_id' => $head->slack_user_id,
+                'external_url' => $head->external_url,
+                'external_id' => $root->external_id . '-followup',
+                'description' => $instructions,
+                'status' => TaskStatus::Pending,
+            ]);
 
-        $child = YakTask::create([
-            'parent_task_id' => $head->id,
-            'source' => $source,
-            'repo' => $head->repo,
-            'mode' => $head->mode,
-            'branch_name' => $head->branch_name,
-            'session_id' => $head->session_id,
-            'pr_url' => $head->pr_url,
-            'pr_number' => $head->pr_number,
-            'linear_agent_session_id' => $head->linear_agent_session_id,
-            'slack_channel' => $head->slack_channel,
-            'slack_thread_ts' => $head->slack_thread_ts,
-            'slack_user_id' => $head->slack_user_id,
-            'external_url' => $head->external_url,
-            'external_id' => $head->external_id . '-followup-' . $followUpNumber,
-            'description' => $instructions,
-            'status' => TaskStatus::Pending,
-        ]);
+            // Derive a collision-free, non-compounding external_id from the
+            // chain root plus this row's own primary key — avoids the
+            // count-based race and prevents '-followup-N-followup-M' growth.
+            $child->update(['external_id' => $root->external_id . '-followup-' . $child->id]);
+
+            return $child;
+        });
 
         TaskLogger::info($child, 'Follow-up task created', ['source' => $source, 'parent_id' => $head->id]);
 
-        RunFollowUpJob::dispatch($child);
+        RunFollowUpJob::dispatch($child)->afterCommit();
 
         return $child;
-    }
-
-    /**
-     * The newest task in the conversation, so replies always continue from
-     * the latest state of the branch.
-     */
-    private function chainHead(YakTask $task): YakTask
-    {
-        return $task->conversation()->last() ?? $task;
     }
 }
