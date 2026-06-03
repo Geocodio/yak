@@ -30,22 +30,22 @@ class FlushFollowUpBatchJob implements ShouldQueue
             return;
         }
 
+        // Capture the IDs of comments we're processing so we can delete only these
+        // rows after create() succeeds. This ensures comments that arrive during the
+        // run are not swept up and can be retried if create() throws.
+        $ids = $comments->pluck('id')->all();
+
         // Resolve the conversation root (or any task) for this PR.
         $parent = YakTask::where('pr_url', $this->prUrl)->whereNull('parent_task_id')->first()
             ?? YakTask::where('pr_url', $this->prUrl)->first();
 
         if ($parent === null) {
-            FollowUpPendingComment::where('pr_url', $this->prUrl)->delete();
+            FollowUpPendingComment::whereIn('id', $ids)->delete();
 
             return;
         }
 
         $instructions = $this->composeInstructions($comments);
-
-        // Clear the buffer BEFORE running so comments arriving during the run
-        // start a fresh batch (the next run serializes behind this one via the
-        // branch-overlap middleware on RunFollowUpJob).
-        FollowUpPendingComment::where('pr_url', $this->prUrl)->delete();
 
         $child = $factory->create($parent, $instructions, 'github');
 
@@ -63,6 +63,10 @@ class FlushFollowUpBatchJob implements ShouldQueue
                 );
             }
         }
+
+        // Delete only the buffered comments we processed. Comments that arrived
+        // during the run have new IDs not in $ids, so they survive for the next batch.
+        FollowUpPendingComment::whereIn('id', $ids)->delete();
     }
 
     /**
