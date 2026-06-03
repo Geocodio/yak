@@ -1,5 +1,6 @@
-<div wire:poll.15s x-data="{ newTaskOpen: false }">
-    {{-- Getting started card (shown when the install is bare and the user hasn't dismissed it) --}}
+<div wire:poll.15s>
+    <div x-data="{ newTaskOpen: false }">
+        {{-- Getting started card (shown when the install is bare and the user hasn't dismissed it) --}}
     @if($this->showSetupCard)
         <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-gradient-to-br from-yak-orange/5 to-yak-cream p-5" data-testid="setup-card">
             <div class="flex items-start gap-4">
@@ -244,5 +245,6 @@
             </div>
             <livewire:tasks.create-task />
         </div>
+    </div>
     </div>
 </div>
