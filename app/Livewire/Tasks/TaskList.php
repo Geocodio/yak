@@ -10,6 +10,7 @@ use App\Models\YakTask;
 use App\Support\Docs;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -40,13 +41,38 @@ class TaskList extends Component
     public function tasks(): LengthAwarePaginator
     {
         return $this->scopedQuery($this->tab)
-            ->with(['repository', 'followUps'])
+            ->with(['repository'])
             ->whereNull('parent_task_id')
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
             ->when($this->tab === 'tasks' && $this->source !== '', fn ($query) => $query->where('source', $this->source))
             ->when($this->repo !== '', fn ($query) => $query->where('repo', $this->repo))
             ->latest()
             ->paginate(50);
+    }
+
+    /**
+     * Follow-up descendants for the roots on the current page, grouped by
+     * branch_name. Every task in a follow-up chain shares the root's
+     * branch_name, so this captures the whole chain (children, grandchildren,
+     * ...) in a single query — `$task->followUps` would only get direct kids.
+     *
+     * @return Collection<string, Collection<int, YakTask>>
+     */
+    #[Computed]
+    public function descendantsByBranch(): Collection
+    {
+        $branches = $this->tasks->pluck('branch_name')->filter()->unique()->values();
+
+        if ($branches->isEmpty()) {
+            return collect();
+        }
+
+        return YakTask::query()
+            ->whereNotNull('parent_task_id')
+            ->whereIn('branch_name', $branches)
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy('branch_name');
     }
 
     /**
@@ -64,19 +90,19 @@ class TaskList extends Component
     #[Computed]
     public function tasksCount(): int
     {
-        return $this->scopedQuery('tasks')->count();
+        return $this->scopedQuery('tasks')->whereNull('parent_task_id')->count();
     }
 
     #[Computed]
     public function setupCount(): int
     {
-        return $this->scopedQuery('setup')->count();
+        return $this->scopedQuery('setup')->whereNull('parent_task_id')->count();
     }
 
     #[Computed]
     public function reviewsCount(): int
     {
-        return $this->scopedQuery('reviews')->count();
+        return $this->scopedQuery('reviews')->whereNull('parent_task_id')->count();
     }
 
     public function updatedTab(): void

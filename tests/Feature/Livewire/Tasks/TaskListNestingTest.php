@@ -61,3 +61,33 @@ test('top-level list excludes follow-up children even across tabs/filters', func
     $ids = Livewire::test(TaskList::class)->set('status', 'running')->instance()->tasks->pluck('id')->all();
     expect($ids)->not->toContain($root->followUps()->first()->id);
 });
+
+test('a multi-level follow-up chain shows grandchildren nested under the root', function () {
+    $root = YakTask::factory()->success()->create(['repo' => 'web', 'external_id' => 'GC-1', 'branch_name' => 'yak/GC-1']);
+    $child = YakTask::factory()->create([
+        'parent_task_id' => $root->id, 'repo' => 'web',
+        'external_id' => 'GC-1-followup-1', 'branch_name' => 'yak/GC-1',
+    ]);
+    $grandchild = YakTask::factory()->create([
+        'parent_task_id' => $child->id, 'repo' => 'web',  // parent is the CHILD, not the root
+        'external_id' => 'GC-1-followup-2', 'branch_name' => 'yak/GC-1',
+    ]);
+
+    Livewire::test(TaskList::class)
+        ->assertSee('GC-1-followup-1')
+        ->assertSee('GC-1-followup-2')   // grandchild must still render
+        ->assertSee('2 follow-ups');     // count includes the whole chain
+
+    $topLevel = Livewire::test(TaskList::class)->instance()->tasks->pluck('id')->all();
+    expect($topLevel)->toContain($root->id)
+        ->and($topLevel)->not->toContain($child->id)
+        ->and($topLevel)->not->toContain($grandchild->id);
+});
+
+test('tab count excludes follow-up children', function () {
+    $root = YakTask::factory()->success()->create(['repo' => 'web', 'external_id' => 'TC-1', 'branch_name' => 'yak/TC-1']);
+    YakTask::factory()->create(['parent_task_id' => $root->id, 'repo' => 'web', 'external_id' => 'TC-1-followup-1', 'branch_name' => 'yak/TC-1']);
+
+    // Only the root counts toward the Tasks tab badge.
+    expect(Livewire::test(TaskList::class)->instance()->tasksCount)->toBe(1);
+});

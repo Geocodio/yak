@@ -184,9 +184,10 @@
                             @endif
                         </td>
                         <td class="max-w-xs truncate px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
+                            @php($children = $task->branch_name ? ($this->descendantsByBranch[$task->branch_name] ?? collect()) : collect())
                             {{ \Illuminate\Support\Str::limit($task->description, 60) }}
-                            @if($task->followUps->isNotEmpty())
-                                <span class="ml-2 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $task->followUps->count() }} follow-ups</span>
+                            @if($children->isNotEmpty())
+                                <span class="ml-2 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $children->count() }} follow-ups</span>
                             @endif
                         </td>
                         <td class="px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</td>
@@ -198,7 +199,7 @@
                             @endif
                         </td>
                     </tr>
-                    @foreach($task->followUps as $child)
+                    @foreach($children as $child)
                         <tr wire:key="child-{{ $child->id }}" class="relative h-12 bg-zinc-50/60 transition-colors hover:bg-zinc-100/60 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/60" style="transform: translateZ(0)">
                             <td class="border-l-[3px] border-[#e3cba9] py-2 pl-8 pr-3 sm:pr-5">
                                 <a href="{{ route('tasks.show', $child) }}" wire:navigate class="absolute inset-0" aria-label="Open task {{ $child->external_id ?? $child->id }}"></a>
