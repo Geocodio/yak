@@ -40,7 +40,8 @@ class TaskList extends Component
     public function tasks(): LengthAwarePaginator
     {
         return $this->scopedQuery($this->tab)
-            ->with('repository')
+            ->with(['repository', 'followUps'])
+            ->whereNull('parent_task_id')
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
             ->when($this->tab === 'tasks' && $this->source !== '', fn ($query) => $query->where('source', $this->source))
             ->when($this->repo !== '', fn ($query) => $query->where('repo', $this->repo))

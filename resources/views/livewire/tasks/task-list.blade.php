@@ -183,7 +183,12 @@
                                 <span class="text-zinc-700 dark:text-zinc-300">{{ $task->external_id ?? '—' }}</span>
                             @endif
                         </td>
-                        <td class="max-w-xs truncate px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">{{ \Illuminate\Support\Str::limit($task->description, 60) }}</td>
+                        <td class="max-w-xs truncate px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
+                            {{ \Illuminate\Support\Str::limit($task->description, 60) }}
+                            @if($task->followUps->isNotEmpty())
+                                <span class="ml-2 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $task->followUps->count() }} follow-ups</span>
+                            @endif
+                        </td>
                         <td class="px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</td>
                         <td class="px-3 py-2 sm:px-5">
                             @if($task->pr_url)
@@ -193,6 +198,24 @@
                             @endif
                         </td>
                     </tr>
+                    @foreach($task->followUps as $child)
+                        <tr wire:key="child-{{ $child->id }}" class="relative h-12 bg-zinc-50/60 transition-colors hover:bg-zinc-100/60 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/60" style="transform: translateZ(0)">
+                            <td class="border-l-[3px] border-[#e3cba9] py-2 pl-8 pr-3 sm:pr-5">
+                                <a href="{{ route('tasks.show', $child) }}" wire:navigate class="absolute inset-0" aria-label="Open task {{ $child->external_id ?? $child->id }}"></a>
+                                <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($child->status) }}">
+                                    {{ str_replace('_', ' ', $child->status->value) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
+                            <td class="px-3 py-2 sm:px-5">
+                                <span class="text-zinc-500 dark:text-zinc-400">{{ $child->external_id ?? '—' }}</span>
+                            </td>
+                            <td class="max-w-xs truncate px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \Illuminate\Support\Str::limit($child->description, 60) }}</td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">{{ \App\Livewire\Tasks\TaskList::formatDuration($child->duration_ms) }}</td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
+                        </tr>
+                    @endforeach
                 @empty
                     <tr>
                         <td colspan="7" class="px-3 py-16 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
