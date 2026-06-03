@@ -334,3 +334,79 @@ it('does not dispatch a second FlushFollowUpBatchJob when there is already a pen
     expect(FollowUpPendingComment::count())->toBe(2);
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
 });
+
+it('uses original_line when line is null in a pull_request_review_comment', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    $task = YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'pull_request' => [
+            'html_url' => 'https://github.com/acme/web/pull/9',
+            'number' => 9,
+        ],
+        'comment' => [
+            'id' => 88,
+            'user' => ['login' => 'mathias'],
+            'body' => '/yak consider refactoring',
+            'path' => 'src/core.php',
+            'line' => null,
+            'original_line' => 7,
+            'diff_hunk' => '@@ -5,3 +5,4 @@',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request_review_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk()->assertJsonPath('ok', true);
+
+    expect(FollowUpPendingComment::count())->toBe(1);
+
+    $comment = FollowUpPendingComment::first();
+    expect($comment->yak_task_id)->toBe($task->id)
+        ->and($comment->body)->toBe('consider refactoring')
+        ->and($comment->file)->toBe('src/core.php')
+        ->and($comment->line)->toBe(7)
+        ->and($comment->diff_hunk)->toBe('@@ -5,3 +5,4 @@')
+        ->and($comment->github_comment_id)->toBe(88);
+
+    Bus::assertDispatched(FlushFollowUpBatchJob::class, fn ($job) => $job->prUrl === 'https://github.com/acme/web/pull/9');
+});
+
+it('makes no external call when the comment is not for a Yak task', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    $payload = [
+        'action' => 'created',
+        'issue' => [
+            'number' => 99,
+            'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/99'],
+        ],
+        'comment' => [
+            'id' => 51,
+            'user' => ['login' => 'mathias'],
+            'body' => '/yak please implement feature',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'issue_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk();
+
+    expect(FollowUpPendingComment::count())->toBe(0);
+    Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
+    Http::assertNothingSent();
+});
