@@ -53,4 +53,4 @@ jobs:
         run: npm run build
 
       - name: Run Tests
-        run: ./vendor/bin/pest --ci --exclude-group=contract
+        run: php -d memory_limit=-1 ./vendor/bin/pest --ci --exclude-group=contract
