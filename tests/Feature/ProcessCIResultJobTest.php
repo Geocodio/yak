@@ -780,3 +780,113 @@ test('ProcessCIResultJob dispatches to default queue', function () {
 
     expect($job->queue)->toBe('default');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Green Path — Linear Action Activity Label
+|--------------------------------------------------------------------------
+*/
+
+test('Linear initial run posts "Opened pull request" action', function () {
+    Http::fake([
+        'api.github.com/*' => Http::response([
+            'number' => 11,
+            'html_url' => 'https://github.com/org/lin-repo/pull/11',
+        ]),
+        'api.linear.app/*' => Http::response(['data' => ['success' => true]]),
+    ]);
+
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+    ]);
+
+    LinearOauthConnection::factory()->create();
+
+    Repository::factory()->create([
+        'slug' => 'org/lin-repo',
+        'path' => '/home/yak/repos/lin-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/lin-repo',
+        'branch_name' => 'yak/LIN-INIT',
+        'source' => 'linear',
+        'linear_agent_session_id' => 'session-init',
+        'parent_task_id' => null,
+        'attempts' => 1,
+    ]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    Http::assertSent(function ($request) {
+        if (! str_contains($request->url(), 'api.linear.app/graphql')) {
+            return false;
+        }
+        $content = $request->data()['variables']['input']['content'] ?? [];
+
+        return ($content['type'] ?? null) === 'action'
+            && ($content['action'] ?? null) === 'Opened pull request';
+    });
+});
+
+test('Linear follow-up run posts "Pushed changes" action instead of "Opened pull request"', function () {
+    Http::fake([
+        'api.github.com/*' => Http::response([
+            'number' => 12,
+            'html_url' => 'https://github.com/org/lin-repo/pull/12',
+        ]),
+        'api.linear.app/*' => Http::response(['data' => ['success' => true]]),
+    ]);
+
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 3 insertions(+)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+    ]);
+
+    LinearOauthConnection::factory()->create();
+
+    Repository::factory()->create([
+        'slug' => 'org/lin-repo',
+        'path' => '/home/yak/repos/lin-repo',
+    ]);
+
+    $parent = YakTask::factory()->success()->create([
+        'repo' => 'org/lin-repo',
+        'source' => 'linear',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/lin-repo',
+        'branch_name' => 'yak/LIN-FUP',
+        'source' => 'linear',
+        'linear_agent_session_id' => 'session-followup',
+        'parent_task_id' => $parent->id,
+        'attempts' => 1,
+    ]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    Http::assertSent(function ($request) {
+        if (! str_contains($request->url(), 'api.linear.app/graphql')) {
+            return false;
+        }
+        $content = $request->data()['variables']['input']['content'] ?? [];
+
+        return ($content['type'] ?? null) === 'action'
+            && ($content['action'] ?? null) === 'Pushed changes';
+    });
+
+    Http::assertNotSent(function ($request) {
+        if (! str_contains($request->url(), 'api.linear.app/graphql')) {
+            return false;
+        }
+        $content = $request->data()['variables']['input']['content'] ?? [];
+
+        return ($content['action'] ?? null) === 'Opened pull request';
+    });
+});
