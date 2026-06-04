@@ -6,6 +6,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
@@ -214,12 +215,12 @@ it('falls back to today\'s incremental flow when GraphQL fetch fails', function 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
     $github->shouldReceive('listPullRequestFiles')->andReturn([]);
-    $github->shouldReceive('listReviewThreads')->andThrow(new \RuntimeException('graphql exploded'));
+    $github->shouldReceive('listReviewThreads')->andThrow(new RuntimeException('graphql exploded'));
     $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 9, 'comments' => []]);
     $github->shouldNotReceive('replyToReviewComment');
     app()->instance(GitHubAppService::class, $github);
 
     (new RunYakReviewJob($task))->handle(app(AgentRunner::class));
 
-    expect($task->fresh()->status)->toBe(\App\Enums\TaskStatus::Success);
+    expect($task->fresh()->status)->toBe(TaskStatus::Success);
 });

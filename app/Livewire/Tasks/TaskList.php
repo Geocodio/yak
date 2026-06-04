@@ -17,6 +17,9 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
+/**
+ * @property-read LengthAwarePaginator<int, YakTask> $tasks
+ */
 #[Title('Tasks')]
 class TaskList extends Component
 {
@@ -56,12 +59,12 @@ class TaskList extends Component
      * branch_name, so this captures the whole chain (children, grandchildren,
      * ...) in a single query — `$task->followUps` would only get direct kids.
      *
-     * @return Collection<string, Collection<int, YakTask>>
+     * @return Collection<string, \Illuminate\Database\Eloquent\Collection<int, YakTask>>
      */
     #[Computed]
     public function descendantsByBranch(): Collection
     {
-        $branches = $this->tasks->pluck('branch_name')->filter()->unique()->values();
+        $branches = collect($this->tasks->items())->pluck('branch_name')->filter()->unique()->values();
 
         if ($branches->isEmpty()) {
             return collect();

@@ -148,6 +148,11 @@ class RunFollowUpJob implements ShouldQueue
         DailyCost::accumulate($result->costUsd);
 
         $branchName = $this->task->branch_name;
+
+        if ($branchName === null) {
+            throw new \RuntimeException('Follow-up reached the push step with no branch name.');
+        }
+
         $this->pushExistingBranch($sandbox, $containerName, $repository, $branchName);
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 

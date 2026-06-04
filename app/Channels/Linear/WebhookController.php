@@ -130,7 +130,12 @@ class WebhookController extends Controller
             $tasks = YakTask::where('source', 'linear')
                 ->where('context', 'like', '%' . $escaped . '%')
                 ->get()
-                ->filter(fn (YakTask $t) => in_array($t->status, $cancellable, strict: true));
+                ->filter(function (YakTask $t) use ($cancellable): bool {
+                    /** @var TaskStatus $status */
+                    $status = $t->status;
+
+                    return in_array($status, $cancellable, strict: true);
+                });
 
             foreach ($tasks as $task) {
                 $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
@@ -272,6 +277,9 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        /** @var TaskStatus $status */
+        $status = $task->status;
+
         // Read the message body from either the nested content shape
         // (agentActivity.content.body) or the flat shape (agentActivity.body).
         $message = (string) ($request->input('agentActivity.content.body')
@@ -288,7 +296,7 @@ class WebhookController extends Controller
                 TaskStatus::Retrying,
             ];
 
-            if (in_array($task->status, $cancellable, strict: true)) {
+            if (in_array($status, $cancellable, strict: true)) {
                 $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
             }
 
@@ -297,7 +305,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        if ($task->status === TaskStatus::AwaitingClarification) {
+        if ($status === TaskStatus::AwaitingClarification) {
             ClarificationReplyJob::dispatch($task, $message);
 
             return response()->json(['ok' => true]);

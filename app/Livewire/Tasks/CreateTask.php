@@ -52,7 +52,10 @@ class CreateTask extends Component
 
         TaskLogger::info($task, 'Task created', ['source' => 'dashboard', 'repo' => $task->repo]);
 
-        if ($task->mode === TaskMode::Research) {
+        /** @var TaskMode $mode */
+        $mode = $task->mode;
+
+        if ($mode === TaskMode::Research) {
             ResearchYakJob::dispatch($task);
         } else {
             RunYakJob::dispatch($task);
