@@ -33,7 +33,7 @@ The minimum viable setup is **GitHub + manual CLI**. Everything else is optional
 
 GitHub is the only channel Yak cannot run without — it needs it to push branches and open PRs.
 
-**Roles:** CI (via Actions), notification (PR bodies and comments).
+**Roles:** CI (via Actions), notification (PR bodies and comments), input (follow-up commands on open PRs).
 
 ### Setup
 
@@ -47,7 +47,7 @@ If you already have a GitHub App and want to reuse it, fill in `github_app_id`, 
 |---|---|
 | Contents | Read & Write (push branches) |
 | Pull requests | Read & Write (create PRs, add labels) |
-| Issues | Read |
+| Issues | Read & Write (react to follow-up comments) |
 | Checks | Read (CI results) |
 | Metadata | Read (default) |
 
@@ -59,14 +59,34 @@ The GitHub App subscribes to:
 - `pull_request.closed` — merge/close tracking (also denormalizes onto `pr_reviews`)
 - `pull_request.opened` / `ready_for_review` / `reopened` — triggers a full PR review when `pr_review_enabled` is on
 - `pull_request.synchronize` — triggers an incremental PR review
+- `issue_comment.created` — `/yak` follow-up comments on an open PR (see [Follow-ups](#follow-ups) below)
+- `pull_request_review_comment.created` — `/yak` follow-up replies on an inline review comment (the file, line, and diff hunk are passed to Yak as context)
 
-Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review events.
+Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
+
+> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments** and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
 
 ### Usage
 
 If your repos use GitHub Actions for CI, set `ci_system: github_actions` in the repo definition. Nothing else is required — the GitHub App receives check suite events automatically.
 
 **Important:** the GitHub App must NOT be in your branch protection bypass list and must not have permission to approve reviews. Yak has no merge authority by design.
+
+### Follow-ups
+
+Once Yak has opened a PR, you can keep refining it without a local checkout. Comment on the PR (or reply to an inline review comment) with a `/yak` prefix:
+
+```
+/yak also handle the empty-file case
+/yak the error message should mention the row number
+```
+
+Yak reacts 👀 on the comment to acknowledge receipt, resumes the original Claude session, applies the feedback, and pushes follow-up commits to the **same branch** — then posts a result comment when the push lands. CI re-runs and the existing auto-retry pipeline applies. The follow-up becomes a chained task under the original on the dashboard.
+
+- **Trigger prefixes** are configurable via `YAK_FOLLOWUP_GITHUB_PREFIXES` (default `/yak,@yak-bot[bot],yak:`, case-insensitive). A comment without a prefix is ignored.
+- **Bursts are debounced.** Multiple comments within `YAK_FOLLOWUP_GITHUB_BATCH_WINDOW_SECONDS` (default `60`) are collapsed into a single follow-up run, so a flurry of review notes produces one coherent revision rather than racing pushes.
+- **Inline review comments** carry their file, line, and surrounding diff hunk into the instruction, so "this variable name is confusing" lands with the context Yak needs.
+- **Merged or closed PRs** decline politely and point you at a fresh issue or task — follow-ups only work while the PR is open.
 
 ---
 
@@ -100,7 +120,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 
 ## Slack (optional)
 
-**Roles:** Input (task creation via `@yak` mention), notification (thread replies).
+**Roles:** Input (task creation via `@yak` mention, follow-ups via thread replies), notification (thread replies).
 
 ### Setup
 
@@ -108,7 +128,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 2. Enable **Event Subscriptions** with request URL `https://{your-domain}/webhooks/slack`
 3. Subscribe to bot events:
    - `app_mention`
-   - `message.channels` (needed for thread replies to clarifications)
+   - `message.channels` (needed for thread replies — clarification answers and follow-ups)
    - `app_home_opened` (powers the welcome DM the first time a user opens Yak's App Home)
 4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view.
 5. Enable **Interactivity & Shortcuts** with request URL `https://{your-domain}/webhooks/slack/interactive` — powers click-to-answer buttons on clarification messages.
@@ -165,9 +185,13 @@ The task pauses in `awaiting_clarification` for up to 3 days. Reply in the threa
 
 Linear and Sentry tasks do not clarify because their inputs are already structured.
 
+### Follow-ups
+
+After Yak has opened a PR, replying in the same thread keeps the conversation going. A thread reply on a task with an open PR is treated as feedback: Yak resumes the original session, applies your message, and pushes follow-up commits to the same branch — replying in-thread when the push lands. No new mention required; just reply where the PR was announced. This is the same thread-matching that powers clarification answers, so it relies on the `channels:history` scope.
+
 ### Gotchas
 
-- **Channels history scope is required** for thread reply matching. Without it, clarification replies cannot be routed to the correct task.
+- **Channels history scope is required** for thread reply matching. Without it, clarification replies and follow-ups cannot be routed to the correct task.
 - **`reactions:write` must be granted** for status reactions to appear. Without it, reactions silently fail; everything else still works.
 - **`app_home_opened` event must be subscribed** for welcome DMs. Enable the App Home tab in the Slack app config even if you never customize it — the event only fires when the tab is enabled.
 - **Bot token rotation** requires re-running Ansible to update the container env vars.
@@ -214,7 +238,7 @@ Delegation opens an agent session on the issue. Yak immediately posts an acknowl
 - **Research tasks** — Yak posts the findings and moves the issue to "Done".
 - **Failures** — Yak posts an `error` activity explaining what went wrong; the issue state is left alone.
 
-Follow-up messages inside the agent session are not supported — Yak replies with a polite error pointing you to the pull request or a fresh Linear issue for further changes.
+Follow-up messages inside the agent session are supported. Once a PR is open, commenting in the session is routed as feedback: Yak resumes the original session, applies your message, and pushes follow-up commits to the same branch (see [Follow-ups](#follow-ups-2) below). If the PR has already merged or closed, Yak declines politely and points you at a fresh issue.
 
 #### What you'll see during a run
 
@@ -222,7 +246,11 @@ Follow-up messages inside the agent session are not supported — Yak replies wi
 - **Start-of-work progress.** As soon as the worker picks the task up (often seconds later), Yak posts a `thought` activity describing what it's about to do. Closes the silent gap between pickup and first push on longer tasks. Controlled by `YAK_EMIT_START_PROGRESS` — default on.
 - **Push + CI.** Once the agent has changes, Yak pushes to a branch and posts another progress activity noting CI is running.
 - **Final response.** On success, a `response` activity with the PR link; on failure, an `error` activity with the reason.
-- **Multi-turn replies.** Commenting *inside* the agent session isn't supported — Yak responds with an `error` activity (run through personality for tone) directing you to the pull request or a fresh issue.
+- **Multi-turn replies.** Commenting *inside* the agent session is state-aware: while Yak is `awaiting_clarification` your reply answers the question; once a PR is open it becomes a follow-up that pushes more commits; a `stop` signal cancels the in-flight task; and a merged/closed PR gets a polite decline.
+
+#### Follow-ups
+
+Yak generalizes the clarification engine into full two-way feedback. After the PR is open, post a comment in the agent session with your refinement and Yak resumes the original session, applies it, and pushes to the **same branch** — emitting a `thought` ack on receipt and a `response` when the push lands. CI re-runs through the existing auto-retry pipeline, and the follow-up appears as a chained task under the original on the dashboard. Reassigning the issue away from Yak (an unassignment) cancels any in-flight work.
 
 ### Repo Detection
 
@@ -239,12 +267,12 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 
 | Event | Issue state |
 |---|---|
-| Task picked up | → **In Progress** |
+| Task picked up | → **In Progress / Started** |
 | PR created (CI green) | → **In Review** |
 | Research completed | → **Done** |
 | Task failed | remains In Progress with a failure activity |
 
-Configure the state UUIDs via `linear_done_state_id`, `linear_cancelled_state_id`, and `linear_in_review_state_id` in `ansible/vault/secrets.yml`.
+Configure the state UUIDs via `linear_done_state_id`, `linear_cancelled_state_id`, `linear_in_review_state_id`, and `linear_started_state_id` (`YAK_LINEAR_STARTED_STATE_ID`, used for the picked-up → started transition) in `ansible/vault/secrets.yml`. If `linear_started_state_id` is unset, the pickup transition is skipped and the issue stays in its current state until the PR is opened.
 
 ### Gotchas
 

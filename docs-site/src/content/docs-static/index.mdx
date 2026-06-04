@@ -34,9 +34,10 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
     Screenshots and video walkthroughs for UI changes. A human reviews every
     PR before merge. Yak has no merge authority. No exceptions.
   </Card>
-  <Card title="Responds where asked" icon="comment">
-    Slack message → Slack thread reply. Linear issue → Linear comment.
-    You never have to check a separate UI to see what happened.
+  <Card title="Two-way feedback" icon="comment">
+    Reply in the same Slack thread, on the Linear issue, or with `/yak` on the
+    PR, and Yak refines the work — pushing follow-up commits to the same
+    branch. No separate UI to check.
   </Card>
 </CardGrid>
 
@@ -63,8 +64,8 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 ## Design philosophy
 
-- **One-shot by design.** A task fits in a paragraph. Yak resolves it in a single pass. If it needs back-and-forth, it's not a Yak task.
-- **Meet the user where they are.** Slack in, Slack out. Linear in, Linear out. No separate dashboard check required.
+- **First pass in one shot, then refine.** A task fits in a paragraph, and Yak resolves it in a single pass. Not quite right? Reply where you already are and Yak pushes follow-up commits to the same PR until it's done.
+- **Meet the user where they are.** Slack in, Slack out. Linear in, Linear out. The whole back-and-forth happens in the channel you started from — no separate dashboard check required.
 - **Clarify, don't guess.** Ambiguous requests get multiple-choice options grounded in actual code, not generic guesses.
 - **Yak never ships.** Output is always a PR requiring human review. No merge authority, no exceptions.
 - **Channels are optional.** GitHub plus the manual CLI is the minimum. Enable the rest as you need them.
