@@ -13,6 +13,7 @@ use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Jobs\Middleware\PreventBranchOverlap;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -52,6 +53,7 @@ class ClarificationReplyJob implements ShouldQueue
     public function middleware(): array
     {
         return [
+            new PreventBranchOverlap($this->task),
             new PausesDuringDrain,
             new EnsureRepoReady,
             new EnsureDailyBudget,
