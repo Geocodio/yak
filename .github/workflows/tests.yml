@@ -27,7 +27,7 @@ jobs:
           php-version: '8.4'
           tools: composer:v2
           extensions: sqlite3, pdo_sqlite
-          coverage: xdebug
+          coverage: none
 
       - name: Setup Node
         uses: actions/setup-node@v6
@@ -53,4 +53,4 @@ jobs:
         run: npm run build
 
       - name: Run Tests
-        run: php -d memory_limit=-1 ./vendor/bin/pest --ci --exclude-group=contract
+        run: ./vendor/bin/pest --ci --exclude-group=contract
