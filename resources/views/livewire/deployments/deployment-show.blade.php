@@ -34,6 +34,43 @@
         </dl>
     </flux:card>
 
+    <flux:card class="my-4">
+        <div class="flex items-center justify-between">
+            <flux:heading size="lg">Hibernation</flux:heading>
+            <flux:badge :color="$deployment->long_lived ? 'sky' : 'zinc'">
+                {{ $deployment->long_lived ? 'Long-lived' : 'Standard' }}
+            </flux:badge>
+        </div>
+
+        <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Hibernates after {{ \App\Support\HibernationDuration::humanize($deployment->effectiveIdleMinutes()) }} of inactivity.
+            @if ($deployment->long_lived)
+                Exempt from the 30-day cleanup.
+            @endif
+        </p>
+
+        <div class="mt-4">
+            <flux:switch wire:model.live="longLived" label="Keep this branch long-lived" />
+        </div>
+
+        @if ($this->isReleaseBranch)
+            <flux:text size="sm" class="mt-2 text-zinc-500 dark:text-zinc-400">
+                Auto-enabled because the branch name contains <code>{{ config('yak.deployments.release_branch_prefix') }}</code>.
+            </flux:text>
+        @endif
+
+        @if ($deployment->long_lived)
+            <div class="mt-4 flex items-end gap-2">
+                <flux:input
+                    wire:model="idleTimeoutInput"
+                    label="Hibernation timeout"
+                    description="e.g. 3d, 12h, 2w"
+                    class="w-44" />
+                <flux:button wire:click="saveIdleTimeout" variant="primary">Save</flux:button>
+            </div>
+        @endif
+    </flux:card>
+
     <div class="flex gap-2 my-4">
         <flux:button :href="'https://' . $deployment->hostname" target="_blank" rel="noopener">Open preview</flux:button>
         <flux:button wire:click="rebuild" variant="subtle"

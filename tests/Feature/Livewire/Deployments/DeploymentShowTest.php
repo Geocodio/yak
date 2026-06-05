@@ -67,3 +67,59 @@ it('renders recent deployment logs with phase and message', function () {
         ->assertSee('refresh')
         ->assertSee('fetch');
 });
+
+it('marks a deployment long-lived via the toggle', function () {
+    $d = BranchDeployment::factory()->running()->create(['long_lived' => false]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->set('longLived', true)
+        ->assertSuccessful();
+
+    expect($d->fresh()->long_lived)->toBeTrue();
+});
+
+it('resets the custom TTL when long-lived is turned off', function () {
+    $d = BranchDeployment::factory()->running()->longLived(720)->create();
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->set('longLived', false)
+        ->assertSuccessful();
+
+    $fresh = $d->fresh();
+    expect($fresh->long_lived)->toBeFalse();
+    expect($fresh->idle_timeout_minutes)->toBeNull();
+});
+
+it('saves a custom hibernation timeout from shorthand', function () {
+    $d = BranchDeployment::factory()->running()->longLived()->create();
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->set('idleTimeoutInput', '2w')
+        ->call('saveIdleTimeout')
+        ->assertHasNoErrors();
+
+    expect($d->fresh()->idle_timeout_minutes)->toBe(20160);
+});
+
+it('rejects an invalid duration', function () {
+    $d = BranchDeployment::factory()->running()->longLived()->create();
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->set('idleTimeoutInput', 'nonsense')
+        ->call('saveIdleTimeout')
+        ->assertHasErrors('idleTimeoutInput');
+
+    expect($d->fresh()->idle_timeout_minutes)->toBeNull();
+});
+
+it('shows the long-lived indicator on the page', function () {
+    $d = BranchDeployment::factory()->running()->longLived()->create();
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->assertSee('Long-lived');
+});
