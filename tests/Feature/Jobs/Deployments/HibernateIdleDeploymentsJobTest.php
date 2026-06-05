@@ -66,3 +66,20 @@ it('hibernates a long-lived deployment past its custom TTL', function () {
 
     expect($longLived->fresh()->status)->toBe(DeploymentStatus::Hibernated);
 });
+
+it('hibernates a long-lived deployment whose custom TTL is shorter than the global default', function () {
+    config()->set('yak.deployments.idle_minutes', 15);
+
+    // A 5-minute override is shorter than the 15m global default.
+    $longLived = BranchDeployment::factory()->running()->longLived(5)->create([
+        'last_accessed_at' => now()->subMinutes(10),
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('stop')->once()->with(Mockery::on(fn ($d) => $d->id === $longLived->id));
+
+    (new HibernateIdleDeploymentsJob)->handle(app(DeploymentContainerManager::class));
+
+    expect($longLived->fresh()->status)->toBe(DeploymentStatus::Hibernated);
+});

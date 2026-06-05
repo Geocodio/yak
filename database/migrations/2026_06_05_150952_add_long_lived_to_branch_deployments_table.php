@@ -18,9 +18,11 @@ return new class extends Migration
         // become long-lived immediately, no redeploy needed.
         $prefix = (string) config('yak.deployments.release_branch_prefix', 'release/');
 
-        DB::table('branch_deployments')
-            ->where('branch_name', 'like', '%' . $prefix . '%')
-            ->update(['long_lived' => true]);
+        if ($prefix !== '') {
+            DB::table('branch_deployments')
+                ->where('branch_name', 'like', '%' . $prefix . '%')
+                ->update(['long_lived' => true]);
+        }
     }
 
     public function down(): void
