@@ -123,3 +123,24 @@ it('shows the long-lived indicator on the page', function () {
         ->test(DeploymentShow::class, ['deployment' => $d])
         ->assertSee('Long-lived');
 });
+
+it('hides the auto-enabled note when a release branch is toggled off', function () {
+    $d = BranchDeployment::factory()->running()->create([
+        'branch_name' => 'release/1.0',
+        'long_lived' => false,
+    ]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->assertDontSee('Auto-enabled');
+});
+
+it('shows the auto-enabled note for an active release branch', function () {
+    $d = BranchDeployment::factory()->running()->longLived()->create([
+        'branch_name' => 'release/1.0',
+    ]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentShow::class, ['deployment' => $d])
+        ->assertSee('Auto-enabled');
+});

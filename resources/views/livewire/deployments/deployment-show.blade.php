@@ -53,7 +53,7 @@
             <flux:switch wire:model.live="longLived" label="Keep this branch long-lived" />
         </div>
 
-        @if ($this->isReleaseBranch)
+        @if ($this->isReleaseBranch && $deployment->long_lived)
             <flux:text size="sm" class="mt-2 text-zinc-500 dark:text-zinc-400">
                 Auto-enabled because the branch name contains <code>{{ config('yak.deployments.release_branch_prefix') }}</code>.
             </flux:text>
