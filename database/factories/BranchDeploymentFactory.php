@@ -82,4 +82,12 @@ class BranchDeploymentFactory extends Factory
             'failure_reason' => $reason,
         ]);
     }
+
+    public function longLived(?int $idleTimeoutMinutes = null): static
+    {
+        return $this->state(fn (): array => [
+            'long_lived' => true,
+            'idle_timeout_minutes' => $idleTimeoutMinutes,
+        ]);
+    }
 }

@@ -42,9 +42,25 @@ class BranchDeployment extends Model
             'template_version' => 'integer',
             'pr_number' => 'integer',
             'dirty' => 'boolean',
+            'long_lived' => 'boolean',
+            'idle_timeout_minutes' => 'integer',
             'last_accessed_at' => 'datetime',
             'public_share_expires_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Minutes of inactivity before this deployment hibernates.
+     *
+     * Resolves, in order: an explicit per-deployment override, the
+     * long-lived default when flagged, otherwise the global default.
+     */
+    public function effectiveIdleMinutes(): int
+    {
+        return $this->idle_timeout_minutes
+            ?? ($this->long_lived
+                ? (int) config('yak.deployments.long_lived_idle_minutes')
+                : (int) config('yak.deployments.idle_minutes'));
     }
 
     /**
