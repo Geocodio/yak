@@ -61,3 +61,15 @@ it('clears expired share tokens', function () {
     expect($fresh->public_share_token_hash)->toBeNull();
     expect($fresh->public_share_expires_at)->toBeNull();
 });
+
+it('never destroys a long-lived deployment past destroy_days', function () {
+    config()->set('yak.deployments.destroy_days', 30);
+
+    $longLived = BranchDeployment::factory()->hibernated()->longLived()->create([
+        'last_accessed_at' => now()->subDays(100),
+    ]);
+
+    (new SweepExpiredDeploymentsJob)->handle();
+
+    Bus::assertNotDispatched(DestroyDeploymentJob::class, fn ($job) => $job->deploymentId === $longLived->id);
+});

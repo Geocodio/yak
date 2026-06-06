@@ -24,12 +24,21 @@
             </thead>
             <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                 @forelse ($this->deployments as $d)
-                    <tr wire:key="deployment-{{ $d->id }}" class="transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+                    <tr wire:key="deployment-{{ $d->id }}"
+                        @class([
+                            'transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50',
+                            'border-l-2 border-l-sky-400 bg-sky-50/40 dark:border-l-sky-500 dark:bg-sky-950/20' => $d->long_lived,
+                        ])>
                         <td class="px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">{{ $d->repository->slug }}</td>
                         <td class="px-3 py-2 sm:px-5">
                             <a href="{{ route('deployments.show', $d) }}" wire:navigate class="font-medium text-yak-orange hover:underline">
                                 {{ $d->branch_name }}
                             </a>
+                            @if ($d->long_lived)
+                                <flux:tooltip content="Hibernates after {{ \App\Support\HibernationDuration::humanize($d->effectiveIdleMinutes()) }}">
+                                    <flux:badge size="sm" color="sky" class="ml-2">Long-lived</flux:badge>
+                                </flux:tooltip>
+                            @endif
                         </td>
                         <td class="px-3 py-2 sm:px-5">
                             <flux:badge :color="match($d->status) {

@@ -228,6 +228,8 @@ return [
         'running_cap' => (int) env('YAK_DEPLOYMENTS_RUNNING_CAP', 6),
         'idle_minutes' => (int) env('YAK_DEPLOYMENTS_IDLE_MINUTES', 15),
         'destroy_days' => (int) env('YAK_DEPLOYMENTS_DESTROY_DAYS', 30),
+        'long_lived_idle_minutes' => (int) env('YAK_DEPLOYMENTS_LONG_LIVED_IDLE_MINUTES', 4320), // 3 days
+        'release_branch_prefix' => env('YAK_DEPLOYMENTS_RELEASE_BRANCH_PREFIX', 'release/'),
         'stuck_starting_minutes' => (int) env('YAK_DEPLOYMENTS_STUCK_STARTING_MINUTES', 30),
         'stuck_destroying_minutes' => (int) env('YAK_DEPLOYMENTS_STUCK_DESTROYING_MINUTES', 60),
         'eviction_grace_minutes' => (int) env('YAK_DEPLOYMENTS_EVICTION_GRACE_MINUTES', 5),

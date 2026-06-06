@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Services\BranchDeploymentProvisioner;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,4 +40,32 @@ it('is idempotent: repeat provision for the same (repo, branch) returns the exis
     $second = app(BranchDeploymentProvisioner::class)->provision($repo, 'feat/x');
 
     expect($second->id)->toBe($first->id);
+});
+
+it('auto-flags release branches as long-lived', function () {
+    config()->set('yak.deployments.release_branch_prefix', 'release/');
+    $repo = Repository::factory()->create(['slug' => 'foo']);
+
+    $release = app(BranchDeploymentProvisioner::class)->provision($repo, 'release/1.0');
+    $normal = app(BranchDeploymentProvisioner::class)->provision($repo, 'feat/x');
+
+    expect($release->long_lived)->toBeTrue();
+    expect($normal->long_lived)->toBeFalse();
+});
+
+it('does not re-flag an existing row whose long_lived was overridden', function () {
+    config()->set('yak.deployments.release_branch_prefix', 'release/');
+    $repo = Repository::factory()->create(['slug' => 'foo']);
+
+    // Pre-existing row for a release branch that the user turned off.
+    $existing = BranchDeployment::factory()->create([
+        'repository_id' => $repo->id,
+        'branch_name' => 'release/1.0',
+        'long_lived' => false,
+    ]);
+
+    $result = app(BranchDeploymentProvisioner::class)->provision($repo, 'release/1.0');
+
+    expect($result->id)->toBe($existing->id);
+    expect($result->long_lived)->toBeFalse();
 });
