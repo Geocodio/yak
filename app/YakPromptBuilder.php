@@ -100,6 +100,18 @@ class YakPromptBuilder
     }
 
     /**
+     * Build a follow-up prompt for refining an already-open PR. The Claude
+     * session is resumed (it carries the original task history), so this is
+     * intentionally terse — just the user's new instructions.
+     */
+    public static function followUpPrompt(string $instructions): string
+    {
+        return Prompts::render('tasks-follow-up', [
+            'instructions' => $instructions,
+        ]);
+    }
+
+    /**
      * Build a retry prompt with the original task description, the
      * previous attempt's result summary, and CI failure output.
      *

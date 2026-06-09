@@ -19,6 +19,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
 use App\Services\IncusSandboxManager;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
@@ -26,6 +27,7 @@ use App\Support\TaskSourceUrl;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use League\CommonMark\CommonMarkConverter;
@@ -38,6 +40,7 @@ use Livewire\Component;
  * @property-read ?PrReview $prReview
  * @property-read string $renderedReviewBody
  * @property-read bool $canReroute
+ * @property-read SupportCollection<int, YakTask> $conversation
  */
 #[Title('Task Detail')]
 class TaskDetail extends Component
@@ -66,6 +69,8 @@ class TaskDetail extends Component
     public array $expandedGroups = [];
 
     public string $clarificationReplyText = '';
+
+    public string $followUpText = '';
 
     /**
      * Outcome of a re-review request that redirected here, surfaced as a
@@ -408,6 +413,49 @@ class TaskDetail extends Component
         $this->task->refresh();
 
         Flux::toast('Reply sent. Yak is continuing the task.');
+    }
+
+    /**
+     * The full follow-up chain this task belongs to, root-first ordered by
+     * created_at. Delegates to YakTask::conversation() so the view always
+     * sees the complete picture even when viewing a child task directly.
+     *
+     * @return SupportCollection<int, YakTask>
+     */
+    #[Computed]
+    public function conversation(): SupportCollection
+    {
+        return $this->task->conversation();
+    }
+
+    /**
+     * Submit a follow-up instruction from the dashboard when the PR is still
+     * open. Creates a chained child task via FollowUpTaskFactory and
+     * dispatches RunFollowUpJob.
+     */
+    public function sendFollowUp(): void
+    {
+        $this->validate(['followUpText' => ['required', 'string', 'min:1']]);
+
+        if (! $this->task->prIsOpen()) {
+            Flux::toast('This PR is no longer open for changes.', variant: 'warning');
+
+            return;
+        }
+
+        $child = app(FollowUpTaskFactory::class)
+            ->create($this->task, trim($this->followUpText), 'dashboard');
+
+        $this->followUpText = '';
+
+        if ($child === null) {
+            Flux::toast('This PR is no longer open for changes.', variant: 'warning');
+
+            return;
+        }
+
+        $this->task->refresh();
+        Flux::toast('Sent to Yak. It will push changes to this PR.');
     }
 
     public function toggleDebug(): void

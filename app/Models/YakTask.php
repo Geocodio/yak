@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class YakTask extends Model
 {
@@ -77,5 +78,64 @@ class YakTask extends Model
     public function artifacts(): HasMany
     {
         return $this->hasMany(Artifact::class, 'yak_task_id');
+    }
+
+    /**
+     * @return BelongsTo<YakTask, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_task_id');
+    }
+
+    /**
+     * @return HasMany<YakTask, $this>
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_task_id')->orderBy('created_at');
+    }
+
+    /**
+     * True when a PR exists and is neither merged nor closed — i.e. the
+     * branch is still live and can accept follow-up commits.
+     */
+    public function prIsOpen(): bool
+    {
+        return $this->pr_url !== null
+            && $this->pr_merged_at === null
+            && $this->pr_closed_at === null;
+    }
+
+    /**
+     * The whole follow-up conversation this task belongs to: the chain's
+     * root plus every descendant, ordered oldest-first. Each follow-up's
+     * parent is the previous head, so the chain is walked up to the root
+     * and then fully down.
+     *
+     * Issues one query per node in the chain; intended for short follow-up
+     * chains, not large trees.
+     *
+     * @return Collection<int, YakTask>
+     */
+    public function conversation(): Collection
+    {
+        $root = $this;
+        while ($root->parent_task_id !== null && $root->parent !== null) {
+            $root = $root->parent;
+        }
+
+        /** @var Collection<int, YakTask> $chain */
+        $chain = collect([$root]);
+
+        $gather = function (YakTask $task) use (&$gather, &$chain): void {
+            foreach ($task->followUps()->get() as $child) {
+                $chain->push($child);
+                $gather($child);
+            }
+        };
+        $gather($root);
+
+        return $chain->sortBy('created_at')->values();
     }
 }

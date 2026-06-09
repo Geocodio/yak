@@ -69,6 +69,11 @@ class SendNotificationJob implements ShouldQueue
             }
         }
 
+        // Dashboard tasks are UI-only; never fall back to a public PR comment.
+        if ($this->task->source === 'dashboard') {
+            return null;
+        }
+
         // Fallback: if the task has an open PR, notify via GitHub.
         if ($this->task->pr_url === null) {
             return null;

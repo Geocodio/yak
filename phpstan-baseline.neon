@@ -1,14 +1,44 @@
 parameters:
 	ignoreErrors:
 		-
+			message: '#^Call to function is_array\(\) with array\{name\?\: string\} will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: app/Channels/Linear/IssueFetcher.php
+
+		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Channels/Linear/WebhookController.php
 
 		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Channels/Slack/BlockFormatter.php
+
+		-
+			message: '#^Method App\\Channels\\Slack\\BlockFormatter\:\:contextChips\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: app/Channels/Slack/BlockFormatter.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between list\{0\: non\-falsy\-string, 1\?\: non\-falsy\-string, 2\?\: non\-falsy\-string\} and array\{\} will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Channels/Slack/BlockFormatter.php
+
+		-
 			message: '#^Cannot cast array\<mixed\>\|string to string\.$#'
 			identifier: cast.string
+			count: 1
+			path: app/Channels/Slack/InteractiveWebhookController.php
+
+		-
+			message: '#^Method App\\Channels\\Slack\\InteractiveWebhookController\:\:ackClick\(\) is unused\.$#'
+			identifier: method.unused
 			count: 1
 			path: app/Channels/Slack/InteractiveWebhookController.php
 
@@ -31,16 +61,202 @@ parameters:
 			path: app/Channels/Slack/InteractiveWebhookController.php
 
 		-
+			message: '#^Call to function is_array\(\) with string\|null will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: app/Channels/Slack/NotificationDriver.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: app/Channels/Slack/NotificationDriver.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between \*NEVER\* and array\{\} will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Channels/Slack/NotificationDriver.php
+
+		-
 			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Research will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Channels/Slack/WebhookController.php
 
 		-
-			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
+			message: '#^Method App\\DataTransferObjects\\PreviewManifest\:\:fromArray\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/DataTransferObjects/PreviewManifest.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Destroyed is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentStatusController.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Destroying is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentStatusController.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Failed is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentStatusController.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Running is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentStatusController.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between ''pending'' and ''failed'' will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentStatusController.php
+
+		-
+			message: '#^Offset ''host'' might not exist on array\{state\: ''ready'', host\?\: string, port\?\: int, reason\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentWakeController.php
+
+		-
+			message: '#^Offset ''port'' might not exist on array\{state\: ''ready'', host\?\: string, port\?\: int, reason\?\: string\}\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentWakeController.php
+
+		-
+			message: '#^Parameter \#2 \$candidateCookie of method App\\Services\\DeploymentShareTokens\:\:verifyCookie\(\) expects string, array\|string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/Internal/DeploymentWakeController.php
+
+		-
+			message: '#^Call to function abort_unless\(\) with false and 404 will always evaluate to false\.$#'
 			identifier: function.impossibleType
 			count: 1
-			path: app/Jobs/ClarificationReplyJob.php
+			path: app/Http/Controllers/Tasks/RequestReReviewController.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskMode\:\:Review will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Http/Controllers/Tasks/RequestReReviewController.php
+
+		-
+			message: '#^Cannot cast float\|int\|list\<string\>\|string to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: app/Http/Middleware/RestrictToIngress.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$status \(string\) does not accept App\\Enums\\DeploymentStatus\:\:Failed\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Jobs/Deployments/DeployBranchJob.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$status \(string\) does not accept App\\Enums\\DeploymentStatus\:\:Running\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Jobs/Deployments/DeployBranchJob.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$status \(string\) does not accept App\\Enums\\DeploymentStatus\:\:Starting\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Jobs/Deployments/DeployBranchJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\DeploymentStatus\:\:Destroyed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/Deployments/DestroyDeploymentJob.php
+
+		-
+			message: '#^Cannot access property \$slug on App\\Models\\Repository\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Jobs/Deployments/GarbageCollectTemplateSnapshotsJob.php
+
+		-
+			message: '#^Method App\\Jobs\\Deployments\\GarbageCollectTemplateSnapshotsJob\:\:computePinnedSet\(\) return type with generic class Illuminate\\Support\\Collection does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Jobs/Deployments/GarbageCollectTemplateSnapshotsJob.php
+
+		-
+			message: '#^Method App\\Jobs\\Deployments\\GarbageCollectTemplateSnapshotsJob\:\:listAllSnapshots\(\) should return list\<App\\DataTransferObjects\\TemplateSnapshotRef\> but returns array\<int, App\\DataTransferObjects\\TemplateSnapshotRef\>\.$#'
+			identifier: return.type
+			count: 1
+			path: app/Jobs/Deployments/GarbageCollectTemplateSnapshotsJob.php
+
+		-
+			message: '#^Parameter \#1 \$string of function trim expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Jobs/Deployments/GarbageCollectTemplateSnapshotsJob.php
+
+		-
+			message: '#^Parameter \#1 \$value of function collect expects Illuminate\\Contracts\\Support\\Arrayable\<int\<0, max\>, string\>\|iterable\<int\<0, max\>, string\>\|null, list\<string\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Jobs/Deployments/GarbageCollectTemplateSnapshotsJob.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$status \(string\) does not accept App\\Enums\\DeploymentStatus\:\:Hibernated\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Jobs/Deployments/HibernateIdleDeploymentsJob.php
+
+		-
+			message: '#^Cannot access property \$current_template_version on App\\Models\\Repository\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Jobs/Deployments/RebuildDeploymentJob.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$status \(string\) does not accept App\\Enums\\DeploymentStatus\:\:Running\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Jobs/Deployments/RebuildDeploymentJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\DeploymentStatus\:\:Hibernated will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/Deployments/UpdateDeploymentJob.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\DeploymentStatus\:\:Running will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Jobs/Deployments/UpdateDeploymentJob.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and App\\Enums\\DeploymentStatus\:\:Starting will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Jobs/Deployments/WakeHibernatedDeploymentJob.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: app/Jobs/Deployments/WakeHibernatedDeploymentJob.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Jobs/Deployments/WatchdogStuckDeploymentsJob.php
 
 		-
 			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
@@ -49,31 +265,7 @@ parameters:
 			path: app/Jobs/ProcessCIResultJob.php
 
 		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
-			count: 1
-			path: app/Jobs/ClarificationReplyJob.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Jobs/ClarificationReplyJob.php
-
-		-
-			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
-			path: app/Jobs/ResearchYakJob.php
-
-		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
-			count: 1
-			path: app/Jobs/ResearchYakJob.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
+			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
 			path: app/Jobs/ResearchYakJob.php
@@ -82,49 +274,13 @@ parameters:
 			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
 			identifier: identical.alwaysFalse
 			count: 1
-			path: app/Jobs/ResearchYakJob.php
-
-		-
-			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
-			path: app/Jobs/RetryYakJob.php
-
-		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
-			count: 1
-			path: app/Jobs/RetryYakJob.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Jobs/RetryYakJob.php
-
-		-
-			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
 			path: app/Jobs/RunYakJob.php
 
 		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
+			message: '#^Parameter \#3 \$prUrl of method App\\Services\\PriorFindingsHydrator\:\:hydrate\(\) expects string, string\|null given\.$#'
+			identifier: argument.type
 			count: 1
-			path: app/Jobs/RunYakJob.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Jobs/RunYakJob.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Jobs/RunYakJob.php
+			path: app/Jobs/RunYakReviewJob.php
 
 		-
 			message: '#^Strict comparison using \=\=\= between string\|null and App\\Enums\\TaskStatus\:\:Cancelled will always evaluate to false\.$#'
@@ -133,20 +289,8 @@ parameters:
 			path: app/Jobs/RunYakReviewJob.php
 
 		-
-			message: '#^Call to function in_array\(\) with arguments string, array\{App\\Enums\\TaskStatus\:\:Success, App\\Enums\\TaskStatus\:\:Failed, App\\Enums\\TaskStatus\:\:Expired, App\\Enums\\TaskStatus\:\:Cancelled\} and true will always evaluate to false\.$#'
-			identifier: function.impossibleType
-			count: 1
-			path: app/Jobs/SetupYakJob.php
-
-		-
-			message: '#^Result of && is always false\.$#'
-			identifier: booleanAnd.alwaysFalse
-			count: 1
-			path: app/Jobs/SetupYakJob.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\TaskStatus\:\:Failed will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
+			message: '#^Property App\\Models\\Repository\:\:\$preview_manifest \(string\|null\) does not accept array\<string, mixed\>\.$#'
+			identifier: assign.propertyType
 			count: 1
 			path: app/Jobs/SetupYakJob.php
 
@@ -173,6 +317,78 @@ parameters:
 			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: app/Livewire/Channels/ChannelList.php
+
+		-
+			message: '#^Method App\\Livewire\\Deployments\\DeploymentIndex\:\:render\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Livewire/Deployments/DeploymentIndex.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Destroying is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Livewire/Deployments/DeploymentShow.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Pending is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Livewire/Deployments/DeploymentShow.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Starting is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Livewire/Deployments/DeploymentShow.php
+
+		-
+			message: '#^Method App\\Livewire\\Deployments\\DeploymentShow\:\:render\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Livewire/Deployments/DeploymentShow.php
+
+		-
+			message: '#^Method App\\Livewire\\Deployments\\ManifestForm\:\:render\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Livewire/Deployments/ManifestForm.php
+
+		-
+			message: '#^Offset ''checkout_refresh'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Deployments/ManifestForm.php
+
+		-
+			message: '#^Offset ''cold_start'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Deployments/ManifestForm.php
+
+		-
+			message: '#^Offset ''health_probe_path'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Deployments/ManifestForm.php
+
+		-
+			message: '#^Offset ''port'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Deployments/ManifestForm.php
+
+		-
+			message: '#^Offset ''wake_timeout_seconds'' on array\{\}\|string on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: app/Livewire/Deployments/ManifestForm.php
+
+		-
+			message: '#^Method App\\Livewire\\Repositories\\RebuildAllDeploymentsAction\:\:render\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Livewire/Repositories/RebuildAllDeploymentsAction.php
 
 		-
 			message: '#^Cannot call method delete\(\) on App\\Models\\User\|null\.$#'
@@ -301,6 +517,12 @@ parameters:
 			path: app/Livewire/Settings/TwoFactor/RecoveryCodes.php
 
 		-
+			message: '#^Method App\\Livewire\\Tasks\\PreviewWidget\:\:render\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Livewire/Tasks/PreviewWidget.php
+
+		-
 			message: '#^Result of && is always false\.$#'
 			identifier: booleanAnd.alwaysFalse
 			count: 2
@@ -337,10 +559,148 @@ parameters:
 			path: app/Livewire/Tasks/TaskDetail.php
 
 		-
-			message: '#^Call to function is_array\(\) with array\{name\?\: string\} will always evaluate to true\.$#'
-			identifier: function.alreadyNarrowedType
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
 			count: 1
-			path: app/Channels/Linear/IssueFetcher.php
+			path: app/Observers/BranchDeploymentObserver.php
+
+		-
+			message: '#^Parameter \#2 \$newStatus of method App\\Services\\DeploymentGitHubSync\:\:sync\(\) expects App\\Enums\\DeploymentStatus, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Observers/BranchDeploymentObserver.php
+
+		-
+			message: '#^Cannot access property \$preview_manifest on App\\Models\\Repository\|null\.$#'
+			identifier: property.nonObject
+			count: 2
+			path: app/Services/DeploymentContainerManager.php
+
+		-
+			message: '#^Cannot access property \$slug on App\\Models\\Repository\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/DeploymentContainerManager.php
+
+		-
+			message: '#^Parameter \#1 \$data of static method App\\DataTransferObjects\\PreviewManifest\:\:fromArray\(\) expects array\|null, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: app/Services/DeploymentContainerManager.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between '''' and '''' will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 1
+			path: app/Services/DeploymentContainerManager.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: app/Services/DeploymentContainerManager.php
+
+		-
+			message: '#^Cannot access property \$slug on App\\Models\\Repository\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/DeploymentGitHubSync.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$github_deployment_id \(int\<0, max\>\|null\) does not accept int\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Services/DeploymentGitHubSync.php
+
+		-
+			message: '#^Cannot call method isPast\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/DeploymentShareTokens.php
+
+		-
+			message: '#^Cannot access property \$preview_manifest on App\\Models\\Repository\|null\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Destroyed is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Destroying is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Failed is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Hibernated is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Pending is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Running is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match arm comparison between string and App\\Enums\\DeploymentStatus\:\:Starting is always false\.$#'
+			identifier: match.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Method App\\Services\\DeploymentWaker\:\:dispatchWake\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Parameter \#1 \$data of static method App\\DataTransferObjects\\PreviewManifest\:\:fromArray\(\) expects array\|null, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Property App\\Models\\BranchDeployment\:\:\$status \(string\) does not accept App\\Enums\\DeploymentStatus\:\:Starting\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\DeploymentStatus\:\:Hibernated will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/DeploymentWaker.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and App\\Enums\\DeploymentStatus\:\:Destroyed will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: app/Services/IncusSandboxManager.php
 
 		-
 			message: '#^Binary operation "\^" between string\|false and string\|false results in an error\.$#'
@@ -361,19 +721,13 @@ parameters:
 			path: app/Services/TaskJobResolver.php
 
 		-
-			message: '#^Cannot access property \$value on string\.$#'
-			identifier: property.nonObject
+			message: '#^Parameter \#1 \$string of function trim expects string, string\|null given\.$#'
+			identifier: argument.type
 			count: 1
-			path: app/Channels/Slack/BlockFormatter.php
+			path: app/Support/BranchHostname.php
 
 		-
-			message: '#^Method App\\Channels\\Slack\\BlockFormatter\:\:contextChips\(\) never returns null so it can be removed from the return type\.$#'
-			identifier: return.unusedType
+			message: '#^Parameter \#3 \$subject of function preg_replace expects array\<float\|int\|string\>\|string, string\|null given\.$#'
+			identifier: argument.type
 			count: 1
-			path: app/Channels/Slack/BlockFormatter.php
-
-		-
-			message: '#^Strict comparison using \=\=\= between list\{0\: non\-falsy\-string, 1\?\: non\-falsy\-string, 2\?\: non\-falsy\-string\} and array\{\} will always evaluate to false\.$#'
-			identifier: identical.alwaysFalse
-			count: 1
-			path: app/Channels/Slack/BlockFormatter.php
+			path: app/Support/BranchHostname.php
