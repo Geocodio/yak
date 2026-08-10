@@ -71,11 +71,16 @@ class AppService
     public function installationClient(int $installationId): PendingRequest
     {
         return Http::withToken($this->getInstallationToken($installationId))
-            ->withHeaders(['Accept' => 'application/vnd.github+json']);
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            // GitHub 301s requests for a renamed repository to its new path.
+            // Guzzle's default (non-strict) handling replays a redirected
+            // POST as a GET, which silently turns a write into a no-op —
+            // fail loudly instead so a stale name is visible.
+            ->withOptions(['allow_redirects' => ['strict' => true]]);
     }
 
     /**
-     * @return array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
+     * @return array<int, array{id: int, full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
      */
     public function listInstallationRepositories(int $installationId): array
     {
@@ -97,6 +102,7 @@ class AppService
 
             foreach ($fetched as $repo) {
                 $repos[] = [
+                    'id' => (int) $repo['id'],
                     'full_name' => $repo['full_name'],
                     'name' => $repo['name'],
                     'description' => $repo['description'] ?? null,
@@ -182,6 +188,40 @@ class AppService
         return [
             'description' => $response->json('description'),
             'topics' => $response->json('topics', []),
+        ];
+    }
+
+    /**
+     * Fetch a repository's current GitHub identity.
+     *
+     * Accepts a possibly-stale `owner/name`: GitHub redirects requests for a
+     * renamed repository to its current path, so the response reports where
+     * the repository lives now, along with the id that never changes.
+     *
+     * @return array{id: int, full_name: string, clone_url: ?string}|null
+     */
+    public function getRepositoryIdentity(int $installationId, string $repoSlug): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}");
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $id = $response->json('id');
+        $fullName = $response->json('full_name');
+
+        if (! is_numeric($id) || ! is_string($fullName) || $fullName === '') {
+            return null;
+        }
+
+        $cloneUrl = $response->json('clone_url');
+
+        return [
+            'id' => (int) $id,
+            'full_name' => $fullName,
+            'clone_url' => is_string($cloneUrl) && $cloneUrl !== '' ? $cloneUrl : null,
         ];
     }
 

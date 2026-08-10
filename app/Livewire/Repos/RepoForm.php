@@ -61,7 +61,13 @@ class RepoForm extends Component
 
     public string $selected_github_repo = '';
 
-    /** @var array<int, array{full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}> */
+    public ?int $selected_github_repo_id = null;
+
+    /**
+     * Cached listings written before repo ids were tracked may omit `id`.
+     *
+     * @var array<int, array{id?: int, full_name: string, name: string, description: ?string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
+     */
     public array $github_repos = [];
 
     /** @var array<int, array{slug: string, name: string}> */
@@ -155,12 +161,17 @@ class RepoForm extends Component
     }
 
     /**
-     * @return array<int, array{full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
+     * @return array<int, array{id?: int, full_name: string, name: string, default_branch: string, clone_url: string, pushed_at: ?string, private: bool, language: ?string}>
      */
     #[Computed]
     public function filteredGitHubRepos(): array
     {
-        $alreadyAdded = array_flip(Repository::pluck('slug')->all());
+        // Match on both keys: a repository renamed on GitHub is still
+        // tracked under its original slug, and must not look addable.
+        $alreadyAdded = array_flip(array_merge(
+            Repository::pluck('slug')->all(),
+            Repository::whereNotNull('github_full_name')->pluck('github_full_name')->all(),
+        ));
 
         $available = array_filter(
             $this->github_repos,
@@ -189,6 +200,7 @@ class RepoForm extends Component
         }
 
         $this->selected_github_repo = $repo['full_name'];
+        $this->selected_github_repo_id = isset($repo['id']) ? (int) $repo['id'] : null;
         $this->name = $repo['name'];
         $this->description = $repo['description'] ?? '';
         $this->git_url = $repo['clone_url'];
@@ -208,6 +220,7 @@ class RepoForm extends Component
     public function clearSelectedRepo(): void
     {
         $this->selected_github_repo = '';
+        $this->selected_github_repo_id = null;
         $this->name = '';
         $this->git_url = '';
         $this->default_branch = 'main';
@@ -346,6 +359,13 @@ class RepoForm extends Component
             $this->repository->update($data);
             Flux::toast('Repository updated.');
         } else {
+            // The slug is frozen at creation; GitHub's own coordinates are
+            // tracked separately so a later rename doesn't orphan webhooks.
+            if ($this->selected_github_repo !== '') {
+                $data['github_full_name'] = $this->selected_github_repo;
+                $data['github_repo_id'] = $this->selected_github_repo_id;
+            }
+
             $this->repository = Repository::create($data);
             $this->dispatchSetupTask();
             Flux::toast('Repository created. Setup task dispatched.');

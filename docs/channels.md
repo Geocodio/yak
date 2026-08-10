@@ -59,8 +59,25 @@ The GitHub App subscribes to:
 - `pull_request.closed` — merge/close tracking (also denormalizes onto `pr_reviews`)
 - `pull_request.opened` / `ready_for_review` / `reopened` — triggers a full PR review when `pr_review_enabled` is on
 - `pull_request.synchronize` — triggers an incremental PR review
+- `push` / `delete` — refreshes and tears down branch preview deployments
+- `repository.renamed` / `repository.transferred` — keeps Yak's record of where the repo lives on GitHub current
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review events.
+
+### Repository renames
+
+A repository's `slug` is Yak's internal identity: it is the foreign key for tasks, the base of preview hostnames, the sandbox template alias, and the on-disk clone path. It never changes.
+
+Where the repository lives on GitHub is tracked separately, in `github_repo_id` (immutable) and `github_full_name` (`owner/name`). Inbound webhooks resolve by repo id first, then by GitHub name, then by slug. A `repository.renamed` or `repository.transferred` event updates the GitHub side in place, so nothing else has to move.
+
+If a rename happened while the app was not subscribed to the `repository` event, heal the record after the fact:
+
+```
+php artisan yak:sync-github-repo-identity --dry-run   # preview
+php artisan yak:sync-github-repo-identity
+```
+
+GitHub redirects requests for a repository's old path, so the stale name Yak holds is enough to rediscover the current one.
 
 ### Usage
 
