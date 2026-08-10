@@ -25,7 +25,7 @@ class ActionsBuildScanner implements CIBuildScanner
 
         /** @var array<string, mixed> $response */
         $response = $client
-            ->get("https://api.github.com/repos/{$repository->slug}/actions/runs", [
+            ->get("https://api.github.com/repos/{$repository->github_full_name}/actions/runs", [
                 'branch' => $repository->default_branch,
                 'status' => 'failure',
                 'created' => '>=' . $cutoff,
@@ -39,7 +39,7 @@ class ActionsBuildScanner implements CIBuildScanner
         $failures = collect();
 
         foreach ($runs as $run) {
-            $annotations = $this->getFailureAnnotations($client, $repository->slug, (int) $run['id']);
+            $annotations = $this->getFailureAnnotations($client, $repository->github_full_name, (int) $run['id']);
 
             foreach ($annotations as $annotation) {
                 $failures->push(new CIBuildFailure(

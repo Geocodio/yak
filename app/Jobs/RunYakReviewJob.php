@@ -291,7 +291,7 @@ class RunYakReviewJob implements ShouldQueue
 
         $priorFindings = $scope === 'incremental'
             ? app(PriorFindingsHydrator::class)->hydrate(
-                $repository->slug,
+                $repository->github_full_name,
                 (int) $metadata['pr_number'],
                 $this->task->pr_url,
                 $changedFiles,
@@ -409,7 +409,7 @@ class RunYakReviewJob implements ShouldQueue
                     try {
                         $replyResp = $github->replyToReviewComment(
                             $installationId,
-                            $repository->slug,
+                            $repository->github_full_name,
                             $prNumber,
                             $pf->commentId,
                             $pf->replyBody,
@@ -439,7 +439,7 @@ class RunYakReviewJob implements ShouldQueue
         // Ask GitHub which (file, line) pairs live inside a diff hunk —
         // only those can carry a review comment without being rejected
         // with a 422. Everything else gets rolled into the review body.
-        $prFiles = $github->listPullRequestFiles($installationId, $repository->slug, $prNumber);
+        $prFiles = $github->listPullRequestFiles($installationId, $repository->github_full_name, $prNumber);
         $validLines = GitHubDiffLines::buildMap($prFiles);
 
         $lineComments = [];
@@ -546,7 +546,7 @@ class RunYakReviewJob implements ShouldQueue
         try {
             $response = $github->createPullRequestReview(
                 $installationId,
-                $repository->slug,
+                $repository->github_full_name,
                 $prNumber,
                 $body,
                 'COMMENT',
@@ -572,7 +572,7 @@ class RunYakReviewJob implements ShouldQueue
             }
             $response = $github->createPullRequestReview(
                 $installationId,
-                $repository->slug,
+                $repository->github_full_name,
                 $prNumber,
                 $body,
                 'COMMENT',
@@ -614,7 +614,7 @@ class RunYakReviewJob implements ShouldQueue
                     try {
                         app(GitHubAppService::class)->dismissPullRequestReview(
                             $installationId,
-                            $repository->slug,
+                            $repository->github_full_name,
                             (int) $metadata['pr_number'],
                             (int) $prior->github_review_id,
                             'Superseded by newer commits',

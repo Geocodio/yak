@@ -37,7 +37,7 @@ class SyncRepoDescriptions extends Command
         }
 
         foreach ($repos as $repo) {
-            $info = $github->getRepository($installationId, $repo->slug);
+            $info = $github->getRepository($installationId, $repo->github_full_name);
 
             if ($info === null) {
                 $this->components->warn("Could not fetch {$repo->slug}");

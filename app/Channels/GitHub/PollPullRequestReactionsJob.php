@@ -4,6 +4,7 @@ namespace App\Channels\GitHub;
 
 use App\Models\PrReviewComment;
 use App\Models\PrReviewCommentReaction;
+use App\Models\Repository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -54,7 +55,11 @@ class PollPullRequestReactionsJob implements ShouldQueue
             return;
         }
 
-        $reactions = $github->listCommentReactions($installationId, $review->repo, (int) $comment->github_comment_id);
+        $reactions = $github->listCommentReactions(
+            $installationId,
+            Repository::githubNameFor((string) $review->repo),
+            (int) $comment->github_comment_id,
+        );
 
         $seenIds = [];
 

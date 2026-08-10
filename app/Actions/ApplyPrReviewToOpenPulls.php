@@ -13,7 +13,7 @@ class ApplyPrReviewToOpenPulls
         $github = app(GitHubAppService::class);
         $yakBot = $github->appBotLogin();
 
-        $prs = $github->listOpenPullRequests($installationId, $repository->slug);
+        $prs = $github->listOpenPullRequests($installationId, $repository->github_full_name);
 
         $enqueued = 0;
 

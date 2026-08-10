@@ -30,7 +30,7 @@ class BackfillOpenPrDeployments
         $installationId = (int) config('yak.channels.github.installation_id');
         $cap = (int) config('yak.deployments.running_cap', 6);
 
-        $prs = $this->github->listOpenPullRequests($installationId, $repository->slug);
+        $prs = $this->github->listOpenPullRequests($installationId, $repository->github_full_name);
 
         $created = 0;
 
