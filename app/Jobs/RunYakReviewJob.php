@@ -289,7 +289,7 @@ class RunYakReviewJob implements ShouldQueue
             fn (string $f): bool => ! PathMatcher::matches($f, $pathExcludes),
         ));
 
-        $priorFindings = $scope === 'incremental'
+        $priorFindings = $scope === 'incremental' && $this->task->pr_url !== null
             ? app(PriorFindingsHydrator::class)->hydrate(
                 $repository->github_full_name,
                 (int) $metadata['pr_number'],

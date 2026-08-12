@@ -23,7 +23,7 @@ class DeploymentWaker
      * cold-boot shim. The shim auto-refreshes; once the job flips status
      * to Running, the next request resolves to `ready` and Caddy proxies.
      *
-     * @return array{state: 'ready'|'pending'|'failed', host?: string, port?: int, reason?: string}
+     * @return array{state: 'ready', host: string, port: int}|array{state: 'pending'}|array{state: 'failed', reason: string}
      */
     public function ensureReady(BranchDeployment $deployment): array
     {
@@ -53,6 +53,8 @@ class DeploymentWaker
     /**
      * Atomically transition Hibernated → Starting and dispatch the wake job.
      * Lock prevents two concurrent preview hits from each enqueueing a job.
+     *
+     * @return array{state: 'pending'}
      */
     private function dispatchWake(BranchDeployment $deployment): array
     {

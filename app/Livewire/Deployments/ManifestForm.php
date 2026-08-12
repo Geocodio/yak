@@ -3,6 +3,7 @@
 namespace App\Livewire\Deployments;
 
 use App\Models\Repository;
+use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
@@ -53,7 +54,7 @@ class ManifestForm extends Component
         session()->flash('status', 'Preview manifest saved.');
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.deployments.manifest-form');
     }

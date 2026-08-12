@@ -10,10 +10,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
+ * Cast-backed attributes are declared here because Larastan resolves casts
+ * from the `$casts` property only -- it does not read the `casts()` method
+ * form this model uses, so without these it infers the raw column types.
+ *
  * @property array<int, string>|null $pr_review_path_excludes
  * @property int $pr_reviews_30d_count
  * @property int|null $github_repo_id
  * @property string $github_full_name
+ * @property array<string, mixed>|null $preview_manifest
+ * @property array<string, mixed>|null $preview_env_overrides
+ * @property int $current_template_version
+ * @property int|null $sandbox_base_version
+ * @property bool $is_default
+ * @property bool $is_active
+ * @property bool $pr_review_enabled
+ * @property bool $deployments_enabled
  */
 class Repository extends Model
 {

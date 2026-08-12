@@ -60,7 +60,7 @@ class DeploymentWakeController
 
         // Branch 2: share-session cookie → honor like OAuth.
         $cookieIn = $request->cookie(self::SHARE_COOKIE_NAME);
-        $cookieOk = $cookieIn !== null && $this->tokens->verifyCookie($deployment, $cookieIn);
+        $cookieOk = is_string($cookieIn) && $this->tokens->verifyCookie($deployment, $cookieIn);
 
         // Branch 3: OAuth. Redirect to the dashboard's auth-bounce
         // endpoint which runs in the dashboard's own session context —
@@ -106,7 +106,7 @@ class DeploymentWakeController
             'failed' => response()->view('deployments.cold_boot_shim', [
                 'deployment' => $deployment,
                 'failed' => true,
-                'reason' => $outcome['reason'] ?? 'Unknown error',
+                'reason' => $outcome['reason'],
             ], 502),
         };
     }

@@ -49,13 +49,17 @@ class GarbageCollectTemplateSnapshotsJob implements ShouldQueue
             return [];
         }
 
-        return collect(preg_split('/\r?\n/', trim($result->output())))
-            ->map(fn ($line) => TemplateSnapshotRef::parse(trim($line)))
+        $lines = preg_split('/\r?\n/', trim($result->output())) ?: [];
+
+        return array_values(collect($lines)
+            ->map(fn (string $line) => TemplateSnapshotRef::parse(trim($line)))
             ->filter()
-            ->values()
-            ->all();
+            ->all());
     }
 
+    /**
+     * @return Collection<int, string>
+     */
     private function computePinnedSet(): Collection
     {
         $pinned = collect();

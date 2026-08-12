@@ -9,6 +9,7 @@ use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
 use App\Support\HibernationDuration;
 use App\Support\ReleaseBranch;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -109,7 +110,7 @@ class DeploymentShow extends Component
         session()->flash('status', 'Destroy queued.');
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.deployments.deployment-show');
     }
