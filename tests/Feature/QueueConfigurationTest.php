@@ -181,3 +181,90 @@ test('supervisord config has default worker with correct settings', function () 
         ->toContain('--timeout=30')
         ->toContain('numprocs=3');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Production Supervisord Configuration
+|--------------------------------------------------------------------------
+|
+| docker/supervisord.conf is the file that actually ships — Dockerfile
+| copies it to /etc/supervisor/conf.d/yak.conf and runs it as the CMD.
+| (base_path('supervisord.conf') above is a local-dev leftover.)
+|
+*/
+
+/**
+ * Parse docker/supervisord.conf into [program name => [directive => value]].
+ *
+ * @return array<string, array<string, string>>
+ */
+function productionSupervisordPrograms(): array
+{
+    $path = base_path('docker/supervisord.conf');
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+    if ($lines === false) {
+        throw new RuntimeException("Unable to read {$path}");
+    }
+
+    $programs = [];
+    $current = null;
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+
+        if (str_starts_with($line, '#') || str_starts_with($line, ';')) {
+            continue;
+        }
+
+        if (preg_match('/^\[program:(.+)\]$/', $line, $matches) === 1) {
+            $current = $matches[1];
+            $programs[$current] = [];
+
+            continue;
+        }
+
+        if (str_starts_with($line, '[')) {
+            $current = null;
+
+            continue;
+        }
+
+        if ($current !== null && str_contains($line, '=')) {
+            [$key, $value] = explode('=', $line, 2);
+            $programs[$current][trim($key)] = trim($value);
+        }
+    }
+
+    return $programs;
+}
+
+test('every supervisord program that runs artisan runs as www-data', function () {
+    // supervisord itself runs as root, so a program with no `user=` inherits
+    // root. Any program that drives the Laravel app must drop to www-data:
+    // /data, /app/storage and the shared CLAUDE_CONFIG_DIR are all www-data
+    // owned, and root-owned files landing there lock www-data out.
+    $programs = productionSupervisordPrograms();
+
+    $artisanPrograms = array_filter(
+        $programs,
+        fn (array $directives): bool => str_contains($directives['command'] ?? '', 'artisan'),
+    );
+
+    expect($artisanPrograms)->not->toBeEmpty();
+
+    foreach ($artisanPrograms as $name => $directives) {
+        expect($directives['user'] ?? null)->toBe('www-data', "[program:{$name}] must declare user=www-data");
+    }
+});
+
+test('scheduler runs as www-data so healthchecks cannot leave root-owned claude state', function () {
+    // yak:healthcheck runs every 15 minutes and shells the Claude CLI out
+    // against /home/yak/.claude (ClaudeAuthCheck). As root it leaves a
+    // root-owned .oauth_refresh.lock behind, which blocks every subsequent
+    // www-data OAuth refresh until someone re-authenticates by hand.
+    $programs = productionSupervisordPrograms();
+
+    expect($programs)->toHaveKey('scheduler');
+    expect($programs['scheduler']['user'] ?? null)->toBe('www-data');
+});
