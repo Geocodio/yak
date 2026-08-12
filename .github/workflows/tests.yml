@@ -28,6 +28,10 @@ jobs:
           tools: composer:v2
           extensions: sqlite3, pdo_sqlite
           coverage: xdebug
+          # The full suite runs ~1500 tests in a single process and peaks
+          # just over PHP's 128M default. Minimum workable limit is 256M;
+          # 512M leaves room for the suite to grow.
+          ini-values: memory_limit=512M
 
       - name: Setup Node
         uses: actions/setup-node@v6
