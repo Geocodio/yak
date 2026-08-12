@@ -15,6 +15,9 @@ final readonly class PreviewManifest
         public int $healthProbeTimeoutSeconds,
     ) {}
 
+    /**
+     * @param  array<string, mixed>|null  $data
+     */
     public static function fromArray(?array $data): self
     {
         $data ??= [];

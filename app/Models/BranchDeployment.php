@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\DeploymentStatus;
 use App\Observers\BranchDeploymentObserver;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
+use Carbon\CarbonImmutable;
 use Database\Factories\BranchDeploymentFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,22 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Cast-backed attributes are declared here because Larastan resolves casts
+ * from the `$casts` property only -- it does not read the `casts()` method
+ * form this model uses, so without these it infers the raw column types.
+ *
+ * @property DeploymentStatus $status
+ * @property int $template_version
+ * @property int|null $pr_number
+ * @property int|null $github_deployment_id
+ * @property bool $dirty
+ * @property bool $long_lived
+ * @property int|null $idle_timeout_minutes
+ * @property CarbonImmutable|null $last_accessed_at
+ * @property CarbonImmutable|null $public_share_expires_at
+ * @property-read Repository $repository
+ */
 #[ObservedBy([BranchDeploymentObserver::class])]
 class BranchDeployment extends Model
 {

@@ -13,8 +13,11 @@ final class BranchHostname
     public static function sanitize(string $raw): string
     {
         $lower = strtolower($raw);
-        $replaced = preg_replace('/[^a-z0-9-]/', '-', $lower);
-        $collapsed = preg_replace('/-+/', '-', $replaced);
+        // preg_replace returns null only on PCRE failure (e.g. backtrack
+        // limit); an unusable hostname fragment degrades to empty rather
+        // than propagating null into the caller's concatenation.
+        $replaced = preg_replace('/[^a-z0-9-]/', '-', $lower) ?? '';
+        $collapsed = preg_replace('/-+/', '-', $replaced) ?? '';
 
         return trim($collapsed, '-');
     }

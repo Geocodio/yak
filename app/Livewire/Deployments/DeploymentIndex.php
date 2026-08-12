@@ -5,6 +5,7 @@ namespace App\Livewire\Deployments;
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -42,7 +43,7 @@ class DeploymentIndex extends Component
         return $query->orderByDesc('last_accessed_at')->paginate(25);
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.deployments.deployment-index');
     }

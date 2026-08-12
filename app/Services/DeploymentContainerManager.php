@@ -157,6 +157,7 @@ class DeploymentContainerManager
             'metadata' => null,
         ]);
 
+        /** @var string $buffer mutated by reference from the output callback below */
         $buffer = '';
         $lastFlush = microtime(true);
 
