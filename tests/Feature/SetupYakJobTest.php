@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\YakPromptBuilder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
@@ -251,6 +252,49 @@ test('setup increments attempts', function () {
 
     $task->refresh();
     expect($task->attempts)->toBe(1);
+});
+
+test('agent budget is job timeout minus elapsed pre-agent time minus shutdown buffer', function () {
+    // A fixed "$timeout - 30" ignores time spent on sandbox create + clone
+    // before the agent starts, so the agent's graceful deadline lands at the
+    // same instant as the worker's pcntl hard kill — and the hard kill wins,
+    // discarding an otherwise-complete setup.
+    $this->travelTo(now());
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_budget',
+        resultSummary: 'Done',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    // Sandbox creation burns 600s of the job budget before the agent starts.
+    $fakeSandbox = new class extends FakeSandboxManager
+    {
+        public function create(YakTask $task, Repository $repository): string
+        {
+            Carbon::setTestNow(now()->addSeconds(600));
+
+            return parent::create($task, $repository);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'slow-repo', 'path' => '/home/yak/repos/slow-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'slow-repo', 'mode' => TaskMode::Setup]);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    // 7200 (job timeout) - 600 (elapsed) - 180 (shutdown buffer)
+    expect($fake->lastCall()->timeoutSeconds)->toBe(6420);
 });
 
 /*

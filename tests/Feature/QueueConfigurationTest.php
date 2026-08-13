@@ -20,7 +20,7 @@ use App\Models\YakTask;
 */
 
 test('database queue retry_after defaults above the longest job timeout', function () {
-    expect(config('queue.connections.database.retry_after'))->toBe(4200);
+    expect(config('queue.connections.database.retry_after'))->toBe(7800);
 });
 
 /*
@@ -43,7 +43,7 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
     }
 });
 
-test('per-task yak-claude jobs share SetupYakJob\'s 3600 second timeout', function () {
+test('per-task yak-claude jobs share a 3600 second timeout', function () {
     // Laravel enforces $timeout via pcntl_alarm → posix_kill(getmypid(), SIGKILL).
     // Agent sessions with browser capture regularly exceed 10 minutes; a lower
     // cap silently murders the worker mid-stream (tasks 4406/4407/4408 hit this).
@@ -52,12 +52,21 @@ test('per-task yak-claude jobs share SetupYakJob\'s 3600 second timeout', functi
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
         new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
-        new SetupYakJob(YakTask::factory()->pending()->make()),
     ];
 
     foreach ($jobs as $job) {
         expect($job->timeout)->toBe(3600);
     }
+});
+
+test('setup job gets a 7200 second timeout', function () {
+    // Setup on heavy repos (local docker image builds, npm/composer installs,
+    // migrations, verification) legitimately exceeds an hour: task 5431 for
+    // Geocodio/geocodio finished the setup twice and was killed during final
+    // wrap-up at exactly 3600s both times.
+    $job = new SetupYakJob(YakTask::factory()->pending()->make());
+
+    expect($job->timeout)->toBe(7200);
 });
 
 test('per-task yak-claude jobs have exponential backoff', function () {
