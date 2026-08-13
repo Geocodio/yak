@@ -26,10 +26,21 @@ use Illuminate\Support\Facades\Log;
 
 class SetupYakJob implements ShouldQueue
 {
-    use HandlesAgentJobFailure;
+    use HandlesAgentJobFailure {
+        failed as handleAgentJobFailure;
+    }
     use Queueable;
 
-    public int $timeout = 3600;
+    // Setup on heavy repos legitimately exceeds an hour: local docker image
+    // builds, composer/npm installs, migrations, and verification. Task 5431
+    // (Geocodio/geocodio) finished the setup twice and was hard-killed during
+    // final wrap-up at exactly 3600s both times.
+    public int $timeout = 7200;
+
+    // Seconds reserved between the agent's own deadline and the worker's
+    // pcntl hard kill, so the agent can wind down and report a result
+    // instead of being SIGKILLed mid-stream.
+    private const AGENT_SHUTDOWN_BUFFER_SECONDS = 180;
 
     // A failed setup rarely succeeds on retry without manual intervention,
     // and each retry burns another agent budget. Fail fast; users can
@@ -51,6 +62,22 @@ class SetupYakJob implements ShouldQueue
             new PausesDuringDrain,
             new EnsureDailyBudget,
         ];
+    }
+
+    /**
+     * The worker's hard kill (timeout, crash) lands here without ever
+     * reaching handleError(), which normally resets setup_status — so the
+     * repo would show 'running' forever. Only downgrade when the task
+     * actually failed: failed() can also fire after a successful run if a
+     * post-success cleanup step blew up, and a promoted template is ready.
+     */
+    public function failed(?\Throwable $e): void
+    {
+        $this->handleAgentJobFailure($e);
+
+        if ($this->task->fresh()?->status === TaskStatus::Failed) {
+            Repository::where('slug', $this->task->repo)->first()?->update(['setup_status' => 'failed']);
+        }
     }
 
     public function handle(AgentRunner $agent): void
@@ -106,7 +133,7 @@ class SetupYakJob implements ShouldQueue
                 prompt: YakPromptBuilder::setupPrompt($repository->name),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
-                timeoutSeconds: $this->timeout - 30,
+                timeoutSeconds: $this->agentTimeoutSeconds(),
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
@@ -147,6 +174,21 @@ class SetupYakJob implements ShouldQueue
                 $sandbox->destroy($containerName);
             }
         }
+    }
+
+    /**
+     * Agent budget = job timeout minus time already spent (template
+     * invalidation, sandbox create, clone) minus a shutdown buffer.
+     * A fixed "$timeout - 30" ignored the pre-agent work, so the agent's
+     * graceful deadline landed at the same instant as the worker's pcntl
+     * hard kill — and the hard kill won, discarding the whole run.
+     */
+    private function agentTimeoutSeconds(): int
+    {
+        $startedAt = $this->task->started_at ?? now();
+        $elapsed = (int) $startedAt->diffInSeconds(now());
+
+        return max(60, $this->timeout - $elapsed - self::AGENT_SHUTDOWN_BUFFER_SECONDS);
     }
 
     private function cloneRepoInSandbox(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
