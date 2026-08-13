@@ -719,6 +719,11 @@ class IncusSandboxManager
             ));
         }
 
+        // The recursive push copies everything — including any host-side
+        // .oauth_refresh.lock orphaned by a killed refresh, which would block
+        // the sandbox CLI's own token refresh and 401 the whole run.
+        $this->run($containerName, 'rm -rf /home/yak/.claude/.oauth_refresh.lock', timeout: 10, asRoot: true);
+
         // Fix ownership inside container. `incus file push` lands files as
         // root; chown must run as root to change ownership to yak.
         $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10, asRoot: true);

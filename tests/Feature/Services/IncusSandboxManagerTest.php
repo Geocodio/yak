@@ -53,6 +53,40 @@ it('reclaims a stale container before creating a new one', function () {
     Process::assertRan("incus delete {$container} --force 2>/dev/null");
 });
 
+it('removes any copied oauth refresh lock from the sandbox after pushing claude config', function () {
+    // The whole host .claude dir is pushed into the sandbox. If the host has
+    // a stale .oauth_refresh.lock (orphaned by a killed refresh), the copy
+    // would block the sandbox CLI's own token refresh and 401 the run.
+    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
+    mkdir($configDir, 0755, true);
+    config()->set('yak.sandbox.claude_config_source', $configDir);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'lock-repo',
+        'sandbox_snapshot' => 'yak-tpl-lock-repo/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'lock-repo']);
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus config *' => Process::result(exitCode: 0),
+        'incus start *' => Process::result(exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        'incus exec *' => Process::result(exitCode: 0),
+        'incus file *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, 'rm -rf /home/yak/.claude/.oauth_refresh.lock'));
+});
+
 it('skips reclaim when no stale container is present', function () {
     $repo = Repository::factory()->create([
         'slug' => 'clean',
