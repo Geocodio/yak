@@ -294,6 +294,78 @@
         </div>
     @endif
 
+    {{-- Section: Conversation (follow-up chain + composer) --}}
+    @if($this->conversation->count() > 1 || $task->prIsOpen())
+        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
+            <h2 class="mb-4 text-lg font-medium text-yak-slate">Conversation</h2>
+
+            @if($this->conversation->count() > 0)
+                <div class="space-y-4">
+                    @foreach($this->conversation as $turn)
+                        <div class="flex flex-col gap-1" wire:key="turn-{{ $turn->id }}">
+                            {{-- "You" line: the original instruction / follow-up text --}}
+                            @if($turn->description)
+                                <div class="flex items-start gap-2">
+                                    <span class="mt-0.5 shrink-0 rounded-full bg-yak-orange/15 px-2 py-0.5 text-[11px] font-medium text-yak-orange">You</span>
+                                    <span class="text-[13px] text-yak-slate">{{ $turn->description }}</span>
+                                </div>
+                            @endif
+                            {{-- "Yak" line: result summary (with outcome) --}}
+                            @if($turn->result_summary)
+                                <div class="flex items-start gap-2">
+                                    <span class="mt-0.5 shrink-0 rounded-full bg-yak-green/15 px-2 py-0.5 text-[11px] font-medium text-yak-green">Yak</span>
+                                    <div class="flex flex-col gap-0.5">
+                                        <span class="text-[13px] text-yak-slate">{{ Str::limit($turn->result_summary, 200) }}</span>
+                                    </div>
+                                </div>
+                            @endif
+                            {{-- Timestamp + run link for non-root turns --}}
+                            <div class="ml-16 flex items-center gap-3">
+                                <span class="font-mono text-[11px] text-yak-tan">
+                                    @if($this->isActiveStatus())
+                                        {{ $turn->created_at->diffForHumans() }}
+                                    @else
+                                        {{ $turn->created_at->format('g:i:s A') }}
+                                    @endif
+                                </span>
+                                @if(! $turn->is($this->conversation->first()))
+                                    <a href="{{ route('tasks.show', $turn) }}" class="text-[11px] text-yak-blue hover:text-yak-slate">open run</a>
+                                @endif
+                            </div>
+                        </div>
+                        @if(! $loop->last)
+                            <div class="border-t border-[rgba(200,184,154,0.2)]"></div>
+                        @endif
+                    @endforeach
+                </div>
+            @endif
+
+            {{-- Follow-up composer (only when PR is open) --}}
+            @if($task->prIsOpen())
+                <div class="mt-5 border-t border-[rgba(200,184,154,0.3)] pt-5">
+                    <label for="follow-up-input" class="mb-2 block text-sm font-medium text-yak-slate">Send feedback to Yak</label>
+                    <textarea
+                        id="follow-up-input"
+                        wire:model="followUpText"
+                        rows="3"
+                        placeholder="Describe what you'd like Yak to change or add to this PR…"
+                        data-testid="follow-up-input"
+                        class="w-full rounded-xl border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange"
+                    ></textarea>
+                    @error('followUpText')
+                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <p class="text-xs text-yak-blue">Yak will push changes to this PR.</p>
+                        <flux:button wire:click="sendFollowUp" variant="primary" size="sm">
+                            Send to Yak
+                        </flux:button>
+                    </div>
+                </div>
+            @endif
+        </div>
+    @endif
+
     {{-- Video walkthrough (Reviewer Cut + Director's Cut) --}}
     @if($task->mode !== \App\Enums\TaskMode::Review)
         <livewire:tasks.video-walkthrough-card :task="$task" :key="'video-walkthrough-' . $task->id" />

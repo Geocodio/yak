@@ -95,6 +95,13 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['chosenOption'],
             ],
+            'tasks-follow-up' => [
+                'view' => 'prompts.tasks.follow-up',
+                'label' => 'Follow-up',
+                'category' => 'advanced',
+                'type' => 'task',
+                'variables' => ['instructions'],
+            ],
             'tasks-review' => [
                 'view' => 'prompts.tasks.review',
                 'label' => 'PR Review',

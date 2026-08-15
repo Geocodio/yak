@@ -43,7 +43,10 @@ trait HandlesAgentJobFailure
         }
 
         $terminal = [TaskStatus::Success, TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled];
-        if (! in_array($task->status, $terminal, true)) {
+
+        /** @var TaskStatus $currentStatus */
+        $currentStatus = $task->status;
+        if (! in_array($currentStatus, $terminal, true)) {
             $task->update([
                 'status' => TaskStatus::Failed,
                 'error_log' => $errorMessage,
@@ -51,7 +54,9 @@ trait HandlesAgentJobFailure
             ]);
         }
 
-        if ($task->status === TaskStatus::Failed && $task->source !== 'system') {
+        /** @var TaskStatus $statusAfter */
+        $statusAfter = $task->status;
+        if ($statusAfter === TaskStatus::Failed && $task->source !== 'system') {
             try {
                 SendNotificationJob::dispatch($task, NotificationType::Error, $errorMessage);
             } catch (Throwable $dispatchError) {

@@ -11,6 +11,7 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
@@ -291,9 +292,10 @@ class WebhookController extends Controller
     }
 
     /**
-     * Handle a thread reply — dispatch ClarificationReplyJob if task is awaiting clarification.
+     * Handle a thread reply — dispatch ClarificationReplyJob if the task is
+     * awaiting clarification, or create a follow-up when the task has an open PR.
      *
-     * @param  array{channel?: string, thread_ts?: string, text?: string}  $event
+     * @param  array{channel?: string, thread_ts?: string, text?: string, subtype?: string, bot_id?: string}  $event
      */
     private function handleThreadReply(array $event): JsonResponse
     {
@@ -304,20 +306,45 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $task = YakTask::where('slack_channel', $channel)
+        $clarificationTask = YakTask::where('slack_channel', $channel)
             ->where('slack_thread_ts', $threadTs)
             ->where('status', 'awaiting_clarification')
             ->first();
 
-        if ($task !== null) {
+        if ($clarificationTask !== null) {
             $replyText = $event['text'] ?? '';
-            TaskLogger::info($task, 'Clarification received');
+            TaskLogger::info($clarificationTask, 'Clarification received');
 
-            if (RepoClarificationResolver::awaitingRepoChoice($task)) {
-                RepoClarificationResolver::resolve($task, $replyText);
+            if (RepoClarificationResolver::awaitingRepoChoice($clarificationTask)) {
+                RepoClarificationResolver::resolve($clarificationTask, $replyText);
             } else {
-                ClarificationReplyJob::dispatch($task, $replyText);
+                ClarificationReplyJob::dispatch($clarificationTask, $replyText);
             }
+
+            return response()->json(['ok' => true]);
+        }
+
+        $followUpTask = YakTask::where('slack_channel', $channel)
+            ->where('slack_thread_ts', $threadTs)
+            ->whereNotNull('pr_url')
+            ->latest()
+            ->first();
+
+        if ($followUpTask !== null) {
+            $text = (string) ($event['text'] ?? '');
+
+            if (trim($text) === '') {
+                return response()->json(['ok' => true]);
+            }
+
+            if (! $followUpTask->prIsOpen()) {
+                SendNotificationJob::dispatch($followUpTask, NotificationType::Error, "This PR is already merged or closed — start a new request and I'll pick it up.");
+
+                return response()->json(['ok' => true]);
+            }
+
+            TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
+            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack');
         }
 
         return response()->json(['ok' => true]);

@@ -30,6 +30,7 @@ test('creates PR via GitHub API with installation token', function () {
             'token' => 'ghs_test_installation_token',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 42,
             'html_url' => 'https://github.com/org/my-repo/pull/42',
@@ -78,6 +79,7 @@ test('uses cached installation token when not expired', function () {
     ]);
 
     Http::fake([
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -127,6 +129,7 @@ test('requests new installation token when cached token is expired', function ()
             'token' => 'ghs_fresh_token',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -166,6 +169,7 @@ test('caches installation token in database after request', function () {
             'token' => 'ghs_new_cached',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -211,6 +215,7 @@ test('PR title uses Yak Fix prefix for fix mode tasks', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -241,7 +246,8 @@ test('PR title uses Yak Fix prefix for fix mode tasks', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), '/pulls')
+        return $request->method() === 'POST'
+            && str_contains($request->url(), '/pulls')
             && $request['title'] === 'Yak Fix: Fix broken auth';
     });
 });
@@ -252,6 +258,7 @@ test('PR title uses Yak Research prefix for research mode tasks', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -282,7 +289,8 @@ test('PR title uses Yak Research prefix for research mode tasks', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), '/pulls')
+        return $request->method() === 'POST'
+            && str_contains($request->url(), '/pulls')
             && $request['title'] === 'Yak Research: Investigate memory leak';
     });
 });
@@ -293,6 +301,7 @@ test('PR title truncation preserves multi-byte characters at the boundary', func
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -327,7 +336,7 @@ test('PR title truncation preserves multi-byte characters at the boundary', func
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -346,6 +355,7 @@ test('PR title truncates long descriptions', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -377,7 +387,8 @@ test('PR title truncates long descriptions', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), '/pulls')
+        return $request->method() === 'POST'
+            && str_contains($request->url(), '/pulls')
             && str_starts_with($request['title'], 'Yak Fix: ')
             && str_ends_with($request['title'], '...');
     });
@@ -395,6 +406,7 @@ test('PR body includes source, repo, attempts, and result summary', function () 
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/test-repo/pull/1',
@@ -426,7 +438,7 @@ test('PR body includes source, repo, attempts, and result summary', function () 
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -446,6 +458,7 @@ test('PR body does not wrap the agent summary in a "What changed" heading', func
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -473,7 +486,7 @@ test('PR body does not wrap the agent summary in a "What changed" heading', func
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) use ($agentSummary) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -491,6 +504,7 @@ test('PR body omits the Files changed section and Yak warning footer', function 
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -516,7 +530,7 @@ test('PR body omits the Files changed section and Yak warning footer', function 
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -544,6 +558,7 @@ test('PR body includes screenshot signed URLs', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -583,7 +598,7 @@ test('PR body includes screenshot signed URLs', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -602,6 +617,7 @@ test('PR body prefers reviewer cut over raw webm when both exist', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -641,7 +657,7 @@ test('PR body prefers reviewer cut over raw webm when both exist', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -659,6 +675,7 @@ test('PR body falls back to raw webm when no reviewer cut exists', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -694,7 +711,7 @@ test('PR body falls back to raw webm when no reviewer cut exists', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -711,6 +728,7 @@ test('PR body includes video walkthrough signed URLs', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 1,
             'html_url' => 'https://github.com/org/my-repo/pull/1',
@@ -745,7 +763,7 @@ test('PR body includes video walkthrough signed URLs', function () {
     app()->call([$job, 'handle']);
 
     Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/pulls')) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
 
@@ -769,6 +787,7 @@ test('applies yak label to every PR', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 5,
             'html_url' => 'https://github.com/org/my-repo/pull/5',
@@ -809,6 +828,7 @@ test('applies yak-large-change label when LOC exceeds threshold', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 7,
             'html_url' => 'https://github.com/org/my-repo/pull/7',
@@ -850,6 +870,7 @@ test('does not apply yak-large-change label for small changes', function () {
             'token' => 'ghs_test',
             'expires_at' => now()->addHour()->toIso8601String(),
         ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
         'api.github.com/repos/*/pulls' => Http::response([
             'number' => 8,
             'html_url' => 'https://github.com/org/my-repo/pull/8',

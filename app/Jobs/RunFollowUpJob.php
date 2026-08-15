@@ -29,7 +29,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-class ClarificationReplyJob implements ShouldQueue
+class RunFollowUpJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
     use Queueable;
@@ -42,7 +42,6 @@ class ClarificationReplyJob implements ShouldQueue
 
     public function __construct(
         public readonly YakTask $task,
-        public readonly string $replyText,
     ) {
         $this->onQueue('yak-claude');
     }
@@ -65,34 +64,36 @@ class ClarificationReplyJob implements ShouldQueue
         TaskContext::set($this->task);
 
         try {
-            $this->runReply($agent);
+            $this->runFollowUp($agent);
         } finally {
             TaskContext::clear();
         }
     }
 
-    private function runReply(AgentRunner $agent): void
+    private function runFollowUp(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
 
-        $this->task->update([
-            'status' => TaskStatus::Running,
-        ]);
+        $this->task->update(['status' => TaskStatus::Running]);
+        TaskLogger::info($this->task, 'Picked up by worker — follow-up');
 
-        TaskLogger::info($this->task, 'Picked up by worker — clarification reply');
+        if ($this->task->branch_name === null) {
+            $this->handleError('Follow-up task has no branch to push to.');
+
+            return;
+        }
 
         try {
-            // Create sandbox from repo snapshot
             $containerName = $sandbox->create($this->task, $repository);
-            TaskLogger::info($this->task, 'Sandbox created for clarification reply', ['container' => $containerName]);
+            TaskLogger::info($this->task, 'Sandbox created for follow-up', ['container' => $containerName]);
 
-            // Configure git and checkout the task branch
-            $this->prepareBranch($sandbox, $containerName, $repository);
+            $branchName = $this->task->branch_name;
+            $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
 
             $result = $agent->run(new AgentRunRequest(
-                prompt: YakPromptBuilder::clarificationReplyPrompt($this->replyText),
+                prompt: YakPromptBuilder::followUpPrompt((string) $this->task->description),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
@@ -115,19 +116,11 @@ class ClarificationReplyJob implements ShouldQueue
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
         } catch (ClaudeAuthException $e) {
-            Log::error('ClarificationReplyJob auth failure', [
-                'task_id' => $this->task->id,
-                'error' => $e->getMessage(),
-            ]);
-
+            Log::error('RunFollowUpJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
-            Log::error('ClarificationReplyJob failed', [
-                'task_id' => $this->task->id,
-                'error' => $e->getMessage(),
-            ]);
-
+            Log::error('RunFollowUpJob failed', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $this->handleError($e->getMessage());
         } finally {
             if ($containerName !== null) {
@@ -135,13 +128,6 @@ class ClarificationReplyJob implements ShouldQueue
                 $sandbox->destroy($containerName);
             }
         }
-    }
-
-    private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
-    {
-        $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
-
-        $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
@@ -153,9 +139,6 @@ class ClarificationReplyJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
         ];
 
-        // Park at AwaitingCi only when there's actually CI to wait for. For
-        // ci_system=none the next step is PR creation via ProcessCIResultJob,
-        // so keep the task in Running until that finalizes.
         if ($repository->ci_system !== 'none') {
             $update['status'] = TaskStatus::AwaitingCi;
         }
@@ -164,16 +147,19 @@ class ClarificationReplyJob implements ShouldQueue
 
         DailyCost::accumulate($result->costUsd);
 
-        if ($this->task->branch_name !== null) {
-            $this->pushExistingBranch($sandbox, $containerName, $repository, $this->task->branch_name);
+        $branchName = $this->task->branch_name;
 
-            TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
+        if ($branchName === null) {
+            throw new \RuntimeException('Follow-up reached the push step with no branch name.');
         }
+
+        $this->pushExistingBranch($sandbox, $containerName, $repository, $branchName);
+        TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 
         if ($repository->ci_system === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {
-            $message = YakPersonality::generate(NotificationType::Progress, "Pushed updated fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
+            $message = YakPersonality::generate(NotificationType::Progress, "Pushed your changes on branch {$branchName} — waiting for CI before updating the PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
     }
@@ -186,6 +172,6 @@ class ClarificationReplyJob implements ShouldQueue
             'completed_at' => now(),
         ]);
 
-        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
+        TaskLogger::error($this->task, 'Follow-up failed', ['error' => $errorMessage]);
     }
 }

@@ -158,6 +158,7 @@ return [
             'done_state_id' => env('YAK_LINEAR_DONE_STATE_ID'),
             'cancelled_state_id' => env('YAK_LINEAR_CANCELLED_STATE_ID'),
             'in_review_state_id' => env('YAK_LINEAR_IN_REVIEW_STATE_ID'),
+            'started_state_id' => env('YAK_LINEAR_STARTED_STATE_ID'),
 
             // OAuth2 app credentials — used by the outbound driver to post
             // comments and update issue state as the Yak app.
@@ -251,6 +252,17 @@ return [
             'default_days' => (int) env('YAK_DEPLOYMENTS_SHARE_DEFAULT_DAYS', 7),
             'max_days' => (int) env('YAK_DEPLOYMENTS_SHARE_MAX_DAYS', 30),
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Follow-Up Configuration
+    |--------------------------------------------------------------------------
+    */
+
+    'followup' => [
+        'github_prefixes' => env('YAK_FOLLOWUP_GITHUB_PREFIXES', '/yak,@yak-bot[bot],yak:'),
+        'github_batch_window_seconds' => (int) env('YAK_FOLLOWUP_GITHUB_BATCH_WINDOW_SECONDS', 60),
     ],
 
     /*
