@@ -45,7 +45,7 @@ class CreatePullRequestJob implements ShouldQueue
         // A follow-up pushes to an existing branch, so a PR already exists.
         // Detect it and post a summary comment instead of POSTing a new PR
         // (which GitHub rejects with 422).
-        $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->slug, (string) $this->task->branch_name);
+        $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name);
 
         if ($existing !== null) {
             if (! isset($existing['number'], $existing['html_url'])) {
