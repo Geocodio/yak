@@ -358,7 +358,7 @@ class WebhookController extends Controller
         }
 
         $installationId = (int) config('yak.channels.github.installation_id');
-        $repoSlug = (string) ($request->input('repository.full_name') ?? $task->repo);
+        $repoSlug = (string) ($request->input('repository.full_name') ?? Repository::githubNameFor((string) $task->repo));
         $commentId = (int) ($comment['id'] ?? 0);
 
         if ($installationId > 0 && $commentId > 0) {

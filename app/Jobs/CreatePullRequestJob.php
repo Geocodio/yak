@@ -60,7 +60,7 @@ class CreatePullRequestJob implements ShouldQueue
             $summary = $this->task->result_summary ?? '_No summary available._';
             $gitHub->commentOnPullRequest(
                 $installationId,
-                $repository->slug,
+                $repository->github_full_name,
                 (int) $existing['number'],
                 mb_convert_encoding("Yak pushed changes addressing your feedback:\n\n{$summary}", 'UTF-8', 'UTF-8'),
             );

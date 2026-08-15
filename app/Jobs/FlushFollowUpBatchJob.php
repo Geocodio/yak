@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService;
 use App\Models\FollowUpPendingComment;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -57,7 +58,7 @@ class FlushFollowUpBatchJob implements ShouldQueue
             if ($installationId > 0 && $prNumber > 0) {
                 $gitHub->commentOnPullRequest(
                     $installationId,
-                    (string) $parent->repo,
+                    Repository::githubNameFor((string) $parent->repo),
                     $prNumber,
                     "This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.",
                 );
