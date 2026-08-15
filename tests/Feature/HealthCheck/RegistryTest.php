@@ -43,6 +43,9 @@ it('channel section includes only enabled channels', function () {
     $checks = app(Registry::class)->forSection(HealthSection::Channels);
     $ids = array_map(fn ($c) => $c->id(), $checks);
 
+    // A single channel may contribute more than one check: Slack ships
+    // `slack` for the bot connection and `slack-interactivity` for the
+    // Interactivity URL heuristic.
     expect($ids)->toBe(['slack', 'slack-interactivity']);
     expect($checks[0])->toBeInstanceOf(SlackChannelCheck::class);
 });
@@ -56,6 +59,8 @@ it('throws when asked for an unknown id', function () {
 })->throws(InvalidArgumentException::class);
 
 it('returns name for a given id without instantiating a run', function () {
+    // Channel checks only resolve while their channel is enabled, and the
+    // beforeEach hook clears every channel credential.
     config(['yak.channels.linear.webhook_secret' => 'sec']);
 
     expect(app(Registry::class)->nameFor('queue-worker'))->toBe('Queue Worker');

@@ -35,3 +35,51 @@ it('ignores non-running deployments', function () {
 
     (new HibernateIdleDeploymentsJob)->handle(app(DeploymentContainerManager::class));
 });
+
+it('does not hibernate a long-lived deployment within its longer TTL', function () {
+    config()->set('yak.deployments.idle_minutes', 15);
+    config()->set('yak.deployments.long_lived_idle_minutes', 4320); // 3 days
+
+    $longLived = BranchDeployment::factory()->running()->longLived()->create([
+        'last_accessed_at' => now()->subMinutes(30), // past 15m, well within 3d
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldNotReceive('stop');
+
+    (new HibernateIdleDeploymentsJob)->handle(app(DeploymentContainerManager::class));
+
+    expect($longLived->fresh()->status)->toBe(DeploymentStatus::Running);
+});
+
+it('hibernates a long-lived deployment past its custom TTL', function () {
+    $longLived = BranchDeployment::factory()->running()->longLived(720)->create([
+        'last_accessed_at' => now()->subMinutes(800), // past the 720m override
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('stop')->once()->with(Mockery::on(fn ($d) => $d->id === $longLived->id));
+
+    (new HibernateIdleDeploymentsJob)->handle(app(DeploymentContainerManager::class));
+
+    expect($longLived->fresh()->status)->toBe(DeploymentStatus::Hibernated);
+});
+
+it('hibernates a long-lived deployment whose custom TTL is shorter than the global default', function () {
+    config()->set('yak.deployments.idle_minutes', 15);
+
+    // A 5-minute override is shorter than the 15m global default.
+    $longLived = BranchDeployment::factory()->running()->longLived(5)->create([
+        'last_accessed_at' => now()->subMinutes(10),
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('stop')->once()->with(Mockery::on(fn ($d) => $d->id === $longLived->id));
+
+    (new HibernateIdleDeploymentsJob)->handle(app(DeploymentContainerManager::class));
+
+    expect($longLived->fresh()->status)->toBe(DeploymentStatus::Hibernated);
+});

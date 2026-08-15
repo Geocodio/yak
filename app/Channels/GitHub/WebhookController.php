@@ -54,6 +54,10 @@ class WebhookController extends Controller
             return $this->handlePullRequestReviewComment($request, $github);
         }
 
+        if ($event === 'repository') {
+            return $this->handleRepositoryEvent($request);
+        }
+
         if ($event !== 'pull_request') {
             return response()->json(['ok' => true, 'skipped' => "unhandled event: {$event}"]);
         }
@@ -129,7 +133,7 @@ class WebhookController extends Controller
             $commitSha = (string) $request->input('check_suite.head_sha', '');
 
             if ($installationId > 0 && $commitSha !== '') {
-                $output = $github->getFailedCheckRunOutput($installationId, $task->repo, $commitSha);
+                $output = $github->getFailedCheckRunOutput($installationId, $repository->github_full_name, $commitSha);
             }
         }
 
@@ -409,17 +413,73 @@ class WebhookController extends Controller
 
     private function resolveRepositoryFromPayload(Request $request): ?Repository
     {
-        $fullName = (string) $request->input('repository.full_name');
+        return Repository::resolveFromGitHub(
+            $request->input('repository.id') !== null ? (int) $request->input('repository.id') : null,
+            (string) $request->input('repository.full_name'),
+        );
+    }
 
-        return $fullName === '' ? null : Repository::where('slug', $fullName)->first();
+    /**
+     * Track GitHub renames and transfers so inbound webhooks keep resolving.
+     *
+     * Only the GitHub-side coordinates move. The slug stays put — it is the
+     * FK for `tasks.repo`, the preview hostname base, the incus template
+     * alias, and the on-disk clone path.
+     */
+    private function handleRepositoryEvent(Request $request): JsonResponse
+    {
+        $action = (string) $request->input('action');
+
+        if (! in_array($action, ['renamed', 'transferred'], true)) {
+            return response()->json(['ok' => true, 'skipped' => "unhandled repository action: {$action}"]);
+        }
+
+        $repository = $this->resolveRepositoryFromPayload($request);
+
+        if ($repository === null) {
+            return response()->json(['ok' => true, 'skipped' => 'repo not registered']);
+        }
+
+        $newFullName = (string) $request->input('repository.full_name');
+
+        if ($newFullName === '') {
+            return response()->json(['ok' => true, 'skipped' => 'payload carries no full name']);
+        }
+
+        $previousFullName = $repository->github_full_name;
+        $updates = ['github_full_name' => $newFullName];
+
+        $cloneUrl = (string) $request->input('repository.clone_url');
+
+        if ($cloneUrl !== '') {
+            $updates['git_url'] = $cloneUrl;
+        }
+
+        if ($repository->github_repo_id === null) {
+            $repoId = (int) $request->input('repository.id');
+
+            if ($repoId > 0) {
+                $updates['github_repo_id'] = $repoId;
+            }
+        }
+
+        $repository->update($updates);
+
+        Log::info('GitHub repository ' . $action, [
+            'repository_id' => $repository->id,
+            'repository_slug' => $repository->slug,
+            'from' => $previousFullName,
+            'to' => $newFullName,
+        ]);
+
+        return response()->json(['ok' => true, 'updated' => true]);
     }
 
     private function handleReviewTrigger(Request $request, string $action): JsonResponse
     {
         $pr = (array) $request->input('pull_request', []);
-        $repoFullName = (string) $request->input('repository.full_name', '');
 
-        $repo = Repository::where('slug', $repoFullName)->first();
+        $repo = $this->resolveRepositoryFromPayload($request);
 
         if ($repo === null || ! $repo->is_active) {
             return response()->json(['ok' => true, 'skipped' => 'repo not registered or inactive']);

@@ -15,7 +15,7 @@ class DeploymentGitHubSync
         $deployment->loadMissing('repository');
 
         $installationId = (int) config('yak.channels.github.installation_id');
-        $repoSlug = $deployment->repository->slug;
+        $repoSlug = $deployment->repository->github_full_name;
         $environmentUrl = 'https://' . $deployment->hostname;
         $environment = 'preview/' . $deployment->branch_name;
 

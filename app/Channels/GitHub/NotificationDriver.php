@@ -4,6 +4,7 @@ namespace App\Channels\GitHub;
 
 use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
+use App\Models\Repository;
 use App\Models\YakTask;
 
 class NotificationDriver implements NotificationDriverContract
@@ -13,7 +14,7 @@ class NotificationDriver implements NotificationDriverContract
     public function send(YakTask $task, NotificationType $type, string $message): void
     {
         $installationId = (int) config('yak.channels.github.installation_id');
-        $repo = (string) $task->repo;
+        $repo = Repository::githubNameFor((string) $task->repo);
 
         if ($installationId === 0 || $repo === '' || $task->pr_url === null) {
             return;

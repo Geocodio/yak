@@ -37,7 +37,8 @@ class RunYakJob implements ShouldQueue
     // or long tool calls regularly exceed 10 minutes. Laravel enforces
     // this via pcntl_alarm → posix_kill(getmypid(), SIGKILL), so setting
     // it too low silently murders the worker mid-stream and leaves the
-    // sandbox + reserved job orphaned. 3600s matches SetupYakJob's budget.
+    // sandbox + reserved job orphaned. (SetupYakJob gets a higher budget
+    // because heavy repos can take over an hour to build from scratch.)
     public int $timeout = 3600;
 
     /** @var array<int, int> */

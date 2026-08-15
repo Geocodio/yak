@@ -180,7 +180,7 @@ class ProcessCIResultJob implements ShouldQueue
         try {
             $compare = app(GitHubAppService::class)->compareBranches(
                 $installationId,
-                $repository->slug,
+                $repository->github_full_name,
                 $repository->default_branch,
                 $this->task->branch_name,
             );

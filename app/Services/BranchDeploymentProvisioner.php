@@ -6,6 +6,7 @@ use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Support\BranchHostname;
+use App\Support\ReleaseBranch;
 use Illuminate\Support\Str;
 
 class BranchDeploymentProvisioner
@@ -22,6 +23,7 @@ class BranchDeploymentProvisioner
                 'container_name' => 'deploy-' . Str::lower((string) Str::ulid()),
                 'template_version' => max(1, $repository->current_template_version ?? 0),
                 'status' => DeploymentStatus::Pending,
+                'long_lived' => ReleaseBranch::matches($branchName),
             ],
         );
     }

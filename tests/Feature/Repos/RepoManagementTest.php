@@ -496,3 +496,76 @@ test('sentry projects load as dropdown options', function () {
             ['slug' => 'api', 'name' => 'API Service'],
         ]);
 });
+
+test('adding a repo from GitHub records its immutable repo id and full name', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'id' => 987654,
+            'full_name' => 'acme/cool-project',
+            'name' => 'cool-project',
+            'description' => null,
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/cool-project.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+        ],
+    ], 300);
+
+    Livewire::test(RepoForm::class)
+        ->call('selectGitHubRepo', 'acme/cool-project')
+        ->set('ci_system', 'github_actions')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $repo = Repository::where('slug', 'acme/cool-project')->first();
+
+    expect($repo->github_repo_id)->toBe(987654)
+        ->and($repo->github_full_name)->toBe('acme/cool-project');
+});
+
+test('the edit form surfaces the GitHub name when it has diverged from the slug', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/provisioner',
+        'github_full_name' => 'geocodio/infrastructure',
+    ]);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->assertSee('GitHub repository')
+        ->assertSee('geocodio/infrastructure');
+});
+
+test('the edit form omits the GitHub name when it still matches the slug', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'github_full_name' => 'geocodio/api',
+    ]);
+
+    Livewire::test(RepoForm::class, ['repository' => $repo])
+        ->assertDontSee('GitHub repository');
+});
+
+test('a repo already tracked under an old slug is not offered again after a GitHub rename', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+
+    Repository::factory()->create([
+        'slug' => 'geocodio/provisioner',
+        'github_full_name' => 'geocodio/infrastructure',
+    ]);
+
+    Cache::put('github-installation-repos', [
+        [
+            'id' => 555,
+            'full_name' => 'geocodio/infrastructure',
+            'name' => 'infrastructure',
+            'description' => null,
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/geocodio/infrastructure.git',
+            'pushed_at' => '2026-04-10T12:00:00Z',
+        ],
+    ], 300);
+
+    $component = Livewire::test(RepoForm::class);
+
+    expect($component->instance()->github_repos)->toHaveCount(1)
+        ->and($component->instance()->filteredGitHubRepos())->toBe([]);
+});

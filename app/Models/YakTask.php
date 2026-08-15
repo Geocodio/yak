@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
+use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
+/**
+ * Cast-backed attributes are declared here because Larastan resolves casts
+ * from the `$casts` property only -- it does not read the `casts()` method
+ * form this model uses, so without these it infers the raw column types.
+ *
+ * @property TaskStatus $status
+ * @property TaskMode $mode
+ * @property array<int, string>|null $clarification_options
+ * @property array<int, mixed>|null $screenshots
+ * @property CarbonImmutable|null $clarification_expires_at
+ * @property CarbonImmutable|null $started_at
+ * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $pr_merged_at
+ * @property CarbonImmutable|null $pr_closed_at
+ */
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */

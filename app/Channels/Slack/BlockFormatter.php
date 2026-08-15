@@ -50,7 +50,7 @@ class BlockFormatter
         // (Progress) and types where the message itself is the payload
         // (Clarification).
         $contextLine = self::contextChips($task);
-        if ($contextLine !== null && self::shouldShowContext($type)) {
+        if (self::shouldShowContext($type)) {
             $blocks[] = [
                 'type' => 'context',
                 'elements' => [
@@ -127,7 +127,7 @@ class BlockFormatter
         };
     }
 
-    private static function contextChips(YakTask $task): ?string
+    private static function contextChips(YakTask $task): string
     {
         $chips = [];
 
@@ -135,13 +135,10 @@ class BlockFormatter
             $chips[] = "*Repo:* `{$task->repo}`";
         }
 
-        if ($task->mode) {
-            $chips[] = '*Mode:* ' . ucfirst($task->mode->value);
-        }
-
+        $chips[] = '*Mode:* ' . ucfirst($task->mode->value);
         $chips[] = "*Task:* #{$task->id}";
 
-        return $chips === [] ? null : implode('  ·  ', $chips);
+        return implode('  ·  ', $chips);
     }
 
     /**

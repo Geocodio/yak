@@ -26,7 +26,7 @@ class RequestReReviewController extends Controller
         abort_if($prNumber <= 0, 404);
 
         $installationId = (int) config('yak.channels.github.installation_id');
-        $pr = $github->getPullRequest($installationId, $repo->slug, $prNumber);
+        $pr = $github->getPullRequest($installationId, $repo->github_full_name, $prNumber);
 
         if (! isset($pr['html_url'], $pr['head']['sha'])) {
             abort(502, 'Could not fetch pull request from GitHub.');

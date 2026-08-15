@@ -50,7 +50,7 @@ class RepositoriesCheck implements HealthCheck
 
         foreach ($repos as $repo) {
             try {
-                $response = $client->get("https://api.github.com/repos/{$repo->slug}");
+                $response = $client->get("https://api.github.com/repos/{$repo->github_full_name}");
 
                 if ($response->successful()) {
                     $reachable++;

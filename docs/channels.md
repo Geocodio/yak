@@ -61,10 +61,27 @@ The GitHub App subscribes to:
 - `pull_request.synchronize` — triggers an incremental PR review
 - `issue_comment.created` — `/yak` follow-up comments on an open PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review_comment.created` — `/yak` follow-up replies on an inline review comment (the file, line, and diff hunk are passed to Yak as context)
+- `push` / `delete` — refreshes and tears down branch preview deployments
+- `repository.renamed` / `repository.transferred` — keeps Yak's record of where the repo lives on GitHub current
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
 
 > **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments** and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
+
+### Repository renames
+
+A repository's `slug` is Yak's internal identity: it is the foreign key for tasks, the base of preview hostnames, the sandbox template alias, and the on-disk clone path. It never changes.
+
+Where the repository lives on GitHub is tracked separately, in `github_repo_id` (immutable) and `github_full_name` (`owner/name`). Inbound webhooks resolve by repo id first, then by GitHub name, then by slug. A `repository.renamed` or `repository.transferred` event updates the GitHub side in place, so nothing else has to move.
+
+If a rename happened while the app was not subscribed to the `repository` event, heal the record after the fact:
+
+```
+php artisan yak:sync-github-repo-identity --dry-run   # preview
+php artisan yak:sync-github-repo-identity
+```
+
+GitHub redirects requests for a repository's old path, so the stale name Yak holds is enough to rediscover the current one.
 
 ### Usage
 

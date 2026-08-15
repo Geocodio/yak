@@ -99,6 +99,12 @@
                     <div>
                         <flux:input wire:model="slug" label="Slug" disabled description="Auto-generated. Cannot be changed." />
                     </div>
+                    @if($repository->github_full_name !== $repository->slug)
+                        <div>
+                            <flux:input value="{{ $repository->github_full_name }}" label="GitHub repository" disabled
+                                description="Renamed on GitHub. Yak keeps the original slug so tasks, previews and the sandbox template stay put." />
+                        </div>
+                    @endif
                 @endif
                 <flux:input wire:model="name" label="Display Name" />
                 <div class="md:col-span-2">

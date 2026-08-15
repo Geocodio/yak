@@ -20,16 +20,21 @@ class HibernateIdleDeploymentsJob implements ShouldQueue
 
     public function handle(DeploymentContainerManager $manager): void
     {
-        $cutoff = now()->subMinutes((int) config('yak.deployments.idle_minutes'));
-
+        // The running set is bounded by running_cap (default 6), so resolving
+        // each deployment's effective TTL in PHP is cheap and keeps the
+        // per-deployment logic in one place (BranchDeployment::effectiveIdleMinutes).
         BranchDeployment::query()
             ->where('status', DeploymentStatus::Running->value)
-            ->where(function ($q) use ($cutoff) {
-                $q->where('last_accessed_at', '<', $cutoff)
-                    ->orWhereNull('last_accessed_at');
-            })
             ->get()
-            ->each(function (BranchDeployment $deployment) use ($manager) {
+            ->filter(function (BranchDeployment $deployment): bool {
+                if ($deployment->last_accessed_at === null) {
+                    return true;
+                }
+
+                return $deployment->last_accessed_at
+                    ->lt(now()->subMinutes($deployment->effectiveIdleMinutes()));
+            })
+            ->each(function (BranchDeployment $deployment) use ($manager): void {
                 try {
                     $manager->stop($deployment);
                     $deployment->status = DeploymentStatus::Hibernated;

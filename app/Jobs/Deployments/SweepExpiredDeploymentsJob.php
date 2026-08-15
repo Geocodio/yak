@@ -25,6 +25,7 @@ class SweepExpiredDeploymentsJob implements ShouldQueue
         // `<` predicate excluded those rows entirely, so they would
         // accumulate forever. Fall back to created_at when null.
         BranchDeployment::query()
+            ->where('long_lived', false)
             ->whereNotIn('status', [
                 DeploymentStatus::Destroyed->value,
                 DeploymentStatus::Destroying->value,

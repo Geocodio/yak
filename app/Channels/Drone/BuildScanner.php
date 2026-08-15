@@ -27,7 +27,7 @@ class BuildScanner implements CIBuildScanner
         // the caller keeps task volume sane.
         /** @var array<int, array{number: int, status: string, source?: string|null, started: int, link: string, after?: string|null}> $builds */
         $builds = Http::withToken($droneToken)
-            ->get("{$droneUrl}/api/repos/{$repository->slug}/builds")
+            ->get("{$droneUrl}/api/repos/{$repository->github_full_name}/builds")
             ->json();
 
         $failures = collect();
@@ -43,7 +43,7 @@ class BuildScanner implements CIBuildScanner
             }
 
             $buildUrl = $build['link'];
-            $logs = $this->getBuildLogs($droneUrl, $droneToken, $repository->slug, $build['number']);
+            $logs = $this->getBuildLogs($droneUrl, $droneToken, $repository->github_full_name, $build['number']);
             $testFailures = $this->parseTestFailures($logs);
 
             foreach ($testFailures as $failure) {
@@ -82,7 +82,7 @@ class BuildScanner implements CIBuildScanner
 
         /** @var array<int, array{number: int, status: string, started: int, link: string, after?: string|null}> $builds */
         $builds = Http::withToken($droneToken)
-            ->get("{$droneUrl}/api/repos/{$repository->slug}/builds", ['branch' => $branch])
+            ->get("{$droneUrl}/api/repos/{$repository->github_full_name}/builds", ['branch' => $branch])
             ->json() ?? [];
 
         // 60s grace: Drone can lag a few seconds behind the git push.
@@ -113,7 +113,7 @@ class BuildScanner implements CIBuildScanner
                 passed: false,
                 externalId: (string) $build['number'],
                 repository: $repository->slug,
-                output: $this->getBuildLogs($droneUrl, $droneToken, $repository->slug, $build['number']),
+                output: $this->getBuildLogs($droneUrl, $droneToken, $repository->github_full_name, $build['number']),
                 commitSha: $build['after'] ?? null,
                 metadata: ['build_url' => $build['link']],
             ),

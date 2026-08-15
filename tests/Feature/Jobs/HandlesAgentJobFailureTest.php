@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
@@ -81,6 +82,46 @@ it('does not dispatch a failure notification for system-source tasks', function 
     $job->failed(new RuntimeException('boom'));
 
     Queue::assertNotPushed(SendNotificationJob::class);
+});
+
+it('marks the repository setup_status failed when a setup job dies on timeout', function () {
+    // The worker's hard kill lands in failed(), which never went through
+    // handleError() — without this, setup_status stays 'running' forever
+    // (repo Geocodio/geocodio got stuck this way after task 5431 timed out).
+    $repository = Repository::factory()->create([
+        'slug' => 'acme/widgets',
+        'setup_status' => 'running',
+    ]);
+    $task = YakTask::factory()->create([
+        'repo' => 'acme/widgets',
+        'mode' => TaskMode::Setup,
+        'status' => TaskStatus::Running,
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->failed(new RuntimeException('App\Jobs\SetupYakJob has timed out.'));
+
+    expect($repository->refresh()->setup_status)->toBe('failed');
+});
+
+it('does not downgrade repository setup_status when the task already succeeded', function () {
+    // failed() can fire after a successful run if only post-success cleanup
+    // blew up; a promoted, ready template must not be re-marked failed.
+    $repository = Repository::factory()->create([
+        'slug' => 'acme/widgets',
+        'setup_status' => 'ready',
+    ]);
+    $task = YakTask::factory()->create([
+        'repo' => 'acme/widgets',
+        'mode' => TaskMode::Setup,
+        'status' => TaskStatus::Success,
+        'completed_at' => now()->subMinute(),
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->failed(new RuntimeException('late cleanup failure'));
+
+    expect($repository->refresh()->setup_status)->toBe('ready');
 });
 
 it('does not clobber a task that is already in a terminal state', function () {

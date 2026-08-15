@@ -4,6 +4,7 @@ namespace App\Livewire\Repositories;
 
 use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
 use App\Models\Repository;
+use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
 class RebuildAllDeploymentsAction extends Component
@@ -21,7 +22,7 @@ class RebuildAllDeploymentsAction extends Component
         session()->flash('status', 'Bulk rebuild queued for all active deployments.');
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.repositories.rebuild-all-deployments-action');
     }

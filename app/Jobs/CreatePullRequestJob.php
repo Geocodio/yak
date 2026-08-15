@@ -73,7 +73,7 @@ class CreatePullRequestJob implements ShouldQueue
         $title = mb_convert_encoding($this->buildPrTitle(), 'UTF-8', 'UTF-8');
         $body = mb_convert_encoding($this->buildPrBody($signedUrls), 'UTF-8', 'UTF-8');
 
-        $prResponse = $gitHub->createPullRequest($installationId, $repository->slug, [
+        $prResponse = $gitHub->createPullRequest($installationId, $repository->github_full_name, [
             'title' => $title,
             'head' => $this->task->branch_name,
             'base' => $repository->default_branch,
@@ -93,7 +93,7 @@ class CreatePullRequestJob implements ShouldQueue
             $labels[] = 'yak-large-change';
         }
 
-        $gitHub->addLabels($installationId, $repository->slug, $prNumber, $labels);
+        $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
 
         $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber]);
     }

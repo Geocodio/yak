@@ -19,6 +19,7 @@ it('returns repositories sorted by pushed_at descending with private and languag
             'total_count' => 3,
             'repositories' => [
                 [
+                    'id' => 1001,
                     'full_name' => 'acme/older',
                     'name' => 'older',
                     'description' => null,
@@ -29,6 +30,7 @@ it('returns repositories sorted by pushed_at descending with private and languag
                     'language' => 'Ruby',
                 ],
                 [
+                    'id' => 1002,
                     'full_name' => 'acme/newest',
                     'name' => 'newest',
                     'description' => null,
@@ -39,6 +41,7 @@ it('returns repositories sorted by pushed_at descending with private and languag
                     'language' => 'PHP',
                 ],
                 [
+                    'id' => 1003,
                     'full_name' => 'acme/middle',
                     'name' => 'middle',
                     'description' => null,
@@ -81,6 +84,7 @@ it('places repos with null pushed_at at the end', function () {
             'total_count' => 2,
             'repositories' => [
                 [
+                    'id' => 1006,
                     'full_name' => 'acme/unknown',
                     'name' => 'unknown',
                     'description' => null,
@@ -91,6 +95,7 @@ it('places repos with null pushed_at at the end', function () {
                     'language' => null,
                 ],
                 [
+                    'id' => 1007,
                     'full_name' => 'acme/recent',
                     'name' => 'recent',
                     'description' => null,

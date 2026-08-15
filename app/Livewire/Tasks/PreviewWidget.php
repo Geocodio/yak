@@ -5,6 +5,7 @@ namespace App\Livewire\Tasks;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Models\YakTask;
+use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -37,7 +38,7 @@ class PreviewWidget extends Component
             ->first();
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.tasks.preview-widget');
     }

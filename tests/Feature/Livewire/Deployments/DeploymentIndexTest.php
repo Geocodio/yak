@@ -25,3 +25,20 @@ it('filters by status', function () {
         ->assertSee('hib-one.yak.example.com')
         ->assertDontSee('running-one.yak.example.com');
 });
+
+it('highlights long-lived deployments with a badge and row accent', function () {
+    BranchDeployment::factory()->running()->longLived()->create(['branch_name' => 'release/1.0']);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentIndex::class)
+        ->assertSee('Long-lived')
+        ->assertSee('border-l-sky-400', escape: false);
+});
+
+it('does not highlight standard deployments', function () {
+    BranchDeployment::factory()->running()->create(['branch_name' => 'feat/x', 'long_lived' => false]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(DeploymentIndex::class)
+        ->assertDontSee('Long-lived');
+});

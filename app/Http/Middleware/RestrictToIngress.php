@@ -16,7 +16,8 @@ class RestrictToIngress
         // socket peer (the host-side reverse proxy forwarding via Docker
         // NAT). Laravel's trusted-proxies covers the Docker bridge, so
         // $request->ip() would return the end-user's public IP here.
-        $ip = (string) ($request->server('REMOTE_ADDR') ?? '');
+        $remoteAddr = $request->server('REMOTE_ADDR');
+        $ip = is_string($remoteAddr) ? $remoteAddr : '';
 
         if (! IpUtils::checkIp($ip, $cidr)) {
             abort(403, 'Internal endpoint; request not from ingress CIDR.');

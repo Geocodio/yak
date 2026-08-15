@@ -7,6 +7,9 @@ use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\RebuildDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
+use App\Support\HibernationDuration;
+use App\Support\ReleaseBranch;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -17,9 +20,52 @@ class DeploymentShow extends Component
 {
     public BranchDeployment $deployment;
 
+    public bool $longLived = false;
+
+    public string $idleTimeoutInput = '';
+
     public function mount(BranchDeployment $deployment): void
     {
         $this->deployment = $deployment->load('repository');
+        $this->longLived = (bool) $this->deployment->long_lived;
+        $this->idleTimeoutInput = HibernationDuration::toShorthand($this->deployment->effectiveIdleMinutes());
+    }
+
+    public function updatedLongLived(bool $value): void
+    {
+        $this->deployment->long_lived = $value;
+
+        if (! $value) {
+            $this->deployment->idle_timeout_minutes = null;
+        }
+
+        $this->deployment->save();
+        $this->idleTimeoutInput = HibernationDuration::toShorthand($this->deployment->effectiveIdleMinutes());
+
+        session()->flash('status', $value ? 'Marked as long-lived.' : 'Reverted to standard hibernation.');
+    }
+
+    public function saveIdleTimeout(): void
+    {
+        $minutes = HibernationDuration::toMinutes($this->idleTimeoutInput);
+
+        if ($minutes === null) {
+            $this->addError('idleTimeoutInput', 'Enter a duration like 3d, 12h, or 2w.');
+
+            return;
+        }
+
+        $this->deployment->idle_timeout_minutes = $minutes;
+        $this->deployment->save();
+        $this->idleTimeoutInput = HibernationDuration::toShorthand($minutes);
+
+        session()->flash('status', 'Hibernation timeout updated.');
+    }
+
+    #[Computed]
+    public function isReleaseBranch(): bool
+    {
+        return ReleaseBranch::matches($this->deployment->branch_name);
     }
 
     /**
@@ -64,7 +110,7 @@ class DeploymentShow extends Component
         session()->flash('status', 'Destroy queued.');
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.deployments.deployment-show');
     }

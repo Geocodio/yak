@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Artifact;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\VideoRenderer;
@@ -147,7 +148,7 @@ class RenderVideoJob implements ShouldQueue
 
         try {
             app(PullRequestBodyUpdater::class)->setReviewerCut(
-                repoFullName: $task->repo,
+                repoFullName: Repository::githubNameFor((string) $task->repo),
                 prNumber: $prNumber,
                 reviewerCutUrl: $cutArtifact->signedUrl(),
                 filename: $cutArtifact->filename,

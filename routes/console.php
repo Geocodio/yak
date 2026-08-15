@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\GitHub\PollPullRequestReactionsJob;
+use App\Jobs\Deployments\BackfillOpenPrDeploymentsJob;
 use App\Jobs\Deployments\GarbageCollectTemplateSnapshotsJob;
 use App\Jobs\Deployments\HibernateIdleDeploymentsJob;
 use App\Jobs\Deployments\SweepExpiredDeploymentsJob;
@@ -25,3 +26,4 @@ Schedule::job(HibernateIdleDeploymentsJob::class)->everyMinute()->name('deployme
 Schedule::job(SweepExpiredDeploymentsJob::class)->hourly()->name('deployments:sweep-expired')->withoutOverlapping();
 Schedule::job(WatchdogStuckDeploymentsJob::class)->everyTenMinutes()->name('deployments:watchdog-stuck')->withoutOverlapping();
 Schedule::job(GarbageCollectTemplateSnapshotsJob::class)->hourly()->name('deployments:gc-template-snapshots')->withoutOverlapping();
+Schedule::job(BackfillOpenPrDeploymentsJob::class)->hourly()->name('deployments:backfill-open-prs')->withoutOverlapping();

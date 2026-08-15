@@ -20,7 +20,7 @@ use App\Models\YakTask;
 */
 
 test('database queue retry_after defaults above the longest job timeout', function () {
-    expect(config('queue.connections.database.retry_after'))->toBe(4200);
+    expect(config('queue.connections.database.retry_after'))->toBe(7800);
 });
 
 /*
@@ -43,7 +43,7 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
     }
 });
 
-test('per-task yak-claude jobs share SetupYakJob\'s 3600 second timeout', function () {
+test('per-task yak-claude jobs share a 3600 second timeout', function () {
     // Laravel enforces $timeout via pcntl_alarm → posix_kill(getmypid(), SIGKILL).
     // Agent sessions with browser capture regularly exceed 10 minutes; a lower
     // cap silently murders the worker mid-stream (tasks 4406/4407/4408 hit this).
@@ -52,12 +52,21 @@ test('per-task yak-claude jobs share SetupYakJob\'s 3600 second timeout', functi
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
         new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
-        new SetupYakJob(YakTask::factory()->pending()->make()),
     ];
 
     foreach ($jobs as $job) {
         expect($job->timeout)->toBe(3600);
     }
+});
+
+test('setup job gets a 7200 second timeout', function () {
+    // Setup on heavy repos (local docker image builds, npm/composer installs,
+    // migrations, verification) legitimately exceeds an hour: task 5431 for
+    // Geocodio/geocodio finished the setup twice and was killed during final
+    // wrap-up at exactly 3600s both times.
+    $job = new SetupYakJob(YakTask::factory()->pending()->make());
+
+    expect($job->timeout)->toBe(7200);
 });
 
 test('per-task yak-claude jobs have exponential backoff', function () {
@@ -180,4 +189,91 @@ test('supervisord config has default worker with correct settings', function () 
         ->toContain('--queue=default')
         ->toContain('--timeout=30')
         ->toContain('numprocs=3');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Production Supervisord Configuration
+|--------------------------------------------------------------------------
+|
+| docker/supervisord.conf is the file that actually ships — Dockerfile
+| copies it to /etc/supervisor/conf.d/yak.conf and runs it as the CMD.
+| (base_path('supervisord.conf') above is a local-dev leftover.)
+|
+*/
+
+/**
+ * Parse docker/supervisord.conf into [program name => [directive => value]].
+ *
+ * @return array<string, array<string, string>>
+ */
+function productionSupervisordPrograms(): array
+{
+    $path = base_path('docker/supervisord.conf');
+    $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+    if ($lines === false) {
+        throw new RuntimeException("Unable to read {$path}");
+    }
+
+    $programs = [];
+    $current = null;
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+
+        if (str_starts_with($line, '#') || str_starts_with($line, ';')) {
+            continue;
+        }
+
+        if (preg_match('/^\[program:(.+)\]$/', $line, $matches) === 1) {
+            $current = $matches[1];
+            $programs[$current] = [];
+
+            continue;
+        }
+
+        if (str_starts_with($line, '[')) {
+            $current = null;
+
+            continue;
+        }
+
+        if ($current !== null && str_contains($line, '=')) {
+            [$key, $value] = explode('=', $line, 2);
+            $programs[$current][trim($key)] = trim($value);
+        }
+    }
+
+    return $programs;
+}
+
+test('every supervisord program that runs artisan runs as www-data', function () {
+    // supervisord itself runs as root, so a program with no `user=` inherits
+    // root. Any program that drives the Laravel app must drop to www-data:
+    // /data, /app/storage and the shared CLAUDE_CONFIG_DIR are all www-data
+    // owned, and root-owned files landing there lock www-data out.
+    $programs = productionSupervisordPrograms();
+
+    $artisanPrograms = array_filter(
+        $programs,
+        fn (array $directives): bool => str_contains($directives['command'] ?? '', 'artisan'),
+    );
+
+    expect($artisanPrograms)->not->toBeEmpty();
+
+    foreach ($artisanPrograms as $name => $directives) {
+        expect($directives['user'] ?? null)->toBe('www-data', "[program:{$name}] must declare user=www-data");
+    }
+});
+
+test('scheduler runs as www-data so healthchecks cannot leave root-owned claude state', function () {
+    // yak:healthcheck runs every 15 minutes and shells the Claude CLI out
+    // against /home/yak/.claude (ClaudeAuthCheck). As root it leaves a
+    // root-owned .oauth_refresh.lock behind, which blocks every subsequent
+    // www-data OAuth refresh until someone re-authenticates by hand.
+    $programs = productionSupervisordPrograms();
+
+    expect($programs)->toHaveKey('scheduler');
+    expect($programs['scheduler']['user'] ?? null)->toBe('www-data');
 });
