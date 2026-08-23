@@ -30,6 +30,7 @@
                     'task' => $task,
                     'detailedView' => $detailedView,
                     'expandedTurns' => $expandedTurns,
+                    'clarificationTtl' => $this->clarificationTtl(),
                 ])
             </div>
         @endforeach

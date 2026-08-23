@@ -611,7 +611,10 @@ class TaskDetail extends Component
 
         $md = implode("\n\n", $parts);
 
-        return (new CommonMarkConverter)->convert($md)->getContent();
+        return (new CommonMarkConverter([
+            'html_input' => 'strip',
+            'allow_unsafe_links' => false,
+        ]))->convert($md)->getContent();
     }
 
     #[Computed]
@@ -682,7 +685,7 @@ class TaskDetail extends Component
      * log panel at a specific run in the chain. Stubbed here so the
      * thread's work-summary rows can safely wire:click it.
      */
-    public function focusRun(int $taskId): void {}
+    public function focusRun(int $runId): void {}
 
     /**
      * The task's headline outcome, surfaced as a button in the header band

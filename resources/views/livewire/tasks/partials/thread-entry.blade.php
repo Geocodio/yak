@@ -3,8 +3,9 @@
     'user' | 'clarification' | 'yak' | 'system'.
 
     Expects: $entry (App\DataTransferObjects\ThreadEntry), $i (int, index in
-    the thread), $task (App\Models\YakTask, root task), $detailedView (bool),
-    $expandedTurns (array<int, bool>).
+    the thread), $thread (Collection<int, ThreadEntry>), $task (App\Models\YakTask,
+    root task), $detailedView (bool), $expandedTurns (array<int, bool>),
+    $clarificationTtl (?string, from TaskDetail::clarificationTtl()).
 --}}
 @php
     $proseClasses = 'prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10';
@@ -67,7 +68,7 @@
                         </button>
                     @else
                         <div class="{{ $proseClasses }}">
-                            {!! Str::markdown($entry->text) !!}
+                            {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
                         </div>
                     @endif
                 </div>
@@ -85,8 +86,16 @@
             Y
         </div>
         <div class="min-w-0 flex-1">
+            @php
+                $ttl = ($entry->run && $entry->run->is($task) && $task->status === \App\Enums\TaskStatus::AwaitingClarification)
+                    ? ($clarificationTtl ?? null)
+                    : null;
+            @endphp
             <div class="text-xs text-yak-blue">
                 <span class="font-mono">{{ $entry->timestamp->format('g:i A') }}</span>
+                @if($ttl)
+                    <span>&middot; {{ $ttl === 'Expired' ? 'Expired' : 'expires ' . $ttl }}</span>
+                @endif
             </div>
             <p class="mt-1 text-sm text-yak-slate">{{ $entry->text }}</p>
             @if($entry->options)
@@ -144,7 +153,7 @@
 
             @if($entry->text !== '')
                 <div class="mt-2 {{ $proseClasses }}">
-                    {!! Str::markdown($entry->text) !!}
+                    {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
                 </div>
             @endif
 
