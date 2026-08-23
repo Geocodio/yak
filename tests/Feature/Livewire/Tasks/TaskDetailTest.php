@@ -189,29 +189,25 @@ test('the research report button is NOT shown for non-research tasks', function 
         ->assertDontSeeHtml('data-testid="research-report-button"');
 });
 
-test('it shows clarification options when awaiting clarification', function () {
+test('it shows clarification options as chips in the thread', function () {
     $task = YakTask::factory()->awaitingClarification()->create([
         'clarification_options' => ['Refactor the module', 'Add a new endpoint', 'Do both'],
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSee('Clarification')
-        ->assertSee('Awaiting reply')
         ->assertSee('Refactor the module')
         ->assertSee('Add a new endpoint')
         ->assertSee('Do both');
 });
 
-test('it shows clarification ttl countdown', function () {
+test('it shows the composer in clarification state while awaiting clarification', function () {
     $task = YakTask::factory()->awaitingClarification()->create([
         'clarification_expires_at' => now()->addDays(2),
     ]);
 
-    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
-
-    $component->assertSee('Awaiting reply');
-    $html = $component->html();
-    expect($html)->toContain('from now');
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSet('composerState', 'clarification')
+        ->assertSeeHtml('data-testid="clarification-reply-input"');
 });
 
 test('it toggles debug section', function () {
@@ -672,43 +668,38 @@ test('activity log defaults to latest attempt and switches on selectAttempt', fu
         ->assertDontSee('second attempt activity');
 });
 
-test('it shows the intro banner for first-time visitors', function () {
+test('the intro banner is gone for first-time visitors', function () {
     $user = User::factory()->create(['has_seen_task_detail_intro_at' => null]);
     $this->actingAs($user);
 
     $task = YakTask::factory()->running()->create();
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSet('showIntroBanner', true)
-        ->assertSeeHtml('data-testid="task-detail-intro"');
+        ->assertDontSeeHtml('data-testid="task-detail-intro"');
 });
 
-test('it hides the intro banner after it has been dismissed', function () {
+test('the intro banner stays gone once dismissed', function () {
     $user = User::factory()->create(['has_seen_task_detail_intro_at' => now()]);
     $this->actingAs($user);
 
     $task = YakTask::factory()->running()->create();
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSet('showIntroBanner', false)
         ->assertDontSeeHtml('data-testid="task-detail-intro"');
 });
 
-test('dismissIntro records the timestamp and hides the banner', function () {
+test('rendering the page does not touch has_seen_task_detail_intro_at', function () {
     $user = User::factory()->create(['has_seen_task_detail_intro_at' => null]);
     $this->actingAs($user);
 
     $task = YakTask::factory()->running()->create();
 
-    Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSet('showIntroBanner', true)
-        ->call('dismissIntro')
-        ->assertSet('showIntroBanner', false);
+    Livewire::test(TaskDetail::class, ['task' => $task]);
 
-    expect($user->fresh()->has_seen_task_detail_intro_at)->not->toBeNull();
+    expect($user->fresh()->has_seen_task_detail_intro_at)->toBeNull();
 });
 
-test('it shows a Slack clarification hint that links to the thread', function () {
+test('the composer notes replies also land in the Slack thread', function () {
     config()->set('yak.channels.slack.workspace_url', 'https://acme.slack.com');
 
     $task = YakTask::factory()->create([
@@ -721,13 +712,10 @@ test('it shows a Slack clarification hint that links to the thread', function ()
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="clarification-reply-hint"')
-        ->assertSee('Reply in the')
-        ->assertSee('Slack thread')
-        ->assertSeeHtml('href="https://acme.slack.com/archives/C1234567/p1700000000123456"');
+        ->assertSee('Replies here and in the Slack thread land in the same conversation.');
 });
 
-test('it shows a Linear clarification hint that links to the issue', function () {
+test('the composer notes replies also land in the Linear issue', function () {
     $task = YakTask::factory()->create([
         'status' => TaskStatus::AwaitingClarification,
         'source' => 'linear',
@@ -737,13 +725,10 @@ test('it shows a Linear clarification hint that links to the issue', function ()
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="clarification-reply-hint"')
-        ->assertSee('Reply on the')
-        ->assertSee('Linear issue')
-        ->assertSeeHtml('href="https://linear.app/acme/issue/ACM-42/fix-the-bug"');
+        ->assertSee('Replies here and in the Linear thread land in the same conversation.');
 });
 
-test('it shows a generic clarification hint for unknown sources', function () {
+test('the composer has no cross-channel note for unknown sources', function () {
     $task = YakTask::factory()->create([
         'status' => TaskStatus::AwaitingClarification,
         'source' => 'system',
@@ -752,8 +737,7 @@ test('it shows a generic clarification hint for unknown sources', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="clarification-reply-hint"')
-        ->assertSee('Reply from the originating channel to answer');
+        ->assertDontSee('land in the same conversation');
 });
 
 test('milestone steps include tooltip copy for each stage', function () {
@@ -1186,51 +1170,51 @@ test('milestone stepper links to the architecture docs', function () {
         ->assertSeeHtml('href="https://geocodio.github.io/yak/architecture/#the-core-loop"');
 });
 
-test('shows a success banner when a re-review was just started', function () {
+test('toasts a success message when a re-review was just started', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
 
     session()->flash('reReview', 'started');
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="re-review-notice"')
-        ->assertSee('Re-review requested')
-        ->assertSeeHtml('data-testid="dismiss-re-review-notice"');
+        ->assertDispatched('toast-show', function ($name, $params) {
+            return str_contains($params['slots']['text'], 'Re-review requested');
+        });
 });
 
-test('shows an in-progress banner when the re-review was already queued', function () {
+test('toasts an in-progress message when the re-review was already queued', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
 
     session()->flash('reReview', 'in_progress');
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="re-review-notice"')
-        ->assertSee('already in progress');
+        ->assertDispatched('toast-show', function ($name, $params) {
+            return str_contains($params['slots']['text'], 'already in progress');
+        });
 });
 
-test('shows a warning banner when the PR is not open for re-review', function () {
+test('toasts a warning message when the PR is not open for re-review', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
 
     session()->flash('reReview', 'not_open');
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="re-review-notice"')
-        ->assertSee("isn't open for review");
+        ->assertDispatched('toast-show', function ($name, $params) {
+            return str_contains($params['slots']['text'], "isn't open for review") && ($params['dataset']['variant'] ?? null) === 'warning';
+        });
 });
 
-test('hides the re-review banner when no notice is flashed', function () {
+test('does not toast when no re-review notice is flashed', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertDontSeeHtml('data-testid="re-review-notice"');
+        ->assertNotDispatched('toast-show');
 });
 
-test('the re-review banner can be dismissed', function () {
+test('the re-review banner markup is gone', function () {
     $task = YakTask::factory()->create(['mode' => TaskMode::Review]);
 
     session()->flash('reReview', 'started');
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSeeHtml('data-testid="re-review-notice"')
-        ->call('dismissReReviewNotice')
         ->assertDontSeeHtml('data-testid="re-review-notice"');
 });

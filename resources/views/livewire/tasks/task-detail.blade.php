@@ -1,370 +1,46 @@
 <div wire:poll.{{ $this->pollInterval }}>
-    {{-- Re-review request outcome banner --}}
-    @php
-        $reReview = $this->reReviewNoticeContent();
-        $reReviewTones = [
-            'success' => ['border' => 'border-yak-green/30', 'bg' => 'bg-yak-green/5', 'iconBg' => 'bg-yak-green/15', 'iconText' => 'text-yak-green'],
-            'info' => ['border' => 'border-yak-blue-light/40', 'bg' => 'bg-yak-blue-light/10', 'iconBg' => 'bg-yak-blue-light/20', 'iconText' => 'text-yak-blue'],
-            'warning' => ['border' => 'border-yak-orange-warm/30', 'bg' => 'bg-yak-orange-warm/5', 'iconBg' => 'bg-yak-orange-warm/15', 'iconText' => 'text-yak-orange-warm'],
-        ];
-    @endphp
-    @if($reReview)
-        @php
-            $tone = $reReviewTones[$reReview['tone']];
-        @endphp
-        <div class="mb-5 rounded-[20px] border {{ $tone['border'] }} {{ $tone['bg'] }} p-4 sm:p-5" data-testid="re-review-notice" role="status" wire:key="re-review-{{ $reReview['tone'] }}">
-            <div class="flex items-start gap-4">
-                <div class="shrink-0 rounded-full {{ $tone['iconBg'] }} p-2">
-                    <flux:icon :icon="$reReview['icon']" class="!size-5 {{ $tone['iconText'] }}" />
-                </div>
-                <p class="flex-1 text-sm leading-relaxed text-yak-slate">{{ $reReview['message'] }}</p>
-                <button
-                    type="button"
-                    wire:click="dismissReReviewNotice"
-                    class="shrink-0 text-yak-tan hover:text-yak-slate transition-colors"
-                    aria-label="Dismiss notice"
-                    data-testid="dismiss-re-review-notice"
-                >
-                    <flux:icon.x-mark class="!size-4" />
-                </button>
-            </div>
-        </div>
-    @endif
-
-    {{-- First-visit intro banner --}}
-    @if($this->showIntroBanner)
-        <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-yak-orange/5 p-4 sm:p-5" data-testid="task-detail-intro">
-            <div class="flex items-start gap-4">
-                <div class="shrink-0 rounded-full bg-yak-orange/15 p-2">
-                    <flux:icon.sparkles class="!size-5 text-yak-orange" />
-                </div>
-                <div class="flex-1 text-sm leading-relaxed text-yak-slate">
-                    <p class="font-medium text-yak-slate">Yak is working on your task.</p>
-                    <p class="mt-1 text-yak-blue">
-                        This page updates live — no need to refresh. Reply in the original Slack thread or Linear issue to steer Yak mid-task.
-                        <x-doc-link anchor="architecture.core-loop" class="ml-1">How Yak works</x-doc-link>
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    wire:click="dismissIntro"
-                    class="shrink-0 text-yak-tan hover:text-yak-slate transition-colors"
-                    aria-label="Dismiss intro"
-                    data-testid="dismiss-intro"
-                >
-                    <flux:icon.x-mark class="!size-4" />
-                </button>
-            </div>
-        </div>
-    @endif
-
-    {{-- Breadcrumb --}}
-    <div class="mb-6 text-sm">
-        <a href="{{ route('tasks') }}" class="font-medium text-yak-orange hover:text-yak-orange-warm">Tasks</a>
-        <span class="text-yak-blue"> / </span>
-        <span class="text-yak-blue">{{ $task->external_id ?? '#'.$task->id }}</span>
-    </div>
-
-    {{-- Section 1: Status Header (Glass Card) --}}
-    <div class="mb-5 rounded-[28px] border border-white/60 bg-white/75 p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)] backdrop-blur-[40px] backdrop-saturate-[1.4]">
-        <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between gap-3.5">
-                <div class="flex items-center gap-3.5">
-                    <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
-                        @if($this->isActiveStatus())
-                            <span class="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current"></span>
-                        @endif
-                        {{ str_replace('_', ' ', $task->status->value) }}
-                    </span>
-                    <span class="text-xs text-yak-blue">#{{ $task->id }}</span>
-                    @if($this->canRetry)
-                        <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
-                    @endif
-                    @if($this->canCancel)
-                        <flux:button variant="ghost" size="sm" icon="x-circle" wire:click="cancel" wire:confirm="Cancel this task? The sandbox will be destroyed and the agent will stop." data-testid="cancel-button">Cancel</flux:button>
-                    @endif
-                    @if($this->canReroute && $this->rerouteOptions->isNotEmpty())
-                        <flux:dropdown>
-                            <flux:button variant="ghost" size="sm" icon="arrow-path-rounded-square" icon:trailing="chevron-down" data-testid="reroute-trigger">Move repo</flux:button>
-                            <flux:menu data-testid="reroute-menu">
-                                @foreach($this->rerouteOptions as $option)
-                                    <flux:menu.item
-                                        wire:click="rerouteRepo('{{ $option->slug }}')"
-                                        wire:confirm="Move this task to {{ $option->slug }}? The current sandbox (if any) will be destroyed and the task will restart there."
-                                        data-testid="reroute-to-{{ $option->slug }}"
-                                    >
-                                        {{ $option->slug }}
-                                    </flux:menu.item>
-                                @endforeach
-                            </flux:menu>
-                        </flux:dropdown>
-                    @endif
-                </div>
-                @if($this->isResearchTask() && $this->researchArtifact)
-                    <a
-                        href="{{ route('artifacts.viewer', ['task' => $task->id, 'filename' => $this->researchArtifact->filename]) }}"
-                        class="inline-flex items-center gap-2 rounded-xl bg-yak-orange px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-yak-orange-warm transition-colors"
-                        data-testid="research-report-button"
-                    >
-                        <flux:icon.document-text class="!size-4" />
-                        <span>View research report</span>
-                    </a>
-                @endif
-            </div>
-            <h1 class="text-lg font-medium leading-snug text-yak-slate">{{ Str::before($task->description, "\n") }}</h1>
-            @if($task->status === \App\Enums\TaskStatus::Failed && $task->error_log)
-                <div class="mt-2 rounded-xl border border-[rgba(184,84,80,0.2)] bg-[rgba(184,84,80,0.06)] px-4 py-3">
-                    <span class="text-xs font-medium uppercase tracking-wider text-yak-danger">Error</span>
-                    <p class="mt-1 text-sm leading-relaxed text-yak-slate">{{ $task->error_log }}</p>
-                </div>
-            @endif
-            @if($this->nextSteps())
-                <p class="mt-1 text-sm italic text-yak-blue" data-testid="next-steps">{{ $this->nextSteps() }}</p>
-            @endif
-            <div class="mt-1 flex flex-wrap gap-4">
-                <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
-                    <flux:icon.wrench-screwdriver class="!size-3.5" />
-                    <span class="font-medium">Mode:</span>
-                    <span class="text-yak-slate">{{ ucfirst($task->mode->value) }}</span>
-                </span>
-                @if($task->source)
-                    <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
-                        @if($task->source === 'slack')
-                            <flux:icon.chat-bubble-left class="!size-3.5" />
-                        @elseif($task->source === 'sentry')
-                            <flux:icon.shield-exclamation class="!size-3.5" />
-                        @elseif($task->source === 'linear')
-                            <flux:icon.bolt class="!size-3.5" />
-                        @else
-                            <flux:icon.command-line class="!size-3.5" />
-                        @endif
-                        <span class="font-medium">Source:</span>
-                        @if($this->sourceUrl)
-                            <a
-                                href="{{ $this->sourceUrl }}"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="inline-flex items-center gap-1 font-medium text-yak-orange hover:text-yak-orange-warm transition-colors"
-                                data-testid="source-link"
-                            >
-                                <span>{{ ucfirst($task->source) }}</span>
-                                <flux:icon.arrow-top-right-on-square class="!size-3 opacity-70" />
-                            </a>
-                        @else
-                            <span class="text-yak-slate">{{ ucfirst($task->source) }}</span>
-                        @endif
-                    </span>
-                @endif
-                @if($task->repo)
-                    <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
-                        <flux:icon.code-bracket class="!size-3.5" />
-                        <span class="font-medium">Repo:</span>
-                        @if($task->repository)
-                            <a href="{{ route('repos.edit', $task->repository) }}" wire:navigate class="font-medium text-yak-orange hover:text-yak-orange-warm">{{ $task->repo }}</a>
-                        @else
-                            <span class="text-yak-slate">{{ $task->repo }}</span>
-                        @endif
-                    </span>
-                @endif
-                <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
-                    <flux:icon.clock class="!size-3.5" />
-                    <span class="font-medium">Duration:</span>
-                    <span class="text-yak-slate">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</span>
-                </span>
-                @if($task->attempts > 0)
-                    <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
-                        <flux:icon.arrow-path class="!size-3.5" />
-                        <span class="font-medium">Attempts:</span>
-                        <span class="text-yak-slate">{{ $task->attempts }}</span>
-                    </span>
-                @endif
-            </div>
-        </div>
-    </div>
+    @include('livewire.tasks.partials.header-band', [
+        'task' => $task,
+        'isActiveStatus' => $this->isActiveStatus(),
+        'contextualAction' => $this->contextualAction,
+        'outcomeButton' => $this->outcomeButton,
+        'isResearchTask' => $this->isResearchTask(),
+        'canReroute' => $this->canReroute,
+        'rerouteOptions' => $this->rerouteOptions,
+        'sourceUrl' => $this->sourceUrl,
+        'nextSteps' => $this->nextSteps(),
+        'detailedView' => $detailedView,
+        'isAnsweredFix' => $this->isAnsweredFix,
+    ])
 
     {{-- Branch deployment preview (renders only when the task's branch has an active deployment) --}}
     <livewire:tasks.preview-widget :task="$task" />
 
-    {{-- Section 2: Description --}}
+    {{-- Conversation thread --}}
     <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
-        <h2 class="mb-4 text-lg font-medium text-yak-slate">Description</h2>
-        <div class="prose prose-sm prose-yak mb-4 max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10">
-            {!! Str::markdown($task->description) !!}
-        </div>
-        @if($task->context)
-            <div class="text-xs font-medium uppercase tracking-wider text-yak-blue">Source context</div>
-            <p class="mt-1 text-sm leading-relaxed text-yak-blue">{{ $task->context }}</p>
-        @endif
+        @foreach($this->thread as $i => $entry)
+            <div
+                wire:key="entry-{{ $i }}"
+                @if($entry->kind === 'user' && $entry->run) id="turn-{{ $entry->run->id }}" @endif
+            >
+                @include('livewire.tasks.partials.thread-entry', [
+                    'entry' => $entry,
+                    'i' => $i,
+                    'thread' => $this->thread,
+                    'task' => $task,
+                    'detailedView' => $detailedView,
+                    'expandedTurns' => $expandedTurns,
+                ])
+            </div>
+        @endforeach
     </div>
 
-    {{-- Section 3: Clarification (if applicable) --}}
-    @if($task->status === \App\Enums\TaskStatus::AwaitingClarification || $task->clarification_options)
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
-            <h2 class="mb-4 text-lg font-medium text-yak-slate">Clarification</h2>
-            @if($task->status === \App\Enums\TaskStatus::AwaitingClarification)
-                <div class="mb-3 inline-flex items-center gap-2 rounded-lg bg-[rgba(212,145,94,0.12)] px-3 py-1.5 text-sm font-medium text-yak-orange-warm">
-                    <flux:icon.clock class="!size-4" />
-                    Awaiting reply
-                    @if($this->clarificationTtl())
-                        <span class="text-xs font-normal">&mdash; {{ $this->clarificationTtl() }}</span>
-                    @endif
-                </div>
-
-                <p class="mb-3 text-sm text-yak-blue" data-testid="clarification-reply-hint">
-                    @if($task->source === 'slack')
-                        Reply in the
-                        @if($this->sourceUrl)
-                            <a href="{{ $this->sourceUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Slack thread</a>
-                        @else
-                            Slack thread
-                        @endif
-                        to answer.
-                    @elseif($task->source === 'linear')
-                        Reply on the
-                        @if($this->sourceUrl)
-                            <a href="{{ $this->sourceUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Linear issue</a>
-                        @else
-                            Linear issue
-                        @endif
-                        to answer.
-                    @else
-                        Reply from the originating channel to answer.
-                    @endif
-                </p>
-            @endif
-            @if($task->clarification_options)
-                <div class="mt-3">
-                    <div class="mb-2 text-xs font-medium uppercase tracking-wider text-yak-blue">Options presented</div>
-                    <ul class="space-y-1.5">
-                        @foreach($task->clarification_options as $option)
-                            <li class="flex items-start gap-2 text-sm text-yak-slate">
-                                <span class="mt-1 inline-block size-1.5 shrink-0 rounded-full bg-yak-tan"></span>
-                                {{ $option }}
-                            </li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
-            @if($task->status === \App\Enums\TaskStatus::AwaitingClarification)
-                <div class="mt-5 border-t border-[rgba(200,184,154,0.3)] pt-5">
-                    <label for="clarification-reply" class="mb-2 block text-sm font-medium text-yak-slate">Your reply</label>
-                    <textarea
-                        id="clarification-reply"
-                        wire:model="composerText"
-                        rows="3"
-                        placeholder="Type your answer… Yak will also accept replies from the original Slack thread or Linear issue."
-                        data-testid="clarification-reply-input"
-                        class="w-full rounded-xl border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange"
-                    ></textarea>
-                    @error('composerText')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                    <div class="mt-3 flex items-center justify-between gap-3">
-                        <p class="text-xs text-yak-blue">Resumes Claude with your reply appended.</p>
-                        <flux:button wire:click="sendMessage" variant="primary" size="sm" data-testid="clarification-reply-submit">
-                            Send reply
-                        </flux:button>
-                    </div>
-                </div>
-            @endif
-        </div>
-    @endif
-
-    {{-- Section 5: Result Summary --}}
-    @if($task->result_summary)
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
-            <h2 class="mb-4 text-lg font-medium text-yak-slate">Result</h2>
-            <div class="prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10">
-                {!! Str::markdown($task->result_summary) !!}
-            </div>
-            <div class="text-sm leading-loose text-yak-slate">
-                @if($this->isFixTask() && $task->pr_url)
-                    <div>
-                        <strong>Pull Request:</strong>
-                        <a href="{{ $task->pr_url }}" target="_blank" class="font-medium text-yak-orange hover:text-yak-orange-warm" data-testid="pr-link">{{ $task->pr_url }}</a>
-                    </div>
-                @endif
-                @if($this->isResearchTask() && $this->researchArtifact)
-                    <div>
-                        <strong>Research Findings:</strong>
-                        <a href="{{ route('artifacts.viewer', ['task' => $task->id, 'filename' => $this->researchArtifact->filename]) }}" class="font-medium text-yak-orange hover:text-yak-orange-warm" data-testid="research-link">View research artifact</a>
-                    </div>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    {{-- Section: Conversation (follow-up chain + composer) --}}
-    @if($this->conversation->count() > 1 || $task->prIsOpen())
-        <div class="mb-5 rounded-[28px] border border-[rgba(200,184,154,0.4)] bg-white p-4 sm:p-7 shadow-[0_4px_6px_rgba(61,79,95,0.03),0_12px_24px_rgba(61,79,95,0.06)]">
-            <h2 class="mb-4 text-lg font-medium text-yak-slate">Conversation</h2>
-
-            @if($this->conversation->count() > 0)
-                <div class="space-y-4">
-                    @foreach($this->conversation as $turn)
-                        <div class="flex flex-col gap-1" wire:key="turn-{{ $turn->id }}">
-                            {{-- "You" line: the original instruction / follow-up text --}}
-                            @if($turn->description)
-                                <div class="flex items-start gap-2">
-                                    <span class="mt-0.5 shrink-0 rounded-full bg-yak-orange/15 px-2 py-0.5 text-[11px] font-medium text-yak-orange">You</span>
-                                    <span class="text-[13px] text-yak-slate">{{ $turn->description }}</span>
-                                </div>
-                            @endif
-                            {{-- "Yak" line: result summary (with outcome) --}}
-                            @if($turn->result_summary)
-                                <div class="flex items-start gap-2">
-                                    <span class="mt-0.5 shrink-0 rounded-full bg-yak-green/15 px-2 py-0.5 text-[11px] font-medium text-yak-green">Yak</span>
-                                    <div class="flex flex-col gap-0.5">
-                                        <span class="text-[13px] text-yak-slate">{{ Str::limit($turn->result_summary, 200) }}</span>
-                                    </div>
-                                </div>
-                            @endif
-                            {{-- Timestamp + run link for non-root turns --}}
-                            <div class="ml-16 flex items-center gap-3">
-                                <span class="font-mono text-[11px] text-yak-tan">
-                                    @if($this->isActiveStatus())
-                                        {{ $turn->created_at->diffForHumans() }}
-                                    @else
-                                        {{ $turn->created_at->format('g:i:s A') }}
-                                    @endif
-                                </span>
-                                @if(! $turn->is($this->conversation->first()))
-                                    <a href="{{ route('tasks.show', $turn) }}" class="text-[11px] text-yak-blue hover:text-yak-slate">open run</a>
-                                @endif
-                            </div>
-                        </div>
-                        @if(! $loop->last)
-                            <div class="border-t border-[rgba(200,184,154,0.2)]"></div>
-                        @endif
-                    @endforeach
-                </div>
-            @endif
-
-            {{-- Follow-up composer (only when PR is open) --}}
-            @if($task->prIsOpen())
-                <div class="mt-5 border-t border-[rgba(200,184,154,0.3)] pt-5">
-                    <label for="follow-up-input" class="mb-2 block text-sm font-medium text-yak-slate">Send feedback to Yak</label>
-                    <textarea
-                        id="follow-up-input"
-                        wire:model="composerText"
-                        rows="3"
-                        placeholder="Describe what you'd like Yak to change or add to this PR…"
-                        data-testid="follow-up-input"
-                        class="w-full rounded-xl border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange"
-                    ></textarea>
-                    @error('composerText')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                    <div class="mt-3 flex items-center justify-between gap-3">
-                        <p class="text-xs text-yak-blue">Yak will push changes to this PR.</p>
-                        <flux:button wire:click="sendMessage" variant="primary" size="sm">
-                            Send to Yak
-                        </flux:button>
-                    </div>
-                </div>
-            @endif
-        </div>
-    @endif
+    @include('livewire.tasks.partials.composer', [
+        'task' => $task,
+        'composerText' => $composerText,
+        'composerState' => $this->composerState,
+        'head' => $this->task->conversation()->last() ?? $this->task,
+    ])
 
     {{-- Video walkthrough (Reviewer Cut + Director's Cut) --}}
     @if($task->mode !== \App\Enums\TaskMode::Review)

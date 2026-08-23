@@ -4,6 +4,7 @@ namespace App\Livewire\Tasks;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
+use App\DataTransferObjects\ThreadEntry;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -24,6 +25,7 @@ use App\Services\FollowUpTaskFactory;
 use App\Services\IncusSandboxManager;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
+use App\Services\ThreadBuilder;
 use App\Support\TaskSourceUrl;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
@@ -42,6 +44,7 @@ use Livewire\Component;
  * @property-read string $renderedReviewBody
  * @property-read bool $canReroute
  * @property-read SupportCollection<int, YakTask> $conversation
+ * @property-read SupportCollection<int, ThreadEntry> $thread
  */
 #[Title('Task Detail')]
 class TaskDetail extends Component
@@ -72,12 +75,18 @@ class TaskDetail extends Component
     public string $composerText = '';
 
     /**
-     * Outcome of a re-review request that redirected here, surfaced as a
-     * dismissible banner. One of 'started', 'in_progress', 'not_open', or
-     * null. Read once from the session flash on mount so it survives the
-     * wire:poll re-renders without re-reading consumed flash data.
+     * Whether the thread shows every turn's full request/result text
+     * instead of the summarized version. Toggled from the header band.
      */
-    public ?string $reReviewNotice = null;
+    public bool $detailedView = false;
+
+    /**
+     * Per-entry override for the "full request" expand affordance on
+     * individual user turns, keyed by thread entry index.
+     *
+     * @var array<int, bool>
+     */
+    public array $expandedTurns = [];
 
     public function mount(YakTask $task): void
     {
@@ -93,42 +102,16 @@ class TaskDetail extends Component
         $this->visibleAttempt = max(1, (int) $task->attempts);
 
         $notice = session('reReview');
-        if (in_array($notice, ['started', 'in_progress', 'not_open'], true)) {
-            $this->reReviewNotice = $notice;
-        }
-    }
-
-    /**
-     * Banner copy and styling for a re-review redirect, or null when there's
-     * nothing to show.
-     *
-     * @return array{message: string, tone: string, icon: string}|null
-     */
-    public function reReviewNoticeContent(): ?array
-    {
-        return match ($this->reReviewNotice) {
-            'started' => [
-                'message' => 'Re-review requested. A fresh review is now running for this PR — this page updates live as it progresses.',
-                'tone' => 'success',
-                'icon' => 'arrow-path',
-            ],
-            'in_progress' => [
-                'message' => 'A re-review for this PR is already in progress. Showing the run that\'s already underway.',
-                'tone' => 'info',
-                'icon' => 'clock',
-            ],
-            'not_open' => [
-                'message' => 'This pull request isn\'t open for review (it may be closed, merged, or in draft), so there\'s nothing to re-review.',
-                'tone' => 'warning',
-                'icon' => 'exclamation-triangle',
-            ],
+        $message = match ($notice) {
+            'started' => 'Re-review requested. A fresh review is now running for this PR — this page updates live as it progresses.',
+            'in_progress' => 'A re-review for this PR is already in progress. Showing the run that\'s already underway.',
+            'not_open' => 'This pull request isn\'t open for review (it may be closed, merged, or in draft), so there\'s nothing to re-review.',
             default => null,
         };
-    }
 
-    public function dismissReReviewNotice(): void
-    {
-        $this->reReviewNotice = null;
+        if ($message !== null) {
+            Flux::toast($message, variant: $notice === 'not_open' ? 'warning' : null);
+        }
     }
 
     public function retry(): void
@@ -671,25 +654,90 @@ class TaskDetail extends Component
         };
     }
 
+    /**
+     * The conversation thread — one entry per user turn, clarification
+     * question, yak run, or system line. Built fresh from the follow-up
+     * chain each render so it always reflects live state.
+     *
+     * @return SupportCollection<int, ThreadEntry>
+     */
     #[Computed]
-    public function showIntroBanner(): bool
+    public function thread(): SupportCollection
     {
-        $user = auth()->user();
-
-        return $user !== null && $user->has_seen_task_detail_intro_at === null;
+        return app(ThreadBuilder::class)->build($this->task);
     }
 
-    public function dismissIntro(): void
+    public function toggleDetailedView(): void
     {
-        $user = auth()->user();
+        $this->detailedView = ! $this->detailedView;
+    }
 
-        if ($user === null) {
-            return;
+    public function toggleTurn(int $entryIndex): void
+    {
+        $this->expandedTurns[$entryIndex] = ! ($this->expandedTurns[$entryIndex] ?? false);
+    }
+
+    /**
+     * Placeholder for Task 7, which wires this up to point the sidebar's
+     * log panel at a specific run in the chain. Stubbed here so the
+     * thread's work-summary rows can safely wire:click it.
+     */
+    public function focusRun(int $taskId): void {}
+
+    /**
+     * The task's headline outcome, surfaced as a button in the header band
+     * actions row — the opened PR for Fix/Review tasks, or the research
+     * report for completed Research tasks.
+     *
+     * @return array{label: string, url: string}|null
+     */
+    #[Computed]
+    public function outcomeButton(): ?array
+    {
+        if ($this->isResearchTask() && $this->researchArtifact) {
+            return [
+                'label' => 'View research report',
+                'url' => route('artifacts.viewer', ['task' => $this->task->id, 'filename' => $this->researchArtifact->filename]),
+            ];
         }
 
-        $user->forceFill(['has_seen_task_detail_intro_at' => now()])->save();
+        if ($this->task->pr_url !== null) {
+            $number = $this->task->pr_number;
 
-        unset($this->showIntroBanner);
+            return [
+                'label' => $number !== null ? "PR #{$number}" : 'View PR',
+                'url' => $this->task->pr_url,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Which single contextual action button the header band should offer,
+     * chosen by task mode and status. At most one is shown to keep the
+     * header uncluttered — Move repo and other secondary actions live in
+     * the overflow menu.
+     */
+    #[Computed]
+    public function contextualAction(): ?string
+    {
+        /** @var TaskMode $mode */
+        $mode = $this->task->mode;
+
+        if ($mode === TaskMode::Review) {
+            return 'rerun_review';
+        }
+
+        if ($this->canRetry) {
+            return 'retry';
+        }
+
+        if ($this->canCancel) {
+            return 'cancel';
+        }
+
+        return null;
     }
 
     public function toggleLog(int $index): void
