@@ -183,7 +183,11 @@
                         </a>
                     @endif
                     @if($entry->run->mode === \App\Enums\TaskMode::Research)
-                        @php $researchArtifact = $entry->run->artifacts()->where('type', 'research')->first(); @endphp
+                        @php
+                            $researchArtifact = $entry->run->is($task)
+                                ? $this->researchArtifact
+                                : $entry->run->artifacts()->where('type', 'research')->first();
+                        @endphp
                         @if($researchArtifact)
                             <span class="text-xs text-yak-blue">
                                 <span class="font-medium">Research Findings:</span>

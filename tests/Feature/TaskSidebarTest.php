@@ -44,3 +44,11 @@ test('log entry opens in drawer', function () {
         ->assertSee('ls -la')
         ->assertSee('total 0');
 });
+
+test('page has exactly one poll timer even though the sidebar renders twice', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+
+    $html = Livewire::test(TaskDetail::class, ['task' => $task])->html();
+
+    expect(substr_count($html, 'wire:poll'))->toBe(1);
+});

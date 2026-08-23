@@ -79,7 +79,6 @@
     <div class="relative">
         <div
             x-ref="logList"
-            wire:poll.{{ $this->pollInterval }}="$refresh"
             class="max-h-[420px] overflow-y-auto"
             @scroll.passive="onScroll()"
         >
