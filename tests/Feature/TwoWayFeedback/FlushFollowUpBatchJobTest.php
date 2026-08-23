@@ -85,3 +85,28 @@ test('merged PR posts a decline comment and creates no follow-up', function () {
         ->and(FollowUpPendingComment::where('pr_url', $root->pr_url)->count())->toBe(0); // buffer still cleared
     Queue::assertNothingPushed();
 });
+
+test('follow-up task takes its author from the buffered comments', function () {
+    Queue::fake();
+
+    $root = YakTask::factory()->success()->create([
+        'repo' => 'acme/web',
+        'pr_url' => 'https://github.com/acme/web/pull/14',
+        'pr_number' => 14,
+        'branch_name' => 'yak/AU-2',
+    ]);
+
+    FollowUpPendingComment::create([
+        'yak_task_id' => $root->id,
+        'pr_url' => $root->pr_url,
+        'body' => 'tweak this',
+        'author' => 'mathias',
+    ]);
+
+    (new FlushFollowUpBatchJob($root->pr_url))->handle(
+        app(FollowUpTaskFactory::class),
+        app(AppService::class),
+    );
+
+    expect(YakTask::where('parent_task_id', $root->id)->first()->author_name)->toBe('mathias');
+});

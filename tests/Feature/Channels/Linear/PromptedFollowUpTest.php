@@ -148,3 +148,26 @@ it('returns 200 and dispatches nothing when the session id matches no task', fun
     Bus::assertNotDispatched(RunFollowUpJob::class);
     Bus::assertNotDispatched(ClarificationReplyJob::class);
 });
+
+it('records the Linear actor name as the follow-up author when present', function (): void {
+    Bus::fake();
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-au',
+        'pr_url' => 'https://github.com/org/repo/pull/11',
+        'pr_merged_at' => null,
+        'pr_closed_at' => null,
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-au'],
+        'agentActivity' => ['content' => ['body' => 'tighten the copy']],
+        'actor' => ['name' => 'Mathias'],
+    ], $this->secret)->assertSuccessful();
+
+    expect(YakTask::where('parent_task_id', $task->id)->first()->author_name)->toBe('Mathias');
+});

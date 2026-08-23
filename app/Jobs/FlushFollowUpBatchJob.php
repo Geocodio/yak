@@ -48,7 +48,9 @@ class FlushFollowUpBatchJob implements ShouldQueue
 
         $instructions = $this->composeInstructions($comments);
 
-        $child = $factory->create($parent, $instructions, 'github');
+        $authorName = $comments->pluck('author')->filter()->unique()->implode(', ') ?: null;
+
+        $child = $factory->create($parent, $instructions, 'github', authorName: $authorName);
 
         if ($child === null) {
             // PR merged/closed — decline politely.

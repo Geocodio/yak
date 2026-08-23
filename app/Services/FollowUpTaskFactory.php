@@ -14,7 +14,7 @@ class FollowUpTaskFactory
      * Returns null (and dispatches nothing) when the PR is already merged or
      * closed — the caller should post a polite decline.
      */
-    public function create(YakTask $parent, string $instructions, string $source): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -27,7 +27,7 @@ class FollowUpTaskFactory
             return null;
         }
 
-        $child = DB::transaction(function () use ($head, $root, $instructions, $source): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $instructions, $source, $authorName): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -44,6 +44,7 @@ class FollowUpTaskFactory
                 'external_url' => $head->external_url,
                 'external_id' => $root->external_id . '-followup',
                 'description' => $instructions,
+                'author_name' => $authorName,
                 'status' => TaskStatus::Pending,
             ]);
 

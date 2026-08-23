@@ -410,3 +410,37 @@ it('makes no external call when the comment is not for a Yak task', function () 
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
     Http::assertNothingSent();
 });
+
+it('captures the comment author on the buffered follow-up comment', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/31',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'issue' => [
+            'number' => 31,
+            'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/31'],
+        ],
+        'comment' => [
+            'id' => 43,
+            'user' => ['login' => 'mathias'],
+            'body' => '/yak please add tests',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+        'installation' => ['id' => 99],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'issue_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk();
+
+    expect(FollowUpPendingComment::first()->author)->toBe('mathias');
+});

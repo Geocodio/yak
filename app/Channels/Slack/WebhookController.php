@@ -109,6 +109,7 @@ class WebhookController extends Controller
                     'slack_channel' => $description->metadata['slack_channel'],
                     'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                     'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
+                    'author_name' => UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null),
                     'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 ]);
 
@@ -143,6 +144,7 @@ class WebhookController extends Controller
                 'slack_channel' => $description->metadata['slack_channel'],
                 'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                 'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
+                'author_name' => UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null),
                 'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 'clarification_options' => $repoOptions,
                 'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
@@ -168,6 +170,7 @@ class WebhookController extends Controller
             'slack_channel' => $description->metadata['slack_channel'],
             'slack_thread_ts' => $description->metadata['slack_thread_ts'],
             'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
+            'author_name' => UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null),
             'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
         ]);
 
@@ -297,7 +300,7 @@ class WebhookController extends Controller
      * Handle a thread reply — dispatch ClarificationReplyJob if the task is
      * awaiting clarification, or create a follow-up when the task has an open PR.
      *
-     * @param  array{channel?: string, thread_ts?: string, text?: string, subtype?: string, bot_id?: string}  $event
+     * @param  array{channel?: string, thread_ts?: string, text?: string, subtype?: string, bot_id?: string, user?: string}  $event
      */
     private function handleThreadReply(array $event): JsonResponse
     {
@@ -346,7 +349,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack');
+            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')));
 
             return response()->json(['ok' => true]);
         }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskStatus;
 use App\Jobs\RunFollowUpJob;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
@@ -88,4 +89,36 @@ test('chaining off an existing follow-up does not compound the external_id', fun
     expect($second->external_id)->toStartWith('LINEAR-ENG-42-followup-')
         ->and(substr_count($second->external_id, '-followup-'))->toBe(1)
         ->and($second->parent_task_id)->toBe($followUp->id);
+});
+
+test('create() stores the author name on the child task', function () {
+    $parent = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'branch_name' => 'yak/A-1',
+        'pr_url' => 'https://github.com/acme/repo/pull/1',
+        'pr_number' => 1,
+    ]);
+
+    Queue::fake();
+
+    $child = app(FollowUpTaskFactory::class)
+        ->create($parent, 'More tweaks', 'dashboard', authorName: 'Mathias');
+
+    expect($child)->not->toBeNull()
+        ->and($child->author_name)->toBe('Mathias');
+});
+
+test('create() leaves author name null when not provided', function () {
+    $parent = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'branch_name' => 'yak/A-2',
+        'pr_url' => 'https://github.com/acme/repo/pull/2',
+        'pr_number' => 2,
+    ]);
+
+    Queue::fake();
+
+    $child = app(FollowUpTaskFactory::class)->create($parent, 'More', 'slack');
+
+    expect($child->author_name)->toBeNull();
 });

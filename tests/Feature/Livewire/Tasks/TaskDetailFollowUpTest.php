@@ -56,3 +56,41 @@ test('composer is shown for an open PR and hidden when no open PR', function () 
     Livewire::test(TaskDetail::class, ['task' => $merged])
         ->assertDontSeeHtml('data-testid="follow-up-input"');
 });
+
+test('dashboard follow-up records the logged-in user as the author', function () {
+    Queue::fake();
+
+    $this->actingAs(User::factory()->create(['name' => 'Mathias Hansen']));
+
+    $task = YakTask::factory()->success()->create([
+        'source' => 'dashboard',
+        'repo' => 'web',
+        'branch_name' => 'yak/AU-1',
+        'pr_url' => 'https://github.com/acme/web/pull/12',
+        'pr_number' => 12,
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->set('composerText', 'Trim the extras')
+        ->call('sendMessage');
+
+    $child = YakTask::where('parent_task_id', $task->id)->first();
+
+    expect($child)->not->toBeNull()
+        ->and($child->author_name)->toBe('Mathias Hansen');
+});
+
+test('thread shows the author name and the Yak mascot avatar', function () {
+    $task = YakTask::factory()->success()->create([
+        'source' => 'slack',
+        'author_name' => 'Michele',
+        'description' => 'Fix the flaky export',
+        'result_summary' => 'Done.',
+        'started_at' => now()->subMinutes(5),
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSee('Michele')
+        ->assertSee('mascot-avatar.png');
+});

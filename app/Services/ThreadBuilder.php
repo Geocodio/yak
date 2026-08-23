@@ -36,6 +36,7 @@ class ThreadBuilder
                 $run->description_summary,
                 Carbon::parse($run->created_at),
                 $run->source,
+                $run->author_name,
             ));
 
             if (! empty($run->clarification_options)) {

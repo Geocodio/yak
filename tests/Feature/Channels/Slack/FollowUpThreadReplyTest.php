@@ -6,6 +6,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -212,4 +213,34 @@ it('still dispatches ClarificationReplyJob for awaiting-clarification tasks (reg
         return $job->task->id === $task->id;
     });
     Queue::assertNotPushed(RunFollowUpJob::class);
+});
+
+it('records the Slack author name on a thread-reply follow-up', function () {
+    Queue::fake();
+
+    Http::fake([
+        'slack.com/api/users.info*' => Http::response([
+            'ok' => true,
+            'user' => ['real_name' => 'Michele', 'profile' => ['display_name' => 'Michele']],
+        ]),
+    ]);
+
+    $task = YakTask::factory()->success()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C123',
+        'slack_thread_ts' => '111.222',
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $body = slackThreadReplyPayload('Please also add a test', 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::where('parent_task_id', $task->id)->first()->author_name)->toBe('Michele');
 });

@@ -46,15 +46,23 @@
         </div>
     @else
         @php
-            $initial = strtoupper(substr(optional(auth()->user())->name ?? 'You', 0, 1));
+            $authorName = $entry->authorName;
+            $initial = strtoupper(substr($authorName ?? optional(auth()->user())->name ?? 'You', 0, 1));
             $showSummary = $entry->summary && ! $detailedView && ! ($expandedTurns[$i] ?? false);
         @endphp
         <div class="mb-4 flex gap-3">
-            <div class="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-yak-blue text-sm font-medium text-white">
+            <div
+                class="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-yak-blue text-sm font-medium text-white"
+                @if($authorName) title="{{ $authorName }}" @endif
+            >
                 {{ $initial }}
             </div>
             <div class="min-w-0 flex-1">
                 <div class="text-xs text-yak-blue">
+                    @if($authorName)
+                        <span class="font-medium text-yak-slate">{{ $authorName }}</span>
+                        &middot;
+                    @endif
                     via {{ $entry->source ? ucfirst($entry->source) : 'dashboard' }}
                     &middot;
                     <span class="font-mono">{{ $entry->timestamp->format('g:i A') }}</span>
@@ -85,9 +93,7 @@
         $answerText = $isAnswered ? $nextUser->text : null;
     @endphp
     <div class="mb-4 flex gap-3">
-        <div class="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-yak-orange text-sm font-medium text-white">
-            Y
-        </div>
+        <img src="{{ asset('mascot-avatar.png') }}" alt="Yak" title="Yak" class="size-[34px] shrink-0 rounded-full border border-[rgba(200,184,154,0.5)]" />
         <div class="min-w-0 flex-1">
             @php
                 $ttl = ($entry->run && $entry->run->is($task) && $task->status === \App\Enums\TaskStatus::AwaitingClarification)
@@ -136,9 +142,7 @@
             && ! ($expandedTurns[$i] ?? false);
     @endphp
     <div class="mb-4 flex gap-3">
-        <div class="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-yak-orange text-sm font-medium text-white">
-            Y
-        </div>
+        <img src="{{ asset('mascot-avatar.png') }}" alt="Yak" title="Yak" class="size-[34px] shrink-0 rounded-full border border-[rgba(200,184,154,0.5)]" />
         <div class="min-w-0 flex-1">
             <button
                 type="button"

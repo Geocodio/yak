@@ -388,6 +388,7 @@ class WebhookController extends Controller
             'yak_task_id' => $task->id,
             'pr_url' => $prUrl,
             'body' => $instructions,
+            'author' => $authorLogin !== '' ? $authorLogin : null,
             'file' => $isReviewComment ? ($comment['path'] ?? null) : null,
             'line' => $isReviewComment ? ($comment['line'] ?? $comment['original_line'] ?? null) : null,
             'diff_hunk' => $isReviewComment ? ($comment['diff_hunk'] ?? null) : null,

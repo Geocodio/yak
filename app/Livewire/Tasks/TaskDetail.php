@@ -498,7 +498,7 @@ class TaskDetail extends Component
             return;
         }
 
-        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard');
+        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name);
 
         if ($child === null) {
             Flux::toast('This PR is no longer open for changes.', variant: 'warning');

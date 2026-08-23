@@ -334,7 +334,7 @@ class WebhookController extends Controller
         }
 
         if ($task->prIsOpen()) {
-            app(FollowUpTaskFactory::class)->create($task, $message, 'linear');
+            app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
 
             return response()->json(['ok' => true]);
         }

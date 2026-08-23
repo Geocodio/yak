@@ -29,11 +29,12 @@ readonly class ThreadEntry
         public array $runStats = [],
         public bool $isLive = false,
         public ?string $error = null,
+        public ?string $authorName = null,
     ) {}
 
-    public static function user(YakTask $run, string $text, ?string $summary, Carbon $at, ?string $source): self
+    public static function user(YakTask $run, string $text, ?string $summary, Carbon $at, ?string $source, ?string $authorName = null): self
     {
-        return new self('user', $run, $text, $summary, $at, $source);
+        return new self('user', $run, $text, $summary, $at, $source, authorName: $authorName);
     }
 
     /**

@@ -75,3 +75,26 @@ test('description_summary is exposed on the user entry', function () {
 
     expect($entries[0]->summary)->toBe('Short version');
 });
+
+test('user entries carry the task author name', function () {
+    $task = YakTask::factory()->create([
+        'description' => 'Fix the thing',
+        'author_name' => 'Mathias',
+        'status' => TaskStatus::Success,
+        'started_at' => now()->subMinutes(10),
+        'completed_at' => now(),
+    ]);
+
+    $entries = app(ThreadBuilder::class)->build($task);
+
+    expect($entries[0]->kind)->toBe('user')
+        ->and($entries[0]->authorName)->toBe('Mathias');
+});
+
+test('user entries have a null author name when the task has none', function () {
+    $task = YakTask::factory()->create(['description' => 'Fix', 'author_name' => null]);
+
+    $entries = app(ThreadBuilder::class)->build($task);
+
+    expect($entries[0]->authorName)->toBeNull();
+});
