@@ -756,10 +756,12 @@ class TaskDetail extends Component
     #[Computed]
     public function outcomeButton(): ?array
     {
-        if ($this->isResearchTask() && $this->researchArtifact()) {
+        $artifact = $this->researchArtifact();
+
+        if ($this->isResearchTask() && $artifact) {
             return [
                 'label' => 'View research report',
-                'url' => route('artifacts.viewer', ['task' => $this->task->id, 'filename' => $this->researchArtifact()->filename]),
+                'url' => route('artifacts.viewer', ['task' => $this->task->id, 'filename' => $artifact->filename]),
             ];
         }
 
