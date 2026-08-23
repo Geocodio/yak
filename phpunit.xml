@@ -36,5 +36,6 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="YAK_INTENT_CLASSIFIER_ENABLED" value="false"/>
+        <env name="YAK_DESCRIPTION_SUMMARIZER_ENABLED" value="false"/>
     </php>
 </phpunit>

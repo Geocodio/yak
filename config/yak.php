@@ -45,6 +45,13 @@ return [
         'enabled' => (bool) env('YAK_INTENT_CLASSIFIER_ENABLED', true),
     ],
 
+    // Description summarizer: long task descriptions get a cheap Haiku
+    // summary at intake for the condensed thread view. Disable for
+    // tests that don't want to mock the AI SDK.
+    'description_summarizer' => [
+        'enabled' => (bool) env('YAK_DESCRIPTION_SUMMARIZER_ENABLED', true),
+    ],
+
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
 
     'git_user_name' => env('YAK_GIT_USER_NAME', 'Yak'),

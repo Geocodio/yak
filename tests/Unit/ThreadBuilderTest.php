@@ -74,4 +74,4 @@ test('description_summary is exposed on the user entry', function () {
     $entries = app(ThreadBuilder::class)->build($task);
 
     expect($entries[0]->summary)->toBe('Short version');
-})->skip('until Task 3');
+});

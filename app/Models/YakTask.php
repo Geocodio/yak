@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\SummarizeTaskDescriptionJob;
+use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
 use Database\Factories\YakTaskFactory;
@@ -70,6 +72,15 @@ class YakTask extends Model
             'pr_merged_at' => 'datetime',
             'pr_closed_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (YakTask $task): void {
+            if (mb_strlen((string) $task->description) > TaskDescriptionSummary::THRESHOLD) {
+                SummarizeTaskDescriptionJob::dispatch($task);
+            }
+        });
     }
 
     /**
