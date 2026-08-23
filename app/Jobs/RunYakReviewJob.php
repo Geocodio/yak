@@ -631,7 +631,27 @@ class RunYakReviewJob implements ShouldQueue
             }
         }
 
-        foreach ($response['comments'] ?? [] as $i => $returned) {
+        // GitHub's create-review response is the review object only — the
+        // inline comments (and their ids, needed for reaction polling) must
+        // be fetched separately. They come back in creation order, which
+        // matches the submitted $lineComments order.
+        $returnedComments = [];
+        if ($lineComments !== [] && isset($response['id'])) {
+            try {
+                $returnedComments = $github->listReviewComments(
+                    $installationId,
+                    $repository->github_full_name,
+                    $prNumber,
+                    (int) $response['id'],
+                );
+            } catch (\Throwable $e) {
+                TaskLogger::warning($this->task, 'Failed to fetch review comments after posting — reaction tracking will miss this review', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        foreach ($returnedComments as $i => $returned) {
             $finding = $lineComments[$i] ?? null;
             if ($finding === null) {
                 continue;

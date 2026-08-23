@@ -495,6 +495,44 @@ class AppService
     }
 
     /**
+     * List the inline comments attached to a submitted PR review, in
+     * creation order. The create-review response does not include them,
+     * so they have to be fetched separately after posting.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listReviewComments(int $installationId, string $repoSlug, int $prNumber, int $reviewId): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $results = [];
+        $page = 1;
+
+        while (true) {
+            $response = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews/{$reviewId}/comments", [
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $batch = $response->json();
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return $results;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function listOpenPullRequests(int $installationId, string $repoSlug): array

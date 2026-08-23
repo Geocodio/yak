@@ -84,11 +84,11 @@ it('runs a full-scope review end to end', function () {
         'filename' => 'app/Foo.php',
         'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
     ]]);
-    $github->shouldReceive('createPullRequestReview')->andReturn([
-        'id' => 7777,
-        'comments' => [
-            ['id' => 111, 'path' => 'app/Foo.php', 'line' => 12, 'body' => 'Null check missing.'],
-        ],
+    // GitHub's create-review response is the review object only — it never
+    // includes the inline comments, which must be fetched separately.
+    $github->shouldReceive('createPullRequestReview')->andReturn(['id' => 7777]);
+    $github->shouldReceive('listReviewComments')->andReturn([
+        ['id' => 111, 'path' => 'app/Foo.php', 'line' => 12, 'body' => 'Null check missing.'],
     ]);
     app()->instance(GitHubAppService::class, $github);
 
@@ -167,12 +167,10 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
 
             return true;
         })
-        ->andReturn([
-            'id' => 9001,
-            'comments' => [
-                ['id' => 222, 'path' => 'app/Foo.php', 'line' => 12, 'body' => 'stored'],
-            ],
-        ]);
+        ->andReturn(['id' => 9001]);
+    $github->shouldReceive('listReviewComments')->andReturn([
+        ['id' => 222, 'path' => 'app/Foo.php', 'line' => 12, 'body' => 'stored'],
+    ]);
     app()->instance(GitHubAppService::class, $github);
 
     (new RunYakReviewJob($task))->handle($agent);
