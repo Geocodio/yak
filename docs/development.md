@@ -56,7 +56,7 @@ php artisan schedule:work
 npm run dev
 ```
 
-Open `http://localhost:8000`. The Livewire starter kit's auth pages work for local development — Google OAuth is only used in production.
+Open `http://localhost:8000`. Login is Google OAuth only, so for local development visit `http://localhost:8000/letmein` instead — it signs you in as the first user in the database (creating one if the table is empty) and drops you on the dashboard. The route only exists when `APP_ENV=local` and returns a 404 everywhere else.
 
 ## Running Tests
 

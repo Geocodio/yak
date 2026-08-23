@@ -20,6 +20,7 @@ use App\Livewire\Repos\RepoList;
 use App\Livewire\Skills;
 use App\Livewire\Tasks\TaskDetail;
 use App\Livewire\Tasks\TaskList;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -29,6 +30,15 @@ Route::get('/', function () {
 
     return view('welcome');
 })->name('home');
+
+Route::get('letmein', function () {
+    abort_unless(app()->environment('local'), 404);
+
+    $user = User::query()->first() ?? User::factory()->create();
+    auth()->login($user);
+
+    return redirect()->route('tasks');
+})->name('letmein');
 
 Route::middleware('guest')->group(function () {
     Route::view('login', 'auth.login')->name('login');
