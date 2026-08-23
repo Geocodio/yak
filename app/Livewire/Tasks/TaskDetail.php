@@ -82,6 +82,14 @@ class TaskDetail extends Component
 
     public function mount(YakTask $task): void
     {
+        if ($task->parent_task_id !== null) {
+            $root = $task->conversation()->first();
+
+            $this->redirect(route('tasks.show', $root) . '#turn-' . $task->id);
+
+            return;
+        }
+
         $this->task = $task;
         $this->visibleAttempt = max(1, (int) $task->attempts);
 
