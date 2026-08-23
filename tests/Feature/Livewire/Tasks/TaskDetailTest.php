@@ -918,6 +918,15 @@ test('nextSteps nudge shows retry prompt for failed tasks', function () {
         ->assertSee('Click Retry above');
 });
 
+test('nextSteps nudge points failed review tasks at Re-run review', function () {
+    $task = YakTask::factory()->failed()->create(['mode' => TaskMode::Review]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="next-steps"')
+        ->assertSee('Click Re-run review above')
+        ->assertDontSee('Click Retry above');
+});
+
 test('nextSteps nudge is hidden for statuses with their own call-to-action', function () {
     $task = YakTask::factory()->awaitingClarification()->create([
         'clarification_options' => ['a', 'b'],

@@ -643,9 +643,11 @@ class TaskDetail extends Component
                 : 'Yak is exploring the codebase and making changes. This page updates live — check back in a few minutes.',
             TaskStatus::AwaitingCi => 'Changes pushed — waiting for CI. Yak will open a PR once the build passes.',
             TaskStatus::Retrying => 'CI failed on the previous attempt. Yak is taking another pass.',
-            TaskStatus::Failed => $isResearch
-                ? 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.'
-                : 'Task failed. Click Retry above, or mention Yak again with more context.',
+            TaskStatus::Failed => match (true) {
+                $mode === TaskMode::Review => 'Review failed. Click Re-run review above to run it again against the current PR head.',
+                $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
+                default => 'Task failed. Click Retry above, or mention Yak again with more context.',
+            },
             TaskStatus::Expired => 'No response within the clarification window. Mention Yak again to start over.',
             TaskStatus::Cancelled => $isResearch
                 ? 'Research cancelled from the dashboard. Re-assign Yak to start over.'
