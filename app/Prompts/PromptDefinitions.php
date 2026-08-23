@@ -142,6 +142,13 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-pr-title' => [
+                'view' => 'prompts.agents.pr-title',
+                'label' => 'PR Title Writer',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'partials-clarification-contract' => [
                 'view' => 'prompts.partials.clarification-contract',
                 'label' => 'Partial: Clarification Contract',

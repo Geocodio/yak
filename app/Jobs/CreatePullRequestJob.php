@@ -8,6 +8,7 @@ use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\PullRequestBodyUpdater;
+use App\Services\PullRequestTitle;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -107,6 +108,11 @@ class CreatePullRequestJob implements ShouldQueue
             TaskMode::Setup => 'Yak Setup',
             default => 'Yak Fix',
         };
+
+        $generated = (new PullRequestTitle)->generate($this->task);
+        if ($generated !== null) {
+            return "{$prefix}: {$generated}";
+        }
 
         $description = $this->task->description;
 

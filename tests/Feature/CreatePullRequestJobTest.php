@@ -1,5 +1,6 @@
 <?php
 
+use App\Ai\Agents\PullRequestTitleWriter;
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Jobs\CreatePullRequestJob;
 use App\Models\Artifact;
@@ -237,6 +238,101 @@ test('PR title uses Yak Fix prefix for fix mode tasks', function () {
         'repo' => 'org/my-repo',
         'branch_name' => 'yak/FIX-TITLE',
         'source' => 'manual',
+        'description' => 'Fix broken auth',
+        'mode' => 'fix',
+        'attempts' => 1,
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        return $request->method() === 'POST'
+            && str_contains($request->url(), '/pulls')
+            && $request['title'] === 'Yak Fix: Fix broken auth';
+    });
+});
+
+test('PR title uses the AI-written title when the writer is enabled', function () {
+    config(['yak.pr_title_writer.enabled' => true]);
+    PullRequestTitleWriter::fake(['Reject duplicate spam blocklist entries in Nova']);
+
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-AI-TITLE',
+        'source' => 'slack',
+        'description' => 'Looks like this is the error: <https://geocodio.sentry.io/issues/123>',
+        'result_summary' => 'Guarded the spam blocklist unique index with a validation rule.',
+        'mode' => 'fix',
+        'attempts' => 1,
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        return $request->method() === 'POST'
+            && str_contains($request->url(), '/pulls')
+            && $request['title'] === 'Yak Fix: Reject duplicate spam blocklist entries in Nova';
+    });
+});
+
+test('PR title falls back to the truncated description when the writer fails', function () {
+    config(['yak.pr_title_writer.enabled' => true]);
+    PullRequestTitleWriter::fake(function () {
+        throw new RuntimeException('provider down');
+    });
+
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-FALLBACK',
+        'source' => 'slack',
         'description' => 'Fix broken auth',
         'mode' => 'fix',
         'attempts' => 1,

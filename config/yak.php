@@ -52,6 +52,13 @@ return [
         'enabled' => (bool) env('YAK_DESCRIPTION_SUMMARIZER_ENABLED', true),
     ],
 
+    // PR title writer: a cheap Haiku pass turns the raw task request and
+    // result summary into a commit-style PR title. Disable for tests
+    // that don't want to mock the AI SDK.
+    'pr_title_writer' => [
+        'enabled' => (bool) env('YAK_PR_TITLE_WRITER_ENABLED', true),
+    ],
+
     'large_change_threshold' => (int) env('YAK_LARGE_CHANGE_THRESHOLD', 200),
 
     'git_user_name' => env('YAK_GIT_USER_NAME', 'Yak'),

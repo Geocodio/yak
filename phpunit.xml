@@ -37,5 +37,6 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="YAK_INTENT_CLASSIFIER_ENABLED" value="false"/>
         <env name="YAK_DESCRIPTION_SUMMARIZER_ENABLED" value="false"/>
+        <env name="YAK_PR_TITLE_WRITER_ENABLED" value="false"/>
     </php>
 </phpunit>
