@@ -135,6 +135,13 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-description-summary' => [
+                'view' => 'prompts.agents.description-summary',
+                'label' => 'Description Summarizer',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'partials-clarification-contract' => [
                 'view' => 'prompts.partials.clarification-contract',
                 'label' => 'Partial: Clarification Contract',

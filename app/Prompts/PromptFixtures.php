@@ -226,6 +226,12 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'agents-description-summary' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
             'partials-clarification-contract' => [
                 [
                     'label' => 'Static content',
