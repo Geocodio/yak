@@ -32,7 +32,7 @@ it('highlights long-lived deployments with a badge and row accent', function () 
     Livewire::actingAs(User::factory()->create())
         ->test(DeploymentIndex::class)
         ->assertSee('Long-lived')
-        ->assertSee('border-l-sky-400', escape: false);
+        ->assertSee('bg-sky-50/40', escape: false);
 });
 
 it('does not highlight standard deployments', function () {

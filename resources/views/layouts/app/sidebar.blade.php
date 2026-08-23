@@ -23,55 +23,55 @@
                     {{-- Navigation --}}
                     <nav class="flex-1 px-3 space-y-1">
                         <a href="{{ route('tasks') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('tasks*') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('tasks*') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.clipboard-document-list class="size-5" />
                             {{ __('Tasks') }}
                         </a>
                         <a href="{{ route('costs') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('costs') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('costs') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.currency-dollar class="size-5" />
                             {{ __('Costs') }}
                         </a>
                         <a href="{{ route('repos') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('repos*') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('repos*') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.code-bracket class="size-5" />
                             {{ __('Repositories') }}
                         </a>
                         <a href="{{ route('deployments') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('deployments*') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('deployments*') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.rocket-launch class="size-5" />
                             {{ __('Deployments') }}
                         </a>
                         <a href="{{ route('pr-reviews') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('pr-reviews') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('pr-reviews') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.chat-bubble-left-ellipsis class="size-5" />
                             {{ __('PR Reviews') }}
                         </a>
                         <a href="{{ route('channels') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('channels') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('channels') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.inbox-arrow-down class="size-5" />
                             {{ __('Channels') }}
                         </a>
                         <a href="{{ route('prompts') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('prompts') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('prompts') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.chat-bubble-bottom-center-text class="size-5" />
                             {{ __('Prompts') }}
                         </a>
                         <a href="{{ route('skills') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('skills') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('skills') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.puzzle-piece class="size-5" />
                             {{ __('Skills') }}
                         </a>
                         <a href="{{ route('health') }}"
-                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('health') ? 'bg-yak-orange/10 text-yak-orange border-l-2 border-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
+                           class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-btn transition-colors {{ request()->routeIs('health') ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                            wire:navigate @click="mobileNavOpen = false">
                             <flux:icon.heart class="size-5" />
                             {{ __('Health') }}

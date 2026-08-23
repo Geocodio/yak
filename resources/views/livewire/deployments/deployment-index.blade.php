@@ -27,7 +27,7 @@
                     <tr wire:key="deployment-{{ $d->id }}"
                         @class([
                             'transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50',
-                            'border-l-2 border-l-sky-400 bg-sky-50/40 dark:border-l-sky-500 dark:bg-sky-950/20' => $d->long_lived,
+                            'bg-sky-50/40 dark:bg-sky-950/20' => $d->long_lived,
                         ])>
                         <td class="px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">{{ $d->repository->slug }}</td>
                         <td class="px-3 py-2 sm:px-5">

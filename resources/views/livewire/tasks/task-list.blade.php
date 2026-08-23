@@ -201,7 +201,7 @@
                     </tr>
                     @foreach($children as $child)
                         <tr wire:key="child-{{ $child->id }}" class="relative h-12 bg-zinc-50/60 transition-colors hover:bg-zinc-100/60 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/60" style="transform: translateZ(0)">
-                            <td class="border-l-[3px] border-[#e3cba9] py-2 pl-8 pr-3 sm:pr-5">
+                            <td class="py-2 pl-8 pr-3 sm:pr-5">
                                 <a href="{{ route('tasks.show', $child) }}" wire:navigate class="absolute inset-0" aria-label="Open task {{ $child->external_id ?? $child->id }}"></a>
                                 <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($child->status) }}">
                                     {{ str_replace('_', ' ', $child->status->value) }}

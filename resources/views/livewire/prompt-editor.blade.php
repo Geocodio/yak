@@ -13,7 +13,7 @@
                         <button
                             type="button"
                             wire:click="selectPrompt('{{ $slug }}')"
-                            class="flex items-center justify-between w-full px-5 py-2 text-sm text-left transition-colors {{ $selectedSlug === $slug ? 'bg-yak-orange/10 text-yak-orange font-medium border-l-2 border-yak-orange' : 'text-yak-slate hover:bg-yak-cream' }}"
+                            class="flex items-center justify-between w-full px-5 py-2 text-sm text-left transition-colors {{ $selectedSlug === $slug ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate hover:bg-yak-cream' }}"
                             data-test="prompt-item-{{ $slug }}"
                         >
                             <span>{{ $meta['label'] }}</span>
@@ -28,7 +28,7 @@
                         <button
                             type="button"
                             wire:click="selectPrompt('{{ $slug }}')"
-                            class="flex items-center justify-between w-full px-5 py-2 text-sm text-left transition-colors {{ $selectedSlug === $slug ? 'bg-yak-orange/10 text-yak-orange font-medium border-l-2 border-yak-orange' : 'text-yak-slate/80 hover:bg-yak-cream' }}"
+                            class="flex items-center justify-between w-full px-5 py-2 text-sm text-left transition-colors {{ $selectedSlug === $slug ? 'bg-yak-orange/15 text-yak-orange font-medium' : 'text-yak-slate/80 hover:bg-yak-cream' }}"
                             data-test="prompt-item-{{ $slug }}"
                         >
                             <span>{{ $meta['label'] }}</span>

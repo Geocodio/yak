@@ -709,8 +709,7 @@
                             $isExpanded = $expandedLogs[$index] ?? $defaultExpanded;
                         @endphp
                         <div
-                            class="mb-2 overflow-hidden rounded-xl border border-[rgba(200,184,154,0.3)] bg-white {{ $isMilestone ? 'border-l-[3px]' : '' }}"
-                            @if($isMilestone) style="border-left-color: {{ \App\Livewire\Tasks\TaskDetail::logLevelColor($log->level) }};" @endif
+                            class="mb-2 overflow-hidden rounded-xl border border-[rgba(200,184,154,0.3)] bg-white"
                             wire:key="log-{{ $log->id }}"
                             data-testid="{{ $isMilestone ? 'milestone-log' : 'log-entry' }}"
                         >

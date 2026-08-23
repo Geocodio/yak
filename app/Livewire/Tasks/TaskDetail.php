@@ -861,15 +861,6 @@ class TaskDetail extends Component
         };
     }
 
-    public static function logLevelColor(string $level): string
-    {
-        return match ($level) {
-            'warning' => '#d4915e',
-            'error' => '#b85450',
-            default => '#6b8fa3',
-        };
-    }
-
     public static function isMilestone(TaskLog $log): bool
     {
         /** @var array<string, mixed>|null $metadata */
