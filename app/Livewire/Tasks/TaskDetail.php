@@ -15,6 +15,7 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
+use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskLog;
@@ -68,9 +69,7 @@ class TaskDetail extends Component
      */
     public array $expandedGroups = [];
 
-    public string $clarificationReplyText = '';
-
-    public string $followUpText = '';
+    public string $composerText = '';
 
     /**
      * Outcome of a re-review request that redirected here, surfaced as a
@@ -392,35 +391,114 @@ class TaskDetail extends Component
     }
 
     /**
+     * State the unified composer is in, decided by the head of the
+     * follow-up chain (not necessarily the task currently displayed).
+     */
+    #[Computed]
+    public function composerState(): string
+    {
+        $head = $this->task->conversation()->last() ?? $this->task;
+        /** @var TaskStatus $status */
+        $status = $head->status;
+
+        return match (true) {
+            $status === TaskStatus::AwaitingClarification => 'clarification',
+            in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
+            $head->prIsOpen() => 'follow_up',
+            in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) => 'disabled_failed',
+            default => 'disabled_closed',
+        };
+    }
+
+    /**
+     * Send whatever is in the composer, routed by the current
+     * composerState — clarification reply, steering message, or
+     * follow-up instruction.
+     */
+    public function sendMessage(): void
+    {
+        $this->validate(['composerText' => ['required', 'string', 'min:1']]);
+        $text = trim($this->composerText);
+        $head = $this->task->conversation()->last() ?? $this->task;
+
+        match ($this->composerState) {
+            'clarification' => $this->sendClarification($head, $text),
+            'steering' => $this->sendSteering($head, $text),
+            'follow_up' => $this->sendFollowUpMessage($head, $text),
+            default => null,
+        };
+
+        $this->composerText = '';
+        unset($this->composerState);
+        $this->task->refresh();
+    }
+
+    /**
+     * Prefill the composer from a clarification option chip.
+     */
+    public function prefillOption(string $option): void
+    {
+        $this->composerText = $option;
+    }
+
+    /**
      * Submit a clarification reply from the Yak UI. Equivalent to
      * replying in the original Slack thread / Linear issue — both
      * feed into ClarificationReplyJob which resumes Claude with the
      * reply appended.
      */
-    public function submitClarificationReply(): void
+    private function sendClarification(YakTask $head, string $text): void
     {
-        $this->validate([
-            'clarificationReplyText' => ['required', 'string', 'min:1'],
-        ]);
-
-        if ($this->task->status !== TaskStatus::AwaitingClarification) {
+        if ($head->status !== TaskStatus::AwaitingClarification) {
             return;
         }
 
-        $text = trim($this->clarificationReplyText);
+        TaskLogger::info($head, 'Clarification reply submitted via Yak UI');
 
-        TaskLogger::info($this->task, 'Clarification reply submitted via Yak UI');
-
-        if (RepoClarificationResolver::awaitingRepoChoice($this->task)) {
-            RepoClarificationResolver::resolve($this->task, $text);
+        if (RepoClarificationResolver::awaitingRepoChoice($head)) {
+            RepoClarificationResolver::resolve($head, $text);
         } else {
-            ClarificationReplyJob::dispatch($this->task, $text);
+            ClarificationReplyJob::dispatch($head, $text);
         }
 
-        $this->clarificationReplyText = '';
-        $this->task->refresh();
-
         Flux::toast('Reply sent. Yak is continuing the task.');
+    }
+
+    /**
+     * Queue a steering message to be picked up the next time Claude
+     * checks in during the current run.
+     */
+    private function sendSteering(YakTask $head, string $text): void
+    {
+        PendingSteeringMessage::queueFor($head, $text, 'dashboard');
+
+        TaskLogger::info($head, 'Steering message queued via Yak UI');
+
+        Flux::toast('Queued — Yak will pick this up when the current run finishes.');
+    }
+
+    /**
+     * Submit a follow-up instruction from the dashboard when the PR is still
+     * open. Creates a chained child task via FollowUpTaskFactory and
+     * dispatches RunFollowUpJob.
+     */
+    private function sendFollowUpMessage(YakTask $head, string $text): void
+    {
+        if (! $head->prIsOpen()) {
+            Flux::toast('This PR is no longer open for changes.', variant: 'warning');
+
+            return;
+        }
+
+        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard');
+
+        if ($child === null) {
+            Flux::toast('This PR is no longer open for changes.', variant: 'warning');
+
+            return;
+        }
+
+        Flux::toast('Sent to Yak. It will push changes to this PR.');
     }
 
     /**
@@ -434,36 +512,6 @@ class TaskDetail extends Component
     public function conversation(): SupportCollection
     {
         return $this->task->conversation();
-    }
-
-    /**
-     * Submit a follow-up instruction from the dashboard when the PR is still
-     * open. Creates a chained child task via FollowUpTaskFactory and
-     * dispatches RunFollowUpJob.
-     */
-    public function sendFollowUp(): void
-    {
-        $this->validate(['followUpText' => ['required', 'string', 'min:1']]);
-
-        if (! $this->task->prIsOpen()) {
-            Flux::toast('This PR is no longer open for changes.', variant: 'warning');
-
-            return;
-        }
-
-        $child = app(FollowUpTaskFactory::class)
-            ->create($this->task, trim($this->followUpText), 'dashboard');
-
-        $this->followUpText = '';
-
-        if ($child === null) {
-            Flux::toast('This PR is no longer open for changes.', variant: 'warning');
-
-            return;
-        }
-
-        $this->task->refresh();
-        Flux::toast('Sent to Yak. It will push changes to this PR.');
     }
 
     public function toggleDebug(): void

@@ -40,7 +40,7 @@ test('shows the clarification reply input while status is AwaitingClarification 
     }
 });
 
-test('submitClarificationReply dispatches ClarificationReplyJob with the text', function () {
+test('sendMessage dispatches ClarificationReplyJob with the text while awaiting clarification', function () {
     Queue::fake();
 
     $task = YakTask::factory()->create([
@@ -49,15 +49,15 @@ test('submitClarificationReply dispatches ClarificationReplyJob with the text', 
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->set('clarificationReplyText', 'Trace id abc123, payload is {...}')
-        ->call('submitClarificationReply');
+        ->set('composerText', 'Trace id abc123, payload is {...}')
+        ->call('sendMessage');
 
     Queue::assertPushed(ClarificationReplyJob::class, function ($job) use ($task) {
         return $job->task->is($task) && str_contains($job->replyText, 'abc123');
     });
 });
 
-test('submitClarificationReply rejects empty text', function () {
+test('sendMessage rejects empty text', function () {
     Queue::fake();
 
     $task = YakTask::factory()->create([
@@ -65,14 +65,14 @@ test('submitClarificationReply rejects empty text', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->set('clarificationReplyText', '   ')
-        ->call('submitClarificationReply')
-        ->assertHasErrors(['clarificationReplyText']);
+        ->set('composerText', '   ')
+        ->call('sendMessage')
+        ->assertHasErrors(['composerText']);
 
     Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
-test('submitClarificationReply resolves the repo and dispatches RunYakJob when the task is awaiting a repo pick', function () {
+test('sendMessage resolves the repo and dispatches RunYakJob when the task is awaiting a repo pick', function () {
     Queue::fake();
 
     Repository::factory()->create(['slug' => 'acme/marketing-site', 'is_active' => true]);
@@ -86,8 +86,8 @@ test('submitClarificationReply resolves the repo and dispatches RunYakJob when t
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->set('clarificationReplyText', 'acme/marketing-site')
-        ->call('submitClarificationReply');
+        ->set('composerText', 'acme/marketing-site')
+        ->call('sendMessage');
 
     $task->refresh();
     expect($task->repo)->toBe('acme/marketing-site');

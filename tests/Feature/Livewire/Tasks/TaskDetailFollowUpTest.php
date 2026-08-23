@@ -11,7 +11,7 @@ beforeEach(function () {
     $this->actingAs(User::factory()->create());
 });
 
-test('sendFollowUp on an open-PR task creates a chained follow-up and dispatches RunFollowUpJob', function () {
+test('sendMessage on an open-PR task creates a chained follow-up and dispatches RunFollowUpJob', function () {
     Queue::fake();
 
     $task = YakTask::factory()->success()->create([
@@ -24,22 +24,23 @@ test('sendFollowUp on an open-PR task creates a chained follow-up and dispatches
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->set('followUpText', 'Also handle the empty-state')
-        ->call('sendFollowUp')
-        ->assertSet('followUpText', '');
+        ->assertSet('composerState', 'follow_up')
+        ->set('composerText', 'Also handle the empty-state')
+        ->call('sendMessage')
+        ->assertSet('composerText', '');
 
     expect(YakTask::where('parent_task_id', $task->id)->count())->toBe(1);
     Queue::assertPushed(RunFollowUpJob::class);
 });
 
-test('sendFollowUp on a merged PR creates nothing and dispatches nothing', function () {
+test('sendMessage on a merged PR creates nothing and dispatches nothing', function () {
     Queue::fake();
 
     $task = YakTask::factory()->merged()->create(['source' => 'dashboard', 'branch_name' => 'yak/M-1']);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->set('followUpText', 'too late')
-        ->call('sendFollowUp');
+        ->set('composerText', 'too late')
+        ->call('sendMessage');
 
     expect(YakTask::where('parent_task_id', $task->id)->count())->toBe(0);
     Queue::assertNothingPushed();

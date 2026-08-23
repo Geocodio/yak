@@ -250,18 +250,18 @@
                     <label for="clarification-reply" class="mb-2 block text-sm font-medium text-yak-slate">Your reply</label>
                     <textarea
                         id="clarification-reply"
-                        wire:model="clarificationReplyText"
+                        wire:model="composerText"
                         rows="3"
                         placeholder="Type your answer… Yak will also accept replies from the original Slack thread or Linear issue."
                         data-testid="clarification-reply-input"
                         class="w-full rounded-xl border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange"
                     ></textarea>
-                    @error('clarificationReplyText')
+                    @error('composerText')
                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                     @enderror
                     <div class="mt-3 flex items-center justify-between gap-3">
                         <p class="text-xs text-yak-blue">Resumes Claude with your reply appended.</p>
-                        <flux:button wire:click="submitClarificationReply" variant="primary" size="sm" data-testid="clarification-reply-submit">
+                        <flux:button wire:click="sendMessage" variant="primary" size="sm" data-testid="clarification-reply-submit">
                             Send reply
                         </flux:button>
                     </div>
@@ -346,18 +346,18 @@
                     <label for="follow-up-input" class="mb-2 block text-sm font-medium text-yak-slate">Send feedback to Yak</label>
                     <textarea
                         id="follow-up-input"
-                        wire:model="followUpText"
+                        wire:model="composerText"
                         rows="3"
                         placeholder="Describe what you'd like Yak to change or add to this PR…"
                         data-testid="follow-up-input"
                         class="w-full rounded-xl border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange"
                     ></textarea>
-                    @error('followUpText')
+                    @error('composerText')
                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                     @enderror
                     <div class="mt-3 flex items-center justify-between gap-3">
                         <p class="text-xs text-yak-blue">Yak will push changes to this PR.</p>
-                        <flux:button wire:click="sendFollowUp" variant="primary" size="sm">
+                        <flux:button wire:click="sendMessage" variant="primary" size="sm">
                             Send to Yak
                         </flux:button>
                     </div>
