@@ -50,6 +50,40 @@
         ])
     @endif
 
+    {{-- Latest media across the follow-up chain --}}
+    @php $latestMedia = $this->latestMedia; @endphp
+    @if($latestMedia['run'] !== null && $latestMedia['artifacts']->isNotEmpty())
+        @php
+            $latestRun = $latestMedia['run'];
+            $isFromOtherRun = ! $latestRun->is($this->focusedRun);
+        @endphp
+        <div class="rounded-2xl border border-[rgba(200,184,154,0.4)] bg-white p-4" data-testid="latest-media">
+            <h2 class="mb-1 text-xs font-medium uppercase tracking-wider text-yak-blue">Latest media</h2>
+            @if($isFromOtherRun)
+                <p class="mb-3 text-[11px] text-yak-tan" data-testid="latest-media-origin">
+                    from run {{ $latestRun->id }} &middot; {{ $latestRun->completed_at?->diffForHumans() ?? $latestRun->created_at->diffForHumans() }}
+                </p>
+            @endif
+            <div class="flex flex-wrap gap-3 {{ $isFromOtherRun ? '' : 'mt-3' }}">
+                @foreach($latestMedia['artifacts'] as $artifact)
+                    <button
+                        type="button"
+                        wire:click="openMediaLightbox({{ $artifact->id }})"
+                        class="block w-[140px] shrink-0 overflow-hidden rounded-[10px] border border-[rgba(200,184,154,0.45)] text-left transition-shadow hover:shadow-[0_4px_10px_rgba(61,79,95,0.08)]"
+                        data-testid="latest-media-thumb-{{ $artifact->id }}"
+                    >
+                        @if($artifact->type === 'video')
+                            <video muted preload="metadata" class="h-[90px] w-full bg-yak-cream-dark object-cover" src="{{ $artifact->signedUrl() }}"></video>
+                        @else
+                            <img src="{{ $artifact->signedUrl() }}" alt="{{ $artifact->filename }}" loading="lazy" class="h-[90px] w-full object-cover" />
+                        @endif
+                        <div class="truncate bg-yak-cream-dark px-2 py-1 text-[11px] text-yak-blue">{{ $artifact->filename }}</div>
+                    </button>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- Debug details (collapsible), scoped to the focused run --}}
     @php $run = $this->focusedRun; @endphp
     <div class="rounded-2xl bg-[rgba(232,224,210,0.45)] p-4">
@@ -178,6 +212,65 @@
                     @endif
                 @endif
             </div>
+        @endif
+    </flux:modal>
+
+    {{-- Media lightbox: screenshots/videos clicked from a thread turn or the
+    latest-media section above. Videos additionally surface the Reviewer/Director
+    cut picker + generation button, absorbed from the old video-walkthrough card. --}}
+    <flux:modal wire:model.self="lightboxOpen" name="media-lightbox" class="!max-w-2xl" data-testid="media-lightbox">
+        @php $lightboxArtifact = $this->lightboxArtifact; @endphp
+        @if($lightboxArtifact)
+            <div class="mb-3">
+                <flux:heading size="lg">{{ $lightboxArtifact->filename }}</flux:heading>
+            </div>
+
+            @if($lightboxArtifact->type === 'video')
+                <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+                    <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
+                </div>
+
+                <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
+                    @if($this->reviewerCut)
+                        @php $reviewerUrl = $this->reviewerCut->signedUrl(); @endphp
+                        <div class="mb-3 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+                            <video controls preload="metadata" class="w-full" src="{{ $reviewerUrl }}"></video>
+                            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
+                                <a href="{{ $reviewerUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Reviewer Cut</a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if($this->directorCutStatus === 'ready' && $this->directorCut)
+                        @php $directorUrl = $this->directorCut->signedUrl(); @endphp
+                        <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+                            <video controls preload="metadata" class="w-full" src="{{ $directorUrl }}"></video>
+                            <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
+                                <a href="{{ $directorUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Director's Cut</a>
+                            </div>
+                        </div>
+                    @elseif($this->directorCutStatus === 'queued' || $this->directorCutStatus === 'rendering')
+                        <div class="flex items-center gap-3 text-sm text-yak-blue" data-testid="director-cut-progress">
+                            <flux:icon.loading variant="mini" class="size-4" />
+                            <span>{{ $this->directorCutStatus === 'queued' ? 'Queued…' : "Rendering Director's Cut…" }}</span>
+                        </div>
+                    @elseif($this->directorCutStatus === 'failed')
+                        <div class="flex items-center gap-3 text-sm text-yak-danger" data-testid="director-cut-failed">
+                            <span>Director's Cut render failed.</span>
+                            <flux:button variant="ghost" size="sm" wire:click="generateDirectorCut">Retry</flux:button>
+                        </div>
+                    @elseif($this->canGenerateDirectorCut)
+                        <flux:button variant="primary" icon="sparkles" wire:click="generateDirectorCut" data-testid="generate-director-cut">
+                            Generate Director's Cut
+                        </flux:button>
+                        <p class="mt-2 text-xs text-yak-blue">Spins up a fresh sandbox against the PR branch. Takes ~2–3 min.</p>
+                    @endif
+                </div>
+            @else
+                <a href="{{ $lightboxArtifact->signedUrl() }}" target="_blank" rel="noopener noreferrer" class="block">
+                    <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
+                </a>
+            @endif
         @endif
     </flux:modal>
 </div>

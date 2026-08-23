@@ -6,7 +6,9 @@
     the thread), $thread (Collection<int, ThreadEntry>), $task (App\Models\YakTask,
     root task), $detailedView (bool), $expandedTurns (array<int, bool>),
     $clarificationTtl (?string, from TaskDetail::clarificationTtl()),
-    $review (?App\Models\PrReview, from TaskDetail::prReview()).
+    $review (?App\Models\PrReview, from TaskDetail::prReview()),
+    $mediaByRun (Collection<int, Collection<int, App\Models\Artifact>>,
+    from TaskDetail::mediaByRun(), keyed by run id).
 --}}
 @php
     $proseClasses = 'prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10';
@@ -195,6 +197,27 @@
                             </span>
                         @endif
                     @endif
+                </div>
+            @endif
+
+            @php $media = $entry->run ? ($mediaByRun[$entry->run->id] ?? collect()) : collect(); @endphp
+            @if($media->isNotEmpty())
+                <div class="mt-3 flex flex-wrap gap-3" data-testid="turn-media">
+                    @foreach($media as $artifact)
+                        <button
+                            type="button"
+                            wire:click="openMediaLightbox({{ $artifact->id }})"
+                            class="block w-[150px] shrink-0 overflow-hidden rounded-[10px] border border-[rgba(200,184,154,0.45)] text-left transition-shadow hover:shadow-[0_4px_10px_rgba(61,79,95,0.08)]"
+                            data-testid="media-thumb-{{ $artifact->id }}"
+                        >
+                            @if($artifact->type === 'video')
+                                <video muted preload="metadata" class="h-[100px] w-full bg-yak-cream-dark object-cover" src="{{ $artifact->signedUrl() }}"></video>
+                            @else
+                                <img src="{{ $artifact->signedUrl() }}" alt="{{ $artifact->filename }}" loading="lazy" class="h-[100px] w-full object-cover" />
+                            @endif
+                            <div class="truncate bg-yak-cream-dark px-2 py-1 text-[11px] text-yak-blue">{{ $artifact->filename }}</div>
+                        </button>
+                    @endforeach
                 </div>
             @endif
         </div>

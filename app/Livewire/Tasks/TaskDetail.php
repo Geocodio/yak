@@ -9,6 +9,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
+use App\Jobs\GenerateDirectorCutJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
@@ -16,11 +17,13 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\AiUsage;
 use App\Models\Artifact;
+use App\Models\BranchDeployment;
 use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\ChainMediaResolver;
 use App\Services\FollowUpTaskFactory;
 use App\Services\IncusSandboxManager;
 use App\Services\RepoClarificationResolver;
@@ -34,6 +37,7 @@ use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -43,6 +47,13 @@ use Livewire\Component;
  * @property-read bool $canReroute
  * @property-read SupportCollection<int, YakTask> $conversation
  * @property-read SupportCollection<int, ThreadEntry> $thread
+ * @property-read ?BranchDeployment $deployment
+ * @property-read ?Artifact $reviewerCut
+ * @property-read ?Artifact $directorCut
+ * @property-read bool $canGenerateDirectorCut
+ * @property-read string $directorCutStatus
+ * @property-read SupportCollection<int, Collection<int, Artifact>> $mediaByRun
+ * @property-read array{artifacts: Collection<int, Artifact>, run: ?YakTask} $latestMedia
  */
 #[Title('Task Detail')]
 class TaskDetail extends Component
@@ -100,6 +111,14 @@ class TaskDetail extends Component
     public ?int $drawerLogIndex = null;
 
     public bool $drawerOpen = false;
+
+    /**
+     * Artifact currently shown in the media lightbox (screenshot or video
+     * thumbnail clicked from a thread turn or the sidebar's latest media).
+     */
+    public ?int $lightboxArtifactId = null;
+
+    public bool $lightboxOpen = false;
 
     public function mount(YakTask $task): void
     {
@@ -971,28 +990,137 @@ class TaskDetail extends Component
         ], $steps, array_keys($steps));
     }
 
-    /**
-     * @return Collection<int, Artifact>
-     */
-    #[Computed]
-    public function screenshots(): Collection
-    {
-        return $this->task->artifacts()->where('type', 'screenshot')->get();
-    }
-
-    /**
-     * @return Collection<int, Artifact>
-     */
-    #[Computed]
-    public function videos(): Collection
-    {
-        return $this->task->artifacts()->where('type', 'video')->get();
-    }
-
     #[Computed]
     public function researchArtifact(): ?Artifact
     {
         return $this->task->artifacts()->where('type', 'research')->first();
+    }
+
+    /**
+     * Screenshot/video artifacts for each run in the follow-up chain,
+     * keyed by run id, precomputed once per render so thread-entry
+     * doesn't issue an artifact query per turn.
+     *
+     * @return SupportCollection<int, Collection<int, Artifact>>
+     */
+    #[Computed]
+    public function mediaByRun(): SupportCollection
+    {
+        return $this->conversation->mapWithKeys(
+            fn (YakTask $run) => [$run->id => app(ChainMediaResolver::class)->forRun($run)]
+        );
+    }
+
+    /**
+     * Media of the newest run in the chain that has any — surfaced in the
+     * sidebar's "Latest media" section.
+     *
+     * @return array{artifacts: Collection<int, Artifact>, run: ?YakTask}
+     */
+    #[Computed]
+    public function latestMedia(): array
+    {
+        return app(ChainMediaResolver::class)->latest($this->conversation);
+    }
+
+    #[Computed]
+    public function lightboxArtifact(): ?Artifact
+    {
+        if ($this->lightboxArtifactId === null) {
+            return null;
+        }
+
+        return Artifact::find($this->lightboxArtifactId);
+    }
+
+    public function openMediaLightbox(int $artifactId): void
+    {
+        $this->lightboxArtifactId = $artifactId;
+        $this->lightboxOpen = true;
+    }
+
+    public function closeMediaLightbox(): void
+    {
+        $this->lightboxOpen = false;
+    }
+
+    /**
+     * The branch's active deployment (if any), used to surface a Preview
+     * button in the header band. Mirrors the lookup the old
+     * PreviewWidget performed.
+     */
+    #[Computed]
+    public function deployment(): ?BranchDeployment
+    {
+        if ($this->task->branch_name === null) {
+            return null;
+        }
+
+        // YakTask has `repo` (slug) not `repository_id`. Look up by slug.
+        $repository = Repository::where('slug', $this->task->repo)->first();
+
+        if ($repository === null) {
+            return null;
+        }
+
+        return BranchDeployment::where('repository_id', $repository->id)
+            ->where('branch_name', $this->task->branch_name)
+            ->whereNotIn('status', ['destroyed', 'destroying'])
+            ->first();
+    }
+
+    #[Computed]
+    public function reviewerCut(): ?Artifact
+    {
+        return $this->task->artifacts()->reviewerCut()->latest('id')->first();
+    }
+
+    #[Computed]
+    public function directorCut(): ?Artifact
+    {
+        return $this->task->artifacts()->directorCut()->latest('id')->first();
+    }
+
+    /**
+     * Task is Success + has an open PR + no in-flight/ready director cut.
+     * Presence of a PR is indicated by pr_url being non-empty.
+     */
+    #[Computed]
+    public function canGenerateDirectorCut(): bool
+    {
+        /** @var TaskStatus $status */
+        $status = $this->task->status;
+
+        return $status === TaskStatus::Success
+            && ! empty($this->task->pr_url)
+            && in_array($this->task->director_cut_status, [null, 'failed'], true);
+    }
+
+    #[Computed]
+    public function directorCutStatus(): string
+    {
+        if ($this->directorCut !== null) {
+            return 'ready';
+        }
+
+        return $this->task->director_cut_status ?? 'idle';
+    }
+
+    public function generateDirectorCut(): void
+    {
+        if (! $this->canGenerateDirectorCut) {
+            return;
+        }
+
+        GenerateDirectorCutJob::dispatch($this->task->id);
+        $this->task->update(['director_cut_status' => 'queued']);
+        $this->task->refresh();
+    }
+
+    #[On('artifact-updated')]
+    public function refreshFromEvent(): void
+    {
+        $this->task->refresh();
     }
 
     #[Computed]

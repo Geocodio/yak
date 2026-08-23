@@ -1,4 +1,11 @@
-{{-- Header band: breadcrumb, status, title, actions, meta line. --}}
+{{--
+    Header band: breadcrumb, status, title, actions, meta line.
+
+    Expects (in addition to $task): $isActiveStatus, $contextualAction,
+    $outcomeButton, $isResearchTask, $canReroute, $rerouteOptions,
+    $sourceUrl, $nextSteps, $detailedView, $isAnsweredFix,
+    $deployment (?App\Models\BranchDeployment, from TaskDetail::deployment()).
+--}}
 @php
     $headlineFirstLine = \Illuminate\Support\Str::before($task->description, "\n");
     $headline = ($task->description_summary && strlen($task->description_summary) < strlen($headlineFirstLine))
@@ -31,6 +38,19 @@
                     <flux:button variant="ghost" size="sm" icon="x-circle" wire:click="cancel" wire:confirm="Cancel this task? The sandbox will be destroyed and the agent will stop." data-testid="cancel-button">Cancel</flux:button>
                 @elseif($contextualAction === 'rerun_review')
                     <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="rerunReview">Re-run review</flux:button>
+                @endif
+
+                @if($deployment)
+                    <a
+                        href="https://{{ $deployment->hostname }}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 rounded-xl border border-[rgba(200,184,154,0.4)] px-4 py-2.5 text-sm font-medium text-yak-slate transition-colors hover:bg-[rgba(245,240,232,0.5)]"
+                        data-testid="preview-button"
+                    >
+                        <flux:icon.globe-alt class="!size-4" />
+                        <span>Preview</span>
+                    </a>
                 @endif
 
                 @if($outcomeButton)

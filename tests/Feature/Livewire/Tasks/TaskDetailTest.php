@@ -426,29 +426,29 @@ test('milestone logs do not show expand chevron', function () {
     expect($html)->not->toContain('chevron-right');
 });
 
-test('it shows screenshots section', function () {
+test('it attaches screenshots to the thread turn that produced them', function () {
     $task = YakTask::factory()->success()->create();
 
-    Artifact::factory()->screenshot()->create([
+    $screenshot = Artifact::factory()->screenshot()->create([
         'yak_task_id' => $task->id,
         'filename' => 'screenshot-before.png',
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSee('Media')
+        ->assertSeeHtml('data-testid="media-thumb-' . $screenshot->id . '"')
         ->assertSee('screenshot-before.png');
 });
 
-test('it shows video player for video artifacts', function () {
+test('it attaches videos to the thread turn as a thumbnail', function () {
     $task = YakTask::factory()->success()->create();
 
-    Artifact::factory()->video()->create([
+    $video = Artifact::factory()->video()->create([
         'yak_task_id' => $task->id,
         'filename' => 'recording.mp4',
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->assertSee('Media')
+        ->assertSeeHtml('data-testid="media-thumb-' . $video->id . '"')
         ->assertSee('recording.mp4')
         ->assertSeeHtml('<video');
 });
