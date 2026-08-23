@@ -126,6 +126,14 @@
         $steps = $entry->runStats['steps'] ?? 0;
         $duration = \App\Livewire\Tasks\TaskList::formatDuration($entry->runStats['duration_ms'] ?? null);
         $lastLogMessage = $entry->isLive ? optional($entry->run?->logs()->latest('created_at')->first())->message : null;
+        // D12: in condensed view, results superseded by a later run collapse
+        // to a clamp so the thread foregrounds the newest answer.
+        $lastYakIndex = $thread->filter(fn ($e) => $e->kind === 'yak')->keys()->last();
+        $isSuperseded = ! $detailedView
+            && ! $entry->isLive
+            && $entry->error === null
+            && $i !== $lastYakIndex
+            && ! ($expandedTurns[$i] ?? false);
     @endphp
     <div class="mb-4 flex gap-3">
         <div class="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-yak-orange text-sm font-medium text-white">
@@ -155,9 +163,23 @@
             @endif
 
             @if($entry->text !== '')
-                <div class="mt-2 {{ $proseClasses }}">
-                    {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
-                </div>
+                @if($isSuperseded)
+                    <div class="mt-2 line-clamp-3 {{ $proseClasses }}" data-testid="superseded-result">
+                        {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
+                    </div>
+                    <button
+                        type="button"
+                        wire:click="toggleTurn({{ $i }})"
+                        class="mt-1 text-xs font-medium text-yak-orange hover:text-yak-orange-warm"
+                        data-testid="show-superseded-result"
+                    >
+                        Show full result &#9656;
+                    </button>
+                @else
+                    <div class="mt-2 {{ $proseClasses }}">
+                        {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
+                    </div>
+                @endif
             @endif
 
             @if($task->mode === \App\Enums\TaskMode::Review && isset($review) && $review && $entry->run && $review->yak_task_id === $entry->run->id)

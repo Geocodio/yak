@@ -2,8 +2,11 @@
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Livewire\Tasks\TaskDetail;
+use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
+use Livewire\Livewire;
 
 beforeEach(fn () => $this->actingAs(User::factory()->create()));
 
@@ -104,4 +107,48 @@ test('clarification turn shows the reply-by TTL while awaiting clarification', f
 
     $this->get(route('tasks.show', $task))
         ->assertSee('expires');
+});
+
+test('detailed view ungroups thinking-step clusters in the activity log', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'started_at' => now()->subMinutes(5),
+        'completed_at' => now(),
+    ]);
+    foreach (['Reading the router', 'Tracing the handler', 'Planning the fix'] as $message) {
+        TaskLog::factory()->create([
+            'yak_task_id' => $task->id,
+            'message' => $message,
+            'metadata' => ['type' => 'assistant'],
+        ]);
+    }
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSee('thinking steps')
+        ->call('toggleDetailedView')
+        ->assertDontSee('thinking steps')
+        ->assertSee('Tracing the handler');
+});
+
+test('condensed view collapses superseded results behind a show-full affordance', function () {
+    $root = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'result_summary' => 'The original answer with plenty of detail.',
+        'started_at' => now()->subHour(),
+        'completed_at' => now()->subMinutes(50),
+    ]);
+    YakTask::factory()->create([
+        'parent_task_id' => $root->id,
+        'status' => TaskStatus::Success,
+        'result_summary' => 'The newest answer.',
+        'started_at' => now()->subMinutes(10),
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $root])
+        ->assertSeeHtml('data-testid="superseded-result"')
+        ->assertSee('Show full result')
+        ->call('toggleDetailedView')
+        ->assertDontSeeHtml('data-testid="superseded-result"')
+        ->assertDontSee('Show full result');
 });

@@ -89,6 +89,20 @@
     ::file-selector-button {
         border-color: var(--color-yak-tan, currentColor);
     }
+
+    /* Tailwind v4 removed the pointer cursor from buttons; restore it for
+       every enabled interactive control (buttons, summary, role=button). */
+    button:not(:disabled),
+    [role='button']:not(:disabled),
+    summary,
+    label:has(> input[type='checkbox']),
+    label:has(> input[type='radio']) {
+        cursor: pointer;
+    }
+
+    button:disabled {
+        cursor: not-allowed;
+    }
 }
 
 /* Glass effect for cards */

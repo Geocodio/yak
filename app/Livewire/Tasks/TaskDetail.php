@@ -672,6 +672,8 @@ class TaskDetail extends Component
     public function toggleDetailedView(): void
     {
         $this->detailedView = ! $this->detailedView;
+
+        unset($this->groupedLogs);
     }
 
     public function toggleTurn(int $entryIndex): void
@@ -923,7 +925,7 @@ class TaskDetail extends Component
                 continue;
             }
 
-            if ($isAssistant && $log->level === 'info') {
+            if ($isAssistant && $log->level === 'info' && ! $this->detailedView) {
                 $currentAssistantGroup[] = $log;
                 $currentAssistantIndices[] = $index;
             } else {
