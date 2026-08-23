@@ -295,7 +295,7 @@ test('it shows activity log with expandable entries', function () {
         ->assertDontSee('Session Log')
         ->assertSee('Searching for')
         ->assertSee('Grep')
-        ->call('toggleLog', 0)
+        ->call('openLogDrawer', 0)
         ->assertSee('TODO fix this');
 });
 
@@ -553,8 +553,8 @@ test('actions filter shows only tool_use entries', function () {
     expect($html)->not->toContain('Task created');
 });
 
-test('milestone stepper is displayed', function () {
-    $task = YakTask::factory()->success()->create();
+test('progress checklist is displayed while the task is in flight', function () {
+    $task = YakTask::factory()->running()->create();
 
     TaskLog::factory()->create([
         'yak_task_id' => $task->id,
@@ -565,7 +565,7 @@ test('milestone stepper is displayed', function () {
     $component = Livewire::test(TaskDetail::class, ['task' => $task]);
     $html = $component->html();
 
-    expect($html)->toContain('data-testid="milestone-stepper"');
+    expect($html)->toContain('data-testid="progress-checklist"');
     expect($html)->toContain('Received');
     expect($html)->toContain('Working');
     expect($html)->toContain('Done');
@@ -605,7 +605,7 @@ test('absolute timestamps shown for completed tasks', function () {
     expect($html)->not->toContain('ago');
 });
 
-test('error tool results are auto-expanded', function () {
+test('error tool result output is available in the log drawer', function () {
     $task = YakTask::factory()->success()->create();
 
     TaskLog::factory()->create([
@@ -620,11 +620,9 @@ test('error tool results are auto-expanded', function () {
         ],
     ]);
 
-    $component = Livewire::test(TaskDetail::class, ['task' => $task]);
-    $html = $component->html();
-
-    // Error tool results should be auto-expanded (output visible without toggling)
-    expect($html)->toContain('Error: test suite failed');
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openLogDrawer', 0)
+        ->assertSee('Error: test suite failed');
 });
 
 test('attempt selector only renders when task has been retried', function () {

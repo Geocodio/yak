@@ -5,7 +5,8 @@
     Expects: $entry (App\DataTransferObjects\ThreadEntry), $i (int, index in
     the thread), $thread (Collection<int, ThreadEntry>), $task (App\Models\YakTask,
     root task), $detailedView (bool), $expandedTurns (array<int, bool>),
-    $clarificationTtl (?string, from TaskDetail::clarificationTtl()).
+    $clarificationTtl (?string, from TaskDetail::clarificationTtl()),
+    $review (?App\Models\PrReview, from TaskDetail::prReview()).
 --}}
 @php
     $proseClasses = 'prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10';
@@ -155,6 +156,10 @@
                 <div class="mt-2 {{ $proseClasses }}">
                     {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
                 </div>
+            @endif
+
+            @if($task->mode === \App\Enums\TaskMode::Review && isset($review) && $review && $entry->run && $review->yak_task_id === $entry->run->id)
+                @include('livewire.tasks.partials.findings-block', ['review' => $review])
             @endif
 
             @if($entry->run)

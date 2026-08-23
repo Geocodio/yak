@@ -8,11 +8,12 @@ use App\Models\User;
 use App\Models\YakTask;
 use Livewire\Livewire;
 
-it('renders review panels for a review task', function () {
+it('renders a findings block inside the thread for a review task', function () {
     $user = User::factory()->create();
     $task = YakTask::factory()->create([
         'mode' => TaskMode::Review,
         'pr_url' => 'https://github.com/geocodio/api/pull/1',
+        'started_at' => now(),
     ]);
 
     $review = PrReview::factory()->create([
@@ -30,20 +31,57 @@ it('renders review panels for a review task', function () {
         'body' => 'Minor nit.',
     ]);
 
-    $component = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task]);
-    $html = $component->instance()->renderedReviewBody();
+    $html = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task])->html();
 
-    expect($html)->toContain('<h2>Summary</h2>')
+    expect($html)->toContain('data-testid="findings-block"')
         ->and($html)->toContain('Adds retry to geocode client.')
+        ->and($html)->toContain('Approve with suggestions')
         ->and($html)->toContain('app/Foo.php:5')
-        ->and($html)->toContain('Approve with suggestions');
+        ->and($html)->toContain('Minor nit.');
 });
 
-it('returns empty string when task is not a review', function () {
+it('maps finding severities to the right badge variant', function () {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/geocodio/api/pull/1',
+        'started_at' => now(),
+    ]);
+
+    $review = PrReview::factory()->create(['yak_task_id' => $task->id]);
+
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'must_fix']);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'should_fix']);
+    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'severity' => 'consider']);
+
+    $html = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task])->html();
+
+    expect($html)->toContain('1 must-fix')
+        ->and($html)->toContain('1 should-fix')
+        ->and($html)->toContain('1 consider');
+});
+
+it('does not render a findings block for non-review tasks', function () {
     $user = User::factory()->create();
     $task = YakTask::factory()->create(['mode' => TaskMode::Fix]);
 
-    $component = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task]);
+    $html = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task])->html();
 
-    expect($component->instance()->renderedReviewBody())->toBe('');
+    expect($html)->not->toContain('data-testid="findings-block"');
+});
+
+it('does not render the old review cards', function () {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/geocodio/api/pull/1',
+        'started_at' => now(),
+    ]);
+
+    PrReview::factory()->create(['yak_task_id' => $task->id]);
+
+    $html = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task])->html();
+
+    expect($html)->not->toContain('Review output')
+        ->and($html)->not->toContain('Review preview');
 });

@@ -33,7 +33,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use League\CommonMark\CommonMarkConverter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -41,7 +40,6 @@ use Livewire\Component;
 /**
  * @property-read Collection<int, TaskLog> $logs
  * @property-read ?PrReview $prReview
- * @property-read string $renderedReviewBody
  * @property-read bool $canReroute
  * @property-read SupportCollection<int, YakTask> $conversation
  * @property-read SupportCollection<int, ThreadEntry> $thread
@@ -87,6 +85,21 @@ class TaskDetail extends Component
      * @var array<int, bool>
      */
     public array $expandedTurns = [];
+
+    /**
+     * The run (task in the follow-up chain) the sidebar's activity log and
+     * debug panel are currently focused on. Null defaults to the live run
+     * if any, else the chain head — see focusedRun().
+     */
+    public ?int $focusedRunId = null;
+
+    /**
+     * Index (into $this->logs, the focused run's logs for the visible
+     * attempt) of the entry shown in the log drawer.
+     */
+    public ?int $drawerLogIndex = null;
+
+    public bool $drawerOpen = false;
 
     public function mount(YakTask $task): void
     {
@@ -591,33 +604,6 @@ class TaskDetail extends Component
     }
 
     #[Computed]
-    public function renderedReviewBody(): string
-    {
-        $review = $this->prReview;
-        if ($review === null) {
-            return '';
-        }
-
-        $parts = [];
-        $parts[] = "## Summary\n\n" . ($review->summary ?? '');
-
-        $nitpicks = $review->comments->where('severity', 'consider');
-        if ($nitpicks->isNotEmpty()) {
-            $body = $nitpicks->map(fn ($c) => "- **{$c->file_path}:{$c->line_number}** — _{$c->category}_: {$c->body}")->implode("\n");
-            $parts[] = "### Nitpicks ({$nitpicks->count()})\n\n" . $body;
-        }
-
-        $parts[] = "## Verdict\n\n**" . ($review->verdict ?? '') . '**';
-
-        $md = implode("\n\n", $parts);
-
-        return (new CommonMarkConverter([
-            'html_input' => 'strip',
-            'allow_unsafe_links' => false,
-        ]))->convert($md)->getContent();
-    }
-
-    #[Computed]
     public function sourceUrl(): ?string
     {
         return TaskSourceUrl::resolve($this->task);
@@ -681,11 +667,74 @@ class TaskDetail extends Component
     }
 
     /**
-     * Placeholder for Task 7, which wires this up to point the sidebar's
-     * log panel at a specific run in the chain. Stubbed here so the
-     * thread's work-summary rows can safely wire:click it.
+     * Point the sidebar's activity log and debug panel at a specific run
+     * in the follow-up chain. Resets per-run UI state (attempt, expanded
+     * groups, open drawer) since it's now looking at a different run's
+     * logs.
      */
-    public function focusRun(int $runId): void {}
+    public function focusRun(int $runId): void
+    {
+        $this->focusedRunId = $runId;
+        $this->expandedLogs = [];
+        $this->expandedGroups = [];
+        $this->drawerLogIndex = null;
+        $this->drawerOpen = false;
+
+        $run = $this->conversation->firstWhere('id', $runId);
+        $this->visibleAttempt = max(1, (int) ($run->attempts ?? 1));
+    }
+
+    /**
+     * The run the sidebar is currently focused on. Defaults to whichever
+     * run in the chain is live (in-flight); if none is live, defaults to
+     * the chain head (most recent run).
+     */
+    #[Computed]
+    public function focusedRun(): YakTask
+    {
+        if ($this->focusedRunId !== null) {
+            $run = $this->conversation->firstWhere('id', $this->focusedRunId);
+
+            if ($run !== null) {
+                return $run;
+            }
+        }
+
+        /** @var YakTask|null $live */
+        $live = $this->conversation->first(fn (YakTask $run) => in_array($run->status, [
+            TaskStatus::Running,
+            TaskStatus::AwaitingClarification,
+            TaskStatus::AwaitingCi,
+            TaskStatus::Retrying,
+        ], true));
+
+        return $live ?? $this->conversation->last();
+    }
+
+    /**
+     * The conversation chain, for the sidebar's run picker chips.
+     *
+     * @return SupportCollection<int, YakTask>
+     */
+    #[Computed]
+    public function chainRuns(): SupportCollection
+    {
+        return $this->conversation;
+    }
+
+    /**
+     * Open the log drawer showing one entry's full prompt/input/output.
+     */
+    public function openLogDrawer(int $index): void
+    {
+        $this->drawerLogIndex = $index;
+        $this->drawerOpen = true;
+    }
+
+    public function closeLogDrawer(): void
+    {
+        $this->drawerOpen = false;
+    }
 
     /**
      * The task's headline outcome, surfaced as a button in the header band
@@ -771,22 +820,23 @@ class TaskDetail extends Component
     #[Computed]
     public function logs(): Collection
     {
-        return $this->task->logs()
+        return $this->focusedRun->logs()
             ->where('attempt_number', $this->visibleAttempt)
             ->orderBy('created_at')
             ->get();
     }
 
     /**
-     * List of attempt numbers the user can switch between (1..attempts).
-     * Only includes >1 attempts when the task has actually been retried.
+     * List of attempt numbers the user can switch between (1..attempts) for
+     * the focused run. Only includes >1 attempts when the run has actually
+     * been retried.
      *
      * @return array<int, int>
      */
     #[Computed]
     public function availableAttempts(): array
     {
-        $total = max(1, (int) $this->task->attempts);
+        $total = max(1, (int) $this->focusedRun->attempts);
 
         return $total > 1 ? range(1, $total) : [];
     }
@@ -794,7 +844,7 @@ class TaskDetail extends Component
     #[Computed]
     public function hasLogs(): bool
     {
-        return $this->task->logs()->exists();
+        return $this->focusedRun->logs()->exists();
     }
 
     /**
@@ -906,7 +956,7 @@ class TaskDetail extends Component
         $steps = [
             ['label' => 'Received', 'tooltip' => 'Task landed in the queue.'],
             ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
-            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and making changes.'],
+            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the fix.'],
             ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
             ['label' => 'CI passing', 'tooltip' => 'Waiting for CI to verify the changes.'],
             ['label' => 'Pull request', 'tooltip' => 'Pull request opened for human review.'],
