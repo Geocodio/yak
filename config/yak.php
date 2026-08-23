@@ -93,6 +93,11 @@ return [
         'workspace_path' => env('YAK_SANDBOX_WORKSPACE_PATH', '/workspace'),
         'results_path' => env('YAK_SANDBOX_RESULTS_PATH', '/results'),
         'claude_config_source' => env('YAK_SANDBOX_CLAUDE_CONFIG', '/home/yak/.claude'),
+
+        // Host directory where Claude session transcripts are persisted
+        // between sandboxes, so follow-ups can `--resume` a session whose
+        // original sandbox is long gone.
+        'session_transcript_path' => env('YAK_SESSION_TRANSCRIPT_PATH', storage_path('app/claude-sessions')),
         'docker_config_source' => env('YAK_SANDBOX_DOCKER_CONFIG', '/home/yak/.docker/config.json'),
         'network' => env('YAK_SANDBOX_NETWORK', 'yak-sandbox'),
         'cleanup_after_hours' => (int) env('YAK_SANDBOX_CLEANUP_HOURS', 24),

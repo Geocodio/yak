@@ -26,6 +26,12 @@ class FakeSandboxManager extends IncusSandboxManager
     public array $snapshots = [];
 
     /** @var array<int, string> */
+    public array $pulledTranscripts = [];
+
+    /** @var array<int, string> */
+    public array $pushedTranscripts = [];
+
+    /** @var array<int, string> */
     public array $promotedTemplates = [];
 
     /** @var array<int, string> */
@@ -92,6 +98,24 @@ class FakeSandboxManager extends IncusSandboxManager
     public function pullFile(string $containerName, string $remotePath, string $localPath): void
     {
         // No-op in tests
+    }
+
+    public function pullSessionTranscript(string $containerName, ?string $sessionId): void
+    {
+        if ($sessionId !== null && $sessionId !== '') {
+            $this->pulledTranscripts[] = $sessionId;
+        }
+    }
+
+    public function pushSessionTranscript(string $containerName, ?string $sessionId): bool
+    {
+        if ($sessionId === null || $sessionId === '') {
+            return false;
+        }
+
+        $this->pushedTranscripts[] = $sessionId;
+
+        return true;
     }
 
     public function pullDirectory(string $containerName, string $remotePath, string $localPath): void

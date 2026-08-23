@@ -165,3 +165,93 @@ test('RunFollowUpJob fails when the task has no branch', function () {
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
 });
+
+test('RunFollowUpJob retries without --resume when the session transcript is gone', function () {
+    $staleResume = AgentRunResult::failure('', '')->withStderr(
+        'No conversation found with session ID: sess_parent',
+    );
+
+    $fake = (new FakeAgentRunner)
+        ->queueResult($staleResume)
+        ->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*git rev-parse *' => Process::result(output: 'yak/STALE-1'), '*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'stale-repo', 'path' => '/home/yak/repos/stale-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'stale-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/STALE-1',
+        'pr_url' => 'https://github.com/acme/stale-repo/pull/7',
+        'description' => 'tweak',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    expect($fake->calls)->toHaveCount(2)
+        ->and($fake->calls[0]->resumeSessionId)->toBe('sess_parent')
+        ->and($fake->calls[1]->resumeSessionId)->toBeNull()
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+});
+
+test('RunFollowUpJob surfaces CLI stderr in error_log when the run fails', function () {
+    $failure = new AgentRunResult(
+        sessionId: '',
+        resultSummary: '',
+        costUsd: 0.0,
+        numTurns: 0,
+        durationMs: 0,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+        errorSubtype: 'error_during_execution',
+        stderr: 'MCP server crashed on startup',
+    );
+
+    $fake = (new FakeAgentRunner)->queueResult($failure);
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'stderr-repo', 'path' => '/home/yak/repos/stderr-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'stderr-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/STDERR-1',
+        'pr_url' => 'https://github.com/acme/stderr-repo/pull/8',
+        'description' => 'tweak',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->fresh()->error_log)->toContain('MCP server crashed on startup');
+});
+
+test('RunFollowUpJob restores the parent transcript into the sandbox and persists the new one', function () {
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult('sess_followup_new'));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+    Process::fake(['*git rev-parse *' => Process::result(output: 'yak/TR-1'), '*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'tr-repo', 'path' => '/home/yak/repos/tr-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'tr-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/TR-1',
+        'pr_url' => 'https://github.com/acme/tr-repo/pull/11',
+        'description' => 'tweak',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    expect($fakeSandbox->pushedTranscripts)->toBe(['sess_parent'])
+        ->and($fakeSandbox->pulledTranscripts)->toBe(['sess_followup_new']);
+});

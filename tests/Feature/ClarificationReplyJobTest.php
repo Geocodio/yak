@@ -446,3 +446,76 @@ test('ClarificationReplyJob has EnsureDailyBudget middleware', function () {
     expect($classes)->toContain(EnsureDailyBudget::class)
         ->and($classes)->toContain(EnsureRepoReady::class);
 });
+
+test('clarification reply retries without --resume when the session transcript is gone', function () {
+    $staleResume = AgentRunResult::failure('', '')->withStderr(
+        'No conversation found with session ID: sess_original',
+    );
+
+    $fake = (new FakeAgentRunner)
+        ->queueResult($staleResume)
+        ->queueResult(new AgentRunResult(
+            sessionId: 'sess_fresh',
+            resultSummary: 'Implemented without resume',
+            costUsd: 1.0,
+            numTurns: 5,
+            durationMs: 30000,
+            isError: false,
+            clarificationNeeded: false,
+            clarificationOptions: [],
+            rawOutput: '{}',
+        ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+
+    Process::fake([
+        '*git rev-parse *' => Process::result(output: 'yak/ISSUE-101'),
+        '*' => Process::result(''),
+    ]);
+
+    Repository::factory()->create(['slug' => 'stale-clar-repo', 'path' => '/home/yak/repos/stale-clar-repo']);
+    $task = YakTask::factory()->awaitingClarification()->create([
+        'repo' => 'stale-clar-repo',
+        'session_id' => 'sess_original',
+        'branch_name' => 'yak/ISSUE-101',
+    ]);
+
+    (new ClarificationReplyJob($task, 'Option A'))->handle($fake);
+
+    expect($fake->calls)->toHaveCount(2)
+        ->and($fake->calls[0]->resumeSessionId)->toBe('sess_original')
+        ->and($fake->calls[1]->resumeSessionId)->toBeNull()
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi)
+        ->and($task->fresh()->session_id)->toBe('sess_fresh');
+});
+
+test('clarification reply restores the original transcript and persists the resumed one', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_resumed_tr',
+        resultSummary: 'Implemented',
+        costUsd: 0.5,
+        numTurns: 3,
+        durationMs: 10000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+    Process::fake(['*git rev-parse *' => Process::result(output: 'yak/ISSUE-102'), '*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'clar-tr-repo', 'path' => '/home/yak/repos/clar-tr-repo']);
+    $task = YakTask::factory()->awaitingClarification()->create([
+        'repo' => 'clar-tr-repo',
+        'session_id' => 'sess_original_tr',
+        'branch_name' => 'yak/ISSUE-102',
+    ]);
+
+    (new ClarificationReplyJob($task, 'Option A'))->handle($fake);
+
+    expect($fakeSandbox->pushedTranscripts)->toBe(['sess_original_tr'])
+        ->and($fakeSandbox->pulledTranscripts)->toBe(['sess_resumed_tr']);
+});

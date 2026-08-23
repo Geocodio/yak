@@ -418,11 +418,12 @@ class SandboxedAgentRunner implements AgentRunner
                 'total_cost_usd' => $resultEvent['total_cost_usd'] ?? null,
             ]);
 
-            return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR));
+            return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR))
+                ->withStderr($stderrOutput);
         }
 
         if ($stderrOutput !== '') {
-            return AgentRunResult::failure($stderrOutput, '');
+            return AgentRunResult::failure($stderrOutput, '')->withStderr($stderrOutput);
         }
 
         $terminationNote = $forcedTermination === 'stream_idle_timeout'

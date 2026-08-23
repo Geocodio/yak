@@ -867,3 +867,30 @@ test('does not emit start-of-work progress on retry (attempts > 0)', function ()
             && str_contains($job->message, 'exploring the codebase');
     });
 });
+
+test('successful run persists the session transcript before destroying the sandbox', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_transcript',
+        resultSummary: 'Done',
+        costUsd: 1.0,
+        numTurns: 5,
+        durationMs: 5000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'transcript-repo', 'path' => '/home/yak/repos/transcript-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'transcript-repo', 'source' => 'slack']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    expect($fakeSandbox->pulledTranscripts)->toBe(['sess_transcript'])
+        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
+});

@@ -449,3 +449,33 @@ test('sandbox is destroyed even when retry fails', function () {
 
     expect($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
+
+test('retry persists the new session transcript before destroying the sandbox', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_tr',
+        resultSummary: 'Fixed',
+        costUsd: 0.5,
+        numTurns: 3,
+        durationMs: 10000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'retry-tr-repo', 'path' => '/home/yak/repos/retry-tr-repo']);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'retry-tr-repo',
+        'session_id' => 'sess_before_retry',
+        'branch_name' => 'yak/RT-1',
+    ]);
+
+    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+
+    expect($fakeSandbox->pulledTranscripts)->toBe(['sess_retry_tr']);
+});

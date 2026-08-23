@@ -625,3 +625,49 @@ test('batch mode feeds the prompt to claude -p via stdin, not argv', function ()
     expect($claudeCall['command'])->not->toContain('[BATCH-SENTINEL]');
     expect($sandbox->capturedInput)->toBe($largePrompt);
 });
+
+it('attaches CLI stderr to the run result so failures surface the real reason', function () {
+    $task = YakTask::factory()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $descriptors = [
+                0 => ['pipe', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+
+            $resultEvent = json_encode([
+                'type' => 'result',
+                'subtype' => 'error_during_execution',
+                'is_error' => true,
+                'result' => '',
+                'num_turns' => 0,
+                'total_cost_usd' => 0,
+                'duration_ms' => 100,
+                'session_id' => '',
+            ]);
+
+            $shell = sprintf(
+                'echo %s; echo "No conversation found with session ID: 98894ba5" >&2',
+                escapeshellarg($resultEvent),
+            );
+
+            $process = proc_open($shell, $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->stderr)->toContain('No conversation found with session ID: 98894ba5')
+        ->and($result->isStaleSessionResume())->toBeTrue()
+        ->and($result->failureMessage())->toContain('No conversation found with session ID: 98894ba5');
+});

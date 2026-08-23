@@ -730,6 +730,107 @@ class IncusSandboxManager
     }
 
     /**
+     * Pull a Claude session transcript out of a sandbox before teardown so
+     * a later follow-up or clarification reply can `--resume` the session
+     * in a fresh sandbox. Transcripts live under `~/.claude/projects/`
+     * inside the container and are destroyed with it otherwise.
+     *
+     * Best-effort: any failure is logged and swallowed — teardown must not
+     * be blocked by transcript bookkeeping.
+     */
+    public function pullSessionTranscript(string $containerName, ?string $sessionId): void
+    {
+        if ($sessionId === null || $sessionId === '') {
+            return;
+        }
+
+        try {
+            $findResult = $this->run(
+                $containerName,
+                sprintf('find /home/yak/.claude/projects -name %s 2>/dev/null | head -1', escapeshellarg($sessionId . '.jsonl')),
+                timeout: 15,
+            );
+
+            $remotePath = trim((string) $findResult->output());
+
+            if ($remotePath === '') {
+                return;
+            }
+
+            $localDir = self::sessionTranscriptDir();
+            if (! is_dir($localDir)) {
+                mkdir($localDir, 0755, true);
+            }
+
+            $this->pullFile($containerName, $remotePath, $localDir . '/' . $sessionId . '.jsonl');
+
+            Log::channel('yak')->info('Persisted Claude session transcript', [
+                'container' => $containerName,
+                'session_id' => $sessionId,
+            ]);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('pullSessionTranscript failed', [
+                'container' => $containerName,
+                'session_id' => $sessionId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Push a previously persisted session transcript into a fresh sandbox
+     * so `claude --resume {sessionId}` can find the conversation. Returns
+     * whether a transcript was pushed; when false the caller's resume will
+     * fail with "No conversation found" and should fall back to a fresh run.
+     */
+    public function pushSessionTranscript(string $containerName, ?string $sessionId): bool
+    {
+        if ($sessionId === null || $sessionId === '') {
+            return false;
+        }
+
+        $localPath = self::sessionTranscriptDir() . '/' . $sessionId . '.jsonl';
+
+        if (! is_file($localPath)) {
+            return false;
+        }
+
+        try {
+            // Claude Code keys project transcript dirs by the CWD with every
+            // non-alphanumeric character replaced by '-' (e.g. /workspace
+            // becomes -workspace). The agent always runs from workspacePath().
+            $projectDir = '/home/yak/.claude/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', self::workspacePath());
+
+            $this->run($containerName, 'mkdir -p ' . escapeshellarg($projectDir), timeout: 10, asRoot: true);
+            $this->pushFile($containerName, $localPath, $projectDir . '/' . $sessionId . '.jsonl');
+            $this->run($containerName, 'chown -R yak:yak /home/yak/.claude/projects', timeout: 10, asRoot: true);
+
+            Log::channel('yak')->info('Restored Claude session transcript into sandbox', [
+                'container' => $containerName,
+                'session_id' => $sessionId,
+            ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('pushSessionTranscript failed', [
+                'container' => $containerName,
+                'session_id' => $sessionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Host directory holding persisted session transcripts.
+     */
+    public static function sessionTranscriptDir(): string
+    {
+        return (string) config('yak.sandbox.session_transcript_path', storage_path('app/claude-sessions'));
+    }
+
+    /**
      * Pull rotated Claude OAuth credentials out of a sandbox before teardown.
      *
      * Claude Code's OAuth refresh tokens rotate on every use: each refresh

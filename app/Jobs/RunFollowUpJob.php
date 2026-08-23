@@ -10,6 +10,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
+use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\PausesDuringDrain;
@@ -34,6 +35,7 @@ class RunFollowUpJob implements ShouldQueue
     use HandlesAgentJobFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
+    use RetriesWithoutStaleSession;
 
     public int $timeout = 3600;
 
@@ -92,7 +94,9 @@ class RunFollowUpJob implements ShouldQueue
             $branchName = $this->task->branch_name;
             $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
 
-            $result = $agent->run(new AgentRunRequest(
+            $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
+
+            $result = $this->runAgentWithStaleSessionFallback($agent, new AgentRunRequest(
                 prompt: YakPromptBuilder::followUpPrompt((string) $this->task->description),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -124,6 +128,7 @@ class RunFollowUpJob implements ShouldQueue
             $this->handleError($e->getMessage());
         } finally {
             if ($containerName !== null) {
+                $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
                 $sandbox->pullClaudeCredentials($containerName);
                 $sandbox->destroy($containerName);
             }
