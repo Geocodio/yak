@@ -165,9 +165,9 @@ test('webhook skips unsupported events', function () {
 
     $payload = ['action' => 'created'];
 
-    $response = postGitHubWebhook($this, $payload, $secret, 'issue_comment');
+    $response = postGitHubWebhook($this, $payload, $secret, 'label');
 
-    $response->assertOk()->assertJson(['skipped' => 'unhandled event: issue_comment']);
+    $response->assertOk()->assertJson(['skipped' => 'unhandled event: label']);
 });
 
 test('webhook skips when no task matches PR URL', function () {

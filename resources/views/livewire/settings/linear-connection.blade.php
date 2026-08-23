@@ -53,6 +53,17 @@
                 </div>
             </div>
 
+            <div class="mt-4 rounded-xl border border-yak-tan/40 bg-white p-5">
+                <flux:field variant="inline">
+                    <flux:switch wire:model.live="moveIssuesToStartedState" />
+                    <flux:label>{{ __('Move issues to In Progress when Yak picks them up') }}</flux:label>
+                </flux:field>
+                <p class="mt-2 text-sm text-yak-blue">
+                    Yak moves the Linear issue to its team's first "started" workflow state when it begins working.
+                    Set <code>YAK_LINEAR_STARTED_STATE_ID</code> to override with a specific state.
+                </p>
+            </div>
+
             @if ($conn->disconnected_at)
                 <flux:callout variant="danger" icon="exclamation-triangle" class="mt-4" heading="Connection invalidated">
                     Linear rejected a token refresh on {{ $conn->disconnected_at->diffForHumans() }}. Reconnect above to resume posting comments.

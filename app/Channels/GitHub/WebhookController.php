@@ -8,8 +8,10 @@ use App\Http\Controllers\Controller;
 use App\Jobs\Deployments\DeployBranchJob;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\UpdateDeploymentJob;
+use App\Jobs\FlushFollowUpBatchJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Models\BranchDeployment;
+use App\Models\FollowUpPendingComment;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -42,6 +44,14 @@ class WebhookController extends Controller
 
         if ($event === 'delete') {
             return $this->handleDeploymentDelete($request);
+        }
+
+        if ($event === 'issue_comment') {
+            return $this->handleIssueComment($request, $github);
+        }
+
+        if ($event === 'pull_request_review_comment') {
+            return $this->handlePullRequestReviewComment($request, $github);
         }
 
         if ($event === 'repository') {
@@ -147,6 +157,12 @@ class WebhookController extends Controller
                 $task->update(['pr_closed_at' => $request->input('pull_request.closed_at', now())]);
             }
         }
+
+        // Stamp the whole follow-up chain (children share the root's pr_url) so
+        // the merged/closed guard (prIsOpen) is correct for every task in the
+        // conversation, not just the first row found.
+        $timestampColumn = $merged ? 'pr_merged_at' : 'pr_closed_at';
+        YakTask::where('pr_url', $prUrl)->whereNull($timestampColumn)->update([$timestampColumn => now()]);
 
         $prReviews = PrReview::where('pr_url', $prUrl)->get();
 
@@ -286,6 +302,113 @@ class WebhookController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    private function handleIssueComment(Request $request, AppService $github): JsonResponse
+    {
+        if ($request->input('action') !== 'created') {
+            return response()->json(['ok' => true, 'skipped' => 'not a created comment']);
+        }
+
+        $issue = (array) $request->input('issue', []);
+
+        if (! isset($issue['pull_request'])) {
+            return response()->json(['ok' => true, 'skipped' => 'not a PR comment']);
+        }
+
+        $prUrl = (string) data_get($request->all(), 'issue.pull_request.html_url', '');
+
+        return $this->processFollowUpComment($request, $github, $prUrl, isReviewComment: false);
+    }
+
+    private function handlePullRequestReviewComment(Request $request, AppService $github): JsonResponse
+    {
+        if ($request->input('action') !== 'created') {
+            return response()->json(['ok' => true, 'skipped' => 'not a created comment']);
+        }
+
+        $prUrl = (string) $request->input('pull_request.html_url', '');
+
+        return $this->processFollowUpComment($request, $github, $prUrl, isReviewComment: true);
+    }
+
+    private function processFollowUpComment(Request $request, AppService $github, string $prUrl, bool $isReviewComment): JsonResponse
+    {
+        $comment = (array) $request->input('comment', []);
+        $authorLogin = (string) ($comment['user']['login'] ?? '');
+
+        if ($authorLogin !== '' && $authorLogin === $github->appBotLogin()) {
+            return response()->json(['ok' => true, 'skipped' => 'yak authored comment']);
+        }
+
+        $instructions = app(FollowUpCommentParser::class)->parse((string) ($comment['body'] ?? ''));
+
+        if ($instructions === null) {
+            return response()->json(['ok' => true, 'skipped' => 'no yak prefix']);
+        }
+
+        if ($prUrl === '') {
+            return response()->json(['ok' => true, 'skipped' => 'no pr url']);
+        }
+
+        $task = YakTask::where('pr_url', $prUrl)->first();
+
+        if ($task === null) {
+            return response()->json(['ok' => true, 'skipped' => 'no yak task for pr']);
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $repoSlug = (string) ($request->input('repository.full_name') ?? Repository::githubNameFor((string) $task->repo));
+        $commentId = (int) ($comment['id'] ?? 0);
+
+        if ($installationId > 0 && $commentId > 0) {
+            $github->addReaction($installationId, $repoSlug, $commentId, 'eyes', isReviewComment: $isReviewComment);
+        }
+
+        if (! $task->prIsOpen()) {
+            if ($installationId > 0) {
+                $prNumber = (int) ($task->pr_number ?? $this->extractPrNumber($prUrl));
+
+                if ($prNumber > 0) {
+                    $github->commentOnPullRequest(
+                        $installationId,
+                        $repoSlug,
+                        $prNumber,
+                        "This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.",
+                    );
+                }
+            }
+
+            return response()->json(['ok' => true, 'skipped' => 'pr not open']);
+        }
+
+        $hadPending = FollowUpPendingComment::where('pr_url', $prUrl)->exists();
+
+        FollowUpPendingComment::create([
+            'yak_task_id' => $task->id,
+            'pr_url' => $prUrl,
+            'body' => $instructions,
+            'file' => $isReviewComment ? ($comment['path'] ?? null) : null,
+            'line' => $isReviewComment ? ($comment['line'] ?? $comment['original_line'] ?? null) : null,
+            'diff_hunk' => $isReviewComment ? ($comment['diff_hunk'] ?? null) : null,
+            'github_comment_id' => $commentId ?: null,
+        ]);
+
+        if (! $hadPending) {
+            FlushFollowUpBatchJob::dispatch($prUrl)
+                ->delay(now()->addSeconds((int) config('yak.followup.github_batch_window_seconds', 60)));
+        }
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function extractPrNumber(string $prUrl): int
+    {
+        if (preg_match('#/pull/(\d+)#', $prUrl, $m)) {
+            return (int) $m[1];
+        }
+
+        return 0;
     }
 
     private function resolveRepositoryFromPayload(Request $request): ?Repository

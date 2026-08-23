@@ -395,7 +395,7 @@ Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed UR
 
 - **Not a merge bot.** See above — no merge authority, no bypass.
 - **Not horizontally scaled.** Four concurrent workers on one server. The architecture supports future scaling to multiple hosts but doesn't need it.
-- **Not a long-running agent.** Every task is one-shot. No back-and-forth refinement. If a task needs iterative discussion, use a normal Claude session.
+- **Not a long-running interactive agent.** Each task is a focused, mostly autonomous pass. You can give feedback on an open PR — in the originating channel, as a `/yak` PR comment, or from the dashboard — and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
 - **Not a frontend framework.** Dashboard is Livewire (server-rendered) with Livewire polling for live updates. No SPA, no websockets.
 - **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.
 - **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere; the existing production deploy pipeline remains the source of truth.

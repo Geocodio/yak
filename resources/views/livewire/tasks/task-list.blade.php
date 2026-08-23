@@ -1,5 +1,6 @@
 <div wire:poll.15s>
-    {{-- Getting started card (shown when the install is bare and the user hasn't dismissed it) --}}
+    <div x-data="{ newTaskOpen: false }">
+        {{-- Getting started card (shown when the install is bare and the user hasn't dismissed it) --}}
     @if($this->showSetupCard)
         <div class="mb-5 rounded-[20px] border border-yak-orange/30 bg-gradient-to-br from-yak-orange/5 to-yak-cream p-5" data-testid="setup-card">
             <div class="flex items-start gap-4">
@@ -117,6 +118,16 @@
         @if($status !== '' || $source !== '' || $repo !== '')
             <flux:button size="sm" variant="ghost" icon="x-mark" wire:click="clearFilters" data-testid="clear-filters">Clear</flux:button>
         @endif
+
+        <div class="ml-auto">
+            <flux:button
+                size="sm"
+                variant="primary"
+                icon="plus"
+                @click="newTaskOpen = true"
+                data-testid="new-task-trigger"
+            >New task</flux:button>
+        </div>
     </div>
 
     <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
@@ -172,7 +183,13 @@
                                 <span class="text-zinc-700 dark:text-zinc-300">{{ $task->external_id ?? '—' }}</span>
                             @endif
                         </td>
-                        <td class="max-w-xs truncate px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">{{ \Illuminate\Support\Str::limit($task->description, 60) }}</td>
+                        <td class="max-w-xs truncate px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
+                            @php($children = $task->branch_name ? ($this->descendantsByBranch[$task->branch_name] ?? collect()) : collect())
+                            {{ \Illuminate\Support\Str::limit($task->description, 60) }}
+                            @if($children->isNotEmpty())
+                                <span class="ml-2 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $children->count() }} follow-ups</span>
+                            @endif
+                        </td>
                         <td class="px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</td>
                         <td class="px-3 py-2 sm:px-5">
                             @if($task->pr_url)
@@ -182,6 +199,24 @@
                             @endif
                         </td>
                     </tr>
+                    @foreach($children as $child)
+                        <tr wire:key="child-{{ $child->id }}" class="relative h-12 bg-zinc-50/60 transition-colors hover:bg-zinc-100/60 dark:bg-zinc-800/30 dark:hover:bg-zinc-800/60" style="transform: translateZ(0)">
+                            <td class="border-l-[3px] border-[#e3cba9] py-2 pl-8 pr-3 sm:pr-5">
+                                <a href="{{ route('tasks.show', $child) }}" wire:navigate class="absolute inset-0" aria-label="Open task {{ $child->external_id ?? $child->id }}"></a>
+                                <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($child->status) }}">
+                                    {{ str_replace('_', ' ', $child->status->value) }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
+                            <td class="px-3 py-2 sm:px-5">
+                                <span class="text-zinc-500 dark:text-zinc-400">{{ $child->external_id ?? '—' }}</span>
+                            </td>
+                            <td class="max-w-xs truncate px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \Illuminate\Support\Str::limit($child->description, 60) }}</td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">{{ \App\Livewire\Tasks\TaskList::formatDuration($child->duration_ms) }}</td>
+                            <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
+                        </tr>
+                    @endforeach
                 @empty
                     <tr>
                         <td colspan="7" class="px-3 py-16 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
@@ -201,4 +236,39 @@
             {{ $this->tasks->links() }}
         </div>
     @endif
+
+    {{-- New task slideover --}}
+    <div x-show="newTaskOpen" x-cloak class="fixed inset-0 z-50" style="display:none">
+        {{-- Backdrop --}}
+        <div
+            class="fixed inset-0 bg-black/30"
+            @click="newTaskOpen = false"
+            x-transition.opacity
+        ></div>
+        {{-- Panel --}}
+        <div
+            class="fixed inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white p-6 shadow-2xl dark:bg-zinc-900"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="translate-x-full"
+            x-transition:enter-end="translate-x-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="translate-x-full"
+            @keydown.escape.window="newTaskOpen = false"
+        >
+            <div class="mb-4 flex items-center justify-between">
+                <h2 class="text-lg font-medium text-yak-slate dark:text-zinc-100">New task</h2>
+                <button
+                    type="button"
+                    @click="newTaskOpen = false"
+                    aria-label="Close"
+                    class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                >
+                    <flux:icon.x-mark class="size-5" />
+                </button>
+            </div>
+            <livewire:tasks.create-task />
+        </div>
+    </div>
+    </div>
 </div>

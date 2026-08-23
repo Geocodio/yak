@@ -4,17 +4,21 @@ namespace App\Channels\Linear;
 
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
+use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class WebhookController extends Controller
 {
@@ -29,7 +33,25 @@ class WebhookController extends Controller
             prefix: '',
         );
 
-        if ($request->header('Linear-Event') !== 'AgentSessionEvent') {
+        // Replay protection: reject stale events when Linear includes a timestamp.
+        $timestampMs = $request->input('webhookTimestamp');
+        if ($timestampMs !== null && abs(now()->getTimestampMs() - (int) $timestampMs) > 60_000) {
+            return response()->json(['ok' => true, 'skipped' => 'stale webhook']);
+        }
+
+        // Idempotency: skip a delivery we've already processed (Linear retries).
+        $deliveryId = (string) $request->header('Linear-Delivery', '');
+        if ($deliveryId !== '' && ! Cache::add("linear-delivery:{$deliveryId}", true, now()->addMinutes(10))) {
+            return response()->json(['ok' => true, 'skipped' => 'duplicate delivery']);
+        }
+
+        $event = (string) $request->header('Linear-Event', '');
+
+        if ($event === 'InboxNotificationEvent') {
+            return $this->handleInboxNotification($request);
+        }
+
+        if ($event !== 'AgentSessionEvent') {
             return response()->json(['ok' => true]);
         }
 
@@ -56,6 +78,84 @@ class WebhookController extends Controller
         }
 
         return LinearOauthConnection::activeForWorkspace($workspaceId);
+    }
+
+    /**
+     * Handle Linear's InboxNotificationEvent webhook.
+     *
+     * - issueUnassignedFromYou → cancel any in-flight task for that issue.
+     * - Reaction types (e.g. issueEmojiReaction) → acknowledge, no action needed.
+     * - All other inbox types → ignore.
+     *
+     * Defensive throughout: missing or unexpected fields silently return ok.
+     *
+     * TODO: confirm InboxNotificationEvent payload shape against a real Linear delivery.
+     */
+    private function handleInboxNotification(Request $request): JsonResponse
+    {
+        if ($this->resolveConnection($request) === null) {
+            return response()->json(['ok' => true]);
+        }
+
+        $type = (string) $request->input('notification.type', '');
+        $issueId = (string) $request->input('notification.issue.id', '');
+
+        // Unassignment: stop any in-flight work on that issue.
+        if (str_contains(strtolower($type), 'unassign') && $issueId !== '') {
+            // Reject ids that contain LIKE metacharacters (%, _) or other
+            // characters outside the Linear id alphabet. This blocks wildcard
+            // injection: a payload with issueId='%' would otherwise broaden
+            // the LIKE match to every in-flight Linear task and cancel them all.
+            if (! preg_match('/^[A-Za-z0-9_-]+$/', $issueId)) {
+                return response()->json(['ok' => true]);
+            }
+
+            $cancellable = [
+                TaskStatus::Pending,
+                TaskStatus::Running,
+                TaskStatus::AwaitingCi,
+                TaskStatus::AwaitingClarification,
+                TaskStatus::Retrying,
+            ];
+
+            // Escape LIKE metacharacters as defense-in-depth (the regex above
+            // already rejects '%', but this keeps the query correct if the
+            // allowlist ever widens). Linear issue ids are globally-unique UUIDs,
+            // so cross-workspace task collisions are not practical; a per-workspace
+            // DB filter would require a schema change (YakTask has no workspace_id
+            // column). The resolveConnection() guard above already ensures only
+            // events from connected workspaces reach this point.
+            $escaped = addcslashes($issueId, '%_\\');
+
+            $tasks = YakTask::where('source', 'linear')
+                ->where('context', 'like', '%' . $escaped . '%')
+                ->get()
+                ->filter(function (YakTask $t) use ($cancellable): bool {
+                    /** @var TaskStatus $status */
+                    $status = $t->status;
+
+                    return in_array($status, $cancellable, strict: true);
+                });
+
+            foreach ($tasks as $task) {
+                $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+                TaskLogger::info($task, 'Cancelled — unassigned from the Linear issue');
+
+                $sessionId = (string) $task->linear_agent_session_id;
+                if ($sessionId !== '') {
+                    app(NotificationDriver::class)->postAgentActivity(
+                        $sessionId,
+                        type: 'thought',
+                        body: 'Stopped — I was unassigned from this issue.',
+                    );
+                }
+            }
+
+            return response()->json(['ok' => true]);
+        }
+
+        // Reactions and other inbox types: acknowledge, no action needed.
+        return response()->json(['ok' => true]);
     }
 
     /**
@@ -115,9 +215,36 @@ class WebhookController extends Controller
         app(NotificationDriver::class)
             ->send($task, NotificationType::Acknowledgment, $ackMessage);
 
+        $this->moveIssueToStartedState($task, (string) ($description->metadata['linear_issue_id'] ?? ''));
+
         $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Move the freshly picked-up issue to a "started" workflow state.
+     * `YAK_LINEAR_STARTED_STATE_ID` acts as an explicit override; without
+     * it the state is auto-discovered from the issue's team when the
+     * connection's toggle is on. Never blocks pickup — a missing state
+     * or failed lookup simply skips the move.
+     */
+    private function moveIssueToStartedState(YakTask $task, string $issueId): void
+    {
+        $stateId = (string) config('yak.channels.linear.started_state_id');
+
+        if ($stateId === '') {
+            $connection = LinearOauthConnection::active();
+            if ($connection === null || ! $connection->move_issues_to_started_state) {
+                return;
+            }
+
+            $stateId = (string) app(StartedStateResolver::class)->forIssue($issueId);
+        }
+
+        if ($stateId !== '') {
+            app(NotificationDriver::class)->setIssueState($task, $stateId);
+        }
     }
 
     /**
@@ -138,11 +265,16 @@ class WebhookController extends Controller
     }
 
     /**
-     * Handle follow-up messages inside an existing agent session. Yak
-     * does not currently support multi-turn Linear conversations —
-     * respond with a polite error so the session surfaces the guidance.
-     * Runs the message through the personality agent (timed) so the
-     * voice stays consistent with the rest of the session.
+     * Handle follow-up messages inside an existing agent session. Routes
+     * the prompt to the correct handler based on task state:
+     *
+     * - stop signal → cancel the task
+     * - AwaitingClarification → dispatch ClarificationReplyJob
+     * - open PR → create a chained follow-up via FollowUpTaskFactory
+     * - merged/closed → post a polite decline
+     * - unknown session → no-op (200 OK)
+     *
+     * Always posts an immediate thought ack within the 10-second SLA.
      */
     private function handlePrompted(Request $request): JsonResponse
     {
@@ -152,18 +284,65 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $context = "I can't continue this conversation inside Linear. To adjust the task, comment on the pull request or mention me in a fresh Linear issue.";
-
-        $body = YakPersonality::generateWithTimeout(
-            NotificationType::Error,
-            $context,
+        // Immediate ack within the 10-second SLA — use same personality
+        // call as handleCreated (2-second timeout, falls back to template).
+        $ackMessage = YakPersonality::generateWithTimeout(
+            NotificationType::Acknowledgment,
+            'Follow-up received',
             timeoutSeconds: 2,
         );
+        app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'thought', body: $ackMessage);
+
+        $task = YakTask::where('linear_agent_session_id', $sessionId)->latest()->first();
+
+        if ($task === null) {
+            return response()->json(['ok' => true]);
+        }
+
+        /** @var TaskStatus $status */
+        $status = $task->status;
+
+        // Read the message body from either the nested content shape
+        // (agentActivity.content.body) or the flat shape (agentActivity.body).
+        $message = (string) ($request->input('agentActivity.content.body')
+            ?? $request->input('agentActivity.body')
+            ?? '');
+        $signal = (string) ($request->input('agentActivity.signal') ?? '');
+
+        if ($signal === 'stop') {
+            $cancellable = [
+                TaskStatus::Pending,
+                TaskStatus::Running,
+                TaskStatus::AwaitingCi,
+                TaskStatus::AwaitingClarification,
+                TaskStatus::Retrying,
+            ];
+
+            if (in_array($status, $cancellable, strict: true)) {
+                $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+            }
+
+            app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'response', body: 'Stopped.');
+
+            return response()->json(['ok' => true]);
+        }
+
+        if ($status === TaskStatus::AwaitingClarification) {
+            ClarificationReplyJob::dispatch($task, $message);
+
+            return response()->json(['ok' => true]);
+        }
+
+        if ($task->prIsOpen()) {
+            app(FollowUpTaskFactory::class)->create($task, $message, 'linear');
+
+            return response()->json(['ok' => true]);
+        }
 
         app(NotificationDriver::class)->postAgentActivity(
             $sessionId,
-            type: 'error',
-            body: $body,
+            type: 'response',
+            body: "This PR is already merged or closed — mention me in a fresh issue and I'll pick it up.",
         );
 
         return response()->json(['ok' => true]);

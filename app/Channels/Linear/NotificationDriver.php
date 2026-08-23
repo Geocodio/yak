@@ -49,6 +49,25 @@ class NotificationDriver implements NotificationDriverContract
     }
 
     /**
+     * Post an `action` activity to the Linear agent session timeline,
+     * recording a concrete action taken and its optional outcome.
+     * Used for milestones like "PR opened" where a result URL is available.
+     */
+    public function postAction(string $sessionId, string $action, ?string $result = null): void
+    {
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $sessionId === '') {
+            return;
+        }
+
+        $this->sendAgentActivityContent($accessToken, $sessionId, [
+            'type' => 'action',
+            'action' => $action,
+            'result' => $result,
+        ]);
+    }
+
+    /**
      * Move the Linear issue associated with a task to a specific
      * workflow state. Returns silently when no connection or issue UUID
      * is available.
@@ -120,16 +139,24 @@ class NotificationDriver implements NotificationDriverContract
 
     private function sendAgentActivity(string $accessToken, string $sessionId, string $type, string $body): void
     {
+        $this->sendAgentActivityContent($accessToken, $sessionId, [
+            'type' => $type,
+            'body' => $body,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $content
+     */
+    private function sendAgentActivityContent(string $accessToken, string $sessionId, array $content): void
+    {
         Http::withToken($accessToken)
             ->post(self::GRAPHQL_ENDPOINT, [
                 'query' => 'mutation($input: AgentActivityCreateInput!) { agentActivityCreate(input: $input) { success } }',
                 'variables' => [
                     'input' => [
                         'agentSessionId' => $sessionId,
-                        'content' => [
-                            'type' => $type,
-                            'body' => $body,
-                        ],
+                        'content' => $content,
                     ],
                 ],
             ]);
