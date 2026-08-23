@@ -5,10 +5,11 @@ namespace App\Jobs;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-class FlushSteeringMessagesJob implements ShouldQueue
+class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
@@ -17,6 +18,17 @@ class FlushSteeringMessagesJob implements ShouldQueue
     public function __construct(public readonly int $rootTaskId)
     {
         $this->onQueue('default');
+    }
+
+    /**
+     * Keyed on the chain root so two Success transitions in the same chain
+     * within the delay window collapse into a single flush — otherwise both
+     * could read the same un-flushed message set and create duplicate
+     * follow-ups (spec requires exactly ONE follow-up per batch).
+     */
+    public function uniqueId(): string
+    {
+        return (string) $this->rootTaskId;
     }
 
     public function handle(FollowUpTaskFactory $factory): void

@@ -5,6 +5,7 @@ use App\Jobs\FlushSteeringMessagesJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
+use Illuminate\Support\Facades\Queue;
 
 test('queueFor resolves the chain root', function () {
     $root = YakTask::factory()->create();
@@ -43,4 +44,36 @@ test('flush keeps messages when the follow-up cannot be created', function () {
     (new FlushSteeringMessagesJob($root->id))->handle(app(FollowUpTaskFactory::class));
 
     expect(PendingSteeringMessage::count())->toBe(1);
+});
+
+test('transitioning to Success dispatches the flush job when steering messages are pending', function () {
+    Queue::fake([FlushSteeringMessagesJob::class]);
+
+    $root = YakTask::factory()->running()->create();
+    PendingSteeringMessage::queueFor($root, 'a note', 'dashboard');
+
+    $root->update(['status' => TaskStatus::Success]);
+
+    Queue::assertPushed(FlushSteeringMessagesJob::class, fn (FlushSteeringMessagesJob $job) => $job->rootTaskId === $root->id);
+});
+
+test('transitioning to Success does not dispatch the flush job when nothing is pending', function () {
+    Queue::fake([FlushSteeringMessagesJob::class]);
+
+    $root = YakTask::factory()->running()->create();
+
+    $root->update(['status' => TaskStatus::Success]);
+
+    Queue::assertNotPushed(FlushSteeringMessagesJob::class);
+});
+
+test('a save that does not change status does not dispatch the flush job', function () {
+    Queue::fake([FlushSteeringMessagesJob::class]);
+
+    $root = YakTask::factory()->running()->create();
+    PendingSteeringMessage::queueFor($root, 'a note', 'dashboard');
+
+    $root->update(['description' => 'updated description']);
+
+    Queue::assertNotPushed(FlushSteeringMessagesJob::class);
 });
