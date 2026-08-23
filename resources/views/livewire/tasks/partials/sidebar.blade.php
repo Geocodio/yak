@@ -231,6 +231,7 @@
                 </div>
 
                 <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
+                    @if($task->mode !== \App\Enums\TaskMode::Review)
                     @if($this->reviewerCut)
                         @php $reviewerUrl = $this->reviewerCut->signedUrl(); @endphp
                         <div class="mb-3 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
@@ -264,6 +265,7 @@
                             Generate Director's Cut
                         </flux:button>
                         <p class="mt-2 text-xs text-yak-blue">Spins up a fresh sandbox against the PR branch. Takes ~2–3 min.</p>
+                    @endif
                     @endif
                 </div>
             @else

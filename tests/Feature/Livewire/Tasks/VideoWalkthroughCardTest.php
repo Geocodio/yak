@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\GenerateDirectorCutJob;
 use App\Livewire\Tasks\TaskDetail;
@@ -125,4 +126,23 @@ test('shows retry button when director cut failed', function () {
     Livewire::test(TaskDetail::class, ['task' => $task])
         ->call('openMediaLightbox', $recording->id)
         ->assertSee('Retry');
+});
+
+test('director-cut controls never render for a Review-mode task', function () {
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/owner/repo/pull/7',
+        'director_cut_status' => null,
+    ]);
+    $recording = Artifact::factory()->for($task, 'task')->video()->create();
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video_cut',
+        'filename' => 'reviewer-cut.mp4',
+        'disk_path' => 'reviewer-cut.mp4',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertDontSee('Reviewer Cut')
+        ->assertDontSee("Generate Director's Cut", escape: false);
 });
