@@ -36,11 +36,17 @@ readonly class ThreadEntry
         return new self('user', $run, $text, $summary, $at, $source);
     }
 
+    /**
+     * @param  array<string, int|string|null>  $runStats  ['steps' => int, 'attempt' => int, 'duration_ms' => int|null]
+     */
     public static function yak(YakTask $run, string $text, Carbon $at, array $runStats, bool $isLive, ?string $error): self
     {
         return new self('yak', $run, $text, null, $at, null, [], $runStats, $isLive, $error);
     }
 
+    /**
+     * @param  array<int, string>  $options
+     */
     public static function clarification(YakTask $run, string $text, array $options, Carbon $at): self
     {
         return new self('clarification', $run, $text, null, $at, null, $options);

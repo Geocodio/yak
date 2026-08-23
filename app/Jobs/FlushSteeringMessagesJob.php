@@ -25,6 +25,11 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
      * within the delay window collapse into a single flush — otherwise both
      * could read the same un-flushed message set and create duplicate
      * follow-ups (spec requires exactly ONE follow-up per batch).
+     *
+     * The unique lock also DROPS a second dispatch arriving while a flush is
+     * pending — a message landing in that window waits for the chain's next
+     * Success transition instead of flushing immediately. That's an accepted
+     * tradeoff versus duplicate follow-ups.
      */
     public function uniqueId(): string
     {

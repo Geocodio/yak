@@ -33,7 +33,7 @@ class ThreadBuilder
             $entries->push(ThreadEntry::user(
                 $run,
                 (string) $run->description,
-                $run->description_summary ?? null,
+                $run->description_summary,
                 Carbon::parse($run->created_at),
                 $run->source,
             ));

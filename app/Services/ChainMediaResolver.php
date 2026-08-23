@@ -4,7 +4,8 @@ namespace App\Services;
 
 use App\Models\Artifact;
 use App\Models\YakTask;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 
 class ChainMediaResolver
 {
@@ -19,10 +20,10 @@ class ChainMediaResolver
     }
 
     /**
-     * @param  Collection<int, YakTask>  $chain
+     * @param  SupportCollection<int, YakTask>  $chain
      * @return array{artifacts: Collection<int, Artifact>, run: YakTask|null}
      */
-    public function latest(Collection $chain): array
+    public function latest(SupportCollection $chain): array
     {
         foreach ($chain->reverse() as $run) {
             $artifacts = $this->forRun($run);
@@ -32,6 +33,6 @@ class ChainMediaResolver
             }
         }
 
-        return ['artifacts' => collect(), 'run' => null];
+        return ['artifacts' => new Collection, 'run' => null];
     }
 }

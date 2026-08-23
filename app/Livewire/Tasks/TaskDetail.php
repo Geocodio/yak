@@ -74,11 +74,6 @@ class TaskDetail extends Component
     /**
      * @var array<int, bool>
      */
-    public array $expandedLogs = [];
-
-    /**
-     * @var array<int, bool>
-     */
     public array $expandedGroups = [];
 
     public string $composerText = '';
@@ -178,7 +173,6 @@ class TaskDetail extends Component
         // Follow the new run. The job will increment attempts to this value
         // on pickup, at which point the new logs appear under this chip.
         $this->visibleAttempt = (int) $this->task->attempts + 1;
-        $this->expandedLogs = [];
         $this->expandedGroups = [];
 
         Flux::toast('Task re-queued.');
@@ -316,7 +310,6 @@ class TaskDetail extends Component
         );
 
         $this->visibleAttempt = (int) $this->task->attempts + 1;
-        $this->expandedLogs = [];
         $this->expandedGroups = [];
 
         unset($this->canRetry, $this->canCancel, $this->canReroute, $this->rerouteOptions);
@@ -436,7 +429,7 @@ class TaskDetail extends Component
         $text = trim($this->composerText);
         $head = $this->task->conversation()->last() ?? $this->task;
 
-        match ($this->composerState) {
+        match ($this->composerState()) {
             'clarification' => $this->sendClarification($head, $text),
             'steering' => $this->sendSteering($head, $text),
             'follow_up' => $this->sendFollowUpMessage($head, $text),
@@ -604,7 +597,6 @@ class TaskDetail extends Component
         RunYakReviewJob::dispatch($this->task);
 
         $this->visibleAttempt = (int) $this->task->attempts + 1;
-        $this->expandedLogs = [];
         $this->expandedGroups = [];
 
         Flux::toast('Re-running review for this PR.');
@@ -694,7 +686,6 @@ class TaskDetail extends Component
     public function focusRun(int $runId): void
     {
         $this->focusedRunId = $runId;
-        $this->expandedLogs = [];
         $this->expandedGroups = [];
         $this->drawerLogIndex = null;
         $this->drawerOpen = false;
@@ -727,7 +718,7 @@ class TaskDetail extends Component
             TaskStatus::Retrying,
         ], true));
 
-        return $live ?? $this->conversation->last();
+        return $live ?? $this->conversation->last() ?? $this->task;
     }
 
     /**
@@ -765,10 +756,10 @@ class TaskDetail extends Component
     #[Computed]
     public function outcomeButton(): ?array
     {
-        if ($this->isResearchTask() && $this->researchArtifact) {
+        if ($this->isResearchTask() && $this->researchArtifact()) {
             return [
                 'label' => 'View research report',
-                'url' => route('artifacts.viewer', ['task' => $this->task->id, 'filename' => $this->researchArtifact->filename]),
+                'url' => route('artifacts.viewer', ['task' => $this->task->id, 'filename' => $this->researchArtifact()->filename]),
             ];
         }
 
@@ -800,20 +791,15 @@ class TaskDetail extends Component
             return 'rerun_review';
         }
 
-        if ($this->canRetry) {
+        if ($this->canRetry()) {
             return 'retry';
         }
 
-        if ($this->canCancel) {
+        if ($this->canCancel()) {
             return 'cancel';
         }
 
         return null;
-    }
-
-    public function toggleLog(int $index): void
-    {
-        $this->expandedLogs[$index] = ! ($this->expandedLogs[$index] ?? false);
     }
 
     public function toggleGroup(int $groupIndex): void
@@ -829,7 +815,6 @@ class TaskDetail extends Component
     public function selectAttempt(int $attempt): void
     {
         $this->visibleAttempt = max(1, $attempt);
-        $this->expandedLogs = [];
         $this->expandedGroups = [];
     }
 
@@ -839,7 +824,7 @@ class TaskDetail extends Component
     #[Computed]
     public function logs(): Collection
     {
-        return $this->focusedRun->logs()
+        return $this->focusedRun()->logs()
             ->where('attempt_number', $this->visibleAttempt)
             ->orderBy('created_at')
             ->get();
@@ -855,7 +840,7 @@ class TaskDetail extends Component
     #[Computed]
     public function availableAttempts(): array
     {
-        $total = max(1, (int) $this->focusedRun->attempts);
+        $total = max(1, (int) $this->focusedRun()->attempts);
 
         return $total > 1 ? range(1, $total) : [];
     }
@@ -863,7 +848,7 @@ class TaskDetail extends Component
     #[Computed]
     public function hasLogs(): bool
     {
-        return $this->focusedRun->logs()->exists();
+        return $this->focusedRun()->logs()->exists();
     }
 
     /**

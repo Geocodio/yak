@@ -12,7 +12,9 @@
         'clarification' => ['Answer Yak…', 'clarification-reply-input', null],
         'steering' => ['Steer Yak — this will be picked up when the current run checks in…', 'steering-input', 'Queued until the current run finishes.'],
         'follow_up' => ['Reply to Yak — it will push changes to PR #' . ($head->pr_number ?? '?') . '…', 'follow-up-input', null],
-        'disabled_failed' => ['This task failed — click Retry above to try again.', 'composer-input', 'This task failed. Click Retry above, or mention Yak again with more context.'],
+        'disabled_failed' => $task->mode === \App\Enums\TaskMode::Research
+            ? ['This research failed — click Retry above to try again.', 'composer-input', 'This research failed. Click Retry above, or adjust the issue and re-assign Yak.']
+            : ['This task failed — click Retry above to try again.', 'composer-input', 'This task failed. Click Retry above, or mention Yak again with more context.'],
         default => ['This conversation is closed — mention Yak again to start a new task.', 'composer-input', 'This conversation is closed — mention Yak again to start a new task.'],
     };
 

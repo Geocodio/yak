@@ -7,6 +7,12 @@
     partial, since this partial itself may be rendered twice (desktop
     column + mobile drawer) and Livewire wire:keys must stay unique.
 
+    The @foreach loops below don't carry explicit wire:key attributes —
+    that's safe because each render of this partial sits under its own
+    distinct ancestor element (the desktop column vs. the mobile drawer),
+    so Livewire's positional diffing never has to reconcile nodes from one
+    copy against the other.
+
     Expects: $task (App\Models\YakTask, root task), $visibleAttempt (int),
     $expandedGroups (array<int, bool>), $logFilter (string), $showDebug
     (bool), $keyPrefix (string, default ''), $hiddenBelowLg (bool, default
