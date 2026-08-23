@@ -6,6 +6,7 @@ use App\Models\AiUsage;
 use App\Models\DailyCost;
 use App\Models\YakTask;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -68,7 +69,7 @@ class CostDashboard extends Component
     }
 
     /**
-     * @return Collection<int, DailyCost>
+     * @return Collection<int, stdClass>
      */
     #[Computed]
     public function chartData(): Collection
@@ -79,6 +80,15 @@ class CostDashboard extends Component
             ->whereBetween('date', [$range['start'], $range['end']])
             ->orderBy('date')
             ->get(['date', 'total_usd'])
+            ->groupBy(fn (DailyCost $day): string => $this->bucketDate($day->date))
+            ->map(function (Collection $group, string $bucket): stdClass {
+                $obj = new stdClass;
+                $obj->date = $bucket;
+                $obj->total_usd = $group->sum(fn (DailyCost $day): float => (float) $day->total_usd);
+
+                return $obj;
+            })
+            ->sortKeys()
             ->values();
     }
 
@@ -104,28 +114,32 @@ class CostDashboard extends Component
             ->orderByDesc(DB::raw('DATE(created_at)'))
             ->get();
 
-        return $rows->groupBy('date')->map(function (Collection $group, string $date) {
-            /** @var array<string, float> $sources */
-            $sources = [];
-            $totalCount = 0;
-            $totalCost = 0.0;
+        return $rows
+            ->groupBy(fn ($row): string => $this->bucketDate((string) $row->getAttribute('date')))
+            ->map(function (Collection $group, string $date) {
+                /** @var array<string, float> $sources */
+                $sources = [];
+                $totalCount = 0;
+                $totalCost = 0.0;
 
-            foreach ($group as $row) {
-                $src = (string) ($row->getAttribute('source') ?? 'manual');
-                $cost = (float) $row->getAttribute('source_cost');
-                $sources[$src] = $cost;
-                $totalCount += (int) $row->getAttribute('source_count');
-                $totalCost += $cost;
-            }
+                foreach ($group as $row) {
+                    $src = (string) ($row->getAttribute('source') ?? 'manual');
+                    $cost = (float) $row->getAttribute('source_cost');
+                    $sources[$src] = ($sources[$src] ?? 0.0) + $cost;
+                    $totalCount += (int) $row->getAttribute('source_count');
+                    $totalCost += $cost;
+                }
 
-            $obj = new stdClass;
-            $obj->date = $date;
-            $obj->task_count = $totalCount;
-            $obj->sources = $sources;
-            $obj->total = $totalCost;
+                $obj = new stdClass;
+                $obj->date = $date;
+                $obj->task_count = $totalCount;
+                $obj->sources = $sources;
+                $obj->total = $totalCost;
 
-            return $obj;
-        })->values();
+                return $obj;
+            })
+            ->sortKeysDesc()
+            ->values();
     }
 
     /**
@@ -194,14 +208,18 @@ class CostDashboard extends Component
             ->orderByDesc(DB::raw('DATE(ai_usages.created_at)'))
             ->get();
 
-        return $rows->map(function ($row) {
-            $obj = new stdClass;
-            $obj->date = (string) $row->getAttribute('date');
-            $obj->call_count = (int) $row->getAttribute('call_count');
-            $obj->total_cost = (float) $row->getAttribute('total_cost');
+        return $rows
+            ->groupBy(fn ($row): string => $this->bucketDate((string) $row->getAttribute('date')))
+            ->map(function (Collection $group, string $date) {
+                $obj = new stdClass;
+                $obj->date = $date;
+                $obj->call_count = (int) $group->sum(fn ($row): int => (int) $row->getAttribute('call_count'));
+                $obj->total_cost = (float) $group->sum(fn ($row): float => (float) $row->getAttribute('total_cost'));
 
-            return $obj;
-        })->values();
+                return $obj;
+            })
+            ->sortKeysDesc()
+            ->values();
     }
 
     /**
@@ -275,6 +293,42 @@ class CostDashboard extends Component
     }
 
     /**
+     * The bucket the current date falls in, used to highlight "now" in the chart.
+     */
+    #[Computed]
+    public function currentBucket(): string
+    {
+        return $this->bucketDate(CarbonImmutable::now()->toDateString());
+    }
+
+    /**
+     * Format a bucket date for display, matching the period granularity.
+     */
+    public function dateLabel(string $date): string
+    {
+        $day = CarbonImmutable::parse($date);
+
+        return $this->period === 'monthly' ? $day->format('M Y') : $day->format('M j');
+    }
+
+    /**
+     * Collapse a calendar date onto the start of its period bucket, so
+     * daily rows aggregate per week or per month when those views are active.
+     */
+    private function bucketDate(CarbonInterface|string $date): string
+    {
+        $day = CarbonImmutable::parse($date);
+
+        return match ($this->period) {
+            'weekly' => $day->startOfWeek()->toDateString(),
+            'monthly' => $day->startOfMonth()->toDateString(),
+            default => $day->toDateString(),
+        };
+    }
+
+    /**
+     * Last 30 days for daily, last 12 weeks for weekly, last 6 months for monthly.
+     *
      * @return array{start: CarbonImmutable, end: CarbonImmutable}
      */
     private function dateRange(): array
@@ -282,8 +336,8 @@ class CostDashboard extends Component
         $now = CarbonImmutable::now();
 
         return match ($this->period) {
-            'weekly' => ['start' => $now->subWeeks(4)->startOfWeek(), 'end' => $now->endOfDay()],
-            'monthly' => ['start' => $now->subMonths(6)->startOfMonth(), 'end' => $now->endOfDay()],
+            'weekly' => ['start' => $now->subWeeks(11)->startOfWeek(), 'end' => $now->endOfDay()],
+            'monthly' => ['start' => $now->subMonths(5)->startOfMonth(), 'end' => $now->endOfDay()],
             default => ['start' => $now->subDays(29)->startOfDay(), 'end' => $now->endOfDay()],
         };
     }

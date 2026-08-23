@@ -236,6 +236,82 @@ test('api spend respects source filter via task join', function () {
     expect($apiSpend['call_count'])->toBe(1);
 });
 
+test('weekly period groups chart data into weekly buckets', function () {
+    DailyCost::create([
+        'date' => now()->startOfWeek()->toDateString(),
+        'total_usd' => 1.0000,
+        'task_count' => 1,
+    ]);
+    DailyCost::create([
+        'date' => now()->startOfWeek()->addDay()->toDateString(),
+        'total_usd' => 2.0000,
+        'task_count' => 1,
+    ]);
+    DailyCost::create([
+        'date' => now()->subWeek()->startOfWeek()->toDateString(),
+        'total_usd' => 4.0000,
+        'task_count' => 1,
+    ]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $component->call('setPeriod', 'weekly');
+    $chartData = $component->instance()->chartData();
+
+    expect($chartData)->toHaveCount(2)
+        ->and((float) $chartData->first()->total_usd)->toBe(4.0)
+        ->and((float) $chartData->last()->total_usd)->toBe(3.0);
+});
+
+test('monthly period groups breakdown rows into monthly buckets', function () {
+    YakTask::factory()->create([
+        'source' => 'slack',
+        'cost_usd' => 2.0000,
+        'created_at' => now()->startOfMonth(),
+    ]);
+    YakTask::factory()->create([
+        'source' => 'slack',
+        'cost_usd' => 3.0000,
+        'created_at' => now()->startOfMonth()->addDay(),
+    ]);
+    YakTask::factory()->create([
+        'source' => 'linear',
+        'cost_usd' => 1.0000,
+        'created_at' => now()->subMonthNoOverflow()->startOfMonth(),
+    ]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $component->call('setPeriod', 'monthly');
+    $breakdown = $component->instance()->breakdown();
+
+    expect($breakdown)->toHaveCount(2)
+        ->and($breakdown[0]->sources['slack'])->toBe(5.0)
+        ->and($breakdown[0]->task_count)->toBe(2)
+        ->and($breakdown[1]->sources['linear'])->toBe(1.0);
+});
+
+test('monthly period groups api spend breakdown into monthly buckets', function () {
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0010,
+        'created_at' => now()->startOfMonth(),
+    ]);
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0010,
+        'created_at' => now()->startOfMonth()->addDay(),
+    ]);
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0040,
+        'created_at' => now()->subMonthNoOverflow()->startOfMonth(),
+    ]);
+
+    $component = Livewire::test(CostDashboard::class);
+    $component->call('setPeriod', 'monthly');
+    $breakdown = $component->instance()->apiSpendBreakdown();
+
+    expect($breakdown)->toHaveCount(2)
+        ->and($breakdown[0]->call_count)->toBe(2)
+        ->and((float) $breakdown[1]->total_cost)->toBe(0.004);
+});
+
 test('api spend breakdown groups by date', function () {
     AiUsage::factory()->count(2)->create(['cost_usd' => 0.0010, 'created_at' => now()]);
     AiUsage::factory()->create(['cost_usd' => 0.0040, 'created_at' => now()->subDay()]);

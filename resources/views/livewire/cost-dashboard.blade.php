@@ -74,7 +74,7 @@
         </div>
     </div>
 
-    {{-- 30-Day Bar Chart --}}
+    {{-- Spend Bar Chart --}}
     @php
         $chartData = $this->chartData;
         $maxVal = $chartData->max('total_usd') ?: 1;
@@ -90,10 +90,11 @@
         $availWidth = $chartWidth - $leftMargin - $rightMargin;
         $barWidth = $barCount > 0 ? max(4, (int)(($availWidth / $barCount) - 2)) : 20;
         $gap = $barCount > 0 ? ($availWidth - ($barWidth * $barCount)) / max(1, $barCount) : 0;
-        $isToday = fn($date) => \Carbon\Carbon::parse($date)->isToday();
+        $currentBucket = $this->currentBucket;
+        $isCurrent = fn($date) => $date === $currentBucket;
     @endphp
     <div class="bg-white border border-yak-tan/40 rounded-[28px] shadow-yak p-8 mb-8">
-        <h2 class="text-lg font-medium text-yak-slate mb-6">Daily Spend &mdash; {{ ucfirst($period) }} View</h2>
+        <h2 class="text-lg font-medium text-yak-slate mb-6">Spend &mdash; {{ ucfirst($period) }} View</h2>
         <div class="w-full overflow-hidden">
             @if ($barCount > 0)
                 <svg viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" class="w-full h-auto block">
@@ -115,11 +116,11 @@
                             $barHeight = max($barHeight, 2);
                             $x = $leftMargin + ($index * ($barWidth + $gap)) + ($gap / 2);
                             $y = $bottomY - $barHeight;
-                            $fill = $isToday($day->date) ? '#c4744a' : '#8fb3c4';
+                            $fill = $isCurrent($day->date) ? '#c4744a' : '#8fb3c4';
                         @endphp
                         <rect x="{{ $x }}" y="{{ $y }}" width="{{ $barWidth }}" height="{{ $barHeight }}" rx="4" ry="4" fill="{{ $fill }}"/>
                         @if ($index % max(1, intdiv($barCount, 6)) === 0 || $index === $barCount - 1)
-                            <text x="{{ $x + $barWidth / 2 }}" y="{{ $chartHeight - 12 }}" font-family="Outfit, sans-serif" font-size="11" fill="#6b8fa3" text-anchor="middle">{{ \Carbon\Carbon::parse($day->date)->format('M j') }}</text>
+                            <text x="{{ $x + $barWidth / 2 }}" y="{{ $chartHeight - 12 }}" font-family="Outfit, sans-serif" font-size="11" fill="#6b8fa3" text-anchor="middle">{{ $this->dateLabel($day->date) }}</text>
                         @endif
                     @endforeach
                 </svg>
@@ -133,7 +134,7 @@
     @php $breakdown = $this->breakdown; @endphp
     <div class="bg-white border border-yak-tan/40 rounded-[28px] shadow-yak p-8">
         <div class="flex items-baseline justify-between mb-6">
-            <h2 class="text-lg font-medium text-yak-slate">Claude Code — Daily Breakdown</h2>
+            <h2 class="text-lg font-medium text-yak-slate">Claude Code — {{ ucfirst($period) }} Breakdown</h2>
             <span class="text-xs text-yak-blue/80">est. token cost (subscription)</span>
         </div>
         <table class="w-full text-sm border-collapse">
@@ -150,7 +151,7 @@
             <tbody>
                 @forelse ($breakdown as $row)
                     <tr class="hover:bg-yak-cream/50">
-                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate">{{ \Carbon\Carbon::parse($row->date)->format('M j') }}</td>
+                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate">{{ $this->dateLabel($row->date) }}</td>
                         <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate">{{ $row->task_count }}</td>
                         <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right {{ isset($row->sources['slack']) ? 'text-yak-slate' : 'text-yak-tan' }}">
                             {{ isset($row->sources['slack']) ? '$' . number_format($row->sources['slack'], 2) : '—' }}
@@ -176,7 +177,7 @@
     @php $apiBreakdown = $this->apiSpendBreakdown; @endphp
     <div class="bg-white border border-yak-tan/40 rounded-[28px] shadow-yak p-8 mt-8" data-testid="api-spend-breakdown">
         <div class="flex items-baseline justify-between mb-6">
-            <h2 class="text-lg font-medium text-yak-slate">API Spend — Daily Breakdown</h2>
+            <h2 class="text-lg font-medium text-yak-slate">API Spend — {{ ucfirst($period) }} Breakdown</h2>
             <span class="text-xs text-yak-blue/80">actual Anthropic billing</span>
         </div>
         <table class="w-full text-sm border-collapse">
@@ -190,7 +191,7 @@
             <tbody>
                 @forelse ($apiBreakdown as $row)
                     <tr class="hover:bg-yak-cream/50">
-                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate">{{ \Carbon\Carbon::parse($row->date)->format('M j') }}</td>
+                        <td class="px-4 py-3.5 border-b border-yak-tan/25 text-yak-slate">{{ $this->dateLabel($row->date) }}</td>
                         <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right text-yak-slate">{{ $row->call_count }}</td>
                         <td class="px-4 py-3.5 border-b border-yak-tan/25 text-right font-semibold text-yak-slate">${{ number_format($row->total_cost, 4) }}</td>
                     </tr>
