@@ -31,6 +31,7 @@
                 @endphp
                 <button
                     type="button"
+                    wire:key="run-chip-{{ $run->id }}"
                     wire:click="focusRun({{ $run->id }})"
                     class="rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors {{ $isFocusedRun ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-yak-green' : 'border-[rgba(200,184,154,0.4)] bg-white text-yak-blue hover:bg-[rgba(245,240,232,0.5)]' }}"
                     data-testid="run-chip-{{ $run->id }}"
@@ -47,6 +48,7 @@
             <span class="text-[11px] font-medium text-yak-tan">Attempt</span>
             @foreach($this->availableAttempts as $attempt)
                 <button
+                    wire:key="attempt-chip-{{ $attempt }}"
                     wire:click="selectAttempt({{ $attempt }})"
                     class="rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors {{ $visibleAttempt === $attempt ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-yak-green' : 'border-[rgba(200,184,154,0.4)] bg-white text-yak-blue hover:bg-[rgba(245,240,232,0.5)]' }}"
                     data-testid="attempt-{{ $attempt }}"
