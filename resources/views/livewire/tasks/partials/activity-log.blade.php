@@ -5,8 +5,12 @@
     expanding inline; consecutive-assistant groups still expand inline.
 
     Expects: $task (App\Models\YakTask, root task), $visibleAttempt (int),
-    $expandedGroups (array<int, bool>), $logFilter (string).
+    $expandedGroups (array<int, bool>), $logFilter (string), $keyPrefix
+    (string, default ''). $keyPrefix distinguishes wire:keys when this
+    partial is rendered more than once per page (desktop sidebar + mobile
+    drawer both include it via partials/sidebar.blade.php).
 --}}
+@php $keyPrefix = $keyPrefix ?? ''; @endphp
 <div class="rounded-2xl border border-[rgba(200,184,154,0.4)] bg-white p-4" x-data="activityFollow()" data-testid="activity-log">
     <div class="mb-3 flex items-center justify-between">
         <h2 class="text-xs font-medium uppercase tracking-wider text-yak-blue">Activity</h2>
@@ -31,7 +35,7 @@
                 @endphp
                 <button
                     type="button"
-                    wire:key="run-chip-{{ $run->id }}"
+                    wire:key="{{ $keyPrefix }}run-chip-{{ $run->id }}"
                     wire:click="focusRun({{ $run->id }})"
                     class="rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors {{ $isFocusedRun ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-yak-green' : 'border-[rgba(200,184,154,0.4)] bg-white text-yak-blue hover:bg-[rgba(245,240,232,0.5)]' }}"
                     data-testid="run-chip-{{ $run->id }}"
@@ -48,7 +52,7 @@
             <span class="text-[11px] font-medium text-yak-tan">Attempt</span>
             @foreach($this->availableAttempts as $attempt)
                 <button
-                    wire:key="attempt-chip-{{ $attempt }}"
+                    wire:key="{{ $keyPrefix }}attempt-chip-{{ $attempt }}"
                     wire:click="selectAttempt({{ $attempt }})"
                     class="rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors {{ $visibleAttempt === $attempt ? 'border-[rgba(122,140,94,0.3)] bg-[rgba(122,140,94,0.12)] text-yak-green' : 'border-[rgba(200,184,154,0.4)] bg-white text-yak-blue hover:bg-[rgba(245,240,232,0.5)]' }}"
                     data-testid="attempt-{{ $attempt }}"
@@ -89,7 +93,7 @@
                 @endphp
                 <div
                     class="mb-1.5 overflow-hidden rounded-lg border border-[rgba(200,184,154,0.3)] bg-white"
-                    wire:key="group-{{ $groupIndex }}"
+                    wire:key="{{ $keyPrefix }}group-{{ $groupIndex }}"
                     data-testid="log-entry"
                 >
                     <button wire:click="toggleGroup({{ $groupIndex }})" class="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[rgba(245,240,232,0.5)]">
@@ -124,7 +128,7 @@
                 @endphp
                 <div
                     class="mb-1.5 overflow-hidden rounded-lg border border-[rgba(200,184,154,0.3)] bg-white"
-                    wire:key="log-{{ $log->id }}"
+                    wire:key="{{ $keyPrefix }}log-{{ $log->id }}"
                     data-testid="{{ $isMilestone ? 'milestone-log' : 'log-entry' }}"
                 >
                     <button

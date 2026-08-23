@@ -20,7 +20,7 @@
     </div>
 
     <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center justify-between gap-3.5">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3.5">
             <div class="flex flex-wrap items-center gap-3.5">
                 <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
                     @if($isActiveStatus)
@@ -32,6 +32,19 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    @click="detailsDrawerOpen = true"
+                    class="relative inline-flex items-center gap-1.5 rounded-xl border border-[rgba(200,184,154,0.4)] px-3 py-2 text-sm font-medium text-yak-slate transition-colors hover:bg-[rgba(245,240,232,0.5)] lg:hidden"
+                    data-testid="details-drawer-trigger"
+                >
+                    <flux:icon.bars-3 class="!size-4" />
+                    <span>Details</span>
+                    @if($isActiveStatus)
+                        <span class="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-yak-orange" aria-hidden="true"></span>
+                    @endif
+                </button>
+
                 @if($contextualAction === 'retry')
                     <flux:button variant="filled" size="sm" icon="arrow-path" wire:click="retry" wire:confirm="Re-queue this task?">Retry</flux:button>
                 @elseif($contextualAction === 'cancel')
