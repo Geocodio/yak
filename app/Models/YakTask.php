@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
@@ -79,6 +80,16 @@ class YakTask extends Model
         static::created(function (YakTask $task): void {
             if (mb_strlen((string) $task->description) > TaskDescriptionSummary::THRESHOLD) {
                 SummarizeTaskDescriptionJob::dispatch($task);
+            }
+        });
+
+        static::updated(function (YakTask $task): void {
+            if ($task->wasChanged('status') && $task->status === TaskStatus::Success) {
+                $root = $task->conversation()->first() ?? $task;
+
+                if (PendingSteeringMessage::where('root_task_id', $root->id)->exists()) {
+                    FlushSteeringMessagesJob::dispatch($root->id)->delay(now()->addSeconds(5));
+                }
             }
         });
     }

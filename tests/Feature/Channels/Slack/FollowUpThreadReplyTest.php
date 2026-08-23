@@ -3,6 +3,7 @@
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Queue;
@@ -102,6 +103,35 @@ it('ignores bot_message subtype in an open-PR thread', function () {
     ])->assertSuccessful();
 
     Queue::assertNotPushed(RunFollowUpJob::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Thread reply while the task is still running → queued as a steering message
+|--------------------------------------------------------------------------
+*/
+
+it('queues a steering message when a thread reply arrives while the task is still running', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->running()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C123',
+        'slack_thread_ts' => '111.222',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $body = slackThreadReplyPayload('Please also add a test', 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Queue::assertNotPushed(RunFollowUpJob::class);
+    expect(PendingSteeringMessage::where('root_task_id', $task->id)->where('text', 'Please also add a test')->exists())->toBeTrue();
 });
 
 /*

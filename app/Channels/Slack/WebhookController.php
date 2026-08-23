@@ -4,12 +4,14 @@ namespace App\Channels\Slack;
 
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
@@ -345,6 +347,25 @@ class WebhookController extends Controller
 
             TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
             app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack');
+
+            return response()->json(['ok' => true]);
+        }
+
+        $activeTask = YakTask::where('slack_channel', $channel)
+            ->where('slack_thread_ts', $threadTs)
+            ->whereIn('status', [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying])
+            ->latest()
+            ->first();
+
+        if ($activeTask !== null) {
+            $text = (string) ($event['text'] ?? '');
+
+            if (trim($text) === '') {
+                return response()->json(['ok' => true]);
+            }
+
+            PendingSteeringMessage::queueFor($activeTask, $text, 'slack');
+            TaskLogger::info($activeTask, 'Steering reply queued (mid-run)');
         }
 
         return response()->json(['ok' => true]);
