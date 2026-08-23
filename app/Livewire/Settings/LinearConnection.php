@@ -11,6 +11,19 @@ use Livewire\Component;
 #[Title('Linear connection')]
 class LinearConnection extends Component
 {
+    public bool $moveIssuesToStartedState = true;
+
+    public function mount(): void
+    {
+        $connection = $this->connection();
+        $this->moveIssuesToStartedState = $connection === null || $connection->move_issues_to_started_state;
+    }
+
+    public function updatedMoveIssuesToStartedState(bool $value): void
+    {
+        $this->connection()?->update(['move_issues_to_started_state' => $value]);
+    }
+
     #[Computed]
     public function connection(): ?LinearOauthConnection
     {

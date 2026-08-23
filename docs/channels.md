@@ -289,7 +289,7 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 | Research completed | → **Done** |
 | Task failed | remains In Progress with a failure activity |
 
-Configure the state UUIDs via `linear_done_state_id`, `linear_cancelled_state_id`, `linear_in_review_state_id`, and `linear_started_state_id` (`YAK_LINEAR_STARTED_STATE_ID`, used for the picked-up → started transition) in `ansible/vault/secrets.yml`. If `linear_started_state_id` is unset, the pickup transition is skipped and the issue stays in its current state until the PR is opened.
+The picked-up → started transition is automatic: Yak queries the issue's team's workflow states and moves the issue to the leftmost `started`-type state (workflow states are per-team in Linear, so there is no single workspace-wide UUID). It can be disabled per connection with the "Move issues to In Progress when Yak picks them up" toggle on the Linear settings page, or overridden with a specific state UUID via `linear_started_state_id` (`YAK_LINEAR_STARTED_STATE_ID`) in `ansible/vault/secrets.yml`. If discovery finds no `started`-type state, the transition is skipped and the issue stays in its current state until the PR is opened. The remaining state UUIDs are configured via `linear_done_state_id`, `linear_cancelled_state_id`, and `linear_in_review_state_id`.
 
 ### Gotchas
 

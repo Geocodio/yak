@@ -215,14 +215,36 @@ class WebhookController extends Controller
         app(NotificationDriver::class)
             ->send($task, NotificationType::Acknowledgment, $ackMessage);
 
-        $startedStateId = (string) config('yak.channels.linear.started_state_id');
-        if ($startedStateId !== '') {
-            app(NotificationDriver::class)->setIssueState($task, $startedStateId);
-        }
+        $this->moveIssueToStartedState($task, (string) ($description->metadata['linear_issue_id'] ?? ''));
 
         $this->dispatchAgentJob($task);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Move the freshly picked-up issue to a "started" workflow state.
+     * `YAK_LINEAR_STARTED_STATE_ID` acts as an explicit override; without
+     * it the state is auto-discovered from the issue's team when the
+     * connection's toggle is on. Never blocks pickup — a missing state
+     * or failed lookup simply skips the move.
+     */
+    private function moveIssueToStartedState(YakTask $task, string $issueId): void
+    {
+        $stateId = (string) config('yak.channels.linear.started_state_id');
+
+        if ($stateId === '') {
+            $connection = LinearOauthConnection::active();
+            if ($connection === null || ! $connection->move_issues_to_started_state) {
+                return;
+            }
+
+            $stateId = (string) app(StartedStateResolver::class)->forIssue($issueId);
+        }
+
+        if ($stateId !== '') {
+            app(NotificationDriver::class)->setIssueState($task, $stateId);
+        }
     }
 
     /**

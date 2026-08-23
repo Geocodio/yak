@@ -29,6 +29,7 @@ class LinearOauthConnection extends Model
             'expires_at' => 'datetime',
             'scopes' => 'json',
             'disconnected_at' => 'datetime',
+            'move_issues_to_started_state' => 'boolean',
         ];
     }
 
