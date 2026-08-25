@@ -10,8 +10,14 @@
     Expects: $task (App\Models\YakTask, root task).
 --}}
 {{-- Log drawer: full prompt/input/output for the entry clicked in the activity log --}}
-<flux:modal variant="flyout" position="right" wire:model.self="drawerOpen" name="log-drawer" class="!min-w-[420px] sm:!min-w-[520px]">
-    @php $drawerLog = $this->drawerLogIndex !== null ? $this->logs->get($this->drawerLogIndex) : null; @endphp
+<flux:modal
+    variant="flyout"
+    position="right"
+    wire:model.self="drawerOpen"
+    name="log-drawer"
+    class="!min-w-[420px] sm:!min-w-[560px] lg:!min-w-[760px]"
+>
+    @php $drawerLog = $this->drawerLog; @endphp
     @if($drawerLog)
         @php
             $logType = $drawerLog->metadata['type'] ?? null;
@@ -19,54 +25,117 @@
             $isPrompt = $logType === 'prompt';
             $hasOutput = $isToolUse && isset($drawerLog->metadata['output']);
             $hasToolInput = $isToolUse && ! empty($drawerLog->metadata['input']);
+            // For tool and prompt entries the message is a summary line, so it
+            // earns a heading. For plain assistant messages the message IS the
+            // body — showing it twice was just noise.
+            $showHeading = $isToolUse || $isPrompt;
+            $position = $this->drawerPosition();
         @endphp
-        <div class="mb-4">
-            <flux:heading size="lg">{{ $drawerLog->message }}</flux:heading>
-            <div class="mt-1 font-mono text-xs text-yak-tan">{{ $drawerLog->created_at->format('M j, Y g:i:s A') }}</div>
-        </div>
-        <div class="space-y-3 rounded-xl bg-[#2b3640] p-4">
-            @if($isPrompt)
-                <div>
-                    <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-orange-warm">User prompt</div>
-                    <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $drawerLog->metadata['prompt'] ?? '' }}</pre>
-                </div>
-                <div>
-                    <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-orange-warm">System prompt</div>
-                    <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $drawerLog->metadata['system_prompt'] ?? '' }}</pre>
-                </div>
-                <div class="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] text-[#a8a8a8]">
-                    <div><span class="text-[#8a8a8a]">model:</span> {{ $drawerLog->metadata['model'] ?? '-' }}</div>
-                    <div><span class="text-[#8a8a8a]">max_turns:</span> {{ $drawerLog->metadata['max_turns'] ?? '-' }}</div>
-                    <div><span class="text-[#8a8a8a]">max_budget_usd:</span> {{ $drawerLog->metadata['max_budget_usd'] ?? '-' }}</div>
-                    <div><span class="text-[#8a8a8a]">resume_session_id:</span> {{ $drawerLog->metadata['resume_session_id'] ?? '-' }}</div>
-                </div>
-            @else
-                @if($hasToolInput)
-                    <div>
-                        <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-green">
-                            {{ ($drawerLog->metadata['tool'] ?? 'tool') === 'Bash' ? 'Command' : 'Input' }}
-                        </div>
-                        @if(($drawerLog->metadata['tool'] ?? null) === 'Bash' && isset($drawerLog->metadata['input']['command']))
-                            <pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#f5e9c9]">{{ $drawerLog->metadata['input']['command'] }}</pre>
+        <div
+            x-data="{
+                step(direction) {
+                    if (! $wire.drawerOpen) return;
+                    const el = document.activeElement;
+                    if (el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return;
+                    if (el && el.isContentEditable) return;
+                    direction < 0 ? $wire.previousLog() : $wire.nextLog();
+                },
+            }"
+            @keydown.window.arrow-left="step(-1)"
+            @keydown.window.arrow-right="step(1)"
+            @keydown.window.k="step(-1)"
+            @keydown.window.j="step(1)"
+        >
+            {{-- Stepper: move between entries without closing and re-finding
+                 your place in the activity list. --}}
+            <div class="mb-4 flex items-center gap-2" data-testid="log-stepper">
+                <flux:button
+                    size="sm"
+                    variant="ghost"
+                    icon="chevron-left"
+                    wire:click="previousLog"
+                    :disabled="$position !== null && $position['position'] === 1"
+                    data-testid="log-prev"
+                >
+                    <span class="sr-only">Previous step</span>
+                </flux:button>
+                <span class="font-mono text-xs text-yak-blue" data-testid="log-position">
+                    @if($position)
+                        Step {{ $position['position'] }} of {{ $position['total'] }}
+                    @else
+                        Hidden by the current filter
+                    @endif
+                </span>
+                <flux:button
+                    size="sm"
+                    variant="ghost"
+                    icon="chevron-right"
+                    wire:click="nextLog"
+                    :disabled="$position !== null && $position['position'] === $position['total']"
+                    data-testid="log-next"
+                >
+                    <span class="sr-only">Next step</span>
+                </flux:button>
+                <span class="ml-auto hidden font-mono text-[10px] text-yak-tan sm:inline">
+                    &larr; &rarr; or j / k
+                </span>
+            </div>
+
+            <div class="mb-4">
+                @if($showHeading)
+                    <flux:heading size="lg" data-testid="log-drawer-heading">
+                        {{ \App\Support\Markdown::toPlainText($drawerLog->message, 160) }}
+                    </flux:heading>
+                @endif
+                <div class="mt-1 font-mono text-xs text-yak-tan">{{ $drawerLog->created_at->format('M j, Y g:i:s A') }}</div>
+            </div>
+
+            <div class="space-y-3 rounded-xl bg-[#2b3640] p-4">
+                @if($isPrompt)
+                    <x-log-block label="User prompt" tone="text-yak-orange-warm" :text="$drawerLog->metadata['prompt'] ?? ''" />
+                    <x-log-block label="System prompt" tone="text-yak-orange-warm" :text="$drawerLog->metadata['system_prompt'] ?? ''" />
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-[11px] text-[#a8a8a8]">
+                        <div><span class="text-[#8a8a8a]">model:</span> {{ $drawerLog->metadata['model'] ?? '-' }}</div>
+                        <div><span class="text-[#8a8a8a]">max_turns:</span> {{ $drawerLog->metadata['max_turns'] ?? '-' }}</div>
+                        <div><span class="text-[#8a8a8a]">max_budget_usd:</span> {{ $drawerLog->metadata['max_budget_usd'] ?? '-' }}</div>
+                        <div><span class="text-[#8a8a8a]">resume_session_id:</span> {{ $drawerLog->metadata['resume_session_id'] ?? '-' }}</div>
+                    </div>
+                @else
+                    @if($hasToolInput)
+                        @php $isBash = ($drawerLog->metadata['tool'] ?? null) === 'Bash'; @endphp
+                        @if($isBash && isset($drawerLog->metadata['input']['command']))
+                            <x-log-block
+                                label="Command"
+                                tone="text-yak-green"
+                                :text="$drawerLog->metadata['input']['command']"
+                                class="text-[#f5e9c9]"
+                            />
                             @if(! empty($drawerLog->metadata['input']['description']))
-                                <div class="mt-1 font-mono text-[11px] italic text-[#8a8a8a]"># {{ $drawerLog->metadata['input']['description'] }}</div>
+                                <div class="font-mono text-[11px] italic text-[#8a8a8a]"># {{ $drawerLog->metadata['input']['description'] }}</div>
                             @endif
                         @else
-                            <pre class="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ json_encode($drawerLog->metadata['input'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                            <x-log-block
+                                :label="$isBash ? 'Command' : 'Input'"
+                                tone="text-yak-green"
+                                :text="json_encode($drawerLog->metadata['input'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)"
+                            />
                         @endif
-                    </div>
+                    @endif
+                    @if($hasOutput)
+                        <x-log-block
+                            :label="$hasToolInput ? 'Output' : null"
+                            tone="text-yak-blue"
+                            :text="$drawerLog->metadata['output']"
+                        />
+                    @elseif(! $hasToolInput)
+                        <x-markdown
+                            :text="$drawerLog->message"
+                            class="prose-invert leading-relaxed !text-[#d4d4d4] prose-headings:!text-white prose-strong:!text-white"
+                            data-testid="log-drawer-message"
+                        />
+                    @endif
                 @endif
-                @if($hasOutput)
-                    <div>
-                        @if($hasToolInput)
-                            <div class="mb-1 text-[11px] font-medium uppercase tracking-wider text-yak-blue">Output</div>
-                        @endif
-                        <pre class="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[#d4d4d4]">{{ $drawerLog->metadata['output'] }}</pre>
-                    </div>
-                @elseif(! $hasToolInput)
-                    <div class="max-h-80 overflow-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-[#d4d4d4]">{{ $drawerLog->message }}</div>
-                @endif
-            @endif
+            </div>
         </div>
     @endif
 </flux:modal>

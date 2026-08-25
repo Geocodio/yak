@@ -36,13 +36,18 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
 /**
  * @property-read Collection<int, TaskLog> $logs
+ * @property-read ?TaskLog $drawerLog
+ * @property-read array<int, int> $navigableLogIds
+ * @property-read array<int, array<string, mixed>> $groupedLogs
  * @property-read ?PrReview $prReview
  * @property-read bool $canReroute
  * @property-read SupportCollection<int, YakTask> $conversation
@@ -100,12 +105,21 @@ class TaskDetail extends Component
     public ?int $focusedRunId = null;
 
     /**
-     * Index (into $this->logs, the focused run's logs for the visible
-     * attempt) of the entry shown in the log drawer.
+     * ID of the TaskLog shown in the log drawer. Keyed by ID rather than
+     * list position so the drawer keeps pointing at the same entry while
+     * a live run appends to the transcript underneath it, and so the open
+     * entry can be shared as a link.
      */
-    public ?int $drawerLogIndex = null;
+    #[Url(as: 'log', except: null)]
+    public ?int $drawerLogId = null;
 
     public bool $drawerOpen = false;
+
+    /**
+     * Free-text filter over the activity log, matched against each entry's
+     * message, tool name, command, and captured output.
+     */
+    public string $logSearch = '';
 
     /**
      * Artifact currently shown in the media lightbox (screenshot or video
@@ -127,6 +141,8 @@ class TaskDetail extends Component
 
         $this->task = $task;
         $this->visibleAttempt = max(1, (int) $task->attempts);
+
+        $this->openDeepLinkedLog();
 
         $notice = session('reReview');
         $message = match ($notice) {
@@ -691,7 +707,7 @@ class TaskDetail extends Component
     {
         $this->focusedRunId = $runId;
         $this->expandedGroups = [];
-        $this->drawerLogIndex = null;
+        $this->drawerLogId = null;
         $this->drawerOpen = false;
 
         $run = $this->conversation->firstWhere('id', $runId);
@@ -737,17 +753,139 @@ class TaskDetail extends Component
     }
 
     /**
+     * Honour a `?log=<id>` deep link by focusing the run and attempt that
+     * entry belongs to and opening the drawer on it. Silently drops links
+     * to entries that are gone or belong to a different conversation.
+     */
+    private function openDeepLinkedLog(): void
+    {
+        if ($this->drawerLogId === null) {
+            return;
+        }
+
+        $log = TaskLog::find($this->drawerLogId);
+        $runIds = $this->conversation->pluck('id')->all();
+
+        if ($log === null || ! in_array((int) $log->yak_task_id, $runIds, true)) {
+            $this->drawerLogId = null;
+
+            return;
+        }
+
+        $this->focusedRunId = (int) $log->yak_task_id;
+        $this->visibleAttempt = max(1, (int) $log->attempt_number);
+        $this->drawerOpen = true;
+    }
+
+    /**
      * Open the log drawer showing one entry's full prompt/input/output.
      */
-    public function openLogDrawer(int $index): void
+    public function openLogDrawer(int $logId): void
     {
-        $this->drawerLogIndex = $index;
+        $this->drawerLogId = $logId;
         $this->drawerOpen = true;
     }
 
     public function closeLogDrawer(): void
     {
         $this->drawerOpen = false;
+    }
+
+    /**
+     * The entry the drawer is showing, or null when nothing is open (or
+     * the open entry belongs to a run/attempt no longer in view).
+     */
+    #[Computed]
+    public function drawerLog(): ?TaskLog
+    {
+        if ($this->drawerLogId === null) {
+            return null;
+        }
+
+        return $this->logs->firstWhere('id', $this->drawerLogId);
+    }
+
+    /**
+     * IDs of the entries the user can actually open, in transcript order.
+     * That's the rows rendered as their own clickable entry — collapsed
+     * groups of thinking steps are not individually openable, so stepping
+     * moves between the same things clicking does.
+     *
+     * @return array<int, int>
+     */
+    #[Computed]
+    public function navigableLogIds(): array
+    {
+        $ids = [];
+
+        foreach ($this->groupedLogs as $entry) {
+            if ($entry['type'] === 'single') {
+                /** @var TaskLog $log */
+                $log = $entry['log'];
+                $ids[] = (int) $log->id;
+            }
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Where the open entry sits in the visible set, for the drawer's
+     * "Step 14 of 40" counter. Null when nothing is open or the open
+     * entry is hidden by the active filter or search.
+     *
+     * @return array{position: int, total: int}|null
+     */
+    public function drawerPosition(): ?array
+    {
+        $ids = $this->navigableLogIds;
+        $index = array_search($this->drawerLogId, $ids, true);
+
+        if ($index === false) {
+            return null;
+        }
+
+        return ['position' => $index + 1, 'total' => count($ids)];
+    }
+
+    public function nextLog(): void
+    {
+        $this->stepDrawer(1);
+    }
+
+    public function previousLog(): void
+    {
+        $this->stepDrawer(-1);
+    }
+
+    /**
+     * Move the drawer one entry through the visible set, clamped at both
+     * ends. When the open entry has been filtered out from under the
+     * drawer, step in from whichever end the caller was heading toward.
+     */
+    private function stepDrawer(int $direction): void
+    {
+        $ids = $this->navigableLogIds;
+
+        if ($ids === []) {
+            return;
+        }
+
+        $index = array_search($this->drawerLogId, $ids, true);
+
+        if ($index === false) {
+            $this->drawerLogId = $direction > 0 ? $ids[0] : $ids[count($ids) - 1];
+
+            return;
+        }
+
+        $target = $index + $direction;
+
+        if ($target < 0 || $target >= count($ids)) {
+            return;
+        }
+
+        $this->drawerLogId = $ids[$target];
     }
 
     /**
@@ -816,6 +954,19 @@ class TaskDetail extends Component
     public function setFilter(string $filter): void
     {
         $this->logFilter = $filter;
+        $this->expandedGroups = [];
+
+        unset($this->groupedLogs, $this->navigableLogIds);
+    }
+
+    /**
+     * Group indices are positional, so a changed search invalidates them.
+     */
+    public function updatedLogSearch(): void
+    {
+        $this->expandedGroups = [];
+
+        unset($this->groupedLogs, $this->navigableLogIds);
     }
 
     public function selectAttempt(int $attempt): void
@@ -925,6 +1076,12 @@ class TaskDetail extends Component
                 continue;
             }
 
+            if (! $this->matchesLogSearch($log)) {
+                $flushGroup();
+
+                continue;
+            }
+
             if ($isAssistant && $log->level === 'info' && ! $this->detailedView) {
                 $currentAssistantGroup[] = $log;
                 $currentAssistantIndices[] = $index;
@@ -941,6 +1098,41 @@ class TaskDetail extends Component
         $flushGroup();
 
         return $grouped;
+    }
+
+    /**
+     * Whether an entry matches the active search. Looks at everything the
+     * user can see or would reasonably search for: the summary line, the
+     * tool, the command it ran, and the output it captured.
+     */
+    private function matchesLogSearch(TaskLog $log): bool
+    {
+        $needle = trim($this->logSearch);
+
+        if ($needle === '') {
+            return true;
+        }
+
+        /** @var array<string, mixed> $metadata */
+        $metadata = (array) $log->metadata;
+
+        $haystack = [
+            (string) $log->message,
+            is_scalar($metadata['tool'] ?? null) ? (string) $metadata['tool'] : '',
+            is_scalar($metadata['output'] ?? null) ? (string) $metadata['output'] : '',
+        ];
+
+        $input = $metadata['input'] ?? null;
+
+        if (is_array($input)) {
+            foreach (['command', 'description', 'file_path', 'pattern'] as $key) {
+                if (is_scalar($input[$key] ?? null)) {
+                    $haystack[] = (string) $input[$key];
+                }
+            }
+        }
+
+        return Str::contains(implode("\n", $haystack), $needle, ignoreCase: true);
     }
 
     /**

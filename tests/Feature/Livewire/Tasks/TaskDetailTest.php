@@ -284,7 +284,7 @@ test('it uses slow polling for completed tasks', function () {
 test('it shows activity log with expandable entries', function () {
     $task = YakTask::factory()->success()->create();
 
-    TaskLog::factory()->create([
+    $log = TaskLog::factory()->create([
         'yak_task_id' => $task->id,
         'message' => '🔍 Searching for `TODO`',
         'metadata' => ['type' => 'tool_use', 'tool' => 'Grep', 'input' => ['pattern' => 'TODO'], 'output' => 'src/app.php:12: // TODO fix this'],
@@ -295,7 +295,7 @@ test('it shows activity log with expandable entries', function () {
         ->assertDontSee('Session Log')
         ->assertSee('Searching for')
         ->assertSee('Grep')
-        ->call('openLogDrawer', 0)
+        ->call('openLogDrawer', $log->id)
         ->assertSee('TODO fix this');
 });
 
@@ -608,7 +608,7 @@ test('absolute timestamps shown for completed tasks', function () {
 test('error tool result output is available in the log drawer', function () {
     $task = YakTask::factory()->success()->create();
 
-    TaskLog::factory()->create([
+    $log = TaskLog::factory()->create([
         'yak_task_id' => $task->id,
         'message' => '⚡ `npm test` → exit 1',
         'level' => 'warning',
@@ -621,7 +621,7 @@ test('error tool result output is available in the log drawer', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->call('openLogDrawer', 0)
+        ->call('openLogDrawer', $log->id)
         ->assertSee('Error: test suite failed');
 });
 

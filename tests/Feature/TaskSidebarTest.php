@@ -32,7 +32,7 @@ test('progress checklist renders only while in flight', function () {
 
 test('log entry opens in drawer', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
-    TaskLog::factory()->create([
+    $log = TaskLog::factory()->create([
         'yak_task_id' => $task->id,
         'message' => 'Ran a command',
         'attempt_number' => 1,
@@ -40,7 +40,7 @@ test('log entry opens in drawer', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->call('openLogDrawer', 0)
+        ->call('openLogDrawer', $log->id)
         ->assertSee('ls -la')
         ->assertSee('total 0');
 });
@@ -51,4 +51,26 @@ test('page has exactly one poll timer even though the sidebar renders twice', fu
     $html = Livewire::test(TaskDetail::class, ['task' => $task])->html();
 
     expect(substr_count($html, 'wire:poll'))->toBe(1);
+});
+
+test('the log drawer renders a markdown message, and the activity row flattens it', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $log = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'message' => "## Summary\n\nThis PR removes the dead `continue` guards.",
+        'attempt_number' => 1,
+        'metadata' => ['type' => 'assistant'],
+    ]);
+
+    $html = Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openLogDrawer', $log->id)
+        ->html();
+
+    // Body: rendered markdown.
+    expect($html)->toContain('<code>continue</code>')
+        ->and($html)->toContain('data-testid="log-drawer-message"');
+
+    // Activity list row: one flat line, no markdown syntax.
+    expect($html)->toContain('Summary This PR removes the dead continue guards.')
+        ->and($html)->not->toContain('## Summary');
 });
