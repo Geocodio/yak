@@ -35,7 +35,14 @@
                 @if($prTitle)
                     <div class="mt-1 font-medium text-yak-slate">{{ $prTitle }}</div>
                 @endif
-                <x-markdown :text="$prBody" compact class="mt-1 line-clamp-3 text-sm !text-yak-blue" />
+                {{-- The PR body is the one thing on a review task that is
+                     always truncated, so it is what "Detailed" un-truncates. --}}
+                <x-markdown
+                    :text="$prBody"
+                    :compact="! $detailedView"
+                    class="mt-1 text-sm !text-yak-blue {{ $detailedView ? '' : 'line-clamp-3' }}"
+                    data-testid="pr-body"
+                />
             </div>
         </div>
     @else
