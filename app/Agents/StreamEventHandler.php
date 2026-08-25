@@ -22,8 +22,14 @@ class StreamEventHandler
     /** @var array<string, mixed>|null */
     private ?array $resultEvent = null;
 
-    /** @var array<string, string> Maps tool_use ID to tool name for correlating tool_result events */
-    private array $pendingToolIds = [];
+    /**
+     * In-flight tool calls keyed by tool_use_id, so a result attaches to
+     * the call it belongs to rather than to whichever call happened to be
+     * most recent.
+     *
+     * @var array<string, array{log: TaskLog, tool: string, started: float}>
+     */
+    private array $pendingTools = [];
 
     public function __construct(
         private readonly YakTask $task,
@@ -69,6 +75,7 @@ class StreamEventHandler
 
         match ($type) {
             'assistant' => $this->handleAssistant($event),
+            'user' => $this->handleUser($event),
             'tool_use' => $this->handleToolUse($event),
             'tool_result' => $this->handleToolResult($event),
             'result' => $this->handleResult($event),
@@ -82,6 +89,73 @@ class StreamEventHandler
     public function getResultEvent(): ?array
     {
         return $this->resultEvent;
+    }
+
+    /**
+     * Tool results arrive as `tool_result` blocks inside a `user` message
+     * -- the mirror of how `tool_use` blocks arrive inside an `assistant`
+     * message. The CLI emits no top-level `tool_result` event, so without
+     * this the results were dropped and no tool call ever recorded its
+     * output.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function handleUser(array $event): void
+    {
+        $message = $event['message'] ?? [];
+
+        if (! is_array($message)) {
+            return;
+        }
+
+        $contentBlocks = $message['content'] ?? [];
+
+        if (! is_array($contentBlocks)) {
+            return;
+        }
+
+        foreach ($contentBlocks as $block) {
+            if (! is_array($block) || ($block['type'] ?? '') !== 'tool_result') {
+                continue;
+            }
+
+            $this->handleToolResult([
+                'tool_use_id' => $block['tool_use_id'] ?? null,
+                'content' => $this->flattenResultContent($block['content'] ?? ''),
+                'is_error' => $block['is_error'] ?? false,
+            ]);
+        }
+    }
+
+    /**
+     * A tool_result's content is usually a plain string, but can also be a
+     * list of content blocks. Normalize both to text.
+     */
+    private function flattenResultContent(mixed $content): string
+    {
+        if (is_string($content)) {
+            return $content;
+        }
+
+        if (! is_array($content)) {
+            return '';
+        }
+
+        $parts = [];
+
+        foreach ($content as $block) {
+            if (is_string($block)) {
+                $parts[] = $block;
+
+                continue;
+            }
+
+            if (is_array($block) && isset($block['text']) && is_string($block['text'])) {
+                $parts[] = $block['text'];
+            }
+        }
+
+        return implode("\n", $parts);
     }
 
     /**
@@ -147,10 +221,15 @@ class StreamEventHandler
         ]);
         $this->pendingToolBaseMessage = null;
 
-        // Track tool ID for correlating with tool_result events
+        // Key the call by its tool_use_id so its result attaches to it even
+        // if another call starts first.
         $toolId = $event['id'] ?? null;
         if ($toolId !== null) {
-            $this->pendingToolIds[(string) $toolId] = $toolName;
+            $this->pendingTools[(string) $toolId] = [
+                'log' => $this->pendingToolLog,
+                'tool' => $toolName,
+                'started' => microtime(true),
+            ];
         }
     }
 
@@ -159,13 +238,15 @@ class StreamEventHandler
      */
     private function handleToolResult(array $event): void
     {
-        // Look up pending tool by tool_use_id if no direct pending log
+        // Resolve the call this result belongs to by its id, falling back
+        // to the most recent call for shapes that carry no id.
         $toolUseId = $event['tool_use_id'] ?? null;
-        if (! $this->pendingToolLog && $toolUseId !== null && isset($this->pendingToolIds[(string) $toolUseId])) {
-            unset($this->pendingToolIds[(string) $toolUseId]);
-        }
+        $pending = $toolUseId !== null ? ($this->pendingTools[(string) $toolUseId] ?? null) : null;
 
-        if (! $this->pendingToolLog) {
+        $log = $pending['log'] ?? $this->pendingToolLog;
+        $toolName = $pending['tool'] ?? $this->pendingToolName;
+
+        if (! $log) {
             return;
         }
 
@@ -173,29 +254,41 @@ class StreamEventHandler
         $isError = ($event['is_error'] ?? false) === true;
 
         /** @var array<string, mixed> $metadata */
-        $metadata = $this->pendingToolLog->metadata ?? [];
+        $metadata = $log->metadata ?? [];
         $metadata['output'] = $this->truncateOutput($output);
         $metadata['output_lines'] = substr_count($output, "\n") + 1;
         $metadata['is_error'] = $isError;
 
+        if (isset($pending['started'])) {
+            $metadata['duration_ms'] = (int) round((microtime(true) - $pending['started']) * 1000);
+        }
+
         // Strip any heartbeat duration suffix before appending the exit
         // summary so the final message reads "⚡ cmd → exit 0", not
         // "⚡ cmd (3m) → exit 0".
-        $message = $this->pendingToolBaseMessage ?? $this->pendingToolLog->message;
-        if ($this->pendingToolName === 'Bash') {
+        $message = $this->pendingToolBaseMessage ?? $log->message;
+        if ($toolName === 'Bash') {
             $exitCode = $this->extractExitCode($output, $isError);
             $message .= " → exit {$exitCode}";
         }
 
-        $this->pendingToolLog->update([
+        $log->update([
             'message' => $message,
             'level' => $isError ? 'warning' : 'info',
             'metadata' => $metadata,
         ]);
 
-        $this->pendingToolLog = null;
-        $this->pendingToolName = null;
-        $this->pendingToolBaseMessage = null;
+        if ($toolUseId !== null) {
+            unset($this->pendingTools[(string) $toolUseId]);
+        }
+
+        // Only clear the in-flight slot when this result closed out the
+        // call the heartbeat is tracking.
+        if ($this->pendingToolLog && $this->pendingToolLog->is($log)) {
+            $this->pendingToolLog = null;
+            $this->pendingToolName = null;
+            $this->pendingToolBaseMessage = null;
+        }
     }
 
     /**

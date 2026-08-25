@@ -227,6 +227,12 @@
                         @if($isToolUse)
                             <span>tool &middot; {{ $entry->metadata['tool'] ?? 'tool' }}</span>
                         @endif
+                        @if(isset($entry->metadata['duration_ms']))
+                            <span data-testid="entry-duration">took {{ \App\Support\Duration::forHumans((int) $entry->metadata['duration_ms']) }}</span>
+                        @endif
+                        @if(isset($entry->metadata['output_lines']) && ($entry->metadata['output_lines'] ?? 0) > 1)
+                            <span>{{ number_format((int) $entry->metadata['output_lines']) }} lines of output</span>
+                        @endif
                         @if($entry->metadata['is_error'] ?? false)
                             <span class="text-yak-danger">errored</span>
                         @endif

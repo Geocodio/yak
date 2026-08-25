@@ -374,3 +374,28 @@ it('reopens on the entry you were last reading', function () {
         ->call('openTranscriptCold')
         ->assertSet('transcriptLogId', $logs['edit']->id);
 });
+
+it('shows how long a tool call took and how much it printed', function () {
+    $task = YakTask::factory()->create(['started_at' => now()]);
+    $log = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Run phpstan → exit 0',
+        'metadata' => [
+            'type' => 'tool_use',
+            'tool' => 'Bash',
+            'input' => ['command' => 'vendor/bin/phpstan analyse'],
+            'output' => "line one\nline two\nline three",
+            'output_lines' => 3,
+            'duration_ms' => 12400,
+        ],
+    ]);
+
+    $html = Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openTranscript', $log->id)
+        ->html();
+
+    expect($html)->toContain('data-testid="entry-duration"')
+        ->and($html)->toContain('12s')
+        ->and($html)->toContain('3 lines of output');
+});
