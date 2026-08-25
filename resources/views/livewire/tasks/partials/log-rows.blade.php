@@ -54,11 +54,12 @@
                     $hasExpandableContent = $hasOutput || $hasToolInput || $isPrompt || $log->metadata;
                     $isMilestone = \App\Livewire\Tasks\TaskDetail::isMilestone($log);
                 @endphp
-                @php $isOpenInDrawer = $this->transcriptLogId === $log->id; @endphp
+                @php $isOpenInTranscript = $this->transcriptLogId === $log->id; @endphp
                 <div
-                    class="mb-1.5 overflow-hidden rounded-lg border bg-white {{ $isOpenInDrawer ? 'border-yak-orange ring-1 ring-yak-orange/40' : 'border-[rgba(200,184,154,0.3)]' }}"
+                    class="mb-1.5 overflow-hidden rounded-lg border bg-white {{ $isOpenInTranscript ? 'border-yak-orange ring-1 ring-yak-orange/40' : 'border-[rgba(200,184,154,0.3)]' }}"
                     wire:key="{{ $keyPrefix }}log-{{ $log->id }}"
-                    data-testid="{{ $isOpenInDrawer ? 'log-entry-open' : ($isMilestone ? 'milestone-log' : 'log-entry') }}"
+                    @if($isOpenInTranscript) data-log-selected="{{ $log->id }}" @endif
+                    data-testid="{{ $isOpenInTranscript ? 'log-entry-open' : ($isMilestone ? 'milestone-log' : 'log-entry') }}"
                 >
                     <button
                         @if($hasExpandableContent && !$isMilestone) wire:click="openTranscript({{ $log->id }})" @endif

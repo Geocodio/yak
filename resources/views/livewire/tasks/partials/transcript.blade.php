@@ -106,7 +106,7 @@
                 @include('livewire.tasks.partials.log-controls')
 
                 <div class="relative min-h-0 flex-1">
-                    <div x-ref="logList" class="h-full overflow-y-auto pr-1" @scroll.passive="onScroll()">
+                    <div x-ref="logList" data-scroller class="h-full overflow-y-auto pr-1" @scroll.passive="onScroll()">
                         @include('livewire.tasks.partials.log-rows')
                     </div>
 

@@ -75,3 +75,70 @@ test('the overlay steps with the keyboard and closes with escape', function () {
         ->assertMissing('[data-testid="transcript-overlay"]:visible')
         ->assertNoJavascriptErrors();
 });
+
+test('the overlay rail scrolls the opened entry into view', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+
+    $logs = [];
+    foreach (range(1, 40) as $i) {
+        $logs[] = TaskLog::factory()->create([
+            'yak_task_id' => $task->id,
+            'attempt_number' => 1,
+            'message' => "Step number {$i}",
+            'created_at' => now()->subMinutes(60 - $i),
+            'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => "echo {$i}"], 'output' => (string) $i],
+        ]);
+    }
+
+    // Entry 35 is far below the fold of the rail.
+    $page = visit(route('tasks.show', $task) . '?log=' . $logs[34]->id)
+        ->assertVisible('[data-testid="transcript-overlay"]:visible')
+        ->assertSee('Step 35 of 40');
+
+    $selectedIsInView = $page->script(<<<'JS'
+        (() => {
+            const overlay = document.querySelector('[data-testid="transcript-overlay"]');
+            const row = overlay.querySelector('[data-testid="log-entry-open"]');
+            const scroller = row.closest('[data-scroller]') ?? row.parentElement;
+            const r = row.getBoundingClientRect();
+            const s = scroller.getBoundingClientRect();
+            return r.top >= s.top - 1 && r.bottom <= s.bottom + 1;
+        })()
+    JS);
+
+    expect($selectedIsInView)->toBeTrue();
+});
+
+test('clicking a row deep in the sidebar list opens the rail scrolled to it', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+
+    foreach (range(1, 40) as $i) {
+        TaskLog::factory()->create([
+            'yak_task_id' => $task->id,
+            'attempt_number' => 1,
+            'message' => "Step number {$i}",
+            'created_at' => now()->subMinutes(60 - $i),
+            'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => "echo {$i}"], 'output' => (string) $i],
+        ]);
+    }
+
+    $page = visit(route('tasks.show', $task))
+        ->click('[data-testid="log-entry"]:visible >> nth=29')
+        ->assertVisible('[data-testid="transcript-overlay"]:visible')
+        ->assertSee('Step 30 of 40');
+
+    $selectedIsInView = $page->script(<<<'JS'
+        (() => {
+            const overlay = document.querySelector('[data-testid="transcript-overlay"]');
+            const row = overlay.querySelector('[data-log-selected]');
+            const scroller = row.closest('[data-scroller]');
+            const r = row.getBoundingClientRect();
+            const s = scroller.getBoundingClientRect();
+            return r.top >= s.top - 1 && r.bottom <= s.bottom + 1;
+        })()
+    JS);
+
+    expect($selectedIsInView)->toBeTrue();
+});
