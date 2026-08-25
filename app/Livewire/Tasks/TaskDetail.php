@@ -131,6 +131,14 @@ class TaskDetail extends Component
     public bool $transcriptPinned = false;
 
     /**
+     * The entry that was open when the transcript was last closed. Closing
+     * clears transcriptLogId so ?log= leaves the URL -- a refresh after
+     * closing must not reopen the overlay -- but reopening should still
+     * land you back where you were reading.
+     */
+    public ?int $lastTranscriptLogId = null;
+
+    /**
      * Artifact currently shown in the media lightbox (screenshot or video
      * thumbnail clicked from a thread turn or the sidebar's latest media).
      */
@@ -808,9 +816,14 @@ class TaskDetail extends Component
         $ids = $this->navigableLogIds;
 
         if ($ids !== [] && ! in_array($this->transcriptLogId, $ids, true)) {
-            // A live run opens on its newest entry, since what matters is
-            // what is happening now; a finished one opens at the start.
-            $this->transcriptLogId = $this->isActiveStatus() ? $ids[count($ids) - 1] : $ids[0];
+            $this->transcriptLogId = match (true) {
+                // Back to whatever you were reading when you closed it.
+                in_array($this->lastTranscriptLogId, $ids, true) => $this->lastTranscriptLogId,
+                // A live run opens on its newest entry, since what matters
+                // is what is happening now; a finished one opens at the start.
+                $this->isActiveStatus() => $ids[count($ids) - 1],
+                default => $ids[0],
+            };
         }
 
         $this->transcriptOpen = true;
@@ -819,6 +832,26 @@ class TaskDetail extends Component
     public function closeTranscript(): void
     {
         $this->transcriptOpen = false;
+        $this->releaseTranscriptEntry();
+    }
+
+    /**
+     * Escape and click-outside close the modal client-side through
+     * wire:model, never touching closeTranscript(), so the same cleanup
+     * has to hang off the property itself.
+     */
+    public function updatedTranscriptOpen(bool $value): void
+    {
+        if (! $value) {
+            $this->releaseTranscriptEntry();
+        }
+    }
+
+    private function releaseTranscriptEntry(): void
+    {
+        $this->lastTranscriptLogId = $this->transcriptLogId;
+        $this->transcriptLogId = null;
+        $this->transcriptPinned = false;
     }
 
     /**

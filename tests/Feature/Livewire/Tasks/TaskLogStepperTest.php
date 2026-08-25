@@ -337,3 +337,40 @@ it('exposes the sidebar affordance for opening the transcript', function () {
 
     expect($html)->toContain('data-testid="open-transcript"');
 });
+
+it('drops the ?log= parameter when the transcript is closed', function () {
+    $task = YakTask::factory()->create(['started_at' => now()]);
+    $logs = transcript($task);
+
+    // transcriptLogId is bound to ?log= with except:null, so nulling it
+    // removes the parameter -- a refresh after closing must not reopen it.
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openTranscript', $logs['edit']->id)
+        ->assertSet('transcriptLogId', $logs['edit']->id)
+        ->call('closeTranscript')
+        ->assertSet('transcriptOpen', false)
+        ->assertSet('transcriptLogId', null);
+});
+
+it('drops the ?log= parameter when the overlay is dismissed with escape', function () {
+    $task = YakTask::factory()->create(['started_at' => now()]);
+    $logs = transcript($task);
+
+    // Escape and click-outside close the modal client-side via wire:model,
+    // which never calls closeTranscript().
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openTranscript', $logs['edit']->id)
+        ->set('transcriptOpen', false)
+        ->assertSet('transcriptLogId', null);
+});
+
+it('reopens on the entry you were last reading', function () {
+    $task = YakTask::factory()->create(['started_at' => now()]);
+    $logs = transcript($task);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openTranscript', $logs['edit']->id)
+        ->call('closeTranscript')
+        ->call('openTranscriptCold')
+        ->assertSet('transcriptLogId', $logs['edit']->id);
+});
