@@ -181,6 +181,25 @@
     font-weight: inherit;
 }
 
+/* Compact prose — for Markdown previews that sit inside a line clamp
+   (e.g. the PR body under a review task's header). Headings collapse to
+   body size and block margins go away so the clamp counts real lines. */
+.prose-compact :where(h1, h2, h3, h4, h5, h6):not(:where([class~="not-prose"] *)) {
+    font-size: inherit;
+    line-height: inherit;
+    font-weight: 600;
+    display: inline;
+    margin: 0;
+}
+
+.prose-compact :where(p, ul, ol, pre, blockquote):not(:where([class~="not-prose"] *)) {
+    margin: 0;
+}
+
+.prose-compact :where(pre):not(:where([class~="not-prose"] *)) {
+    padding: 0.375rem 0.625rem;
+}
+
 /* Status badges */
 .badge-success {
     background: color-mix(in srgb, var(--color-yak-green) 12%, transparent);

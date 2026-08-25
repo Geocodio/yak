@@ -21,9 +21,7 @@
         </span>
     </div>
 
-    @if($review->summary)
-        <p class="mt-3 text-sm leading-relaxed text-yak-slate">{{ $review->summary }}</p>
-    @endif
+    <x-markdown :text="$review->summary" class="mt-3 leading-relaxed" />
 
     @if($review->comments->isNotEmpty())
         <div class="mt-3 flex flex-col gap-2">
@@ -39,8 +37,8 @@
                         </span>
                         <flux:icon.chevron-right class="!size-3.5 shrink-0 text-yak-tan transition-transform duration-150" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
-                    <div x-show="open" x-cloak class="mt-2 text-sm leading-relaxed text-yak-slate">
-                        {{ $comment->body }}
+                    <div x-show="open" x-cloak>
+                        <x-markdown :text="$comment->body" class="mt-2 leading-relaxed" />
                     </div>
                 </div>
             @endforeach

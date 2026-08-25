@@ -152,3 +152,21 @@ test('condensed view collapses superseded results behind a show-full affordance'
         ->assertDontSeeHtml('data-testid="superseded-result"')
         ->assertDontSee('Show full result');
 });
+
+test('review mode context turn formats the PR body as markdown', function () {
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'context' => json_encode([
+            'pr_number' => 42,
+            'title' => 'Fix the flaky test',
+            'body' => "## Summary\n\nA small **performance** fix to `detectCity`.",
+        ]),
+    ]);
+
+    $response = $this->get(route('tasks.show', $task));
+
+    $response->assertOk();
+    $response->assertSee('<strong>performance</strong>', false);
+    $response->assertSee('<code>detectCity</code>', false);
+    $response->assertDontSee('## Summary', false);
+});

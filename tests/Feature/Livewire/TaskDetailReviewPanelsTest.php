@@ -85,3 +85,51 @@ it('does not render the old review cards', function () {
     expect($html)->not->toContain('Review output')
         ->and($html)->not->toContain('Review preview');
 });
+
+it('renders the review summary and finding bodies as formatted markdown', function () {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/geocodio/api/pull/1',
+        'started_at' => now(),
+    ]);
+
+    $review = PrReview::factory()->create([
+        'yak_task_id' => $task->id,
+        'summary' => 'This PR removes dead `continue` guards.',
+    ]);
+
+    PrReviewComment::factory()->create([
+        'pr_review_id' => $review->id,
+        'body' => "**[Correctness]** The `detectCity` gate is wrong:\n\n```php\n\$a = 1;\n```",
+    ]);
+
+    $html = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task])->html();
+
+    expect($html)->toContain('<code>continue</code>')
+        ->and($html)->toContain('<strong>[Correctness]</strong>')
+        ->and($html)->toContain('<code>detectCity</code>')
+        ->and($html)->toContain('<pre>')
+        ->and($html)->not->toContain('**[Correctness]**')
+        ->and($html)->not->toContain('```php');
+});
+
+it('strips html embedded in a finding body', function () {
+    $user = User::factory()->create();
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/geocodio/api/pull/1',
+        'started_at' => now(),
+    ]);
+
+    $review = PrReview::factory()->create(['yak_task_id' => $task->id]);
+
+    PrReviewComment::factory()->create([
+        'pr_review_id' => $review->id,
+        'body' => 'Careful: <script>alert(1)</script> here.',
+    ]);
+
+    $html = Livewire::actingAs($user)->test(TaskDetail::class, ['task' => $task])->html();
+
+    expect($html)->not->toContain('<script>alert(1)</script>');
+});

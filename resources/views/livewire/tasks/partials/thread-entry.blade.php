@@ -10,10 +10,6 @@
     $mediaByRun (Collection<int, Collection<int, App\Models\Artifact>>,
     from TaskDetail::mediaByRun(), keyed by run id).
 --}}
-@php
-    $proseClasses = 'prose prose-sm prose-yak max-w-none text-yak-slate prose-headings:text-yak-slate prose-a:text-yak-orange prose-a:hover:text-yak-orange-warm prose-strong:text-yak-slate prose-code:rounded prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:text-yak-slate prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10';
-@endphp
-
 @if($entry->kind === 'user')
     @php
         $isReviewContextTurn = $task->mode === \App\Enums\TaskMode::Review && $i === 0;
@@ -39,9 +35,7 @@
                 @if($prTitle)
                     <div class="mt-1 font-medium text-yak-slate">{{ $prTitle }}</div>
                 @endif
-                @if($prBody)
-                    <div class="mt-1 line-clamp-3 text-sm text-yak-blue">{{ $prBody }}</div>
-                @endif
+                <x-markdown :text="$prBody" compact class="mt-1 line-clamp-3 text-sm !text-yak-blue" />
             </div>
         </div>
     @else
@@ -78,9 +72,7 @@
                             full request &middot; {{ strlen($entry->text) }} chars &#9656;
                         </button>
                     @else
-                        <div class="{{ $proseClasses }}">
-                            {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
-                        </div>
+                        <x-markdown :text="$entry->text" />
                     @endif
                 </div>
             </div>
@@ -155,7 +147,7 @@
 
             @if($entry->isLive)
                 <div class="mt-2 rounded-xl border border-yak-orange/25 bg-yak-orange/5 px-3 py-2 text-sm text-yak-orange-warm" data-testid="live-activity">
-                    {{ $lastLogMessage ?? 'Working…' }}
+                    {{ $lastLogMessage ? \App\Support\Markdown::toPlainText($lastLogMessage) : 'Working…' }}
                 </div>
             @endif
 
@@ -168,9 +160,7 @@
 
             @if($entry->text !== '')
                 @if($isSuperseded)
-                    <div class="mt-2 line-clamp-3 {{ $proseClasses }}" data-testid="superseded-result">
-                        {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
-                    </div>
+                    <x-markdown :text="$entry->text" compact class="mt-2 line-clamp-3" data-testid="superseded-result" />
                     <button
                         type="button"
                         wire:click="toggleTurn({{ $i }})"
@@ -180,9 +170,7 @@
                         Show full result &#9656;
                     </button>
                 @else
-                    <div class="mt-2 {{ $proseClasses }}">
-                        {!! Str::markdown($entry->text, ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}
-                    </div>
+                    <x-markdown :text="$entry->text" class="mt-2" />
                 @endif
             @endif
 
