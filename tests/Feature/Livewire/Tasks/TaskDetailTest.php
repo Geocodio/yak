@@ -295,7 +295,7 @@ test('it shows activity log with expandable entries', function () {
         ->assertDontSee('Session Log')
         ->assertSee('Searching for')
         ->assertSee('Grep')
-        ->call('openLogDrawer', $log->id)
+        ->call('openTranscript', $log->id)
         ->assertSee('TODO fix this');
 });
 
@@ -605,7 +605,7 @@ test('absolute timestamps shown for completed tasks', function () {
     expect($html)->not->toContain('ago');
 });
 
-test('error tool result output is available in the log drawer', function () {
+test('error tool result output is available in the transcript overlay', function () {
     $task = YakTask::factory()->success()->create();
 
     $log = TaskLog::factory()->create([
@@ -621,7 +621,7 @@ test('error tool result output is available in the log drawer', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->call('openLogDrawer', $log->id)
+        ->call('openTranscript', $log->id)
         ->assertSee('Error: test suite failed');
 });
 

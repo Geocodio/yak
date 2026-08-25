@@ -2,16 +2,22 @@
 // when they scroll up to read history. Resumes following once the user
 // scrolls back to the bottom.
 //
+// Pass false to start parked at the top instead of following, for a list
+// opened on a specific entry the reader chose — following would yank them
+// away from it the moment the next log line lands.
+//
 // Usage:
 //   <div x-data="activityFollow()">
 //     <div x-ref="logList" @scroll.passive="onScroll()">…log entries…</div>
 //   </div>
-export const activityFollow = () => ({
-    following: true,
+export const activityFollow = (startFollowing = true) => ({
+    following: startFollowing,
     observer: null,
     suppressScrollEvent: false,
     init() {
-        this.$nextTick(() => this.scrollToEnd("auto"));
+        if (this.following) {
+            this.$nextTick(() => this.scrollToEnd("auto"));
+        }
 
         this.observer = new MutationObserver(() => {
             if (this.following) {

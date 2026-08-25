@@ -40,3 +40,6 @@ deploy.sh
 # Large test fixtures (e2e video processing tests)
 tests/Fixtures/*.webm
 
+
+# Pest browser test failure screenshots
+tests/Browser/Screenshots

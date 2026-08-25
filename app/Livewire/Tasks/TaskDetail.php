@@ -45,7 +45,7 @@ use Livewire\Component;
 
 /**
  * @property-read Collection<int, TaskLog> $logs
- * @property-read ?TaskLog $drawerLog
+ * @property-read ?TaskLog $transcriptLog
  * @property-read array<int, int> $navigableLogIds
  * @property-read array<int, array<string, mixed>> $groupedLogs
  * @property-read ?PrReview $prReview
@@ -105,21 +105,30 @@ class TaskDetail extends Component
     public ?int $focusedRunId = null;
 
     /**
-     * ID of the TaskLog shown in the log drawer. Keyed by ID rather than
-     * list position so the drawer keeps pointing at the same entry while
+     * ID of the TaskLog shown in the transcript overlay. Keyed by ID rather than
+     * list position so the overlay keeps pointing at the same entry while
      * a live run appends to the transcript underneath it, and so the open
      * entry can be shared as a link.
      */
     #[Url(as: 'log', except: null)]
-    public ?int $drawerLogId = null;
+    public ?int $transcriptLogId = null;
 
-    public bool $drawerOpen = false;
+    public bool $transcriptOpen = false;
 
     /**
      * Free-text filter over the activity log, matched against each entry's
      * message, tool name, command, and captured output.
      */
     public string $logSearch = '';
+
+    /**
+     * Whether the reader picked the open entry themselves (clicked a row,
+     * stepped to it, followed a link) rather than it being selected for
+     * them. A live run's transcript follows the tail until they pin an
+     * entry — following past that point would yank them off what they are
+     * reading every time a new log line lands.
+     */
+    public bool $transcriptPinned = false;
 
     /**
      * Artifact currently shown in the media lightbox (screenshot or video
@@ -142,7 +151,7 @@ class TaskDetail extends Component
         $this->task = $task;
         $this->visibleAttempt = max(1, (int) $task->attempts);
 
-        $this->openDeepLinkedLog();
+        $this->openDeepLinkedEntry();
 
         $notice = session('reReview');
         $message = match ($notice) {
@@ -700,15 +709,16 @@ class TaskDetail extends Component
     /**
      * Point the sidebar's activity log and debug panel at a specific run
      * in the follow-up chain. Resets per-run UI state (attempt, expanded
-     * groups, open drawer) since it's now looking at a different run's
+     * groups, open entry) since it's now looking at a different run's
      * logs.
      */
     public function focusRun(int $runId): void
     {
         $this->focusedRunId = $runId;
         $this->expandedGroups = [];
-        $this->drawerLogId = null;
-        $this->drawerOpen = false;
+        $this->transcriptLogId = null;
+        $this->transcriptPinned = false;
+        $this->transcriptOpen = false;
 
         $run = $this->conversation->firstWhere('id', $runId);
         $this->visibleAttempt = max(1, (int) ($run->attempts ?? 1));
@@ -754,55 +764,75 @@ class TaskDetail extends Component
 
     /**
      * Honour a `?log=<id>` deep link by focusing the run and attempt that
-     * entry belongs to and opening the drawer on it. Silently drops links
+     * entry belongs to and opening the overlay on it. Silently drops links
      * to entries that are gone or belong to a different conversation.
      */
-    private function openDeepLinkedLog(): void
+    private function openDeepLinkedEntry(): void
     {
-        if ($this->drawerLogId === null) {
+        if ($this->transcriptLogId === null) {
             return;
         }
 
-        $log = TaskLog::find($this->drawerLogId);
+        $log = TaskLog::find($this->transcriptLogId);
         $runIds = $this->conversation->pluck('id')->all();
 
         if ($log === null || ! in_array((int) $log->yak_task_id, $runIds, true)) {
-            $this->drawerLogId = null;
+            $this->transcriptLogId = null;
 
             return;
         }
 
         $this->focusedRunId = (int) $log->yak_task_id;
         $this->visibleAttempt = max(1, (int) $log->attempt_number);
-        $this->drawerOpen = true;
+        $this->transcriptPinned = true;
+        $this->transcriptOpen = true;
     }
 
     /**
-     * Open the log drawer showing one entry's full prompt/input/output.
+     * Open the transcript overlay showing one entry's full prompt/input/output.
      */
-    public function openLogDrawer(int $logId): void
+    public function openTranscript(int $logId): void
     {
-        $this->drawerLogId = $logId;
-        $this->drawerOpen = true;
-    }
-
-    public function closeLogDrawer(): void
-    {
-        $this->drawerOpen = false;
+        $this->transcriptLogId = $logId;
+        $this->transcriptPinned = true;
+        $this->transcriptOpen = true;
     }
 
     /**
-     * The entry the drawer is showing, or null when nothing is open (or
+     * Open the transcript without a specific entry in mind — from the
+     * Activity header rather than a row. Lands on the first visible entry
+     * so the detail pane is never blank.
+     */
+    public function openTranscriptCold(): void
+    {
+        $ids = $this->navigableLogIds;
+
+        if ($ids !== [] && ! in_array($this->transcriptLogId, $ids, true)) {
+            // A live run opens on its newest entry, since what matters is
+            // what is happening now; a finished one opens at the start.
+            $this->transcriptLogId = $this->isActiveStatus() ? $ids[count($ids) - 1] : $ids[0];
+        }
+
+        $this->transcriptOpen = true;
+    }
+
+    public function closeTranscript(): void
+    {
+        $this->transcriptOpen = false;
+    }
+
+    /**
+     * The entry the overlay is showing, or null when nothing is open (or
      * the open entry belongs to a run/attempt no longer in view).
      */
     #[Computed]
-    public function drawerLog(): ?TaskLog
+    public function transcriptLog(): ?TaskLog
     {
-        if ($this->drawerLogId === null) {
+        if ($this->transcriptLogId === null) {
             return null;
         }
 
-        return $this->logs->firstWhere('id', $this->drawerLogId);
+        return $this->logs->firstWhere('id', $this->transcriptLogId);
     }
 
     /**
@@ -830,16 +860,16 @@ class TaskDetail extends Component
     }
 
     /**
-     * Where the open entry sits in the visible set, for the drawer's
+     * Where the open entry sits in the visible set, for the overlay's
      * "Step 14 of 40" counter. Null when nothing is open or the open
      * entry is hidden by the active filter or search.
      *
      * @return array{position: int, total: int}|null
      */
-    public function drawerPosition(): ?array
+    public function transcriptPosition(): ?array
     {
         $ids = $this->navigableLogIds;
-        $index = array_search($this->drawerLogId, $ids, true);
+        $index = array_search($this->transcriptLogId, $ids, true);
 
         if ($index === false) {
             return null;
@@ -850,20 +880,20 @@ class TaskDetail extends Component
 
     public function nextLog(): void
     {
-        $this->stepDrawer(1);
+        $this->stepSelection(1);
     }
 
     public function previousLog(): void
     {
-        $this->stepDrawer(-1);
+        $this->stepSelection(-1);
     }
 
     /**
-     * Move the drawer one entry through the visible set, clamped at both
+     * Move the selection one entry through the visible set, clamped at both
      * ends. When the open entry has been filtered out from under the
-     * drawer, step in from whichever end the caller was heading toward.
+     * selection, step in from whichever end the caller was heading toward.
      */
-    private function stepDrawer(int $direction): void
+    private function stepSelection(int $direction): void
     {
         $ids = $this->navigableLogIds;
 
@@ -871,10 +901,12 @@ class TaskDetail extends Component
             return;
         }
 
-        $index = array_search($this->drawerLogId, $ids, true);
+        $this->transcriptPinned = true;
+
+        $index = array_search($this->transcriptLogId, $ids, true);
 
         if ($index === false) {
-            $this->drawerLogId = $direction > 0 ? $ids[0] : $ids[count($ids) - 1];
+            $this->transcriptLogId = $direction > 0 ? $ids[0] : $ids[count($ids) - 1];
 
             return;
         }
@@ -885,7 +917,7 @@ class TaskDetail extends Component
             return;
         }
 
-        $this->drawerLogId = $ids[$target];
+        $this->transcriptLogId = $ids[$target];
     }
 
     /**

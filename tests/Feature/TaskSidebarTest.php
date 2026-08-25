@@ -40,7 +40,7 @@ test('log entry opens in drawer', function () {
     ]);
 
     Livewire::test(TaskDetail::class, ['task' => $task])
-        ->call('openLogDrawer', $log->id)
+        ->call('openTranscript', $log->id)
         ->assertSee('ls -la')
         ->assertSee('total 0');
 });
@@ -53,7 +53,7 @@ test('page has exactly one poll timer even though the sidebar renders twice', fu
     expect(substr_count($html, 'wire:poll'))->toBe(1);
 });
 
-test('the log drawer renders a markdown message, and the activity row flattens it', function () {
+test('the transcript overlay renders a markdown message, and the activity row flattens it', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
     $log = TaskLog::factory()->create([
         'yak_task_id' => $task->id,
@@ -63,12 +63,12 @@ test('the log drawer renders a markdown message, and the activity row flattens i
     ]);
 
     $html = Livewire::test(TaskDetail::class, ['task' => $task])
-        ->call('openLogDrawer', $log->id)
+        ->call('openTranscript', $log->id)
         ->html();
 
     // Body: rendered markdown.
     expect($html)->toContain('<code>continue</code>')
-        ->and($html)->toContain('data-testid="log-drawer-message"');
+        ->and($html)->toContain('data-testid="transcript-message"');
 
     // Activity list row: one flat line, no markdown syntax.
     expect($html)->toContain('Summary This PR removes the dead continue guards.')
