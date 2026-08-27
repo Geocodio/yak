@@ -157,6 +157,48 @@ class RetryYakJob implements ShouldQueue
         $branchName = $this->task->branch_name ?? 'yak/' . $this->task->external_id;
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
         $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
+
+        $this->rebaseOntoDefaultBranch($sandbox, $containerName, $workspacePath, $repository->default_branch);
+    }
+
+    /**
+     * Replay the task branch on top of the current default branch.
+     *
+     * A retry exists because CI went red, and often enough the cause was on
+     * the default branch and has since been fixed there. Starting the retry
+     * from stale base commits makes the agent chase a failure that no longer
+     * exists, so bring the branch forward first.
+     *
+     * A conflict is not fatal: the branch is left exactly as it was fetched
+     * and the retry continues against the older base, which is still strictly
+     * better than aborting a run the user is waiting on. The agent is told
+     * about it through the log so a human reading the task can see why the
+     * base is behind.
+     */
+    private function rebaseOntoDefaultBranch(
+        IncusSandboxManager $sandbox,
+        string $containerName,
+        string $workspacePath,
+        string $defaultBranch,
+    ): void {
+        $rebase = $sandbox->run(
+            $containerName,
+            "cd {$workspacePath} && git rebase origin/{$defaultBranch}",
+            timeout: 120,
+        );
+
+        if ($rebase->exitCode() === 0) {
+            TaskLogger::info($this->task, "Rebased onto origin/{$defaultBranch} before retry");
+
+            return;
+        }
+
+        // Leave no half-applied rebase behind for the agent to trip over.
+        $sandbox->run($containerName, "cd {$workspacePath} && git rebase --abort", timeout: 60);
+
+        TaskLogger::warning($this->task, "Could not rebase onto origin/{$defaultBranch} — retrying on the original base", [
+            'error' => $rebase->errorOutput(),
+        ]);
     }
 
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void

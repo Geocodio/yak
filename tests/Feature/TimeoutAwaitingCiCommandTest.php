@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\Drone\PollCommand as DronePollCommand;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\SendNotificationJob;
@@ -31,10 +32,10 @@ it('fails tasks when CI reported but timed out', function () {
         'updated_at' => now()->subMinutes(45),
     ]);
 
-    // Simulate a CI log entry so ciNeverReported() returns false
+    // Simulate a CI result landing so ciNeverReported() returns false
     TaskLog::factory()->create([
         'yak_task_id' => $stuck->id,
-        'message' => 'CI check_suite started',
+        'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE,
     ]);
 
     $this->artisan('yak:timeout-ci')->assertSuccessful();
@@ -69,4 +70,54 @@ it('does nothing when no tasks are stuck', function () {
     $this->artisan('yak:timeout-ci')->assertSuccessful();
 
     Queue::assertNothingPushed();
+});
+
+it('treats a Drone poll result as CI having reported', function () {
+    Queue::fake();
+
+    $stuck = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingCi,
+        'attempts' => 1,
+        'updated_at' => now()->subMinutes(45),
+    ]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $stuck->id,
+        'message' => DronePollCommand::RESULT_LOG_MESSAGE,
+    ]);
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    expect($stuck->refresh()->status)->toBe(TaskStatus::Failed);
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+});
+
+it('does not mistake the agent\'s own log lines for a CI result', function () {
+    Queue::fake();
+
+    $stuck = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingCi,
+        'attempts' => 1,
+        'updated_at' => now()->subMinutes(45),
+    ]);
+
+    // Tool-call labels the agent writes while working. None of these mean CI
+    // reported anything, but a `LIKE '%CI %'` probe used to match the first
+    // one and hard-fail a task that should have advanced to PR creation.
+    foreach ([
+        '⚡ Run new tests with CI env → exit 0',
+        '⚡ Check the CI config file → exit 0',
+        'Reviewing check_suite wiring in the workflow',
+    ] as $message) {
+        TaskLog::factory()->create([
+            'yak_task_id' => $stuck->id,
+            'message' => $message,
+        ]);
+    }
+
+    $this->artisan('yak:timeout-ci')->assertSuccessful();
+
+    expect($stuck->refresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Queue::assertPushed(ProcessCIResultJob::class, fn ($job) => $job->task->id === $stuck->id);
+    Queue::assertNotPushed(SendNotificationJob::class);
 });

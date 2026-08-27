@@ -11,9 +11,9 @@ use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
@@ -170,18 +170,7 @@ test('refreshes git credential helper immediately before push', function () {
         rawOutput: '{}',
     ));
 
-    $recorder = new class extends FakeSandboxManager
-    {
-        /** @var array<int, string> */
-        public array $commands = [];
-
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            $this->commands[] = $command;
-
-            return parent::run($containerName, $command, $timeout, $asRoot);
-        }
-    };
+    $recorder = new FakeSandboxManager;
     $this->app->instance(IncusSandboxManager::class, $recorder);
 
     Process::fake(['*' => Process::result('')]);
@@ -478,4 +467,112 @@ test('retry persists the new session transcript before destroying the sandbox', 
     (new RetryYakJob($task, 'Tests failed'))->handle($fake);
 
     expect($fakeSandbox->pulledTranscripts)->toBe(['sess_retry_tr']);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Rebase onto the default branch
+|--------------------------------------------------------------------------
+*/
+
+test('retry rebases the task branch onto the current default branch', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_rebase',
+        resultSummary: 'Fixed it',
+        costUsd: 0.50,
+        numTurns: 4,
+        durationMs: 10000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create([
+        'slug' => 'rebase-repo',
+        'path' => '/home/yak/repos/rebase-repo',
+        'default_branch' => 'master',
+    ]);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'rebase-repo',
+        'branch_name' => 'yak/ISSUE-300',
+    ]);
+
+    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+
+    expect($fakeSandbox->commandsMatching('git rebase origin/master'))->toHaveCount(1)
+        ->and($fakeSandbox->commandsMatching('git rebase --abort'))->toBeEmpty();
+
+    // The rebase must land after the branch is checked out, not before.
+    $checkoutIndex = array_search(true, array_map(
+        fn (string $c): bool => str_contains($c, 'git checkout yak/ISSUE-300'),
+        $fakeSandbox->commands,
+    ), true);
+    $rebaseIndex = array_search(true, array_map(
+        fn (string $c): bool => str_contains($c, 'git rebase origin/master'),
+        $fakeSandbox->commands,
+    ), true);
+
+    expect($rebaseIndex)->toBeGreaterThan($checkoutIndex);
+
+    expect(TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'Rebased onto origin/master before retry')
+        ->exists())->toBeTrue();
+});
+
+test('retry aborts a conflicting rebase and continues on the original base', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_conflict',
+        resultSummary: 'Fixed it anyway',
+        costUsd: 0.50,
+        numTurns: 4,
+        durationMs: 10000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = (new FakeSandboxManager)
+        ->failCommand('git rebase origin/main', 'CONFLICT (content): Merge conflict in app/Foo.php');
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create([
+        'slug' => 'conflict-repo',
+        'path' => '/home/yak/repos/conflict-repo',
+        'default_branch' => 'main',
+    ]);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'conflict-repo',
+        'branch_name' => 'yak/ISSUE-301',
+    ]);
+
+    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+
+    expect($fakeSandbox->commandsMatching('git rebase --abort'))->toHaveCount(1);
+
+    // A conflict must not sink the retry — the agent still ran and pushed.
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingCi);
+
+    $warning = TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'Could not rebase onto origin/main — retrying on the original base')
+        ->first();
+
+    expect($warning)->not->toBeNull()
+        ->and($warning->level)->toBe('warning')
+        ->and($warning->metadata['error'])->toContain('CONFLICT');
 });

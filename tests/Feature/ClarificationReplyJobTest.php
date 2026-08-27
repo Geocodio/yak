@@ -10,7 +10,6 @@ use App\Jobs\Middleware\EnsureRepoReady;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
@@ -98,18 +97,7 @@ test('refreshes git credential helper immediately before push', function () {
     ));
     $this->app->instance(AgentRunner::class, $fake);
 
-    $recorder = new class extends FakeSandboxManager
-    {
-        /** @var array<int, string> */
-        public array $commands = [];
-
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            $this->commands[] = $command;
-
-            return parent::run($containerName, $command, $timeout, $asRoot);
-        }
-    };
+    $recorder = new FakeSandboxManager;
     $this->app->instance(IncusSandboxManager::class, $recorder);
 
     Process::fake(['*' => Process::result('')]);

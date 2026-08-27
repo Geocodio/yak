@@ -800,18 +800,7 @@ test('refreshes git credential helper immediately before push', function () {
         rawOutput: '{}',
     ));
 
-    $recorder = new class extends FakeSandboxManager
-    {
-        /** @var array<int, string> */
-        public array $commands = [];
-
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            $this->commands[] = $command;
-
-            return parent::run($containerName, $command, $timeout, $asRoot);
-        }
-    };
+    $recorder = new FakeSandboxManager;
     $this->app->instance(IncusSandboxManager::class, $recorder);
 
     Process::fake(['*' => Process::result('')]);

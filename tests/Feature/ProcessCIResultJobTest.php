@@ -7,6 +7,7 @@ use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -889,4 +890,88 @@ test('Linear follow-up run posts "Pushed changes" action instead of "Opened pull
 
         return ($content['action'] ?? null) === 'Opened pull request';
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Late CI results
+|--------------------------------------------------------------------------
+*/
+
+test('a CI result arriving after yak:timeout-ci gave up is ignored', function () {
+    Queue::fake();
+
+    config()->set('yak.max_attempts', 2);
+
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    // The exact shape that broke task 5479: CI overran the timeout, the task
+    // was parked in Failed, and the real result turned up half an hour later.
+    // Retrying it would have attempted an unregistered failed -> retrying
+    // transition and thrown.
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-LATE',
+        'source' => 'manual',
+        'attempts' => 1,
+        'error_log' => 'CI timed out after 30 minutes',
+    ]);
+
+    (new ProcessCIResultJob($task, false, 'Tests failed'))->handle();
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toBe('CI timed out after 30 minutes')
+        ->and($task->attempts)->toBe(1);
+
+    Queue::assertNotPushed(RetryYakJob::class);
+
+    expect(TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'Late CI result ignored')
+        ->exists())->toBeTrue();
+});
+
+test('a late green CI result does not open a PR on a settled task', function () {
+    Queue::fake();
+    Http::fake();
+
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Cancelled,
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-CANCELLED',
+        'source' => 'manual',
+    ]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Cancelled)
+        ->and($task->pr_url)->toBeNull();
+
+    Http::assertNothingSent();
+});
+
+test('a duplicate check_suite result for an already-succeeded task is ignored', function () {
+    Queue::fake();
+    Http::fake();
+
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    // GitHub fires one check_suite.completed per suite, so the same branch
+    // can produce several results; only the first should create a PR.
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-DUPE',
+        'source' => 'manual',
+        'pr_url' => 'https://github.com/org/my-repo/pull/7',
+    ]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    expect($task->refresh()->pr_url)->toBe('https://github.com/org/my-repo/pull/7');
+    Http::assertNothingSent();
 });

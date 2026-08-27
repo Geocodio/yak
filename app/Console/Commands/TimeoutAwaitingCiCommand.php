@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Channels\Drone\PollCommand as DronePollCommand;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -16,6 +17,16 @@ use Illuminate\Console\Command;
 #[Description('Auto-advance or fail tasks stuck in awaiting_ci past the configured timeout')]
 class TimeoutAwaitingCiCommand extends Command
 {
+    /**
+     * The exact log messages that mean "a CI result arrived for this task".
+     *
+     * @var array<int, string>
+     */
+    public const CI_REPORT_MESSAGES = [
+        ProcessCIResultJob::RESULT_LOG_MESSAGE,
+        DronePollCommand::RESULT_LOG_MESSAGE,
+    ];
+
     public function handle(): int
     {
         $timeoutMinutes = (int) config('yak.ci_timeout_minutes', 30);
@@ -62,16 +73,19 @@ class TimeoutAwaitingCiCommand extends Command
     /**
      * Check if CI ever reported any result for this task.
      *
-     * If no CI webhook was ever received, the task has no CI-related log
-     * entries — meaning CI is likely not configured for this repo/branch.
+     * If no CI webhook or poll ever landed, the task has none of the log lines
+     * a CI result writes — meaning CI is likely not configured for this
+     * repo/branch, and the task should advance to PR creation rather than fail.
+     *
+     * Matched exactly, never with a wildcard: the task log also carries the
+     * agent's own tool-call descriptions, and a label as ordinary as
+     * "Run new tests with CI env" used to satisfy a `LIKE '%CI %'` probe and
+     * push a task down the hard-fail branch it was meant to be spared.
      */
     private function ciNeverReported(YakTask $task): bool
     {
         return ! $task->logs()
-            ->where(function ($query) {
-                $query->where('message', 'like', '%CI %')
-                    ->orWhere('message', 'like', '%check_suite%');
-            })
+            ->whereIn('message', self::CI_REPORT_MESSAGES)
             ->exists();
     }
 }

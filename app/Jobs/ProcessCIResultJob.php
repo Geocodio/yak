@@ -20,6 +20,15 @@ class ProcessCIResultJob implements ShouldQueue
 {
     use Queueable;
 
+    /**
+     * The log line written for every CI result, whatever channel reported it.
+     *
+     * yak:timeout-ci matches on this exact message to tell "CI is not wired up
+     * for this repo" apart from "CI is wired up but slow", so it must stay in
+     * sync with TimeoutAwaitingCiCommand::CI_REPORT_MESSAGES.
+     */
+    public const RESULT_LOG_MESSAGE = 'CI result received';
+
     public int $timeout = 30;
 
     /** @var array<int, int> */
@@ -75,12 +84,41 @@ class ProcessCIResultJob implements ShouldQueue
         }
     }
 
+    /**
+     * States in which a CI result is still meaningful.
+     *
+     * AwaitingCi is the normal one. Running covers repos with ci_system=none,
+     * where the agent jobs dispatch a synthetic pass to reach PR creation.
+     * Retrying covers a result landing while a retry is being spun up.
+     *
+     * @var array<int, TaskStatus>
+     */
+    private const ACTIONABLE_STATUSES = [
+        TaskStatus::AwaitingCi,
+        TaskStatus::Running,
+        TaskStatus::Retrying,
+    ];
+
     public function handle(): void
     {
         TaskContext::set($this->task);
 
         try {
-            TaskLogger::info($this->task, 'CI result received', ['passed' => $this->passed]);
+            // CI can report long after yak:timeout-ci has already given up on
+            // the task, and GitHub fires one check_suite event per suite, so
+            // the same branch can produce several of these. Acting on a task
+            // that has already settled means an illegal status transition
+            // (failed -> retrying) or a duplicate PR, so drop the result.
+            if (! in_array($this->task->status, self::ACTIONABLE_STATUSES, true)) {
+                TaskLogger::info($this->task, 'Late CI result ignored', [
+                    'passed' => $this->passed,
+                    'status' => $this->task->status->value,
+                ]);
+
+                return;
+            }
+
+            TaskLogger::info($this->task, self::RESULT_LOG_MESSAGE, ['passed' => $this->passed]);
 
             if ($this->passed) {
                 $this->handleGreenPath();

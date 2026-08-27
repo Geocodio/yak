@@ -37,6 +37,21 @@ class FakeSandboxManager extends IncusSandboxManager
     /** @var array<int, string> */
     public array $invalidatedTemplates = [];
 
+    /**
+     * Every command passed to run(), in order, so tests can assert on the
+     * git plumbing a job drives inside the sandbox.
+     *
+     * @var array<int, string>
+     */
+    public array $commands = [];
+
+    /**
+     * Substring => error output, for commands that should come back non-zero.
+     *
+     * @var array<string, string>
+     */
+    private array $failingCommands = [];
+
     private bool $hasSnapshotResult = false;
 
     /**
@@ -61,6 +76,27 @@ class FakeSandboxManager extends IncusSandboxManager
         return $this;
     }
 
+    /**
+     * Make any run() whose command contains $substring exit non-zero.
+     */
+    public function failCommand(string $substring, string $errorOutput = 'command failed'): self
+    {
+        $this->failingCommands[$substring] = $errorOutput;
+
+        return $this;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function commandsMatching(string $substring): array
+    {
+        return array_values(array_filter(
+            $this->commands,
+            fn (string $command): bool => str_contains($command, $substring),
+        ));
+    }
+
     public function create(YakTask $task, Repository $repository): string
     {
         $name = $this->containerName($task);
@@ -71,6 +107,14 @@ class FakeSandboxManager extends IncusSandboxManager
 
     public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
     {
+        $this->commands[] = $command;
+
+        foreach ($this->failingCommands as $substring => $errorOutput) {
+            if (str_contains($command, $substring)) {
+                return Process::result('', $errorOutput, 1);
+            }
+        }
+
         if (str_contains($command, 'git rev-list --count origin/')) {
             return Process::result((string) $this->commitCount);
         }

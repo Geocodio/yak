@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Log;
 #[Description('Poll Drone CI for awaiting_ci tasks (Drone has no outbound webhooks)')]
 class PollCommand extends Command
 {
+    /** Written when a Drone poll turns up a finished build for a task. */
+    public const RESULT_LOG_MESSAGE = 'CI result polled from Drone';
+
     public function handle(BuildScanner $scanner): int
     {
         $droneRepoSlugs = Repository::where('ci_system', 'drone')
@@ -63,7 +66,7 @@ class PollCommand extends Command
                 continue;
             }
 
-            TaskLogger::info($task, 'CI result polled from Drone', [
+            TaskLogger::info($task, self::RESULT_LOG_MESSAGE, [
                 'passed' => $result->passed,
                 'build_id' => $result->externalId,
             ]);

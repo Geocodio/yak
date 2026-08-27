@@ -85,18 +85,7 @@ test('RunFollowUpJob never creates a new branch', function () {
     $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
     $this->app->instance(AgentRunner::class, $fake);
 
-    $recorder = new class extends FakeSandboxManager
-    {
-        /** @var array<int, string> */
-        public array $commands = [];
-
-        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
-        {
-            $this->commands[] = $command;
-
-            return parent::run($containerName, $command, $timeout, $asRoot);
-        }
-    };
+    $recorder = new FakeSandboxManager;
     $this->app->instance(IncusSandboxManager::class, $recorder);
     Process::fake(['*git rev-parse *' => Process::result(output: 'yak/CSV-2'), '*' => Process::result('')]);
 
