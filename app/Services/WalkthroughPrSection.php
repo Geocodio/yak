@@ -68,9 +68,12 @@ final class WalkthroughPrSection
     public static function replaceIn(string $body, string $section): string
     {
         if (str_contains($body, self::MARKER_START) && str_contains($body, self::MARKER_END)) {
-            return preg_replace(
+            // preg_replace_callback (not preg_replace) so a literal '$1' or
+            // trailing backslash in a chapter title or URL is never
+            // interpreted as a backreference in the replacement string.
+            return preg_replace_callback(
                 '/<!-- yak:walkthrough -->.*?<!-- \/yak:walkthrough -->/s',
-                $section,
+                fn (): string => $section,
                 $body,
                 1,
             ) ?? $body;

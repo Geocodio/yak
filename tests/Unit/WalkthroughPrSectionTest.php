@@ -58,6 +58,26 @@ it('replaces the marked block wholesale', function (): void {
         ->and(substr_count($updated, WalkthroughPrSection::MARKER_START))->toBe(1);
 });
 
+it('keeps literal $-digit sequences in the replacement verbatim', function (): void {
+    $body = "Intro\n\n" . WalkthroughPrSection::pending() . "\n\n### Files changed\n\n- a.php";
+
+    $section = WalkthroughPrSection::ready(
+        videoUrl: 'https://yak.test/mp4',
+        gifUrl: null,
+        thumbnailUrl: null,
+        durationSeconds: 84.0,
+        chapters: [
+            ['title' => 'Add $1 and $5 discount button', 'startSeconds' => 4.0, 'url' => 'https://yak.test/tasks/5?amount=$2'],
+        ],
+    );
+
+    $updated = WalkthroughPrSection::replaceIn($body, $section);
+
+    expect($updated)
+        ->toContain('Add $1 and $5 discount button')
+        ->toContain('https://yak.test/tasks/5?amount=$2');
+});
+
 it('replaces a legacy unmarked section', function (): void {
     $body = "Intro\n\n### Video walkthrough\n\n- [walkthrough.mp4](https://old)\n\n### Files changed\n\n- a.php";
 
