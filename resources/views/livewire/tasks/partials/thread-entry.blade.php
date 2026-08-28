@@ -190,6 +190,10 @@
                     @if($entry->run->pr_url)
                         @php
                             $prState = $entry->run->pr_merged_at ? 'merged' : ($entry->run->pr_closed_at ? 'closed' : 'open');
+                            // A follow-up run pushes to a PR that already
+                            // exists, so say so — same distinction
+                            // ProcessCIResultJob draws when it notifies.
+                            $prLabel = $entry->run->parent_task_id !== null ? 'Pull request updated' : 'Pull Request';
                         @endphp
                         <a
                             href="{{ $entry->run->pr_url }}"
@@ -199,7 +203,7 @@
                             data-testid="pr-link"
                         >
                             <flux:icon.arrow-top-right-on-square class="!size-3" />
-                            Pull Request
+                            {{ $prLabel }}
                             <span class="text-yak-tan">&middot; {{ $prState }}</span>
                         </a>
                     @endif

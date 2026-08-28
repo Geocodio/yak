@@ -98,3 +98,49 @@ test('user entries have a null author name when the task has none', function () 
 
     expect($entries[0]->authorName)->toBeNull();
 });
+
+test('a run that failed before it started still yields a yak entry carrying the error', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'error_log' => 'Failed to authenticate: OAuth session expired',
+        'started_at' => null,
+        'completed_at' => now(),
+    ]);
+
+    $entries = app(ThreadBuilder::class)->build($task);
+    $yak = $entries->firstWhere('kind', 'yak');
+
+    expect($yak)->not->toBeNull()
+        ->and($yak->error)->toBe('Failed to authenticate: OAuth session expired')
+        ->and($yak->isLive)->toBeFalse();
+});
+
+test('a pending run that has not started yields no yak entry', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Pending, 'started_at' => null]);
+
+    $entries = app(ThreadBuilder::class)->build($task);
+
+    expect($entries->firstWhere('kind', 'yak'))->toBeNull();
+});
+
+test('a successful follow-up run yields a yak entry with its result summary', function () {
+    $root = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'result_summary' => 'Opened the PR',
+        'started_at' => now()->subHour(),
+        'completed_at' => now()->subMinutes(50),
+    ]);
+    $child = YakTask::factory()->create([
+        'parent_task_id' => $root->id,
+        'description' => 'Commit it as a draft instead',
+        'status' => TaskStatus::Success,
+        'result_summary' => 'Update entry is now a draft.',
+        'started_at' => now()->subMinutes(5),
+        'completed_at' => now(),
+    ]);
+
+    $entries = app(ThreadBuilder::class)->build($child);
+
+    expect($entries->pluck('kind')->all())->toBe(['user', 'yak', 'user', 'yak'])
+        ->and($entries->last()->text)->toBe('Update entry is now a draft.');
+});

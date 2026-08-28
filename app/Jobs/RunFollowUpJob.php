@@ -91,7 +91,13 @@ class RunFollowUpJob implements ShouldQueue
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
 
-        $this->task->update(['status' => TaskStatus::Running]);
+        // started_at is what makes the run visible in the conversation
+        // thread (see ThreadBuilder) — without it a follow-up leaves no
+        // trace, whether it succeeds or fails.
+        $this->task->update([
+            'status' => TaskStatus::Running,
+            'started_at' => now(),
+        ]);
         TaskLogger::info($this->task, 'Picked up by worker — follow-up');
 
         if ($this->task->branch_name === null) {

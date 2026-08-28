@@ -170,3 +170,53 @@ test('review mode context turn formats the PR body as markdown', function () {
     $response->assertSee('<code>detectCity</code>', false);
     $response->assertDontSee('## Summary', false);
 });
+
+test('a follow-up run labels its PR link as an update, and the root run does not', function () {
+    $root = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'result_summary' => 'Opened the PR.',
+        'pr_url' => 'https://github.com/Geocodio/geocodio-website/pull/42',
+        'started_at' => now()->subHour(),
+        'completed_at' => now()->subMinutes(50),
+    ]);
+
+    $this->get(route('tasks.show', $root))
+        ->assertSee('Pull Request')
+        ->assertDontSee('Pull request updated');
+
+    $child = YakTask::factory()->create([
+        'parent_task_id' => $root->id,
+        'description' => 'Commit it as a draft instead',
+        'status' => TaskStatus::Success,
+        'result_summary' => 'Update entry is now a draft.',
+        'pr_url' => 'https://github.com/Geocodio/geocodio-website/pull/42',
+        'started_at' => now()->subMinutes(5),
+        'completed_at' => now(),
+    ]);
+
+    // Child URLs redirect to the root, so the whole thread renders there.
+    $this->get(route('tasks.show', $root))
+        ->assertSee('Update entry is now a draft.')
+        ->assertSee('Pull request updated');
+});
+
+test('a follow-up that failed before starting still shows its error in the thread', function () {
+    $root = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'result_summary' => 'Opened the PR.',
+        'started_at' => now()->subHour(),
+        'completed_at' => now()->subMinutes(50),
+    ]);
+    $child = YakTask::factory()->create([
+        'parent_task_id' => $root->id,
+        'description' => 'Commit it as a draft instead',
+        'status' => TaskStatus::Failed,
+        'error_log' => 'Failed to authenticate: OAuth session expired and could not be refreshed',
+        'started_at' => null,
+        'completed_at' => now(),
+    ]);
+
+    $this->get(route('tasks.show', $root))
+        ->assertSee('Error')
+        ->assertSee('OAuth session expired');
+});

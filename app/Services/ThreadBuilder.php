@@ -52,13 +52,16 @@ class ThreadBuilder
                 $entries->push(ThreadEntry::system("Retried · attempt {$attempt}", Carbon::parse($run->updated_at)));
             }
 
-            if ($run->started_at !== null) {
+            // A failed run is worth a bubble even when it never stamped
+            // started_at (killed in middleware, or dead before the job body
+            // ran) — otherwise the failure vanishes from the thread.
+            if ($run->started_at !== null || $status === TaskStatus::Failed) {
                 $isLive = in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying], true);
 
                 $entries->push(ThreadEntry::yak(
                     $run,
                     (string) ($run->result_summary ?? ''),
-                    Carbon::parse($run->completed_at ?? $run->started_at),
+                    Carbon::parse($run->completed_at ?? $run->started_at ?? $run->created_at),
                     [
                         'steps' => (int) ($stepCounts[$run->id] ?? 0),
                         'attempt' => max(1, (int) $run->attempts),
