@@ -303,7 +303,7 @@ test('health check reports healthy when claude auth is valid', function () {
     config()->set('yak.sandbox.claude_config_source', $configDir);
 
     Process::fake([
-        '*claude auth status*' => Process::result(output: 'Authenticated as user@example.com'),
+        '*claude --model claude-haiku-4-5*' => Process::result(output: 'ok'),
     ]);
 
     $result = (new ClaudeAuthCheck)->run();
@@ -312,15 +312,6 @@ test('health check reports healthy when claude auth is valid', function () {
 
     @unlink(dirname($configDir) . '/.claude.json');
     @rmdir($configDir);
-});
-
-test('health check reports unhealthy when session file missing', function () {
-    config()->set('yak.sandbox.claude_config_source', '/tmp/yak-claude-missing-' . uniqid());
-
-    $result = (new ClaudeAuthCheck)->run();
-
-    expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toContain('Session token missing');
 });
 
 test('registry includes claude auth check', function () {

@@ -68,30 +68,27 @@ function makeClaudeConfigDir(): string
     return $configDir;
 }
 
-it('claude auth check fails when session file missing', function () {
-    // Use a nested path so both the config dir and its parent (where the
-    // .claude.json lookup happens) are guaranteed not to exist.
-    config()->set('yak.sandbox.claude_config_source', '/tmp/nonexistent-yak-' . uniqid() . '/claude');
+it('probes inference with the api key unset and clears the gate flag on success', function () {
+    Cache::put(ClaudeAuthCheck::UNUSABLE_CACHE_KEY, true, 3600);
+    Process::fake(['*' => Process::result(output: 'ok', exitCode: 0)]);
+
+    $result = (new ClaudeAuthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Ok);
+    expect(Cache::has(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->toBeFalse();
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'env -u ANTHROPIC_API_KEY')
+        && str_contains($p->command, 'claude --model claude-haiku-4-5 -p'));
+});
+
+it('sets the gate flag when the probe fails', function () {
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'not authenticated', exitCode: 1)]);
 
     $result = (new ClaudeAuthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error);
-    expect($result->detail)->toContain('Session token missing');
-});
-
-it('claude auth check gives the CLI enough time to complete a token refresh', function () {
-    // With an expired access token, `claude auth status` performs an OAuth
-    // refresh. The old 15s cap SIGKILLed the CLI mid-refresh, orphaning
-    // .oauth_refresh.lock and blocking every subsequent refresh (task 5434).
-    $configDir = makeClaudeConfigDir();
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
-    Process::fake(['*' => Process::result(output: '{"loggedIn":true}')]);
-
-    (new ClaudeAuthCheck)->run();
-
-    Process::assertRan(fn ($process) => str_contains($process->command, 'claude auth status')
-        && $process->timeout === 60);
+    expect(Cache::get(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->toBeTrue();
+    expect($result->detail)->toContain('yak-claude-login');
 });
 
 it('claude auth check sweeps a stale oauth refresh lock before running', function () {

@@ -13,7 +13,7 @@ beforeEach(function () {
     Process::fake([
         'pgrep *' => Process::result(output: '12345'),
         'claude --version' => Process::result(output: 'claude v1.0.0'),
-        '*claude auth status*' => Process::result(output: 'Authenticated'),
+        '*claude --model claude-haiku-4-5*' => Process::result(output: 'ok'),
         'incus list*' => Process::result(output: 'task-1'),
         'incus snapshot list*' => Process::result(output: 'ready,2026-04-15'),
     ]);
