@@ -7,6 +7,7 @@ use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\LastTaskCompletedCheck;
 use App\Services\HealthCheck\RepositoriesCheck;
 use App\Services\HealthCheck\WebhookSignaturesCheck;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
 
@@ -81,14 +82,114 @@ it('probes inference with the api key unset and clears the gate flag on success'
         && str_contains($p->command, 'claude --model claude-haiku-4-5 -p'));
 });
 
-it('sets the gate flag when the probe fails', function () {
+it('probes with a 120 second timeout', function () {
+    // Regression guard: a too-short timeout kills the CLI mid-refresh and
+    // orphans .oauth_refresh.lock for every sandbox sharing the mount.
+    Process::fake(['*' => Process::result(output: 'ok', exitCode: 0)]);
+
+    (new ClaudeAuthCheck)->run();
+
+    Process::assertRan(fn ($p) => $p->timeout === 120);
+});
+
+it('does not gate the queue on a single failure', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
     Process::fake(['*' => Process::result(output: '', errorOutput: 'not authenticated', exitCode: 1)]);
 
     $result = (new ClaudeAuthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error);
+    expect(Cache::get(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->not->toBeTrue();
+});
+
+it('gates the queue after two consecutive failures', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'not authenticated', exitCode: 1)]);
+
+    (new ClaudeAuthCheck)->run();
+    $result = (new ClaudeAuthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Error);
     expect(Cache::get(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->toBeTrue();
     expect($result->detail)->toContain('yak-claude-login');
+});
+
+it('the queue gate flag expires after 24 hours', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'not authenticated', exitCode: 1)]);
+
+    (new ClaudeAuthCheck)->run();
+    (new ClaudeAuthCheck)->run();
+
+    expect(Cache::get(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->toBeTrue();
+
+    $this->travel(24)->hours();
+
+    expect(Cache::get(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->not->toBeTrue();
+});
+
+it('a success resets the consecutive failure counter', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'not authenticated', exitCode: 1)]);
+    (new ClaudeAuthCheck)->run();
+
+    Process::fake(['*' => Process::result(output: 'ok', exitCode: 0)]);
+    (new ClaudeAuthCheck)->run();
+
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'not authenticated', exitCode: 1)]);
+    $result = (new ClaudeAuthCheck)->run();
+
+    // Second failure overall, but first since the reset — must not gate yet.
+    expect($result->status)->toBe(HealthStatus::Error);
+    expect(Cache::get(ClaudeAuthCheck::UNUSABLE_CACHE_KEY))->not->toBeTrue();
+});
+
+it('classifies an auth-signature failure with the re-authentication runbook', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'invalid_grant', exitCode: 1)]);
+
+    (new ClaudeAuthCheck)->run();
+    $result = (new ClaudeAuthCheck)->run();
+
+    expect($result->detail)->toContain('re-authenticate');
+    expect($result->detail)->toContain('yak-claude-login');
+});
+
+it('classifies a transient failure without re-authentication guidance', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'upstream connect error, 529 overloaded', exitCode: 1)]);
+
+    (new ClaudeAuthCheck)->run();
+    $result = (new ClaudeAuthCheck)->run();
+
+    expect($result->detail)->not->toContain('re-authenticate');
+    expect($result->detail)->not->toContain('yak-claude-login');
+});
+
+it('classifies a missing binary (exit 127) as a transient failure, not an auth failure', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    Process::fake(['*' => Process::result(output: '', errorOutput: 'claude: command not found', exitCode: 127)]);
+
+    $result = (new ClaudeAuthCheck)->run();
+
+    expect($result->detail)->not->toContain('re-authenticate');
+});
+
+it('classifies a timeout as a transient failure, not an auth failure', function () {
+    Cache::forget(ClaudeAuthCheck::UNUSABLE_CACHE_KEY);
+    $symfonyProcess = new Symfony\Component\Process\Process(['claude']);
+    $symfonyProcess->setTimeout(0.01);
+
+    Process::fake([
+        '*' => new ProcessTimedOutException(
+            new Symfony\Component\Process\Exception\ProcessTimedOutException($symfonyProcess, Symfony\Component\Process\Exception\ProcessTimedOutException::TYPE_GENERAL),
+            Process::result(exitCode: 124),
+        ),
+    ]);
+
+    $result = (new ClaudeAuthCheck)->run();
+
+    expect($result->detail)->not->toContain('re-authenticate');
 });
 
 it('claude auth check sweeps a stale oauth refresh lock before running', function () {

@@ -14,6 +14,7 @@ class ClaudeAuthDetector
         'token has expired',
         'invalid_api_key',
         'invalid api key',
+        'invalid_grant',
         'please run `claude login`',
         'please run \'claude login\'',
         'subscription expired',
@@ -22,6 +23,8 @@ class ClaudeAuthDetector
         'login required',
         'not logged in',
         'session expired',
+        'oauth',
+        '401',
     ];
 
     public static function isAuthError(ProcessResult $result): bool
@@ -36,6 +39,12 @@ class ClaudeAuthDetector
             if (str_contains($output, $pattern)) {
                 return true;
             }
+        }
+
+        // "please run ... login" without the exact `claude login` phrasing
+        // above (CLI wording changes across versions).
+        if (str_contains($output, 'please run') && str_contains($output, 'login')) {
+            return true;
         }
 
         return false;
