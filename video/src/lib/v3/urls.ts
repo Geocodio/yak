@@ -11,12 +11,12 @@ const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:\/\//i;
 /**
  * A leading authority on a scheme-less reference. `example.com/a` and
  * `localhost:3000/a` both name a host, and `new URL` either rejects them or
- * (for `localhost:3000/a`) mis-parses the host into the path. Anything that
- * looks like a host is dropped rather than rendered: a relative reference
- * whose first segment happens to contain a dot loses that segment, which is
- * the right trade for never leaking a sandbox address into the browser bar.
+ * (for `localhost:3000/a`) mis-parses the host into the path, so the host is
+ * dropped rather than rendered. The trailing `/` is required: it is what makes
+ * the input `host/path` rather than a path. A lone dotted segment such as
+ * `page.html` is a filename and survives intact.
  */
-const LEADING_AUTHORITY = /^(?:[^/?#]*\.[^/?#]*|localhost)(?::\d+)?(?=$|[/?#])/i;
+const LEADING_AUTHORITY = /^(?:[^/?#]*\.[^/?#]*|localhost)(?::\d+)?(?=\/)/i;
 
 function pathOf(raw: string): string {
   if (ABSOLUTE_URL.test(raw)) {

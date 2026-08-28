@@ -48,6 +48,18 @@ describe('publicUrl', () => {
     });
   });
 
+  it('keeps a dotted relative reference that names no host', () => {
+    expect(publicUrl('page.html', null)).toEqual({ host: null, path: '/page.html' });
+    expect(publicUrl('guides/x', 'https://www.geocod.io')).toEqual({
+      host: 'www.geocod.io',
+      path: '/guides/x',
+    });
+  });
+
+  it('leaves an already absolute path alone', () => {
+    expect(publicUrl('/already/absolute', null)).toEqual({ host: null, path: '/already/absolute' });
+  });
+
   it('does not let a scheme-less host:port parse into the path', () => {
     const result = publicUrl('localhost:3000/a', null);
     expect(result).toEqual({ host: null, path: '/a' });
