@@ -124,8 +124,29 @@ class ClaudeAuthCheck implements HealthCheck
 
         return $this->recordResult($this->unusable(
             $this->failureReason($result),
-            isAuthFailure: ClaudeAuthDetector::isAuthError($result),
+            isAuthFailure: $this->isAuthFailure($result),
         ));
+    }
+
+    /**
+     * Classifies this probe's own failure as an auth error.
+     *
+     * Unlike SandboxedAgentRunner, which runs ClaudeAuthDetector::isAuthError()
+     * over an entire agent's multi-KB stream-JSON output, this probe's output
+     * is a single short CLI invocation with no session UUIDs, cost/duration
+     * fields, or agent prose to false-positive on. It is safe to also match
+     * the bare `oauth`/`401` substrings that were deliberately kept out of
+     * the shared detector for that noisier caller.
+     */
+    private function isAuthFailure(ProcessResult $result): bool
+    {
+        if (ClaudeAuthDetector::isAuthError($result)) {
+            return true;
+        }
+
+        $output = strtolower($result->output() . ' ' . $result->errorOutput());
+
+        return str_contains($output, 'oauth') || str_contains($output, '401');
     }
 
     /**
