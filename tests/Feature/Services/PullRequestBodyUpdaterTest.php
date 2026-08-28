@@ -166,3 +166,30 @@ test('is idempotent when the image-embed form is already present', function () {
         thumbnailUrl: 'https://signed.example/thumb?exp=2',
     );
 });
+
+test('setWalkthroughUnavailable replaces the raw webm link line with an explanatory line', function () {
+    $body = "Summary\n\n### Video walkthrough\n\n- [walkthrough.webm](https://example.test/signed)\n\n### Files changed\n- a.php\n";
+    $github = Mockery::mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $body]);
+    $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
+        return str_contains($payload['body'], "### Video walkthrough\n\n_Video walkthrough unavailable (render failed: Remotion exited 1)._\n")
+            && ! str_contains($payload['body'], 'walkthrough.webm')
+            && str_contains($payload['body'], "### Files changed\n- a.php");
+    })->andReturn([]);
+
+    (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('Geocodio/geocodio-website', 42, 'Remotion exited 1');
+});
+
+test('setWalkthroughUnavailable is idempotent and appends a section when none exists', function () {
+    $github = Mockery::mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "Summary only\n"]);
+    $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
+        return str_ends_with($payload['body'], "\n\n### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom)._\n");
+    })->andReturn([]);
+    (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('o/r', 1, 'boom');
+
+    $github2 = Mockery::mock(GitHubAppService::class);
+    $github2->shouldReceive('getPullRequest')->once()->andReturn(['body' => "### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom)._\n"]);
+    $github2->shouldNotReceive('updatePullRequest');
+    (new PullRequestBodyUpdater($github2))->setWalkthroughUnavailable('o/r', 1, 'boom');
+});

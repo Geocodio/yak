@@ -75,6 +75,42 @@ class PullRequestBodyUpdater
     }
 
     /**
+     * Replace the video line under "### Video walkthrough" with an explicit
+     * unavailable notice so a PR never keeps a stale raw-webm link or a
+     * "rendering" placeholder after the render has failed for good.
+     */
+    public function setWalkthroughUnavailable(string $repoFullName, int $prNumber, string $reason): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
+        $body = (string) ($pr['body'] ?? '');
+
+        $reason = trim(preg_replace('/\s+/', ' ', $reason) ?? $reason);
+        $line = "_Video walkthrough unavailable (render failed: {$reason})._";
+
+        if (str_contains($body, $line)) {
+            return;
+        }
+
+        if (str_contains($body, '### Video walkthrough')) {
+            $videoLine = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|_Video walkthrough unavailable[^\n]*_)';
+            $replaced = preg_replace(
+                "/(### Video walkthrough\s*\n\s*\n){$videoLine}/",
+                '$1' . str_replace('$', '\$', $line),
+                $body,
+                1,
+                $count,
+            );
+            $body = (is_string($replaced) && $count > 0) ? $replaced : $body . "\n{$line}\n";
+        } else {
+            $body .= "\n\n### Video walkthrough\n\n{$line}\n";
+        }
+
+        $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $body]);
+    }
+
+    /**
      * Clickable-thumbnail markdown when a poster image exists, else a
      * plain link. GitHub doesn't embed video inline but will render the
      * thumbnail and make it clickable, which is the closest thing to a
