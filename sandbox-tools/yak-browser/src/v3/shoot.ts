@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -53,6 +53,28 @@ function readManifest(artifactsDir: string): Manifest | null {
   }
 }
 
+/**
+ * Move a file, falling back to copy+unlink when rename cannot cross a
+ * filesystem boundary. The recorded clip lives in the OS temp dir and the
+ * artifacts dir is frequently a separate mount inside the sandbox container,
+ * where a bare renameSync raises EXDEV. `rename` is injectable for the test.
+ */
+export function moveFile(
+  source: string,
+  destination: string,
+  rename: (from: string, to: string) => void = renameSync,
+): void {
+  try {
+    rename(source, destination);
+    return;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'EXDEV' && code !== 'EPERM' && code !== 'EACCES') throw error;
+  }
+  copyFileSync(source, destination);
+  rmSync(source, { force: true });
+}
+
 function writeManifest(artifactsDir: string, manifest: Manifest): void {
   writeFileSync(join(artifactsDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 }
@@ -91,17 +113,19 @@ async function shootOnce(
   });
 
   try {
-    const opensWithNavigate = shot.do.some((action) => action.navigate !== undefined);
-    if (!opensWithNavigate) {
+    // Spec §5: the opening navigation happens BEFORE the clock starts, so the
+    // page load never lands inside [start, end]. A shot that opens with a
+    // `navigate` performs it here; any other shot continues from the previous
+    // shot's URL and scroll offset.
+    const opensWithNavigate = shot.do[0]?.navigate !== undefined;
+    if (opensWithNavigate) {
+      await runAction(page, shot.do[0], opts.base);
+    } else {
       const url = carry?.url ?? opts.base;
       await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
       if (carry !== null) {
         await page.evaluate((y) => window.scrollTo(0, y), carry.scrollY);
       }
-    } else {
-      // The first navigate action does the loading; open a blank page so the
-      // recorder has a surface with the right background.
-      await page.goto('about:blank');
     }
 
     await ensureCursor(page);
@@ -110,7 +134,7 @@ async function shootOnce(
     // The recorder started with the context; `start` marks where the edit begins.
     const start = (Date.now() - contextStartedAt) / 1000;
 
-    for (const action of shot.do) {
+    for (const action of shot.do.slice(opensWithNavigate ? 1 : 0)) {
       await runAction(page, action, opts.base);
     }
 
@@ -139,7 +163,7 @@ async function shootOnce(
     const recorded = await video.path();
     mkdirSync(join(opts.artifactsDir, 'shots'), { recursive: true });
     const clipRelative = `shots/${shot.id}.webm`;
-    renameSync(recorded, join(opts.artifactsDir, clipRelative));
+    moveFile(recorded, join(opts.artifactsDir, clipRelative));
 
     return {
       entry: { id: shot.id, clip: clipRelative, start, end, rect, url, still: `stills/${shot.id}.png` },

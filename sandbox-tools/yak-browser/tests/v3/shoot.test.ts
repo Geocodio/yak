@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { existsSync, mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { startStaticServer } from '../support/server.ts';
 import { skipWithoutChromium } from '../support/browser.ts';
-import { shoot, ShotFailedError } from '../../src/v3/shoot.ts';
+import { moveFile, shoot, ShotFailedError } from '../../src/v3/shoot.ts';
 import type { Script } from '../../src/v3/types.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -117,4 +117,56 @@ test('--only re-shoots one shot and updates its manifest entry in place', { skip
   } finally {
     await server.close();
   }
+});
+
+test('a shot opening with navigate starts its clock after the navigation settles', { skip: skipWithoutChromium }, async () => {
+  // Every response is delayed, so a clock started before the navigation would
+  // read well under the delay and one started after it cannot.
+  const responseDelayMs = 1200;
+  const server = await startStaticServer(siteRoot, { delayMs: responseDelayMs });
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  const script = twoShotScript();
+  script.shots = [script.shots[0]];
+  script.screenshots = [];
+  try {
+    const manifest = await shoot({
+      script, base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true,
+    });
+
+    assert.ok(
+      manifest.shots[0].start >= responseDelayMs / 1000,
+      `start (${manifest.shots[0].start}s) must fall after the navigation settled (>= ${responseDelayMs / 1000}s)`,
+    );
+    assert.ok(manifest.shots[0].end - manifest.shots[0].start >= 1.0);
+    assert.match(manifest.shots[0].url, /^http:\/\/127\.0\.0\.1:\d+\/$/);
+  } finally {
+    await server.close();
+  }
+});
+
+test('moveFile falls back to copy when rename cannot cross filesystems', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yak-move-'));
+  const source = join(dir, 'clip.webm');
+  const destination = join(dir, 'moved.webm');
+  writeFileSync(source, 'video-bytes');
+
+  const exdev = Object.assign(new Error('EXDEV: cross-device link not permitted'), { code: 'EXDEV' });
+  moveFile(source, destination, () => {
+    throw exdev;
+  });
+
+  assert.ok(!existsSync(source), 'the source is removed after the fallback copy');
+  assert.strictEqual(readFileSync(destination, 'utf8'), 'video-bytes');
+});
+
+test('moveFile rethrows a rename failure it cannot recover from', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'yak-move-'));
+  const enoent = Object.assign(new Error('ENOENT: no such file'), { code: 'ENOENT' });
+  assert.throws(
+    () =>
+      moveFile(join(dir, 'missing.webm'), join(dir, 'out.webm'), () => {
+        throw enoent;
+      }),
+    /ENOENT/,
+  );
 });

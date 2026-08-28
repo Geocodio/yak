@@ -11,9 +11,17 @@ const CONTENT_TYPES: Record<string, string> = {
 
 export type StaticServer = { url: string; close: () => Promise<void> };
 
+export type StaticServerOptions = {
+  /** Delay every response by this many ms, to make load time observable. */
+  delayMs?: number;
+};
+
 /** Serve `root` over http on an ephemeral port. Unknown paths return 404. */
-export async function startStaticServer(root: string): Promise<StaticServer> {
+export async function startStaticServer(root: string, options: StaticServerOptions = {}): Promise<StaticServer> {
   const server: Server = createServer(async (req, res) => {
+    if (options.delayMs !== undefined && options.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, options.delayMs));
+    }
     const raw = decodeURIComponent((req.url ?? '/').split('?')[0]);
     const relative = normalize(raw === '/' ? '/index.html' : raw).replace(/^(\.\.[/\\])+/, '');
     try {
