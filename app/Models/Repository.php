@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_active
  * @property bool $pr_review_enabled
  * @property bool $deployments_enabled
+ * @property string|null $public_site_url
  */
 class Repository extends Model
 {

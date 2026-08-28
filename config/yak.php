@@ -163,6 +163,37 @@ return [
         'render_staging_path' => env('YAK_VIDEO_RENDER_STAGING_PATH', storage_path('app/private/render')),
         // Days after a successful render before raw footage is pruned.
         'raw_retention_days' => (int) env('YAK_VIDEO_RAW_RETENTION_DAYS', 30),
+        // Duration gate for RenderQaCheck (spec §7). Configurable so the
+        // fixture-sized end-to-end render can assert the gate without
+        // weakening the production floor.
+        'duration_bounds' => [
+            (int) env('YAK_VIDEO_MIN_SECONDS', 30),
+            (int) env('YAK_VIDEO_MAX_SECONDS', 180),
+        ],
+        // Shoot viewport handed to `yak-browser shoot --width/--height`.
+        'width' => (int) env('YAK_VIDEO_WIDTH', 1440),
+        'height' => (int) env('YAK_VIDEO_HEIGHT', 900),
+        // Spec §9 neutral defaults. Wave 3 replaces this with a settings
+        // row; until then VideoRenderer passes these straight through as
+        // the composition's `theme` prop. VideoThemeConfigTest asserts
+        // they still equal `timeline.ts --theme-defaults`.
+        'theme' => [
+            'colors' => [
+                'background' => '#f5f0e8',
+                'surface' => '#3d4f5f',
+                'ink' => '#1f2428',
+                'muted' => '#4e5049',
+                'accent' => '#c4744a',
+                'done' => '#7a8c5e',
+                'captionBg' => 'rgba(31,36,40,0.92)',
+            ],
+            'fonts' => [
+                'display' => 'Bricolage Grotesque',
+                'body' => 'Instrument Sans',
+                'mono' => 'JetBrains Mono',
+            ],
+            'logo' => null,
+        ],
     ],
 
     'ci_scan' => [
