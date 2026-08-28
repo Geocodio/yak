@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Artifact;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\HealthCheck\ClaudeAuthCheck;
@@ -10,7 +11,9 @@ use App\Services\HealthCheck\LastTaskCompletedCheck;
 use App\Services\HealthCheck\Registry;
 use App\Services\HealthCheck\RenderHealthCheck;
 use App\Services\HealthCheck\RepositoriesCheck;
+use App\Services\HealthCheck\VoiceoverHealthCheck;
 use App\Services\HealthCheck\WebhookSignaturesCheck;
+use App\Services\VoiceoverGenerator;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
@@ -298,4 +301,47 @@ it('registry includes the video-render check in the system section', function ()
     $ids = array_map(fn ($c) => $c->id(), app(Registry::class)->forSection(HealthSection::System));
 
     expect($ids)->toContain('video-render');
+});
+
+it('voiceover is Ok and off when no api key is configured', function () {
+    config()->set('yak.video.elevenlabs.api_key', null);
+
+    $result = (new VoiceoverHealthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Ok)
+        ->and($result->detail)->toBe('Off (no ELEVENLABS_API_KEY)');
+});
+
+it('voiceover counts lines generated in the last 24h', function () {
+    config()->set('yak.video.elevenlabs.api_key', 'k');
+    $task = YakTask::factory()->create();
+    Artifact::create([
+        'yak_task_id' => $task->id,
+        'type' => 'file',
+        'role' => 'voiceover',
+        'filename' => 'intro.mp3',
+        'disk_path' => "{$task->id}/vo/intro.mp3",
+        'size_bytes' => 10,
+    ]);
+
+    $result = (new VoiceoverHealthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Ok)
+        ->and($result->detail)->toBe('On · 1 lines generated (24h)');
+});
+
+it('voiceover is Error when the last generation failed', function () {
+    config()->set('yak.video.elevenlabs.api_key', 'k');
+    Cache::put(VoiceoverGenerator::FAILURE_CACHE_KEY, ['message' => 'HTTP 401', 'at' => now()->toIso8601String()], now()->addDay());
+
+    $result = (new VoiceoverHealthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->detail)->toContain('HTTP 401');
+});
+
+it('registry includes the voiceover check in the system section', function () {
+    $ids = array_map(fn ($c) => $c->id(), app(Registry::class)->forSection(HealthSection::System));
+
+    expect($ids)->toContain('voiceover');
 });
