@@ -1,4 +1,12 @@
 ---
+- name: Install yak-claude-login helper
+  ansible.builtin.template:
+    src: yak-claude-login.j2
+    dest: /usr/local/bin/yak-claude-login
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Verify Claude Code CLI is available in container
   ansible.builtin.command:
     cmd: docker exec {{ yak_container_name }} claude --version
@@ -15,10 +23,9 @@
       - "Claude Code CLI requires interactive login."
       - ""
       - "SSH into the server and run:"
-      - "  docker exec -it {{ yak_container_name }} claude login"
+      - "  yak-claude-login"
       - ""
-      - "Follow the browser-based OAuth flow. The session token persists"
-      - "in /home/yak/.claude on the host (mounted into the yak container"
-      - "and pushed into every Incus sandbox at task start)."
+      - "Then type /login and follow the browser-based OAuth flow."
       - ""
-      - "This only needs to be done once (or when the token expires)."
+      - "Credentials live in /home/yak/.claude on the host, mounted into every"
+      - "Incus sandbox. A re-login applies to running tasks immediately."

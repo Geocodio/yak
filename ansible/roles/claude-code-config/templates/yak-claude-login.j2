@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#
+# Re-authenticate Claude Code for Yak.
+#
+# Opens an interactive Claude Code session inside the Yak container against the
+# shared config directory. Type /login at the prompt, complete the browser
+# flow, then exit. Every sandbox reads the same credential file, so running
+# tasks pick the new session up without a restart.
+#
+# Managed by Ansible (roles/claude-code-config). Do not edit on the host.
+set -euo pipefail
+
+# -u www-data: there is no USER in the Dockerfile, so docker exec would
+#   otherwise run as root and leave root-owned files the worker cannot write.
+# -u ANTHROPIC_API_KEY: with the key set the CLI can answer from the billed
+#   API path and mask a dead subscription session.
+exec docker exec -it -u www-data {{ yak_container_name }} \
+    env -u ANTHROPIC_API_KEY \
+        HOME=/home/yak \
+        CLAUDE_CONFIG_DIR=/home/yak/.claude \
+    claude "$@"
