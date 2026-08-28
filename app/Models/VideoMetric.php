@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $render_ms
  * @property int|null $output_bytes
  * @property float|null $duration_seconds
+ * @property int|null $tts_characters
  * @property string|null $error
  */
 class VideoMetric extends Model
@@ -35,7 +36,7 @@ class VideoMetric extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['duration_seconds' => 'float', 'render_ms' => 'integer', 'output_bytes' => 'integer'];
+        return ['duration_seconds' => 'float', 'render_ms' => 'integer', 'output_bytes' => 'integer', 'tts_characters' => 'integer'];
     }
 
     /** @return BelongsTo<YakTask, $this> */

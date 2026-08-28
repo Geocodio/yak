@@ -36,6 +36,14 @@ Only configure the channels you use. Everything except GitHub (for pushing branc
 
 See the [Channels](channels.md) page for the full configuration of each channel.
 
+### Optional: voiceover
+
+Walkthrough videos render with captions by default. Set `ELEVENLABS_API_KEY` to add narration: before each render, Yak turns the script's `intro`, each shot's `say` line, and the `outro` into MP3s (ElevenLabs `eleven_multilingual_v2`) and mixes them into the cut. `ELEVENLABS_VOICE_ID` picks the voice and defaults to `UgBBYS2sOqTuMpoF3BR0`.
+
+Expect roughly 1,000–1,300 characters per walkthrough, billed at one credit per character. The health page's **Voiceover** row shows `Off (no ELEVENLABS_API_KEY)`, the number of lines generated in the last 24 hours, or the last failure. The cost dashboard's video panel sums the characters sent.
+
+Voiceover is best-effort: with no key, or when the API errors, the walkthrough still renders captions-only and Yak still opens the PR.
+
 ## Quick Start
 
 You run steps 1–5 **on your own machine** (laptop or workstation). Ansible reads the inventory file, connects to your target server over SSH, and provisions everything remotely. You only SSH into the server itself for step 6 (the one-time Claude Code login). Step 7 happens in your browser.

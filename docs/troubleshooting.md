@@ -428,6 +428,10 @@ For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.we
 
 `php artisan yak:video:rerender --task=<id>` re-dispatches the render for that task without needing a fresh sandbox — it reuses the artifacts already on disk. Add `--dry-run` first to confirm it picks up the right task, or `--failed-since=<date>` to sweep every task that failed after a fix.
 
+### The walkthrough has no narration
+
+Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled — see [setup](setup.md). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts — a task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
+
 ### `Visual capture: partial` in the task log
 
 This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills — not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.

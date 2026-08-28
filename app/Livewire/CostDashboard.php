@@ -71,14 +71,14 @@ class CostDashboard extends Component
     }
 
     /**
-     * @return array{rendered: int, failed: int, avg_render: string, total_mb: string}
+     * @return array{rendered: int, failed: int, avg_render: string, total_mb: string, tts_characters: string}
      */
     #[Computed]
     public function videoSummary(): array
     {
         $range = $this->dateRange();
 
-        /** @var object{rendered: int, failed: int, avg_ms: float|null, total_bytes: int|null} $stats */
+        /** @var object{rendered: int, failed: int, avg_ms: float|null, total_bytes: int|null, tts_characters: int|null} $stats */
         $stats = VideoMetric::query()
             ->between($range['start'], $range['end'])
             ->when($this->repo !== '', fn (Builder $q) => $q->whereHas('task', fn (Builder $t) => $t->where('repo', $this->repo)))
@@ -87,7 +87,8 @@ class CostDashboard extends Component
                 "SUM(CASE WHEN status = 'rendered' THEN 1 ELSE 0 END) as rendered, " .
                 "SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed, " .
                 "AVG(CASE WHEN status = 'rendered' THEN render_ms END) as avg_ms, " .
-                'SUM(output_bytes) as total_bytes'
+                'SUM(output_bytes) as total_bytes, ' .
+                'SUM(tts_characters) as tts_characters'
             )->first();
 
         $avgSeconds = (int) round(((float) ($stats->avg_ms ?? 0)) / 1000);
@@ -100,6 +101,7 @@ class CostDashboard extends Component
             'failed' => (int) ($stats->failed ?? 0),
             'avg_render' => $avg,
             'total_mb' => number_format(((int) ($stats->total_bytes ?? 0)) / 1048576, 1),
+            'tts_characters' => number_format((int) ($stats->tts_characters ?? 0)),
         ];
     }
 
