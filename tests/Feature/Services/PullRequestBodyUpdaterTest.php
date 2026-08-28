@@ -167,6 +167,19 @@ test('is idempotent when the image-embed form is already present', function () {
     );
 });
 
+test('setReviewerCut replaces a previous unavailable line with the cut', function () {
+    $body = "Summary\n\n### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom)._\n\n### Files changed\n- a.php\n";
+    $github = Mockery::mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $body]);
+    $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
+        return str_contains($payload['body'], "### Video walkthrough\n\n- [reviewer-cut.mp4](https://example.test/cut.mp4)\n")
+            && ! str_contains($payload['body'], 'unavailable')
+            && str_contains($payload['body'], "### Files changed\n- a.php");
+    })->andReturn([]);
+
+    (new PullRequestBodyUpdater($github))->setReviewerCut('o/r', 1, 'https://example.test/cut.mp4', 'reviewer-cut.mp4', null);
+});
+
 test('setWalkthroughUnavailable replaces the raw webm link line with an explanatory line', function () {
     $body = "Summary\n\n### Video walkthrough\n\n- [walkthrough.webm](https://example.test/signed)\n\n### Files changed\n- a.php\n";
     $github = Mockery::mock(GitHubAppService::class);

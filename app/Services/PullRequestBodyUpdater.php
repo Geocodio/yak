@@ -16,6 +16,12 @@ use App\Channels\GitHub\AppService as GitHubAppService;
  */
 class PullRequestBodyUpdater
 {
+    /**
+     * The single line Yak owns directly under "### Video walkthrough":
+     * a plain link, a clickable thumbnail, or the unavailable notice.
+     */
+    private const string VIDEO_LINE_PATTERN = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|_Video walkthrough unavailable[^\n]*_)';
+
     public function __construct(public GitHubAppService $github) {}
 
     public function setReviewerCut(
@@ -52,10 +58,9 @@ class PullRequestBodyUpdater
             // pass. Keeps the regex local so nothing downstream of the
             // section (### Files changed, `---`, warning callout) gets
             // swallowed when the walkthrough is the last heading.
-            $linkLine = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\))';
-            $replaced = preg_replace(
-                "/(### Video walkthrough\s*\n\s*\n){$linkLine}/",
-                "$1{$markdown}",
+            $replaced = preg_replace_callback(
+                '/(### Video walkthrough\s*\n\s*\n)' . self::VIDEO_LINE_PATTERN . '/',
+                fn (array $matches): string => $matches[1] . $markdown,
                 $body,
                 1,
                 $count,
@@ -94,9 +99,8 @@ class PullRequestBodyUpdater
         }
 
         if (str_contains($body, '### Video walkthrough')) {
-            $videoLine = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|_Video walkthrough unavailable[^\n]*_)';
             $replaced = preg_replace_callback(
-                "/(### Video walkthrough\s*\n\s*\n){$videoLine}/",
+                '/(### Video walkthrough\s*\n\s*\n)' . self::VIDEO_LINE_PATTERN . '/',
                 fn (array $matches): string => $matches[1] . $line,
                 $body,
                 1,
