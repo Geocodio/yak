@@ -2,12 +2,42 @@
 
 namespace App\Services;
 
+use App\DataTransferObjects\WalkthroughTimeline;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 class VideoRenderer
 {
     public function __construct(public string $videoDir) {}
+
+    /**
+     * Ask the composition's own `buildBlocks()` for the cut's shape before
+     * rendering anything (spec §7). Runs on the host with `npx tsx`, the
+     * same entry point the video project documents.
+     */
+    public function timeline(string $scriptPath, string $manifestPath, ?string $voiceoverJsonPath = null): WalkthroughTimeline
+    {
+        $command = [
+            'npx', 'tsx', 'scripts/timeline.ts',
+            '--script', $scriptPath,
+            '--manifest', $manifestPath,
+        ];
+
+        if ($voiceoverJsonPath !== null) {
+            $command[] = '--voiceover';
+            $command[] = $voiceoverJsonPath;
+        }
+
+        $result = Process::path($this->videoDir)->timeout(120)->run($command);
+
+        if (! $result->successful()) {
+            throw new RuntimeException(
+                'timeline.ts failed (exit ' . $result->exitCode() . '): ' . trim($result->errorOutput())
+            );
+        }
+
+        return WalkthroughTimeline::fromJson($result->output());
+    }
 
     public function render(string $webmPath, string $storyboardPath, string $outputPath): string
     {
