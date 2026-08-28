@@ -5,13 +5,30 @@ export type DisplayUrl = {
   path: string;
 };
 
+/** A `scheme://` prefix — the only form `new URL` parses into a real host. */
+const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:\/\//i;
+
+/**
+ * A leading authority on a scheme-less reference. `example.com/a` and
+ * `localhost:3000/a` both name a host, and `new URL` either rejects them or
+ * (for `localhost:3000/a`) mis-parses the host into the path. Anything that
+ * looks like a host is dropped rather than rendered: a relative reference
+ * whose first segment happens to contain a dot loses that segment, which is
+ * the right trade for never leaking a sandbox address into the browser bar.
+ */
+const LEADING_AUTHORITY = /^(?:[^/?#]*\.[^/?#]*|localhost)(?::\d+)?(?=$|[/?#])/i;
+
 function pathOf(raw: string): string {
-  try {
-    const url = new URL(raw);
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    return raw.startsWith('/') ? raw : `/${raw}`;
+  if (ABSOLUTE_URL.test(raw)) {
+    try {
+      const url = new URL(raw);
+      return `${url.pathname}${url.search}${url.hash}`;
+    } catch {
+      return '/';
+    }
   }
+  const relative = raw.replace(LEADING_AUTHORITY, '');
+  return relative.startsWith('/') ? relative : `/${relative}`;
 }
 
 /**

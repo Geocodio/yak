@@ -42,9 +42,14 @@ export type CaptionOverflow = {
 };
 
 /**
- * A caption overflows when its estimated single-line width exceeds what
- * `CAPTION_MAX_LINES` lines of the caption box can hold. Greedy wrapping means
- * the real layout can only be worse than this bound, never better.
+ * A caption is reported when its estimated single-line width exceeds what
+ * `CAPTION_MAX_LINES` lines of the caption box can hold.
+ *
+ * This is a heuristic, not a proof. `estimateTextWidth` sums glyph advances,
+ * which is a lower bound on the space greedy wrapping actually consumes:
+ * wrapping wastes whatever is left on each ragged right edge. So a reported
+ * caption certainly will not fit, while a caption that passes is likely but
+ * not guaranteed to fit — it can still spill past `CAPTION_MAX_LINES`.
  */
 export function captionOverflow(script: Script): CaptionOverflow[] {
   const budget = CAPTION_INNER_WIDTH * CAPTION_MAX_LINES;

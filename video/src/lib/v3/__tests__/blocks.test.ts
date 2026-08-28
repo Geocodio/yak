@@ -225,15 +225,37 @@ describe('shot timing', () => {
     const shot = firstShot(blocks);
     expect(shot.freezeSeconds).toBeCloseTo(shot.durationSeconds - 0.5, 6);
     expect(shot.freezeSeconds).toBeGreaterThan(0);
+    expect(shot.clipTruncatedSeconds).toBe(0);
   });
 
-  it('does not freeze when the clip fills the block', () => {
+  it('reports the unseen tail when the clip is longer than the block', () => {
     const { blocks } = build(
       script({ shots: [{ id: 'a', chapter: 'First', say: 'Hi.' }] }),
       manifest({ shots: [{ id: 'a', clip: 'shots/a.webm', start: 0, end: 60, rect: null, url: 'http://local/a' }] }),
     );
     const shot = firstShot(blocks);
+    expect(shot.clipSeconds).toBe(60);
+    expect(shot.clipTruncatedSeconds).toBeCloseTo(60 - shot.durationSeconds, 6);
+    expect(shot.clipTruncatedSeconds).toBeGreaterThan(0);
     expect(shot.freezeSeconds).toBe(0);
+  });
+
+  it('never reports a freeze and a truncation on the same shot', () => {
+    const { blocks } = build(
+      script(),
+      manifest({
+        shots: [
+          { id: 'a', clip: 'shots/a.webm', start: 0, end: 0.5, rect: null, url: 'http://local/a' },
+          { id: 'b', clip: 'shots/b.webm', start: 0, end: 60, rect: null, url: 'http://local/b' },
+          { id: 'c', clip: 'shots/c.webm', start: 0, end: 4, rect: null, url: 'http://local/c' },
+        ],
+      }),
+    );
+    for (const shot of shotBlocks(blocks)) {
+      expect(Math.min(shot.freezeSeconds, shot.clipTruncatedSeconds)).toBe(0);
+      expect(shot.freezeSeconds).toBeGreaterThanOrEqual(0);
+      expect(shot.clipTruncatedSeconds).toBeGreaterThanOrEqual(0);
+    }
   });
 
   it('crossfades 0.25 s shot to shot and dips 0.40 s after a chapter card', () => {

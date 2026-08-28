@@ -49,8 +49,8 @@ describe.skipIf(!enabled)('WalkthroughV3 render smoke test', () => {
       voiceover: props.voiceover,
       fps: 30,
     });
-    expect(probeDurationSeconds(outFile)).toBeCloseTo(expected.durationSeconds, 0);
-    expect(Math.abs(probeDurationSeconds(outFile) - expected.durationSeconds)).toBeLessThanOrEqual(0.5);
+    const actualSeconds = probeDurationSeconds(outFile);
+    expect(Math.abs(actualSeconds - expected.durationSeconds)).toBeLessThanOrEqual(0.5);
   }, 900_000);
 
   it('renders the footage-free preview composition', () => {

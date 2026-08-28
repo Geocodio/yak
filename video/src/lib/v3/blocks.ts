@@ -66,6 +66,13 @@ export type ShotBlock = BlockCommon & {
   clipSeconds: number;
   /** How long the last clip frame is held after the clip runs out. */
   freezeSeconds: number;
+  /**
+   * How much of the clip the block has no room for: the shot renders only its
+   * first `durationSeconds`, so the tail is never seen. 0 whenever the clip
+   * fits, which is the common case. Exactly one of `freezeSeconds` and
+   * `clipTruncatedSeconds` is non-zero.
+   */
+  clipTruncatedSeconds: number;
 };
 
 export type SummaryBlock = BlockCommon & { kind: 'summary' };
@@ -189,6 +196,7 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
         clipStartSeconds: manifestShot.start,
         clipSeconds,
         freezeSeconds: 0,
+        clipTruncatedSeconds: 0,
         transitionInSeconds,
         voiceover: entry
           ? { file: entry.file, startSeconds: transitionInSeconds + TIMING.shot.voiceoverLead }
@@ -197,6 +205,7 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
       clamp(Math.max(...drivers), TIMING.shot.floor, TIMING.shot.ceiling),
     );
     block.freezeSeconds = Math.max(0, block.durationSeconds - clipSeconds);
+    block.clipTruncatedSeconds = Math.max(0, clipSeconds - block.durationSeconds);
     previousWasShot = true;
   }
 

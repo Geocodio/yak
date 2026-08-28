@@ -90,15 +90,26 @@ npx tsx scripts/timeline.ts --script script.json --manifest manifest.json \
 ```
 
 Prints one JSON object to stdout and exits 0; on a usage or file error it prints to stderr and exits 2
-with nothing on stdout.
+with nothing on stdout. Flags accept either `--flag value` or `--flag=value`.
 
 | Field | Meaning |
 |---|---|
 | `fps`, `width`, `height` | Composition settings; `height` already includes the 52 px browser bar. |
 | `durationSeconds`, `durationInFrames` | Expected length of the render. |
-| `blocks[]` | Every block: `kind`, `id`, `startSeconds`, `startFrame`, `durationSeconds`, `durationInFrames`, `transitionInSeconds`, `voiceover`, plus kind-specific fields (`title`/`index`/`total`/`leadSay` for chapters; `shot`, `manifestShot`, `clip`, `clipStartSeconds`, `clipSeconds`, `freezeSeconds` for shots). |
+| `blocks[]` | Every block: `kind`, `id`, `startSeconds`, `startFrame`, `durationSeconds`, `durationInFrames`, `transitionInSeconds`, `voiceover`, plus kind-specific fields (`title`/`index`/`total`/`leadSay` for chapters; `shot`, `manifestShot`, `clip`, `clipStartSeconds`, `clipSeconds`, `freezeSeconds`, `clipTruncatedSeconds` for shots). `freezeSeconds` is how long the last clip frame is held after a short clip runs out; `clipTruncatedSeconds` is how much of an over-long clip the block has no room for and the viewer never sees. Exactly one of the two is non-zero. |
 | `chapters[]` | `{ title, startSeconds, shots: [{ id, startSeconds, say }] }` — write this to `chapters.json`. |
 | `captionOverflow[]` | `{ shotId, width }` for every caption that will not fit its box. Empty means every caption fits. |
+
+### `--theme-defaults`
+
+```
+npx tsx scripts/timeline.ts --theme-defaults
+```
+
+Needs none of the other flags. Prints `{ "theme": <DEFAULT_THEME>, "fonts": [...] }` and exits 0, where
+`theme` is the spec §9 default palette and font trio and `fonts` is every Google family a theme may name.
+A settings page seeds its default theme row and populates its font dropdown from this instead of
+restating the values, so the two can never drift.
 
 ### How caption overflow is measured
 
@@ -107,8 +118,12 @@ and identical wherever it runs. Each character contributes `fontSize × ratio` p
 0.26 for a space, 0.30 for narrow glyphs (`i j l I t f r . , : ; ' ! | ( ) [ ] \``), 0.90 for wide ones
 (`m w M W @ —`), 0.56 for digits, 0.66 for capitals and 0.52 otherwise. The caption box holds
 `1040 − 2 × 28 − 6 = 978` px per line and at most 3 lines, so a caption overflows when its estimated
-single-line width exceeds `978 × 3 = 2934` px. Greedy wrapping means the real layout can only be worse
-than that bound, never better, so a caption the estimate passes always fits.
+single-line width exceeds `978 × 3 = 2934` px.
+
+This is an approximate lower-bound estimate, not a proof of fit. Summing glyph advances undercounts what
+greedy wrapping really consumes, because wrapping wastes whatever is left on each ragged right edge. A
+reported caption certainly will not fit; a caption that passes is likely but not guaranteed to fit, and
+can still spill onto a fourth line.
 
 ## Development
 

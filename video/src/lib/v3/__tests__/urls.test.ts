@@ -40,6 +40,21 @@ describe('publicUrl', () => {
     expect(publicUrl('guides/x', null)).toEqual({ host: null, path: '/guides/x' });
   });
 
+  it('does not render a scheme-less host inside the path', () => {
+    expect(publicUrl('example.com/a', null)).toEqual({ host: null, path: '/a' });
+    expect(publicUrl('example.com/a', 'https://www.geocod.io')).toEqual({
+      host: 'www.geocod.io',
+      path: '/a',
+    });
+  });
+
+  it('does not let a scheme-less host:port parse into the path', () => {
+    const result = publicUrl('localhost:3000/a', null);
+    expect(result).toEqual({ host: null, path: '/a' });
+    expect(result.path.startsWith('/')).toBe(true);
+    expect(result.path).not.toContain('3000');
+  });
+
   it('falls back to path-only when the public origin is unparseable', () => {
     expect(publicUrl('http://127.0.0.1:8899/a', 'not a url')).toEqual({ host: null, path: '/a' });
   });

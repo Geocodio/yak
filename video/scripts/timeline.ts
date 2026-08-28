@@ -3,21 +3,27 @@
  *
  *   npx tsx scripts/timeline.ts --script script.json --manifest manifest.json \
  *     [--voiceover vo.json] [--fps 30]
+ *   npx tsx scripts/timeline.ts --theme-defaults
  *
  * Remotion components run in headless Chrome and cannot write files, so the
  * host calls this before rendering to derive chapters.json, the expected
  * duration and caption-fit measurements from exactly the same engine the
- * composition renders with.
+ * composition renders with. `--theme-defaults` is the same idea for theming:
+ * it hands the host the default palette and the font list so a settings page
+ * never has to restate them.
  */
 import { readFileSync } from 'node:fs';
 import { buildBlocks } from '../src/lib/v3/blocks';
 import { captionOverflow } from '../src/lib/v3/captions';
 import { buildChapters } from '../src/lib/v3/chapters';
+import { supportedFontFamilies } from '../src/lib/v3/fonts';
+import { DEFAULT_THEME } from '../src/lib/v3/theme';
 import { DEFAULT_FPS } from '../src/lib/v3/types';
 import type { Manifest, Script, Voiceover } from '../src/lib/v3/types';
 
 const USAGE =
-  'usage: timeline.ts --script <script.json> --manifest <manifest.json> [--voiceover <vo.json>] [--fps <n>]';
+  'usage: timeline.ts --script <script.json> --manifest <manifest.json> [--voiceover <vo.json>] [--fps <n>]\n' +
+  '       timeline.ts --theme-defaults';
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n`);
@@ -46,6 +52,14 @@ function readJson<T>(filePath: string): T {
 }
 
 const argv = process.argv.slice(2);
+
+if (argv.includes('--theme-defaults')) {
+  process.stdout.write(
+    `${JSON.stringify({ theme: DEFAULT_THEME, fonts: supportedFontFamilies() }, null, 2)}\n`,
+  );
+  process.exit(0);
+}
+
 const scriptPath = argument(argv, 'script');
 const manifestPath = argument(argv, 'manifest');
 if (!scriptPath || !manifestPath) {

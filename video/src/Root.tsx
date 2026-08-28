@@ -1,5 +1,5 @@
 import { Composition, staticFile } from 'remotion';
-import { Walkthrough, WalkthroughProps, walkthroughCompositionDuration } from './compositions/Walkthrough';
+import { Walkthrough, walkthroughCompositionDuration } from './compositions/Walkthrough';
 import { FakeUI } from './compositions/FakeUI';
 import exampleStoryboard from '../fixtures/example-storyboard.json';
 import type { Storyboard } from './lib/storyboard';
