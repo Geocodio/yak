@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\HealthCheck\HealthResult;
+use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\Registry;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -96,9 +97,18 @@ class HealthRow extends Component
         $age = $checkedAt->diffForHumans();
 
         if ($checkedAt->diffInMinutes(now()) > self::STALE_PROBE_MINUTES) {
-            return HealthResult::warn(
-                "Stale probe result from {$age} — the scheduler may not be running. Last known state: {$result->detail}",
-            );
+            $staleDetail = "Stale probe result from {$age} — the scheduler may not be running. Last known state: {$result->detail}";
+
+            // Staleness only ever degrades an Ok result to a Warn. It must
+            // never upgrade-by-erasure a worse status (Error/NotConnected):
+            // downgrading a genuine Error to Warn would silently drop the
+            // re-authentication HealthAction (warn() takes no action), and
+            // would show a stale red probe as merely yellow.
+            if ($result->status === HealthStatus::Ok) {
+                return HealthResult::warn($staleDetail);
+            }
+
+            return new HealthResult($result->status, $staleDetail, $result->action);
         }
 
         return new HealthResult($result->status, "{$result->detail} (checked {$age})", $result->action);

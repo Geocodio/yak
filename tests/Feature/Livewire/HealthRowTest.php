@@ -3,6 +3,7 @@
 use App\Livewire\HealthRow;
 use App\Models\User;
 use App\Services\HealthCheck\ClaudeAuthCheck;
+use App\Services\HealthCheck\HealthAction;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Cache;
@@ -120,6 +121,25 @@ it('degrades a stale claude-auth probe result to a warning', function () {
     expect($result->status)->toBe(HealthStatus::Warn)
         ->and($result->detail)->toContain('Stale probe result')
         ->and($result->detail)->toContain('Authenticated');
+});
+
+it('preserves a stale claude-auth Error status and its re-authentication action instead of downgrading to a warning', function () {
+    $action = new HealthAction('Re-authenticate', 'https://example.test/reauth');
+
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::error('Not authenticated — please re-authenticate', $action),
+        'checked_at' => now()->subMinutes(40),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    $result = $row->result();
+
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->action)->toBe($action)
+        ->and($result->detail)->toContain('Not authenticated')
+        ->and($result->detail)->toContain('40 minutes ago');
 });
 
 it('does not flag a claude-auth probe result just under the staleness threshold', function () {
