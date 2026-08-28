@@ -43,9 +43,9 @@ describe('buildChapters', () => {
     const chapters = buildChapters(timeline);
     const blockStart = (id: string) => timeline.blocks.find((b) => b.id === id)!.startSeconds;
 
-    expect(chapters[0].startSeconds).toBeCloseTo(blockStart('chapter-1'), 6);
-    expect(chapters[1].startSeconds).toBeCloseTo(blockStart('chapter-2'), 6);
-    expect(chapters[0].shots[0].startSeconds).toBeCloseTo(blockStart('a'), 6);
+    expect(chapters[0].startSeconds).toBeCloseTo(blockStart('chapter-1'), 3);
+    expect(chapters[1].startSeconds).toBeCloseTo(blockStart('chapter-2'), 3);
+    expect(chapters[0].shots[0].startSeconds).toBeCloseTo(blockStart('a'), 3);
     expect(chapters[0].startSeconds).toBeLessThan(chapters[0].shots[0].startSeconds);
     expect(chapters[0].shots[1].startSeconds).toBeLessThan(chapters[1].startSeconds);
   });

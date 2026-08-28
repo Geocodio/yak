@@ -147,5 +147,14 @@ export type {
 } from './v3/blocks';
 export { buildChapters } from './v3/chapters';
 export type { ChapterEntry, ChapterShotEntry } from './v3/chapters';
-export { captionOverflow, estimateTextWidth } from './v3/captions';
+export {
+  CAPTION_FONT_SIZE,
+  CAPTION_INNER_WIDTH,
+  CAPTION_MAX_LINES,
+  CAPTION_MAX_WIDTH,
+  CAPTION_PADDING_X,
+  CAPTION_RULE_WIDTH,
+  captionOverflow,
+  estimateTextWidth,
+} from './v3/captions';
 export type { CaptionOverflow } from './v3/captions';

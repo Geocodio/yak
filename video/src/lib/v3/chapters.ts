@@ -13,7 +13,7 @@ export type ChapterEntry = {
 };
 
 function round(seconds: number): number {
-  return Math.round(seconds * 1e9) / 1e9;
+  return Math.round(seconds * 1000) / 1000;
 }
 
 /** The `chapters.json` payload (spec §8), derived from the same blocks the cut renders. */
