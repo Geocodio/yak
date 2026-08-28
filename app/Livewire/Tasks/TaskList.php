@@ -5,6 +5,8 @@ namespace App\Livewire\Tasks;
 use App\Channels\ChannelRegistry;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Livewire\Tasks\Support\ArtifactPreviewUrl;
+use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Support\Docs;
@@ -76,6 +78,47 @@ class TaskList extends Component
             ->orderBy('created_at')
             ->get()
             ->groupBy('branch_name');
+    }
+
+    /**
+     * Poster and preview-GIF URLs for the tasks on the current page, in
+     * one query so the table does not issue an artifact lookup per row.
+     *
+     * @return array<int, array{poster: string, gif: ?string}>
+     */
+    #[Computed]
+    public function previewsByTask(): array
+    {
+        $taskIds = collect($this->tasks->items())->pluck('id')->all();
+
+        if ($taskIds === []) {
+            return [];
+        }
+
+        $previews = [];
+
+        $artifacts = Artifact::query()
+            ->whereIn('yak_task_id', $taskIds)
+            ->whereIn('role', ['preview', 'thumbnail'])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($artifacts as $artifact) {
+            $url = ArtifactPreviewUrl::for($artifact);
+
+            if ($artifact->role === 'preview') {
+                $previews[$artifact->yak_task_id]['gif'] = $url;
+            } else {
+                $previews[$artifact->yak_task_id]['poster'] = $url;
+            }
+        }
+
+        return collect($previews)
+            ->map(fn (array $preview): array => [
+                'poster' => $preview['poster'] ?? $preview['gif'],
+                'gif' => $preview['gif'] ?? null,
+            ])
+            ->all();
     }
 
     /**

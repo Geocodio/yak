@@ -27,26 +27,34 @@ recording is followed by the rendered walkthrough. --}}
             <flux:heading size="lg">{{ $lightboxArtifact->filename }}</flux:heading>
         </div>
 
-        @if($lightboxArtifact->type === 'video')
-            <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
-                <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
-            </div>
+        @if(in_array($lightboxArtifact->type, ['video', 'video_cut'], true))
+            {{-- The raw <video> is skipped only when the walkthrough player below
+                 will show this very artifact. A Review-mode task never gets the
+                 player, so it must keep the raw video or the lightbox is empty. --}}
+            @php $showsPlayer = $task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut; @endphp
 
-            @if($task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut)
+            @if(! ($showsPlayer && $lightboxArtifact->id === $this->walkthroughCut->id))
+                <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+                    <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
+                </div>
+            @endif
+
+            @if($showsPlayer)
                 <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
-                    @php $walkthroughUrl = $this->walkthroughCut->signedUrl(); @endphp
-                    <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" data-testid="walkthrough-cut" wire:ignore>
-                        <video controls preload="metadata" class="w-full" src="{{ $walkthroughUrl }}"></video>
-                        <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
-                            <a href="{{ $walkthroughUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Walkthrough</a>
-                        </div>
-                    </div>
+                    @include('livewire.tasks.partials.walkthrough-player', [
+                        'walkthroughUrl' => $this->walkthroughCut->signedUrl(),
+                        'chapters' => $this->chapters,
+                        'seekSeconds' => $this->seekSeconds,
+                    ])
                 </div>
             @endif
         @else
             <a href="{{ $lightboxArtifact->signedUrl() }}" target="_blank" rel="noopener noreferrer" class="block">
-                <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
+                <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->caption ?? $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
             </a>
+            @if($lightboxArtifact->caption ?? null)
+                <p class="mt-2 text-xs italic text-yak-slate" data-testid="artifact-caption">{{ $lightboxArtifact->caption }}</p>
+            @endif
         @endif
     @endif
 </flux:modal>
