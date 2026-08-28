@@ -33,6 +33,7 @@ it('renders an MP4 end-to-end through the real VideoRenderer', function () {
     $task = YakTask::factory()->success()->create();
     $rawVideo = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);

@@ -16,6 +16,7 @@ test('shows the rendered walkthrough in the lightbox when a cut exists', functio
     $recording = Artifact::factory()->for($task, 'task')->video()->create();
     Artifact::factory()->for($task, 'task')->create([
         'type' => 'video_cut',
+        'role' => 'cut',
         'filename' => 'reviewer-cut.mp4',
         'disk_path' => 'reviewer-cut.mp4',
     ]);
@@ -32,6 +33,7 @@ test('the lightbox has no Director\'s Cut controls', function () {
     $recording = Artifact::factory()->for($task, 'task')->video()->create();
     Artifact::factory()->for($task, 'task')->create([
         'type' => 'video_cut',
+        'role' => 'cut',
         'filename' => 'reviewer-cut.mp4',
         'disk_path' => 'reviewer-cut.mp4',
     ]);
@@ -50,6 +52,7 @@ test('walkthrough player is hidden for a Review-mode task', function () {
     $recording = Artifact::factory()->for($task, 'task')->video()->create();
     Artifact::factory()->for($task, 'task')->create([
         'type' => 'video_cut',
+        'role' => 'cut',
         'filename' => 'reviewer-cut.mp4',
         'disk_path' => 'reviewer-cut.mp4',
     ]);

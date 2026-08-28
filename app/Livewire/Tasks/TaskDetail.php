@@ -1321,7 +1321,7 @@ class TaskDetail extends Component
     #[Computed]
     public function walkthroughCut(): ?Artifact
     {
-        return $this->task->artifacts()->reviewerCut()->latest('id')->first();
+        return $this->task->artifacts()->cut()->latest('id')->first();
     }
 
     #[On('artifact-updated')]

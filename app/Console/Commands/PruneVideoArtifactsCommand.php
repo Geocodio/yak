@@ -20,12 +20,12 @@ class PruneVideoArtifactsCommand extends Command
         $disk = Storage::disk('artifacts');
 
         $raws = Artifact::query()
-            ->where('type', 'video')
+            ->rawFootage()
             ->whereExists(function (Builder $sub) use ($cutoff): void {
                 $sub->selectRaw('1')
                     ->from('artifacts as cuts')
                     ->whereColumn('cuts.yak_task_id', 'artifacts.yak_task_id')
-                    ->where('cuts.type', 'video_cut')
+                    ->where('cuts.role', 'cut')
                     ->where('cuts.created_at', '<', $cutoff);
             })
             ->orderBy('id')

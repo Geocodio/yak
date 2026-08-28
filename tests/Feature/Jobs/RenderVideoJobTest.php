@@ -18,12 +18,13 @@ test('the tasks table no longer carries a director cut status', function () {
     expect(Schema::hasColumn('tasks', 'director_cut_status'))->toBeFalse();
 });
 
-test('renders a reviewer cut plus a poster thumbnail when webm and storyboard both exist', function () {
+test('renders a cut plus a poster thumbnail when webm and storyboard both exist', function () {
     Storage::fake('artifacts');
 
     $task = YakTask::factory()->success()->create();
     $rawVideo = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -54,8 +55,8 @@ test('renders a reviewer cut plus a poster thumbnail when webm and storyboard bo
 
     (new RenderVideoJob($rawVideo->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(1);
-    expect(Artifact::where('type', 'video_thumbnail')->where('yak_task_id', $task->id)->count())->toBe(1);
+    expect(Artifact::cut()->where('yak_task_id', $task->id)->count())->toBe(1);
+    expect(Artifact::thumbnail()->where('yak_task_id', $task->id)->count())->toBe(1);
 });
 
 test('no-op when storyboard.json is missing', function () {
@@ -64,6 +65,7 @@ test('no-op when storyboard.json is missing', function () {
     $task = YakTask::factory()->success()->create();
     $rawVideo = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -74,7 +76,7 @@ test('no-op when storyboard.json is missing', function () {
 
     (new RenderVideoJob($rawVideo->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(0);
+    expect(Artifact::cut()->where('yak_task_id', $task->id)->count())->toBe(0);
 });
 
 test('no-op when raw artifact is missing', function () {
@@ -84,7 +86,7 @@ test('no-op when raw artifact is missing', function () {
 
     (new RenderVideoJob(999_999))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::videoCuts()->count())->toBe(0);
+    expect(Artifact::cut()->count())->toBe(0);
 });
 
 test('no-op when raw artifact has wrong type', function () {
@@ -97,7 +99,7 @@ test('no-op when raw artifact has wrong type', function () {
 
     (new RenderVideoJob($screenshot->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(0);
+    expect(Artifact::cut()->where('yak_task_id', $task->id)->count())->toBe(0);
 });
 
 test('patches the PR body with the rendered cut', function () {
@@ -109,6 +111,7 @@ test('patches the PR body with the rendered cut', function () {
     ]);
     $raw = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -152,10 +155,10 @@ test('patches the PR body with the rendered cut', function () {
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::where('type', 'video_thumbnail')->where('yak_task_id', $task->id)->exists())->toBeTrue();
+    expect(Artifact::thumbnail()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
-test('reviewer tier still publishes the mp4 link (without thumbnail) when thumbnail generation fails', function () {
+test('still publishes the mp4 link (without thumbnail) when thumbnail generation fails', function () {
     Storage::fake('artifacts');
 
     $task = YakTask::factory()->success()->create([
@@ -164,6 +167,7 @@ test('reviewer tier still publishes the mp4 link (without thumbnail) when thumbn
     ]);
     $raw = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -196,10 +200,10 @@ test('reviewer tier still publishes the mp4 link (without thumbnail) when thumbn
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::where('type', 'video_thumbnail')->where('yak_task_id', $task->id)->exists())->toBeFalse();
+    expect(Artifact::thumbnail()->where('yak_task_id', $task->id)->exists())->toBeFalse();
 });
 
-test('reviewer tier render still completes if PR body patch throws', function () {
+test('render still completes if PR body patch throws', function () {
     Storage::fake('artifacts');
 
     $task = YakTask::factory()->success()->create([
@@ -208,6 +212,7 @@ test('reviewer tier render still completes if PR body patch throws', function ()
     ]);
     $raw = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -244,10 +249,10 @@ test('reviewer tier render still completes if PR body patch throws', function ()
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->exists())->toBeTrue();
+    expect(Artifact::cut()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
-test('reviewer tier skips PR body patch when task has no pr_url', function () {
+test('skips PR body patch when task has no pr_url', function () {
     Storage::fake('artifacts');
 
     $task = YakTask::factory()->success()->create([
@@ -256,6 +261,7 @@ test('reviewer tier skips PR body patch when task has no pr_url', function () {
     ]);
     $raw = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -289,7 +295,7 @@ test('reviewer tier skips PR body patch when task has no pr_url', function () {
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->exists())->toBeTrue();
+    expect(Artifact::cut()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
 test('failed() logs and allows CreatePullRequestJob fallback to raw webm', function () {
@@ -298,6 +304,7 @@ test('failed() logs and allows CreatePullRequestJob fallback to raw webm', funct
     $task = YakTask::factory()->success()->create();
     $raw = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -311,16 +318,16 @@ test('failed() logs and allows CreatePullRequestJob fallback to raw webm', funct
     $job = new RenderVideoJob($raw->id);
     $job->failed(new RuntimeException('boom'));
 
-    // No reviewer cut was created, but the raw video artifact is still intact
+    // No cut was created, but the raw video artifact is still intact
     // so CreatePullRequestJob's fallback logic can link it.
-    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(0)
+    expect(Artifact::cut()->where('yak_task_id', $task->id)->count())->toBe(0)
         ->and(Artifact::where('type', 'video')->where('yak_task_id', $task->id)->count())->toBe(1);
 });
 
 test('records a rendered metric with size and duration on success', function () {
     Storage::fake('artifacts');
     $task = YakTask::factory()->success()->create();
-    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
+    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
     Storage::disk('artifacts')->put("{$task->id}/walkthrough.webm", 'webm-bytes');
     Storage::disk('artifacts')->put("{$task->id}/storyboard.json", json_encode(['version' => 1, 'plan' => (object) [], 'events' => []]));
 
@@ -343,14 +350,14 @@ test('records a rendered metric with size and duration on success', function () 
     expect($metric->status)->toBe(VideoMetric::STATUS_RENDERED)
         ->and($metric->output_bytes)->toBe(2048)
         ->and($metric->duration_seconds)->toBe(33.25)
-        ->and($metric->artifact_id)->toBe(Artifact::videoCuts()->where('yak_task_id', $task->id)->sole()->id)
+        ->and($metric->artifact_id)->toBe(Artifact::cut()->where('yak_task_id', $task->id)->sole()->id)
         ->and($metric->render_ms)->toBeGreaterThanOrEqual(0);
 });
 
 test('records a failed metric and rethrows when the render throws', function () {
     Storage::fake('artifacts');
     $task = YakTask::factory()->success()->create();
-    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
+    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
     Storage::disk('artifacts')->put("{$task->id}/walkthrough.webm", 'webm-bytes');
     Storage::disk('artifacts')->put("{$task->id}/storyboard.json", json_encode(['version' => 1, 'plan' => (object) [], 'events' => []]));
 
@@ -366,7 +373,7 @@ test('records a failed metric and rethrows when the render throws', function () 
 test('failed() notifies the task channel and marks the PR video line unavailable', function () {
     Queue::fake();
     $task = YakTask::factory()->success()->create(['repo' => 'geocodio-website', 'pr_url' => 'https://github.com/Geocodio/geocodio-website/pull/42']);
-    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
+    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
 
     $this->mock(PullRequestBodyUpdater::class)
         ->shouldReceive('setWalkthroughUnavailable')
@@ -387,7 +394,7 @@ test('failed() notifies the task channel and marks the PR video line unavailable
 test('failed() survives a task with no PR and a PR patch failure', function () {
     Queue::fake();
     $task = YakTask::factory()->success()->create(['pr_url' => null]);
-    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
+    $rawVideo = Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
     $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setWalkthroughUnavailable');
 
     (new RenderVideoJob($rawVideo->id))->failed(new RuntimeException('x'));

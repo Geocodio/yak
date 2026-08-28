@@ -19,12 +19,12 @@ class RerenderVideosCommand extends Command
         $disk = Storage::disk('artifacts');
 
         $query = Artifact::query()
-            ->where('type', 'video')
+            ->rawFootage()
             ->whereNotExists(function (Builder $sub): void {
                 $sub->selectRaw('1')
                     ->from('artifacts as cuts')
                     ->whereColumn('cuts.yak_task_id', 'artifacts.yak_task_id')
-                    ->where('cuts.type', 'video_cut')
+                    ->where('cuts.role', 'cut')
                     ->whereColumn('cuts.created_at', '>=', 'artifacts.created_at');
             })
             ->orderBy('id');

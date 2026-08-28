@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Database\Factories\ArtifactFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -64,7 +65,7 @@ class Artifact extends Model
      */
     public static function backfillRoles(): void
     {
-        static::query()->whereNull('role')->chunkById(500, function ($artifacts): void {
+        static::query()->whereNull('role')->chunkById(500, function (EloquentCollection $artifacts): void {
             foreach ($artifacts as $artifact) {
                 $role = self::roleFor((string) $artifact->type, (string) $artifact->filename);
 
@@ -75,6 +76,10 @@ class Artifact extends Model
         });
     }
 
+    /**
+     * Map an artifact's `type` and filename onto its role, or null when the
+     * row carries no role (Director's Cut output and unrecognised files).
+     */
     public static function roleFor(string $type, string $filename): ?string
     {
         if (str_contains($filename, 'director-cut')) {
@@ -92,38 +97,44 @@ class Artifact extends Model
     }
 
     /**
+     * Artifacts are looked up by role, not filename: cuts rendered before
+     * v3 are still called `reviewer-cut.mp4` on disk.
+     *
      * @param  Builder<Artifact>  $query
      * @return Builder<Artifact>
      */
-    public function scopeVideoCuts(Builder $query): Builder
+    public function scopeRole(Builder $query, string $role): Builder
     {
-        return $query->where('type', 'video_cut');
+        return $query->where('role', $role);
     }
 
     /**
      * @param  Builder<Artifact>  $query
      * @return Builder<Artifact>
      */
-    public function scopeReviewerCut(Builder $query): Builder
+    public function scopeCut(Builder $query): Builder
     {
-        return $query->where('type', 'video_cut')->where('filename', 'like', '%reviewer-cut%');
+        return $query->where('role', 'cut');
     }
 
     /**
      * @param  Builder<Artifact>  $query
      * @return Builder<Artifact>
      */
-    public function scopeDirectorCut(Builder $query): Builder
+    public function scopeThumbnail(Builder $query): Builder
     {
-        return $query->where('type', 'video_cut')->where('filename', 'like', '%director-cut%');
+        return $query->where('role', 'thumbnail');
     }
 
     /**
+     * Raw agent footage: the legacy `walkthrough.webm` and, from phase 2,
+     * per-shot clips are `shot` instead.
+     *
      * @param  Builder<Artifact>  $query
      * @return Builder<Artifact>
      */
-    public function scopeReviewerThumbnail(Builder $query): Builder
+    public function scopeRawFootage(Builder $query): Builder
     {
-        return $query->where('type', 'video_thumbnail')->where('filename', 'like', '%reviewer-cut%');
+        return $query->where('role', 'raw');
     }
 }
