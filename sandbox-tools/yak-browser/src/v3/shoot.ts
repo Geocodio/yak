@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
 import { launchChromium } from './playwright.ts';
 import { runAction } from './actions.ts';
-import { ensureCursor, moveCursorTo } from './cursor.ts';
+import { ensureCursor, moveCursorTo, hideCursor, showCursor } from './cursor.ts';
 import { runAssetPreflight, formatPreflightFailures } from './assets.ts';
-import type { Manifest, ManifestShot, Rect, Script, Shot } from './types.ts';
+import type { Manifest, ManifestScreenshot, ManifestShot, Rect, Script, Shot, ScreenshotSpec } from './types.ts';
 
 const HOLD_MS = 1000;
 const SETTLE_AFTER_LOAD_MS = 400;
@@ -90,13 +90,14 @@ async function settle(page: Page): Promise<void> {
 
 type CarryOver = { url: string; scrollY: number };
 
-type ShotResult = { entry: ManifestShot; carry: CarryOver };
+type ShotResult = { entry: ManifestShot; carry: CarryOver; screenshots: ManifestScreenshot[] };
 
 async function shootOnce(
   browser: Browser,
   shot: Shot,
   opts: ShootOptions,
   carry: CarryOver | null,
+  screenshotsAfter: ScreenshotSpec[],
 ): Promise<ShotResult> {
   const videoDir = mkdtempSync(join(tmpdir(), `yak-clip-${shot.id}-`));
   const statePath = join(opts.artifactsDir, STORAGE_STATE_FILE);
@@ -151,6 +152,18 @@ async function shootOnce(
     mkdirSync(join(opts.artifactsDir, 'stills'), { recursive: true });
     await page.screenshot({ path: join(opts.artifactsDir, 'stills', `${shot.id}.png`) });
 
+    const screenshots: ManifestScreenshot[] = [];
+    if (screenshotsAfter.length > 0) {
+      mkdirSync(join(opts.artifactsDir, 'screenshots'), { recursive: true });
+      await hideCursor(page);
+      for (const spec of screenshotsAfter) {
+        const file = `screenshots/${spec.id}.png`;
+        await page.screenshot({ path: join(opts.artifactsDir, file) });
+        screenshots.push({ id: spec.id, file, caption: spec.caption });
+      }
+      await showCursor(page);
+    }
+
     const end = (Date.now() - contextStartedAt) / 1000;
     const url = page.url();
     const scrollY = await page.evaluate(() => window.scrollY);
@@ -168,6 +181,7 @@ async function shootOnce(
     return {
       entry: { id: shot.id, clip: clipRelative, start, end, rect, url, still: `stills/${shot.id}.png` },
       carry: { url, scrollY },
+      screenshots,
     };
   } catch (error) {
     await context.close().catch(() => undefined);
@@ -175,6 +189,40 @@ async function shootOnce(
   } finally {
     rmSync(videoDir, { recursive: true, force: true });
   }
+}
+
+/** Screenshots with their own `do` list: one throwaway context, no recording. */
+async function captureStandaloneScreenshots(
+  browser: Browser,
+  specs: ScreenshotSpec[],
+  opts: ShootOptions,
+): Promise<ManifestScreenshot[]> {
+  if (specs.length === 0) return [];
+  const statePath = join(opts.artifactsDir, STORAGE_STATE_FILE);
+  const context = await browser.newContext({
+    viewport: { width: opts.width, height: opts.height },
+    deviceScaleFactor: 2,
+    ...(existsSync(statePath) ? { storageState: statePath } : {}),
+  });
+  const page = await context.newPage();
+  const captured: ManifestScreenshot[] = [];
+  try {
+    mkdirSync(join(opts.artifactsDir, 'screenshots'), { recursive: true });
+    for (const spec of specs) {
+      await page.goto(opts.base, { waitUntil: 'networkidle', timeout: 30_000 });
+      for (const action of spec.do ?? []) {
+        await runAction(page, action, opts.base);
+      }
+      await settle(page);
+      const file = `screenshots/${spec.id}.png`;
+      await hideCursor(page);
+      await page.screenshot({ path: join(opts.artifactsDir, file) });
+      captured.push({ id: spec.id, file, caption: spec.caption });
+    }
+  } finally {
+    await context.close();
+  }
+  return captured;
 }
 
 /**
@@ -197,15 +245,17 @@ export async function shoot(opts: ShootOptions): Promise<Manifest> {
 
   const browser = await launchChromium();
   const entries: ManifestShot[] = [];
+  const capturedScreenshots: ManifestScreenshot[] = [];
   let carry: CarryOver | null = null;
 
   try {
     for (const shotSpec of targets) {
+      const after = opts.script.screenshots.filter((s) => s.after_shot === shotSpec.id);
       let result: ShotResult | null = null;
       let lastError: Error | null = null;
       for (let attempt = 1; attempt <= 2 && result === null; attempt += 1) {
         try {
-          result = await shootOnce(browser, shotSpec, opts, carry);
+          result = await shootOnce(browser, shotSpec, opts, carry, after);
         } catch (error) {
           lastError = error as Error;
           process.stderr.write(`shot "${shotSpec.id}" attempt ${attempt} failed: ${lastError.message}\n`);
@@ -215,8 +265,13 @@ export async function shoot(opts: ShootOptions): Promise<Manifest> {
         throw new ShotFailedError(shotSpec.id, `shot "${shotSpec.id}" failed twice: ${lastError?.message ?? 'unknown error'}`);
       }
       entries.push(result.entry);
+      capturedScreenshots.push(...result.screenshots);
       carry = result.carry;
     }
+
+    const standalone = opts.script.screenshots.filter((s) => s.after_shot === undefined);
+    const standaloneToRun = opts.only === undefined ? standalone : [];
+    capturedScreenshots.push(...(await captureStandaloneScreenshots(browser, standaloneToRun, opts)));
   } finally {
     await browser.close();
   }
@@ -226,13 +281,25 @@ export async function shoot(opts: ShootOptions): Promise<Manifest> {
       ? entries
       : existing.shots.map((entry) => entries.find((updated) => updated.id === entry.id) ?? entry);
 
+  const screenshots =
+    opts.only === undefined || existing === null
+      ? capturedScreenshots
+      : [
+          ...existing.screenshots.filter((s) => !capturedScreenshots.some((c) => c.id === s.id)),
+          ...capturedScreenshots,
+        ].sort(
+          (a, b) =>
+            opts.script.screenshots.findIndex((s) => s.id === a.id) -
+            opts.script.screenshots.findIndex((s) => s.id === b.id),
+        );
+
   const manifest: Manifest = {
     version: 3,
     width: opts.width,
     height: opts.height,
     base: opts.base,
     shots,
-    screenshots: existing?.screenshots ?? [],
+    screenshots,
   };
   writeManifest(opts.artifactsDir, manifest);
   return manifest;

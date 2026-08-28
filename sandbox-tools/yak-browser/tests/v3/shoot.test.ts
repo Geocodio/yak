@@ -170,3 +170,71 @@ test('moveFile rethrows a rename failure it cannot recover from', () => {
     /ENOENT/,
   );
 });
+
+test('captures a screenshot after the named shot', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  try {
+    const manifest = await shoot({
+      script: twoShotScript(), base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true,
+    });
+    assert.strictEqual(manifest.screenshots.length, 1);
+    const entry = manifest.screenshots[0];
+    assert.strictEqual(entry.id, 'target-shot');
+    assert.strictEqual(entry.file, 'screenshots/target-shot.png');
+    assert.strictEqual(entry.caption, 'The target paragraph');
+    assert.ok(existsSync(join(artifactsDir, entry.file)));
+    assert.ok(statSync(join(artifactsDir, entry.file)).size > 0);
+  } finally {
+    await server.close();
+  }
+});
+
+test('a screenshot with its own do list is captured standalone', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  const script = twoShotScript();
+  script.screenshots = [
+    { id: 'standalone', caption: 'The second page on its own', do: [{ navigate: '/second.html' }, { scroll_to: '#detail' }] },
+  ];
+  try {
+    const manifest = await shoot({
+      script, base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true,
+    });
+    assert.strictEqual(manifest.screenshots.length, 1);
+    assert.ok(existsSync(join(artifactsDir, 'screenshots/standalone.png')));
+  } finally {
+    await server.close();
+  }
+});
+
+test('the screenshot hides the synthetic cursor', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  try {
+    await shoot({ script: twoShotScript(), base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true });
+    // The still (cursor visible) and the screenshot (cursor hidden) are taken
+    // at the same moment, so any difference proves the cursor was hidden.
+    const still = readFileSync(join(artifactsDir, 'stills/target.png'));
+    const screenshot = readFileSync(join(artifactsDir, 'screenshots/target-shot.png'));
+    assert.notStrictEqual(still.length, screenshot.length);
+  } finally {
+    await server.close();
+  }
+});
+
+test('--only keeps screenshots belonging to shots it did not re-shoot', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  try {
+    await shoot({ script: twoShotScript(), base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true });
+    const updated = await shoot({
+      script: twoShotScript(), base: server.url, artifactsDir, width: 900, height: 700, only: 'second', skipPreflight: true,
+    });
+    assert.strictEqual(updated.screenshots.length, 1);
+    assert.strictEqual(updated.screenshots[0].id, 'target-shot');
+    assert.ok(existsSync(join(artifactsDir, 'screenshots/target-shot.png')));
+  } finally {
+    await server.close();
+  }
+});
