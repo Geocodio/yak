@@ -48,3 +48,17 @@ test('the thumbnail links to the task page with a zero seek deep link', function
     Livewire::test(TaskList::class)
         ->assertSeeHtml(route('tasks.show', $task) . '?t=0');
 });
+
+test('the preview swap is guarded by prefers-reduced-motion', function () {
+    $task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($task, 'task')->videoThumbnail()->create();
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video_thumbnail',
+        'role' => 'preview',
+        'filename' => 'walkthrough-preview.gif',
+        'disk_path' => 'walkthrough-preview.gif',
+    ]);
+
+    Livewire::test(TaskList::class)
+        ->assertSeeHtml('prefers-reduced-motion');
+});
