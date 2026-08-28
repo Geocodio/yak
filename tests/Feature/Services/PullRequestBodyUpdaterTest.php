@@ -193,3 +193,17 @@ test('setWalkthroughUnavailable is idempotent and appends a section when none ex
     $github2->shouldNotReceive('updatePullRequest');
     (new PullRequestBodyUpdater($github2))->setWalkthroughUnavailable('o/r', 1, 'boom');
 });
+
+test('setWalkthroughUnavailable keeps a reason containing regex backreferences and special characters literal', function () {
+    $body = "Summary\n\n### Video walkthrough\n\n- [walkthrough.webm](https://example.test/signed)\n\n### Files changed\n- a.php\n";
+    $reason = "boom \\1 broke \$1 star * \nend";
+    $github = Mockery::mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $body]);
+    $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
+        return str_contains($payload['body'], "### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom \\1 broke \$1 star * end)._\n")
+            && ! str_contains($payload['body'], 'walkthrough.webm')
+            && str_contains($payload['body'], "### Files changed\n- a.php");
+    })->andReturn([]);
+
+    (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('Geocodio/geocodio-website', 42, $reason);
+});

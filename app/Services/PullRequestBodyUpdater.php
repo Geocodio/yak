@@ -95,9 +95,9 @@ class PullRequestBodyUpdater
 
         if (str_contains($body, '### Video walkthrough')) {
             $videoLine = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|_Video walkthrough unavailable[^\n]*_)';
-            $replaced = preg_replace(
+            $replaced = preg_replace_callback(
                 "/(### Video walkthrough\s*\n\s*\n){$videoLine}/",
-                '$1' . str_replace('$', '\$', $line),
+                fn (array $matches): string => $matches[1] . $line,
                 $body,
                 1,
                 $count,
