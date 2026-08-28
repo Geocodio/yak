@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\RenderVideoJob;
+use App\Jobs\RenderWalkthroughJob;
 use App\Models\Artifact;
 use App\Models\YakTask;
 use Illuminate\Database\Eloquent\Builder;
@@ -59,6 +60,7 @@ class ArtifactPersister
 
         $manifest = self::readManifest($artifactsPath);
         $captions = self::captionsFrom($manifest);
+        $isV3 = is_array($manifest) && (int) ($manifest['version'] ?? 0) === 3;
 
         /** @var array<int, string> $screenshotHashes */
         $screenshotHashes = [];
@@ -75,11 +77,16 @@ class ArtifactPersister
                 $captions,
                 $screenshotHashes,
                 $screenshotCount,
+                $isV3,
             );
 
             if ($artifact !== null) {
                 $artifacts[] = $artifact;
             }
+        }
+
+        if ($isV3) {
+            RenderWalkthroughJob::dispatch($task->id);
         }
 
         if ($artifactsPath !== $taskDir) {
@@ -249,6 +256,7 @@ class ArtifactPersister
         array $captions,
         array &$screenshotHashes,
         int &$screenshotCount,
+        bool $isV3,
     ): ?Artifact {
         $name = $file->getFilename();
         $storagePath = $subdir === null ? "{$task->id}/{$name}" : "{$task->id}/{$subdir}/{$name}";
@@ -310,7 +318,7 @@ class ArtifactPersister
             'caption' => $caption,
         ]);
 
-        if ($type === 'video') {
+        if ($type === 'video' && ! $isV3) {
             RenderVideoJob::dispatch($artifact->id);
 
             // Legacy fallback for pre-storyboard repos: if no storyboard
