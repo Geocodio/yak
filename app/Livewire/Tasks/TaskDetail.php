@@ -14,6 +14,8 @@ use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
+use App\Livewire\Tasks\Support\ArtifactPreviewUrl;
+use App\Livewire\Tasks\Support\VideoRenderStatus;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
@@ -53,6 +55,8 @@ use Livewire\Component;
  * @property-read SupportCollection<int, ThreadEntry> $thread
  * @property-read ?BranchDeployment $deployment
  * @property-read ?Artifact $walkthroughCut
+ * @property-read VideoRenderStatus $renderStatus
+ * @property-read ?Artifact $walkthroughPreview
  * @property-read SupportCollection<int, Collection<int, Artifact>> $mediaByRun
  * @property-read array{artifacts: Collection<int, Artifact>, run: ?YakTask} $latestMedia
  */
@@ -1322,6 +1326,32 @@ class TaskDetail extends Component
     public function walkthroughCut(): ?Artifact
     {
         return $this->task->artifacts()->cut()->latest('id')->first();
+    }
+
+    /**
+     * Where this task's walkthrough render stands. Derived on every render
+     * so the chip follows a retry without a page reload.
+     */
+    #[Computed]
+    public function renderStatus(): VideoRenderStatus
+    {
+        return VideoRenderStatus::for($this->task);
+    }
+
+    /**
+     * The image shown for the walkthrough: the animated preview when the
+     * GIF was produced, the static poster otherwise.
+     */
+    #[Computed]
+    public function walkthroughPreview(): ?Artifact
+    {
+        return $this->task->artifacts()->role('preview')->latest('id')->first()
+            ?? $this->task->artifacts()->thumbnail()->latest('id')->first();
+    }
+
+    public function previewUrl(?Artifact $artifact): ?string
+    {
+        return $artifact === null ? null : ArtifactPreviewUrl::for($artifact);
     }
 
     #[On('artifact-updated')]

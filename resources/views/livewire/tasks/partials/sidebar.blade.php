@@ -67,6 +67,8 @@
         ])
     @endif
 
+    @include('livewire.tasks.partials.walkthrough-card')
+
     {{-- Latest media across the follow-up chain --}}
     @php $latestMedia = $this->latestMedia; @endphp
     @if($latestMedia['run'] !== null && $latestMedia['artifacts']->isNotEmpty())
