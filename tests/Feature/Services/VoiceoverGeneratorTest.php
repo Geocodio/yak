@@ -166,3 +166,102 @@ it('clears the failure marker after a successful run', function () {
 
     expect(Cache::get(VoiceoverGenerator::FAILURE_CACHE_KEY))->toBeNull();
 });
+
+it('skips a shot id that would traverse out of the task directory', function () {
+    Http::fake(['api.elevenlabs.io/*' => Http::response('audio', 200)]);
+    $victim = YakTask::factory()->create();
+    $task = YakTask::factory()->create();
+
+    Storage::disk('artifacts')->put("{$victim->id}/vo/intro.mp3", 'the real line');
+
+    $result = app(VoiceoverGenerator::class)->generate($task, [
+        'shots' => [
+            ['id' => "../../{$victim->id}/vo/intro", 'say' => 'Evil narration.'],
+            ['id' => 'safe', 'say' => 'Good narration.'],
+        ],
+    ]);
+
+    expect(array_keys($result))->toBe(['safe']);
+
+    Http::assertSentCount(1);
+
+    expect(Storage::disk('artifacts')->get("{$victim->id}/vo/intro.mp3"))->toBe('the real line')
+        ->and($victim->artifacts()->role('voiceover')->count())->toBe(0)
+        ->and($task->artifacts()->role('voiceover')->pluck('filename')->all())->toBe(['safe.mp3']);
+
+    foreach (Storage::disk('artifacts')->allFiles("{$task->id}") as $file) {
+        expect($file)->toStartWith("{$task->id}/vo/");
+    }
+});
+
+it('skips ids with path separators, dot segments or nul bytes', function () {
+    Http::fake(['api.elevenlabs.io/*' => Http::response('audio', 200)]);
+    $task = YakTask::factory()->create();
+
+    $result = app(VoiceoverGenerator::class)->generate($task, [
+        'shots' => [
+            ['id' => '..', 'say' => 'a'],
+            ['id' => 'a/b', 'say' => 'b'],
+            ['id' => '/etc/passwd', 'say' => 'c'],
+            ['id' => "nul\0byte", 'say' => 'd'],
+            ['id' => 'sp ace', 'say' => 'e'],
+            ['id' => 'fine', 'say' => 'f'],
+        ],
+    ]);
+
+    expect(array_keys($result))->toBe(['fine']);
+    Http::assertSentCount(1);
+});
+
+it('skips an over-long shot id without aborting the other lines', function () {
+    Http::fake(['api.elevenlabs.io/*' => Http::response('audio', 200)]);
+    $task = YakTask::factory()->create();
+
+    $result = app(VoiceoverGenerator::class)->generate($task, [
+        'intro' => 'The intro line.',
+        'outro' => 'The outro line.',
+        'shots' => [['id' => str_repeat('a', 300), 'say' => 'Too long to store.']],
+    ]);
+
+    expect(array_keys($result))->toBe(['intro', 'outro'])
+        ->and($task->artifacts()->role('voiceover')->pluck('filename')->sort()->values()->all())
+        ->toBe(['intro.mp3', 'outro.mp3']);
+
+    Http::assertSentCount(2);
+    expect(Cache::get(VoiceoverGenerator::FAILURE_CACHE_KEY))->toBeNull();
+});
+
+it('treats a 200 with an empty body as a failure', function () {
+    Http::fake(['api.elevenlabs.io/*' => Http::response('', 200)]);
+    $task = YakTask::factory()->create();
+
+    $generator = app(VoiceoverGenerator::class);
+
+    expect($generator->generate($task, voiceoverScript()))->toBeNull()
+        ->and($generator->charactersGenerated())->toBe(0)
+        ->and($task->artifacts()->role('voiceover')->count())->toBe(0)
+        ->and(Cache::get(VoiceoverGenerator::FAILURE_CACHE_KEY))->not->toBeNull();
+
+    Storage::disk('artifacts')->assertMissing("{$task->id}/vo/intro.mp3");
+});
+
+it('treats a 200 with a json body as a failure and rolls back earlier lines', function () {
+    $task = YakTask::factory()->create();
+    $calls = 0;
+    Http::fake(function () use (&$calls) {
+        $calls++;
+
+        return $calls === 1
+            ? Http::response('audio', 200, ['Content-Type' => 'audio/mpeg'])
+            : Http::response(['detail' => 'quota exceeded'], 200);
+    });
+
+    $generator = app(VoiceoverGenerator::class);
+
+    expect($generator->generate($task, voiceoverScript()))->toBeNull()
+        ->and($generator->charactersGenerated())->toBe(0)
+        ->and($task->artifacts()->role('voiceover')->count())->toBe(0)
+        ->and(Cache::get(VoiceoverGenerator::FAILURE_CACHE_KEY))->not->toBeNull();
+
+    Storage::disk('artifacts')->assertMissing("{$task->id}/vo/intro.mp3");
+});

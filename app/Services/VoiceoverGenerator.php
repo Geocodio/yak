@@ -23,6 +23,13 @@ class VoiceoverGenerator
 
     private const string ENDPOINT = 'https://api.elevenlabs.io/v1/text-to-speech';
 
+    /**
+     * script.json is written by an agent inside the sandbox, so a shot id is
+     * untrusted input that ends up as a path segment and a filename. Only a
+     * short, flat, alphanumeric id is allowed anywhere near the disk.
+     */
+    private const string ID_PATTERN = '/^[A-Za-z0-9._-]{1,64}$/';
+
     private int $charactersGenerated = 0;
 
     public function __construct(private readonly VideoRenderer $renderer) {}
@@ -49,10 +56,6 @@ class VoiceoverGenerator
             return null;
         }
 
-        $disk = Storage::disk('artifacts');
-        $url = self::ENDPOINT . '/' . (string) config('yak.video.elevenlabs.voice_id') . '?output_format=mp3_44100_128';
-        $model = (string) config('yak.video.elevenlabs.model_id');
-
         /** @var list<string> $createdPaths */
         $createdPaths = [];
         /** @var list<int> $createdArtifactIds */
@@ -61,6 +64,10 @@ class VoiceoverGenerator
         $result = [];
 
         try {
+            $disk = Storage::disk('artifacts');
+            $url = self::ENDPOINT . '/' . (string) config('yak.video.elevenlabs.voice_id') . '?output_format=mp3_44100_128';
+            $model = (string) config('yak.video.elevenlabs.model_id');
+
             foreach ($lines as $id => $text) {
                 $diskPath = "{$task->id}/vo/{$id}.mp3";
 
@@ -87,28 +94,37 @@ class VoiceoverGenerator
                     ],
                 ]);
 
-                if ($response->failed()) {
+                $body = $response->body();
+
+                if ($response->failed() || ! $this->isAudio($response->header('Content-Type'), $body)) {
                     $this->rollBack($createdPaths, $createdArtifactIds);
                     $this->recordFailure($task, "ElevenLabs returned HTTP {$response->status()} for line '{$id}'");
 
                     return null;
                 }
 
-                $body = $response->body();
-                $disk->put($diskPath, $body);
-                $createdPaths[] = $diskPath;
-
-                $artifact = Artifact::create([
-                    'yak_task_id' => $task->id,
-                    'type' => 'file',
-                    'role' => 'voiceover',
-                    'filename' => "{$id}.mp3",
-                    'disk_path' => $diskPath,
-                    'size_bytes' => strlen($body),
-                ]);
-                $createdArtifactIds[] = (int) $artifact->id;
-
                 $this->charactersGenerated += mb_strlen($text);
+
+                try {
+                    $disk->put($diskPath, $body);
+
+                    $artifact = Artifact::create([
+                        'yak_task_id' => $task->id,
+                        'type' => 'file',
+                        'role' => 'voiceover',
+                        'filename' => "{$id}.mp3",
+                        'disk_path' => $diskPath,
+                        'size_bytes' => strlen($body),
+                    ]);
+                } catch (Throwable) {
+                    /** One unwritable line is dropped; the run keeps the lines it already paid for. */
+                    $this->rollBack([$diskPath], []);
+
+                    continue;
+                }
+
+                $createdPaths[] = $diskPath;
+                $createdArtifactIds[] = (int) $artifact->id;
 
                 $result[$id] = [
                     'file' => $diskPath,
@@ -165,7 +181,7 @@ class VoiceoverGenerator
                 $id = $shot['id'] ?? null;
                 $say = $this->text($shot['say'] ?? null);
 
-                if (! is_string($id) || trim($id) === '' || $say === null) {
+                if (! is_string($id) || $say === null || ! $this->isSafeId(trim($id))) {
                     continue;
                 }
 
@@ -180,6 +196,31 @@ class VoiceoverGenerator
         }
 
         return $lines;
+    }
+
+    /**
+     * A shot id becomes both a path segment and a filename, so anything that
+     * could traverse out of the task's own `vo/` directory, or that is too long
+     * to store, is rejected here and skipped like a blank line.
+     */
+    private function isSafeId(string $id): bool
+    {
+        return $id !== '' && ! str_contains($id, '..') && preg_match(self::ID_PATTERN, $id) === 1;
+    }
+
+    /**
+     * A 2xx is not proof of audio: ElevenLabs can answer with a JSON error or an
+     * empty body, which would otherwise be stored as a broken MP3.
+     */
+    private function isAudio(?string $contentType, string $body): bool
+    {
+        if ($body === '') {
+            return false;
+        }
+
+        $contentType = trim((string) $contentType);
+
+        return $contentType === '' || str_starts_with(strtolower($contentType), 'audio/');
     }
 
     private function text(mixed $value): ?string
