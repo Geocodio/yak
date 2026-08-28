@@ -3,6 +3,7 @@
 use App\Livewire\CostDashboard;
 use App\Models\User;
 use App\Models\VideoMetric;
+use App\Models\YakTask;
 use Livewire\Livewire;
 
 test('cost dashboard shows video render counts, average render time and output size for the period', function () {
@@ -23,4 +24,20 @@ test('cost dashboard shows video render counts, average render time and output s
     ]);
 
     $component->assertSee('Videos rendered')->assertSee('1 failed')->assertSee('1m 30s');
+});
+
+test('cost dashboard video summary is scoped by the repo and source filters', function () {
+    $this->actingAs(User::factory()->create());
+
+    $alphaTask = YakTask::factory()->success()->create(['repo' => 'alpha', 'source' => 'sentry']);
+    $betaTask = YakTask::factory()->success()->create(['repo' => 'beta', 'source' => 'slack']);
+
+    VideoMetric::factory()->for($alphaTask, 'task')->create();
+    VideoMetric::factory()->for($betaTask, 'task')->create();
+
+    $byRepo = Livewire::test(CostDashboard::class)->set('repo', 'alpha');
+    expect($byRepo->instance()->videoSummary['rendered'])->toBe(1);
+
+    $bySource = Livewire::test(CostDashboard::class)->set('source', 'sentry');
+    expect($bySource->instance()->videoSummary['rendered'])->toBe(1);
 });
