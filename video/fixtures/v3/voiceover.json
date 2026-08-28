@@ -1,0 +1,7 @@
+{
+  "intro": { "file": "v3/silence.mp3", "durationSeconds": 1.5 },
+  "levels": { "file": "v3/silence.mp3", "durationSeconds": 1.5 },
+  "explicit": { "file": "v3/silence.mp3", "durationSeconds": 1.5 },
+  "updates": { "file": "v3/silence.mp3", "durationSeconds": 1.5 },
+  "outro": { "file": "v3/silence.mp3", "durationSeconds": 1.5 }
+}

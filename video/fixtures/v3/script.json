@@ -1,0 +1,30 @@
+{
+  "version": 3,
+  "task": { "id": 5487, "repo": "acme/example-site", "pr": 42 },
+  "title": "ZIP-level demographics and national benchmarks in the Census guide",
+  "intro": "The Census demographics guide now documents all eleven ACS geography levels, explains ZIP-level data honestly, and shows how to benchmark against national averages.",
+  "summary": [
+    "Eleven ACS geography levels documented",
+    "ZIP vs ZCTA explained, with the no-data case",
+    "Worked national benchmark example",
+    "Update entry published"
+  ],
+  "outro": "Four new geography levels, a worked benchmark, and a published update. Ready for review.",
+  "shots": [
+    {
+      "id": "levels",
+      "chapter": "Geography levels",
+      "say": "The guide now lists all eleven geography levels. ZCTA, Division, Region and Nation are the new ones."
+    },
+    {
+      "id": "explicit",
+      "chapter": "Geography levels",
+      "say": "Those four are never picked automatically. You request them by name, and for now they are API-only."
+    },
+    {
+      "id": "updates",
+      "chapter": "Published",
+      "say": "And the change is announced. The new update entry leads with ZIP-level demographics."
+    }
+  ]
+}
