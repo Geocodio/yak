@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\NotificationType;
+use App\Jobs\Concerns\RendersWalkthroughs;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\VideoMetric;
@@ -19,6 +20,7 @@ use Throwable;
 class RenderVideoJob implements ShouldQueue
 {
     use Queueable;
+    use RendersWalkthroughs;
 
     public int $tries = 2;
 
@@ -175,24 +177,6 @@ class RenderVideoJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
         }
-    }
-
-    private function extractPrNumber(?string $prUrl): ?int
-    {
-        if ($prUrl === null || $prUrl === '') {
-            return null;
-        }
-
-        if (preg_match('#/pull/(\d+)#', $prUrl, $matches) === 1) {
-            return (int) $matches[1];
-        }
-
-        return null;
-    }
-
-    private function elapsedMs(int $startedAtNs): int
-    {
-        return (int) round((hrtime(true) - $startedAtNs) / 1_000_000);
     }
 
     /**
