@@ -183,12 +183,50 @@
                                 <span class="text-zinc-700 dark:text-zinc-300">{{ $task->external_id ?? '—' }}</span>
                             @endif
                         </td>
-                        <td class="max-w-xs truncate px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
+                        <td class="max-w-xs px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
                             @php($children = $task->branch_name ? ($this->descendantsByBranch[$task->branch_name] ?? collect()) : collect())
-                            {{ \Illuminate\Support\Str::limit($task->description, 60) }}
-                            @if($children->isNotEmpty())
-                                <span class="ml-2 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $children->count() }} follow-ups</span>
-                            @endif
+                            @php($preview = $this->previewsByTask[$task->id] ?? null)
+                            <div class="flex items-center gap-2">
+                                @if($preview)
+                                    {{-- Alpine-only swap: the list polls every 15s, and a Livewire
+                                         round-trip here would reset the GIF mid-hover. The GIF URL
+                                         rides along in a data attribute and is only assigned to
+                                         `src` on the first hover, so nothing is fetched on load. --}}
+                                    <a
+                                        href="{{ route('tasks.show', $task) }}?t=0"
+                                        wire:navigate
+                                        wire:key="preview-{{ $task->id }}"
+                                        class="relative shrink-0"
+                                        aria-label="Open the walkthrough for task {{ $task->external_id ?? $task->id }}"
+                                        @if($preview['gif']) data-preview-src="{{ $preview['gif'] }}" @endif
+                                        data-testid="task-preview-{{ $task->id }}"
+                                        x-data="{
+                                            src: @js($preview['poster']),
+                                            swapped: false,
+                                            swap() {
+                                                if (this.swapped || ! this.$el.dataset.previewSrc) {
+                                                    return;
+                                                }
+
+                                                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                                                    return;
+                                                }
+
+                                                this.src = this.$el.dataset.previewSrc;
+                                                this.swapped = true;
+                                            },
+                                        }"
+                                        @mouseenter="swap()"
+                                        @focus="swap()"
+                                    >
+                                        <img :src="src" alt="" loading="lazy" class="h-8 w-14 rounded-md border border-zinc-200 object-cover dark:border-zinc-700" />
+                                    </a>
+                                @endif
+                                <span class="truncate">{{ \Illuminate\Support\Str::limit($task->description, 60) }}</span>
+                                @if($children->isNotEmpty())
+                                    <span class="shrink-0 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $children->count() }} follow-ups</span>
+                                @endif
+                            </div>
                         </td>
                         <td class="px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</td>
                         <td class="px-3 py-2 sm:px-5">
