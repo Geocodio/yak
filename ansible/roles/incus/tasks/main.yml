@@ -331,7 +331,11 @@
       # processes as zombies and the agent-browser daemon hangs). Use
       # Playwright-bundled Chromium instead — a real deb-deps install
       # with a maintained binary under /home/yak/.cache/ms-playwright.
-      npm install -g @anthropic-ai/claude-code agent-browser playwright
+      # playwright is pinned so the sandbox Chromium matches the
+      # playwright-core version bundled into yak-browser
+      # (sandbox-tools/yak-browser/package.json). A test in that package
+      # asserts the two agree; bump both together.
+      npm install -g @anthropic-ai/claude-code agent-browser playwright@1.62.1
 
       # Create yak user (mirrors the host setup)
       useradd -m -s /bin/bash yak
@@ -354,6 +358,10 @@
       echo playwright > /home/yak/.agent-browser/default.engine
       chown -R yak:yak /home/yak/.agent-browser
       echo "export AGENT_BROWSER_ENGINE=playwright" >> /home/yak/.bashrc
+
+      # yak-browser bundles playwright-core and launches the Chromium
+      # installed above; it finds it through this path.
+      echo "export PLAYWRIGHT_BROWSERS_PATH=/home/yak/.cache/ms-playwright" >> /home/yak/.bashrc
 
       # Create workspace and results directories
       mkdir -p /workspace /results /home/yak/.claude
