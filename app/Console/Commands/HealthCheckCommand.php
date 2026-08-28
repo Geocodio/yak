@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Channels\Channel;
 use App\Channels\ChannelRegistry;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthStatus;
@@ -9,6 +10,8 @@ use App\Services\HealthCheck\Registry;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -16,6 +19,8 @@ use Illuminate\Support\Facades\Log;
 #[Description('Run health checks and post to Slack on failure')]
 class HealthCheckCommand extends Command
 {
+    private const FAILING_CACHE_KEY = 'yak:healthcheck:failing';
+
     public function handle(Registry $registry): int
     {
         $failures = [];
@@ -30,7 +35,14 @@ class HealthCheckCommand extends Command
             $failures[] = ['name' => $check->name(), 'result' => $result];
         }
 
+        $wasFailing = (bool) Cache::get(self::FAILING_CACHE_KEY, false);
+
         if (count($failures) === 0) {
+            if ($wasFailing) {
+                Cache::forget(self::FAILING_CACHE_KEY);
+                $this->notifyRecovered();
+            }
+
             $this->components->info('All health checks passed.');
 
             return self::SUCCESS;
@@ -44,7 +56,10 @@ class HealthCheckCommand extends Command
             ]);
         }
 
-        $this->notifySlack($failures);
+        if (! $wasFailing) {
+            Cache::put(self::FAILING_CACHE_KEY, true, now()->addDays(7));
+            $this->notifySlack($failures);
+        }
 
         return self::FAILURE;
     }
@@ -67,8 +82,30 @@ class HealthCheckCommand extends Command
             $failures
         );
 
-        $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines);
+        $held = DB::table('jobs')->where('queue', 'yak-claude')->count();
 
+        $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines)
+            . "\n\n*Tasks held in queue:* {$held}"
+            . "\n\n*To re-authenticate Claude:*\n"
+            . "```\nssh root@" . parse_url((string) config('app.url'), PHP_URL_HOST) . "\nyak-claude-login\n```\n"
+            . 'Then type `/login` in the Claude session that opens.';
+
+        $this->postToSlack($slack, $text);
+    }
+
+    private function notifyRecovered(): void
+    {
+        $slack = app(ChannelRegistry::class)->for('slack');
+
+        if ($slack === null || ! $slack->enabled()) {
+            return;
+        }
+
+        $this->postToSlack($slack, ':white_check_mark: *Yak Health Check Recovered*');
+    }
+
+    private function postToSlack(Channel $slack, string $text): void
+    {
         $config = $slack->config();
         /** @var string $token */
         $token = $config['bot_token'] ?? '';
