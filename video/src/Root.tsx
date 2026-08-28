@@ -7,6 +7,7 @@ import { WalkthroughV3, walkthroughV3Metadata } from './compositions/Walkthrough
 import type { Manifest, Script } from './lib/v3/types';
 import v3Manifest from '../fixtures/v3/manifest.json';
 import v3Script from '../fixtures/v3/script.json';
+import { SAMPLE_PROPS } from './preview/sample';
 
 const FPS = 30;
 
@@ -54,6 +55,16 @@ export const RemotionRoot = () => (
         theme: null,
         publicOrigin: 'https://www.example.com',
       }}
+      calculateMetadata={walkthroughV3Metadata}
+    />
+    <Composition
+      id="PreviewWalkthrough"
+      component={WalkthroughV3}
+      fps={FPS}
+      width={1440}
+      height={952}
+      durationInFrames={FPS * 20}
+      defaultProps={SAMPLE_PROPS}
       calculateMetadata={walkthroughV3Metadata}
     />
   </>
