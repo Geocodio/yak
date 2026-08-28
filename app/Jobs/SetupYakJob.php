@@ -15,6 +15,7 @@ use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
@@ -53,6 +54,15 @@ class SetupYakJob implements ShouldQueue
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
      * and lets a job wait out a drain or a re-authentication.
+     *
+     * retryUntil() and $tries=1 only actually collide on the hard-kill path
+     * (worker timeout / SIGKILL / OOM): a release from PausesDuringDrain or
+     * HoldsForClaudeAuth never reaches handle(), so it costs nothing but a
+     * queue row and isn't a "retry" in the budget-spending sense $tries=1
+     * guards against. A hard kill after the agent has already started is a
+     * real retry, and with a 3600s+ timeout on this job that path is the
+     * likely one, so handle() below fails outright rather than re-running
+     * the agent and burning a second budget.
      */
     public function retryUntil(): \DateTimeInterface
     {
@@ -107,6 +117,21 @@ class SetupYakJob implements ShouldQueue
     private function runSetup(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
+
+        // See retryUntil()'s docblock: a real retry (attempts() > 1) that
+        // already reached the agent on a prior attempt was hard-killed, not
+        // released by a free middleware hold. Re-running would burn a
+        // second agent budget for a setup that rarely succeeds on retry
+        // anyway (the same reasoning behind $tries=1). Fail outright instead.
+        if ($this->attempts() > 1 && $this->agentAlreadyRanOnPreviousAttempt()) {
+            $this->handleError(
+                $repository,
+                'Setup was hard-killed (timeout, crash, or OOM) after the agent had already started on a previous attempt. Not retrying automatically to avoid burning another agent budget — use "Re-run Setup" to try again.',
+            );
+
+            return;
+        }
+
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
 
@@ -258,6 +283,21 @@ class SetupYakJob implements ShouldQueue
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
         ]);
+    }
+
+    /**
+     * Whether a previous attempt at this task got far enough to spend
+     * agent budget. `TaskLog` rows are stamped with the attempt they were
+     * logged under (see TaskLogger::log()), and 'Starting Claude agent' is
+     * logged immediately before `$agent->run()` -- the point past which a
+     * hard kill discards real work rather than an idle queue wait.
+     */
+    private function agentAlreadyRanOnPreviousAttempt(): bool
+    {
+        return TaskLog::query()
+            ->where('yak_task_id', $this->task->id)
+            ->where('message', 'Starting Claude agent')
+            ->exists();
     }
 
     private function handleError(Repository $repository, string $errorMessage): void

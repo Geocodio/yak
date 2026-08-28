@@ -13,6 +13,7 @@ use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\TaskLogger;
 use App\YakPromptBuilder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Process;
@@ -438,6 +439,123 @@ test('SetupYakJob has PausesDuringDrain, HoldsForClaudeAuth, and EnsureDailyBudg
         ->and($middleware[0])->toBeInstanceOf(PausesDuringDrain::class)
         ->and($middleware[1])->toBeInstanceOf(HoldsForClaudeAuth::class)
         ->and($middleware[2])->toBeInstanceOf(EnsureDailyBudget::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Hard-kill retry guard
+|--------------------------------------------------------------------------
+*/
+
+test('a hard-killed retry fails outright once the agent already ran for this task', function () {
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create(['slug' => 'hardkill-repo', 'path' => '/home/yak/repos/hardkill-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'hardkill-repo',
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+    ]);
+
+    // Simulate a previous attempt that reached the agent before a worker
+    // timeout/SIGKILL/OOM hard-killed it without ever calling failed().
+    TaskLogger::info($task, 'Starting Claude agent');
+
+    $fake = new FakeAgentRunner;
+    $this->app->instance(AgentRunner::class, $fake);
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    $job = new SetupYakJob($task);
+    $job->job = new class
+    {
+        public function attempts(): int
+        {
+            return 2;
+        }
+    };
+
+    $job->handle($fake);
+
+    $task->refresh();
+    $repository->refresh();
+
+    expect($task->status)->toBe(TaskStatus::Failed);
+    expect($repository->setup_status)->toBe('failed');
+    expect($fake->calls)->toBeEmpty();
+    expect($fakeSandbox->createdContainers)->toBeEmpty();
+});
+
+test('a first attempt runs normally even though tries is 1', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_first',
+        resultSummary: 'ok',
+        costUsd: 1.0,
+        numTurns: 5,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create(['slug' => 'first-attempt-repo', 'path' => '/home/yak/repos/first-attempt-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'first-attempt-repo',
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success);
+    expect($fake->calls)->toHaveCount(1);
+});
+
+test('a retry with no prior agent run proceeds normally (e.g. release from a middleware hold)', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry',
+        resultSummary: 'ok',
+        costUsd: 1.0,
+        numTurns: 5,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create(['slug' => 'held-retry-repo', 'path' => '/home/yak/repos/held-retry-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'held-retry-repo',
+        'mode' => TaskMode::Setup,
+        'source' => 'dashboard',
+    ]);
+
+    $job = new SetupYakJob($task);
+    $job->job = new class
+    {
+        public function attempts(): int
+        {
+            return 2;
+        }
+    };
+
+    $job->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success);
+    expect($fake->calls)->toHaveCount(1);
 });
 
 /*
