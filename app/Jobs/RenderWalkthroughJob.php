@@ -16,6 +16,7 @@ use App\Services\RenderQaCheck;
 use App\Services\RenderQaFailure;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
+use App\Services\VoiceoverGenerator;
 use App\Services\WalkthroughPrSection;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -41,6 +42,8 @@ class RenderWalkthroughJob implements ShouldQueue
 
     public int $backoff = 30;
 
+    private int $ttsCharacters = 0;
+
     public function __construct(public int $taskId)
     {
         $this->onQueue('yak-render');
@@ -57,6 +60,7 @@ class RenderWalkthroughJob implements ShouldQueue
         RenderQaCheck $qa,
         PreviewGifGenerator $gif,
         Mp4ChapterWriter $chapters,
+        VoiceoverGenerator $voiceoverGenerator,
     ): void {
         $task = YakTask::find($this->taskId);
 
@@ -86,6 +90,8 @@ class RenderWalkthroughJob implements ShouldQueue
         foreach ($task->artifacts()->role('shot')->get() as $shot) {
             $clipPaths[pathinfo((string) $shot->filename, PATHINFO_FILENAME)] = $disk->path((string) $shot->disk_path);
         }
+
+        $this->generateVoiceover($task, $script, $voiceoverGenerator);
 
         $voiceover = $this->collectVoiceover($task, $renderer);
         $voiceoverJsonPath = $voiceover === null ? null : $this->writeVoiceoverJson($voiceover);
@@ -136,6 +142,7 @@ class RenderWalkthroughJob implements ShouldQueue
                 'render_ms' => $this->elapsedMs($startedAt),
                 'output_bytes' => $cutArtifact->size_bytes,
                 'duration_seconds' => $durationSeconds,
+                'tts_characters' => $this->ttsCharacters > 0 ? $this->ttsCharacters : null,
             ]);
 
             $this->publishWalkthrough($task, $cutArtifact, $thumbnailArtifact, $previewArtifact, $durationSeconds);
@@ -158,6 +165,28 @@ class RenderWalkthroughJob implements ShouldQueue
                 @unlink($voiceoverJsonPath);
             }
         }
+    }
+
+    /**
+     * Narration is optional and best-effort (spec §6): generated only when
+     * the script parses and the task has no voiceover artifacts yet, and
+     * never allowed to fail the render. The generator itself swallows
+     * every failure; `collectVoiceover()` then simply finds nothing.
+     */
+    private function generateVoiceover(YakTask $task, Artifact $script, VoiceoverGenerator $generator): void
+    {
+        if ($task->artifacts()->role('voiceover')->exists()) {
+            return;
+        }
+
+        $decoded = json_decode((string) Storage::disk('artifacts')->get((string) $script->disk_path), true);
+
+        if (! is_array($decoded)) {
+            return;
+        }
+
+        $generator->generate($task, $decoded);
+        $this->ttsCharacters = $generator->charactersGenerated();
     }
 
     /**
