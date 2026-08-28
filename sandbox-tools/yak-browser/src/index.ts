@@ -8,6 +8,7 @@ import { runFastforward } from './commands/fastforward.ts';
 import { runPassthrough } from './commands/passthrough.ts';
 import { runScript } from './commands/script.ts';
 import { runAssets } from './commands/assets.ts';
+import { runShoot } from './commands/shoot.ts';
 import { startSession, clearSession } from './lib/session.ts';
 import { join } from 'node:path';
 
@@ -65,6 +66,25 @@ async function main(argv: string[]): Promise<number> {
     return runAssets({
       argv: rest.filter((a) => !a.startsWith('--')),
       base: getFlag(rest, '--base'),
+      projectRoot: getFlag(rest, '--project-root'),
+    });
+  }
+
+  if (cmd === 'shoot') {
+    const scriptPath = rest.find((a) => !a.startsWith('--'));
+    if (!scriptPath) {
+      process.stderr.write('yak-browser shoot <file> --base <url> [--width N --height N] [--only <id>]\n');
+      return 2;
+    }
+    const width = getFlag(rest, '--width') ?? process.env.YAK_VIDEO_WIDTH;
+    const height = getFlag(rest, '--height') ?? process.env.YAK_VIDEO_HEIGHT;
+    return runShoot({
+      scriptPath,
+      base: getFlag(rest, '--base'),
+      width: width ? Number(width) : undefined,
+      height: height ? Number(height) : undefined,
+      only: getFlag(rest, '--only'),
+      artifactsDir: ARTIFACTS_DIR,
       projectRoot: getFlag(rest, '--project-root'),
     });
   }
