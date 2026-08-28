@@ -46,6 +46,52 @@ class Artifact extends Model
     }
 
     /**
+     * Roles an artifact can carry (spec §8). `cut`, `thumbnail`,
+     * `screenshot`, `raw` and `manifest` are written today; the rest are
+     * reserved for the v3 shoot/render phases.
+     *
+     * @var list<string>
+     */
+    public const array ROLES = [
+        'cut', 'thumbnail', 'preview', 'chapters', 'shot',
+        'still', 'screenshot', 'voiceover', 'manifest', 'script', 'raw',
+    ];
+
+    /**
+     * Derive `role` for rows written before the column existed. Director's
+     * Cut artifacts are deliberately left null so they never surface in
+     * the `cut()` scope — the tier is gone and its output was never used.
+     */
+    public static function backfillRoles(): void
+    {
+        static::query()->whereNull('role')->chunkById(500, function ($artifacts): void {
+            foreach ($artifacts as $artifact) {
+                $role = self::roleFor((string) $artifact->type, (string) $artifact->filename);
+
+                if ($role !== null) {
+                    $artifact->newQuery()->whereKey($artifact->getKey())->update(['role' => $role]);
+                }
+            }
+        });
+    }
+
+    public static function roleFor(string $type, string $filename): ?string
+    {
+        if (str_contains($filename, 'director-cut')) {
+            return null;
+        }
+
+        return match ($type) {
+            'video_cut' => 'cut',
+            'video_thumbnail' => 'thumbnail',
+            'screenshot' => 'screenshot',
+            'video' => 'raw',
+            'file' => $filename === 'storyboard.json' ? 'manifest' : null,
+            default => null,
+        };
+    }
+
+    /**
      * @param  Builder<Artifact>  $query
      * @return Builder<Artifact>
      */

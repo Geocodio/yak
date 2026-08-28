@@ -88,6 +88,7 @@ class RenderVideoJob implements ShouldQueue
         $cutArtifact = Artifact::create([
             'yak_task_id' => $raw->yak_task_id,
             'type' => 'video_cut',
+            'role' => 'cut',
             'filename' => $outputFilename,
             'disk_path' => $outputDiskPath,
             'size_bytes' => file_exists($outputPath) ? filesize($outputPath) : 0,
@@ -133,6 +134,7 @@ class RenderVideoJob implements ShouldQueue
         return Artifact::create([
             'yak_task_id' => $raw->yak_task_id,
             'type' => 'video_thumbnail',
+            'role' => 'thumbnail',
             'filename' => $thumbnailFilename,
             'disk_path' => $thumbnailDiskPath,
             'size_bytes' => file_exists($thumbnailPath) ? filesize($thumbnailPath) : 0,

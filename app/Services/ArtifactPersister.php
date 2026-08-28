@@ -45,6 +45,7 @@ class ArtifactPersister
         foreach ($files as $file) {
             $storagePath = "{$task->id}/{$file->getFilename()}";
             $type = self::detectArtifactType($file->getExtension());
+            $role = Artifact::roleFor($type, $file->getFilename());
 
             if ($artifactsPath !== $taskDir) {
                 $targetPath = Storage::disk('artifacts')->path($storagePath);
@@ -75,6 +76,7 @@ class ArtifactPersister
             $artifact = Artifact::create([
                 'yak_task_id' => $task->id,
                 'type' => $type,
+                'role' => $role,
                 'filename' => $file->getFilename(),
                 'disk_path' => $storagePath,
                 'size_bytes' => Storage::disk('artifacts')->size($storagePath),

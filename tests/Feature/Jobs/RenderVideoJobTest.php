@@ -394,3 +394,52 @@ test('failed() survives a task with no PR and a PR patch failure', function () {
 
     Queue::assertPushed(SendNotificationJob::class);
 });
+
+test('the rendered cut and thumbnail carry their artifact roles', function () {
+    Storage::fake('artifacts');
+
+    $task = YakTask::factory()->success()->create([
+        'repo' => 'acme/web',
+        'pr_url' => 'https://github.com/acme/web/pull/88',
+    ]);
+    $raw = Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video',
+        'role' => 'raw',
+        'filename' => 'walkthrough.webm',
+        'disk_path' => "{$task->id}/walkthrough.webm",
+    ]);
+    Storage::disk('artifacts')->put("{$task->id}/walkthrough.webm", 'webm');
+    Storage::disk('artifacts')->put(
+        "{$task->id}/storyboard.json",
+        json_encode(['version' => 1, 'plan' => (object) [], 'events' => []])
+    );
+
+    $renderer = $this->mock(VideoRenderer::class);
+    $renderer
+        ->shouldReceive('render')
+        ->once()
+        ->andReturnUsing(function ($w, $s, $out) {
+            file_put_contents($out, 'x');
+
+            return $out;
+        });
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(null);
+
+    $this->mock(VideoThumbnailer::class)
+        ->shouldReceive('generate')
+        ->once()
+        ->andReturnUsing(function ($v, $out) {
+            file_put_contents($out, 'jpg');
+
+            return $out;
+        });
+
+    $this->mock(PullRequestBodyUpdater::class)
+        ->shouldReceive('setWalkthrough')
+        ->once();
+
+    (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
+
+    expect(Artifact::where('yak_task_id', $task->id)->where('role', 'cut')->count())->toBe(1)
+        ->and(Artifact::where('yak_task_id', $task->id)->where('role', 'thumbnail')->count())->toBe(1);
+});

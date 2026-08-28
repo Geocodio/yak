@@ -54,3 +54,23 @@ it('returns an empty array when no artifacts directory exists', function () {
     expect(ArtifactPersister::persist($task))->toBe([]);
     expect(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
 });
+
+it('stamps a role on every artifact it persists', function () {
+    $task = YakTask::factory()->create();
+
+    $artifactsDir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    mkdir($artifactsDir, 0755, true);
+    file_put_contents($artifactsDir . '/walkthrough.webm', 'fake-webm-bytes');
+    file_put_contents($artifactsDir . '/storyboard.json', '{"chapters":[]}');
+    file_put_contents($artifactsDir . '/notes.txt', 'plain');
+
+    ArtifactPersister::persist($task);
+
+    $roles = Artifact::where('yak_task_id', $task->id)
+        ->pluck('role', 'filename')
+        ->all();
+
+    expect($roles['walkthrough.webm'])->toBe('raw')
+        ->and($roles['storyboard.json'])->toBe('manifest')
+        ->and($roles['notes.txt'])->toBeNull();
+});
