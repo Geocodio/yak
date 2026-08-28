@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Repository;
+use App\Models\VideoTheme;
 use Illuminate\Support\Facades\Process;
 
 it('stores a public site url on a repository', function (): void {
@@ -31,3 +32,7 @@ it('matches the composition theme defaults', function (): void {
 
     expect($defaults['theme'])->toBe(config('yak.video.theme'));
 })->skip(fn (): bool => ! is_dir(base_path('video/node_modules')), 'video/node_modules not installed');
+
+it('seeds a fresh theme row from the config defaults', function (): void {
+    expect(VideoTheme::current()->theme)->toBe(config('yak.video.theme'));
+});
