@@ -7,7 +7,11 @@
 //      is only reached from a lazily-initialised BiDi code path we never use.
 //   2. esbuild's ESM output turns require() into a throwing stub; playwright
 //      needs a real one.
-//   3. playwright computes packageRoot = join(__dirname, '..') and reads
+//   3. chokidar (vendored inside playwright-core) does an optional
+//      require("fsevents") inside a try/catch. On macOS the native .node
+//      binary is installed and esbuild has no loader for it; keeping it
+//      external leaves the require to fail at runtime as chokidar expects.
+//   4. playwright computes packageRoot = join(__dirname, '..') and reads
 //      <packageRoot>/package.json and <packageRoot>/browsers.json. The banner
 //      materialises both under os.tmpdir() and points __dirname at it.
 import { build } from 'esbuild';
@@ -45,7 +49,7 @@ await build({
   target: 'node20',
   format: 'esm',
   outfile: join(root, 'dist', 'yak-browser.js'),
-  external: ['chromium-bidi/*'],
+  external: ['chromium-bidi/*', 'fsevents'],
   banner: { js: banner },
   logLevel: 'info',
 });

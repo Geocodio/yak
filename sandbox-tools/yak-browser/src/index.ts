@@ -7,6 +7,7 @@ import { runEmphasize } from './commands/emphasize.ts';
 import { runFastforward } from './commands/fastforward.ts';
 import { runPassthrough } from './commands/passthrough.ts';
 import { runScript } from './commands/script.ts';
+import { runAssets } from './commands/assets.ts';
 import { startSession, clearSession } from './lib/session.ts';
 import { join } from 'node:path';
 
@@ -57,6 +58,14 @@ async function main(argv: string[]): Promise<number> {
       scriptPath,
       base: getFlag(rest, '--base'),
       review: rest.includes('--review'),
+    });
+  }
+
+  if (cmd === 'assets') {
+    return runAssets({
+      argv: rest.filter((a) => !a.startsWith('--')),
+      base: getFlag(rest, '--base'),
+      projectRoot: getFlag(rest, '--project-root'),
     });
   }
 
