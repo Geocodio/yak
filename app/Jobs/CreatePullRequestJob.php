@@ -6,9 +6,10 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Models\Artifact;
 use App\Models\Repository;
+use App\Models\VideoMetric;
 use App\Models\YakTask;
-use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
+use App\Services\WalkthroughPrSection;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -166,41 +167,48 @@ class CreatePullRequestJob implements ShouldQueue
         $parts[] = '';
         $parts[] = $this->task->result_summary ?? '_No summary available._';
 
-        $screenshots = array_filter($signedUrls, fn (array $a): bool => $a['type'] === 'screenshot');
-        if (count($screenshots) > 0) {
+        $screenshotArtifacts = $this->task->artifacts()->role('screenshot')->orderBy('id')->get();
+        if ($screenshotArtifacts->isNotEmpty()) {
             $parts[] = '';
             $parts[] = '### Screenshots';
-            foreach ($screenshots as $screenshot) {
-                $parts[] = "![{$screenshot['filename']}]({$screenshot['url']})";
-                $parts[] = '';
-            }
+            $parts[] = '';
+            $parts[] = WalkthroughPrSection::screenshots(
+                $screenshotArtifacts->map(fn (Artifact $artifact): array => [
+                    'caption' => $artifact->caption,
+                    'url' => $artifact->publicUrl() ?? $artifact->signedUrl(),
+                ])->all(),
+            );
         }
 
-        // Prefer the rendered walkthrough (Remotion output) over the raw
-        // webm. The cut is a polished mp4 with title cards and callouts —
-        // reviewers should see that. Fall back to raw video artifacts only
-        // if rendering produced no cut (no storyboard, or a failed render).
-        $videoCut = $this->task->artifacts()->cut()->latest('id')->first();
-        if ($videoCut !== null) {
-            $thumbnail = $this->task->artifacts()->thumbnail()->latest('id')->first();
-            $parts[] = '';
-            $parts[] = '### Video walkthrough';
-            $parts[] = PullRequestBodyUpdater::videoMarkdown(
-                videoUrl: $videoCut->signedUrl(),
-                filename: $videoCut->filename,
-                thumbnailUrl: $thumbnail?->signedUrl(),
-            );
-        } else {
-            $videos = array_filter($signedUrls, fn (array $a): bool => $a['type'] === 'video');
-            if (count($videos) > 0) {
-                $parts[] = '';
-                $parts[] = '### Video walkthrough';
-                foreach ($videos as $video) {
-                    $parts[] = "- [{$video['filename']}]({$video['url']})";
-                }
-            }
-        }
+        $parts[] = '';
+        $parts[] = $this->walkthroughSection();
 
         return implode("\n", $parts);
+    }
+
+    /**
+     * The PR opens on green CI, usually before the render finishes, so the
+     * section starts as a placeholder the render replaces (spec §8).
+     */
+    private function walkthroughSection(): string
+    {
+        $cut = $this->task->artifacts()->cut()->latest('id')->first();
+
+        if ($cut === null) {
+            return WalkthroughPrSection::pending();
+        }
+
+        $preview = $this->task->artifacts()->preview()->latest('id')->first();
+        $thumbnail = $this->task->artifacts()->thumbnail()->latest('id')->first();
+
+        return WalkthroughPrSection::ready(
+            videoUrl: $cut->signedUrl(),
+            gifUrl: $preview?->publicUrl() ?? $preview?->signedUrl(),
+            thumbnailUrl: $thumbnail?->publicUrl() ?? $thumbnail?->signedUrl(),
+            durationSeconds: (float) (VideoMetric::where('yak_task_id', $this->task->id)
+                ->where('status', VideoMetric::STATUS_RENDERED)
+                ->latest('id')->value('duration_seconds') ?? 0.0),
+            chapters: WalkthroughPrSection::chaptersForTask($this->task),
+        );
     }
 }

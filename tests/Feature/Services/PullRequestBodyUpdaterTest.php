@@ -2,6 +2,7 @@
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Services\PullRequestBodyUpdater;
+use App\Services\WalkthroughPrSection;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 77);
@@ -22,7 +23,8 @@ test('swaps the raw webm fallback link for the rendered reviewer cut', function 
             return $installationId === 77
                 && $repo === 'owner/repo'
                 && $num === 42
-                && str_contains($data['body'], '[walkthrough.mp4](https://signed.example/mp4)')
+                && str_contains($data['body'], WalkthroughPrSection::MARKER_START)
+                && str_contains($data['body'], '](https://signed.example/mp4)')
                 && ! str_contains($data['body'], 'walkthrough.webm')
                 && str_contains($data['body'], '### Files changed');
         })
@@ -48,8 +50,10 @@ test('creates the Video walkthrough section if missing', function () {
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
-            return str_contains($data['body'], '### Video walkthrough')
-                && str_contains($data['body'], '[walkthrough.mp4](https://signed.example/mp4)');
+            return str_contains($data['body'], WalkthroughPrSection::MARKER_START)
+                && str_contains($data['body'], '### Video walkthrough')
+                && str_contains($data['body'], '](https://signed.example/mp4)')
+                && str_contains($data['body'], WalkthroughPrSection::MARKER_END);
         })
         ->andReturn(['body' => 'ok']);
 
@@ -66,8 +70,9 @@ test('handles empty body by creating the Video walkthrough section', function ()
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function ($installationId, $repo, $num, array $data): bool {
-            return str_contains($data['body'], '### Video walkthrough')
-                && str_contains($data['body'], '[walkthrough.mp4]');
+            return str_contains($data['body'], WalkthroughPrSection::MARKER_START)
+                && str_contains($data['body'], '### Video walkthrough')
+                && str_contains($data['body'], '](https://signed.example/mp4)');
         })
         ->andReturn(['body' => 'ok']);
 
@@ -75,8 +80,14 @@ test('handles empty body by creating the Video walkthrough section', function ()
     $updater->setWalkthrough('owner/repo', 42, 'https://signed.example/mp4');
 });
 
-test('is idempotent when the plain-link form is already present and no thumbnail is supplied', function () {
-    $existing = "### Video walkthrough\n\n- [walkthrough.mp4](https://signed.example/old?exp=1)\n";
+test('is idempotent when the marked section already says exactly this', function () {
+    $existing = "Summary\n\n" . WalkthroughPrSection::ready(
+        videoUrl: 'https://signed.example/new?exp=2',
+        gifUrl: null,
+        thumbnailUrl: null,
+        durationSeconds: 0.0,
+        chapters: [],
+    );
 
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')
@@ -86,7 +97,6 @@ test('is idempotent when the plain-link form is already present and no thumbnail
     $github->shouldNotReceive('updatePullRequest');
 
     $updater = new PullRequestBodyUpdater($github);
-    // Plain-text link already present, we're not offering a thumbnail — no-op.
     $updater->setWalkthrough('owner/repo', 42, 'https://signed.example/new?exp=2');
 });
 
@@ -105,7 +115,7 @@ test('preserves content after the Video walkthrough section (no heading before t
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function ($i, $r, $n, array $data): bool {
-            return str_contains($data['body'], '![Watch walkthrough.mp4](https://signed.example/thumb)')
+            return str_contains($data['body'], '![walkthrough poster](https://signed.example/thumb)')
                 && str_contains($data['body'], '> **Warning:**')
                 && str_contains($data['body'], "\n\n---\n> ") // blank line + divider + callout preserved
                 && ! str_contains($data['body'], 'walkthrough.webm');
@@ -121,7 +131,7 @@ test('preserves content after the Video walkthrough section (no heading before t
     );
 });
 
-test('upgrades plain-text link to image embed when a thumbnail becomes available', function () {
+test('upgrades a legacy plain-text link to the marked section with a poster', function () {
     $existing = "### Video walkthrough\n\n- [walkthrough.mp4](https://signed.example/video?exp=1)\n\n### Files changed\n\n- `foo.php`";
 
     $github = $this->mock(GitHubAppService::class);
@@ -132,7 +142,7 @@ test('upgrades plain-text link to image embed when a thumbnail becomes available
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function ($i, $r, $n, array $data): bool {
-            return str_contains($data['body'], '![Watch walkthrough.mp4](https://signed.example/thumb)')
+            return str_contains($data['body'], '![walkthrough poster](https://signed.example/thumb)')
                 && str_contains($data['body'], '](https://signed.example/video)')
                 && ! str_contains($data['body'], '- [walkthrough.mp4]')
                 && str_contains($data['body'], '### Files changed');
@@ -148,7 +158,7 @@ test('upgrades plain-text link to image embed when a thumbnail becomes available
     );
 });
 
-test('is idempotent when the image-embed form is already present', function () {
+test('replaces the legacy image-embed form with the marked section', function () {
     $existing = "### Video walkthrough\n\n[![Watch walkthrough.mp4](https://signed.example/thumb?exp=1)](https://signed.example/video?exp=1)\n";
 
     $github = $this->mock(GitHubAppService::class);
@@ -156,7 +166,14 @@ test('is idempotent when the image-embed form is already present', function () {
         ->once()
         ->andReturn(['body' => $existing]);
 
-    $github->shouldNotReceive('updatePullRequest');
+    $github->shouldReceive('updatePullRequest')
+        ->once()
+        ->withArgs(function ($i, $r, $n, array $data): bool {
+            return str_contains($data['body'], WalkthroughPrSection::MARKER_START)
+                && str_contains($data['body'], '![walkthrough poster](https://signed.example/thumb?exp=2)')
+                && ! str_contains($data['body'], '[![Watch walkthrough.mp4]');
+        })
+        ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
     $updater->setWalkthrough(
@@ -172,7 +189,8 @@ test('setWalkthrough replaces a previous unavailable line with the cut', functio
     $github = Mockery::mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $body]);
     $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
-        return str_contains($payload['body'], "### Video walkthrough\n\n- [walkthrough.mp4](https://example.test/cut.mp4)\n")
+        return str_contains($payload['body'], '](https://example.test/cut.mp4)')
+            && str_contains($payload['body'], WalkthroughPrSection::MARKER_START)
             && ! str_contains($payload['body'], 'unavailable')
             && str_contains($payload['body'], "### Files changed\n- a.php");
     })->andReturn([]);
@@ -186,6 +204,7 @@ test('setWalkthroughUnavailable replaces the raw webm link line with an explanat
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $body]);
     $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
         return str_contains($payload['body'], "### Video walkthrough\n\n_Video walkthrough unavailable (render failed: Remotion exited 1)._\n")
+            && str_contains($payload['body'], WalkthroughPrSection::MARKER_END)
             && ! str_contains($payload['body'], 'walkthrough.webm')
             && str_contains($payload['body'], "### Files changed\n- a.php");
     })->andReturn([]);
@@ -197,12 +216,12 @@ test('setWalkthroughUnavailable is idempotent and appends a section when none ex
     $github = Mockery::mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "Summary only\n"]);
     $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
-        return str_ends_with($payload['body'], "\n\n### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom)._\n");
+        return str_ends_with($payload['body'], "\n\n" . WalkthroughPrSection::unavailable('boom'));
     })->andReturn([]);
     (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('o/r', 1, 'boom');
 
     $github2 = Mockery::mock(GitHubAppService::class);
-    $github2->shouldReceive('getPullRequest')->once()->andReturn(['body' => "### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom)._\n"]);
+    $github2->shouldReceive('getPullRequest')->once()->andReturn(['body' => "Summary only\n\n" . WalkthroughPrSection::unavailable('boom')]);
     $github2->shouldNotReceive('updatePullRequest');
     (new PullRequestBodyUpdater($github2))->setWalkthroughUnavailable('o/r', 1, 'boom');
 });
@@ -219,4 +238,58 @@ test('setWalkthroughUnavailable keeps a reason containing regex backreferences a
     })->andReturn([]);
 
     (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('Geocodio/geocodio-website', 42, $reason);
+});
+
+/**
+ * Fakes the GitHub PR fetch and captures the body sent in the PATCH.
+ *
+ * @return Closure(): string
+ */
+function fakeGitHubPrWithBody(string $body): Closure
+{
+    $captured = new stdClass;
+    $captured->body = '';
+
+    $github = Mockery::mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->andReturn(['body' => $body]);
+    $github->shouldReceive('updatePullRequest')
+        ->andReturnUsing(function (int $installationId, string $repo, int $prNumber, array $payload) use ($captured): array {
+            $captured->body = (string) $payload['body'];
+
+            return [];
+        });
+
+    app()->instance(GitHubAppService::class, $github);
+
+    return fn (): string => (string) $captured->body;
+}
+
+it('replaces the whole marked section on success', function (): void {
+    $captured = fakeGitHubPrWithBody("Intro\n\n" . WalkthroughPrSection::pending() . "\n\n### Files changed");
+
+    app(PullRequestBodyUpdater::class)->setWalkthrough(
+        repoFullName: 'acme/site',
+        prNumber: 7,
+        walkthroughUrl: 'https://yak.test/mp4',
+        filename: 'walkthrough.mp4',
+        thumbnailUrl: 'https://yak.test/jpg',
+        gifUrl: 'https://yak.test/gif',
+        durationSeconds: 84.0,
+        chapters: [['title' => 'Levels', 'startSeconds' => 4.0, 'url' => 'https://yak.test/tasks/5?t=4']],
+    );
+
+    expect($captured())
+        ->toContain('![walkthrough preview](https://yak.test/gif)')
+        ->toContain('▶ [Watch the full walkthrough (1:24)](https://yak.test/mp4)')
+        ->toContain('[0:04](https://yak.test/tasks/5?t=4) Levels')
+        ->toContain('### Files changed')
+        ->not->toContain('_Rendering,');
+});
+
+it('replaces the marked section with the unavailable line on failure', function (): void {
+    $captured = fakeGitHubPrWithBody("Intro\n\n" . WalkthroughPrSection::pending());
+
+    app(PullRequestBodyUpdater::class)->setWalkthroughUnavailable('acme/site', 7, 'QA: caption too long');
+
+    expect($captured())->toContain('_Video walkthrough unavailable (render failed: QA: caption too long)._');
 });

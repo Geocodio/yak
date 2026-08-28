@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\YakTask;
+use Illuminate\Support\Facades\Storage;
+
 /**
  * Builds the marker-delimited walkthrough block Yak owns inside a pull
  * request body. Everything between the two HTML comment markers is Yak's:
@@ -62,6 +65,35 @@ final class WalkthroughPrSection
         }
 
         return self::wrap(implode("\n\n", $parts));
+    }
+
+    /**
+     * Read the task's `chapters` artifact and turn it into the PR body's
+     * chapter line entries, each deep-linking the task page's player.
+     *
+     * @return array<int, array{title: string, startSeconds: float, url: string}>
+     */
+    public static function chaptersForTask(YakTask $task): array
+    {
+        $artifact = $task->artifacts()->role('chapters')->latest('id')->first();
+
+        if ($artifact === null || ! Storage::disk('artifacts')->exists((string) $artifact->disk_path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) Storage::disk('artifacts')->get((string) $artifact->disk_path), true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $taskUrl = route('tasks.show', ['task' => $task->id]);
+
+        return array_values(array_map(fn (array $chapter): array => [
+            'title' => (string) ($chapter['title'] ?? ''),
+            'startSeconds' => (float) ($chapter['startSeconds'] ?? 0),
+            'url' => $taskUrl . '?t=' . (int) round((float) ($chapter['startSeconds'] ?? 0)),
+        ], array_filter($decoded, is_array(...))));
     }
 
     /** Replace the marked block wholesale, or append it when absent. */
