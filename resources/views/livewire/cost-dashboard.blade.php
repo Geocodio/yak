@@ -90,7 +90,7 @@
         <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center" title="Total size of rendered cuts in this period.">
             <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Video output</div>
             <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $video['total_mb'] }} MB</div>
-            <div class="text-xs text-yak-blue">rendered cuts</div>
+            <div class="text-xs text-yak-blue">rendered cuts · {{ $video['tts_characters'] }} voiceover credits</div>
         </div>
     </div>
 
