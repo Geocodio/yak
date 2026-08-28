@@ -27,17 +27,19 @@ recording is followed by the rendered walkthrough. --}}
             <flux:heading size="lg">{{ $lightboxArtifact->filename }}</flux:heading>
         </div>
 
-        @if($lightboxArtifact->type === 'video')
-            <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
-                <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
-            </div>
+        @if(in_array($lightboxArtifact->type, ['video', 'video_cut'], true))
+            @if($lightboxArtifact->id !== $this->walkthroughCut?->id)
+                <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+                    <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
+                </div>
+            @endif
 
             @if($task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut)
                 <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
                     @include('livewire.tasks.partials.walkthrough-player', [
                         'walkthroughUrl' => $this->walkthroughCut->signedUrl(),
                         'chapters' => $this->chapters,
-                        'seekSeconds' => null,
+                        'seekSeconds' => $this->seekSeconds,
                     ])
                 </div>
             @endif

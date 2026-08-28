@@ -120,3 +120,37 @@ test('there is no transcript block without chapters', function () {
         ->call('openMediaLightbox', $recording->id)
         ->assertDontSeeHtml('data-testid="walkthrough-transcript"');
 });
+
+test('a ?t= deep link opens the lightbox on the cut and passes the seek point', function () {
+    [$task] = taskWithChapters([
+        ['title' => 'Geography levels', 'startSeconds' => 4, 'shots' => [
+            ['id' => 'intro', 'startSeconds' => 4, 'say' => 'Here are the geography levels.'],
+        ]],
+    ]);
+
+    Livewire::withUrlParams(['t' => 31])
+        ->test(TaskDetail::class, ['task' => $task])
+        ->assertSet('lightboxOpen', true)
+        ->assertSet('lightboxArtifactId', $task->artifacts()->cut()->first()->id)
+        ->assertSeeHtml('seekTo: 31');
+});
+
+test('a ?t= deep link without a cut leaves the lightbox closed', function () {
+    $task = YakTask::factory()->success()->create();
+
+    Livewire::withUrlParams(['t' => 12])
+        ->test(TaskDetail::class, ['task' => $task])
+        ->assertSet('lightboxOpen', false);
+});
+
+test('no ?t= leaves the player without a seek point', function () {
+    [$task, $recording] = taskWithChapters([
+        ['title' => 'Geography levels', 'startSeconds' => 4, 'shots' => [
+            ['id' => 'intro', 'startSeconds' => 4, 'say' => 'Here are the geography levels.'],
+        ]],
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertSeeHtml('seekTo: null');
+});

@@ -149,6 +149,13 @@ class TaskDetail extends Component
 
     public bool $lightboxOpen = false;
 
+    /**
+     * Seconds to seek the walkthrough to, from a `?t=` deep link in a PR
+     * body's chapter line. Opening the page with it opens the player.
+     */
+    #[Url(as: 't', except: null)]
+    public ?int $seekSeconds = null;
+
     public function mount(YakTask $task): void
     {
         if ($task->parent_task_id !== null) {
@@ -163,6 +170,7 @@ class TaskDetail extends Component
         $this->visibleAttempt = max(1, (int) $task->attempts);
 
         $this->openDeepLinkedEntry();
+        $this->openDeepLinkedWalkthrough();
 
         $notice = session('reReview');
         $message = match ($notice) {
@@ -1293,6 +1301,27 @@ class TaskDetail extends Component
     public function closeMediaLightbox(): void
     {
         $this->lightboxOpen = false;
+    }
+
+    /**
+     * `?t=<seconds>` opens the walkthrough at that point. Without a cut
+     * there is nothing to open, so the parameter is ignored rather than
+     * opening an empty lightbox.
+     */
+    private function openDeepLinkedWalkthrough(): void
+    {
+        if ($this->seekSeconds === null) {
+            return;
+        }
+
+        $cut = $this->walkthroughCut();
+
+        if ($cut === null) {
+            return;
+        }
+
+        $this->lightboxArtifactId = $cut->id;
+        $this->lightboxOpen = true;
     }
 
     /**
