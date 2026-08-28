@@ -94,7 +94,12 @@ class SvgLogoValidator
      * target attribute at runtime — e.g. animating `xlink:href` on an
      * anchor to a `javascript:` URI — so the literal `href`/`on*` checks
      * in `attributesAreSafe()` alone are not enough; the animation
-     * elements themselves must be rejected outright.
+     * elements themselves must be rejected outright. The comparison uses
+     * only the local part of `attributeName` (after any ':' prefix) so
+     * that re-aliasing the XLink namespace to a different prefix (e.g.
+     * `xmlns:evil="http://www.w3.org/1999/xlink"` with
+     * `attributeName="evil:href"`) cannot bypass a literal
+     * `"xlink:href"` string comparison.
      */
     private function smilAnimationsAreSafe(DOMXPath $xpath): bool
     {
@@ -114,7 +119,17 @@ class SvgLogoValidator
 
             $target = strtolower(trim($animation->getAttribute('attributeName')));
 
-            if ($target === 'href' || $target === 'xlink:href' || str_starts_with($target, 'on')) {
+            // Compare only the local part (after any ':' prefix): any
+            // namespace prefix a document binds to the XLink namespace
+            // (not just the literal string "xlink") behaves identically
+            // to "xlink:href" in a browser, so a literal string compare
+            // against "xlink:href" alone is bypassable by re-aliasing the
+            // prefix (e.g. xmlns:evil="http://www.w3.org/1999/xlink" then
+            // attributeName="evil:href"). Comparing the local part covers
+            // every alias, including the unprefixed "href" form.
+            $localTarget = str_contains($target, ':') ? substr($target, strrpos($target, ':') + 1) : $target;
+
+            if ($localTarget === 'href' || str_starts_with($localTarget, 'on')) {
                 return false;
             }
         }

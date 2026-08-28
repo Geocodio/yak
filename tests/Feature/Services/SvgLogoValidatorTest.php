@@ -122,3 +122,29 @@ it('accepts an animateMotion element with no attributeName', function (): void {
 
     expect(new SvgLogoValidator)->isSafe($svg)->toBeTrue();
 });
+
+it('rejects an aliased xlink namespace prefix used to disguise attributeName="href"', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:evil="http://www.w3.org/1999/xlink">
+      <a>
+        <text x="10" y="20">click me</text>
+        <animate attributeName="evil:href" to="javascript:alert(document.domain)" begin="0s" dur="1s" fill="freeze"/>
+      </a>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
+});
+
+it('rejects a whitespace-padded, mixed-case aliased attributeName', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:Evil="http://www.w3.org/1999/xlink">
+      <a>
+        <text x="10" y="20">click me</text>
+        <animate attributeName=" Evil:HREF " to="javascript:alert(document.domain)" begin="0s" dur="1s" fill="freeze"/>
+      </a>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
+});
