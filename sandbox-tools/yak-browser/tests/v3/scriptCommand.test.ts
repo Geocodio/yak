@@ -5,6 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runScript } from '../../src/commands/script.ts';
 import { validScript } from './lint.test.ts';
+import { startStaticServer } from '../support/server.ts';
+import { skipWithoutChromium } from '../support/browser.ts';
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
+
+const siteRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures', 'site');
 
 function writeScript(body: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), 'yak-script-'));
@@ -112,4 +118,28 @@ test('--review prints the script and the three-question checklist', async () => 
   assert.match(printed, /does the intro say what changed/i);
   assert.match(printed, /does every shot show something the diff touched/i);
   assert.match(printed, /would a reviewer know where to look/i);
+});
+
+test('with --base a bad selector exits 2', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const script = validScript();
+  script.shots = [
+    { id: 'one', chapter: 'One', say: 'The first section of the fixture page is shown.', do: [{ navigate: '/' }, { scroll_to: '#first' }], focus: '#first' },
+    { id: 'two', chapter: 'Two', say: 'The target paragraph in the second section is shown.', do: [{ scroll_to: '#target' }], focus: '#target' },
+    { id: 'three', chapter: 'Three', say: 'A selector that does not exist anywhere on the page.', do: [{ scroll_to: '#nope' }], focus: '#third' },
+  ];
+  script.screenshots = [{ id: 'one-shot', caption: 'The first section', after_shot: 'one' }];
+  const path = writeScript(script);
+  const err = captureStderr();
+  const out = captureStdout();
+  let code: number;
+  try {
+    code = await runScript({ scriptPath: path, base: server.url, projectRoot: mkdtempSync(join(tmpdir(), 'empty-')) });
+  } finally {
+    err.restore();
+    out.restore();
+    await server.close();
+  }
+  assert.strictEqual(code, 2);
+  assert.match(err.lines(), /#nope/);
 });
