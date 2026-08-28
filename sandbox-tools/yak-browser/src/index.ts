@@ -6,6 +6,7 @@ import { runCallout } from './commands/callout.ts';
 import { runEmphasize } from './commands/emphasize.ts';
 import { runFastforward } from './commands/fastforward.ts';
 import { runPassthrough } from './commands/passthrough.ts';
+import { runScript } from './commands/script.ts';
 import { startSession, clearSession } from './lib/session.ts';
 import { join } from 'node:path';
 
@@ -45,6 +46,19 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
   const [cmd, ...rest] = argv;
+
+  if (cmd === 'script') {
+    const scriptPath = rest.find((a) => !a.startsWith('--'));
+    if (!scriptPath) {
+      process.stderr.write('yak-browser script <file> [--base <url>] [--review]\n');
+      return 2;
+    }
+    return runScript({
+      scriptPath,
+      base: getFlag(rest, '--base'),
+      review: rest.includes('--review'),
+    });
+  }
 
   // Recording lifecycle — start/stop the session around agent-browser calls.
   if (cmd === 'record' && rest[0] === 'start') {
