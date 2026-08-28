@@ -64,6 +64,10 @@ class IncusSandboxManager
         // any the agent spawns — sees them.
         $this->configureEnvironment($containerName);
 
+        // Share the host Claude config directory. Must precede `incus start`:
+        // raw.idmap is only applied when the container boots.
+        $this->configureClaudeMount($containerName);
+
         // Start the container
         $this->exec("incus start {$containerName}");
 
@@ -73,9 +77,6 @@ class IncusSandboxManager
         // Hot-push the host's current yak-browser bundle so walkthrough
         // tasks pick up new builds without rebuilding the Incus base image.
         $this->pushYakBrowser($containerName);
-
-        // Push Claude config into the container
-        $this->pushClaudeConfig($containerName);
 
         // Push MCP config if configured
         $this->pushMcpConfig($containerName);
@@ -320,6 +321,16 @@ class IncusSandboxManager
 
         // Stop the task container
         $this->exec("incus stop {$containerName}");
+
+        // `incus copy` carries instance-local devices and config to the
+        // copy. Strip the shared claude credential mount and its idmap
+        // before promoting, so the template (and every sandbox cloned from
+        // it) doesn't inherit a live read/write mount of the host's
+        // ~/.claude. The container is stopped and about to be destroyed,
+        // so this is safe; best-effort since a container that never had
+        // the device/idmap must not fail the promotion.
+        Process::run("incus config device remove {$containerName} claude 2>/dev/null");
+        Process::run("incus config unset {$containerName} raw.idmap 2>/dev/null");
 
         // Copy task container as the new template
         $this->exec("incus copy {$containerName} {$templateName}");
@@ -694,39 +705,59 @@ class IncusSandboxManager
         throw new RuntimeException("Sandbox {$containerName} did not become ready within {$maxWaitSeconds}s");
     }
 
-    private function pushClaudeConfig(string $containerName): void
+    /**
+     * Share the host's Claude config directory with the sandbox instead of
+     * copying it.
+     *
+     * Claude Code's OAuth refresh tokens are single-use: each refresh
+     * invalidates the previous one server-side. Handing every sandbox a
+     * private copy meant the first sandbox to refresh stranded every other
+     * copy, which is the "OAuth session expired and could not be refreshed"
+     * failure. With one shared directory there is exactly one credential
+     * file, and the CLI's own `.oauth_refresh.lock` — which lives in that
+     * directory — serializes concurrent refreshes the way it was designed to.
+     *
+     * `raw.idmap` maps the host uid that owns the directory onto the
+     * container's `yak` user, so the agent can read and write it and its
+     * writes land host-side owned by www-data. It only takes effect at
+     * container start, so this must run before `incus start`.
+     */
+    private function configureClaudeMount(string $containerName): void
     {
-        $claudeConfigSource = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
+        $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
 
-        if (! is_dir($claudeConfigSource)) {
-            return;
-        }
+        // fileowner() can return false on a stat failure even when is_dir()
+        // is true; (int) false is 0, which would idmap the container's yak
+        // user onto host root. Only trust it when it actually resolved.
+        $owner = is_dir($source) ? fileowner($source) : false;
 
-        // Push the entire claude config directory
+        $hostUid = is_int($owner)
+            ? $owner
+            : (int) config('yak.sandbox.claude_host_uid', 33);
+
+        $sandboxUid = (int) config('yak.sandbox.claude_sandbox_uid', 1001);
+
+        $this->exec(sprintf(
+            'incus config set %s raw.idmap %s',
+            escapeshellarg($containerName),
+            escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
+        ));
+
+        // Idempotent: a sandbox cloned from a template that was poisoned by
+        // an earlier build of this feature (see promoteToTemplate()) may
+        // already carry the device. Remove it first so the add below
+        // doesn't fail with "Device already exists".
         Process::run(sprintf(
-            'incus file push -r %s %s/home/yak/',
-            escapeshellarg($claudeConfigSource),
+            'incus config device remove %s claude 2>/dev/null',
             escapeshellarg($containerName),
         ));
 
-        // Also push .claude.json if it exists on the host
-        $claudeJson = dirname($claudeConfigSource) . '/.claude.json';
-        if (file_exists($claudeJson)) {
-            Process::run(sprintf(
-                'incus file push %s %s/home/yak/.claude.json',
-                escapeshellarg($claudeJson),
-                escapeshellarg($containerName),
-            ));
-        }
-
-        // The recursive push copies everything — including any host-side
-        // .oauth_refresh.lock orphaned by a killed refresh, which would block
-        // the sandbox CLI's own token refresh and 401 the whole run.
-        $this->run($containerName, 'rm -rf /home/yak/.claude/.oauth_refresh.lock', timeout: 10, asRoot: true);
-
-        // Fix ownership inside container. `incus file push` lands files as
-        // root; chown must run as root to change ownership to yak.
-        $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10, asRoot: true);
+        $this->exec(sprintf(
+            'incus config device add %s claude disk source=%s path=%s',
+            escapeshellarg($containerName),
+            escapeshellarg($source),
+            escapeshellarg($source),
+        ));
     }
 
     /**
@@ -828,111 +859,6 @@ class IncusSandboxManager
     public static function sessionTranscriptDir(): string
     {
         return (string) config('yak.sandbox.session_transcript_path', storage_path('app/claude-sessions'));
-    }
-
-    /**
-     * Pull rotated Claude OAuth credentials out of a sandbox before teardown.
-     *
-     * Claude Code's OAuth refresh tokens rotate on every use: each refresh
-     * invalidates the prior refresh token server-side. When a sandbox's
-     * Claude CLI rotates (access-token expiry during the task, or normal
-     * lazy refresh), the new refresh token is written to the sandbox's
-     * copy of `.credentials.json` — and unless we pull it back before
-     * destroying the container, it's lost, leaving the host holding a
-     * refresh token that now 401s. That's the root cause of the recurring
-     * "Invalid authentication credentials" task failures.
-     *
-     * Adoption is gated on `expiresAt` so a pull-back from a sandbox that
-     * never rotated can't clobber a host file that a concurrent sandbox
-     * already updated. Best-effort: any failure is logged and swallowed
-     * — teardown must not be blocked by credential bookkeeping.
-     */
-    public function pullClaudeCredentials(string $containerName): void
-    {
-        try {
-            $claudeConfigSource = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
-            $hostFile = $claudeConfigSource . '/.credentials.json';
-
-            if (! is_file($hostFile)) {
-                return;
-            }
-
-            $tempFile = $hostFile . '.pull.' . bin2hex(random_bytes(6));
-
-            $result = Process::run(sprintf(
-                'incus file pull %s %s 2>/dev/null',
-                escapeshellarg($containerName . '/home/yak/.claude/.credentials.json'),
-                escapeshellarg($tempFile),
-            ));
-
-            try {
-                if (! $result->successful() || ! is_file($tempFile)) {
-                    return;
-                }
-
-                $pulledExpiresAt = $this->extractCredentialsExpiresAt($tempFile);
-                if ($pulledExpiresAt === null) {
-                    return;
-                }
-
-                $lockHandle = @fopen($hostFile, 'r');
-                if ($lockHandle === false) {
-                    return;
-                }
-
-                try {
-                    if (! flock($lockHandle, LOCK_EX)) {
-                        return;
-                    }
-
-                    $hostExpiresAt = $this->extractCredentialsExpiresAt($hostFile);
-                    if ($hostExpiresAt !== null && $pulledExpiresAt <= $hostExpiresAt) {
-                        return;
-                    }
-
-                    if (! @rename($tempFile, $hostFile)) {
-                        return;
-                    }
-
-                    @chmod($hostFile, 0600);
-
-                    Log::channel('yak')->info('Adopted rotated Claude credentials from sandbox', [
-                        'container' => $containerName,
-                        'pulled_expires_at' => $pulledExpiresAt,
-                        'host_expires_at' => $hostExpiresAt,
-                    ]);
-                } finally {
-                    flock($lockHandle, LOCK_UN);
-                    fclose($lockHandle);
-                }
-            } finally {
-                if (is_file($tempFile)) {
-                    @unlink($tempFile);
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::channel('yak')->warning('pullClaudeCredentials failed', [
-                'container' => $containerName,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    private function extractCredentialsExpiresAt(string $path): ?int
-    {
-        $contents = @file_get_contents($path);
-        if ($contents === false || $contents === '') {
-            return null;
-        }
-
-        $decoded = json_decode($contents, true);
-        if (! is_array($decoded)) {
-            return null;
-        }
-
-        $expiresAt = $decoded['claudeAiOauth']['expiresAt'] ?? null;
-
-        return is_int($expiresAt) ? $expiresAt : null;
     }
 
     /**

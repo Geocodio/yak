@@ -93,6 +93,65 @@ test('detects various auth error patterns', function () {
     }
 });
 
+test('does not flag a noisy failed agent run containing 401 in a UUID or duration_ms as an auth error', function () {
+    $payload = json_encode([
+        'session_id' => '4014abcd-0140-4a10-9401-abcdef123456',
+        'duration_ms' => 214012,
+        'total_cost_usd' => 0.0401,
+        'is_error' => true,
+        'result' => 'Ran the test suite against the repo\'s own auth middleware; the unauthenticated-request case passed as expected.',
+    ]);
+
+    Process::fake([
+        'claude *' => Process::result(
+            output: $payload,
+            errorOutput: '',
+            exitCode: 1,
+        ),
+    ]);
+
+    $result = Process::run('claude -p test');
+
+    expect(ClaudeAuthDetector::isAuthError($result))->toBeFalse();
+});
+
+test('does not flag the stale oauth refresh lock path as an auth error', function () {
+    Process::fake([
+        'claude *' => Process::result(
+            output: '',
+            errorOutput: 'Failed to acquire lock: /home/yak/.claude/.oauth_refresh.lock is held',
+            exitCode: 1,
+        ),
+    ]);
+
+    $result = Process::run('claude -p test');
+
+    expect(ClaudeAuthDetector::isAuthError($result))->toBeFalse();
+});
+
+test('still flags anchored oauth and 401 phrasing as an auth error', function () {
+    $patterns = [
+        'Error: http 401 Unauthorized',
+        'Error: status 401 from API',
+        'Error: oauth token invalid',
+        'Error: oauth error during refresh',
+    ];
+
+    foreach ($patterns as $pattern) {
+        Process::fake([
+            'claude *' => Process::result(
+                output: '',
+                errorOutput: $pattern,
+                exitCode: 1,
+            ),
+        ]);
+
+        $result = Process::run('claude -p test');
+
+        expect(ClaudeAuthDetector::isAuthError($result))->toBeTrue();
+    }
+});
+
 test('formats auth error message with details', function () {
     Process::fake([
         'claude *' => Process::result(
@@ -303,7 +362,7 @@ test('health check reports healthy when claude auth is valid', function () {
     config()->set('yak.sandbox.claude_config_source', $configDir);
 
     Process::fake([
-        '*claude auth status*' => Process::result(output: 'Authenticated as user@example.com'),
+        '*claude --model claude-haiku-4-5*' => Process::result(output: 'ok'),
     ]);
 
     $result = (new ClaudeAuthCheck)->run();
@@ -314,13 +373,28 @@ test('health check reports healthy when claude auth is valid', function () {
     @rmdir($configDir);
 });
 
-test('health check reports unhealthy when session file missing', function () {
-    config()->set('yak.sandbox.claude_config_source', '/tmp/yak-claude-missing-' . uniqid());
+test('health check classifies a bare 401 in its own narrow probe output as an auth failure', function () {
+    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
+    mkdir($configDir);
+    file_put_contents(dirname($configDir) . '/' . basename($configDir) . '.json', '{}');
+    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
+    config()->set('yak.sandbox.claude_config_source', $configDir);
+
+    Process::fake([
+        '*claude --model claude-haiku-4-5*' => Process::result(
+            output: '',
+            errorOutput: 'API Error: 401',
+            exitCode: 1,
+        ),
+    ]);
 
     $result = (new ClaudeAuthCheck)->run();
 
     expect($result->status)->toBe(HealthStatus::Error)
-        ->and($result->detail)->toContain('Session token missing');
+        ->and($result->detail)->toContain('re-authenticate');
+
+    @unlink(dirname($configDir) . '/.claude.json');
+    @rmdir($configDir);
 });
 
 test('registry includes claude auth check', function () {

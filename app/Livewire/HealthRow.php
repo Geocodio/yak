@@ -2,8 +2,11 @@
 
 namespace App\Livewire;
 
+use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\HealthCheck\HealthResult;
+use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\Registry;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Lazy;
@@ -16,6 +19,14 @@ class HealthRow extends Component
     public string $checkId;
 
     private const CACHE_TTL_SECONDS = 60;
+
+    /**
+     * The probe runs every 15 minutes; anything older than roughly two
+     * intervals means the scheduler likely died, not that the result is
+     * merely a little behind. Past this age the stored result is no longer
+     * trustworthy enough to show as a plain "Authenticated" green.
+     */
+    private const STALE_PROBE_MINUTES = 35;
 
     /**
      * Maps a check ID to the most relevant docs anchor. Used to render a
@@ -55,11 +66,52 @@ class HealthRow extends Component
     #[Computed]
     public function result(): HealthResult
     {
+        // claude-auth's probe is a real (up to 120s) inference call. Running
+        // it inline here would execute inside a web request: nginx's default
+        // fastcgi_read_timeout (60s, unset in docker/nginx.conf) would kill
+        // PHP-FPM mid-probe and orphan the shared .oauth_refresh.lock for
+        // every sandbox. Only the scheduled `yak:healthcheck` command may
+        // invoke ClaudeAuthCheck::run(); this renders what it last published.
+        if ($this->checkId === 'claude-auth') {
+            return $this->claudeAuthResult();
+        }
+
         return Cache::remember(
             "health:check:{$this->checkId}",
             self::CACHE_TTL_SECONDS,
             fn () => app(Registry::class)->get($this->checkId)->run(),
         );
+    }
+
+    private function claudeAuthResult(): HealthResult
+    {
+        /** @var array{result: HealthResult, checked_at: Carbon}|null $stored */
+        $stored = Cache::get(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
+
+        if ($stored === null) {
+            return HealthResult::warn('Not yet probed — waiting for the next scheduled health check (runs every 15 minutes)');
+        }
+
+        $result = $stored['result'];
+        $checkedAt = Carbon::parse($stored['checked_at']);
+        $age = $checkedAt->diffForHumans();
+
+        if ($checkedAt->diffInMinutes(now()) > self::STALE_PROBE_MINUTES) {
+            $staleDetail = "Stale probe result from {$age} — the scheduler may not be running. Last known state: {$result->detail}";
+
+            // Staleness only ever degrades an Ok result to a Warn. It must
+            // never upgrade-by-erasure a worse status (Error/NotConnected):
+            // downgrading a genuine Error to Warn would silently drop the
+            // re-authentication HealthAction (warn() takes no action), and
+            // would show a stale red probe as merely yellow.
+            if ($result->status === HealthStatus::Ok) {
+                return HealthResult::warn($staleDetail);
+            }
+
+            return new HealthResult($result->status, $staleDetail, $result->action);
+        }
+
+        return new HealthResult($result->status, "{$result->detail} (checked {$age})", $result->action);
     }
 
     #[Computed]

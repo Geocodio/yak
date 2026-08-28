@@ -12,6 +12,39 @@ beforeEach(function () {
     config()->set('yak.sandbox.base_version', 2);
 });
 
+/**
+ * Pull the ordered list of commands recorded by Process::fake(), so tests
+ * can assert one command ran before another rather than merely that both ran.
+ *
+ * @return array<int, string>
+ */
+function recordedCommands(): array
+{
+    $factory = Process::getFacadeRoot();
+
+    $reflection = new ReflectionProperty($factory, 'recorded');
+    $reflection->setAccessible(true);
+
+    return array_map(
+        fn (array $pair) => (string) $pair[0]->command,
+        $reflection->getValue($factory),
+    );
+}
+
+/**
+ * Find the index of the first recorded command containing the given needle.
+ */
+function firstCommandIndexContaining(string $needle): int
+{
+    foreach (recordedCommands() as $index => $command) {
+        if (str_contains($command, $needle)) {
+            return $index;
+        }
+    }
+
+    return -1;
+}
+
 it('reports containerExists based on incus info exit code', function () {
     Process::fake([
         'incus info *alive*' => Process::result(exitCode: 0),
@@ -53,38 +86,90 @@ it('reclaims a stale container before creating a new one', function () {
     Process::assertRan("incus delete {$container} --force 2>/dev/null");
 });
 
-it('removes any copied oauth refresh lock from the sandbox after pushing claude config', function () {
-    // The whole host .claude dir is pushed into the sandbox. If the host has
-    // a stale .oauth_refresh.lock (orphaned by a killed refresh), the copy
-    // would block the sandbox CLI's own token refresh and 401 the run.
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir, 0755, true);
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
+it('mounts the shared claude config directory instead of pushing credentials', function () {
     $repo = Repository::factory()->create([
-        'slug' => 'lock-repo',
-        'sandbox_snapshot' => 'yak-tpl-lock-repo/ready',
+        'slug' => 'demo',
+        'sandbox_snapshot' => 'yak-tpl-demo/ready',
         'sandbox_base_version' => 2,
     ]);
-    $task = YakTask::factory()->create(['repo' => 'lock-repo']);
+    $task = YakTask::factory()->create(['repo' => 'demo']);
     $container = "task-{$task->id}";
 
     Process::fake([
         "incus info *{$container}*" => Process::result(exitCode: 1),
         'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
-        'incus copy *' => Process::result(exitCode: 0),
-        'incus config *' => Process::result(exitCode: 0),
-        'incus start *' => Process::result(exitCode: 0),
         "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
         "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
-        'incus exec *' => Process::result(exitCode: 0),
-        'incus file *' => Process::result(exitCode: 0),
         '*' => Process::result(exitCode: 0),
     ]);
 
     app(IncusSandboxManager::class)->create($task, $repo);
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'rm -rf /home/yak/.claude/.oauth_refresh.lock'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'raw.idmap')
+        && str_contains($p->command, 'both 33 1001'));
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config device add '{$container}' claude disk")
+        && str_contains($p->command, "source='/home/yak/.claude'")
+        && str_contains($p->command, "path='/home/yak/.claude'"));
+
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, '.credentials.json'));
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'oauth_refresh.lock'));
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'incus file push -r'));
+});
+
+it('removes any pre-existing claude device before adding it, so a sandbox cloned from a poisoned template self-heals', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'demo',
+        'sandbox_snapshot' => 'yak-tpl-demo/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'demo']);
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config device remove '{$container}' claude")
+        && str_contains($p->command, '2>/dev/null'));
+
+    $removeIndex = firstCommandIndexContaining("incus config device remove '{$container}' claude");
+    $addIndex = firstCommandIndexContaining("incus config device add '{$container}' claude disk");
+
+    expect($removeIndex)->toBeGreaterThanOrEqual(0);
+    expect($addIndex)->toBeGreaterThan($removeIndex);
+});
+
+it('falls back to the configured host uid when the claude config source directory is absent', function () {
+    config()->set('yak.sandbox.claude_config_source', '/home/yak/.claude-does-not-exist');
+    config()->set('yak.sandbox.claude_host_uid', 33);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'demo',
+        'sandbox_snapshot' => 'yak-tpl-demo/ready',
+        'sandbox_base_version' => 2,
+    ]);
+    $task = YakTask::factory()->create(['repo' => 'demo']);
+    $container = "task-{$task->id}";
+
+    Process::fake([
+        "incus info *{$container}*" => Process::result(exitCode: 1),
+        'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
+        "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
+        "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->create($task, $repo);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, 'raw.idmap')
+        && str_contains($p->command, 'both 33 1001'));
 });
 
 it('skips reclaim when no stale container is present', function () {
@@ -624,6 +709,42 @@ it('stamps the current base_version on the repo when promoting to a template', f
     expect($repo->sandbox_snapshot)->toBe('yak-tpl-promote/ready-v1');
 });
 
+it('strips the claude device and idmap from the source container before promoting it to a template', function () {
+    $container = 'task-promote-strip';
+
+    $repo = Repository::factory()->create([
+        'slug' => 'promote-strip',
+        'sandbox_snapshot' => null,
+        'sandbox_base_version' => null,
+        'current_template_version' => 0,
+    ]);
+
+    Process::fake([
+        'incus delete yak-tpl-promote-strip --force 2>/dev/null' => Process::result(exitCode: 0),
+        'incus stop *' => Process::result(exitCode: 0),
+        'incus copy *' => Process::result(exitCode: 0),
+        'incus snapshot create *' => Process::result(exitCode: 0),
+        '*' => Process::result(exitCode: 0),
+    ]);
+
+    app(IncusSandboxManager::class)->promoteToTemplate($container, $repo);
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config device remove {$container} claude")
+        && str_contains($p->command, '2>/dev/null'));
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config unset {$container} raw.idmap")
+        && str_contains($p->command, '2>/dev/null'));
+
+    $removeDeviceIndex = firstCommandIndexContaining("incus config device remove {$container} claude");
+    $unsetIdmapIndex = firstCommandIndexContaining("incus config unset {$container} raw.idmap");
+    $copyIndex = firstCommandIndexContaining("incus copy {$container} yak-tpl-promote-strip");
+
+    expect($removeDeviceIndex)->toBeGreaterThanOrEqual(0);
+    expect($unsetIdmapIndex)->toBeGreaterThanOrEqual(0);
+    expect($copyIndex)->toBeGreaterThan($removeDeviceIndex);
+    expect($copyIndex)->toBeGreaterThan($unsetIdmapIndex);
+});
+
 it('builds streamExec argv with no shell wrapper so proc_terminate reaches incus directly', function () {
     config()->set('yak.agent_passthrough_env', 'NODE_AUTH_TOKEN,NPM_TOKEN');
 
@@ -652,133 +773,6 @@ it('builds streamExec argv without sudo when run as root', function () {
     $argv = $method->invoke($manager, 'task-42', 'echo hi', true);
 
     expect($argv)->toBe(['incus', 'exec', 'task-42', '--', 'bash', '-c', 'echo hi']);
-});
-
-/**
- * Helper: prepare an isolated claude config dir with a host credentials file
- * whose claudeAiOauth.expiresAt is set to $hostExpiresAt. Returns the path.
- */
-function primeClaudeConfigDir(int $hostExpiresAt): string
-{
-    $dir = sys_get_temp_dir() . '/yak-claude-test-' . uniqid();
-    mkdir($dir, 0700, true);
-    file_put_contents($dir . '/.credentials.json', json_encode([
-        'claudeAiOauth' => [
-            'accessToken' => 'host-access',
-            'refreshToken' => 'host-refresh',
-            'expiresAt' => $hostExpiresAt,
-            'scopes' => ['user:inference'],
-            'subscriptionType' => 'max',
-        ],
-    ]));
-    config()->set('yak.sandbox.claude_config_source', $dir);
-
-    return $dir;
-}
-
-/**
- * Helper: Process::fake closure that simulates `incus file pull` by extracting
- * the destination path from the command and writing $payload there. Non-pull
- * commands return exit 0 so the surrounding flow can run.
- */
-function fakeIncusFilePullThatWrites(string $payload): void
-{
-    Process::fake(function ($process) use ($payload) {
-        $command = is_string($process->command) ? $process->command : implode(' ', (array) $process->command);
-        if (str_contains($command, 'incus file pull')) {
-            // The command ends `... <remote> '<localDest>' 2>/dev/null` — pull the
-            // last single-quoted token before the stderr redirect.
-            if (preg_match("/'([^']+)'\\s+2>\\/dev\\/null\$/", $command, $m)) {
-                file_put_contents($m[1], $payload);
-            }
-
-            return Process::result(exitCode: 0);
-        }
-
-        return Process::result(exitCode: 0);
-    });
-}
-
-it('adopts sandbox credentials when pulled expiresAt is newer than host', function () {
-    $dir = primeClaudeConfigDir(hostExpiresAt: 1_000_000_000_000);
-
-    $rotated = json_encode([
-        'claudeAiOauth' => [
-            'accessToken' => 'rotated-access',
-            'refreshToken' => 'rotated-refresh',
-            'expiresAt' => 2_000_000_000_000,
-            'scopes' => ['user:inference'],
-            'subscriptionType' => 'max',
-        ],
-    ]);
-
-    fakeIncusFilePullThatWrites($rotated);
-
-    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
-
-    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
-    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('rotated-refresh');
-    expect($decoded['claudeAiOauth']['expiresAt'])->toBe(2_000_000_000_000);
-});
-
-it('leaves host credentials untouched when pulled expiresAt is not newer', function () {
-    $dir = primeClaudeConfigDir(hostExpiresAt: 2_000_000_000_000);
-
-    $stale = json_encode([
-        'claudeAiOauth' => [
-            'accessToken' => 'host-access',
-            'refreshToken' => 'host-refresh',
-            'expiresAt' => 2_000_000_000_000,
-            'scopes' => ['user:inference'],
-            'subscriptionType' => 'max',
-        ],
-    ]);
-
-    fakeIncusFilePullThatWrites($stale);
-
-    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
-
-    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
-    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
-});
-
-it('leaves host credentials untouched when pulled file lacks expiresAt', function () {
-    $dir = primeClaudeConfigDir(hostExpiresAt: 1_000_000_000_000);
-
-    fakeIncusFilePullThatWrites(json_encode(['firstStartTime' => '2026-01-01']));
-
-    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
-
-    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
-    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
-});
-
-it('is a no-op when host has no credentials file yet', function () {
-    $dir = sys_get_temp_dir() . '/yak-claude-test-' . uniqid();
-    mkdir($dir, 0700, true);
-    config()->set('yak.sandbox.claude_config_source', $dir);
-
-    Process::fake(['*' => Process::result(exitCode: 0)]);
-
-    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
-
-    // No incus file pull should have been attempted at all.
-    Process::assertNotRan(fn ($p) => str_contains($p->command, 'incus file pull'));
-    expect(is_file($dir . '/.credentials.json'))->toBeFalse();
-});
-
-it('leaves host credentials untouched when incus file pull fails', function () {
-    $dir = primeClaudeConfigDir(hostExpiresAt: 1_000_000_000_000);
-
-    Process::fake([
-        'incus file pull *' => Process::result(exitCode: 1),
-        '*' => Process::result(exitCode: 0),
-    ]);
-
-    app(IncusSandboxManager::class)->pullClaudeCredentials('task-1');
-
-    $decoded = json_decode((string) file_get_contents($dir . '/.credentials.json'), true);
-    expect($decoded['claudeAiOauth']['refreshToken'])->toBe('host-refresh');
 });
 
 it('cleanupStale deletes deploy-* containers with no branch_deployments row', function () {

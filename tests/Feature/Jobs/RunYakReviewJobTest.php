@@ -51,7 +51,6 @@ it('runs a full-scope review end to end', function () {
     $sandbox->shouldReceive('run')->andReturn(
         Process::result(output: "app/Foo.php\n", exitCode: 0),
     );
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -131,7 +130,6 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "app/Foo.php\n", exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -215,7 +213,6 @@ it('passes start_line to GitHub for multi-line suggestion ranges', function () {
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -293,7 +290,6 @@ it('strips the suggestion fence when the range is much wider than the fence', fu
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -375,7 +371,6 @@ it('keeps the suggestion fence for legitimate small consolidations', function ()
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -454,7 +449,6 @@ it('strips the suggestion fence and omits start_line when any range line is outs
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -535,7 +529,6 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -604,7 +597,6 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -676,7 +668,6 @@ it('does not fetch Linear ticket when no identifier is present', function () {
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -730,7 +721,6 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 

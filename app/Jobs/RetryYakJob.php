@@ -12,6 +12,7 @@ use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\Middleware\PreventBranchOverlap;
 use App\Models\DailyCost;
@@ -39,6 +40,17 @@ class RetryYakJob implements ShouldQueue
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];
 
+    /**
+     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * increment the attempt counter, so the worker's --tries=3 would fail a
+     * held job after three minutes. This method takes precedence over tries
+     * and lets a job wait out a drain or a re-authentication.
+     */
+    public function retryUntil(): \DateTimeInterface
+    {
+        return now()->addHours(6);
+    }
+
     public function __construct(
         public readonly YakTask $task,
         public readonly ?string $failureOutput = null,
@@ -54,6 +66,7 @@ class RetryYakJob implements ShouldQueue
         return [
             new PreventBranchOverlap($this->task),
             new PausesDuringDrain,
+            new HoldsForClaudeAuth,
             new EnsureRepoReady,
             new EnsureDailyBudget,
         ];
@@ -136,7 +149,6 @@ class RetryYakJob implements ShouldQueue
         } finally {
             if ($containerName !== null) {
                 $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
-                $sandbox->pullClaudeCredentials($containerName);
                 $sandbox->destroy($containerName);
             }
         }

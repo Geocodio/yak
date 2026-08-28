@@ -1,4 +1,68 @@
 ---
+- name: Install yak-claude-login helper
+  ansible.builtin.template:
+    src: yak-claude-login.j2
+    dest: /usr/local/bin/yak-claude-login
+    owner: root
+    group: root
+    mode: "0755"
+
+# The shared config dir is read/write for the sandbox (raw.idmap maps only
+# host uid 33/www-data <-> container yak uid 1001) and the health probe
+# runs `claude` against it from the app container every 15 minutes. Claude
+# Code reads user-level hooks and mcpServers from settings.json /
+# settings.local.json, so a sandboxed agent (running
+# --dangerously-skip-permissions against untrusted PR/issue text) could
+# otherwise write a hook the next probe executes as www-data in the
+# container that holds the Incus socket, the GitHub App key, and the
+# database -- a sandbox-to-orchestrator escape.
+#
+# Host uid 0 is not in the `both 33 1001` idmap, so no process in a
+# sandbox -- including container root, whose CAP_DAC_OVERRIDE does not
+# apply to files owned by an unmapped uid -- can write a root-owned file
+# here, while the CLI can still read it. Neither file is written by
+# `claude login`/`/login` (that writes .credentials.json and .claude.json,
+# both left writable), so yak-claude-login is unaffected.
+#
+# Absent is the exploitable state, not just "unwritten present" -- a stat +
+# `file` pair gated on `.stat.exists` does nothing when the file is missing,
+# leaving it creatable by the sandboxed `yak` uid. `copy` with `force: false`
+# only writes content (and only when the destination is absent) -- when the
+# destination already exists it returns early and never reaches its
+# attribute-enforcement step, so owner/mode on an existing file are left
+# untouched. That matters here: a pre-existing settings.json can be
+# www-data-owned from before this role ran, and `copy force: false` alone
+# would leave it that way forever. So content-creation and attribute
+# enforcement are split into two tasks: `copy` creates the file (root-owned,
+# via the play's `become: true`) only if it is missing, then `file` forces
+# owner/group/mode unconditionally on every run regardless of who created
+# the file or last wrote to it.
+- name: Ensure Claude settings files exist
+  ansible.builtin.copy:
+    content: "{}\n"
+    dest: "{{ yak_claude_path }}/{{ item }}"
+    force: false
+  loop:
+    - settings.json
+    - settings.local.json
+
+# Known limitation: the containing directory (yak_claude_path) must stay
+# writable by the sandbox-mapped uid so the CLI's own .oauth_refresh.lock
+# works, so a sandboxed agent can still unlink and recreate these files
+# under its own ownership rather than editing them in place. Root-owning
+# the files raises the bar -- a naive in-place write is blocked -- but does
+# not fully close the path; it is not a complete lockdown.
+- name: Lock Claude settings files to root-only writes
+  ansible.builtin.file:
+    path: "{{ yak_claude_path }}/{{ item }}"
+    state: file
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - settings.json
+    - settings.local.json
+
 - name: Verify Claude Code CLI is available in container
   ansible.builtin.command:
     cmd: docker exec {{ yak_container_name }} claude --version
@@ -15,10 +79,9 @@
       - "Claude Code CLI requires interactive login."
       - ""
       - "SSH into the server and run:"
-      - "  docker exec -it {{ yak_container_name }} claude login"
+      - "  yak-claude-login"
       - ""
-      - "Follow the browser-based OAuth flow. The session token persists"
-      - "in /home/yak/.claude on the host (mounted into the yak container"
-      - "and pushed into every Incus sandbox at task start)."
+      - "Then type /login and follow the browser-based OAuth flow."
       - ""
-      - "This only needs to be done once (or when the token expires)."
+      - "Credentials live in /home/yak/.claude on the host, mounted into every"
+      - "Incus sandbox. A re-login applies to running tasks immediately."

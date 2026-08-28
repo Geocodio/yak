@@ -2,6 +2,9 @@
 
 use App\Livewire\HealthRow;
 use App\Models\User;
+use App\Services\HealthCheck\ClaudeAuthCheck;
+use App\Services\HealthCheck\HealthAction;
+use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
@@ -57,4 +60,96 @@ it('responds to the global refresh event', function () {
     $row->handleRefresh();
 
     expect(Cache::get('health:check:queue-worker'))->toBeNull();
+});
+
+it('renders the stored claude-auth result without probing inference', function () {
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::ok('Authenticated'),
+        'checked_at' => now(),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    expect($row->result()->detail)->toContain('Authenticated');
+    expect($row->result()->status)->toBe(HealthStatus::Ok);
+
+    Process::assertNothingRan();
+});
+
+it('reports not yet probed for claude-auth when no scheduled result exists', function () {
+    Cache::forget(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    $result = $row->result();
+
+    expect($result->status)->not->toBe(HealthStatus::Ok);
+    expect($result->detail)->toContain('Not yet probed');
+
+    Process::assertNothingRan();
+});
+
+it('renders the age of a fresh claude-auth probe result', function () {
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::ok('Authenticated'),
+        'checked_at' => now()->subMinutes(5),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    $result = $row->result();
+
+    expect($result->status)->toBe(HealthStatus::Ok);
+    expect($result->detail)->toContain('Authenticated')
+        ->and($result->detail)->toContain('ago');
+});
+
+it('degrades a stale claude-auth probe result to a warning', function () {
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::ok('Authenticated'),
+        'checked_at' => now()->subMinutes(40),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    $result = $row->result();
+
+    expect($result->status)->toBe(HealthStatus::Warn)
+        ->and($result->detail)->toContain('Stale probe result')
+        ->and($result->detail)->toContain('Authenticated');
+});
+
+it('preserves a stale claude-auth Error status and its re-authentication action instead of downgrading to a warning', function () {
+    $action = new HealthAction('Re-authenticate', 'https://example.test/reauth');
+
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::error('Not authenticated — please re-authenticate', $action),
+        'checked_at' => now()->subMinutes(40),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    $result = $row->result();
+
+    expect($result->status)->toBe(HealthStatus::Error)
+        ->and($result->action)->toBe($action)
+        ->and($result->detail)->toContain('Not authenticated')
+        ->and($result->detail)->toContain('40 minutes ago');
+});
+
+it('does not flag a claude-auth probe result just under the staleness threshold', function () {
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::ok('Authenticated'),
+        'checked_at' => now()->subMinutes(30),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    expect($row->result()->status)->toBe(HealthStatus::Ok);
 });
