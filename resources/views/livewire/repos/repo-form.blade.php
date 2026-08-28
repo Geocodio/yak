@@ -128,6 +128,16 @@
                 @endif
                 <flux:input wire:model="default_branch" label="Default Branch" />
                 @if($this->isEditing)
+                    <div class="md:col-span-2">
+                        <flux:input
+                            wire:model="public_site_url"
+                            label="{{ __('Public site URL') }}"
+                            placeholder="https://www.example.com"
+                            description="{{ __('Shown in the video\'s browser bar instead of the sandbox address') }}"
+                        />
+                    </div>
+                @endif
+                @if($this->isEditing)
                     <flux:select wire:model="ci_system" label="CI System">
                         <flux:select.option value="none">None</flux:select.option>
                         <flux:select.option value="github_actions">GitHub Actions</flux:select.option>
