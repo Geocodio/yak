@@ -75,9 +75,9 @@ digraph YakFixFlow {
 
     render [label="RenderVideoJob\n(dispatch from ArtifactPersister:87)",
             fillcolor="#c7d2fe"];
-    remotion [label="Remotion render\nwebm → reviewer-cut.mp4 + thumbnail",
+    remotion [label="Remotion render\nwebm → walkthrough.mp4 + thumbnail",
               fillcolor="#bbf7d0"];
-    publish [label="publishReviewerCut()\nPATCH PR body with mp4 + thumbnail",
+    publish [label="publishWalkthrough()\nPATCH PR body with mp4 + thumbnail",
              fillcolor="#bbf7d0"];
 
     render -> remotion -> publish;
