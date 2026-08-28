@@ -98,9 +98,12 @@ class VideoRenderer
     /**
      * Render the v3 cut.
      *
-     * Clips are staged into a directory the worker user owns and the
-     * manifest handed to Remotion points at those absolute paths, so
-     * nothing under /app/video ever needs to be writable (spec §11).
+     * Clips are staged into a directory the worker user owns, and the
+     * manifest handed to Remotion points at each clip by its name relative
+     * to that staging directory (`shots/<id>.webm`), which is passed as
+     * `--public-dir`. Absolute paths are deliberately not used: Remotion
+     * turns them into `file://` URLs its asset downloader refuses. Nothing
+     * under /app/video ever needs to be writable (spec §11).
      *
      * @param  array<string, string>  $clipPaths  shot id => absolute path to its .webm
      * @param  array<string, array{file: string, durationSeconds: float}>|null  $voiceover
@@ -126,12 +129,15 @@ class VideoRenderer
             }
 
             $shots = [];
+            $missing = [];
+
             foreach ((array) ($manifest['shots'] ?? []) as $shot) {
                 $id = (string) ($shot['id'] ?? '');
                 $source = $clipPaths[$id] ?? null;
 
                 if ($source === null || ! file_exists($source)) {
-                    Log::channel('yak')->warning('VideoRenderer: dropping shot with no clip on disk', ['shot' => $id]);
+                    Log::channel('yak')->warning('VideoRenderer: shot has no clip on disk', ['shot' => $id]);
+                    $missing[] = $id;
 
                     continue;
                 }
@@ -148,6 +154,17 @@ class VideoRenderer
                 // `--public-dir`, which is exactly where the clip was staged.
                 $shot['clip'] = "shots/{$id}.webm";
                 $shots[] = $shot;
+            }
+
+            /**
+             * The timeline, chapters.json and the QA gate are all computed
+             * from the full manifest, so quietly dropping a shot would leave
+             * the cut describing itself wrongly. Fail loudly instead.
+             */
+            if ($missing !== []) {
+                throw new RuntimeException(
+                    'no clip on disk for manifest shot(s): ' . implode(', ', $missing)
+                );
             }
 
             if ($shots === []) {

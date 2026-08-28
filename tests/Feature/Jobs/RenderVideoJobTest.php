@@ -130,7 +130,7 @@ test('patches the PR body with the rendered cut', function () {
 
             return $out;
         });
-    $renderer->shouldReceive('probeDurationSeconds')->andReturn(null);
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(42.5);
 
     $this->mock(VideoThumbnailer::class)
         ->shouldReceive('generate')
@@ -144,13 +144,26 @@ test('patches the PR body with the rendered cut', function () {
     $this->mock(PullRequestBodyUpdater::class)
         ->shouldReceive('setWalkthrough')
         ->once()
-        ->withArgs(function (string $repo, int $prNumber, string $url, string $filename, ?string $thumbnailUrl): bool {
+        ->withArgs(function (
+            string $repo,
+            int $prNumber,
+            string $url,
+            string $filename,
+            ?string $thumbnailUrl,
+            ?string $gifUrl,
+            float $durationSeconds,
+        ): bool {
             return $repo === 'acme/web'
                 && $prNumber === 88
                 && str_contains($url, 'walkthrough.mp4')
                 && $filename === 'walkthrough.mp4'
                 && $thumbnailUrl !== null
-                && str_contains($thumbnailUrl, 'walkthrough-thumbnail.jpg');
+                // Spec §8: embedded images use the permanent unsigned
+                // route, never an expiring signed URL.
+                && str_contains($thumbnailUrl, '/artifacts/public/')
+                && ! str_contains($thumbnailUrl, 'signature=')
+                // Spec §11's rerender sweep must not publish "0:00".
+                && $durationSeconds === 42.5;
         });
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));

@@ -96,18 +96,20 @@ class RenderVideoJob implements ShouldQueue
             'size_bytes' => file_exists($outputPath) ? filesize($outputPath) : 0,
         ]);
 
+        $durationSeconds = $renderer->probeDurationSeconds($outputPath);
+
         VideoMetric::create([
             'yak_task_id' => $raw->yak_task_id,
             'artifact_id' => $cutArtifact->id,
             'status' => VideoMetric::STATUS_RENDERED,
             'render_ms' => $this->elapsedMs($startedAt),
             'output_bytes' => $cutArtifact->size_bytes,
-            'duration_seconds' => $renderer->probeDurationSeconds($outputPath),
+            'duration_seconds' => $durationSeconds,
         ]);
 
         $thumbnailArtifact = $this->renderThumbnail($raw, $outputPath, $taskDir);
 
-        $this->publishWalkthrough($raw->task, $cutArtifact, $thumbnailArtifact);
+        $this->publishWalkthrough($raw->task, $cutArtifact, $thumbnailArtifact, (float) $durationSeconds);
     }
 
     /**
@@ -151,8 +153,12 @@ class RenderVideoJob implements ShouldQueue
      * — the render itself succeeded, so we don't retry the whole job just
      * because GitHub rejected the PATCH.
      */
-    private function publishWalkthrough(?YakTask $task, Artifact $cutArtifact, ?Artifact $thumbnailArtifact): void
-    {
+    private function publishWalkthrough(
+        ?YakTask $task,
+        Artifact $cutArtifact,
+        ?Artifact $thumbnailArtifact,
+        float $durationSeconds,
+    ): void {
         if ($task === null) {
             return;
         }
@@ -169,7 +175,8 @@ class RenderVideoJob implements ShouldQueue
                 prNumber: $prNumber,
                 walkthroughUrl: $cutArtifact->signedUrl(),
                 filename: $cutArtifact->filename,
-                thumbnailUrl: $thumbnailArtifact?->signedUrl(),
+                thumbnailUrl: $thumbnailArtifact?->publicUrl() ?? $thumbnailArtifact?->signedUrl(),
+                durationSeconds: $durationSeconds,
             );
         } catch (Throwable $e) {
             Log::channel('yak')->warning('RenderVideoJob: failed to publish walkthrough to PR body', [

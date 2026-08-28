@@ -62,14 +62,32 @@ it('renders WalkthroughV3 with staged clips and the theme props', function (): v
     });
 });
 
-it('drops shots whose clip is missing and fails when none survive', function (): void {
+it('throws naming the manifest shots whose clip is missing', function (): void {
     Process::fake(['*' => Process::result('', '', 0)]);
     [$script, $manifest] = writeV3Inputs();
 
     (new VideoRenderer(base_path('video')))->renderWalkthrough(
         $script, $manifest, [], null, config('yak.video.theme'), null, sys_get_temp_dir() . '/out.mp4'
     );
-})->throws(RuntimeException::class, 'no shot clips available to render');
+})->throws(RuntimeException::class, 'no clip on disk for manifest shot(s): a');
+
+it('throws rather than rendering a cut that silently diverges from the timeline', function (): void {
+    Process::fake(['*' => Process::result('', '', 0)]);
+    [$script, $manifest, $clips] = writeV3Inputs();
+
+    $manifestData = json_decode((string) file_get_contents($manifest), true);
+    $manifestData['shots'][] = [
+        'id' => 'b', 'clip' => 'shots/b.webm', 'start' => 4, 'end' => 8,
+        'rect' => null, 'url' => 'http://127.0.0.1:8899/b',
+    ];
+    file_put_contents($manifest, (string) json_encode($manifestData));
+
+    // Shot `a` has a clip, shot `b` does not: rendering only `a` would make
+    // the cut shorter than the timeline and chapters.json both describe.
+    (new VideoRenderer(base_path('video')))->renderWalkthrough(
+        $script, $manifest, $clips, null, config('yak.video.theme'), null, sys_get_temp_dir() . '/out.mp4'
+    );
+})->throws(RuntimeException::class, 'no clip on disk for manifest shot(s): b');
 
 it('throws when remotion fails', function (): void {
     Process::fake(['*' => Process::result('', 'Error: composition not found', 1)]);
