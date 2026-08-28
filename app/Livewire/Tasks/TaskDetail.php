@@ -9,6 +9,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
+use App\Jobs\RenderVideoJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
@@ -1352,6 +1353,33 @@ class TaskDetail extends Component
     public function previewUrl(?Artifact $artifact): ?string
     {
         return $artifact === null ? null : ArtifactPreviewUrl::for($artifact);
+    }
+
+    /**
+     * Re-run the render over the artifacts that are already on disk. No
+     * sandbox is involved: the shoot has already happened, only the cut
+     * failed.
+     */
+    public function retryRender(): void
+    {
+        $rawFootage = $this->task->artifacts()->rawFootage()->latest('id')->first();
+
+        if ($rawFootage === null) {
+            return;
+        }
+
+        $this->dispatchRenderJob($rawFootage);
+
+        unset($this->renderStatus, $this->walkthroughCut, $this->walkthroughPreview);
+    }
+
+    /**
+     * The single place the render job is constructed, so swapping to the
+     * task-keyed variant is a one-line change.
+     */
+    private function dispatchRenderJob(Artifact $rawFootage): void
+    {
+        RenderVideoJob::dispatch($rawFootage->id);
     }
 
     #[On('artifact-updated')]

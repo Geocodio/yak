@@ -148,3 +148,53 @@ test('the preview image falls back to a signed url without a public token', func
 
     expect($component->instance()->previewUrl($thumb))->toContain('signature=');
 });
+
+use App\Jobs\RenderVideoJob;
+use Illuminate\Support\Facades\Queue;
+
+test('retry render dispatches a render job for the newest raw footage', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($task, 'task')->video()->create();
+    $newest = Artifact::factory()->for($task, 'task')->video()->create();
+    VideoMetric::create([
+        'yak_task_id' => $task->id,
+        'status' => VideoMetric::STATUS_FAILED,
+        'render_ms' => 10,
+        'error' => 'ffmpeg exited with code 1',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('data-testid="walkthrough-retry"')
+        ->call('retryRender')
+        ->assertOk();
+
+    Queue::assertPushed(RenderVideoJob::class, fn (RenderVideoJob $job) => $job->rawVideoArtifactId === $newest->id);
+});
+
+test('retry render does nothing without raw footage', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video',
+        'role' => 'shot',
+        'filename' => 'shots/intro.webm',
+        'disk_path' => 'shots/intro.webm',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('retryRender')
+        ->assertOk();
+
+    Queue::assertNothingPushed();
+});
+
+test('the retry button is absent when the render did not fail', function () {
+    $task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($task, 'task')->video()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('data-testid="walkthrough-retry"');
+});
