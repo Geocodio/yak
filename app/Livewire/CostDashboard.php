@@ -4,9 +4,11 @@ namespace App\Livewire;
 
 use App\Models\AiUsage;
 use App\Models\DailyCost;
+use App\Models\VideoMetric;
 use App\Models\YakTask;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -65,6 +67,39 @@ class CostDashboard extends Component
             'avg_duration' => $minutes > 0 ? $minutes . 'm' : '0m',
             'success_rate' => $successRate . '%',
             'clarification_rate' => $clarificationRate . '%',
+        ];
+    }
+
+    /**
+     * @return array{rendered: int, failed: int, avg_render: string, total_mb: string}
+     */
+    #[Computed]
+    public function videoSummary(): array
+    {
+        $range = $this->dateRange();
+
+        /** @var object{rendered: int, failed: int, avg_ms: float|null, total_bytes: int|null} $stats */
+        $stats = VideoMetric::query()
+            ->between($range['start'], $range['end'])
+            ->when($this->repo !== '', fn (Builder $q) => $q->whereHas('task', fn (Builder $t) => $t->where('repo', $this->repo)))
+            ->when($this->source !== '', fn (Builder $q) => $q->whereHas('task', fn (Builder $t) => $t->where('source', $this->source)))
+            ->selectRaw(
+                "SUM(CASE WHEN status = 'rendered' THEN 1 ELSE 0 END) as rendered, " .
+                "SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed, " .
+                "AVG(CASE WHEN status = 'rendered' THEN render_ms END) as avg_ms, " .
+                'SUM(output_bytes) as total_bytes'
+            )->first();
+
+        $avgSeconds = (int) round(((float) ($stats->avg_ms ?? 0)) / 1000);
+        $avg = $avgSeconds >= 60
+            ? sprintf('%dm %ds', intdiv($avgSeconds, 60), $avgSeconds % 60)
+            : "{$avgSeconds}s";
+
+        return [
+            'rendered' => (int) ($stats->rendered ?? 0),
+            'failed' => (int) ($stats->failed ?? 0),
+            'avg_render' => $avg,
+            'total_mb' => number_format(((int) ($stats->total_bytes ?? 0)) / 1048576, 1),
         ];
     }
 

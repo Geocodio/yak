@@ -87,6 +87,11 @@ RUN npm run build
 # through to the production stage via COPY --from=build.
 RUN cd video && npm install --no-audit --no-fund
 
+# Bake Remotion's Chrome Headless Shell into the image. Remotion otherwise
+# downloads it on first render into node_modules/.remotion (its
+# getDownloadsCacheDir()), which the www-data render worker cannot write.
+RUN cd video && npx remotion browser ensure
+
 # Build yak-browser bundle. IncusSandboxManager::pushYakBrowser() reads
 # sandbox-tools/yak-browser/dist/yak-browser.js at runtime and pushes it
 # into each fresh Incus sandbox, so the bundle must exist inside the
@@ -110,7 +115,9 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
-    && chmod -R 775 /app/storage /app/bootstrap/cache
+    && chmod -R 775 /app/storage /app/bootstrap/cache \
+    && mkdir -p /app/video/node_modules/.cache /app/video/node_modules/.remotion \
+    && chown -R www-data:www-data /app/video/node_modules/.cache /app/video/node_modules/.remotion
 
 RUN mkdir -p /data \
     && chown -R www-data:www-data /data \

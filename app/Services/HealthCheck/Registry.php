@@ -15,6 +15,7 @@ class Registry
     private const SYSTEM_CHECKS = [
         'queue-worker' => QueueWorkerCheck::class,
         'last-task-completed' => LastTaskCompletedCheck::class,
+        'video-render' => RenderHealthCheck::class,
         'incus-daemon' => IncusDaemonCheck::class,
         'sandbox-base-template' => SandboxBaseTemplateCheck::class,
         'claude-cli' => ClaudeCliCheck::class,

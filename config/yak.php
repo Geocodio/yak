@@ -156,6 +156,15 @@ return [
 
     'ci_timeout_minutes' => (int) env('YAK_CI_TIMEOUT_MINUTES', 30),
 
+    'video' => [
+        // Where VideoRenderer stages clips for Remotion. Must be writable by
+        // the queue worker user (www-data); /app/video/public is root-owned
+        // in the image, which broke every render from 2026-08-12 to 08-28.
+        'render_staging_path' => env('YAK_VIDEO_RENDER_STAGING_PATH', storage_path('app/private/render')),
+        // Days after a successful render before raw footage is pruned.
+        'raw_retention_days' => (int) env('YAK_VIDEO_RAW_RETENTION_DAYS', 30),
+    ],
+
     'ci_scan' => [
         'scan_interval_minutes' => (int) env('YAK_SCAN_INTERVAL_MINUTES', 120),
         'max_failure_age_hours' => (int) env('YAK_MAX_FAILURE_AGE_HOURS', 48),

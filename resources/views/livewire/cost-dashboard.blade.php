@@ -74,6 +74,26 @@
         </div>
     </div>
 
+    {{-- Video walkthroughs --}}
+    @php $video = $this->videoSummary; @endphp
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center" title="Walkthrough videos rendered for PRs in this period.">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Videos rendered</div>
+            <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $video['rendered'] }}</div>
+            <div class="text-xs {{ $video['failed'] > 0 ? 'text-yak-danger' : 'text-yak-blue' }}">{{ $video['failed'] }} failed</div>
+        </div>
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center" title="Average Remotion render time per successful video.">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Avg render time</div>
+            <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $video['avg_render'] }}</div>
+            <div class="text-xs text-yak-blue">per video</div>
+        </div>
+        <div class="bg-white/75 backdrop-blur-[40px] backdrop-saturate-[1.4] border border-white/60 rounded-[28px] shadow-yak p-6 text-center" title="Total size of rendered cuts in this period.">
+            <div class="text-xs font-normal text-yak-blue uppercase tracking-wider mb-2">Video output</div>
+            <div class="text-[28px] font-semibold text-yak-slate mb-1">{{ $video['total_mb'] }} MB</div>
+            <div class="text-xs text-yak-blue">rendered cuts</div>
+        </div>
+    </div>
+
     {{-- Spend Bar Chart --}}
     @php
         $chartData = $this->chartData;

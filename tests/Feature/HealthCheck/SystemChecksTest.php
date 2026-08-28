@@ -1,10 +1,14 @@
 <?php
 
+use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\HealthCheck\ClaudeCliCheck;
+use App\Services\HealthCheck\HealthSection;
 use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\LastTaskCompletedCheck;
+use App\Services\HealthCheck\Registry;
+use App\Services\HealthCheck\RenderHealthCheck;
 use App\Services\HealthCheck\RepositoriesCheck;
 use App\Services\HealthCheck\WebhookSignaturesCheck;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
@@ -259,4 +263,39 @@ it('stores the probe timestamp as a string that survives cache serialization', f
 
     expect($roundTripped['checked_at'])->toBe($stored['checked_at']);
     expect(Carbon\Carbon::parse($roundTripped['checked_at']))->toBeInstanceOf(Carbon\Carbon::class);
+});
+
+it('video-render is Ok with no renders in the last 24h', function () {
+    $result = (new RenderHealthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Ok);
+    expect($result->detail)->toBe('No renders in the last 24h');
+});
+
+it('video-render is Ok with rendered count when all succeeded', function () {
+    VideoMetric::factory()->count(3)->create();
+
+    $result = (new RenderHealthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Ok);
+    expect($result->detail)->toBe('3 rendered, 0 failed (24h)');
+});
+
+it('video-render is Error and names the task when a render failed in the last 24h', function () {
+    $task = YakTask::factory()->success()->create();
+    VideoMetric::factory()->for($task, 'task')->failed()->create();
+    VideoMetric::factory()->failed()->create(['created_at' => now()->subDays(2)]);
+
+    $result = (new RenderHealthCheck)->run();
+
+    expect($result->status)->toBe(HealthStatus::Error);
+    expect($result->detail)->toContain('1 failed (24h)')
+        ->and($result->detail)->toContain("Task #{$task->id}")
+        ->and($result->detail)->toContain('boom');
+});
+
+it('registry includes the video-render check in the system section', function () {
+    $ids = array_map(fn ($c) => $c->id(), app(Registry::class)->forSection(HealthSection::System));
+
+    expect($ids)->toContain('video-render');
 });

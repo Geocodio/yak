@@ -18,14 +18,20 @@ class VideoRenderer
             throw new RuntimeException("storyboard.json not found: {$storyboardPath}");
         }
 
-        $publicDir = "{$this->videoDir}/public";
-        if (! is_dir($publicDir)) {
-            mkdir($publicDir, 0755, true);
+        // Stage into a per-render directory that the worker user owns and
+        // that Remotion serves as its public dir, so staticFile() resolves
+        // the clip without anything under /app/video being writable.
+        $stagingRoot = rtrim((string) config('yak.video.render_staging_path'), '/');
+        $stagingDir = $stagingRoot . '/' . bin2hex(random_bytes(6));
+        if (! is_dir($stagingDir) && ! mkdir($stagingDir, 0775, true) && ! is_dir($stagingDir)) {
+            throw new RuntimeException("cannot create render staging dir: {$stagingDir}");
         }
 
-        $stagedName = '_render-' . bin2hex(random_bytes(6)) . '.webm';
-        $stagedPath = "{$publicDir}/{$stagedName}";
-        copy($webmPath, $stagedPath);
+        $stagedName = 'walkthrough.webm';
+        $stagedPath = "{$stagingDir}/{$stagedName}";
+        if (! copy($webmPath, $stagedPath)) {
+            throw new RuntimeException("failed to stage webm into {$stagedPath}");
+        }
 
         try {
             $storyboardJson = file_get_contents($storyboardPath);
@@ -46,6 +52,7 @@ class VideoRenderer
                 ->run([
                     'npx', 'remotion', 'render',
                     'src/index.ts', 'Walkthrough', $outputPath,
+                    '--public-dir=' . $stagingDir . '/',
                     '--props=' . $props,
                 ]);
 
@@ -58,10 +65,11 @@ class VideoRenderer
             return $outputPath;
         } finally {
             @unlink($stagedPath);
+            @rmdir($stagingDir);
         }
     }
 
-    private function probeDurationSeconds(string $webmPath): ?float
+    public function probeDurationSeconds(string $webmPath): ?float
     {
         $result = Process::run([
             'ffprobe', '-v', 'error',

@@ -16,6 +16,12 @@ use App\Channels\GitHub\AppService as GitHubAppService;
  */
 class PullRequestBodyUpdater
 {
+    /**
+     * The single line Yak owns directly under "### Video walkthrough":
+     * a plain link, a clickable thumbnail, or the unavailable notice.
+     */
+    private const string VIDEO_LINE_PATTERN = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)|_Video walkthrough unavailable[^\n]*_)';
+
     public function __construct(public GitHubAppService $github) {}
 
     public function setReviewerCut(
@@ -52,10 +58,9 @@ class PullRequestBodyUpdater
             // pass. Keeps the regex local so nothing downstream of the
             // section (### Files changed, `---`, warning callout) gets
             // swallowed when the walkthrough is the last heading.
-            $linkLine = '(?:- \[[^\]]+\]\([^)]+\)|\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\))';
-            $replaced = preg_replace(
-                "/(### Video walkthrough\s*\n\s*\n){$linkLine}/",
-                "$1{$markdown}",
+            $replaced = preg_replace_callback(
+                '/(### Video walkthrough\s*\n\s*\n)' . self::VIDEO_LINE_PATTERN . '/',
+                fn (array $matches): string => $matches[1] . $markdown,
                 $body,
                 1,
                 $count,
@@ -69,6 +74,41 @@ class PullRequestBodyUpdater
             }
         } else {
             $body .= "\n\n### Video walkthrough\n\n{$markdown}\n";
+        }
+
+        $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $body]);
+    }
+
+    /**
+     * Replace the video line under "### Video walkthrough" with an explicit
+     * unavailable notice so a PR never keeps a stale raw-webm link or a
+     * "rendering" placeholder after the render has failed for good.
+     */
+    public function setWalkthroughUnavailable(string $repoFullName, int $prNumber, string $reason): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
+        $body = (string) ($pr['body'] ?? '');
+
+        $reason = trim(preg_replace('/\s+/', ' ', $reason) ?? $reason);
+        $line = "_Video walkthrough unavailable (render failed: {$reason})._";
+
+        if (str_contains($body, $line)) {
+            return;
+        }
+
+        if (str_contains($body, '### Video walkthrough')) {
+            $replaced = preg_replace_callback(
+                '/(### Video walkthrough\s*\n\s*\n)' . self::VIDEO_LINE_PATTERN . '/',
+                fn (array $matches): string => $matches[1] . $line,
+                $body,
+                1,
+                $count,
+            );
+            $body = (is_string($replaced) && $count > 0) ? $replaced : $body . "\n{$line}\n";
+        } else {
+            $body .= "\n\n### Video walkthrough\n\n{$line}\n";
         }
 
         $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $body]);
