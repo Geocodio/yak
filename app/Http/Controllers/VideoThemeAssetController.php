@@ -22,9 +22,22 @@ class VideoThemeAssetController extends Controller
         $disk = Storage::disk('artifacts');
         abort_unless($disk->exists($path), 404);
 
+        $isSvg = str_ends_with($path, '.svg');
+
+        // The logo is served unauthenticated from the app's own origin so
+        // headless Chrome can fetch it during a render. Direct navigation
+        // to this URL is not inert, so an uploaded SVG could otherwise run
+        // script with the app's origin. `sandbox` on the CSP blocks script
+        // execution, framing, and form submission from the served
+        // document; the other headers stop a browser from being coaxed
+        // into treating the response as something other than the inert
+        // asset it is.
         return $disk->response($path, null, [
-            'Content-Type' => str_ends_with($path, '.svg') ? 'image/svg+xml' : 'image/png',
+            'Content-Type' => $isSvg ? 'image/svg+xml' : 'image/png',
             'Cache-Control' => 'public, max-age=300',
+            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => 'inline; filename="logo.' . ($isSvg ? 'svg' : 'png') . '"',
         ]);
     }
 

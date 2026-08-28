@@ -17,6 +17,26 @@ it('serves the logo without authentication', function (): void {
         ->assertHeader('content-type', 'image/png');
 });
 
+it('hardens the logo response against same-origin XSS', function (): void {
+    Storage::disk('artifacts')->put('theme/logo.svg', '<svg></svg>');
+    VideoTheme::factory()->create(['id' => 1, 'logo_path' => 'theme/logo.svg']);
+
+    $this->get(route('video-theme.logo'))
+        ->assertOk()
+        ->assertHeader('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+        ->assertHeader('x-content-type-options', 'nosniff')
+        ->assertHeader('content-disposition', 'inline; filename="logo.svg"');
+});
+
+it('names the content disposition after the stored extension for a png logo', function (): void {
+    Storage::disk('artifacts')->put('theme/logo.png', 'png-bytes');
+    VideoTheme::factory()->create(['id' => 1, 'logo_path' => 'theme/logo.png']);
+
+    $this->get(route('video-theme.logo'))
+        ->assertOk()
+        ->assertHeader('content-disposition', 'inline; filename="logo.png"');
+});
+
 it('404s when no logo is set', function (): void {
     VideoTheme::factory()->create(['id' => 1, 'logo_path' => null]);
 
