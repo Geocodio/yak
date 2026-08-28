@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\RenderVideoJob;
+use App\Jobs\RenderWalkthroughJob;
 use App\Models\Artifact;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Queue;
@@ -52,5 +53,48 @@ test('honours --failed-since, --task and --dry-run', function () {
 
     Queue::fake();
     $this->artisan('yak:video:rerender', ['--dry-run' => true])->assertSuccessful()->expectsOutputToContain('Would dispatch 2 render(s)');
+    Queue::assertNothingPushed();
+});
+
+test('dispatches a task-keyed render for tasks with a v3 manifest', function () {
+    $task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'file', 'role' => 'manifest', 'filename' => 'manifest.json', 'disk_path' => "{$task->id}/manifest.json", 'size_bytes' => 1,
+    ]);
+
+    $this->artisan('yak:video:rerender')->assertSuccessful();
+
+    Queue::assertPushed(RenderWalkthroughJob::class, 1);
+    Queue::assertPushed(RenderWalkthroughJob::class, fn (RenderWalkthroughJob $job) => $job->taskId === $task->id);
+    Queue::assertNotPushed(RenderVideoJob::class);
+});
+
+test('skips a v3 task that already has a cut', function () {
+    $task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'file', 'role' => 'manifest', 'filename' => 'manifest.json', 'disk_path' => "{$task->id}/manifest.json", 'size_bytes' => 1, 'created_at' => '2026-08-20 10:00:00',
+    ]);
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video_cut', 'role' => 'cut', 'filename' => 'walkthrough.mp4', 'disk_path' => "{$task->id}/walkthrough.mp4", 'size_bytes' => 1, 'created_at' => '2026-08-20 10:05:00',
+    ]);
+
+    $this->artisan('yak:video:rerender')->assertSuccessful();
+
+    Queue::assertNotPushed(RenderWalkthroughJob::class);
+});
+
+test('--dry-run reports both v2 and v3 counts', function () {
+    rawVideoWithStoryboard(YakTask::factory()->success()->create(), '2026-08-20 10:00:00');
+
+    $v3Task = YakTask::factory()->success()->create();
+    Artifact::factory()->for($v3Task, 'task')->create([
+        'type' => 'file', 'role' => 'manifest', 'filename' => 'manifest.json', 'disk_path' => "{$v3Task->id}/manifest.json", 'size_bytes' => 1,
+    ]);
+
+    $this->artisan('yak:video:rerender', ['--dry-run' => true])
+        ->assertSuccessful()
+        ->expectsOutputToContain('Would dispatch 1 render(s)')
+        ->expectsOutputToContain('Would dispatch 1 v3 walkthrough(s)');
+
     Queue::assertNothingPushed();
 });

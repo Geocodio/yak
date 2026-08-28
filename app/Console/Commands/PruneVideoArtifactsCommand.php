@@ -10,7 +10,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Storage;
 
 #[Signature('yak:video:prune {--dry-run : Report without deleting}')]
-#[Description('Delete raw walkthrough footage for tasks whose rendered cut is older than the retention window')]
+#[Description('Delete raw footage, shot clips and voiceover audio for tasks whose rendered cut is older than the retention window')]
 class PruneVideoArtifactsCommand extends Command
 {
     public function handle(): int
@@ -20,7 +20,7 @@ class PruneVideoArtifactsCommand extends Command
         $disk = Storage::disk('artifacts');
 
         $raws = Artifact::query()
-            ->rawFootage()
+            ->whereIn('role', ['raw', 'shot', 'voiceover'])
             ->whereExists(function (Builder $sub) use ($cutoff): void {
                 $sub->selectRaw('1')
                     ->from('artifacts as cuts')
@@ -35,7 +35,7 @@ class PruneVideoArtifactsCommand extends Command
             foreach ($raws as $raw) {
                 $this->line("Task #{$raw->yak_task_id}: {$raw->disk_path}");
             }
-            $this->components->info("Would prune {$raws->count()} raw video(s) (cut older than {$days} days)");
+            $this->components->info("Would prune {$raws->count()} artifact(s) (cut older than {$days} days)");
 
             return self::SUCCESS;
         }
@@ -49,7 +49,7 @@ class PruneVideoArtifactsCommand extends Command
             $pruned++;
         }
 
-        $this->components->info("Pruned {$pruned} raw video(s) (cut older than {$days} days)");
+        $this->components->info("Pruned {$pruned} artifact(s) (cut older than {$days} days)");
 
         return self::SUCCESS;
     }
