@@ -14,7 +14,7 @@
     @include('partials.settings-heading')
 
     <x-settings.layout :heading="__('Video walkthroughs')" :subheading="__('How the walkthrough attached to every PR looks. Changes apply to the next render.')" wide>
-        <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div class="grid items-start gap-8 lg:grid-cols-[420px_minmax(0,1fr)] lg:gap-9">
             {{-- Form column --}}
             <form wire:submit="save" class="flex flex-col gap-8">
                 {{-- Colors --}}
@@ -49,7 +49,7 @@
                 {{-- Fonts --}}
                 <div class="flex flex-col gap-3">
                     <flux:heading size="sm">{{ __('Fonts') }}</flux:heading>
-                    <div class="grid gap-4 sm:grid-cols-3">
+                    <div class="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
                         @foreach (['display' => __('Display'), 'body' => __('Body'), 'mono' => __('Mono')] as $role => $label)
                             <flux:select wire:model.live="fonts.{{ $role }}" :label="$label">
                                 @foreach ($this->fontFamilies as $family)
@@ -121,6 +121,7 @@
                 data-testid="video-theme-preview-column"
                 x-data="{
                     theme: @js(json_decode($this->themeJson, true)),
+                    active: 'title',
                     mounted: false,
                     failed: false,
                     timer: null,
@@ -152,6 +153,14 @@
                         }
 
                         window.YakVideoPreview.mount(this.$refs.player, { theme: this.theme });
+
+                        this.$refs.strip.querySelectorAll('[data-block-kind]').forEach((button) => {
+                            window.YakVideoPreview.mountCard(
+                                button.querySelector('[data-card-surface]'),
+                                button.dataset.blockKind,
+                            );
+                        });
+
                         this.mounted = true;
                     },
                     observe() {
@@ -177,6 +186,8 @@
                         }
                     },
                     seek(kind) {
+                        this.active = kind;
+
                         if (this.mounted) {
                             window.YakVideoPreview.seekToBlock(kind);
                         }
@@ -187,8 +198,16 @@
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <flux:heading size="sm">{{ __('Live preview') }}</flux:heading>
                     <div class="flex gap-1">
-                        @foreach (['title' => __('Title'), 'chapter' => __('Chapter'), 'shot' => __('Shot'), 'summary' => __('Summary')] as $kind => $label)
-                            <flux:button size="xs" variant="ghost" type="button" x-on:click="seek('{{ $kind }}')" data-testid="preview-chip-{{ $kind }}">{{ $label }}</flux:button>
+                        @foreach ($this->blockKinds as $kind => $label)
+                            <button
+                                type="button"
+                                data-testid="preview-chip-{{ $kind }}"
+                                x-on:click="seek('{{ $kind }}')"
+                                x-bind:class="active === '{{ $kind }}'
+                                    ? 'bg-yak-slate text-yak-cream'
+                                    : 'bg-yak-slate/8 text-yak-slate hover:bg-yak-slate/15'"
+                                class="rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wide uppercase transition-colors"
+                            >{{ $label }}</button>
                         @endforeach
                     </div>
                 </div>
@@ -197,9 +216,37 @@
                     x-ref="preview"
                     data-testid="video-theme-preview"
                     data-theme="{{ $this->themeJson }}"
-                    class="overflow-hidden rounded-2xl bg-zinc-900/5 dark:bg-white/5"
+                    class="overflow-hidden rounded-2xl bg-yak-cream-dark shadow-elevation-1"
                 >
                     <div wire:ignore x-ref="player" style="aspect-ratio: 1440 / 952;"></div>
+                </div>
+
+                {{-- One still per block kind, painted from the same theme as the
+                     player. Clicking one seeks the player to that card. --}}
+                <div
+                    x-ref="strip"
+                    wire:ignore
+                    data-testid="video-theme-card-strip"
+                    class="grid grid-cols-4 gap-2.5"
+                >
+                    @foreach ($this->blockKinds as $kind => $label)
+                        <button
+                            type="button"
+                            data-block-kind="{{ $kind }}"
+                            data-testid="preview-card-{{ $kind }}"
+                            x-on:click="seek('{{ $kind }}')"
+                            x-bind:class="active === '{{ $kind }}' ? 'ring-2 ring-accent ring-offset-2 ring-offset-yak-cream' : 'ring-1 ring-yak-tan/50 hover:ring-yak-tan'"
+                            class="group overflow-hidden rounded-lg transition"
+                            :aria-pressed="active === '{{ $kind }}'"
+                            aria-label="{{ __('Jump to the :card card', ['card' => $label]) }}"
+                        >
+                            <span
+                                data-card-surface
+                                class="block w-full bg-yak-cream-dark"
+                                style="aspect-ratio: 1440 / 952;"
+                            ></span>
+                        </button>
+                    @endforeach
                 </div>
 
                 <flux:text size="sm" x-show="failed" x-cloak style="display:none" class="text-zinc-500">
@@ -207,7 +254,7 @@
                 </flux:text>
 
                 <flux:text size="sm" class="text-zinc-500">
-                    {{ __('Preview renders the real composition with a sample script. Click a chip to jump to that card. Save applies the theme to the next render.') }}
+                    {{ __('Preview renders the real composition with a sample script. Click a card to jump to it. Save applies the theme to the next render.') }}
                 </flux:text>
             </div>
         </div>

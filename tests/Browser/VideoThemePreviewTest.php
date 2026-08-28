@@ -95,3 +95,57 @@ test('the player opens on a painted title card rather than a blank first frame',
 
     $page->assertNoJavaScriptErrors();
 });
+
+test('the card strip paints a still of every block from the current theme', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('settings.video'));
+    $page->wait(3);
+
+    $strip = $page->script(<<<'JS'
+        (() => [...document.querySelectorAll('[data-testid^="preview-card-"]')].map((button) => ({
+            kind: button.dataset.blockKind,
+            // <Thumbnail> paints one frame of the real composition, so a card
+            // that rendered has the composition's own markup inside it.
+            painted: button.querySelector('[data-card-surface]')?.childElementCount > 0,
+            text: button.innerText.trim(),
+        })))()
+    JS);
+
+    expect($strip)->toHaveCount(4);
+    expect(collect($strip)->pluck('kind')->all())->toBe(['title', 'chapter', 'shot', 'summary']);
+
+    foreach ($strip as $card) {
+        expect($card['painted'])->toBeTrue();
+    }
+
+    expect($strip[0]['text'])->toContain('Sample walkthrough');
+    expect($strip[1]['text'])->toContain('Sample chapter');
+    expect($strip[3]['text'])->toContain('What changed');
+});
+
+test('clicking a chip moves the selection and seeks the player', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('settings.video'));
+    $page->wait(3);
+
+    $before = $page->script('document.querySelector(\'[data-testid="preview-chip-summary"]\').className');
+    expect($before)->not->toContain('bg-yak-slate ');
+
+    $page->click('[data-testid="preview-chip-summary"]')->wait(1);
+
+    $after = $page->script(<<<'JS'
+        (() => ({
+            summary: document.querySelector('[data-testid="preview-chip-summary"]').className,
+            title: document.querySelector('[data-testid="preview-chip-title"]').className,
+            card: document.querySelector('[data-testid="preview-card-summary"]').className,
+        }))()
+    JS);
+
+    expect($after['summary'])->toContain('bg-yak-slate ');
+    expect($after['title'])->not->toContain('bg-yak-slate ');
+    expect($after['card'])->toContain('ring-accent');
+
+    $page->assertNoJavaScriptErrors();
+});

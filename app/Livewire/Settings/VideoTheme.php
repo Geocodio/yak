@@ -255,6 +255,24 @@ class VideoTheme extends Component
         return 'https://fonts.googleapis.com/css2?' . $families . '&display=swap';
     }
 
+    /**
+     * The four cards a walkthrough is built from, in the order they play.
+     * Drives both the seek chips and the thumbnail strip, so the two can
+     * never drift apart.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function blockKinds(): array
+    {
+        return [
+            'title' => __('Title'),
+            'chapter' => __('Chapter'),
+            'shot' => __('Shot'),
+            'summary' => __('Summary'),
+        ];
+    }
+
     /** @return list<string> */
     #[Computed]
     public function fontFamilies(): array

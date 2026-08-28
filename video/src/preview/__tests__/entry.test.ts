@@ -14,11 +14,12 @@ const timeline = () =>
   });
 
 describe('preview entry', () => {
-  it('exposes mount, update and seekToBlock', () => {
+  it('exposes mount, update, seekToBlock and mountCard', () => {
     const api = createPreviewApi();
     expect(typeof api.mount).toBe('function');
     expect(typeof api.update).toBe('function');
     expect(typeof api.seekToBlock).toBe('function');
+    expect(typeof api.mountCard).toBe('function');
   });
 
   it('reports a frame for each of the four block kinds', () => {

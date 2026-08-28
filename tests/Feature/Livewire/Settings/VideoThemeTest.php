@@ -157,6 +157,30 @@ it('renders a seek chip for every block kind', function (): void {
     }
 });
 
+it('lays the form and the preview out in two columns from lg up', function (): void {
+    Livewire::test(VideoTheme::class)
+        ->assertSeeHtml('lg:grid-cols-[420px_minmax(0,1fr)]')
+        ->assertSeeHtml('lg:sticky lg:top-6');
+});
+
+it('renders a card thumbnail for every block kind under the player', function (): void {
+    $component = Livewire::test(VideoTheme::class);
+
+    $component->assertSeeHtml('data-testid="video-theme-card-strip"');
+
+    foreach (['title', 'chapter', 'shot', 'summary'] as $kind) {
+        $component->assertSeeHtml('data-testid="preview-card-' . $kind . '"');
+    }
+});
+
+it('marks exactly one chip and card active at a time', function (): void {
+    // The chips and the strip are two views of the same selection, so both
+    // read the one `active` value rather than tracking their own.
+    Livewire::test(VideoTheme::class)
+        ->assertSeeHtml("active: 'title'")
+        ->assertSeeHtml("seek('title')");
+});
+
 it('points the preview at the built bundle', function (): void {
     Livewire::test(VideoTheme::class)
         ->assertSeeHtml('vendor/video-preview.js');

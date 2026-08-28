@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { Player, type PlayerRef } from '@remotion/player';
+import { Player, Thumbnail, type PlayerRef } from '@remotion/player';
 import { WalkthroughV3, type WalkthroughV3Props } from '../compositions/WalkthroughV3';
 import { buildBlocks } from '../lib/v3/blocks';
 import { DEFAULT_FPS } from '../lib/v3/types';
@@ -12,6 +12,13 @@ export type PreviewApi = {
   mount(el: HTMLElement, props?: Partial<WalkthroughV3Props>): void;
   update(theme: PartialTheme | null): void;
   seekToBlock(kind: BlockKind): void;
+  /**
+   * Paint a single still of `kind`'s card into `el` — the settings page's
+   * strip of four thumbnails under the player. Uses `<Thumbnail>` rather than
+   * a second `<Player>`: it renders one frame with no timeline, no controls
+   * and no playback loop, so four of them cost about one static render each.
+   */
+  mountCard(el: HTMLElement, kind: BlockKind): void;
 };
 
 /**
@@ -38,6 +45,8 @@ export function createPreviewApi(): PreviewApi {
   let element: HTMLElement | null = null;
   let props: WalkthroughV3Props = { ...SAMPLE_PROPS };
   const playerRef = React.createRef<PlayerRef>();
+  /** Thumbnail roots keyed by their container, so `update()` repaints them. */
+  const cards = new Map<HTMLElement, { root: Root; kind: BlockKind }>();
 
   const dimensions = (): {
     durationInFrames: number;
@@ -80,6 +89,33 @@ export function createPreviewApi(): PreviewApi {
     );
   };
 
+  const paintCard = (target: HTMLElement, kind: BlockKind): void => {
+    const card = cards.get(target);
+
+    if (card === undefined) {
+      return;
+    }
+
+    const { durationInFrames, compositionWidth, compositionHeight } = dimensions();
+
+    card.root.render(
+      <Thumbnail
+        component={WalkthroughV3}
+        inputProps={props}
+        frameToDisplay={blockOffsets()[kind]}
+        durationInFrames={durationInFrames}
+        compositionWidth={compositionWidth}
+        compositionHeight={compositionHeight}
+        fps={DEFAULT_FPS}
+        style={{ width: '100%', height: '100%' }}
+      />,
+    );
+  };
+
+  const paintCards = (): void => {
+    cards.forEach((card, target) => paintCard(target, card.kind));
+  };
+
   return {
     mount(el, overrides) {
       applyStaticBase();
@@ -91,10 +127,23 @@ export function createPreviewApi(): PreviewApi {
       props = { ...SAMPLE_PROPS, ...(overrides ?? {}) };
       root ??= createRoot(el);
       paint();
+      paintCards();
     },
     update(theme) {
       props = { ...props, theme };
       paint();
+      paintCards();
+    },
+    mountCard(el, kind) {
+      const existing = cards.get(el);
+
+      if (existing === undefined) {
+        cards.set(el, { root: createRoot(el), kind });
+      } else {
+        existing.kind = kind;
+      }
+
+      paintCard(el, kind);
     },
     seekToBlock(kind) {
       playerRef.current?.pause();
