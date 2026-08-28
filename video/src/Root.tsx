@@ -16,7 +16,7 @@ export const RemotionRoot = () => (
       height={720}
       durationInFrames={FPS * 15}
     />
-    <Composition<Record<string, unknown>, WalkthroughProps>
+    <Composition
       id="Walkthrough"
       component={Walkthrough}
       fps={FPS}
