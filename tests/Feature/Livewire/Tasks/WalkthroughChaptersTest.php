@@ -93,3 +93,30 @@ test('timestamps format as minutes and padded seconds', function () {
         ->and(TaskDetail::formatTimestamp(70.0))->toBe('1:10')
         ->and(TaskDetail::formatTimestamp(3599.0))->toBe('59:59');
 });
+
+test('the lightbox lists every narration line with its timestamp', function () {
+    [$task, $recording] = taskWithChapters([
+        ['title' => 'Geography levels', 'startSeconds' => 4, 'shots' => [
+            ['id' => 'intro', 'startSeconds' => 4, 'say' => 'Here are the geography levels.'],
+            ['id' => 'zoom', 'startSeconds' => 31, 'say' => 'ZIP-level demographics load underneath.'],
+        ]],
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertSeeHtml('data-testid="walkthrough-transcript"')
+        ->assertSeeHtml('data-testid="walkthrough-copy-transcript"')
+        ->assertSee('Here are the geography levels.')
+        ->assertSee('ZIP-level demographics load underneath.')
+        ->assertSee('0:31');
+});
+
+test('there is no transcript block without chapters', function () {
+    $task = YakTask::factory()->success()->create();
+    $recording = Artifact::factory()->for($task, 'task')->video()->create();
+    Artifact::factory()->for($task, 'task')->videoCut()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertDontSeeHtml('data-testid="walkthrough-transcript"');
+});

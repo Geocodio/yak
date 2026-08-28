@@ -100,4 +100,36 @@
             </ul>
         @endif
     </div>
+
+    @if(count($transcriptLines) > 0)
+        <div class="mt-4" data-testid="walkthrough-transcript">
+            <div class="mb-2 flex items-center justify-between">
+                <h3 class="text-xs font-medium uppercase tracking-wider text-yak-blue">Transcript</h3>
+                <button
+                    type="button"
+                    @click="copyTranscript()"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium text-yak-orange hover:bg-[rgba(212,145,94,0.12)]"
+                    data-testid="walkthrough-copy-transcript"
+                >
+                    <span x-show="! copied">Copy</span>
+                    <span x-show="copied" x-cloak>Copied</span>
+                </button>
+            </div>
+            <ul class="max-h-[220px] space-y-1 overflow-y-auto pr-1">
+                @foreach($transcriptLines as $line)
+                    <li>
+                        <button
+                            type="button"
+                            @click="seek({{ $line['startSeconds'] }})"
+                            class="flex w-full items-baseline gap-2 rounded-lg px-2 py-1 text-left text-xs text-yak-slate hover:bg-[rgba(200,184,154,0.2)]"
+                            data-testid="walkthrough-transcript-line"
+                        >
+                            <span class="font-mono text-[11px] text-yak-tan">{{ $line['label'] }}</span>
+                            <span class="flex-1">{{ $line['say'] }}</span>
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
 </div>
