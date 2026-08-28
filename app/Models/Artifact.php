@@ -122,7 +122,12 @@ class Artifact extends Model
             'video_thumbnail' => 'thumbnail',
             'screenshot' => 'screenshot',
             'video' => 'raw',
-            'file' => $filename === 'storyboard.json' ? 'manifest' : null,
+            'file' => match ($filename) {
+                'storyboard.json', 'manifest.json' => 'manifest',
+                'script.json' => 'script',
+                'chapters.json' => 'chapters',
+                default => null,
+            },
             default => null,
         };
     }
