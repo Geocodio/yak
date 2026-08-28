@@ -671,3 +671,20 @@ it('attaches CLI stderr to the run result so failures surface the real reason', 
         ->and($result->isStaleSessionResume())->toBeTrue()
         ->and($result->failureMessage())->toContain('No conversation found with session ID: 98894ba5');
 });
+
+it('points the sandbox CLI at the shared claude config dir', function () {
+    $request = new AgentRunRequest(
+        prompt: 'hello',
+        systemPrompt: 'sys',
+        containerName: 'task-1',
+        timeoutSeconds: 60,
+        maxBudgetUsd: 1.0,
+        maxTurns: 5,
+        model: 'opus',
+    );
+
+    $method = new ReflectionMethod(SandboxedAgentRunner::class, 'buildClaudeCommand');
+    $command = $method->invoke(app(SandboxedAgentRunner::class), $request);
+
+    expect($command)->toContain("CLAUDE_CONFIG_DIR='/home/yak/.claude' claude -p");
+});

@@ -579,8 +579,12 @@ class SandboxedAgentRunner implements AgentRunner
         // ("posix_spawn(): Argument list too long"). Documented claude
         // -p pattern: `cat context.txt | claude -p --flags...`.
         $command = sprintf(
-            'cd %s && claude -p --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
+            'cd %s && CLAUDE_CONFIG_DIR=%s claude -p --dangerously-skip-permissions --output-format %s%s --model %s --max-turns %d --max-budget-usd %s --append-system-prompt %s',
             escapeshellarg($workspacePath),
+            // sudo's env_reset drops container-level environment config, so the
+            // config dir has to be set on the command line. Without it the CLI
+            // falls back to ~/.claude.json and misses the shared mount.
+            escapeshellarg((string) config('yak.sandbox.claude_config_source', '/home/yak/.claude')),
             $outputFormat,
             $verboseFlag,
             escapeshellarg($request->model),
