@@ -1,4 +1,5 @@
 import { ACTION_KEYS, PHYSICAL_ACTION_KEYS, type Action, type Script } from './types.ts';
+import { estimatedCutSeconds } from './readingTime.ts';
 
 export const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -41,6 +42,91 @@ export function lintActions(shotRef: string, actions: unknown, errors: string[])
   if (physical === 0) {
     errors.push(`${shotRef}: needs at least one physical action (a shot of only waits is rejected)`);
   }
+}
+
+const RESERVED_CHAPTERS = ['intro', 'result', 'before'];
+const HOSTNAME_PATTERN = /(localhost|127\.0\.0\.1|0\.0\.0\.0|\.local\b|\.test\b|:\d{4,5}\b|preview[-.][\w-]*\.[\w-]+)/i;
+const YAK_PATTERN = /\byak\b/i;
+
+function lintChapters(shots: Script['shots'], errors: string[]): void {
+  const order: string[] = [];
+  for (const shot of shots) {
+    const chapter = typeof shot.chapter === 'string' ? shot.chapter.trim() : '';
+    if (order[order.length - 1] !== chapter) order.push(chapter);
+  }
+  const distinct = new Set(order);
+  if (distinct.size < 2 || distinct.size > 5) {
+    errors.push(`chapters: expected 2-5 distinct chapters, got ${distinct.size}`);
+  }
+  if (order.length !== distinct.size) {
+    errors.push('chapters: must be contiguous — a chapter may not resume after another chapter');
+  }
+  for (const chapter of distinct) {
+    if (RESERVED_CHAPTERS.includes(chapter.toLowerCase())) {
+      errors.push(`chapters: "${chapter}" is a reserved chapter name`);
+    }
+  }
+}
+
+function lintRepetition(shots: Script['shots'], errors: string[]): void {
+  for (let i = 1; i < shots.length; i += 1) {
+    const previous = shots[i - 1];
+    const current = shots[i];
+    const sameFocus = (previous.focus ?? null) === (current.focus ?? null);
+    const sameDo = JSON.stringify(previous.do) === JSON.stringify(current.do);
+    if (sameFocus && sameDo) {
+      errors.push(`shots[${i}]: repeats the previous shot (same focus and identical do)`);
+    }
+  }
+}
+
+function lintText(label: string, text: unknown, errors: string[]): void {
+  if (typeof text !== 'string') return;
+  if (HOSTNAME_PATTERN.test(text)) {
+    errors.push(`${label}: must not mention hostnames or ports (localhost, preview URLs)`);
+  }
+  if (YAK_PATTERN.test(text)) {
+    errors.push(`${label}: must not mention "Yak"`);
+  }
+}
+
+function lintScreenshots(script: Script, errors: string[]): void {
+  const entries = script.screenshots;
+  if (!Array.isArray(entries) || entries.length < 1 || entries.length > 5) {
+    errors.push('screenshots must have 1-5 entries');
+    return;
+  }
+  const shotIds = new Set(script.shots.map((s) => s.id));
+  const seen = new Set<string>();
+  entries.forEach((raw, index) => {
+    const ref = `screenshots[${index}]`;
+    if (!isRecord(raw)) {
+      errors.push(`${ref}: entry must be an object`);
+      return;
+    }
+    const entry = raw as Partial<Script['screenshots'][number]>;
+    if (typeof entry.id !== 'string' || !SLUG.test(entry.id)) {
+      errors.push(`${ref}: id must be a slug (lowercase letters, digits and single hyphens)`);
+    } else if (seen.has(entry.id)) {
+      errors.push(`${ref}: duplicate screenshot id "${entry.id}"`);
+    } else {
+      seen.add(entry.id);
+    }
+    if (typeof entry.caption !== 'string' || entry.caption.length === 0 || entry.caption.length > 100) {
+      errors.push(`${ref}: caption must be a non-empty string of at most 100 characters`);
+    } else {
+      lintText(`${ref}.caption`, entry.caption, errors);
+    }
+    if (entry.after_shot === undefined) {
+      if (!Array.isArray(entry.do) || entry.do.length === 0) {
+        errors.push(`${ref}: needs an after_shot or its own do list`);
+      } else {
+        lintActions(ref, entry.do, errors);
+      }
+    } else if (typeof entry.after_shot !== 'string' || !shotIds.has(entry.after_shot)) {
+      errors.push(`${ref}: after_shot "${String(entry.after_shot)}" names no shot`);
+    }
+  });
 }
 
 /**
@@ -106,6 +192,26 @@ export function lintScriptStatic(input: unknown): string[] {
     }
     lintActions(ref, shot.do, errors);
   });
+
+  const complete = script as Script;
+  lintChapters(complete.shots, errors);
+  lintRepetition(complete.shots, errors);
+  lintText('title', complete.title, errors);
+  lintText('intro', complete.intro, errors);
+  lintText('outro', complete.outro, errors);
+  (complete.summary ?? []).forEach((bullet, i) => lintText(`summary[${i}]`, bullet, errors));
+  complete.shots.forEach((shot, i) => lintText(`shots[${i}].say`, shot.say, errors));
+  lintScreenshots(complete, errors);
+
+  const shotsWellFormed = complete.shots.every(
+    (shot) => isRecord(shot) && typeof shot.say === 'string' && typeof shot.chapter === 'string',
+  );
+  if (shotsWellFormed) {
+    const seconds = estimatedCutSeconds(complete);
+    if (seconds < 30 || seconds > 150) {
+      errors.push(`estimated cut length is ${seconds.toFixed(1)} s; it must be between 30 s and 150 s`);
+    }
+  }
 
   return errors;
 }

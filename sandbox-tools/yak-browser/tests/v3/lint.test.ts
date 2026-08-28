@@ -146,3 +146,159 @@ test('rejects a numeric wait over 5000 ms', () => {
   s.shots[0].do = [{ navigate: '/' }, { wait: 5001 }];
   assert.ok(lintScriptStatic(s).some((e) => /wait.*5000/.test(e)));
 });
+
+test('rejects a single chapter', () => {
+  const s = validScript();
+  for (const shot of s.shots) shot.chapter = 'Only one';
+  assert.ok(lintScriptStatic(s).some((e) => /2-5 distinct chapters/.test(e)));
+});
+
+test('rejects more than five chapters', () => {
+  const s = validScript();
+  s.shots = ['a', 'b', 'c', 'd', 'e', 'f'].map((c, i) => ({
+    id: `s${i}`,
+    chapter: `Chapter ${c}`,
+    say: 'The page shows the change.',
+    do: [{ scroll_to: 'body' }],
+  }));
+  assert.ok(lintScriptStatic(s).some((e) => /2-5 distinct chapters/.test(e)));
+});
+
+test('rejects non-contiguous chapters', () => {
+  const s = validScript();
+  s.shots[0].chapter = 'A';
+  s.shots[1].chapter = 'B';
+  s.shots[2].chapter = 'A';
+  assert.ok(lintScriptStatic(s).some((e) => /contiguous/.test(e)));
+});
+
+test('rejects the reserved chapter names', () => {
+  for (const reserved of ['Intro', 'Result', 'Before']) {
+    const s = validScript();
+    s.shots[0].chapter = reserved;
+    assert.ok(
+      lintScriptStatic(s).some((e) => /reserved chapter name/.test(e)),
+      `${reserved} should be reserved`,
+    );
+  }
+});
+
+test('rejects two consecutive shots with the same focus and identical do', () => {
+  const s = validScript();
+  s.shots[1].do = JSON.parse(JSON.stringify(s.shots[0].do));
+  s.shots[1].focus = s.shots[0].focus;
+  assert.ok(lintScriptStatic(s).some((e) => /repeats the previous shot/.test(e)));
+});
+
+test('rejects localhost and preview hostnames in text fields', () => {
+  const s = validScript();
+  s.intro = 'Visit http://localhost:8000 to see it.';
+  assert.ok(lintScriptStatic(s).some((e) => /must not mention hostnames/.test(e)));
+
+  const t = validScript();
+  t.shots[0].say = 'The page at 127.0.0.1 now lists every level.';
+  assert.ok(lintScriptStatic(t).some((e) => /must not mention hostnames/.test(e)));
+});
+
+test('rejects the word Yak in text fields', () => {
+  const s = validScript();
+  s.outro = 'Yak opened this pull request.';
+  assert.ok(lintScriptStatic(s).some((e) => /must not mention "Yak"/.test(e)));
+});
+
+test('rejects a script whose estimated cut is under 30 seconds', () => {
+  const s = validScript();
+  for (const shot of s.shots) shot.say = 'Short.';
+  s.intro = 'Short intro.';
+  s.outro = 'Done.';
+  assert.ok(lintScriptStatic(s).some((e) => /estimated cut length/.test(e)));
+});
+
+test('rejects a script whose estimated cut is over 150 seconds', () => {
+  const s = validScript();
+  s.shots = Array.from({ length: 12 }, (_, i) => ({
+    id: `s${i}`,
+    chapter: i < 6 ? 'A' : 'B',
+    say: new Array(32).fill('word').join(' '),
+    do: [{ scroll_to: `#s${i}` }],
+    focus: `#s${i}`,
+  }));
+  assert.ok(lintScriptStatic(s).some((e) => /estimated cut length/.test(e)));
+});
+
+test('requires between one and five screenshots', () => {
+  const s = validScript();
+  s.screenshots = [];
+  assert.ok(lintScriptStatic(s).some((e) => /screenshots must have 1-5/.test(e)));
+
+  const t = validScript();
+  t.screenshots = new Array(6).fill(0).map((_, i) => ({ id: `s${i}`, caption: 'A caption', after_shot: 'zcta' }));
+  assert.ok(lintScriptStatic(t).some((e) => /screenshots must have 1-5/.test(e)));
+});
+
+test('rejects duplicate screenshot ids', () => {
+  const s = validScript();
+  s.screenshots = [
+    { id: 'dup', caption: 'One', after_shot: 'zcta' },
+    { id: 'dup', caption: 'Two', after_shot: 'levels' },
+  ];
+  assert.ok(lintScriptStatic(s).some((e) => /duplicate screenshot id/.test(e)));
+});
+
+test('rejects an after_shot that names no shot', () => {
+  const s = validScript();
+  s.screenshots[0].after_shot = 'nope';
+  assert.ok(lintScriptStatic(s).some((e) => /after_shot "nope"/.test(e)));
+});
+
+test('rejects a caption over 100 characters', () => {
+  const s = validScript();
+  s.screenshots[0].caption = 'x'.repeat(101);
+  assert.ok(lintScriptStatic(s).some((e) => /caption/.test(e) && /100/.test(e)));
+});
+
+test('rejects localhost in a caption', () => {
+  const s = validScript();
+  s.screenshots[0].caption = 'The page on localhost:5173';
+  assert.ok(lintScriptStatic(s).some((e) => /must not mention hostnames/.test(e)));
+});
+
+test('requires a screenshot without after_shot to carry its own do list', () => {
+  const s = validScript();
+  s.screenshots[0] = { id: 'standalone', caption: 'A standalone capture' };
+  assert.ok(lintScriptStatic(s).some((e) => /after_shot or its own do/.test(e)));
+});
+
+test('accepts a screenshot with its own do list', () => {
+  const s = validScript();
+  s.screenshots[0] = {
+    id: 'standalone',
+    caption: 'A standalone capture',
+    do: [{ navigate: '/other' }, { scroll_to: 'main' }],
+  };
+  assert.deepStrictEqual(lintScriptStatic(s), []);
+});
+
+test('rejects a shot with a missing chapter', () => {
+  const s = validScript();
+  s.shots[0].chapter = '';
+  assert.ok(lintScriptStatic(s).some((e) => /chapter is required/.test(e)));
+});
+
+test('rejects a shot whose focus is present but empty', () => {
+  const s = validScript();
+  s.shots[0].focus = '';
+  assert.ok(lintScriptStatic(s).some((e) => /focus must be a non-empty selector/.test(e)));
+});
+
+test('rejects a shots entry that is not an object', () => {
+  const s = validScript();
+  s.shots[0] = 'nope';
+  assert.ok(lintScriptStatic(s).some((e) => /shot must be an object/.test(e)));
+});
+
+test('rejects a do entry that is not an object', () => {
+  const s = validScript();
+  s.shots[0].do = [42];
+  assert.ok(lintScriptStatic(s).some((e) => /action must be an object/.test(e)));
+});
