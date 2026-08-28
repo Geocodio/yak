@@ -115,5 +115,10 @@
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
 
+    # yak-container is included deliberately: the standard deploy runs
+    # `--tags yak-container`, and this role installs /usr/local/bin/yak-claude-login,
+    # which the Claude health check and every Slack auth alert instruct the
+    # operator to run. Without this tag a clean-checkout deploy ships those
+    # instructions without the command they name.
     - role: claude-code-config
-      tags: [claude-code-config, yak-app]
+      tags: [claude-code-config, yak-app, yak-container]
