@@ -54,8 +54,8 @@ test('renders a reviewer cut plus a poster thumbnail when webm and storyboard bo
 
     (new RenderVideoJob($rawVideo->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(1);
-    expect(Artifact::reviewerThumbnail()->where('yak_task_id', $task->id)->count())->toBe(1);
+    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(1);
+    expect(Artifact::where('type', 'video_thumbnail')->where('yak_task_id', $task->id)->count())->toBe(1);
 });
 
 test('no-op when storyboard.json is missing', function () {
@@ -74,7 +74,7 @@ test('no-op when storyboard.json is missing', function () {
 
     (new RenderVideoJob($rawVideo->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0);
+    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(0);
 });
 
 test('no-op when raw artifact is missing', function () {
@@ -97,7 +97,7 @@ test('no-op when raw artifact has wrong type', function () {
 
     (new RenderVideoJob($screenshot->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0);
+    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(0);
 });
 
 test('patches the PR body with the rendered cut', function () {
@@ -139,20 +139,20 @@ test('patches the PR body with the rendered cut', function () {
         });
 
     $this->mock(PullRequestBodyUpdater::class)
-        ->shouldReceive('setReviewerCut')
+        ->shouldReceive('setWalkthrough')
         ->once()
         ->withArgs(function (string $repo, int $prNumber, string $url, string $filename, ?string $thumbnailUrl): bool {
             return $repo === 'acme/web'
                 && $prNumber === 88
-                && str_contains($url, 'reviewer-cut.mp4')
-                && $filename === 'reviewer-cut.mp4'
+                && str_contains($url, 'walkthrough.mp4')
+                && $filename === 'walkthrough.mp4'
                 && $thumbnailUrl !== null
-                && str_contains($thumbnailUrl, 'reviewer-cut-thumbnail.jpg');
+                && str_contains($thumbnailUrl, 'walkthrough-thumbnail.jpg');
         });
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerThumbnail()->where('yak_task_id', $task->id)->exists())->toBeTrue();
+    expect(Artifact::where('type', 'video_thumbnail')->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
 test('reviewer tier still publishes the mp4 link (without thumbnail) when thumbnail generation fails', function () {
@@ -190,13 +190,13 @@ test('reviewer tier still publishes the mp4 link (without thumbnail) when thumbn
         ->andThrow(new RuntimeException('ffmpeg missing'));
 
     $this->mock(PullRequestBodyUpdater::class)
-        ->shouldReceive('setReviewerCut')
+        ->shouldReceive('setWalkthrough')
         ->once()
         ->withArgs(fn (string $repo, int $pr, string $url, string $filename, ?string $thumbnailUrl): bool => $thumbnailUrl === null);
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerThumbnail()->where('yak_task_id', $task->id)->exists())->toBeFalse();
+    expect(Artifact::where('type', 'video_thumbnail')->where('yak_task_id', $task->id)->exists())->toBeFalse();
 });
 
 test('reviewer tier render still completes if PR body patch throws', function () {
@@ -238,13 +238,13 @@ test('reviewer tier render still completes if PR body patch throws', function ()
         });
 
     $this->mock(PullRequestBodyUpdater::class)
-        ->shouldReceive('setReviewerCut')
+        ->shouldReceive('setWalkthrough')
         ->once()
         ->andThrow(new RuntimeException('GitHub rejected PATCH'));
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->exists())->toBeTrue();
+    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
 test('reviewer tier skips PR body patch when task has no pr_url', function () {
@@ -285,11 +285,11 @@ test('reviewer tier skips PR body patch when task has no pr_url', function () {
             return $out;
         });
 
-    $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setReviewerCut');
+    $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setWalkthrough');
 
     (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->exists())->toBeTrue();
+    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
 test('failed() logs and allows CreatePullRequestJob fallback to raw webm', function () {
@@ -313,7 +313,7 @@ test('failed() logs and allows CreatePullRequestJob fallback to raw webm', funct
 
     // No reviewer cut was created, but the raw video artifact is still intact
     // so CreatePullRequestJob's fallback logic can link it.
-    expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0)
+    expect(Artifact::videoCuts()->where('yak_task_id', $task->id)->count())->toBe(0)
         ->and(Artifact::where('type', 'video')->where('yak_task_id', $task->id)->count())->toBe(1);
 });
 
@@ -343,7 +343,7 @@ test('records a rendered metric with size and duration on success', function () 
     expect($metric->status)->toBe(VideoMetric::STATUS_RENDERED)
         ->and($metric->output_bytes)->toBe(2048)
         ->and($metric->duration_seconds)->toBe(33.25)
-        ->and($metric->artifact_id)->toBe(Artifact::reviewerCut()->where('yak_task_id', $task->id)->sole()->id)
+        ->and($metric->artifact_id)->toBe(Artifact::videoCuts()->where('yak_task_id', $task->id)->sole()->id)
         ->and($metric->render_ms)->toBeGreaterThanOrEqual(0);
 });
 

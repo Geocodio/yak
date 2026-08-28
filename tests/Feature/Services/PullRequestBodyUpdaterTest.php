@@ -22,17 +22,17 @@ test('swaps the raw webm fallback link for the rendered reviewer cut', function 
             return $installationId === 77
                 && $repo === 'owner/repo'
                 && $num === 42
-                && str_contains($data['body'], '[reviewer-cut.mp4](https://signed.example/mp4)')
+                && str_contains($data['body'], '[walkthrough.mp4](https://signed.example/mp4)')
                 && ! str_contains($data['body'], 'walkthrough.webm')
                 && str_contains($data['body'], '### Files changed');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->setReviewerCut(
+    $updater->setWalkthrough(
         repoFullName: 'owner/repo',
         prNumber: 42,
-        reviewerCutUrl: 'https://signed.example/mp4',
+        walkthroughUrl: 'https://signed.example/mp4',
     );
 });
 
@@ -49,12 +49,12 @@ test('creates the Video walkthrough section if missing', function () {
         ->once()
         ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
             return str_contains($data['body'], '### Video walkthrough')
-                && str_contains($data['body'], '[reviewer-cut.mp4](https://signed.example/mp4)');
+                && str_contains($data['body'], '[walkthrough.mp4](https://signed.example/mp4)');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/mp4');
+    $updater->setWalkthrough('owner/repo', 42, 'https://signed.example/mp4');
 });
 
 test('handles empty body by creating the Video walkthrough section', function () {
@@ -67,16 +67,16 @@ test('handles empty body by creating the Video walkthrough section', function ()
         ->once()
         ->withArgs(function ($installationId, $repo, $num, array $data): bool {
             return str_contains($data['body'], '### Video walkthrough')
-                && str_contains($data['body'], '[reviewer-cut.mp4]');
+                && str_contains($data['body'], '[walkthrough.mp4]');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/mp4');
+    $updater->setWalkthrough('owner/repo', 42, 'https://signed.example/mp4');
 });
 
 test('is idempotent when the plain-link form is already present and no thumbnail is supplied', function () {
-    $existing = "### Video walkthrough\n\n- [reviewer-cut.mp4](https://signed.example/old?exp=1)\n";
+    $existing = "### Video walkthrough\n\n- [walkthrough.mp4](https://signed.example/old?exp=1)\n";
 
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')
@@ -87,7 +87,7 @@ test('is idempotent when the plain-link form is already present and no thumbnail
 
     $updater = new PullRequestBodyUpdater($github);
     // Plain-text link already present, we're not offering a thumbnail — no-op.
-    $updater->setReviewerCut('owner/repo', 42, 'https://signed.example/new?exp=2');
+    $updater->setWalkthrough('owner/repo', 42, 'https://signed.example/new?exp=2');
 });
 
 test('preserves content after the Video walkthrough section (no heading before the warning callout)', function () {
@@ -105,7 +105,7 @@ test('preserves content after the Video walkthrough section (no heading before t
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function ($i, $r, $n, array $data): bool {
-            return str_contains($data['body'], '![Watch reviewer-cut.mp4](https://signed.example/thumb)')
+            return str_contains($data['body'], '![Watch walkthrough.mp4](https://signed.example/thumb)')
                 && str_contains($data['body'], '> **Warning:**')
                 && str_contains($data['body'], "\n\n---\n> ") // blank line + divider + callout preserved
                 && ! str_contains($data['body'], 'walkthrough.webm');
@@ -113,16 +113,16 @@ test('preserves content after the Video walkthrough section (no heading before t
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->setReviewerCut(
+    $updater->setWalkthrough(
         repoFullName: 'owner/repo',
         prNumber: 42,
-        reviewerCutUrl: 'https://signed.example/video',
+        walkthroughUrl: 'https://signed.example/video',
         thumbnailUrl: 'https://signed.example/thumb',
     );
 });
 
 test('upgrades plain-text link to image embed when a thumbnail becomes available', function () {
-    $existing = "### Video walkthrough\n\n- [reviewer-cut.mp4](https://signed.example/video?exp=1)\n\n### Files changed\n\n- `foo.php`";
+    $existing = "### Video walkthrough\n\n- [walkthrough.mp4](https://signed.example/video?exp=1)\n\n### Files changed\n\n- `foo.php`";
 
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')
@@ -132,24 +132,24 @@ test('upgrades plain-text link to image embed when a thumbnail becomes available
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function ($i, $r, $n, array $data): bool {
-            return str_contains($data['body'], '![Watch reviewer-cut.mp4](https://signed.example/thumb)')
+            return str_contains($data['body'], '![Watch walkthrough.mp4](https://signed.example/thumb)')
                 && str_contains($data['body'], '](https://signed.example/video)')
-                && ! str_contains($data['body'], '- [reviewer-cut.mp4]')
+                && ! str_contains($data['body'], '- [walkthrough.mp4]')
                 && str_contains($data['body'], '### Files changed');
         })
         ->andReturn(['body' => 'ok']);
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->setReviewerCut(
+    $updater->setWalkthrough(
         repoFullName: 'owner/repo',
         prNumber: 42,
-        reviewerCutUrl: 'https://signed.example/video',
+        walkthroughUrl: 'https://signed.example/video',
         thumbnailUrl: 'https://signed.example/thumb',
     );
 });
 
 test('is idempotent when the image-embed form is already present', function () {
-    $existing = "### Video walkthrough\n\n[![Watch reviewer-cut.mp4](https://signed.example/thumb?exp=1)](https://signed.example/video?exp=1)\n";
+    $existing = "### Video walkthrough\n\n[![Watch walkthrough.mp4](https://signed.example/thumb?exp=1)](https://signed.example/video?exp=1)\n";
 
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')
@@ -159,25 +159,25 @@ test('is idempotent when the image-embed form is already present', function () {
     $github->shouldNotReceive('updatePullRequest');
 
     $updater = new PullRequestBodyUpdater($github);
-    $updater->setReviewerCut(
+    $updater->setWalkthrough(
         repoFullName: 'owner/repo',
         prNumber: 42,
-        reviewerCutUrl: 'https://signed.example/video?exp=2',
+        walkthroughUrl: 'https://signed.example/video?exp=2',
         thumbnailUrl: 'https://signed.example/thumb?exp=2',
     );
 });
 
-test('setReviewerCut replaces a previous unavailable line with the cut', function () {
+test('setWalkthrough replaces a previous unavailable line with the cut', function () {
     $body = "Summary\n\n### Video walkthrough\n\n_Video walkthrough unavailable (render failed: boom)._\n\n### Files changed\n- a.php\n";
     $github = Mockery::mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $body]);
     $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
-        return str_contains($payload['body'], "### Video walkthrough\n\n- [reviewer-cut.mp4](https://example.test/cut.mp4)\n")
+        return str_contains($payload['body'], "### Video walkthrough\n\n- [walkthrough.mp4](https://example.test/cut.mp4)\n")
             && ! str_contains($payload['body'], 'unavailable')
             && str_contains($payload['body'], "### Files changed\n- a.php");
     })->andReturn([]);
 
-    (new PullRequestBodyUpdater($github))->setReviewerCut('o/r', 1, 'https://example.test/cut.mp4', 'reviewer-cut.mp4', null);
+    (new PullRequestBodyUpdater($github))->setWalkthrough('o/r', 1, 'https://example.test/cut.mp4', 'walkthrough.mp4', null);
 });
 
 test('setWalkthroughUnavailable replaces the raw webm link line with an explanatory line', function () {

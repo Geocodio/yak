@@ -6,13 +6,10 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 
 /**
  * Edits an existing PR's body on GitHub to swap the video walkthrough link
- * for the rendered reviewer-cut mp4 once the Remotion pipeline finishes.
- * PR creation may happen while the render is still in flight, so the
- * initial body links the raw webm as a fallback; this updater upgrades
- * that link to the polished cut after the render lands.
- *
- * Director cuts are intentionally not published to the PR — they're a
- * manually triggered, viewer-facing artifact on the task detail page.
+ * for the rendered mp4 once the Remotion pipeline finishes. PR creation may
+ * happen while the render is still in flight, so the initial body links the
+ * raw webm as a fallback; this updater upgrades that link to the polished
+ * cut after the render lands.
  */
 class PullRequestBodyUpdater
 {
@@ -24,11 +21,11 @@ class PullRequestBodyUpdater
 
     public function __construct(public GitHubAppService $github) {}
 
-    public function setReviewerCut(
+    public function setWalkthrough(
         string $repoFullName,
         int $prNumber,
-        string $reviewerCutUrl,
-        string $filename = 'reviewer-cut.mp4',
+        string $walkthroughUrl,
+        string $filename = 'walkthrough.mp4',
         ?string $thumbnailUrl = null,
     ): void {
         $installationId = (int) config('yak.channels.github.installation_id');
@@ -36,7 +33,7 @@ class PullRequestBodyUpdater
         $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
         $body = (string) ($pr['body'] ?? '');
 
-        $markdown = self::videoMarkdown($reviewerCutUrl, $filename, $thumbnailUrl);
+        $markdown = self::videoMarkdown($walkthroughUrl, $filename, $thumbnailUrl);
 
         // Idempotent: if the body already has this filename in the same
         // shape we'd produce (image-embed when a thumbnail is available,

@@ -71,7 +71,7 @@ class ArtifactFactory extends Factory
     public function videoCut(): static
     {
         return $this->state(function (): array {
-            $filename = 'reviewer-cut.mp4';
+            $filename = 'walkthrough.mp4';
 
             return [
                 'type' => 'video_cut',

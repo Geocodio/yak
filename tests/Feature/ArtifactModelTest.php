@@ -23,7 +23,11 @@ test('reviewerCut scope returns only reviewer-cut video_cuts', function () {
         'filename' => 'director-cut.mp4',
         'disk_path' => 'director-cut.mp4',
     ]);
-    $reviewer = Artifact::factory()->for($task, 'task')->videoCut()->create();
+    $reviewer = Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video_cut',
+        'filename' => 'reviewer-cut.mp4',
+        'disk_path' => 'reviewer-cut.mp4',
+    ]);
 
     $results = Artifact::reviewerCut()->get();
 
