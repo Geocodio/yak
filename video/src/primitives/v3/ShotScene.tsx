@@ -34,21 +34,28 @@ export const ShotScene: React.FC<ShotSceneProps> = ({ block, manifest, theme, fo
 
   const captionIn = Math.round(block.transitionInSeconds * fps);
   const captionFade = Math.round(TIMING.captionFadeSeconds * fps);
-  const captionOpacity = interpolate(
-    frame,
-    [captionIn, captionIn + captionFade, blockFrames - captionFade, blockFrames],
-    [0, 1, 1, 0],
-    { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
-  );
-  const captionOffset = interpolate(frame, [captionIn, captionIn + captionFade], [16, 0], {
+  // interpolate() requires strictly increasing stops, so each one is built from
+  // the previous rather than trusting the block's frame counts: a clip longer
+  // than its own block would otherwise put the stops out of order and throw.
+  const captionRise = Math.max(captionIn + 1, captionIn + captionFade);
+  const captionHold = Math.max(captionRise + 1, blockFrames - captionFade);
+  const captionEnd = Math.max(captionHold + 1, blockFrames);
+  const captionOpacity = interpolate(frame, [captionIn, captionRise, captionHold, captionEnd], [0, 1, 1, 0], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+  const captionOffset = interpolate(frame, [captionIn, captionRise], [16, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
 
   const spotlightFade = Math.round(TIMING.spotlightFadeSeconds * fps);
-  const spotlightStart = Math.max(0, clipFrames - spotlightFade);
+  const spotlightStart = Math.max(0, Math.min(clipFrames, blockFrames) - spotlightFade);
+  const spotlightFull = Math.max(spotlightStart + 1, Math.min(clipFrames, blockFrames - captionFade));
+  const spotlightHold = Math.max(spotlightFull + 1, blockFrames - captionFade);
+  const spotlightEnd = Math.max(spotlightHold + 1, blockFrames);
   const spotlightProgress = block.manifestShot.rect
-    ? interpolate(frame, [spotlightStart, clipFrames, blockFrames - captionFade, blockFrames], [0, 1, 1, 0], {
+    ? interpolate(frame, [spotlightStart, spotlightFull, spotlightHold, spotlightEnd], [0, 1, 1, 0], {
         extrapolateLeft: 'clamp',
         extrapolateRight: 'clamp',
       })
