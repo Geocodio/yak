@@ -23,6 +23,7 @@ class HealthCheckCommand extends Command
 
     public function handle(Registry $registry): int
     {
+        /** @var array<string, array{name: string, result: HealthResult}> $failures */
         $failures = [];
 
         foreach ($registry->all() as $check) {
@@ -32,13 +33,14 @@ class HealthCheckCommand extends Command
                 continue;
             }
 
-            $failures[] = ['name' => $check->name(), 'result' => $result];
+            $failures[$check->id()] = ['name' => $check->name(), 'result' => $result];
         }
 
-        $wasFailing = (bool) Cache::get(self::FAILING_CACHE_KEY, false);
+        /** @var list<string> $previouslyFailingIds */
+        $previouslyFailingIds = Cache::get(self::FAILING_CACHE_KEY, []);
 
         if (count($failures) === 0) {
-            if ($wasFailing) {
+            if ($previouslyFailingIds !== []) {
                 Cache::forget(self::FAILING_CACHE_KEY);
                 $this->notifyRecovered();
             }
@@ -56,9 +58,12 @@ class HealthCheckCommand extends Command
             ]);
         }
 
-        if (! $wasFailing) {
-            Cache::put(self::FAILING_CACHE_KEY, true, now()->addDays(7));
-            $this->notifySlack($failures);
+        $newlyFailing = array_diff_key($failures, array_flip($previouslyFailingIds));
+
+        Cache::put(self::FAILING_CACHE_KEY, array_keys($failures), now()->addDays(7));
+
+        if ($newlyFailing !== []) {
+            $this->notifySlack(array_values($newlyFailing));
         }
 
         return self::FAILURE;
@@ -85,7 +90,7 @@ class HealthCheckCommand extends Command
         $held = DB::table('jobs')->where('queue', 'yak-claude')->count();
 
         $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines)
-            . "\n\n*Tasks held in queue:* {$held}"
+            . "\n\n*Agent jobs queued:* {$held}"
             . "\n\n*To re-authenticate Claude:*\n"
             . "```\nssh root@" . parse_url((string) config('app.url'), PHP_URL_HOST) . "\nyak-claude-login\n```\n"
             . 'Then type `/login` in the Claude session that opens.';

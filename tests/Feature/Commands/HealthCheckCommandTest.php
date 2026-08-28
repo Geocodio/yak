@@ -14,20 +14,20 @@ use Illuminate\Support\Facades\Process;
  * can drive the command through a failing/recovering sequence without
  * depending on the real system checks.
  */
-function fakeHealthCheck(callable $result): HealthCheck
+function fakeHealthCheck(callable $result, string $id = 'claude-auth', string $name = 'Claude Max Session'): HealthCheck
 {
-    return new class($result) implements HealthCheck
+    return new class($result, $id, $name) implements HealthCheck
     {
-        public function __construct(private $result) {}
+        public function __construct(private $result, private string $checkId, private string $checkName) {}
 
         public function id(): string
         {
-            return 'claude-auth';
+            return $this->checkId;
         }
 
         public function name(): string
         {
-            return 'Claude Max Session';
+            return $this->checkName;
         }
 
         public function section(): HealthSection
@@ -42,10 +42,10 @@ function fakeHealthCheck(callable $result): HealthCheck
     };
 }
 
-function bindHealthCheckRegistry(HealthCheck $check): void
+function bindHealthCheckRegistry(HealthCheck ...$checks): void
 {
     $registry = Mockery::mock(Registry::class);
-    $registry->shouldReceive('all')->andReturn([$check]);
+    $registry->shouldReceive('all')->andReturn($checks);
     app()->instance(Registry::class, $registry);
 }
 
@@ -163,9 +163,13 @@ test('healthcheck command posts once per outage and once on recovery', function 
     $this->artisan('yak:healthcheck')->assertExitCode(0);
 
     Http::assertSentCount(2);
+
+    Http::assertSent(function ($request) {
+        return str_contains($request['text'], 'Recovered');
+    });
 });
 
-test('healthcheck command includes the held-task count and the runbook in the alert', function () {
+test('healthcheck command includes the agent queue count and the runbook in the alert', function () {
     config([
         'yak.channels.slack.bot_token' => 'xoxb-test-token',
         'yak.channels.slack.signing_secret' => 'test-secret',
@@ -182,7 +186,46 @@ test('healthcheck command includes the held-task count and the runbook in the al
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertSent(function ($request) {
-        return str_contains($request['text'], 'Tasks held in queue:')
+        return str_contains($request['text'], 'Agent jobs queued:')
             && str_contains($request['text'], 'yak-claude-login');
     });
+});
+
+test('healthcheck command alerts on a newly-failing check without a false recovery for the rest', function () {
+    config([
+        'yak.channels.slack.bot_token' => 'xoxb-test-token',
+        'yak.channels.slack.signing_secret' => 'test-secret',
+    ]);
+
+    Http::fake([
+        'slack.com/api/chat.postMessage' => Http::response(['ok' => true]),
+    ]);
+
+    Cache::flush();
+
+    $checkA = fakeHealthCheck(fn () => HealthResult::error('A down'), id: 'check-a', name: 'Check A');
+    $checkB = fakeHealthCheck(fn () => HealthResult::error('B down'), id: 'check-b', name: 'Check B');
+    $checkAOk = fakeHealthCheck(fn () => HealthResult::ok('A up'), id: 'check-a', name: 'Check A');
+    $checkBOk = fakeHealthCheck(fn () => HealthResult::ok('B up'), id: 'check-b', name: 'Check B');
+
+    // Run 1: only A fails — one post for A's onset.
+    bindHealthCheckRegistry($checkA);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+    Http::assertSentCount(1);
+
+    // Run 2: A still down, B newly fails — a second post, for B's onset.
+    bindHealthCheckRegistry($checkA, $checkB);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+    Http::assertSentCount(2);
+
+    // Run 3: A clears but B is still down — no post, and definitely no
+    // recovery claim while B is still failing.
+    bindHealthCheckRegistry($checkAOk, $checkB);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+    Http::assertSentCount(2);
+
+    // Run 4: B clears too — the outage is actually over, recovery post.
+    bindHealthCheckRegistry($checkAOk, $checkBOk);
+    $this->artisan('yak:healthcheck')->assertExitCode(0);
+    Http::assertSentCount(3);
 });
