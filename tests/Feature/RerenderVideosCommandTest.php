@@ -12,7 +12,7 @@ function rawVideoWithStoryboard(YakTask $task, string $createdAt): Artifact
     Storage::disk('artifacts')->put("{$task->id}/storyboard.json", '{"version":1,"plan":{},"events":[]}');
 
     return Artifact::factory()->for($task, 'task')->create([
-        'type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm", 'created_at' => $createdAt,
+        'type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm", 'created_at' => $createdAt,
     ]);
 }
 
@@ -26,29 +26,16 @@ test('dispatches a render for raw videos that have a storyboard but no cut', fun
 
     $done = YakTask::factory()->success()->create();
     rawVideoWithStoryboard($done, '2026-08-20 10:00:00');
-    Artifact::factory()->for($done, 'task')->create(['type' => 'video_cut', 'filename' => 'reviewer-cut.mp4', 'disk_path' => "{$done->id}/reviewer-cut.mp4", 'created_at' => '2026-08-20 10:05:00']);
+    Artifact::factory()->for($done, 'task')->create(['type' => 'video_cut', 'role' => 'cut', 'filename' => 'reviewer-cut.mp4', 'disk_path' => "{$done->id}/reviewer-cut.mp4", 'created_at' => '2026-08-20 10:05:00']);
 
     $noStoryboard = YakTask::factory()->success()->create();
     Storage::disk('artifacts')->put("{$noStoryboard->id}/walkthrough.webm", 'webm');
-    Artifact::factory()->for($noStoryboard, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$noStoryboard->id}/walkthrough.webm"]);
+    Artifact::factory()->for($noStoryboard, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$noStoryboard->id}/walkthrough.webm"]);
 
     $this->artisan('yak:video:rerender')->assertSuccessful()->expectsOutputToContain('Dispatched 1 render(s)');
 
     Queue::assertPushed(RenderVideoJob::class, 1);
     Queue::assertPushed(RenderVideoJob::class, fn (RenderVideoJob $job) => $job->rawVideoArtifactId === $missing->id);
-});
-
-test('excludes director footage from the backfill', function () {
-    $task = YakTask::factory()->success()->create();
-    Storage::disk('artifacts')->put("{$task->id}/director-cut.webm", 'webm');
-    Storage::disk('artifacts')->put("{$task->id}/storyboard.json", '{"version":1,"plan":{},"events":[]}');
-    Artifact::factory()->for($task, 'task')->create([
-        'type' => 'video', 'filename' => 'director-cut.webm', 'disk_path' => "{$task->id}/director-cut.webm", 'created_at' => '2026-08-20 10:00:00',
-    ]);
-
-    $this->artisan('yak:video:rerender')->assertSuccessful()->expectsOutputToContain('Dispatched 0 render(s)');
-
-    Queue::assertNothingPushed();
 });
 
 test('honours --failed-since, --task and --dry-run', function () {

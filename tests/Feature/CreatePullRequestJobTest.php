@@ -707,7 +707,7 @@ test('PR body includes screenshot signed URLs', function () {
     });
 });
 
-test('PR body prefers reviewer cut over raw webm when both exist', function () {
+test('PR body prefers the rendered walkthrough over raw webm when both exist', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([
             'token' => 'ghs_test',
@@ -765,7 +765,7 @@ test('PR body prefers reviewer cut over raw webm when both exist', function () {
     });
 });
 
-test('PR body falls back to raw webm when no reviewer cut exists', function () {
+test('PR body falls back to raw webm when no rendered walkthrough exists', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([
             'token' => 'ghs_test',

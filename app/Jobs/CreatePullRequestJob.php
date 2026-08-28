@@ -176,13 +176,13 @@ class CreatePullRequestJob implements ShouldQueue
             }
         }
 
-        // Prefer the rendered reviewer cut (Remotion output) over the raw webm.
-        // The cut is a polished mp4 with title cards, callouts, etc. — reviewers
-        // should see that. Fall back to raw video artifacts only if rendering
-        // didn't produce a cut (e.g. no storyboard, or RenderVideoJob failed).
-        $videoCut = $this->task->artifacts()->reviewerCut()->latest('id')->first();
+        // Prefer the rendered walkthrough (Remotion output) over the raw
+        // webm. The cut is a polished mp4 with title cards and callouts —
+        // reviewers should see that. Fall back to raw video artifacts only
+        // if rendering produced no cut (no storyboard, or a failed render).
+        $videoCut = $this->task->artifacts()->cut()->latest('id')->first();
         if ($videoCut !== null) {
-            $thumbnail = $this->task->artifacts()->reviewerThumbnail()->latest('id')->first();
+            $thumbnail = $this->task->artifacts()->thumbnail()->latest('id')->first();
             $parts[] = '';
             $parts[] = '### Video walkthrough';
             $parts[] = PullRequestBodyUpdater::videoMarkdown(

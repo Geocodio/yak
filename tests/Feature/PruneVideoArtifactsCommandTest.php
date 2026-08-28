@@ -15,9 +15,9 @@ function taskWithRawAndCut(string $cutCreatedAt): YakTask
     $task = YakTask::factory()->success()->create();
     Storage::disk('artifacts')->put("{$task->id}/walkthrough.webm", 'webm');
     Storage::disk('artifacts')->put("{$task->id}/reviewer-cut.mp4", 'mp4');
-    Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
-    Artifact::factory()->for($task, 'task')->create(['type' => 'video_cut', 'filename' => 'reviewer-cut.mp4', 'disk_path' => "{$task->id}/reviewer-cut.mp4", 'created_at' => $cutCreatedAt]);
-    Artifact::factory()->for($task, 'task')->create(['type' => 'file', 'filename' => 'storyboard.json', 'disk_path' => "{$task->id}/storyboard.json"]);
+    Artifact::factory()->for($task, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$task->id}/walkthrough.webm"]);
+    Artifact::factory()->for($task, 'task')->create(['type' => 'video_cut', 'role' => 'cut', 'filename' => 'reviewer-cut.mp4', 'disk_path' => "{$task->id}/reviewer-cut.mp4", 'created_at' => $cutCreatedAt]);
+    Artifact::factory()->for($task, 'task')->create(['type' => 'file', 'role' => 'manifest', 'filename' => 'storyboard.json', 'disk_path' => "{$task->id}/storyboard.json"]);
 
     return $task;
 }
@@ -28,7 +28,7 @@ test('deletes raw webm for tasks whose cut is older than the retention window', 
 
     $noCut = YakTask::factory()->success()->create();
     Storage::disk('artifacts')->put("{$noCut->id}/walkthrough.webm", 'webm');
-    Artifact::factory()->for($noCut, 'task')->create(['type' => 'video', 'filename' => 'walkthrough.webm', 'disk_path' => "{$noCut->id}/walkthrough.webm", 'created_at' => now()->subDays(60)]);
+    Artifact::factory()->for($noCut, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$noCut->id}/walkthrough.webm", 'created_at' => now()->subDays(60)]);
 
     $this->artisan('yak:video:prune')->assertSuccessful()->expectsOutputToContain('Pruned 1 raw video(s)');
 
