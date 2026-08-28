@@ -10,7 +10,10 @@ use RuntimeException;
 
 class VideoRenderer
 {
-    public function __construct(public string $videoDir) {}
+    public function __construct(
+        public string $videoDir,
+        protected ?VideoThemeResolver $themeResolver = null,
+    ) {}
 
     /**
      * Ask the composition's own `buildBlocks()` for the cut's shape before
@@ -118,6 +121,10 @@ class VideoRenderer
         ?string $publicOrigin,
         string $outputPath,
     ): string {
+        // Spec §9: the installation's saved theme row wins over whatever the
+        // caller passes, which is only ever the config defaults.
+        $theme = ($this->themeResolver ?? app(VideoThemeResolver::class))->resolve($theme);
+
         $stagingDir = $this->makeStagingDir();
 
         try {
