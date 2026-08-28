@@ -180,6 +180,19 @@ class VideoTheme extends Component
         ], JSON_UNESCAPED_SLASHES);
     }
 
+    /** Google Fonts stylesheet for the three chosen families, so the preview matches the render. */
+    #[Computed]
+    public function googleFontsHref(): string
+    {
+        $families = collect($this->fonts)
+            ->filter()
+            ->unique()
+            ->map(fn (string $family): string => 'family=' . str_replace(' ', '+', $family) . ':wght@400;600;700')
+            ->implode('&');
+
+        return 'https://fonts.googleapis.com/css2?' . $families . '&display=swap';
+    }
+
     /** @return list<string> */
     #[Computed]
     public function fontFamilies(): array

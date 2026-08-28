@@ -131,3 +131,30 @@ it('exposes the merged theme as json for the preview', function (): void {
         ->set('colors.accent', '#112233')
         ->assertSeeHtml('&quot;accent&quot;:&quot;#112233&quot;');
 });
+
+it('renders the preview container carrying the theme json', function (): void {
+    Livewire::test(VideoTheme::class)
+        ->set('colors.accent', '#112233')
+        ->assertSeeHtml('data-testid="video-theme-preview"')
+        ->assertSeeHtml('#112233');
+});
+
+it('links the google fonts stylesheet for the chosen families', function (): void {
+    Livewire::test(VideoTheme::class)
+        ->set('fonts.display', 'Sora')
+        ->assertSeeHtml('fonts.googleapis.com')
+        ->assertSeeHtml('Sora');
+});
+
+it('renders a seek chip for every block kind', function (): void {
+    $component = Livewire::test(VideoTheme::class);
+
+    foreach (['title', 'chapter', 'shot', 'summary'] as $kind) {
+        $component->assertSeeHtml('data-testid="preview-chip-' . $kind . '"');
+    }
+});
+
+it('points the preview at the built bundle', function (): void {
+    Livewire::test(VideoTheme::class)
+        ->assertSeeHtml('vendor/video-preview.js');
+});
