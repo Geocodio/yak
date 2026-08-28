@@ -21,6 +21,7 @@ test('cost dashboard shows video render counts, average render time and output s
         'failed' => 1,
         'avg_render' => '1m 30s',
         'total_mb' => '30.0',
+        'tts_characters' => '0',
     ]);
 
     $component->assertSee('Videos rendered')->assertSee('1 failed')->assertSee('1m 30s');
@@ -40,4 +41,14 @@ test('cost dashboard video summary is scoped by the repo and source filters', fu
 
     $bySource = Livewire::test(CostDashboard::class)->set('source', 'sentry');
     expect($bySource->instance()->videoSummary['rendered'])->toBe(1);
+});
+
+it('sums tts characters as implied voiceover credits', function () {
+    $task = YakTask::factory()->create();
+    VideoMetric::create(['yak_task_id' => $task->id, 'status' => VideoMetric::STATUS_RENDERED, 'render_ms' => 1000, 'output_bytes' => 100, 'tts_characters' => 1200]);
+    VideoMetric::create(['yak_task_id' => $task->id, 'status' => VideoMetric::STATUS_RENDERED, 'render_ms' => 1000, 'output_bytes' => 100, 'tts_characters' => 800]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(CostDashboard::class)
+        ->assertSee('2,000 voiceover credits');
 });

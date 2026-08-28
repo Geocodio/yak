@@ -13,9 +13,11 @@ use App\Services\RenderQaCheck;
 use App\Services\RenderQaFailure;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
+use App\Services\VoiceoverGenerator;
 use App\Services\WalkthroughPrSection;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
@@ -93,6 +95,7 @@ function runRenderWalkthroughJob(YakTask $task): void
         app(RenderQaCheck::class),
         app(PreviewGifGenerator::class),
         app(Mp4ChapterWriter::class),
+        app(VoiceoverGenerator::class),
     );
 }
 
@@ -289,4 +292,152 @@ it('notifies and marks the PR when the job finally fails', function (): void {
 
     expect($captured->body)->toContain('Video walkthrough unavailable')
         ->and($captured->body)->toContain('boom');
+});
+
+it('generates voiceover before rendering when the task has none', function (): void {
+    config()->set('yak.video.elevenlabs.api_key', 'test-key');
+
+    $task = walkthroughTaskFixture();
+    Storage::disk('artifacts')->put(
+        "{$task->id}/script.json",
+        json_encode(['version' => 3, 'intro' => 'Welcome to the walkthrough.', 'shots' => []]),
+    );
+
+    Http::fake([
+        'api.elevenlabs.io/*' => Http::response('mp3-bytes', 200),
+    ]);
+
+    $renderer = $this->mock(VideoRenderer::class);
+    $renderer->shouldReceive('timeline')->once()->andReturn(walkthroughTimelineFixture());
+    $renderer->shouldReceive('renderWalkthrough')->once()->andReturnUsing(
+        function (string $script, string $manifest, array $clips, ?array $vo, array $theme, ?string $origin, string $output): string {
+            File::ensureDirectoryExists(dirname($output));
+            File::put($output, 'mp4-bytes');
+
+            return $output;
+        }
+    );
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(60.0);
+
+    $this->mock(RenderQaCheck::class)->shouldReceive('assertPasses')->once();
+    $this->mock(PreviewGifGenerator::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(function (string $mp4, string $output): string {
+            File::put($output, 'gif-bytes');
+
+            return $output;
+        });
+    $this->mock(VideoThumbnailer::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(function (string $video, string $output): string {
+            File::put($output, 'jpg-bytes');
+
+            return $output;
+        });
+    $this->mock(Mp4ChapterWriter::class)->shouldReceive('write')->once();
+
+    runRenderWalkthroughJob($task);
+
+    expect(Artifact::where('yak_task_id', $task->id)->role('voiceover')->count())->toBeGreaterThan(0);
+
+    $metric = VideoMetric::where('yak_task_id', $task->id)->sole();
+    expect($metric->status)->toBe(VideoMetric::STATUS_RENDERED)
+        ->and($metric->tts_characters)->not->toBeNull();
+});
+
+it('does not regenerate voiceover when the task already has voiceover artifacts', function (): void {
+    config()->set('yak.video.elevenlabs.api_key', 'test-key');
+
+    $task = walkthroughTaskFixture();
+    Storage::disk('artifacts')->put(
+        "{$task->id}/script.json",
+        json_encode(['version' => 3, 'intro' => 'Welcome to the walkthrough.', 'shots' => []]),
+    );
+
+    Storage::disk('artifacts')->put("{$task->id}/vo/intro.mp3", 'existing-mp3-bytes');
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'file', 'role' => 'voiceover',
+        'filename' => 'intro.mp3', 'disk_path' => "{$task->id}/vo/intro.mp3",
+    ]);
+
+    Http::fake();
+
+    $renderer = $this->mock(VideoRenderer::class);
+    $renderer->shouldReceive('timeline')->once()->andReturn(walkthroughTimelineFixture());
+    $renderer->shouldReceive('renderWalkthrough')->once()->andReturnUsing(
+        function (string $script, string $manifest, array $clips, ?array $vo, array $theme, ?string $origin, string $output): string {
+            File::ensureDirectoryExists(dirname($output));
+            File::put($output, 'mp4-bytes');
+
+            return $output;
+        }
+    );
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(60.0);
+
+    $this->mock(RenderQaCheck::class)->shouldReceive('assertPasses')->once();
+    $this->mock(PreviewGifGenerator::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(function (string $mp4, string $output): string {
+            File::put($output, 'gif-bytes');
+
+            return $output;
+        });
+    $this->mock(VideoThumbnailer::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(function (string $video, string $output): string {
+            File::put($output, 'jpg-bytes');
+
+            return $output;
+        });
+    $this->mock(Mp4ChapterWriter::class)->shouldReceive('write')->once();
+
+    runRenderWalkthroughJob($task);
+
+    Http::assertNothingSent();
+
+    expect(Artifact::where('yak_task_id', $task->id)->role('voiceover')->count())->toBe(1);
+});
+
+it('renders captions-only when voiceover generation fails', function (): void {
+    config()->set('yak.video.elevenlabs.api_key', 'test-key');
+
+    $task = walkthroughTaskFixture();
+    Storage::disk('artifacts')->put(
+        "{$task->id}/script.json",
+        json_encode(['version' => 3, 'intro' => 'Welcome to the walkthrough.', 'shots' => []]),
+    );
+
+    Http::fake(fn () => Http::response('no', 500));
+
+    $renderer = $this->mock(VideoRenderer::class);
+    $renderer->shouldReceive('timeline')->once()->andReturn(walkthroughTimelineFixture());
+    $renderer->shouldReceive('renderWalkthrough')->once()->andReturnUsing(
+        function (string $script, string $manifest, array $clips, ?array $vo, array $theme, ?string $origin, string $output): string {
+            File::ensureDirectoryExists(dirname($output));
+            File::put($output, 'mp4-bytes');
+
+            return $output;
+        }
+    );
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(60.0);
+
+    $this->mock(RenderQaCheck::class)->shouldReceive('assertPasses')->once();
+    $this->mock(PreviewGifGenerator::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(function (string $mp4, string $output): string {
+            File::put($output, 'gif-bytes');
+
+            return $output;
+        });
+    $this->mock(VideoThumbnailer::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(function (string $video, string $output): string {
+            File::put($output, 'jpg-bytes');
+
+            return $output;
+        });
+    $this->mock(Mp4ChapterWriter::class)->shouldReceive('write')->once();
+
+    runRenderWalkthroughJob($task);
+
+    expect(Artifact::where('yak_task_id', $task->id)->role('voiceover')->count())->toBe(0)
+        ->and(Artifact::where('yak_task_id', $task->id)->cut()->count())->toBe(1);
+
+    $metric = VideoMetric::where('yak_task_id', $task->id)->sole();
+    expect($metric->status)->toBe(VideoMetric::STATUS_RENDERED)
+        ->and($metric->tts_characters)->toBeNull();
 });
