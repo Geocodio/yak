@@ -195,7 +195,6 @@ class RunYakJob implements ShouldQueue
         } finally {
             if ($containerName !== null) {
                 $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
-                $sandbox->pullClaudeCredentials($containerName);
                 $sandbox->destroy($containerName);
             }
         }

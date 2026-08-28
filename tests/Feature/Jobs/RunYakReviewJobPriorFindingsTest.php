@@ -68,7 +68,6 @@ function bootIncrementalScenario(callable $configureGithub): array
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('container');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "app/Foo.php\napp/Bar.php\n", exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -198,7 +197,6 @@ it('falls back to today\'s incremental flow when GraphQL fetch fails', function 
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('container');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 

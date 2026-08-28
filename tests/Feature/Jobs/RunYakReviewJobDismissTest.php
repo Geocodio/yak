@@ -49,7 +49,6 @@ function setUpReviewJobMocks(string $scope = 'full'): YakTask
     $sandbox->shouldReceive('run')->andReturn(
         Process::result(output: "app/Foo.php\n", exitCode: 0),
     );
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 

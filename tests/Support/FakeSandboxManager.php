@@ -201,11 +201,6 @@ class FakeSandboxManager extends IncusSandboxManager
         $this->destroyedContainers[] = $containerName;
     }
 
-    public function pullClaudeCredentials(string $containerName): void
-    {
-        // No-op in tests
-    }
-
     public function invalidateTemplate(Repository $repository): void
     {
         $this->invalidatedTemplates[] = $this->templateName($repository);

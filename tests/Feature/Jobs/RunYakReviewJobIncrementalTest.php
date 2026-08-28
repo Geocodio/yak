@@ -52,7 +52,6 @@ it('computes diff against incremental_base_sha in incremental scope', function (
 
         return Process::result(output: "app/Foo.php\n", exitCode: 0);
     });
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -117,7 +116,6 @@ it('falls back to full review when incremental base fetch fails', function () {
 
         return Process::result(output: "app/Foo.php\n", exitCode: 0);
     });
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
@@ -181,7 +179,6 @@ it('passes hydrated prior findings into the prompt context', function () {
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('container');
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "app/Foo.php\n", exitCode: 0));
-    $sandbox->shouldReceive('pullClaudeCredentials');
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
