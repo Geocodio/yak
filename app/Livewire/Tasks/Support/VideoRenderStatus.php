@@ -5,6 +5,7 @@ namespace App\Livewire\Tasks\Support;
 use App\Models\Artifact;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
+use Illuminate\Support\Carbon;
 
 /**
  * Where a task's walkthrough render stands, derived from the artifacts it
@@ -47,9 +48,16 @@ final readonly class VideoRenderStatus
             ->latest('id')
             ->first();
 
+        /** @var Carbon|null $cutCreatedAt */
+        $cutCreatedAt = $cut?->created_at;
+
+        /** @var Carbon|null $metricCreatedAt */
+        $metricCreatedAt = $latestMetric?->created_at;
+
         $failedAfterCut = $latestMetric !== null
+            && $metricCreatedAt !== null
             && $latestMetric->status === VideoMetric::STATUS_FAILED
-            && ($cut === null || $cut->created_at === null || $cut->created_at->lt($latestMetric->created_at));
+            && ($cutCreatedAt === null || $cutCreatedAt->lt($metricCreatedAt));
 
         if ($failedAfterCut) {
             return new self(self::Failed, $latestMetric->error);

@@ -60,11 +60,7 @@
             setTimeout(() => { this.copied = false; }, 2000);
         },
     }"
-    x-init="
-        if (seekTo !== null) {
-            $refs.player.addEventListener('loadedmetadata', () => seek(seekTo), { once: true });
-        }
-    "
+    x-init="$nextTick(() => { const p = $refs.player; if (seekTo === null || ! p) return; if (p.readyState >= 1) { seek(seekTo); return; } p.addEventListener('loadedmetadata', () => seek(seekTo), { once: true }); })"
 >
     <div class="flex flex-col gap-3 md:flex-row">
         <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)] md:flex-1" data-testid="walkthrough-cut">
@@ -89,6 +85,7 @@
                             type="button"
                             @click="seek({{ $chapter['startSeconds'] }})"
                             :class="current === {{ $index }} ? 'bg-[rgba(212,145,94,0.16)] text-[#a5642f]' : 'text-yak-slate hover:bg-[rgba(200,184,154,0.2)]'"
+                            :aria-current="current === {{ $index }} ? 'true' : 'false'"
                             class="flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-left text-xs"
                             data-testid="walkthrough-chapter-{{ $index }}"
                         >

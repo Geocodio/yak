@@ -59,6 +59,7 @@ use Livewire\Component;
  * @property-read ?Artifact $walkthroughCut
  * @property-read array<int, array{title: string, startSeconds: float, shots: list<array{id: string, startSeconds: float, say: string}>}> $chapters
  * @property-read VideoRenderStatus $renderStatus
+ * @property-read bool $canRetryRender
  * @property-read ?Artifact $walkthroughPreview
  * @property-read SupportCollection<int, Collection<int, Artifact>> $mediaByRun
  * @property-read array{artifacts: Collection<int, Artifact>, run: ?YakTask} $latestMedia
@@ -1306,13 +1307,16 @@ class TaskDetail extends Component
     /**
      * `?t=<seconds>` opens the walkthrough at that point. Without a cut
      * there is nothing to open, so the parameter is ignored rather than
-     * opening an empty lightbox.
+     * opening an empty lightbox. A negative `t` is clamped to the start
+     * rather than handed to the player as-is.
      */
     private function openDeepLinkedWalkthrough(): void
     {
         if ($this->seekSeconds === null) {
             return;
         }
+
+        $this->seekSeconds = max(0, (int) $this->seekSeconds);
 
         $cut = $this->walkthroughCut();
 
@@ -1456,6 +1460,17 @@ class TaskDetail extends Component
     }
 
     /**
+     * Whether a retry has anything to re-render. `retryRender()` drives
+     * the render off a `raw` artifact, so a v3 shoot that only produced
+     * `shot`/`manifest` artifacts must not be offered the button.
+     */
+    #[Computed]
+    public function canRetryRender(): bool
+    {
+        return $this->task->artifacts()->rawFootage()->exists();
+    }
+
+    /**
      * Re-run the render over the artifacts that are already on disk. No
      * sandbox is involved: the shoot has already happened, only the cut
      * failed.
@@ -1470,7 +1485,7 @@ class TaskDetail extends Component
 
         $this->dispatchRenderJob($rawFootage);
 
-        unset($this->renderStatus, $this->walkthroughCut, $this->walkthroughPreview);
+        unset($this->renderStatus, $this->walkthroughCut, $this->walkthroughPreview, $this->canRetryRender);
     }
 
     /**

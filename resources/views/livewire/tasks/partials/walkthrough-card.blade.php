@@ -44,6 +44,7 @@
             <p class="text-xs text-yak-slate">The cut is being rendered; this card updates on its own.</p>
         @elseif($walkthroughStatus->state === \App\Livewire\Tasks\Support\VideoRenderStatus::Failed)
             <p class="text-xs text-yak-slate" data-testid="walkthrough-error">{{ $walkthroughStatus->error ?? 'The render failed without a recorded reason.' }}</p>
+            @if($this->canRetryRender)
             <flux:button
                 size="sm"
                 variant="filled"
@@ -52,6 +53,7 @@
                 class="mt-3"
                 data-testid="walkthrough-retry"
             >Retry render</flux:button>
+            @endif
         @endif
     </div>
 @endif

@@ -28,13 +28,18 @@ recording is followed by the rendered walkthrough. --}}
         </div>
 
         @if(in_array($lightboxArtifact->type, ['video', 'video_cut'], true))
-            @if($lightboxArtifact->id !== $this->walkthroughCut?->id)
+            {{-- The raw <video> is skipped only when the walkthrough player below
+                 will show this very artifact. A Review-mode task never gets the
+                 player, so it must keep the raw video or the lightbox is empty. --}}
+            @php $showsPlayer = $task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut; @endphp
+
+            @if(! ($showsPlayer && $lightboxArtifact->id === $this->walkthroughCut->id))
                 <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
                     <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
                 </div>
             @endif
 
-            @if($task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut)
+            @if($showsPlayer)
                 <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
                     @include('livewire.tasks.partials.walkthrough-player', [
                         'walkthroughUrl' => $this->walkthroughCut->signedUrl(),

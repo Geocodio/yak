@@ -154,3 +154,16 @@ test('no ?t= leaves the player without a seek point', function () {
         ->call('openMediaLightbox', $recording->id)
         ->assertSeeHtml('seekTo: null');
 });
+
+test('the active chapter button is exposed to screen readers', function () {
+    [$task, $recording] = taskWithChapters([
+        ['title' => 'Geography levels', 'startSeconds' => 4, 'shots' => [
+            ['id' => 'intro', 'startSeconds' => 4, 'say' => 'Here are the geography levels.'],
+        ]],
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertSeeHtml('data-testid="walkthrough-chapter-0"')
+        ->assertSeeHtml(':aria-current="current === 0 ? \'true\' : \'false\'"');
+});
