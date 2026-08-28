@@ -2,6 +2,7 @@
 
 use App\Models\Repository;
 use App\Models\VideoTheme;
+use App\Services\VideoThemeResolver;
 use Illuminate\Support\Facades\Process;
 
 it('stores a public site url on a repository', function (): void {
@@ -31,6 +32,7 @@ it('matches the composition theme defaults', function (): void {
     $defaults = json_decode($result->output(), true);
 
     expect($defaults['theme'])->toBe(config('yak.video.theme'));
+    expect($defaults['fonts'])->toBe(VideoThemeResolver::FONT_FAMILIES);
 })->skip(fn (): bool => ! is_dir(base_path('video/node_modules')), 'video/node_modules not installed');
 
 it('seeds a fresh theme row from the config defaults', function (): void {
