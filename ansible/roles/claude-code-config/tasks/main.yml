@@ -7,6 +7,53 @@
     group: root
     mode: "0755"
 
+# The shared config dir is read/write for the sandbox (raw.idmap maps only
+# host uid 33/www-data <-> container yak uid 1001) and the health probe
+# runs `claude` against it from the app container every 15 minutes. Claude
+# Code reads user-level hooks and mcpServers from settings.json /
+# settings.local.json, so a sandboxed agent (running
+# --dangerously-skip-permissions against untrusted PR/issue text) could
+# otherwise write a hook the next probe executes as www-data in the
+# container that holds the Incus socket, the GitHub App key, and the
+# database -- a sandbox-to-orchestrator escape.
+#
+# Host uid 0 is not in the `both 33 1001` idmap, so no process in a
+# sandbox -- including container root, whose CAP_DAC_OVERRIDE does not
+# apply to files owned by an unmapped uid -- can write a root-owned file
+# here, while the CLI can still read it. Neither file is written by
+# `claude login`/`/login` (that writes .credentials.json and .claude.json,
+# both left writable), so yak-claude-login is unaffected.
+#
+# Checked with `stat` first so this does not fail on a fresh host where
+# the CLI has not created these files yet.
+- name: Check for existing settings.json
+  ansible.builtin.stat:
+    path: "{{ yak_claude_path }}/settings.json"
+  register: claude_settings_json
+
+- name: Lock down settings.json to root-only writes
+  ansible.builtin.file:
+    path: "{{ yak_claude_path }}/settings.json"
+    state: file
+    owner: root
+    group: root
+    mode: "0644"
+  when: claude_settings_json.stat.exists
+
+- name: Check for existing settings.local.json
+  ansible.builtin.stat:
+    path: "{{ yak_claude_path }}/settings.local.json"
+  register: claude_settings_local_json
+
+- name: Lock down settings.local.json to root-only writes
+  ansible.builtin.file:
+    path: "{{ yak_claude_path }}/settings.local.json"
+    state: file
+    owner: root
+    group: root
+    mode: "0644"
+  when: claude_settings_local_json.stat.exists
+
 - name: Verify Claude Code CLI is available in container
   ansible.builtin.command:
     cmd: docker exec {{ yak_container_name }} claude --version
