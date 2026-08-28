@@ -20,6 +20,14 @@ class HealthRow extends Component
     private const CACHE_TTL_SECONDS = 60;
 
     /**
+     * The probe runs every 15 minutes; anything older than roughly two
+     * intervals means the scheduler likely died, not that the result is
+     * merely a little behind. Past this age the stored result is no longer
+     * trustworthy enough to show as a plain "Authenticated" green.
+     */
+    private const STALE_PROBE_MINUTES = 35;
+
+    /**
      * Maps a check ID to the most relevant docs anchor. Used to render a
      * "?" icon link next to each row so users can jump straight to the
      * section explaining how to configure or fix that dependency.
@@ -83,7 +91,17 @@ class HealthRow extends Component
             return HealthResult::warn('Not yet probed — waiting for the next scheduled health check (runs every 15 minutes)');
         }
 
-        return $stored['result'];
+        $result = $stored['result'];
+        $checkedAt = Carbon::parse($stored['checked_at']);
+        $age = $checkedAt->diffForHumans();
+
+        if ($checkedAt->diffInMinutes(now()) > self::STALE_PROBE_MINUTES) {
+            return HealthResult::warn(
+                "Stale probe result from {$age} — the scheduler may not be running. Last known state: {$result->detail}",
+            );
+        }
+
+        return new HealthResult($result->status, "{$result->detail} (checked {$age})", $result->action);
     }
 
     #[Computed]
