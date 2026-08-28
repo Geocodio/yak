@@ -13,6 +13,7 @@ use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\Middleware\PreventBranchOverlap;
 use App\Models\DailyCost;
@@ -42,6 +43,17 @@ class ClarificationReplyJob implements ShouldQueue
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];
 
+    /**
+     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * increment the attempt counter, so the worker's --tries=3 would fail a
+     * held job after three minutes. This method takes precedence over tries
+     * and lets a job wait out a drain or a re-authentication.
+     */
+    public function retryUntil(): \DateTimeInterface
+    {
+        return now()->addHours(6);
+    }
+
     public function __construct(
         public readonly YakTask $task,
         public readonly string $replyText,
@@ -57,6 +69,7 @@ class ClarificationReplyJob implements ShouldQueue
         return [
             new PreventBranchOverlap($this->task),
             new PausesDuringDrain,
+            new HoldsForClaudeAuth,
             new EnsureRepoReady,
             new EnsureDailyBudget,
         ];

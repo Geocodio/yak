@@ -14,6 +14,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
+use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\LinearOauthConnection;
@@ -45,6 +46,17 @@ class RunYakReviewJob implements ShouldQueue
     public array $backoff = [1, 5, 10];
 
     /**
+     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * increment the attempt counter, so the worker's --tries=3 would fail a
+     * held job after three minutes. This method takes precedence over tries
+     * and lets a job wait out a drain or a re-authentication.
+     */
+    public function retryUntil(): \DateTimeInterface
+    {
+        return now()->addHours(6);
+    }
+
+    /**
      * Allow the suggestion fence to differ from the comment's line range
      * by a few lines (consolidations, small expansions). Beyond this we
      * assume the model picked the wrong end-of-range and strip the fence
@@ -62,7 +74,7 @@ class RunYakReviewJob implements ShouldQueue
      */
     public function middleware(): array
     {
-        return [new PausesDuringDrain, new EnsureRepoReady, new EnsureDailyBudget];
+        return [new PausesDuringDrain, new HoldsForClaudeAuth, new EnsureRepoReady, new EnsureDailyBudget];
     }
 
     public function handle(AgentRunner $agent): void
