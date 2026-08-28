@@ -339,6 +339,7 @@ test('failed() logs and allows CreatePullRequestJob fallback to raw webm', funct
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
 
+    Log::shouldReceive('channel')->with('yak')->andReturnSelf();
     Log::shouldReceive('error')
         ->once()
         ->with('RenderVideoJob: render failed after retries', Mockery::on(fn (array $ctx): bool => $ctx['artifact'] === $raw->id
@@ -415,7 +416,8 @@ test('failed() notifies the task channel and marks the PR video line unavailable
         return $job->task->is($task)
             && $job->type === NotificationType::Error
             && str_contains($job->message, 'walkthrough video')
-            && str_contains($job->message, 'Permission denied');
+            && str_contains($job->message, 'Permission denied')
+            && str_contains($job->message, 'yak:video:rerender --task=' . $task->id);
     });
 });
 

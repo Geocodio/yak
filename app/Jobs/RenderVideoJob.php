@@ -208,7 +208,7 @@ class RenderVideoJob implements ShouldQueue
      */
     public function failed(Throwable $e): void
     {
-        Log::error('RenderVideoJob: render failed after retries', [
+        Log::channel('yak')->error('RenderVideoJob: render failed after retries', [
             'artifact' => $this->rawVideoArtifactId,
             'error' => $e->getMessage(),
         ]);
@@ -224,7 +224,7 @@ class RenderVideoJob implements ShouldQueue
             SendNotificationJob::dispatch(
                 $task,
                 NotificationType::Error,
-                "The walkthrough video for this task could not be rendered ({$reason}). The PR is unaffected; retry from the task page once the cause is fixed.",
+                "The walkthrough video for this task could not be rendered ({$reason}). The PR is unaffected; once the cause is fixed, re-run it with `php artisan yak:video:rerender --task={$task->id}`.",
             );
         } catch (Throwable $notifyError) {
             Log::channel('yak')->warning('RenderVideoJob: failed to queue failure notification', ['task_id' => $task->id, 'error' => $notifyError->getMessage()]);
