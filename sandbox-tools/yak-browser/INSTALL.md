@@ -16,7 +16,7 @@
 
 | Command | Purpose | Exit codes |
 |---|---|---|
-| `yak-browser script <file> [--base <url>] [--review]` | Lint a v3 `script.json` (spec §4, §8b). With `--base`, dry-runs every selector in a headless page and runs the asset preflight. `--review` prints the script with the editor checklist. | 0 clean, 2 lint error |
+| `yak-browser script <file> [--base <url>] [--review]` | Lint a v3 `script.json` (spec §4, §8b). With `--base`, dry-runs every selector in a headless page and runs the asset preflight. `--review` prints the script with the editor checklist. | 0 clean, 2 lint or selector error, 4 asset preflight failure |
 | `yak-browser shoot <file> --base <url> [--width N --height N] [--only <id>]` | One Playwright context per shot: synthetic cursor, eased scroll, 1 s hold. Writes `shots/<id>.webm`, `stills/<id>.png`, `screenshots/<id>.png` and `manifest.json` under `YAK_ARTIFACTS_DIR`. | 0 ok, 2 bad script, 3 a shot failed twice, 4 asset preflight |
 | `yak-browser assets check --base <url> [--project-root <dir>]` | Asset preflight only: failed stylesheet/script requests, no same-origin stylesheet rules, a bundler error on the page, a UA-default body font, or build output older than the frontend sources. | 0 ok, 4 failure |
 

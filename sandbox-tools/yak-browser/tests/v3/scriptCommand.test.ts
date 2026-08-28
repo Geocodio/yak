@@ -150,3 +150,83 @@ test('with --base a bad selector exits 2', { skip: skipWithoutChromium }, async 
   assert.strictEqual(code, 2);
   assert.match(err.lines(), /#nope/);
 });
+
+test('with --base an asset preflight failure exits 4, not 2', { skip: skipWithoutChromium }, async () => {
+  // Point --base at a server that has already been closed: unreachable, so
+  // the asset preflight fails before any selector is dry-run.
+  const server = await startStaticServer(siteRoot);
+  const deadUrl = server.url;
+  await server.close();
+
+  const script = validScript();
+  const path = writeScript(script);
+  const err = captureStderr();
+  let code: number;
+  try {
+    code = await runScript({ scriptPath: path, base: deadUrl, projectRoot: mkdtempSync(join(tmpdir(), 'empty-')) });
+  } finally {
+    err.restore();
+  }
+  assert.strictEqual(code, 4);
+  assert.match(err.lines(), /asset preflight failed/i);
+});
+
+// Finding 1: script command must exit 2 (not throw / exit 1) when intro,
+// outro or summary is missing or malformed while shots are otherwise fine.
+
+test('a script with a missing intro exits 2, not throws', async () => {
+  const broken = validScript();
+  delete (broken as any).intro;
+  const path = writeScript(broken);
+  const err = captureStderr();
+  let code: number | undefined;
+  let threw: unknown;
+  try {
+    code = await runScript({ scriptPath: path });
+  } catch (error) {
+    threw = error;
+  } finally {
+    err.restore();
+  }
+  assert.strictEqual(threw, undefined, `runScript threw: ${String(threw)}`);
+  assert.strictEqual(code, 2);
+  assert.match(err.lines(), /intro/);
+});
+
+test('a script with a missing outro exits 2, not throws', async () => {
+  const broken = validScript();
+  delete (broken as any).outro;
+  const path = writeScript(broken);
+  const err = captureStderr();
+  let code: number | undefined;
+  let threw: unknown;
+  try {
+    code = await runScript({ scriptPath: path });
+  } catch (error) {
+    threw = error;
+  } finally {
+    err.restore();
+  }
+  assert.strictEqual(threw, undefined, `runScript threw: ${String(threw)}`);
+  assert.strictEqual(code, 2);
+  assert.match(err.lines(), /outro/);
+});
+
+test('a script with a missing/non-array summary exits 2, not throws', async () => {
+  const broken = validScript();
+  delete (broken as any).summary;
+  const path = writeScript(broken);
+  const err = captureStderr();
+  let code: number | undefined;
+  let threw: unknown;
+  try {
+    code = await runScript({ scriptPath: path });
+  } catch (error) {
+    threw = error;
+  } finally {
+    err.restore();
+  }
+  assert.strictEqual(threw, undefined, `runScript threw: ${String(threw)}`);
+  assert.strictEqual(code, 2);
+  assert.match(err.lines(), /summary/);
+});

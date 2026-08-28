@@ -63,6 +63,26 @@ test('a stale project tree fails the preflight even when the page is fine', { sk
   }
 });
 
+test('an unreachable base is reported as a preflight failure instead of throwing', { skip: skipWithoutChromium }, async () => {
+  // A closed local port: nothing is listening, so the connection is refused
+  // immediately rather than timing out.
+  const server = await startStaticServer(join(fixtures, 'site'));
+  const deadUrl = server.url;
+  await server.close();
+
+  let failures: Awaited<ReturnType<typeof runAssetPreflight>> | undefined;
+  let threw: unknown;
+  try {
+    failures = await runAssetPreflight({ base: deadUrl, projectRoot: mkdtempSync(join(tmpdir(), 'empty-')) });
+  } catch (error) {
+    threw = error;
+  }
+  assert.strictEqual(threw, undefined, `runAssetPreflight threw: ${String(threw)}`);
+  assert.ok(failures);
+  assert.ok(failures!.some((f) => f.kind === 'unreachable'), JSON.stringify(failures));
+  assert.ok(failures!.some((f) => f.detail.includes(deadUrl)), JSON.stringify(failures));
+});
+
 test('the failure message ends with the rebuild hint', () => {
   const message = formatPreflightFailures([
     { kind: 'request', detail: 'stylesheet request failed', offenders: ['http://x/app.css (404)'] },

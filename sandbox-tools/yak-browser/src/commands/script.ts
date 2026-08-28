@@ -55,9 +55,13 @@ export async function runScript(opts: ScriptCommandOptions): Promise<number> {
     return 0;
   }
 
-  const dryRunErrors = await dryRunSelectors(parsed as Script, opts.base, opts.projectRoot);
-  if (dryRunErrors.length > 0) {
-    for (const error of dryRunErrors) process.stderr.write(`${error}\n`);
+  const { preflightFailures, selectorErrors } = await dryRunSelectors(parsed as Script, opts.base, opts.projectRoot);
+  if (preflightFailures.length > 0) {
+    for (const error of preflightFailures) process.stderr.write(`${error}\n`);
+    return 4;
+  }
+  if (selectorErrors.length > 0) {
+    for (const error of selectorErrors) process.stderr.write(`${error}\n`);
     return 2;
   }
 

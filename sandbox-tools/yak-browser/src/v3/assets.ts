@@ -11,7 +11,7 @@ const BUNDLER_ERRORS = [
 const UA_DEFAULT_FONTS = ['Times New Roman', 'Times', 'serif'];
 
 export type PreflightFailure = {
-  kind: 'request' | 'stylesheet' | 'bundler' | 'font' | 'stale';
+  kind: 'request' | 'stylesheet' | 'bundler' | 'font' | 'stale' | 'unreachable';
   detail: string;
   offenders: string[];
 };
@@ -83,7 +83,16 @@ export async function runAssetPreflight(opts: {
   page.on('requestfailed', onFailed as never);
 
   try {
-    await page.goto(opts.base, { waitUntil: 'networkidle', timeout: 30_000 });
+    try {
+      await page.goto(opts.base, { waitUntil: 'networkidle', timeout: 30_000 });
+    } catch (error) {
+      failures.push({
+        kind: 'unreachable',
+        detail: `could not load ${opts.base}: ${(error as Error).message}`,
+        offenders: [opts.base],
+      });
+      return failures;
+    }
     const result = await probe(page);
 
     if (badRequests.length > 0) {

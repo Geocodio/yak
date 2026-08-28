@@ -43,6 +43,30 @@ test('pickPositional returns undefined when there is no positional token', () =>
   assert.strictEqual(path, undefined);
 });
 
+// -------- `assets --base <url> check` (src/index.ts's assets branch) --------
+// src/index.ts resolves the `assets` subcommand with
+// `pickPositional(rest, ['--base', '--project-root'])`, the same helper
+// `script` and `shoot` use, so flag-first ordering doesn't misread the
+// `--base` URL as the subcommand.
+
+test('assets subcommand resolution finds "check" after a flag-first --base', () => {
+  const subcommand = pickPositional(['--base', 'http://example.com', 'check'], ['--base', '--project-root']);
+  assert.strictEqual(subcommand, 'check');
+});
+
+test('assets subcommand resolution finds "check" when it comes first', () => {
+  const subcommand = pickPositional(['check', '--base', 'http://example.com'], ['--base', '--project-root']);
+  assert.strictEqual(subcommand, 'check');
+});
+
+test('assets subcommand resolution is unaffected by --project-root', () => {
+  const subcommand = pickPositional(
+    ['--project-root', '/tmp/root', '--base', 'http://example.com', 'check'],
+    ['--base', '--project-root'],
+  );
+  assert.strictEqual(subcommand, 'check');
+});
+
 // -------- getFlag --------
 
 test('getFlag reads a space-separated flag value', () => {

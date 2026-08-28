@@ -74,8 +74,9 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (cmd === 'assets') {
+    const subcommand = pickPositional(rest, ['--base', '--project-root']);
     return runAssets({
-      argv: rest.filter((a) => !a.startsWith('--')),
+      argv: subcommand ? [subcommand] : [],
       base: getFlag(rest, '--base'),
       projectRoot: getFlag(rest, '--project-root'),
     });

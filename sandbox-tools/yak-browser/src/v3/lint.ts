@@ -199,14 +199,18 @@ export function lintScriptStatic(input: unknown): string[] {
   lintText('title', complete.title, errors);
   lintText('intro', complete.intro, errors);
   lintText('outro', complete.outro, errors);
-  (complete.summary ?? []).forEach((bullet, i) => lintText(`summary[${i}]`, bullet, errors));
+  (Array.isArray(complete.summary) ? complete.summary : []).forEach((bullet, i) => lintText(`summary[${i}]`, bullet, errors));
   complete.shots.forEach((shot, i) => lintText(`shots[${i}].say`, shot.say, errors));
   lintScreenshots(complete, errors);
 
   const shotsWellFormed = complete.shots.every(
     (shot) => isRecord(shot) && typeof shot.say === 'string' && typeof shot.chapter === 'string',
   );
-  if (shotsWellFormed) {
+  const cutFieldsWellFormed =
+    typeof complete.intro === 'string' &&
+    typeof complete.outro === 'string' &&
+    Array.isArray(complete.summary);
+  if (shotsWellFormed && cutFieldsWellFormed) {
     const seconds = estimatedCutSeconds(complete);
     if (seconds < 30 || seconds > 150) {
       errors.push(`estimated cut length is ${seconds.toFixed(1)} s; it must be between 30 s and 150 s`);

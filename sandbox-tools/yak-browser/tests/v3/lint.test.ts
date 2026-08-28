@@ -302,3 +302,47 @@ test('rejects a do entry that is not an object', () => {
   s.shots[0].do = [42];
   assert.ok(lintScriptStatic(s).some((e) => /action must be an object/.test(e)));
 });
+
+// Finding 1: a malformed intro/outro/summary must not reach
+// estimatedCutSeconds() and throw — it must be reported as a lint error like
+// everything else. Regression coverage for src/v3/lint.ts:206-213.
+
+test('a missing intro produces lint errors instead of throwing', () => {
+  const s = validScript();
+  delete s.intro;
+  let errors: string[] = [];
+  assert.doesNotThrow(() => {
+    errors = lintScriptStatic(s);
+  });
+  assert.ok(errors.some((e) => /intro must be a non-empty string/.test(e)));
+});
+
+test('a missing outro produces lint errors instead of throwing', () => {
+  const s = validScript();
+  delete s.outro;
+  let errors: string[] = [];
+  assert.doesNotThrow(() => {
+    errors = lintScriptStatic(s);
+  });
+  assert.ok(errors.some((e) => /outro must be a non-empty string/.test(e)));
+});
+
+test('a missing summary produces lint errors instead of throwing', () => {
+  const s = validScript();
+  delete s.summary;
+  let errors: string[] = [];
+  assert.doesNotThrow(() => {
+    errors = lintScriptStatic(s);
+  });
+  assert.ok(errors.some((e) => /summary must have 2-5 bullets/.test(e)));
+});
+
+test('a non-array summary produces lint errors instead of throwing', () => {
+  const s = validScript();
+  s.summary = 'not an array';
+  let errors: string[] = [];
+  assert.doesNotThrow(() => {
+    errors = lintScriptStatic(s);
+  });
+  assert.ok(errors.some((e) => /summary must have 2-5 bullets/.test(e)));
+});

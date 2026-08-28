@@ -238,3 +238,31 @@ test('--only keeps screenshots belonging to shots it did not re-shoot', { skip: 
     await server.close();
   }
 });
+
+// Finding 5: skipPreflight is a test-only escape hatch — every other test in
+// this file sets it, so shoot()'s own preflight path (the branch guarded by
+// `if (opts.skipPreflight !== true)`) needs at least one test that runs it
+// for real, against the passing fixture site.
+test('shoot() runs its own asset preflight when skipPreflight is not set', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  const projectRoot = mkdtempSync(join(tmpdir(), 'yak-shoot-empty-root-'));
+  const script = twoShotScript();
+  script.shots = [script.shots[0]];
+  try {
+    const manifest = await shoot({
+      script,
+      base: server.url,
+      artifactsDir,
+      width: 900,
+      height: 700,
+      projectRoot,
+      // skipPreflight intentionally omitted — this exercises shoot()'s real
+      // asset preflight against a page that should pass it.
+    });
+    assert.strictEqual(manifest.shots.length, 1);
+    assert.ok(existsSync(join(artifactsDir, manifest.shots[0].clip)));
+  } finally {
+    await server.close();
+  }
+});
