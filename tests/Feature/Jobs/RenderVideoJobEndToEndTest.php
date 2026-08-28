@@ -43,7 +43,7 @@ it('renders an MP4 end-to-end through the real VideoRenderer', function () {
 
     $renderer = new VideoRenderer(videoDir: base_path('video'));
 
-    (new RenderVideoJob($rawVideo->id, 'reviewer'))->handle($renderer);
+    (new RenderVideoJob($rawVideo->id))->handle($renderer);
 
     $cut = Artifact::where('yak_task_id', $task->id)->where('type', 'video_cut')->first();
 

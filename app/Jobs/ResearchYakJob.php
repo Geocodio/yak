@@ -240,9 +240,11 @@ class ResearchYakJob implements ShouldQueue
 
         $sandbox->pullFile($containerName, $remotePath, $localPath);
 
+        /** Research artifacts sit outside the video pipeline, so they carry no role. */
         return Artifact::create([
             'yak_task_id' => $this->task->id,
             'type' => 'research',
+            'role' => null,
             'filename' => 'research.html',
             'disk_path' => $storagePath,
             'size_bytes' => filesize($localPath) ?: 0,

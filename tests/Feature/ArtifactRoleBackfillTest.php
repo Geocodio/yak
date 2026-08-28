@@ -48,3 +48,24 @@ test('the backfill maps legacy types and filenames onto roles', function () {
             ->toBe($row['expected'], "row {$index} ({$row['filename']})");
     }
 });
+
+test('the role migration can be re-run after a partial backfill', function () {
+    $migration = require database_path('migrations/2026_08_28_171900_add_role_to_artifacts_table.php');
+
+    // Simulates a backfill that died partway: the column is already there,
+    // but this row never got its role written.
+    $task = YakTask::factory()->create();
+    DB::table('artifacts')->insert([
+        'yak_task_id' => $task->id,
+        'type' => 'video_cut',
+        'filename' => 'walkthrough.mp4',
+        'disk_path' => "{$task->id}/walkthrough.mp4",
+        'size_bytes' => 10,
+        'role' => null,
+        'created_at' => now(),
+    ]);
+
+    $migration->up();
+
+    expect(Artifact::where('filename', 'walkthrough.mp4')->sole()->role)->toBe('cut');
+});

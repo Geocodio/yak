@@ -47,18 +47,6 @@ class Artifact extends Model
     }
 
     /**
-     * Roles an artifact can carry (spec §8). `cut`, `thumbnail`,
-     * `screenshot`, `raw` and `manifest` are written today; the rest are
-     * reserved for the v3 shoot/render phases.
-     *
-     * @var list<string>
-     */
-    public const array ROLES = [
-        'cut', 'thumbnail', 'preview', 'chapters', 'shot',
-        'still', 'screenshot', 'voiceover', 'manifest', 'script', 'raw',
-    ];
-
-    /**
      * Derive `role` for rows written before the column existed. Director's
      * Cut artifacts are deliberately left null so they never surface in
      * the `cut()` scope — the tier is gone and its output was never used.
@@ -79,10 +67,21 @@ class Artifact extends Model
     /**
      * Map an artifact's `type` and filename onto its role, or null when the
      * row carries no role (Director's Cut output and unrecognised files).
+     *
+     * Phase 1 writes `cut`, `thumbnail`, `screenshot`, `raw` and
+     * `manifest`; the spec's remaining role vocabulary belongs to the v3
+     * shoot/render phases and is introduced with the validator that gives
+     * it a purpose.
+     *
+     * The `director-cut` guard is anchored to the video types so a
+     * screenshot whose name merely contains that substring (say
+     * `director-cutover.png`) keeps its `screenshot` role.
      */
     public static function roleFor(string $type, string $filename): ?string
     {
-        if (str_contains($filename, 'director-cut')) {
+        $isVideoType = in_array($type, ['video_cut', 'video', 'video_thumbnail'], strict: true);
+
+        if ($isVideoType && str_contains($filename, 'director-cut')) {
             return null;
         }
 

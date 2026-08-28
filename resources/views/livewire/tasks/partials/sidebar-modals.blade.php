@@ -32,8 +32,8 @@ recording is followed by the rendered walkthrough. --}}
                 <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
             </div>
 
-            <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
-                @if($task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut)
+            @if($task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut)
+                <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
                     @php $walkthroughUrl = $this->walkthroughCut->signedUrl(); @endphp
                     <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" data-testid="walkthrough-cut" wire:ignore>
                         <video controls preload="metadata" class="w-full" src="{{ $walkthroughUrl }}"></video>
@@ -41,8 +41,8 @@ recording is followed by the rendered walkthrough. --}}
                             <a href="{{ $walkthroughUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Walkthrough</a>
                         </div>
                     </div>
-                @endif
-            </div>
+                </div>
+            @endif
         @else
             <a href="{{ $lightboxArtifact->signedUrl() }}" target="_blank" rel="noopener noreferrer" class="block">
                 <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
