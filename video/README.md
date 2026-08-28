@@ -138,4 +138,21 @@ npm run timeline -- --script fixtures/v3/script.json --manifest fixtures/v3/mani
 YAK_E2E_RENDER=1 npx vitest run src/__tests__/render.e2e.test.ts
 ```
 
+### Live preview bundle
+
+```bash
+npm run build:preview       # esbuild → dist/preview.js, copied to public/vendor/video-preview.js in the image
+```
+
+A single self-contained IIFE (React and `@remotion/player` bundled in) that runs
+the `PreviewWalkthrough` cut from `src/preview/sample.ts` so the theme settings
+page can preview a theme without a render. It sets `window.YakVideoPreview` to
+`{ mount(el, props?), update(theme), seekToBlock('title'|'chapter'|'shot'|'summary') }`.
+
+The sample clip is `v3/preview-still.jpg`, resolved through Remotion's
+`staticFile()`; the bundle sets `window.remotion_staticBase` to `/vendor`, so
+the page must serve `public/v3/` under `/vendor/` (the Dockerfile copies the
+still to `public/vendor/v3/preview-still.jpg`). Set
+`window.YakVideoPreviewStaticBase` before the script loads to point elsewhere.
+
 Fixtures live in `fixtures/v3/` and reference the media in `public/v3/`.

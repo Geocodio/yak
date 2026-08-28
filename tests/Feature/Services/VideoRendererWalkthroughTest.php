@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\VideoTheme;
 use App\Services\VideoRenderer;
 use Illuminate\Support\Facades\Process;
 
@@ -57,6 +58,45 @@ it('renders WalkthroughV3 with staged clips and the theme props', function (): v
             ->and($props['theme']['colors']['accent'])->toBe('#c4744a')
             ->and($props['manifest']['shots'][0]['clip'])->toBe('shots/a.webm')
             ->and($props['script']['title'])->toBe('T');
+
+        return true;
+    });
+});
+
+it('renders with the saved theme row layered over the defaults', function (): void {
+    VideoTheme::factory()->create([
+        'id' => 1,
+        'theme' => ['colors' => ['accent' => '#112233']],
+    ]);
+
+    Process::fake(['*' => Process::result('', '', 0)]);
+    [$script, $manifest, $clips] = writeV3Inputs();
+
+    $out = sys_get_temp_dir() . '/out.mp4';
+
+    (new VideoRenderer(base_path('video')))->renderWalkthrough(
+        scriptPath: $script,
+        manifestPath: $manifest,
+        clipPaths: $clips,
+        voiceover: null,
+        theme: config('yak.video.theme'),
+        publicOrigin: 'https://www.example.com',
+        outputPath: $out,
+    );
+
+    Process::assertRan(function ($process): bool {
+        $command = $process->command;
+
+        $props = null;
+        foreach ($command as $argument) {
+            if (str_starts_with($argument, '--props=')) {
+                $props = json_decode(substr($argument, strlen('--props=')), true);
+            }
+        }
+
+        expect($props)->not->toBeNull()
+            ->and($props['theme']['colors']['accent'])->toBe('#112233')
+            ->and($props['theme']['colors']['background'])->toBe('#f5f0e8');
 
         return true;
     });

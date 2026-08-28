@@ -7,6 +7,7 @@ use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
+use App\Http\Controllers\VideoThemeAssetController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
 use App\Livewire\Deployments\DeploymentIndex;
@@ -79,6 +80,13 @@ Route::middleware(['auth'])->group(function () {
 Route::get('artifacts/public/{token}', [ArtifactController::class, 'publicImage'])
     ->name('artifacts.public')
     ->where('token', '[0-9A-Za-z]{26}');
+
+Route::get('video-theme/logo', [VideoThemeAssetController::class, 'logo'])
+    ->name('video-theme.logo');
+
+Route::get('video-theme/sample', [VideoThemeAssetController::class, 'sample'])
+    ->middleware('auth')
+    ->name('video-theme.sample');
 
 Route::get('artifacts/{task}/viewer/{filename}', [ArtifactController::class, 'viewer'])
     ->name('artifacts.viewer')

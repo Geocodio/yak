@@ -7,18 +7,22 @@
     "render": "remotion render src/index.ts Walkthrough out/walkthrough.mp4",
     "render:v3": "remotion render src/index.ts WalkthroughV3 out/walkthrough.mp4",
     "timeline": "tsx scripts/timeline.ts",
+    "build:preview": "node scripts/build-preview.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.0",
     "@remotion/google-fonts": "4.0.448",
+    "@remotion/player": "4.0.448",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "remotion": "^4.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.6",
     "typescript": "^5.3.0",
     "vitest": "^3.2.4"

@@ -435,3 +435,7 @@ Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means v
 ### `Visual capture: partial` in the task log
 
 This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills — not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.
+
+## Video theme page (`/settings/video`) preview is blank or sample render never appears
+
+If the live preview player never shows up, the page is missing its build artifact, `public/vendor/video-preview.js`; the page still saves theme changes normally, only the preview is affected. If the **Render sample video** download link never appears, `RenderThemeSampleJob` either failed or hasn't run yet: check `php artisan queue:failed` and confirm the `yak-render` worker is up. See [Video Walkthroughs → Theming](video-walkthroughs.md#theming) for the full setup, including where the built preview bundle comes from.
