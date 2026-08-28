@@ -6,7 +6,7 @@ import { buildBlocks } from '../lib/v3/blocks';
 import { DEFAULT_FPS } from '../lib/v3/types';
 import type { PartialTheme } from '../lib/v3/types';
 import { SAMPLE_PROPS } from './sample';
-import { blockOffsets, type BlockKind } from './blockOffsets';
+import { blockOffsets, previewInitialFrame, type BlockKind } from './blockOffsets';
 
 export type PreviewApi = {
   mount(el: HTMLElement, props?: Partial<WalkthroughV3Props>): void;
@@ -71,6 +71,7 @@ export function createPreviewApi(): PreviewApi {
         compositionWidth={compositionWidth}
         compositionHeight={compositionHeight}
         fps={DEFAULT_FPS}
+        initialFrame={previewInitialFrame()}
         controls
         loop
         style={{ width: '100%', borderRadius: 18, overflow: 'hidden' }}

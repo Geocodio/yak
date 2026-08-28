@@ -2,7 +2,7 @@
 
 use App\Models\User;
 
-test('the theme page renders the live preview and reflects a colour change', function () {
+beforeEach(function () {
     if (! file_exists(base_path('node_modules/playwright-core'))) {
         $this->markTestSkipped('Playwright browsers are unavailable in this environment.');
     }
@@ -10,7 +10,9 @@ test('the theme page renders the live preview and reflects a colour change', fun
     if (! file_exists(public_path('vendor/video-preview.js'))) {
         $this->markTestSkipped('public/vendor/video-preview.js is not built.');
     }
+});
 
+test('the theme page renders the live preview and reflects a colour change', function () {
     $this->actingAs(User::factory()->create());
 
     $page = visit(route('settings.video'));
@@ -25,4 +27,71 @@ test('the theme page renders the live preview and reflects a colour change', fun
     $page->fill('input[wire\\:model\\.live\\.debounce\\.300ms="colors.accent"]', '#112233')
         ->wait(1)
         ->assertAttributeContains('[data-testid="video-theme-preview"]', 'data-theme', '#112233');
+});
+
+test('the preview bundle and the assets it resolves through staticFile() all serve', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('settings.video'));
+    $page->wait(2);
+
+    // The bundle resolves `v3/preview-still.jpg` through Remotion's
+    // staticFile(), which reads window.remotion_staticBase. A 404 on either
+    // file is invisible in the player, so probe them from the page itself.
+    $probe = $page->script(<<<'JS'
+        (async () => {
+            const statuses = {};
+            for (const url of ['/vendor/video-preview.js', '/vendor/v3/preview-still.jpg']) {
+                try {
+                    statuses[url] = (await fetch(url)).status;
+                } catch (error) {
+                    statuses[url] = String(error);
+                }
+            }
+
+            return {
+                statuses,
+                staticBase: window.remotion_staticBase,
+                api: typeof window.YakVideoPreview?.mount,
+            };
+        })()
+    JS);
+
+    expect($probe['statuses']['/vendor/video-preview.js'])->toBe(200);
+    expect($probe['statuses']['/vendor/v3/preview-still.jpg'])->toBe(200);
+    expect($probe['staticBase'])->toBe('/vendor');
+    expect($probe['api'])->toBe('function');
+});
+
+test('the player opens on a painted title card rather than a blank first frame', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('settings.video'));
+    $page->wait(2);
+
+    // The composition fades each block in from the backdrop, so frame 0 is
+    // fully transparent: the player has to open past that fade or the whole
+    // preview reads as a black rectangle.
+    $painted = $page->script(<<<'JS'
+        (() => {
+            const host = document.querySelector('[data-testid="video-theme-preview"]');
+            const text = host ? host.innerText : '';
+            const faded = host
+                ? [...host.querySelectorAll('*')].some((node) => {
+                    const opacity = Number(getComputedStyle(node).opacity);
+
+                    return node.innerText?.includes('Sample walkthrough') && opacity < 0.9;
+                })
+                : true;
+
+            return { text, faded };
+        })()
+    JS);
+
+    expect($painted['text'])->toContain('Sample walkthrough for the video theme');
+    // The eyebrow is uppercased in CSS, which innerText reflects.
+    expect($painted['text'])->toContain('ACME/EXAMPLE-SITE');
+    expect($painted['faded'])->toBeFalse();
+
+    $page->assertNoJavaScriptErrors();
 });
