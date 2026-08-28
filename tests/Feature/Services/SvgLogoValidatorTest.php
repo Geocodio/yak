@@ -72,3 +72,53 @@ it('rejects an external xlink:href', function (): void {
 
     expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
 });
+
+it('rejects an animate element that targets xlink:href with a javascript: URI', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <a>
+        <text x="10" y="20">click me</text>
+        <animate attributeName="xlink:href" to="javascript:alert(document.domain)" begin="0s" dur="1s" fill="freeze"/>
+      </a>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
+});
+
+it('rejects a set element that targets href', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <a>
+        <text x="10" y="20">click me</text>
+        <set attributeName="href" to="javascript:alert(document.domain)" begin="0s"/>
+      </a>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
+});
+
+it('rejects an animateTransform element that targets an on* handler', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <rect width="10" height="10">
+        <animateTransform attributeName="onclick" to="alert(1)" begin="0s"/>
+      </rect>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
+});
+
+it('accepts an animateMotion element with no attributeName', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg">
+      <rect width="10" height="10">
+        <animateMotion path="M0,0 L10,10" begin="0s" dur="2s"/>
+      </rect>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeTrue();
+});

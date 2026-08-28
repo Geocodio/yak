@@ -43,7 +43,20 @@ class SvgLogoValidator
      * - any attribute whose name starts with "on" (case-insensitive),
      * - any <foreignObject> element,
      * - any href / xlink:href attribute whose value is not a pure
-     *   "#fragment" reference.
+     *   "#fragment" reference,
+     * - any SMIL animation element (<animate>, <set>, <animateMotion>,
+     *   <animateTransform>) whose `attributeName` targets `href`,
+     *   `xlink:href`, or any `on*` handler — SMIL can mutate those at
+     *   runtime (e.g. animating `xlink:href` to a `javascript:` URI),
+     *   bypassing a static check of the literal attribute values alone.
+     *
+     * Not rejected, by design: element names are matched case-sensitively
+     * (e.g. `<SCRIPT>`/`<FOREIGNOBJECT>` pass through) — this is not a
+     * real vector because SVG is namespaced XML and no browser recognizes
+     * an uppercase local name as the `script`/`foreignObject` element, it
+     * is just inert markup. `<handler>` (SVG Tiny 1.2's scripting
+     * element) is also not checked for the same reason: no modern
+     * browser implements SVG Tiny 1.2 handler execution.
      */
     public function isSafe(string $contents): bool
     {
@@ -67,7 +80,46 @@ class SvgLogoValidator
             return false;
         }
 
+        if (! $this->smilAnimationsAreSafe($xpath)) {
+            return false;
+        }
+
         return $this->walk($document);
+    }
+
+    /**
+     * Reject any SMIL animation element that targets `href`, `xlink:href`,
+     * or an `on*` event-handler attribute via its `attributeName`. SMIL
+     * (<animate>, <set>, <animateMotion>, <animateTransform>) can mutate a
+     * target attribute at runtime — e.g. animating `xlink:href` on an
+     * anchor to a `javascript:` URI — so the literal `href`/`on*` checks
+     * in `attributesAreSafe()` alone are not enough; the animation
+     * elements themselves must be rejected outright.
+     */
+    private function smilAnimationsAreSafe(DOMXPath $xpath): bool
+    {
+        $animations = $xpath->query(
+            '//*[local-name()="animate" or local-name()="set" ' .
+            'or local-name()="animateMotion" or local-name()="animateTransform"]'
+        );
+
+        if ($animations === false) {
+            return false;
+        }
+
+        foreach ($animations as $animation) {
+            if (! $animation instanceof DOMElement) {
+                continue;
+            }
+
+            $target = strtolower(trim($animation->getAttribute('attributeName')));
+
+            if ($target === 'href' || $target === 'xlink:href' || str_starts_with($target, 'on')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
