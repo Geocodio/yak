@@ -24,35 +24,24 @@
 # `claude login`/`/login` (that writes .credentials.json and .claude.json,
 # both left writable), so yak-claude-login is unaffected.
 #
-# Checked with `stat` first so this does not fail on a fresh host where
-# the CLI has not created these files yet.
-- name: Check for existing settings.json
-  ansible.builtin.stat:
-    path: "{{ yak_claude_path }}/settings.json"
-  register: claude_settings_json
-
-- name: Lock down settings.json to root-only writes
-  ansible.builtin.file:
-    path: "{{ yak_claude_path }}/settings.json"
-    state: file
+# Absent is the exploitable state, not just "unwritten present" -- a stat +
+# `file` pair gated on `.stat.exists` does nothing when the file is missing,
+# leaving it creatable by the sandboxed `yak` uid. `copy` with `force: false`
+# creates the file root-owned when absent (writing content only then) and,
+# because it always runs the file module's attribute-enforcement step at the
+# end regardless of `force`, still re-applies owner/mode on every run even
+# when the file already exists -- without ever touching existing content.
+- name: Lock Claude settings files to root-only writes
+  ansible.builtin.copy:
+    content: "{}\n"
+    dest: "{{ yak_claude_path }}/{{ item }}"
+    force: false
     owner: root
     group: root
     mode: "0644"
-  when: claude_settings_json.stat.exists
-
-- name: Check for existing settings.local.json
-  ansible.builtin.stat:
-    path: "{{ yak_claude_path }}/settings.local.json"
-  register: claude_settings_local_json
-
-- name: Lock down settings.local.json to root-only writes
-  ansible.builtin.file:
-    path: "{{ yak_claude_path }}/settings.local.json"
-    state: file
-    owner: root
-    group: root
-    mode: "0644"
-  when: claude_settings_local_json.stat.exists
+  loop:
+    - settings.json
+    - settings.local.json
 
 - name: Verify Claude Code CLI is available in container
   ansible.builtin.command:
