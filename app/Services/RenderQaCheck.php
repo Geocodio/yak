@@ -119,10 +119,16 @@ class RenderQaCheck
         $frames = [];
 
         try {
-            /** @var array<int, array{id: string, hash: string}> $hashes */
+            /**
+             * Index-aligned with $samples: a shot whose frame could not be
+             * extracted holds null and keeps its place, so every comparison
+             * below is against a shot's real timeline neighbour.
+             *
+             * @var array<int, string|null> $hashes
+             */
             $hashes = [];
 
-            foreach ($samples as $sample) {
+            foreach ($samples as $index => $sample) {
                 $framePath = sys_get_temp_dir() . '/yak-qa-' . bin2hex(random_bytes(6)) . '.jpg';
                 $frames[] = $framePath;
 
@@ -131,16 +137,10 @@ class RenderQaCheck
                     '-frames:v', '1', '-q:v', '5', $framePath,
                 ]);
 
-                $hash = PerceptualHash::dhash($framePath);
-
-                if ($hash === null) {
-                    continue;
-                }
-
-                $hashes[] = ['id' => $sample['id'], 'hash' => $hash];
+                $hashes[$index] = PerceptualHash::dhash($framePath);
             }
 
-            return $this->firstAllNeighbourMatch($hashes);
+            return $this->firstAllNeighbourMatch($samples, $hashes);
         } finally {
             foreach ($frames as $framePath) {
                 @unlink($framePath);
@@ -149,34 +149,45 @@ class RenderQaCheck
     }
 
     /**
-     * @param  array<int, array{id: string, hash: string}>  $hashes
+     * A missing hash is evidence of nothing: the shot it belongs to is
+     * skipped, and it counts as absent when its neighbours look sideways —
+     * exactly like the missing neighbour at either end of the timeline.
+     *
+     * @param  array<int, array{id: string, seconds: float}>  $samples
+     * @param  array<int, string|null>  $hashes
      */
-    private function firstAllNeighbourMatch(array $hashes): ?string
+    private function firstAllNeighbourMatch(array $samples, array $hashes): ?string
     {
-        $count = count($hashes);
-
-        if ($count < 2) {
-            return null;
-        }
+        $count = count($samples);
 
         for ($i = 0; $i < $count; $i++) {
-            $previous = $i > 0 ? $hashes[$i - 1] : null;
-            $next = $i + 1 < $count ? $hashes[$i + 1] : null;
-            $hash = $hashes[$i]['hash'];
+            $hash = $hashes[$i] ?? null;
 
-            $matchesPrevious = $previous !== null && PerceptualHash::hamming($hash, $previous['hash']) === 0;
-            $matchesNext = $next !== null && PerceptualHash::hamming($hash, $next['hash']) === 0;
-
-            if ($previous !== null && $next !== null && $matchesPrevious && $matchesNext) {
-                return $this->identicalMessage($hashes[$i]['id'], $previous['id']);
+            if ($hash === null) {
+                continue;
             }
 
-            if ($previous !== null && $next === null && $matchesPrevious) {
-                return $this->identicalMessage($hashes[$i]['id'], $previous['id']);
+            $matchedAll = true;
+            $matchedNeighbourId = null;
+
+            foreach ([$i - 1, $i + 1] as $neighbour) {
+                $neighbourHash = $hashes[$neighbour] ?? null;
+
+                if ($neighbourHash === null) {
+                    continue;
+                }
+
+                if (PerceptualHash::hamming($hash, $neighbourHash) !== 0) {
+                    $matchedAll = false;
+
+                    break;
+                }
+
+                $matchedNeighbourId ??= $samples[$neighbour]['id'];
             }
 
-            if ($next !== null && $previous === null && $matchesNext) {
-                return $this->identicalMessage($hashes[$i]['id'], $next['id']);
+            if ($matchedAll && $matchedNeighbourId !== null) {
+                return $this->identicalMessage($samples[$i]['id'], $matchedNeighbourId);
             }
         }
 

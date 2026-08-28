@@ -121,3 +121,47 @@ it('rejects a static cut', function (): void {
 
     (new RenderQaCheck($renderer))->assertPasses($mp4, qaTimeline(duration: (float) $renderer->probeDurationSeconds($mp4)));
 })->throws(RenderQaFailure::class, 'identical')->skip(fn (): bool => ! ffmpegAvailable(), 'ffmpeg not installed');
+
+/** 10 s of static bars followed by 10 s of moving test bars. */
+function makeBarsThenMotionMp4(): string
+{
+    $path = sys_get_temp_dir() . '/qa-mixed-' . bin2hex(random_bytes(4)) . '.mp4';
+    Process::run([
+        'ffmpeg', '-y',
+        '-f', 'lavfi', '-i', 'smptebars=s=320x180:d=10:r=15',
+        '-f', 'lavfi', '-i', 'testsrc=s=320x180:d=10:r=15',
+        '-filter_complex', '[0:v][1:v]concat=n=2:v=1[v]',
+        '-map', '[v]', '-pix_fmt', 'yuv420p', $path,
+    ]);
+
+    return $path;
+}
+
+it('does not treat two shots either side of an unextractable frame as neighbours', function (): void {
+    config()->set('yak.video.duration_bounds', [1, 180]);
+    $mp4 = makeBarsThenMotionMp4();
+    $renderer = new VideoRenderer(base_path('video'));
+
+    /**
+     * Mid-holds land at 3s (static bars), 25s (past the clip: no frame),
+     * 7s (the same static bars, so identical to the 3s shot) and 16s
+     * (moving). The identical pair is NOT adjacent, so the cut passes.
+     */
+    $timeline = WalkthroughTimeline::fromJson((string) json_encode([
+        'fps' => 30, 'width' => 1440, 'height' => 952,
+        'durationSeconds' => (float) $renderer->probeDurationSeconds($mp4),
+        'durationInFrames' => 600,
+        'blocks' => [
+            ['kind' => 'shot', 'id' => 'bars-early', 'startSeconds' => 0.0, 'durationSeconds' => 4.0],
+            ['kind' => 'shot', 'id' => 'off-the-end', 'startSeconds' => 22.0, 'durationSeconds' => 4.0],
+            ['kind' => 'shot', 'id' => 'bars-late', 'startSeconds' => 4.0, 'durationSeconds' => 4.0],
+            ['kind' => 'shot', 'id' => 'motion', 'startSeconds' => 13.0, 'durationSeconds' => 4.0],
+        ],
+        'chapters' => [], 'captionOverflow' => [],
+    ]));
+
+    expect(fn (): mixed => (new RenderQaCheck($renderer))->assertPasses($mp4, $timeline))
+        ->not->toThrow(RenderQaFailure::class);
+
+    @unlink($mp4);
+})->skip(fn (): bool => ! ffmpegAvailable(), 'ffmpeg not installed');
