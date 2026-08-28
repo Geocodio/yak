@@ -34,13 +34,11 @@ recording is followed by the rendered walkthrough. --}}
 
             @if($task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut)
                 <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
-                    @php $walkthroughUrl = $this->walkthroughCut->signedUrl(); @endphp
-                    <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" data-testid="walkthrough-cut" wire:ignore>
-                        <video controls preload="metadata" class="w-full" src="{{ $walkthroughUrl }}"></video>
-                        <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
-                            <a href="{{ $walkthroughUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Walkthrough</a>
-                        </div>
-                    </div>
+                    @include('livewire.tasks.partials.walkthrough-player', [
+                        'walkthroughUrl' => $this->walkthroughCut->signedUrl(),
+                        'chapters' => $this->chapters,
+                        'seekSeconds' => null,
+                    ])
                 </div>
             @endif
         @else

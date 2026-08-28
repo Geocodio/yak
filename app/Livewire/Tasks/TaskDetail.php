@@ -38,6 +38,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -56,6 +57,7 @@ use Livewire\Component;
  * @property-read SupportCollection<int, ThreadEntry> $thread
  * @property-read ?BranchDeployment $deployment
  * @property-read ?Artifact $walkthroughCut
+ * @property-read array<int, array{title: string, startSeconds: float, shots: list<array{id: string, startSeconds: float, say: string}>}> $chapters
  * @property-read VideoRenderStatus $renderStatus
  * @property-read ?Artifact $walkthroughPreview
  * @property-read SupportCollection<int, Collection<int, Artifact>> $mediaByRun
@@ -1327,6 +1329,75 @@ class TaskDetail extends Component
     public function walkthroughCut(): ?Artifact
     {
         return $this->task->artifacts()->cut()->latest('id')->first();
+    }
+
+    /**
+     * Chapters for the rendered cut, written by the render alongside the
+     * mp4. Anything that is not the documented shape is dropped rather
+     * than half-rendered: the player must never show an empty chapter.
+     *
+     * @return array<int, array{title: string, startSeconds: float, shots: list<array{id: string, startSeconds: float, say: string}>}>
+     */
+    #[Computed]
+    public function chapters(): array
+    {
+        $artifact = $this->task->artifacts()->role('chapters')->latest('id')->first();
+
+        if ($artifact === null) {
+            return [];
+        }
+
+        $disk = Storage::disk('artifacts');
+
+        if (! $disk->exists($artifact->disk_path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) $disk->get($artifact->disk_path), true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $chapters = [];
+
+        foreach ($decoded as $chapter) {
+            if (! is_array($chapter) || ! isset($chapter['title'], $chapter['startSeconds'])) {
+                continue;
+            }
+
+            $shots = [];
+
+            foreach (is_array($chapter['shots'] ?? null) ? $chapter['shots'] : [] as $shot) {
+                if (! is_array($shot) || ! isset($shot['id'], $shot['startSeconds'], $shot['say'])) {
+                    continue;
+                }
+
+                $shots[] = [
+                    'id' => (string) $shot['id'],
+                    'startSeconds' => (float) $shot['startSeconds'],
+                    'say' => (string) $shot['say'],
+                ];
+            }
+
+            $chapters[] = [
+                'title' => (string) $chapter['title'],
+                'startSeconds' => (float) $chapter['startSeconds'],
+                'shots' => $shots,
+            ];
+        }
+
+        return $chapters;
+    }
+
+    /**
+     * Render a playhead position as `m:ss` for chapter and transcript rows.
+     */
+    public static function formatTimestamp(float $seconds): string
+    {
+        $whole = max(0, (int) floor($seconds));
+
+        return sprintf('%d:%02d', intdiv($whole, 60), $whole % 60);
     }
 
     /**
