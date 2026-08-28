@@ -96,7 +96,7 @@
                         @else
                             <img src="{{ $artifact->signedUrl() }}" alt="{{ $artifact->filename }}" loading="lazy" class="h-[90px] w-full object-cover" />
                         @endif
-                        <div class="truncate bg-yak-cream-dark px-2 py-1 text-[11px] text-yak-blue">{{ $artifact->filename }}</div>
+                        <div class="truncate bg-yak-cream-dark px-2 py-1 text-[11px] text-yak-blue" title="{{ $artifact->caption ?? $artifact->filename }}">{{ $artifact->caption ?? $artifact->filename }}</div>
                     </button>
                 @endforeach
             </div>

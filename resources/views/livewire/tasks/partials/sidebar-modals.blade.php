@@ -45,8 +45,11 @@ recording is followed by the rendered walkthrough. --}}
             @endif
         @else
             <a href="{{ $lightboxArtifact->signedUrl() }}" target="_blank" rel="noopener noreferrer" class="block">
-                <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
+                <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->caption ?? $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
             </a>
+            @if($lightboxArtifact->caption ?? null)
+                <p class="mt-2 text-xs italic text-yak-slate" data-testid="artifact-caption">{{ $lightboxArtifact->caption }}</p>
+            @endif
         @endif
     @endif
 </flux:modal>

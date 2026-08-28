@@ -198,3 +198,29 @@ test('the retry button is absent when the render did not fail', function () {
     Livewire::test(TaskDetail::class, ['task' => $task])
         ->assertDontSeeHtml('data-testid="walkthrough-retry"');
 });
+
+test('the lightbox shows the screenshot caption under the image', function () {
+    if (! Schema::hasColumn('artifacts', 'caption')) {
+        $this->markTestSkipped('artifacts.caption is owned by track D1 and not migrated yet.');
+    }
+
+    $task = YakTask::factory()->success()->create();
+    $shot = Artifact::factory()->for($task, 'task')->screenshot()->create([
+        'caption' => 'New ZIP-level section with the no-ZCTA warning',
+    ]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $shot->id)
+        ->assertSeeHtml('data-testid="artifact-caption"')
+        ->assertSee('New ZIP-level section with the no-ZCTA warning');
+});
+
+test('the lightbox falls back to the filename when there is no caption', function () {
+    $task = YakTask::factory()->success()->create();
+    $shot = Artifact::factory()->for($task, 'task')->screenshot()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $shot->id)
+        ->assertDontSeeHtml('data-testid="artifact-caption"')
+        ->assertSee($shot->filename);
+});
