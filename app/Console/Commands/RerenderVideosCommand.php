@@ -7,6 +7,7 @@ use App\Models\Artifact;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Storage;
 
 #[Signature('yak:video:rerender {--task= : Only this task id} {--failed-since= : Only raw videos created on/after this date (YYYY-MM-DD)} {--dry-run : List without dispatching}')]
@@ -17,9 +18,13 @@ class RerenderVideosCommand extends Command
     {
         $disk = Storage::disk('artifacts');
 
+        // Director footage (director-cut.webm) is excluded: GenerateDirectorCutJob
+        // renders it at a different tier ('director', not 'reviewer'), and it's
+        // removed from this backfill entirely in a later phase.
         $query = Artifact::query()
             ->where('type', 'video')
-            ->whereNotExists(function ($sub): void {
+            ->where('filename', '!=', 'director-cut.webm')
+            ->whereNotExists(function (Builder $sub): void {
                 $sub->selectRaw('1')
                     ->from('artifacts as cuts')
                     ->whereColumn('cuts.yak_task_id', 'artifacts.yak_task_id')
