@@ -322,6 +322,16 @@ class IncusSandboxManager
         // Stop the task container
         $this->exec("incus stop {$containerName}");
 
+        // `incus copy` carries instance-local devices and config to the
+        // copy. Strip the shared claude credential mount and its idmap
+        // before promoting, so the template (and every sandbox cloned from
+        // it) doesn't inherit a live read/write mount of the host's
+        // ~/.claude. The container is stopped and about to be destroyed,
+        // so this is safe; best-effort since a container that never had
+        // the device/idmap must not fail the promotion.
+        Process::run("incus config device remove {$containerName} claude 2>/dev/null");
+        Process::run("incus config unset {$containerName} raw.idmap 2>/dev/null");
+
         // Copy task container as the new template
         $this->exec("incus copy {$containerName} {$templateName}");
 
@@ -716,8 +726,13 @@ class IncusSandboxManager
     {
         $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
 
-        $hostUid = is_dir($source)
-            ? (int) fileowner($source)
+        // fileowner() can return false on a stat failure even when is_dir()
+        // is true; (int) false is 0, which would idmap the container's yak
+        // user onto host root. Only trust it when it actually resolved.
+        $owner = is_dir($source) ? fileowner($source) : false;
+
+        $hostUid = is_int($owner)
+            ? $owner
             : (int) config('yak.sandbox.claude_host_uid', 33);
 
         $sandboxUid = (int) config('yak.sandbox.claude_sandbox_uid', 1001);
@@ -726,6 +741,15 @@ class IncusSandboxManager
             'incus config set %s raw.idmap %s',
             escapeshellarg($containerName),
             escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
+        ));
+
+        // Idempotent: a sandbox cloned from a template that was poisoned by
+        // an earlier build of this feature (see promoteToTemplate()) may
+        // already carry the device. Remove it first so the add below
+        // doesn't fail with "Device already exists".
+        Process::run(sprintf(
+            'incus config device remove %s claude 2>/dev/null',
+            escapeshellarg($containerName),
         ));
 
         $this->exec(sprintf(

@@ -26,6 +26,14 @@ class DeploymentContainerManager
         if ($result->exitCode() !== 0) {
             throw new RuntimeException("Failed to clone template snapshot: {$result->errorOutput()}");
         }
+
+        // Defence in depth: `incus copy` carries instance-local devices to
+        // the copy. IncusSandboxManager::promoteToTemplate() strips the
+        // shared claude credential mount before templating, but a preview
+        // container must never carry a live read/write mount of the host's
+        // ~/.claude even if an earlier build of that fix poisoned a
+        // template. Best-effort — never fail the deployment over this.
+        Process::run("incus config device remove {$deployment->container_name} claude 2>/dev/null");
     }
 
     public function start(BranchDeployment $deployment): string

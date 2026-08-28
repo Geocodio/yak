@@ -45,6 +45,24 @@ it('uses the deployment template_version (not repo current)', function () {
     );
 });
 
+it('strips any claude credential device from the preview container after cloning the template', function () {
+    Process::fake();
+
+    $repo = Repository::factory()->create([
+        'slug' => 'example-repo',
+        'current_template_version' => 5,
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-42',
+        'template_version' => 5,
+    ]);
+
+    app(DeploymentContainerManager::class)->createFromTemplate($deployment);
+
+    Process::assertRan(fn ($process) => str_contains($process->command, 'incus config device remove deploy-42 claude')
+        && str_contains($process->command, '2>/dev/null'));
+});
+
 it('starts the container, runs cold_start, polls health probe, and returns the ip', function () {
     Process::fake([
         'incus start deploy-42' => Process::result(exitCode: 0),
