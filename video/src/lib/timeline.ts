@@ -1,4 +1,4 @@
-import type { StoryboardEvent } from './storyboard';
+import type { StoryboardEvent } from '../legacy/storyboard';
 
 export type Segment =
   | { kind: 'normal'; storyStart: number; storyEnd: number; compStart: number; compDuration: number }

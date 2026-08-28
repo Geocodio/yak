@@ -1,5 +1,5 @@
 import { useCurrentFrame, useVideoConfig } from 'remotion';
-import { colors, fonts } from '../lib/styling';
+import { colors, fonts } from '../../lib/styling';
 
 export const FastForwardBadge = ({ factor }: { factor: number }) => {
   const frame = useCurrentFrame();

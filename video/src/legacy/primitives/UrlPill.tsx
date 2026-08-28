@@ -1,5 +1,5 @@
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { colors, fonts } from '../lib/styling';
+import { colors, fonts } from '../../lib/styling';
 
 export type NavigateStop = { t: number; url: string };
 

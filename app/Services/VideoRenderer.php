@@ -44,9 +44,8 @@ class VideoRenderer
                 'storyboard' => $storyboard,
                 'videoDurationSeconds' => $this->probeDurationSeconds($webmPath),
                 'musicTrack' => null,
-                // The legacy Remotion composition still declares a `tier`
-                // prop; v3 renders one cut per task, so it is pinned here.
-                // The composition itself is rewritten in phases 2-3.
+                // The `tier` prop belongs to the legacy composition
+                // (WalkthroughV2); it is pinned here for that composition.
                 'tier' => 'reviewer',
             ], JSON_UNESCAPED_SLASHES);
 
@@ -54,7 +53,7 @@ class VideoRenderer
                 ->timeout(600)
                 ->run([
                     'npx', 'remotion', 'render',
-                    'src/index.ts', 'Walkthrough', $outputPath,
+                    'src/index.ts', 'WalkthroughV2', $outputPath,
                     '--public-dir=' . $stagingDir . '/',
                     '--props=' . $props,
                 ]);

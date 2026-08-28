@@ -1,15 +1,15 @@
 import { AbsoluteFill, Sequence, Video, useVideoConfig, staticFile } from 'remotion';
-import type { Storyboard, StoryboardEvent } from '../lib/storyboard';
+import type { Storyboard, StoryboardEvent } from './storyboard';
 import { buildTimeline, compositionDuration, storyToComp, Segment } from '../lib/timeline';
-import { ChapterBanner } from '../primitives/ChapterBanner';
-import { ClickRipple } from '../primitives/ClickRipple';
-import { KeypressBadge } from '../primitives/KeypressBadge';
-import { UrlPill, NavigateStop } from '../primitives/UrlPill';
-import { Callout } from '../primitives/Callout';
-import { CaptionStrip } from '../primitives/CaptionStrip';
-import { FastForwardBadge } from '../primitives/FastForwardBadge';
-import { MusicBed } from '../primitives/MusicBed';
-import { ZoomLayer, ZoomSpec } from '../primitives/SmartZoom';
+import { ChapterBanner } from './primitives/ChapterBanner';
+import { ClickRipple } from './primitives/ClickRipple';
+import { KeypressBadge } from './primitives/KeypressBadge';
+import { UrlPill, NavigateStop } from './primitives/UrlPill';
+import { Callout } from './primitives/Callout';
+import { CaptionStrip } from './primitives/CaptionStrip';
+import { FastForwardBadge } from './primitives/FastForwardBadge';
+import { MusicBed } from './primitives/MusicBed';
+import { ZoomLayer, ZoomSpec } from './primitives/SmartZoom';
 
 export type WalkthroughProps = {
   videoUrl: string;

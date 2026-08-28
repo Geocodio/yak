@@ -126,3 +126,16 @@ test('render always sends the reviewer tier prop to Remotion', function () {
     @unlink($dir . '/walkthrough.webm');
     @unlink($dir . '/storyboard.json');
 });
+
+it('renders the legacy composition as WalkthroughV2', function (): void {
+    Process::fake(['*' => Process::result('', '', 0)]);
+
+    $renderer = new VideoRenderer(base_path('video'));
+    $webm = tempnam(sys_get_temp_dir(), 'webm');
+    $storyboard = tempnam(sys_get_temp_dir(), 'sb');
+    file_put_contents($storyboard, json_encode(['events' => []]));
+
+    $renderer->render($webm, $storyboard, sys_get_temp_dir() . '/out.mp4');
+
+    Process::assertRan(fn ($process): bool => in_array('WalkthroughV2', $process->command, strict: true));
+});

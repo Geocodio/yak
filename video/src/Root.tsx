@@ -1,8 +1,8 @@
 import { Composition, staticFile } from 'remotion';
-import { Walkthrough, walkthroughCompositionDuration } from './compositions/Walkthrough';
+import { Walkthrough, walkthroughCompositionDuration } from './legacy/Walkthrough';
 import { FakeUI } from './compositions/FakeUI';
 import exampleStoryboard from '../fixtures/example-storyboard.json';
-import type { Storyboard } from './lib/storyboard';
+import type { Storyboard } from './legacy/storyboard';
 import { WalkthroughV3, walkthroughV3Metadata } from './compositions/WalkthroughV3';
 import type { Manifest, Script } from './lib/v3/types';
 import v3Manifest from '../fixtures/v3/manifest.json';
@@ -22,7 +22,7 @@ export const RemotionRoot = () => (
       durationInFrames={FPS * 15}
     />
     <Composition
-      id="Walkthrough"
+      id="WalkthroughV2"
       component={Walkthrough}
       fps={FPS}
       width={1280}

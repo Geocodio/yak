@@ -1,5 +1,5 @@
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { colors, fonts } from '../lib/styling';
+import { colors, fonts } from '../../lib/styling';
 
 export const CaptionStrip = ({ text, durationFrames }: { text: string; durationFrames: number }) => {
   const frame = useCurrentFrame();
