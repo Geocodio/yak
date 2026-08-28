@@ -45,6 +45,11 @@ class ArtifactController extends Controller
         ]);
     }
 
+    public function publicImage(string $token): BinaryFileResponse
+    {
+        abort(404);
+    }
+
     private function guessMimeType(string $filename): string
     {
         $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));

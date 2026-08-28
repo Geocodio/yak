@@ -76,6 +76,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
 });
 
+Route::get('artifacts/public/{token}', [ArtifactController::class, 'publicImage'])
+    ->name('artifacts.public')
+    ->where('token', '[0-9A-Za-z]{26}');
+
 Route::get('artifacts/{task}/viewer/{filename}', [ArtifactController::class, 'viewer'])
     ->name('artifacts.viewer')
     ->middleware('auth')

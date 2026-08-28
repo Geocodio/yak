@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 class Artifact extends Model
 {
@@ -20,6 +21,15 @@ class Artifact extends Model
     protected $guarded = [];
 
     /**
+     * Roles whose files are served by the permanent unsigned image route.
+     * Everything else stays behind a signed URL or an authenticated
+     * session — the route refuses any other role.
+     *
+     * @var list<string>
+     */
+    public const array PUBLIC_ROLES = ['preview', 'thumbnail'];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
@@ -27,6 +37,28 @@ class Artifact extends Model
         return [
             'created_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Artifact $artifact): void {
+            if (in_array($artifact->role, self::PUBLIC_ROLES, strict: true) && $artifact->public_token === null) {
+                $artifact->public_token = (string) Str::ulid();
+            }
+        });
+    }
+
+    /**
+     * Permanent, unguessable URL for an image a PR body embeds. Null for
+     * every other role, and for rows written before the column existed.
+     */
+    public function publicUrl(): ?string
+    {
+        if ($this->public_token === null || $this->public_token === '') {
+            return null;
+        }
+
+        return route('artifacts.public', ['token' => $this->public_token]);
     }
 
     /**
@@ -123,6 +155,15 @@ class Artifact extends Model
     public function scopeThumbnail(Builder $query): Builder
     {
         return $query->where('role', 'thumbnail');
+    }
+
+    /**
+     * @param  Builder<Artifact>  $query
+     * @return Builder<Artifact>
+     */
+    public function scopePreview(Builder $query): Builder
+    {
+        return $query->where('role', 'preview');
     }
 
     /**
