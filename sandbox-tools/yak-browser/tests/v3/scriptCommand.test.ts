@@ -19,12 +19,19 @@ function writeScript(body: unknown): string {
   return path;
 }
 
+// These tee to the real stream rather than swallowing writes outright. A
+// slow async test (the Chromium-backed dry-run case below) holds its
+// capture open across real I/O; if the override swallowed writes instead of
+// forwarding them, it would also swallow node:test's own deferred reporter
+// output for the file's other tests, which reach `process.stdout`/`stderr`
+// asynchronously and can land mid-capture. Forwarding keeps the reporter's
+// own output intact while still recording a copy for assertions.
 function captureStderr(): { lines: () => string; restore: () => void } {
   const original = process.stderr.write.bind(process.stderr);
   let buffer = '';
-  (process.stderr as any).write = (chunk: any) => {
+  (process.stderr as any).write = (chunk: any, ...rest: unknown[]) => {
     buffer += String(chunk);
-    return true;
+    return (original as (...args: unknown[]) => boolean)(chunk, ...rest);
   };
   return { lines: () => buffer, restore: () => { (process.stderr as any).write = original; } };
 }
@@ -32,9 +39,9 @@ function captureStderr(): { lines: () => string; restore: () => void } {
 function captureStdout(): { lines: () => string; restore: () => void } {
   const original = process.stdout.write.bind(process.stdout);
   let buffer = '';
-  (process.stdout as any).write = (chunk: any) => {
+  (process.stdout as any).write = (chunk: any, ...rest: unknown[]) => {
     buffer += String(chunk);
-    return true;
+    return (original as (...args: unknown[]) => boolean)(chunk, ...rest);
   };
   return { lines: () => buffer, restore: () => { (process.stdout as any).write = original; } };
 }
