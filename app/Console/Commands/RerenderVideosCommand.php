@@ -18,9 +18,10 @@ class RerenderVideosCommand extends Command
     {
         $disk = Storage::disk('artifacts');
 
-        // Director footage (director-cut.webm) is excluded: GenerateDirectorCutJob
-        // renders it at a different tier ('director', not 'reviewer'), and it's
-        // removed from this backfill entirely in a later phase.
+        // Director footage (director-cut.webm) is excluded: it was recorded by
+        // the removed Director's Cut job at a different tier ('director', not
+        // 'reviewer'), and it's removed from this backfill entirely in a later
+        // phase.
         $query = Artifact::query()
             ->where('type', 'video')
             ->where('filename', '!=', 'director-cut.webm')
