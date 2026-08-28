@@ -17,6 +17,25 @@ it('renders a real v3 walkthrough end to end', function (): void {
     // RenderQaCheckTest; here we only need it not to reject the fixture.
     config()->set('yak.video.duration_bounds', [5, 180]);
 
+    // A real render writes real megabytes. Point the artifacts disk at a
+    // per-run root and tear it down afterwards, so the suite never inherits
+    // a v3 manifest from this test and starts rendering inside unrelated
+    // tests running on the sync queue.
+    $artifactsRoot = sys_get_temp_dir() . '/yak-e2e-artifacts-' . bin2hex(random_bytes(6));
+    File::ensureDirectoryExists($artifactsRoot);
+    config()->set('filesystems.disks.artifacts.root', $artifactsRoot);
+    Storage::forgetDisk('artifacts');
+
+    $renderRoot = sys_get_temp_dir() . '/yak-e2e-render-' . bin2hex(random_bytes(6));
+    File::ensureDirectoryExists($renderRoot);
+    config()->set('yak.video.render_staging_path', $renderRoot);
+
+    // Safety net: tear the roots down even if an assertion below fails.
+    $this->beforeApplicationDestroyed(function () use ($artifactsRoot, $renderRoot): void {
+        File::deleteDirectory($artifactsRoot);
+        File::deleteDirectory($renderRoot);
+    });
+
     $task = YakTask::factory()->create(['pr_url' => null]);
     $disk = Storage::disk('artifacts');
     $taskDir = (string) $task->id;
@@ -73,6 +92,13 @@ it('renders a real v3 walkthrough end to end', function (): void {
     ]);
 
     expect(json_decode($probe->output(), true)['chapters'] ?? [])->not->toBeEmpty();
+
+    File::deleteDirectory($artifactsRoot);
+    File::deleteDirectory($renderRoot);
+    Storage::forgetDisk('artifacts');
+
+    expect(File::isDirectory($artifactsRoot))->toBeFalse()
+        ->and(File::isDirectory($renderRoot))->toBeFalse();
 })->group('e2e')->skip(
     fn (): bool => getenv('YAK_E2E_RENDER') !== '1',
     'set YAK_E2E_RENDER=1 to run the real Remotion render',

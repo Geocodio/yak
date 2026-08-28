@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\RenderVideoJob;
+use App\Jobs\RenderWalkthroughJob;
 use App\Models\Artifact;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
@@ -191,4 +192,46 @@ it('spends the screenshot cap on manifest-named screenshots before top-level one
         ->and($screenshots->slice(3)->pluck('filename')->all())
         ->toBe(['legacy-a.png', 'legacy-b.png'])
         ->and(Storage::disk('artifacts')->exists("{$task->id}/legacy-c.png"))->toBeFalse();
+});
+
+it('is inert on a second persist over an already-persisted v3 tree', function (): void {
+    Queue::fake();
+
+    $task = YakTask::factory()->create();
+    $dir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    File::ensureDirectoryExists("{$dir}/shots");
+    File::ensureDirectoryExists("{$dir}/stills");
+    File::ensureDirectoryExists("{$dir}/screenshots");
+    File::ensureDirectoryExists("{$dir}/vo");
+
+    File::put("{$dir}/script.json", (string) json_encode(['version' => 3, 'shots' => []]));
+    File::put("{$dir}/manifest.json", (string) json_encode([
+        'version' => 3,
+        'shots' => [['id' => 'a', 'clip' => 'shots/a.webm', 'start' => 0, 'end' => 4, 'rect' => null, 'url' => 'https://x/']],
+        'screenshots' => [['id' => 'one', 'caption' => 'First']],
+    ]));
+    File::put("{$dir}/shots/a.webm", 'a');
+    File::put("{$dir}/stills/a.png", distinctPngBytes(1));
+    File::put("{$dir}/screenshots/one.png", distinctPngBytes(2));
+    File::put("{$dir}/vo/a.mp3", 'mp3');
+
+    $first = ArtifactPersister::persist($task);
+
+    $paths = Artifact::where('yak_task_id', $task->id)->pluck('disk_path')->sort()->values()->all();
+
+    expect($first)->toHaveCount(6);
+
+    // Every persisted file survives on disk after the re-persist, and the
+    // re-scan of the bare task directory adds no rows of its own.
+    $second = ArtifactPersister::persist($task);
+
+    expect($second)->toBe([])
+        ->and(Artifact::where('yak_task_id', $task->id)->count())->toBe(6)
+        ->and(Artifact::where('yak_task_id', $task->id)->pluck('disk_path')->sort()->values()->all())->toBe($paths);
+
+    foreach ($paths as $path) {
+        expect(Storage::disk('artifacts')->exists($path))->toBeTrue();
+    }
+
+    Queue::assertPushed(RenderWalkthroughJob::class, 1);
 });

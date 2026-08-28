@@ -54,6 +54,14 @@ class ArtifactPersister
             ? $taskDir . '/.yak-artifacts'
             : $taskDir;
 
+        /**
+         * True when the files came out of a `.yak-artifacts` directory the
+         * sandbox collector just dropped, false when this is a bare re-scan
+         * of an already-persisted task directory. Only the former is a new
+         * capture worth handing to Remotion.
+         */
+        $collectedFromSandbox = $artifactsPath !== $taskDir;
+
         if (! File::isDirectory($artifactsPath)) {
             return [];
         }
@@ -85,11 +93,11 @@ class ArtifactPersister
             }
         }
 
-        if ($isV3) {
+        if ($isV3 && $collectedFromSandbox) {
             RenderWalkthroughJob::dispatch($task->id);
         }
 
-        if ($artifactsPath !== $taskDir) {
+        if ($collectedFromSandbox) {
             File::deleteDirectory($artifactsPath);
         }
 
@@ -241,8 +249,8 @@ class ArtifactPersister
 
     /**
      * Move one file into its final place and write its Artifact row.
-     * Returns null when the file is dropped (duplicate screenshot, or one
-     * over the per-run screenshot cap).
+     * Returns null when the file is skipped (already persisted) or dropped
+     * (duplicate screenshot, or one over the per-run screenshot cap).
      *
      * @param  array<string, string>  $captions
      * @param  array<int, string>  $screenshotHashes
@@ -269,6 +277,16 @@ class ArtifactPersister
                 File::ensureDirectoryExists(dirname($targetPath));
                 File::move($file->getPathname(), $targetPath);
             }
+        }
+
+        /**
+         * A second persist over an already-persisted task directory must be
+         * inert: no duplicate row, and — critically — no perceptual-hash
+         * pass, which would delete the file as a duplicate of itself while a
+         * live Artifact row still points at it.
+         */
+        if (self::alreadyPersisted($task, $storagePath)) {
+            return null;
         }
 
         $fullPath = Storage::disk('artifacts')->path($storagePath);
@@ -330,6 +348,16 @@ class ArtifactPersister
         }
 
         return $artifact;
+    }
+
+    /**
+     * Whether this task already has an Artifact row pointing at that path.
+     */
+    private static function alreadyPersisted(YakTask $task, string $storagePath): bool
+    {
+        return Artifact::where('yak_task_id', $task->id)
+            ->where('disk_path', $storagePath)
+            ->exists();
     }
 
     /**
