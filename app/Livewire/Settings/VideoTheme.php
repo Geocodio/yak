@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Jobs\RenderThemeSampleJob;
 use App\Models\VideoTheme as VideoThemeRow;
 use App\Services\SvgLogoValidator;
 use App\Services\VideoThemeResolver;
@@ -167,6 +168,22 @@ class VideoTheme extends Component
     public function voiceoverEnabled(): bool
     {
         return filled(config('yak.video.elevenlabs.api_key'));
+    }
+
+    public function renderSample(): void
+    {
+        RenderThemeSampleJob::dispatch();
+
+        Flux::toast(__('Rendering a sample. The download link appears when it finishes.'));
+    }
+
+    /** Download URL for the last rendered sample, or null if none exists yet. */
+    #[Computed]
+    public function sampleUrl(): ?string
+    {
+        return Storage::disk('artifacts')->exists('theme/sample.mp4')
+            ? route('video-theme.sample')
+            : null;
     }
 
     /** The theme JSON the live preview consumes. */

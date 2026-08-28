@@ -1,9 +1,11 @@
 <?php
 
+use App\Jobs\RenderThemeSampleJob;
 use App\Livewire\Settings\VideoTheme;
 use App\Models\User;
 use App\Models\VideoTheme as VideoThemeRow;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -157,4 +159,20 @@ it('renders a seek chip for every block kind', function (): void {
 it('points the preview at the built bundle', function (): void {
     Livewire::test(VideoTheme::class)
         ->assertSeeHtml('vendor/video-preview.js');
+});
+
+it('dispatches a sample render', function (): void {
+    Queue::fake();
+
+    Livewire::test(VideoTheme::class)->call('renderSample');
+
+    Queue::assertPushed(RenderThemeSampleJob::class);
+});
+
+it('offers a download once a sample exists', function (): void {
+    Livewire::test(VideoTheme::class)->assertDontSee(__('Download sample'));
+
+    Storage::disk('artifacts')->put('theme/sample.mp4', 'mp4-bytes');
+
+    Livewire::test(VideoTheme::class)->assertSee(__('Download sample'));
 });

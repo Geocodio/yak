@@ -100,6 +100,10 @@
 
                 <div class="flex items-center gap-3">
                     <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                    <flux:button variant="ghost" type="button" wire:click="renderSample" wire:loading.attr="disabled">{{ __('Render sample video') }}</flux:button>
+                    @if ($this->sampleUrl)
+                        <flux:link href="{{ $this->sampleUrl }}" wire:poll.10s>{{ __('Download sample') }}</flux:link>
+                    @endif
                     @if ($savedAt)
                         <flux:text size="sm" class="text-zinc-500">{{ __('Last saved :when', ['when' => $savedAt]) }}</flux:text>
                     @endif
