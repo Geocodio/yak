@@ -101,6 +101,14 @@ return [
         'results_path' => env('YAK_SANDBOX_RESULTS_PATH', '/results'),
         'claude_config_source' => env('YAK_SANDBOX_CLAUDE_CONFIG', '/home/yak/.claude'),
 
+        // uid of the `yak` user inside sandbox containers, and the uid that
+        // owns the host config dir. Mapped to each other via raw.idmap so the
+        // agent can read and write the shared credential file. The host uid is
+        // normally derived with fileowner(); this is the fallback when the
+        // directory is absent (e.g. in tests).
+        'claude_sandbox_uid' => (int) env('YAK_SANDBOX_CLAUDE_UID', 1001),
+        'claude_host_uid' => (int) env('YAK_SANDBOX_CLAUDE_HOST_UID', 33),
+
         // Host directory where Claude session transcripts are persisted
         // between sandboxes, so follow-ups can `--resume` a session whose
         // original sandbox is long gone.

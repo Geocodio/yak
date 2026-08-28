@@ -64,6 +64,10 @@ class IncusSandboxManager
         // any the agent spawns — sees them.
         $this->configureEnvironment($containerName);
 
+        // Share the host Claude config directory. Must precede `incus start`:
+        // raw.idmap is only applied when the container boots.
+        $this->configureClaudeMount($containerName);
+
         // Start the container
         $this->exec("incus start {$containerName}");
 
@@ -73,9 +77,6 @@ class IncusSandboxManager
         // Hot-push the host's current yak-browser bundle so walkthrough
         // tasks pick up new builds without rebuilding the Incus base image.
         $this->pushYakBrowser($containerName);
-
-        // Push Claude config into the container
-        $this->pushClaudeConfig($containerName);
 
         // Push MCP config if configured
         $this->pushMcpConfig($containerName);
@@ -694,39 +695,45 @@ class IncusSandboxManager
         throw new RuntimeException("Sandbox {$containerName} did not become ready within {$maxWaitSeconds}s");
     }
 
-    private function pushClaudeConfig(string $containerName): void
+    /**
+     * Share the host's Claude config directory with the sandbox instead of
+     * copying it.
+     *
+     * Claude Code's OAuth refresh tokens are single-use: each refresh
+     * invalidates the previous one server-side. Handing every sandbox a
+     * private copy meant the first sandbox to refresh stranded every other
+     * copy, which is the "OAuth session expired and could not be refreshed"
+     * failure. With one shared directory there is exactly one credential
+     * file, and the CLI's own `.oauth_refresh.lock` — which lives in that
+     * directory — serializes concurrent refreshes the way it was designed to.
+     *
+     * `raw.idmap` maps the host uid that owns the directory onto the
+     * container's `yak` user, so the agent can read and write it and its
+     * writes land host-side owned by www-data. It only takes effect at
+     * container start, so this must run before `incus start`.
+     */
+    private function configureClaudeMount(string $containerName): void
     {
-        $claudeConfigSource = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
+        $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
 
-        if (! is_dir($claudeConfigSource)) {
-            return;
-        }
+        $hostUid = is_dir($source)
+            ? (int) fileowner($source)
+            : (int) config('yak.sandbox.claude_host_uid', 33);
 
-        // Push the entire claude config directory
-        Process::run(sprintf(
-            'incus file push -r %s %s/home/yak/',
-            escapeshellarg($claudeConfigSource),
+        $sandboxUid = (int) config('yak.sandbox.claude_sandbox_uid', 1001);
+
+        $this->exec(sprintf(
+            'incus config set %s raw.idmap %s',
             escapeshellarg($containerName),
+            escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
         ));
 
-        // Also push .claude.json if it exists on the host
-        $claudeJson = dirname($claudeConfigSource) . '/.claude.json';
-        if (file_exists($claudeJson)) {
-            Process::run(sprintf(
-                'incus file push %s %s/home/yak/.claude.json',
-                escapeshellarg($claudeJson),
-                escapeshellarg($containerName),
-            ));
-        }
-
-        // The recursive push copies everything — including any host-side
-        // .oauth_refresh.lock orphaned by a killed refresh, which would block
-        // the sandbox CLI's own token refresh and 401 the whole run.
-        $this->run($containerName, 'rm -rf /home/yak/.claude/.oauth_refresh.lock', timeout: 10, asRoot: true);
-
-        // Fix ownership inside container. `incus file push` lands files as
-        // root; chown must run as root to change ownership to yak.
-        $this->run($containerName, 'chown -R yak:yak /home/yak/.claude /home/yak/.claude.json 2>/dev/null', timeout: 10, asRoot: true);
+        $this->exec(sprintf(
+            'incus config device add %s claude disk source=%s path=%s',
+            escapeshellarg($containerName),
+            escapeshellarg($source),
+            escapeshellarg($source),
+        ));
     }
 
     /**

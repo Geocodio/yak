@@ -53,38 +53,35 @@ it('reclaims a stale container before creating a new one', function () {
     Process::assertRan("incus delete {$container} --force 2>/dev/null");
 });
 
-it('removes any copied oauth refresh lock from the sandbox after pushing claude config', function () {
-    // The whole host .claude dir is pushed into the sandbox. If the host has
-    // a stale .oauth_refresh.lock (orphaned by a killed refresh), the copy
-    // would block the sandbox CLI's own token refresh and 401 the run.
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir, 0755, true);
-    config()->set('yak.sandbox.claude_config_source', $configDir);
-
+it('mounts the shared claude config directory instead of pushing credentials', function () {
     $repo = Repository::factory()->create([
-        'slug' => 'lock-repo',
-        'sandbox_snapshot' => 'yak-tpl-lock-repo/ready',
+        'slug' => 'demo',
+        'sandbox_snapshot' => 'yak-tpl-demo/ready',
         'sandbox_base_version' => 2,
     ]);
-    $task = YakTask::factory()->create(['repo' => 'lock-repo']);
+    $task = YakTask::factory()->create(['repo' => 'demo']);
     $container = "task-{$task->id}";
 
     Process::fake([
         "incus info *{$container}*" => Process::result(exitCode: 1),
         'incus snapshot list *' => Process::result(output: 'ready,', exitCode: 0),
-        'incus copy *' => Process::result(exitCode: 0),
-        'incus config *' => Process::result(exitCode: 0),
-        'incus start *' => Process::result(exitCode: 0),
         "incus exec {$container} -- systemctl is-system-running 2>/dev/null" => Process::result(output: 'running', exitCode: 0),
         "incus exec {$container} -- docker info 2>/dev/null" => Process::result(exitCode: 0),
-        'incus exec *' => Process::result(exitCode: 0),
-        'incus file *' => Process::result(exitCode: 0),
         '*' => Process::result(exitCode: 0),
     ]);
 
     app(IncusSandboxManager::class)->create($task, $repo);
 
-    Process::assertRan(fn ($process) => str_contains($process->command, 'rm -rf /home/yak/.claude/.oauth_refresh.lock'));
+    Process::assertRan(fn ($p) => str_contains($p->command, 'raw.idmap')
+        && str_contains($p->command, 'both 33 1001'));
+
+    Process::assertRan(fn ($p) => str_contains($p->command, "incus config device add '{$container}' claude disk")
+        && str_contains($p->command, "source='/home/yak/.claude'")
+        && str_contains($p->command, "path='/home/yak/.claude'"));
+
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, '.credentials.json'));
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'oauth_refresh.lock'));
+    Process::assertDidntRun(fn ($p) => str_contains($p->command, 'incus file push -r'));
 });
 
 it('skips reclaim when no stale container is present', function () {
