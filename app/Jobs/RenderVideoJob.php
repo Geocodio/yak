@@ -2,8 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Enums\NotificationType;
 use App\Models\Artifact;
 use App\Models\Repository;
+use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\VideoRenderer;
@@ -60,6 +62,8 @@ class RenderVideoJob implements ShouldQueue
             mkdir(dirname($outputPath), 0755, true);
         }
 
+        $startedAt = hrtime(true);
+
         try {
             $renderer->render(
                 webmPath: $webmPath,
@@ -68,6 +72,13 @@ class RenderVideoJob implements ShouldQueue
                 tier: $this->tier,
             );
         } catch (Throwable $e) {
+            VideoMetric::create([
+                'yak_task_id' => $raw->yak_task_id,
+                'status' => VideoMetric::STATUS_FAILED,
+                'render_ms' => $this->elapsedMs($startedAt),
+                'error' => mb_substr($e->getMessage(), 0, 2000),
+            ]);
+
             Log::warning('RenderVideoJob: Remotion render failed', [
                 'task' => $raw->yak_task_id,
                 'error' => $e->getMessage(),
@@ -81,6 +92,15 @@ class RenderVideoJob implements ShouldQueue
             'filename' => $outputFilename,
             'disk_path' => $outputDiskPath,
             'size_bytes' => file_exists($outputPath) ? filesize($outputPath) : 0,
+        ]);
+
+        VideoMetric::create([
+            'yak_task_id' => $raw->yak_task_id,
+            'artifact_id' => $cutArtifact->id,
+            'status' => VideoMetric::STATUS_RENDERED,
+            'render_ms' => $this->elapsedMs($startedAt),
+            'output_bytes' => $cutArtifact->size_bytes,
+            'duration_seconds' => $renderer->probeDurationSeconds($outputPath),
         ]);
 
         if ($this->tier === 'director') {
@@ -175,11 +195,54 @@ class RenderVideoJob implements ShouldQueue
         return null;
     }
 
+    private function elapsedMs(int $startedAtNs): int
+    {
+        return (int) round((hrtime(true) - $startedAtNs) / 1_000_000);
+    }
+
+    /**
+     * Retries are exhausted: say so where people will see it. The task's
+     * notification channel gets an Error, and the PR's video line is
+     * replaced so it never keeps a stale placeholder or raw-webm link.
+     * Nothing here throws — the render is already lost.
+     */
     public function failed(Throwable $e): void
     {
         Log::error('RenderVideoJob: render failed after retries', [
             'artifact' => $this->rawVideoArtifactId,
             'error' => $e->getMessage(),
         ]);
+
+        $task = Artifact::find($this->rawVideoArtifactId)?->task;
+        if ($task === null) {
+            return;
+        }
+
+        $reason = mb_substr($e->getMessage(), 0, 300);
+
+        try {
+            SendNotificationJob::dispatch(
+                $task,
+                NotificationType::Error,
+                "The walkthrough video for this task could not be rendered ({$reason}). The PR is unaffected; retry from the task page once the cause is fixed.",
+            );
+        } catch (Throwable $notifyError) {
+            Log::channel('yak')->warning('RenderVideoJob: failed to queue failure notification', ['task_id' => $task->id, 'error' => $notifyError->getMessage()]);
+        }
+
+        $prNumber = $this->extractPrNumber($task->pr_url);
+        if ($prNumber === null || $task->repo === '') {
+            return;
+        }
+
+        try {
+            app(PullRequestBodyUpdater::class)->setWalkthroughUnavailable(
+                repoFullName: Repository::githubNameFor((string) $task->repo),
+                prNumber: $prNumber,
+                reason: $reason,
+            );
+        } catch (Throwable $patchError) {
+            Log::channel('yak')->warning('RenderVideoJob: failed to mark walkthrough unavailable on PR', ['task_id' => $task->id, 'error' => $patchError->getMessage()]);
+        }
     }
 }
