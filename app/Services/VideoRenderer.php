@@ -141,7 +141,12 @@ class VideoRenderer
                     throw new RuntimeException("failed to stage clip for shot {$id}");
                 }
 
-                $shot['clip'] = $staged;
+                // Relative to the staging public dir, not absolute: the
+                // composition hands absolute paths to Remotion as `file://`
+                // URLs, which its asset downloader refuses. A bare
+                // `shots/<id>.webm` resolves through `staticFile()` against
+                // `--public-dir`, which is exactly where the clip was staged.
+                $shot['clip'] = "shots/{$id}.webm";
                 $shots[] = $shot;
             }
 

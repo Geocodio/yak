@@ -55,8 +55,7 @@ it('renders WalkthroughV3 with staged clips and the theme props', function (): v
             ->and($props['publicOrigin'])->toBe('https://www.example.com')
             ->and($props['voiceover'])->toBeNull()
             ->and($props['theme']['colors']['accent'])->toBe('#c4744a')
-            ->and($props['manifest']['shots'][0]['clip'])->toStartWith('/')
-            ->and($props['manifest']['shots'][0]['clip'])->toEndWith('/shots/a.webm')
+            ->and($props['manifest']['shots'][0]['clip'])->toBe('shots/a.webm')
             ->and($props['script']['title'])->toBe('T');
 
         return true;
