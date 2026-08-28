@@ -143,7 +143,7 @@ test('the preview image resolves through the public token route when one exists'
 
 test('the preview image falls back to a signed url without a public token', function () {
     $task = YakTask::factory()->success()->create();
-    $thumb = Artifact::factory()->for($task, 'task')->videoThumbnail()->create();
+    $thumb = Artifact::factory()->for($task, 'task')->videoThumbnail()->create(['public_token' => null]);
 
     $component = Livewire::test(TaskDetail::class, ['task' => $task]);
 
