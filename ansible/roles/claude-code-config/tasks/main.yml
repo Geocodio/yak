@@ -27,15 +27,35 @@
 # Absent is the exploitable state, not just "unwritten present" -- a stat +
 # `file` pair gated on `.stat.exists` does nothing when the file is missing,
 # leaving it creatable by the sandboxed `yak` uid. `copy` with `force: false`
-# creates the file root-owned when absent (writing content only then) and,
-# because it always runs the file module's attribute-enforcement step at the
-# end regardless of `force`, still re-applies owner/mode on every run even
-# when the file already exists -- without ever touching existing content.
-- name: Lock Claude settings files to root-only writes
+# only writes content (and only when the destination is absent) -- when the
+# destination already exists it returns early and never reaches its
+# attribute-enforcement step, so owner/mode on an existing file are left
+# untouched. That matters here: a pre-existing settings.json can be
+# www-data-owned from before this role ran, and `copy force: false` alone
+# would leave it that way forever. So content-creation and attribute
+# enforcement are split into two tasks: `copy` creates the file (root-owned,
+# via the play's `become: true`) only if it is missing, then `file` forces
+# owner/group/mode unconditionally on every run regardless of who created
+# the file or last wrote to it.
+- name: Ensure Claude settings files exist
   ansible.builtin.copy:
     content: "{}\n"
     dest: "{{ yak_claude_path }}/{{ item }}"
     force: false
+  loop:
+    - settings.json
+    - settings.local.json
+
+# Known limitation: the containing directory (yak_claude_path) must stay
+# writable by the sandbox-mapped uid so the CLI's own .oauth_refresh.lock
+# works, so a sandboxed agent can still unlink and recreate these files
+# under its own ownership rather than editing them in place. Root-owning
+# the files raises the bar -- a naive in-place write is blocked -- but does
+# not fully close the path; it is not a complete lockdown.
+- name: Lock Claude settings files to root-only writes
+  ansible.builtin.file:
+    path: "{{ yak_claude_path }}/{{ item }}"
+    state: file
     owner: root
     group: root
     mode: "0644"
