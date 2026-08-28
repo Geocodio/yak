@@ -9,7 +9,7 @@ class VideoRenderer
 {
     public function __construct(public string $videoDir) {}
 
-    public function render(string $webmPath, string $storyboardPath, string $outputPath, string $tier = 'reviewer'): string
+    public function render(string $webmPath, string $storyboardPath, string $outputPath): string
     {
         if (! file_exists($webmPath)) {
             throw new RuntimeException("walkthrough webm not found: {$webmPath}");
@@ -44,7 +44,10 @@ class VideoRenderer
                 'storyboard' => $storyboard,
                 'videoDurationSeconds' => $this->probeDurationSeconds($webmPath),
                 'musicTrack' => null,
-                'tier' => $tier,
+                // The legacy Remotion composition still declares a `tier`
+                // prop; v3 renders one cut per task, so it is pinned here.
+                // The composition itself is rewritten in phases 2-3.
+                'tier' => 'reviewer',
             ], JSON_UNESCAPED_SLASHES);
 
             $result = Process::path($this->videoDir)

@@ -95,53 +95,12 @@ test('no-op when raw artifact has wrong type', function () {
     expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->count())->toBe(0);
 });
 
-test('director tier marks director_cut_status ready and leaves the PR body alone', function () {
-    Storage::fake('artifacts');
-
-    $task = YakTask::factory()->success()->create([
-        'repo' => 'acme/web',
-        'pr_url' => 'https://github.com/acme/web/pull/42',
-        'director_cut_status' => 'rendering',
-    ]);
-    $raw = Artifact::factory()->for($task, 'task')->create([
-        'type' => 'video',
-        'filename' => 'director-cut.webm',
-        'disk_path' => "{$task->id}/director-cut.webm",
-    ]);
-    Storage::disk('artifacts')->put("{$task->id}/director-cut.webm", 'webm');
-    Storage::disk('artifacts')->put(
-        "{$task->id}/storyboard.json",
-        json_encode(['version' => 1, 'plan' => (object) [], 'events' => []])
-    );
-
-    $renderer = $this->mock(VideoRenderer::class);
-    $renderer->shouldReceive('render')
-        ->once()
-        ->withArgs(function ($webm, $sb, $out, $tier) {
-            return $tier === 'director' && str_contains($out, 'director-cut.mp4');
-        })
-        ->andReturnUsing(function ($w, $s, $out) {
-            file_put_contents($out, 'x');
-
-            return $out;
-        });
-    $renderer->shouldReceive('probeDurationSeconds')->andReturn(null);
-
-    $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setReviewerCut');
-
-    (new RenderVideoJob($raw->id, 'director'))->handle(app(VideoRenderer::class));
-
-    expect(Artifact::where('yak_task_id', $task->id)->where('filename', 'director-cut.mp4')->exists())->toBeTrue();
-    expect($task->fresh()->director_cut_status)->toBe('ready');
-});
-
-test('reviewer tier patches the PR body with the rendered cut and does not touch director_cut_status', function () {
+test('patches the PR body with the rendered cut', function () {
     Storage::fake('artifacts');
 
     $task = YakTask::factory()->success()->create([
         'repo' => 'acme/web',
         'pr_url' => 'https://github.com/acme/web/pull/88',
-        'director_cut_status' => null,
     ]);
     $raw = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
@@ -186,9 +145,8 @@ test('reviewer tier patches the PR body with the rendered cut and does not touch
                 && str_contains($thumbnailUrl, 'reviewer-cut-thumbnail.jpg');
         });
 
-    (new RenderVideoJob($raw->id, 'reviewer'))->handle(app(VideoRenderer::class));
+    (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
-    expect($task->fresh()->director_cut_status)->toBeNull();
     expect(Artifact::reviewerThumbnail()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
 
@@ -231,7 +189,7 @@ test('reviewer tier still publishes the mp4 link (without thumbnail) when thumbn
         ->once()
         ->withArgs(fn (string $repo, int $pr, string $url, string $filename, ?string $thumbnailUrl): bool => $thumbnailUrl === null);
 
-    (new RenderVideoJob($raw->id, 'reviewer'))->handle(app(VideoRenderer::class));
+    (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
     expect(Artifact::reviewerThumbnail()->where('yak_task_id', $task->id)->exists())->toBeFalse();
 });
@@ -279,7 +237,7 @@ test('reviewer tier render still completes if PR body patch throws', function ()
         ->once()
         ->andThrow(new RuntimeException('GitHub rejected PATCH'));
 
-    (new RenderVideoJob($raw->id, 'reviewer'))->handle(app(VideoRenderer::class));
+    (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
     expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });
@@ -324,7 +282,7 @@ test('reviewer tier skips PR body patch when task has no pr_url', function () {
 
     $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setReviewerCut');
 
-    (new RenderVideoJob($raw->id, 'reviewer'))->handle(app(VideoRenderer::class));
+    (new RenderVideoJob($raw->id))->handle(app(VideoRenderer::class));
 
     expect(Artifact::reviewerCut()->where('yak_task_id', $task->id)->exists())->toBeTrue();
 });

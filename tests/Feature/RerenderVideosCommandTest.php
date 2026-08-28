@@ -38,19 +38,6 @@ test('dispatches a render for raw videos that have a storyboard but no cut', fun
     Queue::assertPushed(RenderVideoJob::class, fn (RenderVideoJob $job) => $job->rawVideoArtifactId === $missing->id);
 });
 
-test('excludes director footage from the backfill', function () {
-    $task = YakTask::factory()->success()->create();
-    Storage::disk('artifacts')->put("{$task->id}/director-cut.webm", 'webm');
-    Storage::disk('artifacts')->put("{$task->id}/storyboard.json", '{"version":1,"plan":{},"events":[]}');
-    Artifact::factory()->for($task, 'task')->create([
-        'type' => 'video', 'filename' => 'director-cut.webm', 'disk_path' => "{$task->id}/director-cut.webm", 'created_at' => '2026-08-20 10:00:00',
-    ]);
-
-    $this->artisan('yak:video:rerender')->assertSuccessful()->expectsOutputToContain('Dispatched 0 render(s)');
-
-    Queue::assertNothingPushed();
-});
-
 test('honours --failed-since, --task and --dry-run', function () {
     $old = rawVideoWithStoryboard(YakTask::factory()->success()->create(), '2026-08-01 10:00:00');
     $recent = rawVideoWithStoryboard(YakTask::factory()->success()->create(), '2026-08-20 10:00:00');

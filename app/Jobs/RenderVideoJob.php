@@ -24,7 +24,7 @@ class RenderVideoJob implements ShouldQueue
 
     public int $backoff = 30;
 
-    public function __construct(public int $rawVideoArtifactId, public string $tier = 'reviewer')
+    public function __construct(public int $rawVideoArtifactId)
     {
         $this->onQueue('yak-render');
     }
@@ -54,7 +54,7 @@ class RenderVideoJob implements ShouldQueue
 
         $webmPath = $disk->path($raw->disk_path);
         $storyboardPath = $disk->path($storyboardDiskPath);
-        $outputFilename = $this->tier === 'director' ? 'director-cut.mp4' : 'reviewer-cut.mp4';
+        $outputFilename = 'reviewer-cut.mp4';
         $outputDiskPath = "{$taskDir}/{$outputFilename}";
         $outputPath = $disk->path($outputDiskPath);
 
@@ -69,7 +69,6 @@ class RenderVideoJob implements ShouldQueue
                 webmPath: $webmPath,
                 storyboardPath: $storyboardPath,
                 outputPath: $outputPath,
-                tier: $this->tier,
             );
         } catch (Throwable $e) {
             VideoMetric::create([
@@ -102,12 +101,6 @@ class RenderVideoJob implements ShouldQueue
             'output_bytes' => $cutArtifact->size_bytes,
             'duration_seconds' => $renderer->probeDurationSeconds($outputPath),
         ]);
-
-        if ($this->tier === 'director') {
-            $raw->task?->update(['director_cut_status' => 'ready']);
-
-            return;
-        }
 
         $thumbnailArtifact = $this->renderThumbnail($raw, $outputPath, $taskDir);
 
