@@ -220,3 +220,31 @@ test('a follow-up that failed before starting still shows its error in the threa
         ->assertSee('Error')
         ->assertSee('OAuth session expired');
 });
+
+test('a yak turn stamps the time it finished alongside its work summary', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Success,
+        'result_summary' => 'Committed the draft.',
+        'duration_ms' => 178438,
+        'started_at' => now()->setTime(13, 1),
+        'completed_at' => now()->setTime(13, 4),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertSee('Worked for 3m')
+        ->assertSee('1:04 PM');
+});
+
+test('a run with no duration drops the "worked for" clause but keeps its time', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'error_log' => 'OAuth session expired',
+        'duration_ms' => 0,
+        'started_at' => null,
+        'completed_at' => now()->setTime(21, 3),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertDontSee('Worked for')
+        ->assertSee('9:03 PM');
+});

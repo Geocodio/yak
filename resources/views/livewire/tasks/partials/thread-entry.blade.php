@@ -129,6 +129,9 @@
 @elseif($entry->kind === 'yak')
     @php
         $steps = $entry->runStats['steps'] ?? 0;
+        // A run that died before the agent got going has no duration worth
+        // reporting — "Worked for —" is noise, so drop the clause entirely.
+        $hasDuration = ! empty($entry->runStats['duration_ms']);
         $duration = \App\Livewire\Tasks\TaskList::formatDuration($entry->runStats['duration_ms'] ?? null);
         $lastLogMessage = $entry->isLive ? optional($entry->run?->logs()->latest('created_at')->first())->message : null;
         // D12: in condensed view, results superseded by a later run collapse
@@ -143,14 +146,20 @@
     <div class="mb-4 flex gap-3">
         <img src="{{ asset('mascot-avatar.png') }}" alt="Yak" title="Yak" class="size-[34px] shrink-0 rounded-full border border-[rgba(200,184,154,0.5)]" />
         <div class="min-w-0 flex-1">
-            <button
-                type="button"
-                wire:click="focusRun({{ $entry->run?->id }})"
-                class="text-xs text-yak-blue hover:text-yak-slate"
-                data-testid="work-summary-row"
-            >
-                Worked for {{ $duration }} &middot; {{ $steps }} {{ Str::plural('step', $steps) }}
-            </button>
+            <div class="flex flex-wrap items-baseline gap-x-1.5 text-xs text-yak-blue">
+                <button
+                    type="button"
+                    wire:click="focusRun({{ $entry->run?->id }})"
+                    class="hover:text-yak-slate"
+                    data-testid="work-summary-row"
+                >
+                    @if($hasDuration)Worked for {{ $duration }} &middot; @endif{{ $steps }} {{ Str::plural('step', $steps) }}
+                </button>
+                {{-- Same slot the user turns put their time in, so a run and
+                     the request that triggered it read on the same clock. --}}
+                <span>&middot;</span>
+                <span class="font-mono">{{ $entry->timestamp->format('g:i A') }}</span>
+            </div>
 
             @if($entry->isLive)
                 <div class="mt-2 rounded-xl border border-yak-orange/25 bg-yak-orange/5 px-3 py-2 text-sm text-yak-orange-warm" data-testid="live-activity">
