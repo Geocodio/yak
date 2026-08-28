@@ -125,3 +125,27 @@ export function compositionDuration(segments: Segment[]): number {
   const last = segments[segments.length - 1];
   return last.compStart + last.compDuration;
 }
+
+// --- Video walkthrough v3 -------------------------------------------------
+// The v3 cut is block based rather than segment based. The engine lives in
+// `./v3/blocks` so this file keeps its v2 exports intact; it is re-exported
+// here because `buildBlocks` is the documented entry point.
+
+export {
+  TIMING,
+  buildBlocks,
+  readingSeconds,
+} from './v3/blocks';
+export type {
+  Block,
+  BuildBlocksInput,
+  ChapterBlock,
+  ShotBlock,
+  SummaryBlock,
+  TitleBlock,
+  Timeline,
+} from './v3/blocks';
+export { buildChapters } from './v3/chapters';
+export type { ChapterEntry, ChapterShotEntry } from './v3/chapters';
+export { captionOverflow, estimateTextWidth } from './v3/captions';
+export type { CaptionOverflow } from './v3/captions';
