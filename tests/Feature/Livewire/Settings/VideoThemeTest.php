@@ -5,6 +5,7 @@ use App\Livewire\Settings\VideoTheme;
 use App\Models\User;
 use App\Models\VideoTheme as VideoThemeRow;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -175,4 +176,73 @@ it('offers a download once a sample exists', function (): void {
     Storage::disk('artifacts')->put('theme/sample.mp4', 'mp4-bytes');
 
     Livewire::test(VideoTheme::class)->assertSee(__('Download sample'));
+});
+
+it('polls for the sample while none exists yet, and stops once it does', function (): void {
+    // The poll has to sit outside the download link's @if, otherwise the
+    // link only ever appears after a manual page reload.
+    Livewire::test(VideoTheme::class)
+        ->assertSeeHtml('data-testid="sample-render-status"')
+        ->assertSeeHtml('wire:poll.10s');
+
+    Storage::disk('artifacts')->put('theme/sample.mp4', 'mp4-bytes');
+
+    Livewire::test(VideoTheme::class)
+        ->assertSeeHtml('data-testid="sample-render-status"')
+        ->assertDontSeeHtml('wire:poll.10s');
+});
+
+it('refuses to queue a second sample render while one is in flight', function (): void {
+    Queue::fake();
+
+    $component = Livewire::test(VideoTheme::class);
+
+    $component->call('renderSample');
+    $component->call('renderSample');
+
+    Queue::assertPushed(RenderThemeSampleJob::class, 1);
+});
+
+it('queues a sample render again once the in-flight flag clears', function (): void {
+    Queue::fake();
+
+    Livewire::test(VideoTheme::class)->call('renderSample');
+    Cache::forget(RenderThemeSampleJob::IN_FLIGHT_KEY);
+    Livewire::test(VideoTheme::class)->call('renderSample');
+
+    Queue::assertPushed(RenderThemeSampleJob::class, 2);
+});
+
+it('rejects a font family outside the bundled allowlist', function (): void {
+    Livewire::test(VideoTheme::class)
+        ->set('fonts.display', 'Comic Sans MS')
+        ->call('save')
+        ->assertHasErrors(['fonts.display']);
+});
+
+it('rejects a malicious svg uploaded under a png filename', function (): void {
+    // The client-supplied filename must not be able to skip SVG validation:
+    // the stored file is served from this app's own origin, and a browser
+    // navigating to it sniffs the markup as SVG whatever it is called.
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(document.domain)</script></svg>';
+
+    Livewire::test(VideoTheme::class)
+        ->set('logo', UploadedFile::fake()->createWithContent('logo.png', $svg))
+        ->call('save')
+        ->assertHasErrors(['logo']);
+
+    expect(VideoThemeRow::current()->logo_path)->toBeNull();
+});
+
+it('stores a benign svg uploaded under a png filename with an svg extension', function (): void {
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
+
+    Livewire::test(VideoTheme::class)
+        ->set('logo', UploadedFile::fake()->createWithContent('logo.png', $svg))
+        ->call('save')
+        ->assertHasNoErrors();
+
+    // Stored as .svg so the asset controller serves image/svg+xml, not a
+    // mislabelled image/png that a browser would sniff back to SVG anyway.
+    expect(VideoThemeRow::current()->logo_path)->toBe('theme/logo.svg');
 });

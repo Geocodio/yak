@@ -66,3 +66,29 @@ it('resets to the defaults and deletes the logo file', function (): void {
         ->and($row->logo_path)->toBeNull();
     Storage::disk('artifacts')->assertMissing('theme/logo.png');
 });
+
+it('degrades to the defaults when the saved row is malformed', function (): void {
+    VideoTheme::factory()->create([
+        'id' => 1,
+        'theme' => ['colors' => 'not-an-array', 'fonts' => null],
+    ]);
+
+    $resolved = app(VideoThemeResolver::class)->resolve();
+
+    expect($resolved['colors'])->toBe(config('yak.video.theme.colors'))
+        ->and($resolved['fonts'])->toBe(config('yak.video.theme.fonts'));
+});
+
+it('degrades to the defaults when the saved theme is not an array at all', function (): void {
+    VideoTheme::factory()->create(['id' => 1, 'theme' => []]);
+
+    $resolved = app(VideoThemeResolver::class)->resolve();
+
+    expect($resolved['colors'])->toBe(config('yak.video.theme.colors'));
+});
+
+it('stores the logo path handed to save', function (): void {
+    $row = app(VideoThemeResolver::class)->save(['colors' => []], null, 'theme/logo.svg');
+
+    expect($row->logo_path)->toBe('theme/logo.svg');
+});

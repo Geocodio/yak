@@ -9,13 +9,16 @@ use App\Services\VideoThemeResolver;
 use Closure;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
+use RuntimeException;
 
 /**
  * The installation-wide walkthrough theme editor (spec §9).
@@ -66,9 +69,9 @@ class VideoTheme extends Component
             'colors.accent' => ['required', 'string', $hex],
             'colors.done' => ['required', 'string', $hex],
             'colors.captionBg' => ['required', 'string', $hex],
-            'fonts.display' => ['required', 'string', 'max:64'],
-            'fonts.body' => ['required', 'string', 'max:64'],
-            'fonts.mono' => ['required', 'string', 'max:64'],
+            'fonts.display' => ['required', 'string', 'max:64', Rule::in(VideoThemeResolver::FONT_FAMILIES)],
+            'fonts.body' => ['required', 'string', 'max:64', Rule::in(VideoThemeResolver::FONT_FAMILIES)],
+            'fonts.mono' => ['required', 'string', 'max:64', Rule::in(VideoThemeResolver::FONT_FAMILIES)],
             'logo' => [
                 'nullable',
                 'file',
@@ -82,6 +85,10 @@ class VideoTheme extends Component
     /**
      * The theme logo is served unauthenticated from this app's own origin,
      * so an uploaded SVG must not be able to carry a script payload.
+     *
+     * The check is keyed off the detected media type and the bytes
+     * themselves, never the client-supplied filename: uploading SVG markup
+     * named `logo.png` must not skip validation.
      */
     protected function safeSvgRule(): Closure
     {
@@ -90,42 +97,70 @@ class VideoTheme extends Component
                 return;
             }
 
-            if (strtolower($value->getClientOriginalExtension()) !== 'svg') {
+            $contents = (string) $value->get();
+
+            if (! $this->isSvgUpload($value, $contents)) {
                 return;
             }
 
-            if (! app(SvgLogoValidator::class)->isSafe((string) $value->get())) {
+            if (! app(SvgLogoValidator::class)->isSafe($contents)) {
                 $fail(__('The logo SVG contains disallowed content. Remove any script, event handler, external reference or foreignObject and try again.'));
             }
         };
+    }
+
+    /**
+     * Is this upload SVG, as a browser would decide?
+     *
+     * Two independent signals, either of which is enough: the media type
+     * the server detected for the stored bytes, and an `<svg` start tag in
+     * the leading bytes. The client-supplied filename is deliberately not
+     * one of them — it is fully attacker-controlled, and a stored file
+     * named `logo.png` holding SVG markup is still rendered as SVG when a
+     * browser navigates to it.
+     */
+    protected function isSvgUpload(TemporaryUploadedFile $file, string $contents): bool
+    {
+        return strtolower($file->getMimeType()) === 'image/svg+xml'
+            || app(SvgLogoValidator::class)->looksLikeSvg($contents);
     }
 
     public function save(VideoThemeResolver $resolver): void
     {
         $this->validate();
 
-        $row = VideoThemeRow::current();
-        $logoPath = $row->logo_path;
+        $logoPath = VideoThemeRow::current()->logo_path;
 
         if ($this->logo !== null) {
             if ($logoPath !== null) {
                 Storage::disk('artifacts')->delete($logoPath);
             }
 
-            $extension = strtolower($this->logo->getClientOriginalExtension()) === 'svg' ? 'svg' : 'png';
+            // The stored extension drives the Content-Type the asset
+            // controller serves, so it must follow the detected type
+            // rather than the client-supplied filename. SVG markup
+            // uploaded as `logo.png` is stored — and served — as `.svg`;
+            // it has already passed SvgLogoValidator by this point.
+            $extension = $this->isSvgUpload($this->logo, (string) $this->logo->get()) ? 'svg' : 'png';
 
-            $logoPath = $this->logo->storeAs(
+            $stored = $this->logo->storeAs(
                 VideoThemeResolver::LOGO_DIRECTORY,
                 'logo.' . $extension,
                 'artifacts',
             );
+
+            if ($stored === false) {
+                throw new RuntimeException('Could not store the uploaded theme logo on the artifacts disk');
+            }
+
+            $logoPath = $stored;
         }
 
-        $row->update([
-            'theme' => ['colors' => $this->colors, 'fonts' => $this->fonts, 'logo' => null],
-            'logo_path' => $logoPath,
-            'updated_by' => $this->currentUserId(),
-        ]);
+        $resolver->save(
+            ['colors' => $this->colors, 'fonts' => $this->fonts, 'logo' => null],
+            $this->currentUserId(),
+            $logoPath,
+        );
 
         $this->logo = null;
         $this->fillFromResolver($resolver);
@@ -172,6 +207,16 @@ class VideoTheme extends Component
 
     public function renderSample(): void
     {
+        // A sample render occupies the shared `yak-render` queue for up to
+        // 15 minutes, so an unthrottled button would let any signed-in user
+        // starve real walkthrough renders. `Cache::add` is atomic, so only
+        // the first caller enqueues; the job clears the flag when it ends.
+        if (! Cache::add(RenderThemeSampleJob::IN_FLIGHT_KEY, true, RenderThemeSampleJob::IN_FLIGHT_TTL_SECONDS)) {
+            Flux::toast(variant: 'warning', text: __('A sample render is already running. The download link appears when it finishes.'));
+
+            return;
+        }
+
         RenderThemeSampleJob::dispatch();
 
         Flux::toast(__('Rendering a sample. The download link appears when it finishes.'));

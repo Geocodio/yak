@@ -28,13 +28,15 @@ Fonts have three roles (`display`, `body`, `mono`), and each must be one of the 
 cd video && npx tsx scripts/timeline.ts --theme-defaults
 ```
 
+> **The saved row always wins over the config default.** `config('yak.video.theme')` supplies the defaults only for keys the `video_themes` row does not set. Once the theme editor has ever been saved, the row holds a complete `colors` and `fonts` map, so changing `config/yak.php` (or a `YAK_VIDEO_*` env var) has no visible effect. To make config defaults take effect again, use **Reset to defaults** on the page — or delete the row.
+
 ### Logo
 
 Upload a PNG or SVG, up to 512 KB. It's stored on the `artifacts` disk under `theme/` and rendered 40 px tall in the top-left of the title and summary cards. The logo is served unauthenticated at the `video-theme.logo` route (no login required), because the render happens in headless Chrome with no session; that is also why an uploaded SVG is validated before it's ever stored. `App\Services\SvgLogoValidator` rejects any SVG that isn't well-formed XML, or that contains a `<script>` element, a `<foreignObject>` element, an `on*` event-handler attribute, a non-fragment `href`/`xlink:href`, or a SMIL animation (`<animate>`, `<set>`, `<animateMotion>`, `<animateTransform>`) that targets `href`, `xlink:href`, or an `on*` attribute.
 
 ### Render sample video
 
-The "Render sample video" action dispatches `RenderThemeSampleJob` on the `yak-render` queue, the same queue the real per-task renders use. The download link on the page appears once `theme/sample.mp4` lands on the `artifacts` disk. If nothing appears after a few minutes, check `php artisan queue:failed` for a failed `RenderThemeSampleJob`, and confirm the `yak-render` worker is actually running (`supervisorctl status` on the Yak host, or see [Troubleshooting → Task Stuck In running](troubleshooting.md#task-stuck-in-running) for the general worker-health checklist).
+The "Render sample video" action dispatches `RenderThemeSampleJob` on the `yak-render` queue, the same queue the real per-task renders use. Only one sample render is allowed in flight at a time (a cache flag the job clears when it ends), so repeated clicks cannot flood that queue. The download link on the page appears once `theme/sample.mp4` lands on the `artifacts` disk. If nothing appears after a few minutes, check `php artisan queue:failed` for a failed `RenderThemeSampleJob`, and confirm the `yak-render` worker is actually running (`supervisorctl status` on the Yak host, or see [Troubleshooting → Task Stuck In running](troubleshooting.md#task-stuck-in-running) for the general worker-health checklist).
 
 ### Live preview
 

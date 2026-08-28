@@ -66,21 +66,44 @@ class VideoThemeResolver
     {
         $defaults = $this->defaults();
         $row = VideoTheme::query()->find(1);
-        $saved = $row?->theme ?? [];
+        $saved = $row?->theme;
 
         return [
             'colors' => array_merge(
-                $defaults['colors'],
-                $base['colors'] ?? [],
-                $saved['colors'] ?? [],
+                $this->section($defaults, 'colors'),
+                $this->section($base, 'colors'),
+                $this->section($saved, 'colors'),
             ),
             'fonts' => array_merge(
-                $defaults['fonts'],
-                $base['fonts'] ?? [],
-                $saved['fonts'] ?? [],
+                $this->section($defaults, 'fonts'),
+                $this->section($base, 'fonts'),
+                $this->section($saved, 'fonts'),
             ),
             'logo' => $this->logoUrl($row),
         ];
+    }
+
+    /**
+     * One layer's `colors` or `fonts` map, degrading to an empty map when
+     * the layer is missing or malformed. A hand-edited or half-migrated
+     * theme row can hold a scalar (or null) under `colors`, and an
+     * unguarded array_merge on that is a TypeError that would 500 both the
+     * settings page and every render job — a bad theme row should fall
+     * back to the defaults instead.
+     *
+     * @param  array<string, mixed>|null  $layer
+     * @return array<string, string>
+     */
+    private function section(?array $layer, string $key): array
+    {
+        $section = $layer[$key] ?? null;
+
+        if (! is_array($section)) {
+            return [];
+        }
+
+        /** @var array<string, string> $section */
+        return $section;
     }
 
     public function logoUrl(?VideoTheme $row): ?string
@@ -92,11 +115,16 @@ class VideoThemeResolver
         return route('video-theme.logo') . '?v=' . ($row->updated_at?->getTimestamp() ?? 0);
     }
 
-    /** @param  array<string, mixed>  $theme */
-    public function save(array $theme, ?int $userId = null): VideoTheme
+    /**
+     * Persist a theme, and optionally the stored logo path alongside it.
+     *
+     * @param  array<string, mixed>  $theme
+     * @param  string|null  $logoPath  the final logo path, or null for none
+     */
+    public function save(array $theme, ?int $userId = null, ?string $logoPath = null): VideoTheme
     {
         $row = VideoTheme::current();
-        $row->update(['theme' => $theme, 'updated_by' => $userId]);
+        $row->update(['theme' => $theme, 'logo_path' => $logoPath, 'updated_by' => $userId]);
 
         return $row->refresh();
     }

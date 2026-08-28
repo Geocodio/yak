@@ -25,15 +25,38 @@ use Throwable;
  * Usage from a Livewire `rules()` closure or a custom validation rule:
  *
  *     'logo' => ['file', 'max:2048', function (string $attribute, mixed $value, \Closure $fail): void {
- *         if ($value instanceof \Illuminate\Http\UploadedFile
- *             && $value->getClientOriginalExtension() === 'svg'
- *             && ! app(SvgLogoValidator::class)->isSafe($value->get())) {
+ *         if (! $value instanceof \Illuminate\Http\UploadedFile) {
+ *             return;
+ *         }
+ *
+ *         $validator = app(SvgLogoValidator::class);
+ *         $contents = (string) $value->get();
+ *
+ *         // Never gate on the client-supplied filename: sniff the bytes.
+ *         if ($validator->looksLikeSvg($contents) && ! $validator->isSafe($contents)) {
  *             $fail('The logo SVG contains disallowed content.');
  *         }
  *     }],
  */
 class SvgLogoValidator
 {
+    /**
+     * Does this byte stream present itself to a browser as SVG?
+     *
+     * Neither the client-supplied filename nor the client-supplied
+     * Content-Type can be trusted: an attacker uploads SVG markup named
+     * `logo.png` with `Content-Type: image/png`, and any check keyed off
+     * either one skips validation entirely while a browser navigating
+     * straight to the stored file still sniffs and renders it as SVG.
+     * So the decision is made from the bytes: an `<svg` start tag inside
+     * the leading 1 KB. A real PNG never contains one, and a false
+     * positive only means the stricter SVG rules are applied.
+     */
+    public function looksLikeSvg(string $contents): bool
+    {
+        return preg_match('/<svg[\s\/>]/i', substr($contents, 0, 1024)) === 1;
+    }
+
     /**
      * Determine whether the given SVG bytes are safe to store and serve.
      *

@@ -6,6 +6,7 @@ use App\Services\VideoRenderer;
 use App\Services\VideoThemeResolver;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +27,16 @@ class RenderThemeSampleJob implements ShouldQueue
     public int $backoff = 30;
 
     public int $timeout = 900;
+
+    /**
+     * Cache key the settings page sets before dispatching, so a second
+     * click cannot pile another 15-minute render onto the shared render
+     * queue while this one is still in flight.
+     */
+    public const IN_FLIGHT_KEY = 'video-theme:sample-render-in-flight';
+
+    /** Safety net: outlive one attempt's timeout, then let the flag lapse. */
+    public const IN_FLIGHT_TTL_SECONDS = 1800;
 
     public function __construct()
     {
@@ -58,11 +69,33 @@ class RenderThemeSampleJob implements ShouldQueue
                 );
             }
 
-            $bytes = @file_get_contents($output);
+            // Remotion has been seen to exit 0 having written nothing.
+            // Publishing that silently hands the installer a 0-byte mp4
+            // with no log line, so treat it as a failed render.
+            if (! is_file($output) || filesize($output) === 0) {
+                throw new RuntimeException(
+                    "Theme sample render produced no output at {$output} despite exiting 0"
+                );
+            }
 
-            Storage::disk('artifacts')->put('theme/sample.mp4', $bytes === false ? '' : $bytes);
+            $stream = fopen($output, 'rb');
+
+            if ($stream === false) {
+                throw new RuntimeException("Theme sample render output at {$output} is unreadable");
+            }
+
+            try {
+                // Streamed rather than read whole: an mp4 can be tens of
+                // megabytes and the render worker's memory_limit is not.
+                if (! Storage::disk('artifacts')->writeStream('theme/sample.mp4', $stream)) {
+                    throw new RuntimeException('Could not publish the theme sample to the artifacts disk');
+                }
+            } finally {
+                fclose($stream);
+            }
         } finally {
             @unlink($output);
+            Cache::forget(self::IN_FLIGHT_KEY);
         }
     }
 

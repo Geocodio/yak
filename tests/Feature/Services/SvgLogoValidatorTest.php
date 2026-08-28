@@ -148,3 +148,28 @@ it('rejects a whitespace-padded, mixed-case aliased attributeName', function ():
 
     expect(new SvgLogoValidator)->isSafe($svg)->toBeFalse();
 });
+
+it('accepts a benign animated svg', function (): void {
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <rect width="100" height="100" fill="blue">
+        <animate attributeName="opacity" values="0;1" dur="1s" repeatCount="indefinite"/>
+        <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="4s" repeatCount="indefinite"/>
+      </rect>
+      <circle cx="50" cy="50" r="10">
+        <set attributeName="fill" to="red" begin="1s"/>
+      </circle>
+    </svg>
+    SVG;
+
+    expect(new SvgLogoValidator)->isSafe($svg)->toBeTrue();
+});
+
+it('sniffs svg markup out of bytes regardless of the filename it arrived under', function (): void {
+    $validator = new SvgLogoValidator;
+
+    expect($validator->looksLikeSvg('<svg xmlns="http://www.w3.org/2000/svg"><rect /></svg>'))->toBeTrue()
+        ->and($validator->looksLikeSvg("<?xml version=\"1.0\"?>\n<svg/>"))->toBeTrue()
+        ->and($validator->looksLikeSvg("\x89PNG\r\n\x1a\n" . str_repeat("\0", 64)))->toBeFalse()
+        ->and($validator->looksLikeSvg(''))->toBeFalse();
+});

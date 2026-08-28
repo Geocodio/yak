@@ -61,3 +61,26 @@ it('404s when no sample has been rendered', function (): void {
         ->get(route('video-theme.sample'))
         ->assertNotFound();
 });
+
+it('serves an svg logo as image/svg+xml behind the full sandbox csp', function (): void {
+    Storage::disk('artifacts')->put('theme/logo.svg', '<svg xmlns="http://www.w3.org/2000/svg"><rect /></svg>');
+    VideoTheme::factory()->create(['id' => 1, 'logo_path' => 'theme/logo.svg']);
+
+    $this->get(route('video-theme.logo'))
+        ->assertOk()
+        ->assertHeader('content-type', 'image/svg+xml')
+        ->assertHeader('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+        ->assertHeader('x-content-type-options', 'nosniff')
+        ->assertHeader('content-disposition', 'inline; filename="logo.svg"');
+});
+
+it('hardens the png logo response with the same csp', function (): void {
+    Storage::disk('artifacts')->put('theme/logo.png', 'png-bytes');
+    VideoTheme::factory()->create(['id' => 1, 'logo_path' => 'theme/logo.png']);
+
+    $this->get(route('video-theme.logo'))
+        ->assertOk()
+        ->assertHeader('content-type', 'image/png')
+        ->assertHeader('content-security-policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+        ->assertHeader('x-content-type-options', 'nosniff');
+});
