@@ -277,3 +277,41 @@ test('scheduler runs as www-data so healthchecks cannot leave root-owned claude 
     expect($programs)->toHaveKey('scheduler');
     expect($programs['scheduler']['user'] ?? null)->toBe('www-data');
 });
+
+test('every queue jobs dispatch to has a supervisord worker consuming it', function () {
+    // A queue with no worker is a silent black hole: jobs pile up in the
+    // `jobs` table forever and the feature just never runs. PollPullRequest-
+    // ReactionsJob accumulated 3,160 rows on `yak-poll` between April and
+    // August 2026 before anyone noticed (issue #19).
+    $dispatchedQueues = [];
+
+    $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path()));
+
+    foreach ($files as $file) {
+        if (! $file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+
+        if (preg_match_all("/onQueue\('([^']+)'\)/", (string) file_get_contents($file->getPathname()), $matches) > 0) {
+            foreach ($matches[1] as $queue) {
+                $dispatchedQueues[$queue] = true;
+            }
+        }
+    }
+
+    expect($dispatchedQueues)->not->toBeEmpty();
+
+    $consumedQueues = [];
+
+    foreach (productionSupervisordPrograms() as $directives) {
+        if (preg_match('/--queue=(\S+)/', $directives['command'] ?? '', $matches) === 1) {
+            foreach (explode(',', $matches[1]) as $queue) {
+                $consumedQueues[$queue] = true;
+            }
+        }
+    }
+
+    foreach (array_keys($dispatchedQueues) as $queue) {
+        expect($consumedQueues)->toHaveKey($queue, "No supervisord worker consumes the '{$queue}' queue");
+    }
+});
