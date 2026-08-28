@@ -147,10 +147,15 @@ class ArtifactPersister
 
     /**
      * Every file to persist, paired with the subdirectory it came from
-     * (null for the top level). Top level first, then `screenshots/` in the
-     * manifest's declared order with unlisted files appended, then the
-     * remaining known subdirectories. Unknown subdirectories are skipped
-     * and disappear with the directory delete.
+     * (null for the top level). Unknown subdirectories are skipped and
+     * disappear with the directory delete.
+     *
+     * Only the screenshot order is load-bearing: spec §8b keeps the five
+     * survivors of the cap in script order, so `screenshots/` runs in the
+     * manifest's declared order, then whatever `screenshots/` holds that
+     * the manifest does not name, and only then any legacy top-level
+     * screenshot. A stray `description.png` at the top level must never
+     * take a cap slot from a shot the agent actually scripted.
      *
      * @param  array<string, mixed>|null  $manifest
      * @return array<int, array{0: string|null, 1: SplFileInfo}>
@@ -158,14 +163,23 @@ class ArtifactPersister
     private static function orderedFiles(string $dir, ?array $manifest): array
     {
         $ordered = [];
+        $topLevelScreenshots = [];
 
         foreach (File::files($dir) as $file) {
+            if (self::detectArtifactType($file->getExtension()) === 'screenshot') {
+                $topLevelScreenshots[] = [null, $file];
+
+                continue;
+            }
+
             $ordered[] = [null, $file];
         }
 
         foreach (self::orderedScreenshots($dir, $manifest) as $file) {
             $ordered[] = ['screenshots', $file];
         }
+
+        $ordered = array_merge($ordered, $topLevelScreenshots);
 
         foreach (['shots', 'stills', 'vo'] as $subdir) {
             $path = $dir . '/' . $subdir;

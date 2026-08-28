@@ -161,3 +161,34 @@ it('never dedups stills against screenshots from an earlier run', function (): v
     expect($task->artifacts()->where('role', 'still')->count())->toBe(1)
         ->and($task->artifacts()->where('role', 'screenshot')->count())->toBe(1);
 });
+
+it('spends the screenshot cap on manifest-named screenshots before top-level ones', function (): void {
+    $task = YakTask::factory()->create();
+    $dir = Storage::disk('artifacts')->path("{$task->id}/.yak-artifacts");
+    File::ensureDirectoryExists("{$dir}/screenshots");
+
+    $entries = [];
+    foreach ([3, 2, 1] as $i) {
+        $id = "shot-{$i}";
+        $entries[] = ['id' => $id, 'file' => "screenshots/{$id}.png", 'caption' => "Caption {$i}"];
+        File::put("{$dir}/screenshots/{$id}.png", distinctPngBytes($i));
+    }
+    File::put("{$dir}/manifest.json", json_encode(['version' => 3, 'shots' => [], 'screenshots' => $entries]));
+
+    foreach (['a', 'b', 'c'] as $index => $name) {
+        File::put("{$dir}/legacy-{$name}.png", distinctPngBytes(20 + $index));
+    }
+
+    ArtifactPersister::persist($task);
+
+    $screenshots = $task->artifacts()->where('role', 'screenshot')->orderBy('id')->get();
+
+    expect($screenshots)->toHaveCount(5)
+        ->and($screenshots->take(3)->pluck('filename')->all())
+        ->toBe(['shot-3.png', 'shot-2.png', 'shot-1.png'])
+        ->and($screenshots->take(3)->pluck('caption')->all())
+        ->toBe(['Caption 3', 'Caption 2', 'Caption 1'])
+        ->and($screenshots->slice(3)->pluck('filename')->all())
+        ->toBe(['legacy-a.png', 'legacy-b.png'])
+        ->and(Storage::disk('artifacts')->exists("{$task->id}/legacy-c.png"))->toBeFalse();
+});
