@@ -11,7 +11,12 @@ use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+
+test('the tasks table no longer carries a director cut status', function () {
+    expect(Schema::hasColumn('tasks', 'director_cut_status'))->toBeFalse();
+});
 
 test('renders a reviewer cut plus a poster thumbnail when webm and storyboard both exist', function () {
     Storage::fake('artifacts');
