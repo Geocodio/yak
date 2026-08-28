@@ -3,3 +3,4 @@ out/
 fixtures/*.webm
 fixtures/*.mp4
 .remotion-cache/
+dist/
