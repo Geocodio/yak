@@ -31,6 +31,8 @@ export type StoryboardEvent =
 
 export type Storyboard = { version: 1; plan: Plan; events: StoryboardEvent[] };
 
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+
 export function writeInitialStoryboard(path: string, plan: Plan): void {
   const sb: Storyboard = { version: 1, plan, events: [] };
   writeFileSync(path, JSON.stringify(sb, null, 2));
@@ -41,7 +43,7 @@ export function readStoryboard(path: string): Storyboard {
   return JSON.parse(readFileSync(path, 'utf8')) as Storyboard;
 }
 
-export function appendEvent(artifactsDir: string, event: Omit<StoryboardEvent, 't'>): void {
+export function appendEvent(artifactsDir: string, event: DistributiveOmit<StoryboardEvent, 't'>): void {
   const s = readSession(artifactsDir);
   if (!s) throw new Error('no active session — call `record start` first');
   const t = elapsedSeconds(artifactsDir);
