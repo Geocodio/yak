@@ -404,3 +404,7 @@ docker logs yak --tail 500 > yak.log
 ```
 
 File at `https://github.com/geocodio/yak/issues/new/choose` — include the version, health output, the task ID, and which channel was involved.
+
+## Walkthrough videos are raw webm instead of the rendered cut
+
+The health page's **Video Render** row shows failed renders in the last 24 h, and a final failure also notifies the task's channel and rewrites the PR's video line to "_Video walkthrough unavailable_". To inspect: `php artisan queue:failed`, or query `video_metrics` where `status = 'failed'`. The historical cause (Aug 2026) was a root-owned `/app/video/public` with a `www-data` worker; renders now stage under `storage/app/private/render` (`YAK_VIDEO_RENDER_STAGING_PATH`). After fixing a cause, re-run the affected renders with `php artisan yak:video:rerender --failed-since=2026-08-12`.
