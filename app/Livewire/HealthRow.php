@@ -2,8 +2,10 @@
 
 namespace App\Livewire;
 
+use App\Services\HealthCheck\ClaudeAuthCheck;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\Registry;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Lazy;
@@ -55,11 +57,33 @@ class HealthRow extends Component
     #[Computed]
     public function result(): HealthResult
     {
+        // claude-auth's probe is a real (up to 120s) inference call. Running
+        // it inline here would execute inside a web request: nginx's default
+        // fastcgi_read_timeout (60s, unset in docker/nginx.conf) would kill
+        // PHP-FPM mid-probe and orphan the shared .oauth_refresh.lock for
+        // every sandbox. Only the scheduled `yak:healthcheck` command may
+        // invoke ClaudeAuthCheck::run(); this renders what it last published.
+        if ($this->checkId === 'claude-auth') {
+            return $this->claudeAuthResult();
+        }
+
         return Cache::remember(
             "health:check:{$this->checkId}",
             self::CACHE_TTL_SECONDS,
             fn () => app(Registry::class)->get($this->checkId)->run(),
         );
+    }
+
+    private function claudeAuthResult(): HealthResult
+    {
+        /** @var array{result: HealthResult, checked_at: Carbon}|null $stored */
+        $stored = Cache::get(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
+
+        if ($stored === null) {
+            return HealthResult::warn('Not yet probed — waiting for the next scheduled health check (runs every 15 minutes)');
+        }
+
+        return $stored['result'];
     }
 
     #[Computed]

@@ -2,6 +2,8 @@
 
 use App\Livewire\HealthRow;
 use App\Models\User;
+use App\Services\HealthCheck\ClaudeAuthCheck;
+use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthStatus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Process;
@@ -57,4 +59,33 @@ it('responds to the global refresh event', function () {
     $row->handleRefresh();
 
     expect(Cache::get('health:check:queue-worker'))->toBeNull();
+});
+
+it('renders the stored claude-auth result without probing inference', function () {
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::ok('Authenticated'),
+        'checked_at' => now(),
+    ], now()->addDay());
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    expect($row->result()->detail)->toBe('Authenticated');
+    expect($row->result()->status)->toBe(HealthStatus::Ok);
+
+    Process::assertNothingRan();
+});
+
+it('reports not yet probed for claude-auth when no scheduled result exists', function () {
+    Cache::forget(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
+
+    $row = new HealthRow;
+    $row->checkId = 'claude-auth';
+
+    $result = $row->result();
+
+    expect($result->status)->not->toBe(HealthStatus::Ok);
+    expect($result->detail)->toContain('Not yet probed');
+
+    Process::assertNothingRan();
 });
