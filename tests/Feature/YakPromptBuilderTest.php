@@ -87,6 +87,38 @@ test('prompt builder never emits Director\'s Cut instructions', function () {
         ->and($prompt)->not->toContain('directorCut');
 });
 
+test('system prompt teaches the v3 capture flow and drops every v2 command', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)
+        ->toContain('script.json')
+        ->toContain('yak-browser script')
+        ->toContain('--review')
+        ->toContain('yak-browser shoot')
+        ->toContain('yak-browser assets check')
+        ->toContain('Visual capture:')
+        ->not->toContain('record start')
+        ->not->toContain('yak-browser plan')
+        ->not->toContain('yak-browser chapter')
+        ->not->toContain('yak-browser narrate')
+        ->not->toContain('yak-browser callout')
+        ->not->toContain('yak-browser emphasize')
+        ->not->toContain('yak-browser fastforward')
+        ->not->toContain('storyboard.json');
+});
+
+test('system prompt keeps the generic rebuild rule and names no repository', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)
+        ->toContain('rebuild the frontend assets')
+        ->toContain('package.json');
+});
+
 /*
 |--------------------------------------------------------------------------
 | System Prompt - Channel-Conditional Sections
