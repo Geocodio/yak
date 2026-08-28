@@ -204,9 +204,15 @@ class ClaudeAuthCheck implements HealthCheck
 
     private function recordResult(HealthResult $result): HealthResult
     {
+        // Store the timestamp as an ISO-8601 string, not a Carbon instance.
+        // The cache store serializes this payload, and a Carbon object does not
+        // reliably survive the round-trip across process boundaries — it comes
+        // back as __PHP_Incomplete_Class, which then makes HealthRow's
+        // Carbon::parse() throw a TypeError and take out the health row. A
+        // string round-trips through every cache driver unchanged.
         Cache::put(self::LAST_RESULT_CACHE_KEY, [
             'result' => $result,
-            'checked_at' => now(),
+            'checked_at' => now()->toIso8601String(),
         ], now()->addDay());
 
         return $result;

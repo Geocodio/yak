@@ -239,3 +239,24 @@ it('webhook signatures check reports rejected webhooks', function () {
     expect($result->detail)->toContain('Linear (3)');
     expect($result->detail)->toContain('Slack (1)');
 });
+
+it('stores the probe timestamp as a string that survives cache serialization', function () {
+    // Regression: `checked_at` was stored as a Carbon instance. The database
+    // cache store serializes the payload, and the object came back as
+    // __PHP_Incomplete_Class across a process boundary, so HealthRow's
+    // Carbon::parse() threw a TypeError and took out the health row. The
+    // array cache driver used by the rest of these tests never serializes,
+    // which is exactly why this slipped through.
+    Process::fake(['*' => Process::result(output: 'ok', exitCode: 0)]);
+
+    (new ClaudeAuthCheck)->run();
+
+    $stored = Cache::get(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
+
+    expect($stored['checked_at'])->toBeString();
+
+    $roundTripped = unserialize(serialize($stored));
+
+    expect($roundTripped['checked_at'])->toBe($stored['checked_at']);
+    expect(Carbon\Carbon::parse($roundTripped['checked_at']))->toBeInstanceOf(Carbon\Carbon::class);
+});

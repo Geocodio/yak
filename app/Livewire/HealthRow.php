@@ -85,7 +85,7 @@ class HealthRow extends Component
 
     private function claudeAuthResult(): HealthResult
     {
-        /** @var array{result: HealthResult, checked_at: Carbon}|null $stored */
+        /** @var array{result: HealthResult, checked_at: string}|null $stored */
         $stored = Cache::get(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
 
         if ($stored === null) {
