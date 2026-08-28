@@ -1,5 +1,5 @@
 import { interpolate, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
-import { colors } from '../lib/styling';
+import { colors } from '../../lib/styling';
 
 export const ClickRipple = ({ x, y }: { x: number; y: number }) => {
   const frame = useCurrentFrame();

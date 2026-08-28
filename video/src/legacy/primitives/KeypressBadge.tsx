@@ -1,6 +1,6 @@
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { colors, fonts } from '../lib/styling';
-import { clampCentered } from '../lib/viewport';
+import { colors, fonts } from '../../lib/styling';
+import { clampCentered } from '../../lib/viewport';
 
 const BADGE_WIDTH = 220;
 const BADGE_HEIGHT = 56;

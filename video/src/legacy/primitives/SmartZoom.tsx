@@ -1,6 +1,6 @@
 import React from 'react';
 import { interpolate, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
-import { timing } from '../lib/styling';
+import { timing } from '../../lib/styling';
 
 export type ZoomSpec = {
   fromFrame: number;

@@ -32,4 +32,5 @@ incus_zfs_arc_max: "8589934592"  # 8GB ZFS ARC cache (tune based on total RAM)
 # browser engine, etc.). MUST match `yak.sandbox.base_version` in
 # config/yak.php — the app reads that config value and invalidates repo
 # templates whose stored `sandbox_base_version` is older.
-yak_sandbox_base_version: 3
+# 4: playwright 1.62.1 pinned + PLAYWRIGHT_BROWSERS_PATH, required by `yak-browser shoot`.
+yak_sandbox_base_version: 4

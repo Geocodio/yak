@@ -408,3 +408,26 @@ File at `https://github.com/geocodio/yak/issues/new/choose` — include the vers
 ## Walkthrough videos are raw webm instead of the rendered cut
 
 The health page's **Video Render** row shows failed renders in the last 24 h, and a final failure also notifies the task's channel and rewrites the PR's video line to "_Video walkthrough unavailable_". To inspect: `php artisan queue:failed`, or query `video_metrics` where `status = 'failed'`. The historical cause (Aug 2026) was a root-owned `/app/video` tree with a `www-data` worker; renders now stage under `storage/app/private/render` (`YAK_VIDEO_RENDER_STAGING_PATH`), the image bakes Remotion's browser at build time (`npx remotion browser ensure`), and `node_modules/.remotion` and `node_modules/.cache` under `video/` are chowned to `www-data`. After fixing a cause, re-run the affected renders with `php artisan yak:video:rerender --failed-since=2026-08-12`.
+
+## Walkthrough video did not appear
+
+For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.webm`), the walkthrough is produced by `RenderWalkthroughJob`, which turns a task's `shot`, `voiceover` and `script`/`manifest` artifacts into a rendered `cut`. If the PR body still shows the placeholder in the `<!-- yak:walkthrough -->` section, or the dashboard shows no video, start with these two places:
+
+1. **The health row.** The dashboard's **Video Render** row surfaces failed renders in the last 24 h.
+2. **`failed_jobs`.** `php artisan queue:failed` lists any `RenderWalkthroughJob` (or `RenderVideoJob` for legacy tasks) that exhausted its retries, with the exception that killed it.
+3. **`video_metrics`.** Query rows with `status = 'failed'` for the task and read the `error` column — it names which render step failed.
+
+### Common causes
+
+- **`timeline.ts` failure.** The Node script that turns `manifest.json` + `script.json` into a render timeline threw before any frames were produced. Check the job's log for a `timeline.ts` stack trace.
+- **Caption overflow.** A caption in `script.json` was too long for its slide duration and the `WalkthroughV3` composition refused to render it — the fix is a shorter caption or a longer beat, not a code change.
+- **Duration outside the bounds.** The computed timeline duration fell outside the configured min/max, which usually means a script beat has an unrealistic wait or an empty shot list.
+- **The QA frame test.** `RenderQaCheck` samples frames from the finished cut and fails the render if a frame is blank, garbled, or missing captions — this catches a shoot that silently captured a blank page.
+
+### Retrying
+
+`php artisan yak:video:rerender --task=<id>` re-dispatches the render for that task without needing a fresh sandbox — it reuses the artifacts already on disk. Add `--dry-run` first to confirm it picks up the right task, or `--failed-since=<date>` to sweep every task that failed after a fix.
+
+### `Visual capture: partial` in the task log
+
+This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills — not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.

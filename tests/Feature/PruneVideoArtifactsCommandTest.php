@@ -10,6 +10,16 @@ beforeEach(function () {
     config()->set('yak.video.raw_retention_days', 30);
 });
 
+function artifactWithFile(YakTask $task, string $role, string $relativePath): Artifact
+{
+    $diskPath = "{$task->id}/{$relativePath}";
+    Storage::disk('artifacts')->put($diskPath, 'x');
+
+    return Artifact::factory()->for($task, 'task')->create([
+        'type' => 'file', 'role' => $role, 'filename' => basename($relativePath), 'disk_path' => $diskPath, 'size_bytes' => 1,
+    ]);
+}
+
 function taskWithRawAndCut(string $cutCreatedAt): YakTask
 {
     $task = YakTask::factory()->success()->create();
@@ -30,7 +40,7 @@ test('deletes raw webm for tasks whose cut is older than the retention window', 
     Storage::disk('artifacts')->put("{$noCut->id}/walkthrough.webm", 'webm');
     Artifact::factory()->for($noCut, 'task')->create(['type' => 'video', 'role' => 'raw', 'filename' => 'walkthrough.webm', 'disk_path' => "{$noCut->id}/walkthrough.webm", 'created_at' => now()->subDays(60)]);
 
-    $this->artisan('yak:video:prune')->assertSuccessful()->expectsOutputToContain('Pruned 1 raw video(s)');
+    $this->artisan('yak:video:prune')->assertSuccessful()->expectsOutputToContain('Pruned 1 artifact(s)');
 
     expect(Artifact::where('yak_task_id', $old->id)->where('type', 'video')->exists())->toBeFalse()
         ->and(Storage::disk('artifacts')->exists("{$old->id}/walkthrough.webm"))->toBeFalse()
@@ -43,7 +53,7 @@ test('deletes raw webm for tasks whose cut is older than the retention window', 
 test('--dry-run reports without deleting', function () {
     $old = taskWithRawAndCut(now()->subDays(45)->toDateTimeString());
 
-    $this->artisan('yak:video:prune', ['--dry-run' => true])->assertSuccessful()->expectsOutputToContain('Would prune 1 raw video(s)');
+    $this->artisan('yak:video:prune', ['--dry-run' => true])->assertSuccessful()->expectsOutputToContain('Would prune 1 artifact(s)');
 
     expect(Artifact::where('yak_task_id', $old->id)->where('type', 'video')->exists())->toBeTrue();
 });
@@ -54,4 +64,34 @@ test('prune is scheduled daily', function () {
 
     expect($events)->toHaveCount(1)
         ->and($events->first()->expression)->toBe('0 0 * * *');
+});
+
+test('prunes shot and voiceover artifacts but keeps stills', function () {
+    $task = YakTask::factory()->success()->create();
+    $cut = Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video_cut', 'role' => 'cut', 'filename' => 'walkthrough.mp4', 'disk_path' => "{$task->id}/walkthrough.mp4", 'size_bytes' => 1,
+    ]);
+    $cut->update(['created_at' => now()->subDays(45)]);
+    $shot = artifactWithFile($task, 'shot', 'shots/a.webm');
+    $vo = artifactWithFile($task, 'voiceover', 'vo/a.mp3');
+    $still = artifactWithFile($task, 'still', 'stills/a.png');
+
+    $this->artisan('yak:video:prune')->assertSuccessful();
+
+    expect(Artifact::find($shot->id))->toBeNull()
+        ->and(Artifact::find($vo->id))->toBeNull()
+        ->and(Artifact::find($still->id))->not->toBeNull()
+        ->and(Storage::disk('artifacts')->exists($shot->disk_path))->toBeFalse()
+        ->and(Storage::disk('artifacts')->exists($vo->disk_path))->toBeFalse()
+        ->and(Storage::disk('artifacts')->exists($still->disk_path))->toBeTrue();
+});
+
+test('keeps everything for a task whose render failed', function () {
+    $task = YakTask::factory()->success()->create();
+    $shot = artifactWithFile($task, 'shot', 'shots/a.webm');
+
+    $this->artisan('yak:video:prune')->assertSuccessful();
+
+    expect(Artifact::find($shot->id))->not->toBeNull()
+        ->and(Storage::disk('artifacts')->exists($shot->disk_path))->toBeTrue();
 });

@@ -1,6 +1,6 @@
 import { interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
-import { colors, fonts } from '../lib/styling';
-import { clampPoint, Bounds } from '../lib/viewport';
+import { colors, fonts } from '../../lib/styling';
+import { clampPoint, Bounds } from '../../lib/viewport';
 
 type Anchor = 'top' | 'bottom' | 'left' | 'right';
 

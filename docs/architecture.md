@@ -37,9 +37,24 @@ Every fix task goes through the same pipeline, regardless of where it came from:
 After the agent finishes, work splits into two parallel streams:
 
 - **Stream B (push → CI → PR)** pushes the branch, waits for CI, and on green creates the PR.
-- **Stream A (video pipeline)** renders the polished Remotion walkthrough from the raw webm artifact and patches the PR body once the mp4 is ready.
+- **Stream A (video pipeline)** captures and renders the walkthrough, then patches the PR body once the video is ready.
 
 Both streams converge on the same PR — whichever finishes first writes its piece, the other fills in later. Tasks never block the queue while CI runs: the worker finishes a job, CI runs asynchronously, and a webhook triggers the next step.
+
+### The Walkthrough Video Pipeline (v3)
+
+Instead of narrating over one continuous screen recording, the agent writes a `script.json` describing the walkthrough as a sequence of shots, captions and pauses. Two sandbox-side CLI steps turn that script into footage:
+
+- **`yak-browser script`** lints `script.json` — a headless dry run plus an asset preflight — before anything is captured, so a bad script fails fast instead of burning a shoot.
+- **`yak-browser shoot`** drives a real browser through the script and writes `shots/*.webm` (per-beat clips), `stills/*.png`, `screenshots/*.png`, and a `manifest.json` describing what was captured and in what order.
+
+Back in the app, `ArtifactPersister` walks that output recursively, persists each file as an `Artifact` tagged with its role, and dispatches exactly one `RenderWalkthroughJob` per task — keyed on the task id, not on any single artifact, because one v3 render draws on many clips.
+
+`RenderWalkthroughJob` runs `scripts/timeline.ts` to turn the manifest and script into a render timeline, writes `chapters.json`, renders the `WalkthroughV3` Remotion composition into the final cut, and runs it through `RenderQaCheck` — a frame-sampling gate that catches blank or garbled output before it reaches a reviewer. Once the cut passes QA, the job derives the thumbnail and a preview GIF, writes MP4 chapter metadata, and replaces the `<!-- yak:walkthrough -->` section of the PR body.
+
+Artifact roles form the vocabulary this pipeline is built on: `script` and `manifest` (the two shoot-time descriptors), `shot`, `still`, `screenshot` and `voiceover` (raw capture output), `chapters` (render-time metadata), and `cut`, `thumbnail`, `preview` (the finished, reviewer-facing output). `raw` is the legacy single-webm role.
+
+The legacy single-webm path — one continuous `walkthrough.webm` recording, rendered by `RenderVideoJob` into the `WalkthroughV2` composition under `video/src/legacy/` — stays in place until no v2 artifacts remain in the system; `yak:video:rerender` and `yak:video:prune` both understand the two pipelines side by side.
 
 The diagram source is [`fix-task-flow.dot`](fix-task-flow.dot) (Graphviz). Regenerate with `dot -Tpng docs/fix-task-flow.dot -o docs/fix-task-flow.png -Gdpi=150`.
 
@@ -248,6 +263,8 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 - **`SetupYakJob`** — the one-time dev environment setup task for a new repo. See [Repositories → The Setup Task](repositories.md#the-setup-task).
 - **`RunYakReviewJob`** — the PR review path. Runs Claude in the sandbox with a read-only prompt scoped to a PR's diff, then posts the parsed findings as a GitHub review via the installation token. See [PR Review](pr-review.md).
 - **`PollPullRequestReactionsJob`** — scheduled hourly. Polls GitHub for 👍/👎 reactions on Yak-authored review comments within a configurable window and denormalizes counts onto `pr_review_comments`.
+- **`RenderWalkthroughJob`** — the v3 video render, keyed on the task id. Loads a task's `script`, `manifest`, `shot` and `voiceover` artifacts, builds the render timeline, renders `WalkthroughV3`, gates it through `RenderQaCheck`, and patches the PR body. See [The Walkthrough Video Pipeline (v3)](#the-walkthrough-video-pipeline-v3).
+- **`RenderVideoJob`** — the legacy v2 render, keyed on the raw `walkthrough.webm` artifact. Renders the `WalkthroughV2` composition. Stays in place until no v2 artifacts remain.
 
 ### Middleware
 
@@ -294,7 +311,7 @@ Append-only event log that powers the task detail page's timeline. Each row is `
 
 ### `artifacts`
 
-Rows reference screenshots, videos, and research HTML pages stored on disk. Served at `/artifacts/{task}/{filename}` via signed URL (for PR embedding) or authenticated request (for dashboard viewing).
+Rows reference screenshots, videos, and research HTML pages stored on disk. Served at `/artifacts/{task}/{filename}` via signed URL (for PR embedding) or authenticated request (for dashboard viewing). Each row carries a `role` — `cut`, `thumbnail`, `preview`, `chapters`, `shot`, `still`, `screenshot`, `voiceover`, `manifest`, `script`, `raw` — that both render pipelines and the `yak:video:rerender` / `yak:video:prune` commands query against instead of `type` or filename.
 
 ### `repositories`
 

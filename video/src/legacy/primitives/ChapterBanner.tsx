@@ -1,5 +1,5 @@
 import { interpolate, useCurrentFrame, useVideoConfig, Easing } from 'remotion';
-import { colors, fonts } from '../lib/styling';
+import { colors, fonts } from '../../lib/styling';
 
 const BANNER_WIDTH = 340;
 const BANNER_HEIGHT = 60;
