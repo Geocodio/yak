@@ -44,6 +44,17 @@ Expect roughly 1,000–1,300 characters per walkthrough, billed at one credit pe
 
 Voiceover is best-effort: with no key, or when the API errors, the walkthrough still renders captions-only and Yak still opens the PR.
 
+To create the key, go to **Developers → API Keys** in the ElevenLabs dashboard and create a restricted key. Yak calls exactly one endpoint, `POST /v1/text-to-speech/{voice_id}`, so the key needs a single permission:
+
+| Setting | Value |
+|---|---|
+| Text to Speech | **Access** |
+| Everything else | **No Access** |
+
+Leave **Voices** and **Models** at No Access too — the voice id comes from `ELEVENLABS_VOICE_ID` and the model is hardcoded, so neither is ever looked up over the API. Setting a per-credit refresh period is worth doing as a spend cap; at ~1,000–1,300 characters per walkthrough there is plenty of headroom under a modest monthly limit.
+
+Then fill in `elevenlabs_api_key` (and optionally `elevenlabs_voice_id`) in the vault.
+
 ## Quick Start
 
 You run steps 1–5 **on your own machine** (laptop or workstation). Ansible reads the inventory file, connects to your target server over SSH, and provisions everything remotely. You only SSH into the server itself for step 6 (the one-time Claude Code login). Step 7 happens in your browser.
@@ -125,6 +136,10 @@ sentry_org_slug: ""
 
 drone_url: ""
 drone_token: ""
+
+# Walkthrough voiceover (optional — captions-only when blank)
+elevenlabs_api_key: ""
+elevenlabs_voice_id: ""          # defaults to UgBBYS2sOqTuMpoF3BR0
 
 # === Extra Agent Environment Variables ===
 # agent_extra_env:
