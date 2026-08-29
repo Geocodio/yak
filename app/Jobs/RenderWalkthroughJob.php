@@ -151,7 +151,7 @@ class RenderWalkthroughJob implements ShouldQueue
                 'yak_task_id' => $task->id,
                 'status' => VideoMetric::STATUS_FAILED,
                 'render_ms' => $this->elapsedMs($startedAt),
-                'error' => mb_substr($e->getMessage(), 0, 2000),
+                'error' => mb_substr($e->getMessage(), -2000),
             ]);
 
             Log::channel('yak')->warning('RenderWalkthroughJob: walkthrough render failed', [
@@ -422,7 +422,7 @@ class RenderWalkthroughJob implements ShouldQueue
             return;
         }
 
-        $reason = mb_substr($e->getMessage(), 0, 300);
+        $reason = mb_substr($e->getMessage(), -300);
 
         try {
             SendNotificationJob::dispatch(

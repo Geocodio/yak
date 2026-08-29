@@ -77,7 +77,7 @@ class RenderVideoJob implements ShouldQueue
                 'yak_task_id' => $raw->yak_task_id,
                 'status' => VideoMetric::STATUS_FAILED,
                 'render_ms' => $this->elapsedMs($startedAt),
-                'error' => mb_substr($e->getMessage(), 0, 2000),
+                'error' => mb_substr($e->getMessage(), -2000),
             ]);
 
             Log::warning('RenderVideoJob: Remotion render failed', [
@@ -204,7 +204,7 @@ class RenderVideoJob implements ShouldQueue
             return;
         }
 
-        $reason = mb_substr($e->getMessage(), 0, 300);
+        $reason = mb_substr($e->getMessage(), -300);
 
         try {
             SendNotificationJob::dispatch(

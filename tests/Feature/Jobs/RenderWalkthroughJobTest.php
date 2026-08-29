@@ -441,3 +441,53 @@ it('renders captions-only when voiceover generation fails', function (): void {
     expect($metric->status)->toBe(VideoMetric::STATUS_RENDERED)
         ->and($metric->tts_characters)->toBeNull();
 });
+
+it('keeps the tail of a long render error rather than the leading noise', function (): void {
+    /**
+     * Regression: the stored error kept the FIRST 2000 chars. Remotion emits
+     * pages of `@remotion/google-fonts` warnings before the real failure, so
+     * every truncated error was pure noise and the actual cause was lost.
+     */
+    // No ELEVENLABS_API_KEY in the test env, so VoiceoverGenerator
+    // short-circuits before any request. Assert that rather than rely on it.
+    Http::preventStrayRequests();
+
+    $task = walkthroughTaskFixture();
+
+    $renderer = $this->mock(VideoRenderer::class);
+    $renderer->shouldReceive('timeline')->once()->andReturn(walkthroughTimelineFixture());
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(null);
+    $renderer->shouldReceive('renderWalkthrough')->once()->andThrow(new RuntimeException(
+        str_repeat('Made 21 network requests to load fonts. ', 100) . 'THE REAL CAUSE'
+    ));
+
+    expect(fn () => runRenderWalkthroughJob($task))->toThrow(RuntimeException::class);
+
+    $metric = VideoMetric::where('yak_task_id', $task->id)->sole();
+    expect($metric->error)->toContain('THE REAL CAUSE')
+        ->and(mb_strlen((string) $metric->error))->toBeLessThanOrEqual(2000);
+});
+
+it('puts the real cause in the failure notification, not the leading warnings', function (): void {
+    /**
+     * Regression: the notification reason was the FIRST 300 chars, so a
+     * Remotion failure reported its `@remotion/google-fonts` warnings and
+     * never the actual error, sending operators after the wrong fix.
+     */
+    Bus::fake();
+
+    $task = walkthroughTaskFixture();
+    fakeGitHubPrBody();
+
+    (new RenderWalkthroughJob($task->id))->failed(new RuntimeException(
+        str_repeat('Made 21 network requests to load fonts. ', 100) . 'Can only download URLs starting with http://'
+    ));
+
+    Bus::assertDispatched(SendNotificationJob::class, function ($job): bool {
+        // The window ends at the real cause. Trailing warnings may still ride
+        // along in front of it; what matters is the cause is no longer cut off.
+        expect($job->message)->toContain('Can only download URLs starting with http://');
+
+        return true;
+    });
+});
