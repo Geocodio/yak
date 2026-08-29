@@ -9,12 +9,14 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
-use App\Jobs\GenerateDirectorCutJob;
+use App\Jobs\RenderVideoJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
+use App\Livewire\Tasks\Support\ArtifactPreviewUrl;
+use App\Livewire\Tasks\Support\VideoRenderStatus;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
@@ -36,6 +38,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -53,10 +56,11 @@ use Livewire\Component;
  * @property-read SupportCollection<int, YakTask> $conversation
  * @property-read SupportCollection<int, ThreadEntry> $thread
  * @property-read ?BranchDeployment $deployment
- * @property-read ?Artifact $reviewerCut
- * @property-read ?Artifact $directorCut
- * @property-read bool $canGenerateDirectorCut
- * @property-read string $directorCutStatus
+ * @property-read ?Artifact $walkthroughCut
+ * @property-read array<int, array{title: string, startSeconds: float, shots: list<array{id: string, startSeconds: float, say: string}>}> $chapters
+ * @property-read VideoRenderStatus $renderStatus
+ * @property-read bool $canRetryRender
+ * @property-read ?Artifact $walkthroughPreview
  * @property-read SupportCollection<int, Collection<int, Artifact>> $mediaByRun
  * @property-read array{artifacts: Collection<int, Artifact>, run: ?YakTask} $latestMedia
  */
@@ -146,6 +150,13 @@ class TaskDetail extends Component
 
     public bool $lightboxOpen = false;
 
+    /**
+     * Seconds to seek the walkthrough to, from a `?t=` deep link in a PR
+     * body's chapter line. Opening the page with it opens the player.
+     */
+    #[Url(as: 't', except: null)]
+    public ?int $seekSeconds = null;
+
     public function mount(YakTask $task): void
     {
         if ($task->parent_task_id !== null) {
@@ -160,6 +171,7 @@ class TaskDetail extends Component
         $this->visibleAttempt = max(1, (int) $task->attempts);
 
         $this->openDeepLinkedEntry();
+        $this->openDeepLinkedWalkthrough();
 
         $notice = session('reReview');
         $message = match ($notice) {
@@ -1293,6 +1305,30 @@ class TaskDetail extends Component
     }
 
     /**
+     * `?t=<seconds>` opens the walkthrough at that point. Without a cut
+     * there is nothing to open, so the parameter is ignored rather than
+     * opening an empty lightbox. A negative `t` is clamped to the start
+     * rather than handed to the player as-is.
+     */
+    private function openDeepLinkedWalkthrough(): void
+    {
+        if ($this->seekSeconds === null) {
+            return;
+        }
+
+        $this->seekSeconds = max(0, (int) $this->seekSeconds);
+
+        $cut = $this->walkthroughCut();
+
+        if ($cut === null) {
+            return;
+        }
+
+        $this->lightboxArtifactId = $cut->id;
+        $this->lightboxOpen = true;
+    }
+
+    /**
      * The branch's active deployment (if any), used to surface a Preview
      * button in the header band. Mirrors the lookup the old
      * PreviewWidget performed.
@@ -1317,52 +1353,148 @@ class TaskDetail extends Component
             ->first();
     }
 
+    /**
+     * The rendered walkthrough mp4 for this task, if the Remotion render
+     * has landed. Looked up by artifact role rather than filename because
+     * cuts rendered before v3 are still named `reviewer-cut.mp4` on disk.
+     */
     #[Computed]
-    public function reviewerCut(): ?Artifact
+    public function walkthroughCut(): ?Artifact
     {
-        return $this->task->artifacts()->reviewerCut()->latest('id')->first();
-    }
-
-    #[Computed]
-    public function directorCut(): ?Artifact
-    {
-        return $this->task->artifacts()->directorCut()->latest('id')->first();
+        return $this->task->artifacts()->cut()->latest('id')->first();
     }
 
     /**
-     * Task is Success + has an open PR + no in-flight/ready director cut.
-     * Presence of a PR is indicated by pr_url being non-empty.
+     * Chapters for the rendered cut, written by the render alongside the
+     * mp4. Anything that is not the documented shape is dropped rather
+     * than half-rendered: the player must never show an empty chapter.
+     *
+     * @return array<int, array{title: string, startSeconds: float, shots: list<array{id: string, startSeconds: float, say: string}>}>
      */
     #[Computed]
-    public function canGenerateDirectorCut(): bool
+    public function chapters(): array
     {
-        /** @var TaskStatus $status */
-        $status = $this->task->status;
+        $artifact = $this->task->artifacts()->role('chapters')->latest('id')->first();
 
-        return $status === TaskStatus::Success
-            && ! empty($this->task->pr_url)
-            && in_array($this->task->director_cut_status, [null, 'failed'], true);
-    }
-
-    #[Computed]
-    public function directorCutStatus(): string
-    {
-        if ($this->directorCut !== null) {
-            return 'ready';
+        if ($artifact === null) {
+            return [];
         }
 
-        return $this->task->director_cut_status ?? 'idle';
+        $disk = Storage::disk('artifacts');
+
+        if (! $disk->exists($artifact->disk_path)) {
+            return [];
+        }
+
+        $decoded = json_decode((string) $disk->get($artifact->disk_path), true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $chapters = [];
+
+        foreach ($decoded as $chapter) {
+            if (! is_array($chapter) || ! isset($chapter['title'], $chapter['startSeconds'])) {
+                continue;
+            }
+
+            $shots = [];
+
+            foreach (is_array($chapter['shots'] ?? null) ? $chapter['shots'] : [] as $shot) {
+                if (! is_array($shot) || ! isset($shot['id'], $shot['startSeconds'], $shot['say'])) {
+                    continue;
+                }
+
+                $shots[] = [
+                    'id' => (string) $shot['id'],
+                    'startSeconds' => (float) $shot['startSeconds'],
+                    'say' => (string) $shot['say'],
+                ];
+            }
+
+            $chapters[] = [
+                'title' => (string) $chapter['title'],
+                'startSeconds' => (float) $chapter['startSeconds'],
+                'shots' => $shots,
+            ];
+        }
+
+        return $chapters;
     }
 
-    public function generateDirectorCut(): void
+    /**
+     * Render a playhead position as `m:ss` for chapter and transcript rows.
+     */
+    public static function formatTimestamp(float $seconds): string
     {
-        if (! $this->canGenerateDirectorCut) {
+        $whole = max(0, (int) floor($seconds));
+
+        return sprintf('%d:%02d', intdiv($whole, 60), $whole % 60);
+    }
+
+    /**
+     * Where this task's walkthrough render stands. Derived on every render
+     * so the chip follows a retry without a page reload.
+     */
+    #[Computed]
+    public function renderStatus(): VideoRenderStatus
+    {
+        return VideoRenderStatus::for($this->task);
+    }
+
+    /**
+     * The image shown for the walkthrough: the animated preview when the
+     * GIF was produced, the static poster otherwise.
+     */
+    #[Computed]
+    public function walkthroughPreview(): ?Artifact
+    {
+        return $this->task->artifacts()->role('preview')->latest('id')->first()
+            ?? $this->task->artifacts()->thumbnail()->latest('id')->first();
+    }
+
+    public function previewUrl(?Artifact $artifact): ?string
+    {
+        return $artifact === null ? null : ArtifactPreviewUrl::for($artifact);
+    }
+
+    /**
+     * Whether a retry has anything to re-render. `retryRender()` drives
+     * the render off a `raw` artifact, so a v3 shoot that only produced
+     * `shot`/`manifest` artifacts must not be offered the button.
+     */
+    #[Computed]
+    public function canRetryRender(): bool
+    {
+        return $this->task->artifacts()->rawFootage()->exists();
+    }
+
+    /**
+     * Re-run the render over the artifacts that are already on disk. No
+     * sandbox is involved: the shoot has already happened, only the cut
+     * failed.
+     */
+    public function retryRender(): void
+    {
+        $rawFootage = $this->task->artifacts()->rawFootage()->latest('id')->first();
+
+        if ($rawFootage === null) {
             return;
         }
 
-        GenerateDirectorCutJob::dispatch($this->task->id);
-        $this->task->update(['director_cut_status' => 'queued']);
-        $this->task->refresh();
+        $this->dispatchRenderJob($rawFootage);
+
+        unset($this->renderStatus, $this->walkthroughCut, $this->walkthroughPreview, $this->canRetryRender);
+    }
+
+    /**
+     * The single place the render job is constructed, so swapping to the
+     * task-keyed variant is a one-line change.
+     */
+    private function dispatchRenderJob(Artifact $rawFootage): void
+    {
+        RenderVideoJob::dispatch($rawFootage->id);
     }
 
     #[On('artifact-updated')]

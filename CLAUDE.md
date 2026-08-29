@@ -210,6 +210,10 @@ This project has domain-specific skills available. You MUST activate the relevan
 - `Http::fake()` with URL patterns for external API tests
 - Webhook tests: use signature helpers (e.g. `signSlackPayload()`)
 
+## Local development login
+
+- Auth is Google-only. In a `local` environment, visit `/letmein` to sign in as the first user (creates one if none exists). Use it when you need to view a page in a browser during development; never in production.
+
 ## Do-Not-Touch List
 
 - `phpstan-baseline.neon` -- pre-existing Livewire errors, do not clear

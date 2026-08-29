@@ -33,6 +33,7 @@ it('renders an MP4 end-to-end through the real VideoRenderer', function () {
     $task = YakTask::factory()->success()->create();
     $rawVideo = Artifact::factory()->for($task, 'task')->create([
         'type' => 'video',
+        'role' => 'raw',
         'filename' => 'walkthrough.webm',
         'disk_path' => "{$task->id}/walkthrough.webm",
     ]);
@@ -42,12 +43,12 @@ it('renders an MP4 end-to-end through the real VideoRenderer', function () {
 
     $renderer = new VideoRenderer(videoDir: base_path('video'));
 
-    (new RenderVideoJob($rawVideo->id, 'reviewer'))->handle($renderer);
+    (new RenderVideoJob($rawVideo->id))->handle($renderer);
 
     $cut = Artifact::where('yak_task_id', $task->id)->where('type', 'video_cut')->first();
 
     expect($cut)->not->toBeNull();
-    expect($cut->filename)->toBe('reviewer-cut.mp4');
+    expect($cut->filename)->toBe('walkthrough.mp4');
     expect($cut->size_bytes)->toBeGreaterThan(100_000);
 
     $mp4Path = Storage::disk('artifacts')->path($cut->disk_path);

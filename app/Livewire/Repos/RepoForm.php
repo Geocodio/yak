@@ -33,6 +33,8 @@ class RepoForm extends Component
 
     public string $default_branch = 'main';
 
+    public string $public_site_url = '';
+
     public bool $is_active = true;
 
     public bool $is_default = false;
@@ -89,6 +91,7 @@ class RepoForm extends Component
             $this->git_url = $repository->git_url ?? '';
             $this->path = $repository->path;
             $this->default_branch = $repository->default_branch;
+            $this->public_site_url = $repository->public_site_url ?? '';
             $this->is_active = $repository->is_active;
             $this->is_default = $repository->is_default;
             $this->ci_system = $repository->ci_system;
@@ -296,6 +299,7 @@ class RepoForm extends Component
             'agent_instructions' => ['nullable', 'string', 'max:10000'],
             'git_url' => ['required', 'string', 'max:500', 'url:https'],
             'default_branch' => ['required', 'string', 'max:255'],
+            'public_site_url' => ['nullable', 'url', 'max:255'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
             'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone', 'none'])],
@@ -344,6 +348,7 @@ class RepoForm extends Component
             'git_url' => $this->git_url,
             'path' => $this->path,
             'default_branch' => $this->default_branch,
+            'public_site_url' => $this->public_site_url !== '' ? $this->public_site_url : null,
             'is_active' => $this->is_active,
             'is_default' => $this->is_default,
             'ci_system' => $this->ci_system,

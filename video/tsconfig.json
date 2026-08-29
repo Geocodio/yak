@@ -9,7 +9,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "lib": ["ES2022", "DOM"],
+    "types": ["vitest/globals"],
     "noEmit": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "scripts/**/*"]
 }

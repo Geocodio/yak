@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\NotificationType;
+use App\Jobs\Concerns\RendersWalkthroughs;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\VideoMetric;
@@ -19,12 +20,13 @@ use Throwable;
 class RenderVideoJob implements ShouldQueue
 {
     use Queueable;
+    use RendersWalkthroughs;
 
     public int $tries = 2;
 
     public int $backoff = 30;
 
-    public function __construct(public int $rawVideoArtifactId, public string $tier = 'reviewer')
+    public function __construct(public int $rawVideoArtifactId)
     {
         $this->onQueue('yak-render');
     }
@@ -54,7 +56,7 @@ class RenderVideoJob implements ShouldQueue
 
         $webmPath = $disk->path($raw->disk_path);
         $storyboardPath = $disk->path($storyboardDiskPath);
-        $outputFilename = $this->tier === 'director' ? 'director-cut.mp4' : 'reviewer-cut.mp4';
+        $outputFilename = 'walkthrough.mp4';
         $outputDiskPath = "{$taskDir}/{$outputFilename}";
         $outputPath = $disk->path($outputDiskPath);
 
@@ -69,7 +71,6 @@ class RenderVideoJob implements ShouldQueue
                 webmPath: $webmPath,
                 storyboardPath: $storyboardPath,
                 outputPath: $outputPath,
-                tier: $this->tier,
             );
         } catch (Throwable $e) {
             VideoMetric::create([
@@ -89,10 +90,13 @@ class RenderVideoJob implements ShouldQueue
         $cutArtifact = Artifact::create([
             'yak_task_id' => $raw->yak_task_id,
             'type' => 'video_cut',
+            'role' => 'cut',
             'filename' => $outputFilename,
             'disk_path' => $outputDiskPath,
             'size_bytes' => file_exists($outputPath) ? filesize($outputPath) : 0,
         ]);
+
+        $durationSeconds = $renderer->probeDurationSeconds($outputPath);
 
         VideoMetric::create([
             'yak_task_id' => $raw->yak_task_id,
@@ -100,18 +104,12 @@ class RenderVideoJob implements ShouldQueue
             'status' => VideoMetric::STATUS_RENDERED,
             'render_ms' => $this->elapsedMs($startedAt),
             'output_bytes' => $cutArtifact->size_bytes,
-            'duration_seconds' => $renderer->probeDurationSeconds($outputPath),
+            'duration_seconds' => $durationSeconds,
         ]);
-
-        if ($this->tier === 'director') {
-            $raw->task?->update(['director_cut_status' => 'ready']);
-
-            return;
-        }
 
         $thumbnailArtifact = $this->renderThumbnail($raw, $outputPath, $taskDir);
 
-        $this->publishReviewerCut($raw->task, $cutArtifact, $thumbnailArtifact);
+        $this->publishWalkthrough($raw->task, $cutArtifact, $thumbnailArtifact, (float) $durationSeconds);
     }
 
     /**
@@ -122,7 +120,7 @@ class RenderVideoJob implements ShouldQueue
      */
     private function renderThumbnail(Artifact $raw, string $videoPath, string $taskDir): ?Artifact
     {
-        $thumbnailFilename = 'reviewer-cut-thumbnail.jpg';
+        $thumbnailFilename = 'walkthrough-thumbnail.jpg';
         $thumbnailDiskPath = "{$taskDir}/{$thumbnailFilename}";
         $thumbnailPath = Storage::disk('artifacts')->path($thumbnailDiskPath);
 
@@ -140,6 +138,7 @@ class RenderVideoJob implements ShouldQueue
         return Artifact::create([
             'yak_task_id' => $raw->yak_task_id,
             'type' => 'video_thumbnail',
+            'role' => 'thumbnail',
             'filename' => $thumbnailFilename,
             'disk_path' => $thumbnailDiskPath,
             'size_bytes' => file_exists($thumbnailPath) ? filesize($thumbnailPath) : 0,
@@ -147,15 +146,19 @@ class RenderVideoJob implements ShouldQueue
     }
 
     /**
-     * Swap the PR body's raw-webm fallback link for the rendered reviewer
-     * cut. If the PR was created while the render was still in flight, the
-     * body points at the raw webm; this upgrades it to the polished mp4.
-     * Failures patching GitHub are logged but not re-thrown — the render
-     * itself succeeded, so we don't want to retry the whole job just
+     * Swap the PR body's raw-webm fallback link for the rendered
+     * walkthrough. If the PR was opened while the render was still in
+     * flight, the body points at the raw webm; this upgrades it to the
+     * polished mp4. Failures patching GitHub are logged but not re-thrown
+     * — the render itself succeeded, so we don't retry the whole job just
      * because GitHub rejected the PATCH.
      */
-    private function publishReviewerCut(?YakTask $task, Artifact $cutArtifact, ?Artifact $thumbnailArtifact): void
-    {
+    private function publishWalkthrough(
+        ?YakTask $task,
+        Artifact $cutArtifact,
+        ?Artifact $thumbnailArtifact,
+        float $durationSeconds,
+    ): void {
         if ($task === null) {
             return;
         }
@@ -167,37 +170,20 @@ class RenderVideoJob implements ShouldQueue
         }
 
         try {
-            app(PullRequestBodyUpdater::class)->setReviewerCut(
+            app(PullRequestBodyUpdater::class)->setWalkthrough(
                 repoFullName: Repository::githubNameFor((string) $task->repo),
                 prNumber: $prNumber,
-                reviewerCutUrl: $cutArtifact->signedUrl(),
+                walkthroughUrl: $cutArtifact->signedUrl(),
                 filename: $cutArtifact->filename,
-                thumbnailUrl: $thumbnailArtifact?->signedUrl(),
+                thumbnailUrl: $thumbnailArtifact?->publicUrl() ?? $thumbnailArtifact?->signedUrl(),
+                durationSeconds: $durationSeconds,
             );
         } catch (Throwable $e) {
-            Log::channel('yak')->warning('RenderVideoJob: failed to publish reviewer cut to PR body', [
+            Log::channel('yak')->warning('RenderVideoJob: failed to publish walkthrough to PR body', [
                 'task_id' => $task->id,
                 'error' => $e->getMessage(),
             ]);
         }
-    }
-
-    private function extractPrNumber(?string $prUrl): ?int
-    {
-        if ($prUrl === null || $prUrl === '') {
-            return null;
-        }
-
-        if (preg_match('#/pull/(\d+)#', $prUrl, $matches) === 1) {
-            return (int) $matches[1];
-        }
-
-        return null;
-    }
-
-    private function elapsedMs(int $startedAtNs): int
-    {
-        return (int) round((hrtime(true) - $startedAtNs) / 1_000_000);
     }
 
     /**

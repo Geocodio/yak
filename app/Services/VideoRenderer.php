@@ -2,14 +2,49 @@
 
 namespace App\Services;
 
+use App\DataTransferObjects\WalkthroughTimeline;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use RuntimeException;
 
 class VideoRenderer
 {
-    public function __construct(public string $videoDir) {}
+    public function __construct(
+        public string $videoDir,
+        protected ?VideoThemeResolver $themeResolver = null,
+    ) {}
 
-    public function render(string $webmPath, string $storyboardPath, string $outputPath, string $tier = 'reviewer'): string
+    /**
+     * Ask the composition's own `buildBlocks()` for the cut's shape before
+     * rendering anything (spec §7). Runs on the host with `npx tsx`, the
+     * same entry point the video project documents.
+     */
+    public function timeline(string $scriptPath, string $manifestPath, ?string $voiceoverJsonPath = null): WalkthroughTimeline
+    {
+        $command = [
+            'npx', 'tsx', 'scripts/timeline.ts',
+            '--script', $scriptPath,
+            '--manifest', $manifestPath,
+        ];
+
+        if ($voiceoverJsonPath !== null) {
+            $command[] = '--voiceover';
+            $command[] = $voiceoverJsonPath;
+        }
+
+        $result = Process::path($this->videoDir)->timeout(120)->run($command);
+
+        if (! $result->successful()) {
+            throw new RuntimeException(
+                'timeline.ts failed (exit ' . $result->exitCode() . '): ' . trim($result->errorOutput())
+            );
+        }
+
+        return WalkthroughTimeline::fromJson($result->output());
+    }
+
+    public function render(string $webmPath, string $storyboardPath, string $outputPath): string
     {
         if (! file_exists($webmPath)) {
             throw new RuntimeException("walkthrough webm not found: {$webmPath}");
@@ -18,14 +53,7 @@ class VideoRenderer
             throw new RuntimeException("storyboard.json not found: {$storyboardPath}");
         }
 
-        // Stage into a per-render directory that the worker user owns and
-        // that Remotion serves as its public dir, so staticFile() resolves
-        // the clip without anything under /app/video being writable.
-        $stagingRoot = rtrim((string) config('yak.video.render_staging_path'), '/');
-        $stagingDir = $stagingRoot . '/' . bin2hex(random_bytes(6));
-        if (! is_dir($stagingDir) && ! mkdir($stagingDir, 0775, true) && ! is_dir($stagingDir)) {
-            throw new RuntimeException("cannot create render staging dir: {$stagingDir}");
-        }
+        $stagingDir = $this->makeStagingDir();
 
         $stagedName = 'walkthrough.webm';
         $stagedPath = "{$stagingDir}/{$stagedName}";
@@ -44,14 +72,16 @@ class VideoRenderer
                 'storyboard' => $storyboard,
                 'videoDurationSeconds' => $this->probeDurationSeconds($webmPath),
                 'musicTrack' => null,
-                'tier' => $tier,
+                // The `tier` prop belongs to the legacy composition
+                // (WalkthroughV2); it is pinned here for that composition.
+                'tier' => 'reviewer',
             ], JSON_UNESCAPED_SLASHES);
 
             $result = Process::path($this->videoDir)
                 ->timeout(600)
                 ->run([
                     'npx', 'remotion', 'render',
-                    'src/index.ts', 'Walkthrough', $outputPath,
+                    'src/index.ts', 'WalkthroughV2', $outputPath,
                     '--public-dir=' . $stagingDir . '/',
                     '--props=' . $props,
                 ]);
@@ -64,9 +94,155 @@ class VideoRenderer
 
             return $outputPath;
         } finally {
-            @unlink($stagedPath);
-            @rmdir($stagingDir);
+            File::deleteDirectory($stagingDir);
         }
+    }
+
+    /**
+     * Render the v3 cut.
+     *
+     * Clips are staged into a directory the worker user owns, and the
+     * manifest handed to Remotion points at each clip by its name relative
+     * to that staging directory (`shots/<id>.webm`), which is passed as
+     * `--public-dir`. Absolute paths are deliberately not used: Remotion
+     * turns them into `file://` URLs its asset downloader refuses. Nothing
+     * under /app/video ever needs to be writable (spec §11).
+     *
+     * @param  array<string, string>  $clipPaths  shot id => absolute path to its .webm
+     * @param  array<string, array{file: string, durationSeconds: float}>|null  $voiceover
+     * @param  array<string, mixed>  $theme
+     */
+    public function renderWalkthrough(
+        string $scriptPath,
+        string $manifestPath,
+        array $clipPaths,
+        ?array $voiceover,
+        array $theme,
+        ?string $publicOrigin,
+        string $outputPath,
+    ): string {
+        // Spec §9: the installation's saved theme row wins over whatever the
+        // caller passes, which is only ever the config defaults.
+        $theme = ($this->themeResolver ?? app(VideoThemeResolver::class))->resolve($theme);
+
+        $stagingDir = $this->makeStagingDir();
+
+        try {
+            $script = $this->readJson($scriptPath, 'script.json');
+            $manifest = $this->readJson($manifestPath, 'manifest.json');
+
+            if (! is_dir($stagingDir . '/shots') && ! mkdir($stagingDir . '/shots', 0775, true)) {
+                throw new RuntimeException("cannot create staging shots dir in {$stagingDir}");
+            }
+
+            $shots = [];
+            $missing = [];
+
+            foreach ((array) ($manifest['shots'] ?? []) as $shot) {
+                $id = (string) ($shot['id'] ?? '');
+                $source = $clipPaths[$id] ?? null;
+
+                if ($source === null || ! file_exists($source)) {
+                    Log::channel('yak')->warning('VideoRenderer: shot has no clip on disk', ['shot' => $id]);
+                    $missing[] = $id;
+
+                    continue;
+                }
+
+                $staged = "{$stagingDir}/shots/{$id}.webm";
+                if (! copy($source, $staged)) {
+                    throw new RuntimeException("failed to stage clip for shot {$id}");
+                }
+
+                // Relative to the staging public dir, not absolute: the
+                // composition hands absolute paths to Remotion as `file://`
+                // URLs, which its asset downloader refuses. A bare
+                // `shots/<id>.webm` resolves through `staticFile()` against
+                // `--public-dir`, which is exactly where the clip was staged.
+                $shot['clip'] = "shots/{$id}.webm";
+                $shots[] = $shot;
+            }
+
+            /**
+             * The timeline, chapters.json and the QA gate are all computed
+             * from the full manifest, so quietly dropping a shot would leave
+             * the cut describing itself wrongly. Fail loudly instead.
+             */
+            if ($missing !== []) {
+                throw new RuntimeException(
+                    'no clip on disk for manifest shot(s): ' . implode(', ', $missing)
+                );
+            }
+
+            if ($shots === []) {
+                throw new RuntimeException('no shot clips available to render');
+            }
+
+            $manifest['shots'] = $shots;
+
+            $props = json_encode([
+                'script' => $script,
+                'manifest' => $manifest,
+                'voiceover' => $voiceover,
+                'theme' => $theme,
+                'publicOrigin' => $publicOrigin,
+            ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+            $result = Process::path($this->videoDir)
+                ->timeout(900)
+                ->run([
+                    'npx', 'remotion', 'render',
+                    'src/index.ts', 'WalkthroughV3', $outputPath,
+                    '--public-dir=' . $stagingDir . '/',
+                    '--props=' . $props,
+                ]);
+
+            if (! $result->successful()) {
+                throw new RuntimeException(
+                    "Remotion render failed (exit {$result->exitCode()}): {$result->errorOutput()}"
+                );
+            }
+
+            return $outputPath;
+        } finally {
+            File::deleteDirectory($stagingDir);
+        }
+    }
+
+    /**
+     * Create a fresh per-render staging directory under the configured root.
+     *
+     * The worker user owns this tree; /app/video/public is root-owned in the
+     * image, so nothing may be written there.
+     */
+    private function makeStagingDir(): string
+    {
+        $root = rtrim((string) config('yak.video.render_staging_path'), '/');
+        $dir = $root . '/' . bin2hex(random_bytes(6));
+
+        if (! is_dir($dir) && ! mkdir($dir, 0775, true) && ! is_dir($dir)) {
+            throw new RuntimeException("cannot create render staging dir: {$dir}");
+        }
+
+        return $dir;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readJson(string $path, string $label): array
+    {
+        if (! file_exists($path)) {
+            throw new RuntimeException("{$label} not found: {$path}");
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($decoded)) {
+            throw new RuntimeException("{$label} is not valid JSON: {$path}");
+        }
+
+        return $decoded;
     }
 
     public function probeDurationSeconds(string $webmPath): ?float

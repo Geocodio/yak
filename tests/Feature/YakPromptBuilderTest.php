@@ -78,20 +78,45 @@ test('system prompt uses default dev environment instructions when none provided
     expect($prompt)->toContain('No specific dev environment instructions.');
 });
 
-test('prompt builder includes director cut partial when tier=director', function () {
-    $task = YakTask::factory()->pending()->create();
+test('prompt builder never emits Director\'s Cut instructions', function () {
+    $task = YakTask::factory()->create();
 
-    $prompt = YakPromptBuilder::systemPrompt($task, 'No specific dev environment instructions.', 'director');
+    $prompt = YakPromptBuilder::systemPrompt($task);
 
-    expect($prompt)->toContain("DIRECTOR'S CUT MODE");
+    expect($prompt)->not->toContain("DIRECTOR'S CUT MODE")
+        ->and($prompt)->not->toContain('directorCut');
 });
 
-test('prompt builder excludes director partial for reviewer tier (default)', function () {
+test('system prompt teaches the v3 capture flow and drops every v2 command', function () {
     $task = YakTask::factory()->pending()->create();
 
     $prompt = YakPromptBuilder::systemPrompt($task);
 
-    expect($prompt)->not->toContain("DIRECTOR'S CUT MODE");
+    expect($prompt)
+        ->toContain('script.json')
+        ->toContain('yak-browser script')
+        ->toContain('--review')
+        ->toContain('yak-browser shoot')
+        ->toContain('yak-browser assets check')
+        ->toContain('Visual capture:')
+        ->not->toContain('record start')
+        ->not->toContain('yak-browser plan')
+        ->not->toContain('yak-browser chapter')
+        ->not->toContain('yak-browser narrate')
+        ->not->toContain('yak-browser callout')
+        ->not->toContain('yak-browser emphasize')
+        ->not->toContain('yak-browser fastforward')
+        ->not->toContain('storyboard.json');
+});
+
+test('system prompt keeps the generic rebuild rule and names no repository', function () {
+    $task = YakTask::factory()->pending()->create();
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)
+        ->toContain('rebuild the frontend assets')
+        ->toContain('package.json');
 });
 
 /*

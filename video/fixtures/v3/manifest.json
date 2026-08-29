@@ -1,0 +1,32 @@
+{
+  "version": 3,
+  "width": 1440,
+  "height": 900,
+  "base": "http://127.0.0.1:8899",
+  "shots": [
+    {
+      "id": "levels",
+      "clip": "v3/fixture-clip.webm",
+      "start": 0,
+      "end": 4,
+      "rect": { "x": 531, "y": 96, "w": 768, "h": 380 },
+      "url": "http://127.0.0.1:8899/guides/demographics-census"
+    },
+    {
+      "id": "explicit",
+      "clip": "v3/fixture-clip.webm",
+      "start": 4,
+      "end": 7,
+      "rect": { "x": 531, "y": 96, "w": 768, "h": 60 },
+      "url": "http://127.0.0.1:8899/guides/demographics-census#explicit"
+    },
+    {
+      "id": "updates",
+      "clip": "v3/fixture-clip.webm",
+      "start": 7,
+      "end": 11,
+      "rect": null,
+      "url": "http://127.0.0.1:8899/updates/acs-demographics-by-zip-code"
+    }
+  ]
+}

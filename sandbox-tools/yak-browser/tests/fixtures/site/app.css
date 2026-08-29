@@ -1,0 +1,4 @@
+body { font-family: Georgia, serif; margin: 0; padding: 40px; background: #fdfcfa; color: #1c1b19; }
+h1 { font-size: 34px; }
+section { min-height: 700px; padding: 24px; border: 1px solid #ddd; margin-bottom: 24px; }
+#target { background: #ffe9d6; padding: 16px; }

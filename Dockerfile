@@ -87,6 +87,13 @@ RUN npm run build
 # through to the production stage via COPY --from=build.
 RUN cd video && npm install --no-audit --no-fund
 
+# Bundle the theme settings page's live <Player> preview and publish it (plus
+# the sample still it resolves through staticFile()) under public/vendor/.
+RUN cd video && npm run build:preview \
+    && mkdir -p /app/public/vendor/v3 \
+    && cp /app/video/dist/preview.js /app/public/vendor/video-preview.js \
+    && cp /app/video/public/v3/preview-still.jpg /app/public/vendor/v3/preview-still.jpg
+
 # Bake Remotion's Chrome Headless Shell into the image. Remotion otherwise
 # downloads it on first render into node_modules/.remotion (its
 # getDownloadsCacheDir()), which the www-data render worker cannot write.

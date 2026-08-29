@@ -7,6 +7,7 @@ use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\WalkthroughPrSection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 
@@ -707,7 +708,7 @@ test('PR body includes screenshot signed URLs', function () {
     });
 });
 
-test('PR body prefers reviewer cut over raw webm when both exist', function () {
+test('PR body prefers the rendered walkthrough over raw webm when both exist', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([
             'token' => 'ghs_test',
@@ -765,7 +766,7 @@ test('PR body prefers reviewer cut over raw webm when both exist', function () {
     });
 });
 
-test('PR body falls back to raw webm when no reviewer cut exists', function () {
+test('PR body shows the rendering placeholder when no rendered walkthrough exists', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([
             'token' => 'ghs_test',
@@ -797,7 +798,8 @@ test('PR body falls back to raw webm when no reviewer cut exists', function () {
         'attempts' => 1,
     ]);
 
-    // Only a raw video, no reviewer cut.
+    // Only a raw video, no reviewer cut: the raw webm was never useful to
+    // a reviewer, so the section opens as a placeholder the render replaces.
     Artifact::factory()->video()->create([
         'yak_task_id' => $task->id,
         'filename' => 'walkthrough.webm',
@@ -813,8 +815,9 @@ test('PR body falls back to raw webm when no reviewer cut exists', function () {
 
         $body = $request['body'];
 
-        return str_contains($body, '### Video walkthrough')
-            && str_contains($body, 'walkthrough.webm');
+        return str_contains($body, WalkthroughPrSection::MARKER_START)
+            && str_contains($body, '_Rendering, this section will update automatically._')
+            && ! str_contains($body, 'walkthrough.webm');
     });
 });
 
@@ -850,7 +853,7 @@ test('PR body includes video walkthrough signed URLs', function () {
         'attempts' => 1,
     ]);
 
-    Artifact::factory()->video()->create([
+    Artifact::factory()->videoCut()->create([
         'yak_task_id' => $task->id,
         'filename' => 'walkthrough.mp4',
     ]);
@@ -865,7 +868,8 @@ test('PR body includes video walkthrough signed URLs', function () {
 
         $body = $request['body'];
 
-        return str_contains($body, '### Video walkthrough')
+        return str_contains($body, WalkthroughPrSection::MARKER_START)
+            && str_contains($body, '### Video walkthrough')
             && str_contains($body, 'walkthrough.mp4')
             && str_contains($body, 'signature=');
     });

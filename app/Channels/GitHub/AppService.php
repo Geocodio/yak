@@ -585,7 +585,7 @@ class AppService
 
     /**
      * Patch an existing PR. Typically used to edit the body (e.g. to append
-     * a Director's Cut link once the render completes asynchronously).
+     * a walkthrough video link once the render completes asynchronously).
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>

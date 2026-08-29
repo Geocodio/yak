@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Artifact;
 use App\Models\YakTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -43,6 +44,31 @@ class ArtifactController extends Controller
             'task' => $task,
             'artifact' => $artifact,
         ]);
+    }
+
+    /**
+     * Permanent, unsigned delivery for the two image roles a PR body
+     * embeds. GitHub's camo proxy re-fetches these long after a signed
+     * URL would have expired, so the token is the only credential and
+     * the route refuses every other role. Nothing here lists artifacts.
+     */
+    public function publicImage(string $token): BinaryFileResponse
+    {
+        $artifact = Artifact::query()
+            ->where('public_token', $token)
+            ->whereIn('role', Artifact::PUBLIC_ROLES)
+            ->first();
+
+        abort_if($artifact === null, 404);
+        abort_unless(Storage::disk('artifacts')->exists($artifact->disk_path), 404);
+
+        return response()->file(
+            Storage::disk('artifacts')->path($artifact->disk_path),
+            [
+                'Content-Type' => $this->guessMimeType($artifact->filename),
+                'Cache-Control' => 'public, max-age=31536000',
+            ],
+        );
     }
 
     private function guessMimeType(string $filename): string

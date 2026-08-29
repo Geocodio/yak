@@ -23,6 +23,7 @@ class ArtifactFactory extends Factory
         return [
             'yak_task_id' => YakTask::factory(),
             'type' => 'screenshot',
+            'role' => 'screenshot',
             'filename' => $filename,
             'disk_path' => $filename,
             'size_bytes' => fake()->numberBetween(10000, 5000000),
@@ -37,6 +38,7 @@ class ArtifactFactory extends Factory
 
             return [
                 'type' => 'screenshot',
+                'role' => 'screenshot',
                 'filename' => $filename,
                 'disk_path' => $filename,
                 'size_bytes' => fake()->numberBetween(50000, 2000000),
@@ -51,6 +53,7 @@ class ArtifactFactory extends Factory
 
             return [
                 'type' => 'video',
+                'role' => 'raw',
                 'filename' => $filename,
                 'disk_path' => $filename,
                 'size_bytes' => fake()->numberBetween(1000000, 50000000),
@@ -62,6 +65,7 @@ class ArtifactFactory extends Factory
     {
         return $this->state(fn (): array => [
             'type' => 'research',
+            'role' => null,
             'filename' => 'research.html',
             'disk_path' => 'research.html',
             'size_bytes' => fake()->numberBetween(5000, 100000),
@@ -71,14 +75,26 @@ class ArtifactFactory extends Factory
     public function videoCut(): static
     {
         return $this->state(function (): array {
-            $filename = 'reviewer-cut.mp4';
+            $filename = 'walkthrough.mp4';
 
             return [
                 'type' => 'video_cut',
+                'role' => 'cut',
                 'filename' => $filename,
                 'disk_path' => $filename,
                 'size_bytes' => fake()->numberBetween(1000000, 50000000),
             ];
         });
+    }
+
+    public function videoThumbnail(): static
+    {
+        return $this->state(fn (): array => [
+            'type' => 'video_thumbnail',
+            'role' => 'thumbnail',
+            'filename' => 'walkthrough-thumbnail.jpg',
+            'disk_path' => 'walkthrough-thumbnail.jpg',
+            'size_bytes' => fake()->numberBetween(10000, 400000),
+        ]);
     }
 }

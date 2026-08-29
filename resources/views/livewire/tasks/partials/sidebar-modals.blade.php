@@ -18,8 +18,8 @@
 @include('livewire.tasks.partials.transcript')
 
 {{-- Media lightbox: screenshots/videos clicked from a thread turn or the
-latest-media section above. Videos additionally surface the Reviewer/Director
-cut picker + generation button, absorbed from the old video-walkthrough card. --}}
+latest-media section above. When the Remotion render has landed, the raw
+recording is followed by the rendered walkthrough. --}}
 <flux:modal wire:model.self="lightboxOpen" name="media-lightbox" class="!max-w-2xl" data-testid="media-lightbox">
     @php $lightboxArtifact = $this->lightboxArtifact; @endphp
     @if($lightboxArtifact)
@@ -27,53 +27,34 @@ cut picker + generation button, absorbed from the old video-walkthrough card. --
             <flux:heading size="lg">{{ $lightboxArtifact->filename }}</flux:heading>
         </div>
 
-        @if($lightboxArtifact->type === 'video')
-            <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
-                <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
-            </div>
+        @if(in_array($lightboxArtifact->type, ['video', 'video_cut'], true))
+            {{-- The raw <video> is skipped only when the walkthrough player below
+                 will show this very artifact. A Review-mode task never gets the
+                 player, so it must keep the raw video or the lightbox is empty. --}}
+            @php $showsPlayer = $task->mode !== \App\Enums\TaskMode::Review && $this->walkthroughCut; @endphp
 
-            <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
-                @if($task->mode !== \App\Enums\TaskMode::Review)
-                @if($this->reviewerCut)
-                    @php $reviewerUrl = $this->reviewerCut->signedUrl(); @endphp
-                    <div class="mb-3 overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
-                        <video controls preload="metadata" class="w-full" src="{{ $reviewerUrl }}"></video>
-                        <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
-                            <a href="{{ $reviewerUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Reviewer Cut</a>
-                        </div>
-                    </div>
-                @endif
+            @if(! ($showsPlayer && $lightboxArtifact->id === $this->walkthroughCut->id))
+                <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
+                    <video controls preload="metadata" class="w-full" src="{{ $lightboxArtifact->signedUrl() }}"></video>
+                </div>
+            @endif
 
-                @if($this->directorCutStatus === 'ready' && $this->directorCut)
-                    @php $directorUrl = $this->directorCut->signedUrl(); @endphp
-                    <div class="overflow-hidden rounded-[14px] border border-[rgba(200,184,154,0.4)]" wire:ignore>
-                        <video controls preload="metadata" class="w-full" src="{{ $directorUrl }}"></video>
-                        <div class="bg-yak-cream-dark px-3 py-2 text-xs text-yak-blue">
-                            <a href="{{ $directorUrl }}" target="_blank" rel="noopener noreferrer" class="font-medium text-yak-orange hover:text-yak-orange-warm">Director's Cut</a>
-                        </div>
-                    </div>
-                @elseif($this->directorCutStatus === 'queued' || $this->directorCutStatus === 'rendering')
-                    <div class="flex items-center gap-3 text-sm text-yak-blue" data-testid="director-cut-progress">
-                        <flux:icon.loading variant="mini" class="size-4" />
-                        <span>{{ $this->directorCutStatus === 'queued' ? 'Queued…' : "Rendering Director's Cut…" }}</span>
-                    </div>
-                @elseif($this->directorCutStatus === 'failed')
-                    <div class="flex items-center gap-3 text-sm text-yak-danger" data-testid="director-cut-failed">
-                        <span>Director's Cut render failed.</span>
-                        <flux:button variant="ghost" size="sm" wire:click="generateDirectorCut">Retry</flux:button>
-                    </div>
-                @elseif($this->canGenerateDirectorCut)
-                    <flux:button variant="primary" icon="sparkles" wire:click="generateDirectorCut" data-testid="generate-director-cut">
-                        Generate Director's Cut
-                    </flux:button>
-                    <p class="mt-2 text-xs text-yak-blue">Spins up a fresh sandbox against the PR branch. Takes ~2–3 min.</p>
-                @endif
-                @endif
-            </div>
+            @if($showsPlayer)
+                <div class="mt-4 border-t border-[rgba(200,184,154,0.3)] pt-4">
+                    @include('livewire.tasks.partials.walkthrough-player', [
+                        'walkthroughUrl' => $this->walkthroughCut->signedUrl(),
+                        'chapters' => $this->chapters,
+                        'seekSeconds' => $this->seekSeconds,
+                    ])
+                </div>
+            @endif
         @else
             <a href="{{ $lightboxArtifact->signedUrl() }}" target="_blank" rel="noopener noreferrer" class="block">
-                <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
+                <img src="{{ $lightboxArtifact->signedUrl() }}" alt="{{ $lightboxArtifact->caption ?? $lightboxArtifact->filename }}" class="w-full rounded-[14px] border border-[rgba(200,184,154,0.4)] object-contain" />
             </a>
+            @if($lightboxArtifact->caption ?? null)
+                <p class="mt-2 text-xs italic text-yak-slate" data-testid="artifact-caption">{{ $lightboxArtifact->caption }}</p>
+            @endif
         @endif
     @endif
 </flux:modal>

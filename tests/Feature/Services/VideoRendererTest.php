@@ -21,7 +21,6 @@ test('render spawns remotion render with the correct props', function () {
         webmPath: $webmPath,
         storyboardPath: $storyboardPath,
         outputPath: $outputPath,
-        tier: 'reviewer',
     );
 
     Process::assertRan(function ($process) use ($outputPath) {
@@ -94,9 +93,49 @@ test('render raises when remotion exits non-zero', function () {
         webmPath: $webmPath,
         storyboardPath: $storyboardPath,
         outputPath: $outputPath,
-        tier: 'reviewer',
     ))->toThrow(RuntimeException::class, 'Remotion render failed');
 
     @unlink($webmPath);
     @unlink($storyboardPath);
+});
+
+test('render always sends the reviewer tier prop to Remotion', function () {
+    config()->set('yak.video.render_staging_path', storage_path('framework/testing/render-staging-tier'));
+
+    Process::fake([
+        '*remotion*render*' => Process::result(output: 'Rendered', errorOutput: '', exitCode: 0),
+    ]);
+
+    $dir = storage_path('artifacts/T3');
+    @mkdir($dir, 0755, true);
+    file_put_contents($dir . '/walkthrough.webm', 'fake');
+    file_put_contents($dir . '/storyboard.json', json_encode(['version' => 1, 'plan' => (object) [], 'events' => []]));
+
+    (new VideoRenderer(videoDir: base_path('video')))->render(
+        webmPath: $dir . '/walkthrough.webm',
+        storyboardPath: $dir . '/storyboard.json',
+        outputPath: $dir . '/reviewer-cut.mp4',
+    );
+
+    Process::assertRan(function ($process) {
+        $command = is_array($process->command) ? implode(' ', $process->command) : $process->command;
+
+        return str_contains($command, '"tier":"reviewer"');
+    });
+
+    @unlink($dir . '/walkthrough.webm');
+    @unlink($dir . '/storyboard.json');
+});
+
+it('renders the legacy composition as WalkthroughV2', function (): void {
+    Process::fake(['*' => Process::result('', '', 0)]);
+
+    $renderer = new VideoRenderer(base_path('video'));
+    $webm = tempnam(sys_get_temp_dir(), 'webm');
+    $storyboard = tempnam(sys_get_temp_dir(), 'sb');
+    file_put_contents($storyboard, json_encode(['events' => []]));
+
+    $renderer->render($webm, $storyboard, sys_get_temp_dir() . '/out.mp4');
+
+    Process::assertRan(fn ($process): bool => in_array('WalkthroughV2', $process->command, strict: true));
 });

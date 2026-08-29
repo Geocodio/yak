@@ -3,17 +3,21 @@ import assert from 'node:assert';
 import { mkdtempSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startSession, readSession, writeSession, clearSession } from '../src/lib/session.ts';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { startSession, readSession, writeSession } from '../src/lib/session.ts';
 import { writeInitialStoryboard } from '../src/lib/storyboard.ts';
 import { emitAutoEvents } from '../src/lib/autoEvents.ts';
-import { runPlan } from '../src/commands/plan.ts';
-import { runChapter } from '../src/commands/chapter.ts';
-import { runNarrate } from '../src/commands/narrate.ts';
-import { runNote } from '../src/commands/note.ts';
-import { runCallout } from '../src/commands/callout.ts';
-import { runEmphasize } from '../src/commands/emphasize.ts';
-import { runFastforward } from '../src/commands/fastforward.ts';
 import { runPassthrough } from '../src/commands/passthrough.ts';
+
+const CLI_ENTRY = fileURLToPath(new URL('../src/index.ts', import.meta.url));
+
+async function runCli(argv: string[]): Promise<{ status: number | null; stdout: string; stderr: string }> {
+  const result = spawnSync(process.execPath, ['--import', 'tsx', CLI_ENTRY, ...argv], {
+    encoding: 'utf8',
+  });
+  return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+}
 
 let dir: string;
 function events() {
@@ -40,176 +44,11 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'yb-cmd-'));
 });
 
-// -------- plan --------
-const validPlan = {
-  tier: 'reviewer',
-  goal: 'demo',
-  chapters: [
-    { title: 'Intro', beats: [] },
-    { title: 'Middle', beats: [] },
-    { title: 'Result', beats: [] },
-  ],
-  expected_duration_seconds: 45,
-  emphasize_budget: 2,
-  callout_budget: 1,
-  fastforward_segments: [],
-};
-
-test('plan with valid file initializes storyboard and session budgets', () => {
-  startSession(dir, { storyboardPath: join(dir, 'storyboard.json') });
-  const planFile = join(dir, 'plan.json');
-  writeFileSync(planFile, JSON.stringify(validPlan));
-  assert.strictEqual(runPlan({ artifactsDir: dir, planPath: planFile }), 0);
-  const sb = JSON.parse(readFileSync(join(dir, 'storyboard.json'), 'utf8'));
-  assert.deepStrictEqual(sb.plan, validPlan);
-  const s = readSession(dir)!;
-  assert.strictEqual(s.emphasizeBudget, 2);
-  assert.strictEqual(s.calloutBudget, 1);
-  assert.deepStrictEqual(
-    s.chapters.map((c) => c.title),
-    ['Intro', 'Middle', 'Result']
-  );
-});
-
-test('plan rejects invalid plan with non-zero exit', () => {
-  startSession(dir, { storyboardPath: join(dir, 'storyboard.json') });
-  const planFile = join(dir, 'plan.json');
-  writeFileSync(planFile, JSON.stringify({ ...validPlan, tier: 'junk' }));
-  assert.notStrictEqual(runPlan({ artifactsDir: dir, planPath: planFile }), 0);
-});
-
-test('plan rejects when no session is active', () => {
-  const planFile = join(dir, 'plan.json');
-  writeFileSync(planFile, JSON.stringify(validPlan));
-  assert.notStrictEqual(runPlan({ artifactsDir: dir, planPath: planFile }), 0);
-});
-
-test('plan rejects when called twice in same session', () => {
-  startSession(dir, { storyboardPath: join(dir, 'storyboard.json') });
-  const planFile = join(dir, 'plan.json');
-  writeFileSync(planFile, JSON.stringify(validPlan));
-  assert.strictEqual(runPlan({ artifactsDir: dir, planPath: planFile }), 0);
-  assert.notStrictEqual(runPlan({ artifactsDir: dir, planPath: planFile }), 0);
-});
-
-// -------- chapter --------
-test('chapter appends event in order, case-insensitive', () => {
-  startSession(dir, { storyboardPath: join(dir, 'storyboard.json') });
-  const planFile = join(dir, 'plan.json');
-  writeFileSync(planFile, JSON.stringify(validPlan));
-  runPlan({ artifactsDir: dir, planPath: planFile });
-  assert.strictEqual(runChapter({ artifactsDir: dir, title: 'INTRO' }), 0);
-  assert.strictEqual(events()[0].type, 'chapter');
-  assert.strictEqual(events()[0].title, 'Intro');
-});
-
-test('chapter rejects titles not in the plan', () => {
-  startSession(dir, { storyboardPath: join(dir, 'storyboard.json') });
-  writeFileSync(join(dir, 'plan.json'), JSON.stringify(validPlan));
-  runPlan({ artifactsDir: dir, planPath: join(dir, 'plan.json') });
-  assert.notStrictEqual(runChapter({ artifactsDir: dir, title: 'Unknown' }), 0);
-});
-
-test('chapter rejects out-of-order advance', () => {
-  startSession(dir, { storyboardPath: join(dir, 'storyboard.json') });
-  writeFileSync(join(dir, 'plan.json'), JSON.stringify(validPlan));
-  runPlan({ artifactsDir: dir, planPath: join(dir, 'plan.json') });
-  runChapter({ artifactsDir: dir, title: 'Intro' });
-  assert.notStrictEqual(runChapter({ artifactsDir: dir, title: 'Result' }), 0);
-});
-
-// -------- narrate/note --------
-test('narrate appends a narrate event', () => {
-  setupSession();
-  assert.strictEqual(runNarrate({ artifactsDir: dir, text: 'hello' }), 0);
-  assert.strictEqual(events()[0].type, 'narrate');
-  assert.strictEqual(events()[0].text, 'hello');
-});
-
-test('narrate rejects when no session', () => {
-  setupSession();
-  clearSession(dir);
-  assert.notStrictEqual(runNarrate({ artifactsDir: dir, text: 'x' }), 0);
-});
-
-test('note appends a note event', () => {
-  setupSession();
-  assert.strictEqual(runNote({ artifactsDir: dir, text: 'Setup' }), 0);
-  assert.strictEqual(events()[0].type, 'note');
-});
-
-// -------- callout --------
-test('callout decrements budget and writes event', () => {
-  setupSession({ callout: 2 });
-  const code = runCallout({ artifactsDir: dir, text: 'The filter', selector: '#filter', anchor: 'top' });
-  assert.strictEqual(code, 0);
-  assert.strictEqual(readSession(dir)!.calloutBudget, 1);
-  assert.strictEqual(events()[0].type, 'callout');
-  assert.strictEqual(events()[0].anchor, 'top');
-});
-
-test('callout rejects when budget zero', () => {
-  setupSession({ callout: 0 });
-  assert.notStrictEqual(runCallout({ artifactsDir: dir, text: 'x', selector: '#x' }), 0);
-});
-
-test('callout rejects invalid anchor', () => {
-  setupSession({ callout: 1 });
-  assert.notStrictEqual(
-    runCallout({ artifactsDir: dir, text: 'x', selector: '#x', anchor: 'upside-down' as any }),
-    0
-  );
-});
-
-// -------- emphasize --------
-test('emphasize flips pending and decrements', () => {
-  setupSession({ emphasize: 2 });
-  assert.strictEqual(runEmphasize({ artifactsDir: dir }), 0);
-  const s = readSession(dir)!;
-  assert.strictEqual(s.emphasizePending, true);
-  assert.strictEqual(s.emphasizeBudget, 1);
-});
-
-test('emphasize rejects when already pending', () => {
-  setupSession({ emphasize: 2 });
-  runEmphasize({ artifactsDir: dir });
-  assert.notStrictEqual(runEmphasize({ artifactsDir: dir }), 0);
-});
-
-test('emphasize rejects when budget zero', () => {
-  setupSession({ emphasize: 0 });
-  assert.notStrictEqual(runEmphasize({ artifactsDir: dir }), 0);
-});
-
-// -------- fastforward --------
-test('fastforward start sets open state, stop clears it', () => {
-  setupSession();
-  assert.strictEqual(runFastforward({ artifactsDir: dir, action: 'start', factor: 4 }), 0);
-  assert.notStrictEqual(readSession(dir)!.openFastforward, null);
-  assert.strictEqual(runFastforward({ artifactsDir: dir, action: 'stop' }), 0);
-  assert.strictEqual(readSession(dir)!.openFastforward, null);
-});
-
-test('fastforward rejects nesting', () => {
-  setupSession();
-  runFastforward({ artifactsDir: dir, action: 'start', factor: 4 });
-  assert.notStrictEqual(runFastforward({ artifactsDir: dir, action: 'start' }), 0);
-});
-
-test('fastforward rejects stop without start', () => {
-  setupSession();
-  assert.notStrictEqual(runFastforward({ artifactsDir: dir, action: 'stop' }), 0);
-});
-
-test('fastforward default factor is 4', () => {
-  setupSession();
-  runFastforward({ artifactsDir: dir, action: 'start' });
-  assert.strictEqual(events()[0].factor, 4);
-});
-
-test('fastforward rejects factor <= 1', () => {
-  setupSession();
-  assert.notStrictEqual(runFastforward({ artifactsDir: dir, action: 'start', factor: 1 }), 0);
+test('legacy annotation commands fall through to passthrough', async () => {
+  const help = await runCli(['--help']);
+  for (const command of ['record start', 'plan', 'chapter', 'narrate', 'note', 'callout', 'emphasize', 'fastforward']) {
+    assert.ok(!help.stdout.includes(command), `help still advertises ${command}`);
+  }
 });
 
 // -------- auto events --------
@@ -224,7 +63,9 @@ test('click command emits click event', () => {
 
 test('click consumes pending emphasize', () => {
   setupSession({ emphasize: 1 });
-  runEmphasize({ artifactsDir: dir });
+  const s = readSession(dir)!;
+  s.emphasizePending = true;
+  writeSession(dir, s);
   assert.strictEqual(readSession(dir)!.emphasizePending, true);
   emitAutoEvents(dir, ['click', '--x', '10', '--y', '20']);
   assert.strictEqual(readSession(dir)!.emphasizePending, false);
