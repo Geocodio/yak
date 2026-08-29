@@ -100,6 +100,15 @@ export type BuildBlocksInput = {
  * and `scripts/timeline.ts` prints it, so the host can derive chapters,
  * expected duration and caption fit before a render starts.
  */
+/**
+ * A ceiling stops a card lingering when its length comes from a reading-time
+ * *estimate*. Voiceover is not an estimate: clamping below it cuts narration
+ * mid-sentence, so a voiceover-driven length always wins over the ceiling.
+ */
+function ceilingFor(ceiling: number, voiceoverDriven: number | null): number {
+  return voiceoverDriven === null ? ceiling : Math.max(ceiling, voiceoverDriven);
+}
+
 export function buildBlocks(input: BuildBlocksInput): Timeline {
   const fps = input.fps ?? DEFAULT_FPS;
   const { script, manifest } = input;
@@ -133,6 +142,7 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
   };
 
   const introSeconds = voiceoverSeconds(voiceover, 'intro');
+  const introDriven = introSeconds !== null ? introSeconds + TIMING.title.voiceoverPad : null;
   add<TitleBlock>(
     {
       kind: 'title',
@@ -143,9 +153,9 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
         : null,
     },
     clamp(
-      introSeconds !== null ? introSeconds + TIMING.title.voiceoverPad : readingSeconds(script.intro),
+      introDriven ?? readingSeconds(script.intro),
       TIMING.title.floor,
-      TIMING.title.ceiling,
+      ceilingFor(TIMING.title.ceiling, introDriven),
     ),
   );
 
@@ -202,7 +212,11 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
           ? { file: entry.file, startSeconds: transitionInSeconds + TIMING.shot.voiceoverLead }
           : null,
       },
-      clamp(Math.max(...drivers), TIMING.shot.floor, TIMING.shot.ceiling),
+      clamp(
+        Math.max(...drivers),
+        TIMING.shot.floor,
+        ceilingFor(TIMING.shot.ceiling, sayVoiceover !== null ? sayVoiceover + TIMING.shot.voiceoverPad : null),
+      ),
     );
     block.freezeSeconds = Math.max(0, block.durationSeconds - clipSeconds);
     block.clipTruncatedSeconds = Math.max(0, clipSeconds - block.durationSeconds);
@@ -210,6 +224,7 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
   }
 
   const outroSeconds = voiceoverSeconds(voiceover, 'outro');
+  const outroDriven = outroSeconds !== null ? outroSeconds + TIMING.summary.voiceoverPad : null;
   const summaryFloor = TIMING.summary.floorBase + TIMING.summary.floorPerBullet * script.summary.length;
   add<SummaryBlock>(
     {
@@ -221,9 +236,9 @@ export function buildBlocks(input: BuildBlocksInput): Timeline {
         : null,
     },
     clamp(
-      outroSeconds !== null ? outroSeconds + TIMING.summary.voiceoverPad : summaryFloor,
+      outroDriven ?? summaryFloor,
       summaryFloor,
-      TIMING.summary.ceiling,
+      ceilingFor(TIMING.summary.ceiling, outroDriven),
     ),
   );
 

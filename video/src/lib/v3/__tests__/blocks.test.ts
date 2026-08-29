@@ -147,9 +147,19 @@ describe('title card timing', () => {
     expect(titleBlock(blocks).voiceover).toEqual({ file: 'vo/intro.mp3', startSeconds: TIMING.fadeInSeconds });
   });
 
-  it('caps the title card at the 8 s ceiling', () => {
-    const { blocks } = build(script(), manifest(), { intro: { file: 'vo/intro.mp3', durationSeconds: 30 } });
+  it('caps a reading-time title card at the 8 s ceiling', () => {
+    const { blocks } = build(script({ intro: 'word '.repeat(400) }), manifest());
     expectDuration(titleBlock(blocks).durationInFrames, TIMING.fadeInSeconds + 8.0);
+  });
+
+  it('lets a voiceover longer than the ceiling play out instead of cutting it', () => {
+    /**
+     * Regression: the 8 s ceiling was applied to the voiceover-driven length
+     * too, so a 13.9 s intro was truncated to 8 s and the narration was cut
+     * off mid-sentence before the cut moved on to the next card.
+     */
+    const { blocks } = build(script(), manifest(), { intro: { file: 'vo/intro.mp3', durationSeconds: 13.87 } });
+    expectDuration(titleBlock(blocks).durationInFrames, TIMING.fadeInSeconds + 13.87 + TIMING.title.voiceoverPad);
   });
 });
 
@@ -300,16 +310,20 @@ describe('summary card timing', () => {
     expect(summary.voiceover).toEqual({ file: 'vo/outro.mp3', startSeconds: TIMING.chapterDipSeconds });
   });
 
-  it('never drops below the bullet floor and never exceeds 10 s', () => {
+  it('never drops below the bullet floor, and lets a long outro play out', () => {
     const short = build(script({ summary: ['a', 'b'] }), manifest(), {
       outro: { file: 'vo/outro.mp3', durationSeconds: 1 },
     });
     expectDuration(short.blocks[short.blocks.length - 1].durationInFrames, TIMING.chapterDipSeconds + 5.8);
 
+    // The 10 s ceiling must not cut narration: same contract as the title card.
     const long = build(script({ summary: ['a', 'b'] }), manifest(), {
       outro: { file: 'vo/outro.mp3', durationSeconds: 40 },
     });
-    expectDuration(long.blocks[long.blocks.length - 1].durationInFrames, TIMING.chapterDipSeconds + 10.0);
+    expectDuration(
+      long.blocks[long.blocks.length - 1].durationInFrames,
+      TIMING.chapterDipSeconds + 40 + TIMING.summary.voiceoverPad,
+    );
   });
 });
 
