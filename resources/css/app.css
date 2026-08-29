@@ -508,3 +508,8 @@ select:focus[data-flux-control] {
 /* Gradient stops that use white at the bottom of video/image overlays —
    fade to the dark surface colour instead so the transition stays subtle. */
 .dark .from-white\/75 { --tw-gradient-from: rgba(34, 41, 50, 0.75) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-from), var(--tw-gradient-to)); }
+
+/* Alpine: hide elements until Alpine has initialised them. */
+[x-cloak] {
+    display: none !important;
+}

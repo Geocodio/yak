@@ -7,6 +7,8 @@
         href="{{ $this->googleFontsHref }}"
         wire:key="google-fonts-{{ md5($this->googleFontsHref) }}"
     >
+    {{-- Every selectable family at 400, so the font pickers preview each option in its own face. --}}
+    <link rel="stylesheet" href="{{ $this->fontPickerHref }}">
 
     {{-- Built by `node video/scripts/build-preview.mjs`; absent in a fresh checkout, which the preview column tolerates. --}}
     <script id="yak-video-preview-script" src="{{ asset('vendor/video-preview.js') }}" defer data-navigate-once></script>
@@ -51,11 +53,51 @@
                     <flux:heading size="sm">{{ __('Fonts') }}</flux:heading>
                     <div class="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
                         @foreach (['display' => __('Display'), 'body' => __('Body'), 'mono' => __('Mono')] as $role => $label)
-                            <flux:select wire:model.live="fonts.{{ $role }}" :label="$label">
-                                @foreach ($this->fontFamilies as $family)
-                                    <flux:select.option value="{{ $family }}">{{ $family }}</flux:select.option>
-                                @endforeach
-                            </flux:select>
+                            @php $current = $fonts[$role] ?? ''; @endphp
+                            <div
+                                class="relative"
+                                x-data="{ open: false }"
+                                @click.outside="open = false"
+                                @keydown.escape.window="open = false"
+                                wire:key="font-picker-{{ $role }}"
+                            >
+                                <flux:label>{{ $label }}</flux:label>
+                                <button
+                                    type="button"
+                                    data-testid="font-picker-{{ $role }}"
+                                    class="mt-1 flex h-10 w-full items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 text-left text-sm text-zinc-800 shadow-xs hover:border-zinc-300 focus:outline-none focus:ring-2 focus:ring-yak-orange/40 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                                    @click="open = ! open"
+                                    :aria-expanded="open"
+                                    aria-haspopup="listbox"
+                                >
+                                    <span class="truncate text-[15px]" style="font-family: '{{ $current }}', sans-serif">{{ $current }}</span>
+                                    <span class="ml-3 flex shrink-0 items-center gap-2 text-zinc-400">
+                                        <span class="text-xs" style="font-family: '{{ $current }}', sans-serif">Aa Bb 123</span>
+                                        <flux:icon.chevron-up-down class="size-4" />
+                                    </span>
+                                </button>
+                                <ul
+                                    x-show="open"
+                                    x-cloak
+                                    x-transition.opacity.duration.100ms
+                                    role="listbox"
+                                    aria-label="{{ $label }}"
+                                    class="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-600 dark:bg-zinc-800"
+                                >
+                                    @foreach ($this->fontFamilies as $family)
+                                        <li
+                                            role="option"
+                                            aria-selected="{{ $family === $current ? 'true' : 'false' }}"
+                                            wire:click="selectFont('{{ $role }}', @js($family))"
+                                            @click="open = false"
+                                            class="flex cursor-pointer items-center justify-between gap-4 px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 {{ $family === $current ? 'bg-yak-cream text-yak-slate dark:bg-zinc-700' : 'text-zinc-800 dark:text-zinc-100' }}"
+                                        >
+                                            <span class="text-[15px]" style="font-family: '{{ $family }}', sans-serif">{{ $family }}</span>
+                                            <span class="shrink-0 text-sm text-zinc-400" style="font-family: '{{ $family }}', sans-serif">Aa Bb 123</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
                         @endforeach
                     </div>
                     <flux:text size="sm" class="text-zinc-500">{{ __('Any Google Fonts family the renderer bundles. The renderer downloads it at render time.') }}</flux:text>

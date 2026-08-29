@@ -270,3 +270,29 @@ it('stores a benign svg uploaded under a png filename with an svg extension', fu
     // mislabelled image/png that a browser would sniff back to SVG anyway.
     expect(VideoThemeRow::current()->logo_path)->toBe('theme/logo.svg');
 });
+
+it('renders each font option in its own typeface with a sample', function (): void {
+    $component = Livewire::test(VideoTheme::class);
+
+    foreach (['display', 'body', 'mono'] as $role) {
+        $component->assertSeeHtml('data-testid="font-picker-' . $role . '"');
+    }
+
+    $component
+        ->assertSeeHtml("font-family: 'Fraunces'")
+        ->assertSeeHtml("font-family: 'JetBrains Mono'")
+        ->assertSee('Aa Bb 123');
+
+    expect($component->instance()->fontPickerHref)
+        ->toStartWith('https://fonts.googleapis.com/css2?')
+        ->toContain('family=Fraunces')
+        ->toContain('family=Space+Grotesk');
+});
+
+it('selects a font family through the picker', function (): void {
+    Livewire::test(VideoTheme::class)
+        ->call('selectFont', 'display', 'Fraunces')
+        ->assertSet('fonts.display', 'Fraunces')
+        ->call('selectFont', 'display', 'Comic Sans MS')
+        ->assertHasErrors(['fonts.display']);
+});

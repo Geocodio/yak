@@ -280,6 +280,31 @@ class VideoTheme extends Component
         return VideoThemeResolver::FONT_FAMILIES;
     }
 
+    /**
+     * One stylesheet for every selectable family at regular weight, so the
+     * font pickers can render each option in its own typeface.
+     */
+    #[Computed]
+    public function fontPickerHref(): string
+    {
+        $families = collect(VideoThemeResolver::FONT_FAMILIES)
+            ->map(fn (string $family): string => 'family=' . str_replace(' ', '+', $family) . ':wght@400')
+            ->implode('&');
+
+        return 'https://fonts.googleapis.com/css2?' . $families . '&display=swap';
+    }
+
+    /** Pick a family from the rich dropdown for one of the three font roles. */
+    public function selectFont(string $role, string $family): void
+    {
+        if (! in_array($role, ['display', 'body', 'mono'], true)) {
+            return;
+        }
+
+        $this->fonts[$role] = $family;
+        $this->validateOnly("fonts.{$role}");
+    }
+
     public function render(): View
     {
         return view('livewire.settings.video-theme');
