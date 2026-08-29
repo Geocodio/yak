@@ -150,3 +150,55 @@ it('cleans up the staging directory', function (): void {
 
     expect(glob($root . '/*') ?: [])->toBe([]);
 });
+
+it('stages voiceover mp3s and hands Remotion public-dir relative paths', function (): void {
+    /**
+     * Regression: absolute voiceover paths reached `--props` untouched, and
+     * `classifySrc()` turns a leading-slash path into a `file://` url that
+     * Remotion's asset downloader refuses ("Can only download URLs starting
+     * with http:// or https://"). Every render failed once a key was set.
+     */
+    $staged = [];
+    Process::fake(function ($process) use (&$staged) {
+        foreach ($process->command as $argument) {
+            if (str_starts_with($argument, '--public-dir=')) {
+                $dir = rtrim(substr($argument, strlen('--public-dir=')), '/');
+                $staged = array_values(array_diff((array) @scandir($dir . '/vo'), ['.', '..']));
+            }
+        }
+
+        return Process::result('', '', 0);
+    });
+
+    [$script, $manifest, $clips] = writeV3Inputs();
+
+    $voiceDir = sys_get_temp_dir() . '/yak-vo-' . bin2hex(random_bytes(4));
+    mkdir($voiceDir, 0775, true);
+    file_put_contents($voiceDir . '/intro.mp3', 'mp3-bytes');
+
+    (new VideoRenderer(base_path('video')))->renderWalkthrough(
+        scriptPath: $script,
+        manifestPath: $manifest,
+        clipPaths: $clips,
+        voiceover: ['intro' => ['file' => $voiceDir . '/intro.mp3', 'durationSeconds' => 1.5]],
+        theme: config('yak.video.theme'),
+        publicOrigin: 'https://www.example.com',
+        outputPath: sys_get_temp_dir() . '/out.mp4',
+    );
+
+    expect($staged)->toBe(['intro.mp3']);
+
+    Process::assertRan(function ($process): bool {
+        $props = null;
+        foreach ($process->command as $argument) {
+            if (str_starts_with($argument, '--props=')) {
+                $props = json_decode(substr($argument, strlen('--props=')), true);
+            }
+        }
+
+        expect($props['voiceover']['intro']['file'])->toBe('vo/intro.mp3')
+            ->and($props['voiceover']['intro']['durationSeconds'])->toBe(1.5);
+
+        return true;
+    });
+});

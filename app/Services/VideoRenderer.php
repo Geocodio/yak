@@ -180,6 +180,8 @@ class VideoRenderer
 
             $manifest['shots'] = $shots;
 
+            $voiceover = $this->stageVoiceover($voiceover, $stagingDir);
+
             $props = json_encode([
                 'script' => $script,
                 'manifest' => $manifest,
@@ -207,6 +209,57 @@ class VideoRenderer
         } finally {
             File::deleteDirectory($stagingDir);
         }
+    }
+
+    /**
+     * Stage voiceover MP3s alongside the clips and rewrite each line to a
+     * name relative to the staging public dir.
+     *
+     * Absolute paths are deliberately not used, for the same reason as the
+     * shot clips above: `classifySrc()` turns a leading-slash path into a
+     * `file://` url, and Remotion's asset downloader refuses those ("Can
+     * only download URLs starting with http:// or https://"). A bare
+     * `vo/<id>.mp3` resolves through `staticFile()` against `--public-dir`.
+     *
+     * Unlike a missing clip, a missing line is dropped rather than fatal:
+     * voiceover is best-effort, and the cut is expected to go out
+     * captions-only rather than not at all.
+     *
+     * @param  array<string, array{file: string, durationSeconds: float}>|null  $voiceover
+     * @return array<string, array{file: string, durationSeconds: float}>|null
+     */
+    private function stageVoiceover(?array $voiceover, string $stagingDir): ?array
+    {
+        if ($voiceover === null || $voiceover === []) {
+            return null;
+        }
+
+        if (! is_dir($stagingDir . '/vo') && ! mkdir($stagingDir . '/vo', 0775, true)) {
+            throw new RuntimeException("cannot create staging vo dir in {$stagingDir}");
+        }
+
+        $staged = [];
+
+        foreach ($voiceover as $id => $line) {
+            $source = (string) $line['file'];
+
+            if ($source === '' || ! file_exists($source)) {
+                Log::channel('yak')->warning('VideoRenderer: voiceover line has no file on disk', ['line' => $id]);
+
+                continue;
+            }
+
+            if (! copy($source, "{$stagingDir}/vo/{$id}.mp3")) {
+                Log::channel('yak')->warning('VideoRenderer: failed to stage voiceover line', ['line' => $id]);
+
+                continue;
+            }
+
+            $line['file'] = "vo/{$id}.mp3";
+            $staged[$id] = $line;
+        }
+
+        return $staged === [] ? null : $staged;
     }
 
     /**
