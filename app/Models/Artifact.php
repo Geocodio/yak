@@ -30,6 +30,15 @@ class Artifact extends Model
     public const array PUBLIC_ROLES = ['preview', 'thumbnail'];
 
     /**
+     * Roles that exist only as inputs to the walkthrough render: the
+     * per-shot clips and the poster stills cut from them. They carry
+     * `video` and `screenshot` types, so anything selecting on type alone
+     * sweeps them up, but they are build artifacts rather than task media
+     * a reviewer should browse.
+     */
+    public const array RENDER_INPUT_ROLES = ['shot', 'still'];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
