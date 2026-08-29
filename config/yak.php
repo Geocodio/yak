@@ -142,6 +142,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Skills marketplace GitHub token
+    |--------------------------------------------------------------------------
+    |
+    | Optional override used when the host-side `claude` CLI clones a private
+    | plugin marketplace. Leave unset to use the GitHub App installation
+    | token, which covers every repo the Yak app is installed on. Set it to a
+    | PAT only for marketplaces outside that installation.
+    */
+
+    'skills_github_token' => env('YAK_SKILLS_GITHUB_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | API Keys
     |--------------------------------------------------------------------------
     */
