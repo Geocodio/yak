@@ -16,6 +16,12 @@ class GarbageCollectTemplateSnapshotsJob implements ShouldQueue
 {
     use Queueable;
 
+    /** Deleting a snapshot unwinds a ZFS dataset; well past the Process facade's 60s default. */
+    private const DELETE_TIMEOUT = 300;
+
+    /** Cheap metadata read. */
+    private const LIST_TIMEOUT = 30;
+
     public function __construct()
     {
         $this->onQueue('yak-deployments');
@@ -31,7 +37,7 @@ class GarbageCollectTemplateSnapshotsJob implements ShouldQueue
                 continue;
             }
 
-            $result = Process::run("incus snapshot delete {$ref->name()}");
+            $result = Process::timeout(self::DELETE_TIMEOUT)->run("incus snapshot delete {$ref->name()}");
             if (! $result->successful()) {
                 Log::channel('yak')->warning('Failed to GC template snapshot', [
                     'snapshot' => $ref->name(),
@@ -44,7 +50,7 @@ class GarbageCollectTemplateSnapshotsJob implements ShouldQueue
     /** @return list<TemplateSnapshotRef> */
     private function listAllSnapshots(): array
     {
-        $result = Process::run('incus snapshot list --format plain');
+        $result = Process::timeout(self::LIST_TIMEOUT)->run('incus snapshot list --format plain');
         if (! $result->successful()) {
             return [];
         }

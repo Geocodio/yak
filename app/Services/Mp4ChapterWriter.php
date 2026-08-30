@@ -33,7 +33,9 @@ class Mp4ChapterWriter
         try {
             File::put($ffmetaPath, $this->ffmeta($timeline));
 
-            $result = Process::run([
+            // Stream copy, but a long walkthrough mp4 still outruns the
+            // Process facade's 60s default on a busy host.
+            $result = Process::timeout(300)->run([
                 'ffmpeg', '-y',
                 '-i', $mp4Path,
                 '-i', $ffmetaPath,
