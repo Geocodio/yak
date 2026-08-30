@@ -25,6 +25,31 @@ use RuntimeException;
 class IncusSandboxManager
 {
     /**
+     * Wall-clock ceiling for incus commands that move real data — `copy`,
+     * `snapshot create`, `config device add`. Cloning a fully provisioned
+     * repo template is fast on ZFS but not instant, and Laravel's Process
+     * facade defaults to a 60s timeout that these routinely blow past.
+     */
+    private const EXEC_TIMEOUT = 600;
+
+    /**
+     * How long to let a container shut down cleanly before killing it.
+     * `incus stop` defaults to `--timeout -1` (wait forever), so this has
+     * to be bounded on our side or the shutdown of a container holding a
+     * stuck dev server hangs until the Process facade throws.
+     */
+    private const STOP_TIMEOUT = 60;
+
+    /** Ceiling for `incus delete`, which unwinds ZFS datasets. */
+    private const DELETE_TIMEOUT = 300;
+
+    /** Ceiling for a single readiness probe inside a booting container. */
+    private const PROBE_TIMEOUT = 10;
+
+    /** Ceiling for cheap metadata reads — `list`, `info`, `config`, `file push`. */
+    private const QUERY_TIMEOUT = 30;
+
+    /**
      * Create a sandbox container for a task, cloned from the repo's snapshot.
      *
      * If the repo has a sandbox snapshot, clones from it (instant CoW).
@@ -291,10 +316,10 @@ class IncusSandboxManager
         ]);
 
         // Stop the container before snapshotting for a clean state
-        $this->exec("incus stop {$containerName}");
+        $this->stopBeforeCapture($containerName);
 
         // Delete existing snapshot if present (idempotent re-snapshot)
-        Process::run("incus snapshot delete {$containerName} {$snapshotName} 2>/dev/null");
+        Process::timeout(self::DELETE_TIMEOUT)->run("incus snapshot delete {$containerName} {$snapshotName} 2>/dev/null");
 
         $this->exec("incus snapshot create {$containerName} {$snapshotName}");
 
@@ -317,10 +342,10 @@ class IncusSandboxManager
         $snapshotName = "ready-v{$newVersion}";
 
         // Delete old template if it exists
-        Process::run("incus delete {$templateName} --force 2>/dev/null");
+        Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$templateName} --force 2>/dev/null");
 
         // Stop the task container
-        $this->exec("incus stop {$containerName}");
+        $this->stopBeforeCapture($containerName);
 
         // `incus copy` carries instance-local devices and config to the
         // copy. Strip the shared claude credential mount and its idmap
@@ -329,8 +354,8 @@ class IncusSandboxManager
         // ~/.claude. The container is stopped and about to be destroyed,
         // so this is safe; best-effort since a container that never had
         // the device/idmap must not fail the promotion.
-        Process::run("incus config device remove {$containerName} claude 2>/dev/null");
-        Process::run("incus config unset {$containerName} raw.idmap 2>/dev/null");
+        Process::timeout(self::QUERY_TIMEOUT)->run("incus config device remove {$containerName} claude 2>/dev/null");
+        Process::timeout(self::QUERY_TIMEOUT)->run("incus config unset {$containerName} raw.idmap 2>/dev/null");
 
         // Copy task container as the new template
         $this->exec("incus copy {$containerName} {$templateName}");
@@ -390,7 +415,7 @@ class IncusSandboxManager
         ]);
 
         // Force stop + delete in one shot (ignore errors for already-stopped containers)
-        Process::run("incus delete {$containerName} --force 2>/dev/null");
+        Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$containerName} --force 2>/dev/null");
     }
 
     /**
@@ -401,7 +426,7 @@ class IncusSandboxManager
         $templateName = $this->templateName($repository);
         $snapshotName = (string) config('yak.sandbox.snapshot_name', 'ready');
 
-        $result = Process::run("incus snapshot list {$templateName} --format csv 2>/dev/null");
+        $result = Process::timeout(self::QUERY_TIMEOUT)->run("incus snapshot list {$templateName} --format csv 2>/dev/null");
 
         if ($result->exitCode() !== 0) {
             return false;
@@ -449,7 +474,7 @@ class IncusSandboxManager
      */
     public function cleanupStale(): int
     {
-        $result = Process::run('incus list --format csv -c n,s 2>/dev/null');
+        $result = Process::timeout(self::QUERY_TIMEOUT)->run('incus list --format csv -c n,s 2>/dev/null');
 
         if ($result->exitCode() !== 0) {
             return 0;
@@ -468,7 +493,7 @@ class IncusSandboxManager
 
             if (str_starts_with($name, 'task-')) {
                 if ($status === 'STOPPED') {
-                    Process::run("incus delete {$name} --force");
+                    Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$name} --force");
                     $deleted++;
 
                     continue;
@@ -478,7 +503,7 @@ class IncusSandboxManager
                     Log::channel('yak')->warning('Cleaning up orphaned sandbox', [
                         'container' => $name,
                     ]);
-                    Process::run("incus delete {$name} --force");
+                    Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$name} --force");
                     $deleted++;
                 }
 
@@ -490,7 +515,7 @@ class IncusSandboxManager
                     'container' => $name,
                     'status' => $status,
                 ]);
-                Process::run("incus delete {$name} --force");
+                Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$name} --force");
                 $deleted++;
             }
         }
@@ -503,7 +528,7 @@ class IncusSandboxManager
      */
     public function containerExists(string $containerName): bool
     {
-        $result = Process::run('incus info ' . escapeshellarg($containerName));
+        $result = Process::timeout(self::QUERY_TIMEOUT)->run('incus info ' . escapeshellarg($containerName));
 
         return $result->exitCode() === 0;
     }
@@ -543,7 +568,7 @@ class IncusSandboxManager
             'current_version' => (int) config('yak.sandbox.base_version', 1),
         ]);
 
-        Process::run("incus delete {$templateName} --force 2>/dev/null");
+        Process::timeout(self::DELETE_TIMEOUT)->run("incus delete {$templateName} --force 2>/dev/null");
 
         $repository->update([
             'sandbox_snapshot' => null,
@@ -623,7 +648,7 @@ class IncusSandboxManager
 
         // Fall back to base template
         $baseTemplate = (string) config('yak.sandbox.base_template', 'yak-base');
-        $baseResult = Process::run("incus snapshot list {$baseTemplate} --format csv 2>/dev/null");
+        $baseResult = Process::timeout(self::QUERY_TIMEOUT)->run("incus snapshot list {$baseTemplate} --format csv 2>/dev/null");
 
         if ($baseResult->exitCode() === 0 && str_contains($baseResult->output(), $snapshotName)) {
             return "{$baseTemplate}/{$snapshotName}";
@@ -640,7 +665,7 @@ class IncusSandboxManager
         $disk = (string) config('yak.sandbox.disk_limit', '30GB');
 
         $this->exec("incus config set {$containerName} limits.cpu={$cpu} limits.memory={$memory}");
-        Process::run("incus config device set {$containerName} root size={$disk} 2>/dev/null");
+        Process::timeout(self::QUERY_TIMEOUT)->run("incus config device set {$containerName} root size={$disk} 2>/dev/null");
     }
 
     /**
@@ -677,26 +702,41 @@ class IncusSandboxManager
         }
     }
 
+    /**
+     * Run a short readiness probe inside a booting container.
+     *
+     * Returns false rather than throwing when the probe times out or errors,
+     * so the caller's polling loop gets another turn.
+     *
+     * @param  list<string>  $expectedOutput  when given, trimmed stdout must match one of these
+     */
+    private function probeSucceeds(string $command, array $expectedOutput = []): bool
+    {
+        try {
+            $result = Process::timeout(self::PROBE_TIMEOUT)->run($command);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        if ($expectedOutput === []) {
+            return $result->exitCode() === 0;
+        }
+
+        return in_array(trim($result->output()), $expectedOutput, true);
+    }
+
     private function waitForReady(string $containerName, int $maxWaitSeconds = 60): void
     {
         $start = time();
 
         while (time() - $start < $maxWaitSeconds) {
-            $result = Process::run(
-                "incus exec {$containerName} -- systemctl is-system-running 2>/dev/null",
-            );
-
-            $status = trim($result->output());
-
-            if ($status === 'running' || $status === 'degraded') {
-                // Also check Docker is ready
-                $docker = Process::run(
-                    "incus exec {$containerName} -- docker info 2>/dev/null",
-                );
-
-                if ($docker->exitCode() === 0) {
-                    return;
-                }
+            // A probe that hangs is just a not-ready-yet signal, so cap each
+            // one well under $maxWaitSeconds and keep polling. Without the
+            // cap these inherit the Process facade's 60s default, and a
+            // single stuck probe outlives the whole wait window.
+            if ($this->probeSucceeds("incus exec {$containerName} -- systemctl is-system-running 2>/dev/null", ['running', 'degraded'])
+                && $this->probeSucceeds("incus exec {$containerName} -- docker info 2>/dev/null")) {
+                return;
             }
 
             usleep(500_000); // 500ms
@@ -747,7 +787,7 @@ class IncusSandboxManager
         // an earlier build of this feature (see promoteToTemplate()) may
         // already carry the device. Remove it first so the add below
         // doesn't fail with "Device already exists".
-        Process::run(sprintf(
+        Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
             'incus config device remove %s claude 2>/dev/null',
             escapeshellarg($containerName),
         ));
@@ -939,7 +979,7 @@ class IncusSandboxManager
             return;
         }
 
-        Process::run(sprintf(
+        Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
             'incus file push %s %s/home/yak/mcp-config.json',
             escapeshellarg($mcpConfigPath),
             escapeshellarg($containerName),
@@ -970,7 +1010,7 @@ class IncusSandboxManager
             asRoot: true,
         );
 
-        Process::run(sprintf(
+        Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
             'incus file push %s %s/home/yak/.docker/config.json',
             escapeshellarg($dockerConfigSource),
             escapeshellarg($containerName),
@@ -986,9 +1026,36 @@ class IncusSandboxManager
         );
     }
 
-    private function exec(string $command): void
+    /**
+     * Stop a container that is about to be snapshotted, copied, or destroyed.
+     *
+     * `incus stop` defaults to `--timeout -1`, i.e. wait forever for a clean
+     * shutdown. A sandbox that just finished a setup run is usually holding a
+     * dev server, a docker daemon, or a stray agent process that never exits,
+     * so the graceful path can outlast any wrapper timeout we set. Give it a
+     * bounded window and then kill it: the container's only remaining job is
+     * to be captured or deleted, so a hard stop costs nothing.
+     */
+    private function stopBeforeCapture(string $containerName): void
     {
-        $result = Process::run($command);
+        $graceful = Process::timeout(self::STOP_TIMEOUT + 30)
+            ->run("incus stop {$containerName} --timeout " . self::STOP_TIMEOUT);
+
+        if ($graceful->exitCode() === 0) {
+            return;
+        }
+
+        Log::channel('yak')->warning('Graceful sandbox stop failed, forcing', [
+            'container' => $containerName,
+            'error' => trim($graceful->errorOutput()),
+        ]);
+
+        $this->exec("incus stop {$containerName} --force", timeout: self::STOP_TIMEOUT);
+    }
+
+    private function exec(string $command, ?int $timeout = null): void
+    {
+        $result = Process::timeout($timeout ?? self::EXEC_TIMEOUT)->run($command);
 
         if ($result->exitCode() !== 0) {
             throw new RuntimeException("Incus command failed: {$command}\n{$result->errorOutput()}");

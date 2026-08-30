@@ -14,6 +14,18 @@ use RuntimeException;
 
 class DeploymentContainerManager
 {
+    /** Ceiling for `incus copy`, which clones a full repo template. */
+    private const COPY_TIMEOUT = 600;
+
+    /** How long to let a preview container shut down cleanly before killing it. */
+    private const STOP_TIMEOUT = 60;
+
+    /** Ceiling for `incus start` and for `incus delete`, which unwinds ZFS datasets. */
+    private const LIFECYCLE_TIMEOUT = 300;
+
+    /** Ceiling for cheap metadata reads and config pokes. */
+    private const QUERY_TIMEOUT = 30;
+
     public function __construct(private IncusSandboxManager $sandbox) {}
 
     public function createFromTemplate(BranchDeployment $deployment): void
@@ -21,7 +33,7 @@ class DeploymentContainerManager
         $deployment->loadMissing('repository');
         $ref = new TemplateSnapshotRef($deployment->repository->slug, $deployment->template_version);
 
-        $result = Process::run("incus copy {$ref->name()} {$deployment->container_name}");
+        $result = Process::timeout(self::COPY_TIMEOUT)->run("incus copy {$ref->name()} {$deployment->container_name}");
 
         if ($result->exitCode() !== 0) {
             throw new RuntimeException("Failed to clone template snapshot: {$result->errorOutput()}");
@@ -34,8 +46,8 @@ class DeploymentContainerManager
         // live read/write mount of the host's ~/.claude, nor the idmap that
         // would let it, even if an earlier build of that fix poisoned a
         // template. Best-effort — never fail the deployment over this.
-        Process::run("incus config device remove {$deployment->container_name} claude 2>/dev/null");
-        Process::run("incus config unset {$deployment->container_name} raw.idmap 2>/dev/null");
+        Process::timeout(self::QUERY_TIMEOUT)->run("incus config device remove {$deployment->container_name} claude 2>/dev/null");
+        Process::timeout(self::QUERY_TIMEOUT)->run("incus config unset {$deployment->container_name} raw.idmap 2>/dev/null");
     }
 
     public function start(BranchDeployment $deployment): string
@@ -43,7 +55,7 @@ class DeploymentContainerManager
         $deployment->loadMissing('repository');
         $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
 
-        $result = Process::run("incus start {$deployment->container_name}");
+        $result = Process::timeout(self::LIFECYCLE_TIMEOUT)->run("incus start {$deployment->container_name}");
 
         // Idempotent: DeployBranchJob and WakeHibernatedDeploymentJob can
         // race in pathological scenarios (e.g. a wake dispatched before the
@@ -72,7 +84,7 @@ class DeploymentContainerManager
 
     public function resolveContainerIp(string $containerName): string
     {
-        $result = Process::run("incus list {$containerName} -c n,4 -f csv");
+        $result = Process::timeout(self::QUERY_TIMEOUT)->run("incus list {$containerName} -c n,4 -f csv");
 
         if ($result->exitCode() !== 0) {
             throw new DeploymentStartTimeoutException('ip_resolution', "Failed to list container {$containerName}");
@@ -116,7 +128,7 @@ class DeploymentContainerManager
         $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
         $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
 
-        $hasRepoHook = Process::run("incus exec {$deployment->container_name} -- test -f {$workspace}/.yak/preview.sh")
+        $hasRepoHook = Process::timeout(self::QUERY_TIMEOUT)->run("incus exec {$deployment->container_name} -- test -f {$workspace}/.yak/preview.sh")
             ->exitCode() === 0;
 
         if ($hasRepoHook) {
@@ -133,16 +145,29 @@ class DeploymentContainerManager
 
     public function stop(BranchDeployment $deployment): void
     {
-        $result = Process::run("incus stop {$deployment->container_name}");
+        // `incus stop` defaults to `--timeout -1`, i.e. wait forever for a
+        // clean shutdown. A preview container is by definition running an
+        // app server that may not exit promptly, so bound the graceful
+        // window and then kill it rather than hanging the hibernation.
+        $container = $deployment->container_name;
 
-        if ($result->exitCode() !== 0) {
-            throw new RuntimeException("Failed to stop container: {$result->errorOutput()}");
+        $result = Process::timeout(self::STOP_TIMEOUT + 30)
+            ->run("incus stop {$container} --timeout " . self::STOP_TIMEOUT);
+
+        if ($result->exitCode() === 0) {
+            return;
+        }
+
+        $forced = Process::timeout(self::STOP_TIMEOUT)->run("incus stop {$container} --force");
+
+        if ($forced->exitCode() !== 0) {
+            throw new RuntimeException("Failed to stop container: {$forced->errorOutput()}");
         }
     }
 
     public function destroy(BranchDeployment $deployment): void
     {
-        $result = Process::run("incus delete --force {$deployment->container_name}");
+        $result = Process::timeout(self::LIFECYCLE_TIMEOUT)->run("incus delete --force {$deployment->container_name}");
 
         if (! $result->successful() && ! str_contains(strtolower($result->errorOutput()), 'not found')) {
             throw new RuntimeException("Failed to destroy container: {$result->errorOutput()}");
