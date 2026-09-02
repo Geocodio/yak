@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateProfileRequest;
+use App\Models\User;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,18 +16,20 @@ class ProfileController extends Controller
 {
     public function edit(): Response
     {
+        $user = $this->authenticatedUser();
+
         return Inertia::render('Settings/Profile', [
             'profile' => fn () => [
-                'name' => Auth::user()->name,
-                'email' => Auth::user()->email,
-                'hasUnverifiedEmail' => $this->hasUnverifiedEmail(),
+                'name' => $user->name,
+                'email' => $user->email,
+                'hasUnverifiedEmail' => $this->hasUnverifiedEmail($user),
             ],
         ]);
     }
 
     public function update(UpdateProfileRequest $request): RedirectResponse
     {
-        $user = Auth::user();
+        $user = $this->authenticatedUser();
 
         $user->fill($request->validated());
 
@@ -41,7 +44,7 @@ class ProfileController extends Controller
 
     public function resendVerification(Request $request): RedirectResponse
     {
-        $user = Auth::user();
+        $user = $this->authenticatedUser();
 
         if (! $user instanceof MustVerifyEmail || $user->hasVerifiedEmail()) {
             return redirect()->intended(route('tasks', absolute: false));
@@ -52,10 +55,17 @@ class ProfileController extends Controller
         return redirect()->route('profile.edit')->with('success', 'A new verification link has been sent to your email address.');
     }
 
-    private function hasUnverifiedEmail(): bool
+    private function hasUnverifiedEmail(User $user): bool
+    {
+        return $user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail();
+    }
+
+    private function authenticatedUser(): User
     {
         $user = Auth::user();
 
-        return $user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail();
+        abort_unless($user instanceof User, 401);
+
+        return $user;
     }
 }

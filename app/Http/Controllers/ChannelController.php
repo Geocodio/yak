@@ -17,7 +17,7 @@ class ChannelController extends Controller
      * Channel metadata keyed by slug. Ordered so GitHub (required)
      * sits first and optional channels follow.
      *
-     * @var array<int, array{slug: string, name: string, description: string, docs_anchor: string, health_check_id: ?string, required: bool}>
+     * @var list<array{slug: string, name: string, description: string, docs_anchor: string, health_check_id: string, required: bool}>
      */
     private const CHANNELS = [
         [
@@ -77,11 +77,11 @@ class ChannelController extends Controller
         $registry = app(Registry::class);
         $channels = app(ChannelRegistry::class);
 
-        return array_map(function (array $meta) use ($registry, $channels): array {
+        return array_values(array_map(function (array $meta) use ($registry, $channels): array {
             $enabled = $channels->for($meta['slug'])?->enabled() ?? false;
             $result = null;
 
-            if ($enabled && $meta['health_check_id'] !== null) {
+            if ($enabled) {
                 $result = Cache::remember(
                     "health:check:{$meta['health_check_id']}",
                     60,
@@ -102,7 +102,7 @@ class ChannelController extends Controller
                 'enabled' => $enabled,
                 'required' => $meta['required'],
             ];
-        }, self::CHANNELS);
+        }, self::CHANNELS));
     }
 
     /**

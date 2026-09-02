@@ -44,7 +44,7 @@ class DeploymentController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array<string, mixed>>
+     * @return LengthAwarePaginator<int, array{id: int, repoSlug: string, branch: string, status: string, statusLabel: string, tone: string, hostname: string, lastAccessedAgo: ?string, longLived: bool, hibernatesAfter: string}>
      */
     private function paginatedDeployments(string $status): LengthAwarePaginator
     {

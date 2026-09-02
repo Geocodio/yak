@@ -76,7 +76,7 @@ class PrReviewForPrController extends Controller
 
     private function titleFor(?PrReview $review, int $prNumber): string
     {
-        $description = (string) ($review?->task?->description ?? '');
+        $description = (string) ($review?->task->description ?? '');
         $prefix = "Review PR #{$prNumber}: ";
 
         if ($description !== '' && str_starts_with($description, $prefix)) {

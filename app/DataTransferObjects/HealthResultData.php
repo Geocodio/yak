@@ -15,6 +15,9 @@ use Illuminate\Contracts\Support\Arrayable;
  */
 final readonly class HealthResultData implements Arrayable
 {
+    /**
+     * @param  'ok'|'warn'|'fail'|'idle'  $status
+     */
     public function __construct(
         public string $status,
         public string $message,
@@ -48,6 +51,9 @@ final readonly class HealthResultData implements Arrayable
         ];
     }
 
+    /**
+     * @return 'ok'|'warn'|'fail'|'idle'
+     */
     private static function mapStatus(HealthStatus $status): string
     {
         return match ($status) {

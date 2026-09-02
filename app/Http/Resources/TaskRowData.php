@@ -24,7 +24,7 @@ final class TaskRowData
      *     source: string,
      *     sourceLabel: string,
      *     by: ?string,
-     *     repo: ?string,
+     *     repo: string,
      *     repoUrl: ?string,
      *     description: string,
      *     externalId: ?string,
@@ -97,10 +97,6 @@ final class TaskRowData
     {
         if ($task->pr_url !== null && $task->pr_url !== '') {
             return $task->pr_url;
-        }
-
-        if ($task->repo === null) {
-            return null;
         }
 
         $repository = $task->relationLoaded('repository')

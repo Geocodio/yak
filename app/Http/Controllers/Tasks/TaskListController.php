@@ -14,10 +14,10 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Support\Docs;
 use App\Support\Tasks\ArtifactPreviewUrl;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -68,7 +68,27 @@ class TaskListController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array<string, mixed>>
+     * @return LengthAwarePaginator<int, array{
+     *     id: int,
+     *     status: string,
+     *     source: string,
+     *     sourceLabel: string,
+     *     by: ?string,
+     *     repo: string,
+     *     repoUrl: ?string,
+     *     description: string,
+     *     externalId: ?string,
+     *     externalUrl: ?string,
+     *     pr: ?array{number: ?int, state: string, url: ?string},
+     *     previewUrl: ?string,
+     *     previewGif: ?string,
+     *     deploymentUrl: ?string,
+     *     cost: ?string,
+     *     createdAgo: string,
+     *     createdAt: ?string,
+     *     createdTooltip: string,
+     *     followUps: array<int, array<string, mixed>>,
+     * }>
      */
     private function paginatedTasks(
         string $tab,

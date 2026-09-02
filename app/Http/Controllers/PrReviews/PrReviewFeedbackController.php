@@ -7,9 +7,9 @@ use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\PrReviewCommentReaction;
 use App\Support\Markdown;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -57,7 +57,19 @@ class PrReviewFeedbackController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array<string, mixed>>
+     * @return LengthAwarePaginator<int, array{
+     *     id: int,
+     *     repoSlug: ?string,
+     *     prNumber: ?int,
+     *     prUrl: ?string,
+     *     filePath: string,
+     *     lineNumber: int,
+     *     severity: string,
+     *     category: string,
+     *     thumbsUp: int,
+     *     thumbsDown: int,
+     *     bodyHtml: string,
+     * }>
      */
     private function paginatedComments(
         string $repo,
@@ -130,7 +142,7 @@ class PrReviewFeedbackController extends Controller
             ->selectRaw('github_user_login, COUNT(*) as total, SUM(CASE WHEN content = \'+1\' THEN 1 ELSE 0 END) as up, SUM(CASE WHEN content = \'-1\' THEN 1 ELSE 0 END) as down')
             ->groupBy('github_user_login')
             ->get()
-            ->map(fn ($row): array => [
+            ->map(fn (PrReviewCommentReaction $row): array => [
                 'login' => $row->github_user_login,
                 'total' => (int) $row->total,
                 'up' => (int) $row->up,
