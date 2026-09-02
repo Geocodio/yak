@@ -349,7 +349,7 @@
                                 <tr wire:key="setup-task-{{ $setupTask->id }}" class="relative h-12 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/50" style="transform: translateZ(0)">
                                     <td class="px-4 py-2 sm:px-6">
                                         <a href="{{ route('tasks.show', $setupTask) }}" wire:navigate class="absolute inset-0" aria-label="Open setup task {{ $setupTask->external_id }}"></a>
-                                        <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($setupTask->status) }}">
+                                        <span class="inline-block rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\Support\TaskStyling::statusBadgeClasses($setupTask->status) }}">
                                             {{ str_replace('_', ' ', $setupTask->status->value) }}
                                         </span>
                                     </td>
@@ -357,7 +357,7 @@
                                         <a href="{{ route('tasks.show', $setupTask) }}" wire:navigate class="relative font-medium text-accent hover:underline">{{ $setupTask->external_id }}</a>
                                     </td>
                                     <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ $setupTask->created_at->diffForHumans() }}</td>
-                                    <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ \App\Livewire\Tasks\TaskList::formatDuration($setupTask->duration_ms) }}</td>
+                                    <td class="px-4 py-2 text-zinc-500 sm:px-6 dark:text-zinc-400">{{ \App\Livewire\Tasks\Support\TaskStyling::formatDuration($setupTask->duration_ms) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

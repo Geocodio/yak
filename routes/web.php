@@ -6,7 +6,10 @@ use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
+use App\Http\Controllers\Tasks\StoreTaskController;
+use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
@@ -20,7 +23,6 @@ use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
 use App\Livewire\Skills;
 use App\Livewire\Tasks\TaskDetail;
-use App\Livewire\Tasks\TaskList;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -49,7 +51,9 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware(['auth'])->group(function () {
-    Route::livewire('tasks', TaskList::class)->name('tasks');
+    Route::get('tasks', TaskListController::class)->name('tasks');
+    Route::post('tasks', StoreTaskController::class)->name('tasks.store');
+    Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
     Route::livewire('tasks/{task}', TaskDetail::class)->name('tasks.show');
     Route::get('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');

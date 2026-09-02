@@ -17,7 +17,7 @@
         <h2 class="text-xs font-medium uppercase tracking-wider text-yak-blue">Activity</h2>
         <span class="ml-auto text-[11px] text-yak-tan">
             {{ $this->logs->count() }} entries
-            @if($this->focusedRun->duration_ms) &middot; {{ \App\Livewire\Tasks\TaskList::formatDuration($this->focusedRun->duration_ms) }} @endif
+            @if($this->focusedRun->duration_ms) &middot; {{ \App\Livewire\Tasks\Support\TaskStyling::formatDuration($this->focusedRun->duration_ms) }} @endif
         </span>
         @if($this->hasLogs)
             <button

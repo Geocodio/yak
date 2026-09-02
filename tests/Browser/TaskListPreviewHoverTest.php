@@ -20,13 +20,13 @@ test('hovering a task row with a preview gif shows it in the floating overlay', 
         'disk_path' => 'walkthrough-preview.gif',
     ]);
 
-    $overlayImage = '[data-testid="hover-preview-image"]';
+    $overlayImage = '[data-testid="task-preview-overlay-image"]';
 
     $page = visit(route('tasks'));
 
     $page->assertSee('Hover preview task')
-        ->assertMissing('[data-testid="hover-preview-overlay"]')
-        ->hover('[data-testid="task-row-preview-' . $task->id . '"]')
-        ->assertVisible('[data-testid="hover-preview-overlay"]')
+        ->assertMissing('[data-testid="task-preview-overlay"]')
+        ->hover('[data-testid="task-row-' . $task->id . '"]')
+        ->assertVisible('[data-testid="task-preview-overlay"]')
         ->assertAttributeContains($overlayImage, 'src', '/artifacts/public/');
 });

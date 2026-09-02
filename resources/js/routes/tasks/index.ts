@@ -1,4 +1,39 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import setupCard from './setup-card'
+/**
+* @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:17
+* @route '/tasks'
+*/
+export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
+store.definition = {
+    methods: ["post"],
+    url: '/tasks',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:17
+* @route '/tasks'
+*/
+store.url = (options?: RouteQueryOptions) => {
+    return store.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:17
+* @route '/tasks'
+*/
+store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: store.url(options),
+    method: 'post',
+})
+
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
@@ -130,6 +165,8 @@ reRequestReview.head = (args: { task: string | number | { id: string | number } 
 })
 
 const tasks = {
+    store: Object.assign(store, store),
+    setupCard: Object.assign(setupCard, setupCard),
     show: Object.assign(show, show),
     reRequestReview: Object.assign(reRequestReview, reRequestReview),
 }

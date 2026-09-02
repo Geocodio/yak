@@ -2,50 +2,6 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/tasks'
-*/
-const LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.url(options),
-    method: 'get',
-})
-
-LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.definition = {
-    methods: ["get","head"],
-    url: '/tasks',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/tasks'
-*/
-LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.url = (options?: RouteQueryOptions) => {
-    return LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/tasks'
-*/
-LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/tasks'
-*/
-LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/tasks/{task}'
 */
 const LivewirePageControllera9210b42b2fb5ac9933186a51e3242ee = (args: { task: string | number } | [task: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -824,7 +780,6 @@ LivewirePageController8e94f99b226141ef399b6115395002b6.head = (options?: RouteQu
 * or import the route by name from your generated `routes/` directory.
 */
 const LivewirePageController = {
-    '/tasks': LivewirePageControlleraefb1b9af2c8d8e723708dc6f7e19610,
     '/tasks/{task}': LivewirePageControllera9210b42b2fb5ac9933186a51e3242ee,
     '/costs': LivewirePageController2c872e28f212301e5f28e254d61efb55,
     '/repos': LivewirePageControllerf25a416d0aad3f4e54d302d76054838b,

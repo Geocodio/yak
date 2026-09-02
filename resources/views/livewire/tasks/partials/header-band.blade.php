@@ -22,7 +22,7 @@
     <div class="flex flex-col gap-3">
         <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3.5">
             <div class="flex flex-wrap items-center gap-3.5">
-                <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\TaskList::statusBadgeClasses($task->status) }}">
+                <span class="inline-flex items-center rounded-lg px-3 py-1 text-xs font-medium {{ \App\Livewire\Tasks\Support\TaskStyling::statusBadgeClasses($task->status) }}">
                     @if($isActiveStatus)
                         <span class="mr-1.5 inline-block size-1.5 animate-pulse rounded-full bg-current"></span>
                     @endif
@@ -173,7 +173,7 @@
             <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">
                 <flux:icon.clock class="!size-3.5" />
                 <span class="font-medium">Duration:</span>
-                <span class="text-yak-slate">{{ \App\Livewire\Tasks\TaskList::formatDuration($task->duration_ms) }}</span>
+                <span class="text-yak-slate">{{ \App\Livewire\Tasks\Support\TaskStyling::formatDuration($task->duration_ms) }}</span>
             </span>
             @if($task->cost_usd)
                 <span class="inline-flex items-center gap-1.5 text-xs text-yak-blue">

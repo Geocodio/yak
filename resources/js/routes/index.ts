@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:28
+* @see routes/web.php:30
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:28
+* @see routes/web.php:30
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:28
+* @see routes/web.php:30
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:28
+* @see routes/web.php:30
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -158,8 +158,8 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
+* @see app/Http/Controllers/Tasks/TaskListController.php:30
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -173,8 +173,8 @@ tasks.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
+* @see app/Http/Controllers/Tasks/TaskListController.php:30
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -182,8 +182,8 @@ tasks.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
+* @see app/Http/Controllers/Tasks/TaskListController.php:30
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -192,8 +192,8 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Tasks\TaskListController::__invoke
+* @see app/Http/Controllers/Tasks/TaskListController.php:30
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -554,7 +554,7 @@ deployments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:81
+* @see routes/web.php:85
 * @route '/inertia-boot'
 */
 export const inertiaBoot = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -568,7 +568,7 @@ inertiaBoot.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:81
+* @see routes/web.php:85
 * @route '/inertia-boot'
 */
 inertiaBoot.url = (options?: RouteQueryOptions) => {
@@ -576,7 +576,7 @@ inertiaBoot.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:81
+* @see routes/web.php:85
 * @route '/inertia-boot'
 */
 inertiaBoot.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -585,7 +585,7 @@ inertiaBoot.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:81
+* @see routes/web.php:85
 * @route '/inertia-boot'
 */
 inertiaBoot.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -132,7 +132,7 @@
         // A run that died before the agent got going has no duration worth
         // reporting — "Worked for —" is noise, so drop the clause entirely.
         $hasDuration = ! empty($entry->runStats['duration_ms']);
-        $duration = \App\Livewire\Tasks\TaskList::formatDuration($entry->runStats['duration_ms'] ?? null);
+        $duration = \App\Livewire\Tasks\Support\TaskStyling::formatDuration($entry->runStats['duration_ms'] ?? null);
         $lastLogMessage = $entry->isLive ? optional($entry->run?->logs()->latest('created_at')->first())->message : null;
         // D12: in condensed view, results superseded by a later run collapse
         // to a clamp so the thread foregrounds the newest answer.
