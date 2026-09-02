@@ -1,109 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews'
-*/
-const LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.url(options),
-    method: 'get',
-})
-
-LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.definition = {
-    methods: ["get","head"],
-    url: '/pr-reviews',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews'
-*/
-LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.url = (options?: RouteQueryOptions) => {
-    return LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews'
-*/
-LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews'
-*/
-LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
-*/
-const LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7 = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.url(args, options),
-    method: 'get',
-})
-
-LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.definition = {
-    methods: ["get","head"],
-    url: '/pr-reviews/for/{repoSlug}/{prNumber}',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
-*/
-LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
-    if (Array.isArray(args)) {
-        args = {
-            repoSlug: args[0],
-            prNumber: args[1],
-        }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-        repoSlug: args.repoSlug,
-        prNumber: args.prNumber,
-    }
-
-    return LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.definition.url
-            .replace('{repoSlug}', parsedArgs.repoSlug.toString())
-            .replace('{prNumber}', parsedArgs.prNumber.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
-*/
-LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.url(args, options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/pr-reviews/for/{repoSlug}/{prNumber}'
-*/
-LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.url(args, options),
-    method: 'head',
-})
-
+import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
@@ -242,8 +137,6 @@ LivewirePageController8e94f99b226141ef399b6115395002b6.head = (options?: RouteQu
 * or import the route by name from your generated `routes/` directory.
 */
 const LivewirePageController = {
-    '/pr-reviews': LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5,
-    '/pr-reviews/for/{repoSlug}/{prNumber}': LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7,
     '/settings/profile': LivewirePageControllerfc6874003af373efc88e5e18eecd9c17,
     '/settings/linear': LivewirePageControllerfb19713afe56a42dfe25317208a7b263,
     '/settings/video': LivewirePageController8e94f99b226141ef399b6115395002b6,

@@ -9,6 +9,7 @@ import MarketplaceController from './MarketplaceController'
 import PromptController from './PromptController'
 import PromptPreviewController from './PromptPreviewController'
 import PromptVersionController from './PromptVersionController'
+import PrReviews from './PrReviews'
 import Deployments from './Deployments'
 import ArtifactController from './ArtifactController'
 import VideoThemeAssetController from './VideoThemeAssetController'
@@ -26,6 +27,7 @@ const Controllers = {
     PromptController: Object.assign(PromptController, PromptController),
     PromptPreviewController: Object.assign(PromptPreviewController, PromptPreviewController),
     PromptVersionController: Object.assign(PromptVersionController, PromptVersionController),
+    PrReviews: Object.assign(PrReviews, PrReviews),
     Deployments: Object.assign(Deployments, Deployments),
     ArtifactController: Object.assign(ArtifactController, ArtifactController),
     VideoThemeAssetController: Object.assign(VideoThemeAssetController, VideoThemeAssetController),

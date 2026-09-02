@@ -16,6 +16,8 @@ use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\PromptController;
 use App\Http\Controllers\PromptPreviewController;
 use App\Http\Controllers\PromptVersionController;
+use App\Http\Controllers\PrReviews\PrReviewFeedbackController;
+use App\Http\Controllers\PrReviews\PrReviewForPrController;
 use App\Http\Controllers\Repositories\GitHubCiDetectController;
 use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
@@ -30,8 +32,6 @@ use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
-use App\Livewire\PrReviewFeedback;
-use App\Livewire\PrReviewForPr;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -135,9 +135,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('prompts/{slug}/versions/{version}', [PromptVersionController::class, 'show'])
         ->name('prompts.versions.show')
         ->where('version', '[0-9]+');
-    Route::livewire('pr-reviews', PrReviewFeedback::class)->name('pr-reviews');
-    Route::livewire('pr-reviews/for/{repoSlug}/{prNumber}', PrReviewForPr::class)
+    Route::get('pr-reviews', PrReviewFeedbackController::class)->name('pr-reviews');
+    Route::get('pr-reviews/for/{repoSlug}/{prNumber}', [PrReviewForPrController::class, 'show'])
         ->name('pr-reviews.for-pr')
+        ->where('repoSlug', '.+')
+        ->where('prNumber', '[0-9]+');
+    Route::post('pr-reviews/for/{repoSlug}/{prNumber}/rerun', [PrReviewForPrController::class, 'rerun'])
+        ->name('pr-reviews.for-pr.rerun')
         ->where('repoSlug', '.+')
         ->where('prNumber', '[0-9]+');
 

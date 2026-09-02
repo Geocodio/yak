@@ -1,7 +1,8 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import forPr91cad2 from './for-pr'
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 export const forPr = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -15,8 +16,8 @@ forPr.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 forPr.url = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions) => {
@@ -41,8 +42,8 @@ forPr.url = (args: { repoSlug: string | number, prNumber: string | number } | [r
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 forPr.get = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -51,8 +52,8 @@ forPr.get = (args: { repoSlug: string | number, prNumber: string | number } | [r
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\PrReviews\PrReviewForPrController::forPr
+* @see app/Http/Controllers/PrReviews/PrReviewForPrController.php:19
 * @route '/pr-reviews/for/{repoSlug}/{prNumber}'
 */
 forPr.head = (args: { repoSlug: string | number, prNumber: string | number } | [repoSlug: string | number, prNumber: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -61,7 +62,7 @@ forPr.head = (args: { repoSlug: string | number, prNumber: string | number } | [
 })
 
 const prReviews = {
-    forPr: Object.assign(forPr, forPr),
+    forPr: Object.assign(forPr, forPr91cad2),
 }
 
 export default prReviews
