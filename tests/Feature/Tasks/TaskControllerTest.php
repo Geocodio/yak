@@ -421,10 +421,11 @@ test('nextSteps is null while awaiting clarification, which has its own call-to-
 
 test('researchArtifactUrl is present once a research task has its artifact', function () {
     $task = YakTask::factory()->success()->create(['mode' => TaskMode::Research]);
-    Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
+    $artifact = Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
 
     $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page->has('task.researchArtifactUrl'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.researchArtifactUrl', route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename])));
 });
 
 test('researchArtifactUrl is null for a research task with no artifact yet', function () {
