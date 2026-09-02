@@ -3,6 +3,7 @@
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
 use App\Models\User;
+use App\Support\HibernationDuration;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -90,4 +91,51 @@ test('show uses a slower poll interval once settled', function () {
 
     $this->get(route('deployments.show', $deployment))
         ->assertInertia(fn (Assert $page) => $page->where('pollInterval', 15000));
+});
+
+test('index marks a long-lived deployment row as long-lived with its hibernation window', function () {
+    $deployment = BranchDeployment::factory()->running()->longLived()->create(['branch_name' => 'feat/keep-alive']);
+
+    $this->get(route('deployments'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployments.data', 1, fn (Assert $row) => $row
+                ->where('longLived', true)
+                ->where('hibernatesAfter', HibernationDuration::humanize($deployment->effectiveIdleMinutes()))
+                ->etc()));
+});
+
+test('index marks a standard deployment row as not long-lived', function () {
+    BranchDeployment::factory()->running()->create(['branch_name' => 'feat/x', 'long_lived' => false]);
+
+    $this->get(route('deployments'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployments.data', 1, fn (Assert $row) => $row
+                ->where('longLived', false)
+                ->etc()));
+});
+
+test('show reports longLived true for a long-lived deployment', function () {
+    $deployment = BranchDeployment::factory()->running()->longLived()->create();
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page->where('hibernation.longLived', true));
+});
+
+test('show reports autoLongLived true for an active release branch', function () {
+    $deployment = BranchDeployment::factory()->running()->longLived()->create([
+        'branch_name' => 'release/1.0',
+    ]);
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page->where('hibernation.autoLongLived', true));
+});
+
+test('show reports autoLongLived false for a non-release branch', function () {
+    $deployment = BranchDeployment::factory()->running()->create([
+        'branch_name' => 'feat/not-a-release',
+        'long_lived' => false,
+    ]);
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page->where('hibernation.autoLongLived', false));
 });

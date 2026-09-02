@@ -58,7 +58,7 @@ export function ActivityLog({ logs }: { logs: DeploymentLogEntry[] }) {
                     <div className="p-4 text-[12px] text-muted">No activity yet.</div>
                 ) : (
                     logs.map((log, i) => (
-                        <div key={i} className={cn('border-b border-hair px-4 py-2 last:border-0', log.error && 'bg-fail-soft/40')}>
+                        <div key={log.id ?? `${log.at}-${i}`} className={cn('border-b border-hair px-4 py-2 last:border-0', log.error && 'bg-fail-soft/40')}>
                             <div className="flex items-start gap-3">
                                 <span className="tnum shrink-0 text-faint">{log.at}</span>
                                 {log.phase && <span className={cn('shrink-0 rounded-chip px-1.5 text-[10px] leading-5', PHASE_TONE[log.phase] ?? 'bg-panel-2 text-muted')}>{log.phase}</span>}

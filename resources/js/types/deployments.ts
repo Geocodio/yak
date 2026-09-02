@@ -41,6 +41,7 @@ export type ShareLinkData = {
 } | null;
 
 export type DeploymentLogEntry = {
+    id?: number | string;
     at: string;
     phase: string | null;
     message: string;
