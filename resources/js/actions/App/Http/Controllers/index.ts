@@ -2,6 +2,8 @@ import Auth from './Auth'
 import Tasks from './Tasks'
 import CostDashboardController from './CostDashboardController'
 import Repositories from './Repositories'
+import SkillController from './SkillController'
+import MarketplaceController from './MarketplaceController'
 import PromptController from './PromptController'
 import PromptPreviewController from './PromptPreviewController'
 import PromptVersionController from './PromptVersionController'
@@ -15,6 +17,8 @@ const Controllers = {
     Tasks: Object.assign(Tasks, Tasks),
     CostDashboardController: Object.assign(CostDashboardController, CostDashboardController),
     Repositories: Object.assign(Repositories, Repositories),
+    SkillController: Object.assign(SkillController, SkillController),
+    MarketplaceController: Object.assign(MarketplaceController, MarketplaceController),
     PromptController: Object.assign(PromptController, PromptController),
     PromptPreviewController: Object.assign(PromptPreviewController, PromptPreviewController),
     PromptVersionController: Object.assign(PromptVersionController, PromptVersionController),

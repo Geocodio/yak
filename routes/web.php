@@ -10,6 +10,7 @@ use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\PromptController;
 use App\Http\Controllers\PromptPreviewController;
 use App\Http\Controllers\PromptVersionController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\SkillController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Http\Controllers\Tasks\StoreTaskController;
@@ -30,7 +32,6 @@ use App\Livewire\Channels\ChannelList;
 use App\Livewire\Health;
 use App\Livewire\PrReviewFeedback;
 use App\Livewire\PrReviewForPr;
-use App\Livewire\Skills;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -105,7 +106,24 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('health', Health::class)->name('health');
     Route::livewire('channels', ChannelList::class)->name('channels');
-    Route::livewire('skills', Skills::class)->name('skills');
+
+    Route::get('skills', [SkillController::class, 'index'])->name('skills');
+    Route::post('skills', [SkillController::class, 'store'])->name('skills.install');
+    Route::patch('skills/{name}', [SkillController::class, 'update'])
+        ->name('skills.update')
+        ->where('name', '.+');
+    Route::post('skills/{name}/update', [SkillController::class, 'upgrade'])
+        ->name('skills.upgrade')
+        ->where('name', '.+');
+    Route::delete('skills/{name}', [SkillController::class, 'destroy'])
+        ->name('skills.destroy')
+        ->where('name', '.+');
+
+    Route::post('marketplaces', [MarketplaceController::class, 'store'])->name('marketplaces.store');
+    Route::post('marketplaces/refresh', [MarketplaceController::class, 'refresh'])->name('marketplaces.refresh');
+    Route::delete('marketplaces/{name}', [MarketplaceController::class, 'destroy'])
+        ->name('marketplaces.destroy')
+        ->where('name', '.+');
 
     Route::get('prompts', [PromptController::class, 'index'])->name('prompts');
     Route::get('prompts/{slug}', [PromptController::class, 'show'])->name('prompts.show');
