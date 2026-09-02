@@ -64,7 +64,7 @@ export default function Linear({ linear }: Props) {
                                         <dt className="text-faint">Scopes</dt>
                                         <dd className="truncate">{linear.scopes && linear.scopes.length > 0 ? linear.scopes.join(', ') : '—'}</dd>
                                         <dt className="text-faint">Access token expires</dt>
-                                        <dd>{linear.expiresAt ? new Date(linear.expiresAt).toLocaleString() : '—'}</dd>
+                                        <dd>{linear.expiresIn ?? '—'}</dd>
                                     </dl>
                                 </div>
                             </div>
@@ -97,8 +97,7 @@ export default function Linear({ linear }: Props) {
                             <Card className="border-fail/30">
                                 <div className="text-[13px] font-medium">Connection invalidated</div>
                                 <p className="mt-1 text-[12px] text-muted">
-                                    Linear rejected a token refresh on {new Date(linear.disconnectedAt).toLocaleString()}. Reconnect above to resume posting
-                                    comments.
+                                    Linear rejected a token refresh {linear.disconnectedAgo}. Reconnect above to resume posting comments.
                                 </p>
                             </Card>
                         )}

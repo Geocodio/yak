@@ -3,6 +3,7 @@
 use App\Jobs\RenderThemeSampleJob;
 use App\Models\User;
 use App\Models\VideoTheme as VideoThemeRow;
+use App\Services\VideoThemeResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -58,6 +59,51 @@ it('rejects a font family outside the bundled allowlist', function (): void {
 
     $this->put(route('settings.video.update'), $payload)
         ->assertSessionHasErrors(['fonts.display']);
+});
+
+it('exposes the full font family allowlist for the picker', function (): void {
+    $this->get(route('settings.video'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('theme.fontFamilies', count(VideoThemeResolver::FONT_FAMILIES))
+            ->where('theme.fontFamilies', VideoThemeResolver::FONT_FAMILIES)
+            ->etc());
+
+    expect(config('yak.video.theme'))->toBeArray();
+});
+
+it('saves a chosen font family for each role', function (): void {
+    $payload = validVideoThemePayload(['fonts' => [
+        'display' => 'Fraunces',
+        'body' => 'Space Grotesk',
+        'mono' => 'JetBrains Mono',
+    ]]);
+
+    $this->put(route('settings.video.update'), $payload)
+        ->assertRedirect(route('settings.video'));
+
+    expect(VideoThemeRow::current()->theme['fonts'])->toBe([
+        'display' => 'Fraunces',
+        'body' => 'Space Grotesk',
+        'mono' => 'JetBrains Mono',
+    ]);
+});
+
+it('reflects the chosen font families in the google fonts href', function (): void {
+    $payload = validVideoThemePayload(['fonts' => [
+        'display' => 'Fraunces',
+        'body' => 'Space Grotesk',
+        'mono' => 'JetBrains Mono',
+    ]]);
+
+    $this->put(route('settings.video.update'), $payload);
+
+    $this->get(route('settings.video'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('theme.googleFontsHref', fn (string $href) => str_starts_with($href, 'https://fonts.googleapis.com/css2?')
+                && str_contains($href, 'family=Fraunces')
+                && str_contains($href, 'family=Space+Grotesk')
+                && str_contains($href, 'family=JetBrains+Mono'))
+            ->etc());
 });
 
 it('resets to the defaults', function (): void {

@@ -60,6 +60,19 @@ test('reports oauth as not configured when the client id is missing', function (
             ->etc());
 });
 
+test('exposes a human-readable expiry and disconnected-ago alongside the ISO values', function () {
+    $connection = LinearOauthConnection::factory()->disconnected()->create(['expires_at' => now()->addDay()]);
+
+    $this->get(route('settings.linear'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Settings/Linear')
+            ->where('linear.expiresAt', $connection->expires_at->toIso8601String())
+            ->where('linear.expiresIn', $connection->expires_at->diffForHumans())
+            ->where('linear.disconnectedAt', $connection->disconnected_at->toIso8601String())
+            ->where('linear.disconnectedAgo', $connection->disconnected_at->diffForHumans())
+            ->etc());
+});
+
 test('disconnects the linear connection', function () {
     $connection = LinearOauthConnection::factory()->create();
 

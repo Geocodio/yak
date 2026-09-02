@@ -68,7 +68,9 @@ class LinearConnectionController extends Controller
             'actor' => $connection?->actor,
             'scopes' => $connection?->scopes,
             'expiresAt' => $connection?->expires_at?->toIso8601String(),
+            'expiresIn' => $connection?->expires_at?->diffForHumans(),
             'disconnectedAt' => $connection?->disconnected_at?->toIso8601String(),
+            'disconnectedAgo' => $connection?->disconnected_at?->diffForHumans(),
             'moveIssuesToStartedState' => $connection === null || $connection->move_issues_to_started_state,
         ];
     }

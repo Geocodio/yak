@@ -12,7 +12,9 @@ export type LinearConnectionData = {
     actor: string | null;
     scopes: string[] | null;
     expiresAt: string | null;
+    expiresIn: string | null;
     disconnectedAt: string | null;
+    disconnectedAgo: string | null;
     moveIssuesToStartedState: boolean;
 };
 
@@ -39,7 +41,6 @@ export type VideoThemeData = {
     savedAt: string | null;
     voiceoverEnabled: boolean;
     fontFamilies: string[];
-    sampleUrl: string | null;
     googleFontsHref: string;
     fontPickerHref: string;
 };

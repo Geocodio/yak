@@ -67,12 +67,14 @@ export function FontPicker({
                 <ul
                     role="listbox"
                     aria-label={label}
+                    data-testid={`font-picker-${role}-options`}
                     className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-control border border-hair bg-panel py-1 shadow-overlay"
                 >
                     {options.map((family) => (
                         <li
                             key={family}
                             role="option"
+                            data-testid={`font-option-${role}-${family}`}
                             aria-selected={family === value}
                             onClick={() => {
                                 onChange(family);

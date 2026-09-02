@@ -29,6 +29,24 @@ test('the theme page renders the live preview and reflects a colour change', fun
         ->assertAttributeContains('[data-testid="video-theme-preview"]', 'data-theme', '#112233');
 });
 
+test('picking a font from the display font picker updates the preview theme', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('settings.video'));
+
+    $page->assertPresent('[data-testid="font-picker-display"]')
+        ->assertAttributeContains('[data-testid="video-theme-preview"]', 'data-theme', 'Bricolage Grotesque');
+
+    $page->click('[data-testid="font-picker-display"]')
+        ->assertPresent('[data-testid="font-picker-display-options"]')
+        ->assertPresent('[data-testid="font-option-display-Fraunces"]')
+        ->click('[data-testid="font-option-display-Fraunces"]')
+        ->wait(1)
+        ->assertAttributeContains('[data-testid="video-theme-preview"]', 'data-theme', 'Fraunces');
+
+    $page->assertNoJavaScriptErrors();
+});
+
 test('the preview bundle and the assets it resolves through staticFile() all serve', function () {
     $this->actingAs(User::factory()->create());
 
