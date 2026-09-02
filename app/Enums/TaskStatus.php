@@ -20,6 +20,20 @@ enum TaskStatus: string implements StateMachine
             ->getAttributes(FinalState::class) !== [];
     }
 
+    /**
+     * @return array<int, string>
+     */
+    public static function activeValues(): array
+    {
+        return [
+            self::Pending->value,
+            self::Running->value,
+            self::AwaitingClarification->value,
+            self::AwaitingCi->value,
+            self::Retrying->value,
+        ];
+    }
+
     #[CanTransitionTo([self::Running, self::Failed, self::Cancelled])]
     case Pending = 'pending';
 

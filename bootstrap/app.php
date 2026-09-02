@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Drone\PollCommand;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: ['127.0.0.1', '172.16.0.0/12']);
         $middleware->alias([
             'restrict-to-ingress' => RestrictToIngress::class,
+        ]);
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
