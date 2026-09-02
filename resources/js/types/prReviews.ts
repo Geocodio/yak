@@ -11,7 +11,6 @@ export type PrReviewCommentRow = {
     category: string;
     thumbsUp: number;
     thumbsDown: number;
-    bodyHtml: string;
 };
 
 export type PrReviewCommentPage = {

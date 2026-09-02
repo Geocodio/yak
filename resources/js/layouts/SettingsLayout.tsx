@@ -50,7 +50,7 @@ const SECTIONS: SettingsNavSection[] = [
     },
 ];
 
-export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video'; children: ReactNode }) {
+export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video' | 'channels'; children: ReactNode }) {
     const currentPath = usePage().url.split('?')[0];
 
     return (

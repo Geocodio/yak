@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\PrReviewCommentReaction;
-use App\Support\Markdown;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -68,7 +67,6 @@ class PrReviewFeedbackController extends Controller
      *     category: string,
      *     thumbsUp: int,
      *     thumbsDown: int,
-     *     bodyHtml: string,
      * }>
      */
     private function paginatedComments(
@@ -112,7 +110,6 @@ class PrReviewFeedbackController extends Controller
             'category' => $comment->category,
             'thumbsUp' => $comment->thumbs_up,
             'thumbsDown' => $comment->thumbs_down,
-            'bodyHtml' => Markdown::toHtml($comment->body),
         ]);
     }
 

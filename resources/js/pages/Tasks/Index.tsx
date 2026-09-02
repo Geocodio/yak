@@ -70,6 +70,16 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
         return () => window.removeEventListener('yak:new-task', onNewTask);
     }, []);
 
+    const handleSheetOpenChange = (open: boolean) => {
+        setSheetOpen(open);
+
+        if (!open && openNew) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('new');
+            window.history.replaceState(window.history.state, '', url.toString());
+        }
+    };
+
     const navigate = (
         next: Partial<Pick<TaskFilters, 'status' | 'source' | 'repo' | 'pr' | 'sort' | 'direction' | 'tab'>> & { page?: number },
     ) => {
@@ -224,7 +234,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <HoverPreview src={previewSrc} />
 
-            <NewTaskSheet open={sheetOpen} onOpenChange={setSheetOpen} repoOptions={activeRepos} />
+            <NewTaskSheet open={sheetOpen} onOpenChange={handleSheetOpenChange} repoOptions={activeRepos} />
         </>
     );
 }

@@ -2,8 +2,7 @@ import { Head } from '@inertiajs/react';
 import { Badge, StatusPill, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
+import { SettingsLayout } from '@/layouts/SettingsLayout';
 import type { ChannelRow } from '@/types/health';
 import type { PageProps } from '@/types/shared';
 
@@ -15,7 +14,6 @@ export default function Index({ channels }: Props) {
     return (
         <>
             <Head title="Channels" />
-            <PageHeader crumbs={['Channels']} />
 
             <div className="min-h-0 flex-1 overflow-auto">
                 <Table className="w-full">
@@ -63,4 +61,4 @@ export default function Index({ channels }: Props) {
     );
 }
 
-Index.layout = (page: ReactNode) => <AppLayout>{page}</AppLayout>;
+Index.layout = (page: ReactNode) => <SettingsLayout slug="channels">{page}</SettingsLayout>;
