@@ -2,94 +2,6 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/health'
-*/
-const LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.url(options),
-    method: 'get',
-})
-
-LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.definition = {
-    methods: ["get","head"],
-    url: '/health',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/health'
-*/
-LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.url = (options?: RouteQueryOptions) => {
-    return LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/health'
-*/
-LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/health'
-*/
-LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/channels'
-*/
-const LivewirePageController100b47a7e69980d7fc8f5594d43bb241 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController100b47a7e69980d7fc8f5594d43bb241.url(options),
-    method: 'get',
-})
-
-LivewirePageController100b47a7e69980d7fc8f5594d43bb241.definition = {
-    methods: ["get","head"],
-    url: '/channels',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/channels'
-*/
-LivewirePageController100b47a7e69980d7fc8f5594d43bb241.url = (options?: RouteQueryOptions) => {
-    return LivewirePageController100b47a7e69980d7fc8f5594d43bb241.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/channels'
-*/
-LivewirePageController100b47a7e69980d7fc8f5594d43bb241.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController100b47a7e69980d7fc8f5594d43bb241.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/channels'
-*/
-LivewirePageController100b47a7e69980d7fc8f5594d43bb241.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageController100b47a7e69980d7fc8f5594d43bb241.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/pr-reviews'
 */
 const LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -330,8 +242,6 @@ LivewirePageController8e94f99b226141ef399b6115395002b6.head = (options?: RouteQu
 * or import the route by name from your generated `routes/` directory.
 */
 const LivewirePageController = {
-    '/health': LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2,
-    '/channels': LivewirePageController100b47a7e69980d7fc8f5594d43bb241,
     '/pr-reviews': LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5,
     '/pr-reviews/for/{repoSlug}/{prNumber}': LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7,
     '/settings/profile': LivewirePageControllerfc6874003af373efc88e5e18eecd9c17,

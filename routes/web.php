@@ -3,11 +3,13 @@
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
+use App\Http\Controllers\ChannelController;
 use App\Http\Controllers\CostDashboardController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Deployments\DeploymentActionController;
 use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Deployments\ShareLinkController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\MarketplaceController;
@@ -28,8 +30,6 @@ use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
-use App\Livewire\Channels\ChannelList;
-use App\Livewire\Health;
 use App\Livewire\PrReviewFeedback;
 use App\Livewire\PrReviewForPr;
 use App\Models\User;
@@ -104,8 +104,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('repos.manifest.update')
         ->where('repository', '.+');
 
-    Route::livewire('health', Health::class)->name('health');
-    Route::livewire('channels', ChannelList::class)->name('channels');
+    Route::get('health', [HealthController::class, 'index'])->name('health');
+    Route::post('health/refresh', [HealthController::class, 'refreshAll'])->name('health.refresh');
+    Route::post('health/{check}/refresh', [HealthController::class, 'refreshOne'])->name('health.check.refresh');
+    Route::get('channels', ChannelController::class)->name('channels');
 
     Route::get('skills', [SkillController::class, 'index'])->name('skills');
     Route::post('skills', [SkillController::class, 'store'])->name('skills.install');

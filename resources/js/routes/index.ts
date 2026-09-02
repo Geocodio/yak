@@ -290,8 +290,8 @@ repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\HealthController::health
+* @see app/Http/Controllers/HealthController.php:53
 * @route '/health'
 */
 export const health = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -305,8 +305,8 @@ health.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\HealthController::health
+* @see app/Http/Controllers/HealthController.php:53
 * @route '/health'
 */
 health.url = (options?: RouteQueryOptions) => {
@@ -314,8 +314,8 @@ health.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\HealthController::health
+* @see app/Http/Controllers/HealthController.php:53
 * @route '/health'
 */
 health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -324,8 +324,8 @@ health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\HealthController::health
+* @see app/Http/Controllers/HealthController.php:53
 * @route '/health'
 */
 health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -334,8 +334,8 @@ health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\ChannelController::__invoke
+* @see app/Http/Controllers/ChannelController.php:70
 * @route '/channels'
 */
 export const channels = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -349,8 +349,8 @@ channels.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\ChannelController::__invoke
+* @see app/Http/Controllers/ChannelController.php:70
 * @route '/channels'
 */
 channels.url = (options?: RouteQueryOptions) => {
@@ -358,8 +358,8 @@ channels.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\ChannelController::__invoke
+* @see app/Http/Controllers/ChannelController.php:70
 * @route '/channels'
 */
 channels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -368,8 +368,8 @@ channels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\ChannelController::__invoke
+* @see app/Http/Controllers/ChannelController.php:70
 * @route '/channels'
 */
 channels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -554,7 +554,7 @@ deployments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:166
+* @see routes/web.php:168
 * @route '/inertia-boot'
 */
 export const inertiaBoot = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -568,7 +568,7 @@ inertiaBoot.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:166
+* @see routes/web.php:168
 * @route '/inertia-boot'
 */
 inertiaBoot.url = (options?: RouteQueryOptions) => {
@@ -576,7 +576,7 @@ inertiaBoot.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:166
+* @see routes/web.php:168
 * @route '/inertia-boot'
 */
 inertiaBoot.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -585,7 +585,7 @@ inertiaBoot.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:166
+* @see routes/web.php:168
 * @route '/inertia-boot'
 */
 inertiaBoot.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
