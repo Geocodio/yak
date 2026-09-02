@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4fa27d272d90d5442e329db2a3f72bf4",
+    "content-hash": "68663436e5a8f8b59797861edc8a49f9",
     "packages": [
         {
             "name": "artisan-build/fat-enums",
