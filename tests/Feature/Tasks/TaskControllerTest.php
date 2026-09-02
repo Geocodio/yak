@@ -307,3 +307,198 @@ test('deployment is null when the task has no branch', function () {
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('deployment', null));
 });
+
+test('poll interval is fast while the task is active and null once it is done', function () {
+    $running = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    $this->get(route('tasks.show', $running))
+        ->assertInertia(fn (Assert $page) => $page->where('pollInterval', 5000));
+
+    $success = YakTask::factory()->create(['status' => TaskStatus::Success]);
+    $this->get(route('tasks.show', $success))
+        ->assertInertia(fn (Assert $page) => $page->where('pollInterval', null));
+});
+
+test('activity rows flag milestones for the three isMilestone cases', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+
+    // Case 1: neither tool_use nor assistant (e.g. a plain source line, or no metadata) is always a milestone.
+    $plain = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Task created from Slack message',
+        'metadata' => ['source' => 'slack'],
+    ]);
+
+    // Case 2: tool_use / assistant at info level is not a milestone.
+    $toolUse = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Ran grep',
+        'level' => 'info',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'grep'],
+    ]);
+    $assistant = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Thinking',
+        'level' => 'info',
+        'metadata' => ['type' => 'assistant'],
+    ]);
+
+    // Case 3: error/warning level is a milestone regardless of type.
+    $erroredToolUse = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Command failed',
+        'level' => 'error',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'bash'],
+    ]);
+    $warnedAssistant = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Careful here',
+        'level' => 'warning',
+        'metadata' => ['type' => 'assistant'],
+    ]);
+
+    $milestonesById = collect(
+        $this->get(route('tasks.show', $task))
+            ->viewData('page')['props']['activity']['rows']
+    )->keyBy('id')->map(fn (array $row) => $row['milestone']);
+
+    expect($milestonesById[$plain->id])->toBeTrue()
+        ->and($milestonesById[$toolUse->id])->toBeFalse()
+        ->and($milestonesById[$assistant->id])->toBeFalse()
+        ->and($milestonesById[$erroredToolUse->id])->toBeTrue()
+        ->and($milestonesById[$warnedAssistant->id])->toBeTrue();
+});
+
+test('debug carries the error log for a failed task', function () {
+    $task = YakTask::factory()->failed()->create(['error_log' => 'Fatal error: something went wrong']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('debug.Error Log', 'Fatal error: something went wrong'));
+});
+
+test('nextSteps copy for running research tasks mentions gathering findings, not making changes', function () {
+    $task = YakTask::factory()->running()->create(['mode' => TaskMode::Research]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', fn (string $text) => str_contains($text, 'gathering findings') && ! str_contains($text, 'making changes')));
+});
+
+test('nextSteps copy for running fix tasks mentions making changes, not gathering findings', function () {
+    $task = YakTask::factory()->running()->create(['mode' => TaskMode::Fix]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', fn (string $text) => str_contains($text, 'making changes') && ! str_contains($text, 'gathering findings')));
+});
+
+test('nextSteps copy for a failed task points at Retry', function () {
+    $task = YakTask::factory()->failed()->create(['mode' => TaskMode::Fix]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', fn (string $text) => str_contains($text, 'Click Retry above')));
+});
+
+test('nextSteps copy for a failed review task points at Re-run review, not Retry', function () {
+    $task = YakTask::factory()->failed()->create(['mode' => TaskMode::Review]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', fn (string $text) => str_contains($text, 'Click Re-run review above') && ! str_contains($text, 'Click Retry above')));
+});
+
+test('nextSteps is null while awaiting clarification, which has its own call-to-action', function () {
+    $task = YakTask::factory()->awaitingClarification()->create(['clarification_options' => ['a', 'b']]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.nextSteps', null));
+});
+
+test('researchArtifactUrl is present once a research task has its artifact', function () {
+    $task = YakTask::factory()->success()->create(['mode' => TaskMode::Research]);
+    Artifact::factory()->research()->create(['yak_task_id' => $task->id]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->has('task.researchArtifactUrl'));
+});
+
+test('researchArtifactUrl is null for a research task with no artifact yet', function () {
+    $task = YakTask::factory()->running()->create(['mode' => TaskMode::Research]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.researchArtifactUrl', null));
+});
+
+test('researchArtifactUrl is null for non-research tasks', function () {
+    $task = YakTask::factory()->success()->create(['mode' => TaskMode::Fix]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.researchArtifactUrl', null));
+});
+
+test('composer note points slack replies at the slack thread', function () {
+    config()->set('yak.channels.slack.workspace_url', 'https://acme.slack.com');
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'slack',
+        'slack_channel' => 'C1234567',
+        'slack_thread_ts' => '1700000000.123456',
+        'clarification_options' => ['option a', 'option b'],
+        'clarification_expires_at' => now()->addDays(1),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('composer.note', 'Replies here and in the Slack thread land in the same conversation.'));
+});
+
+test('composer note points linear replies at the linear issue', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'linear',
+        'external_url' => 'https://linear.app/acme/issue/ACM-42/fix-the-bug',
+        'clarification_options' => ['option a', 'option b'],
+        'clarification_expires_at' => now()->addDays(1),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('composer.note', 'Replies here and in the Linear thread land in the same conversation.'));
+});
+
+test('composer has no cross-channel note for unknown sources', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'system',
+        'clarification_options' => ['option a', 'option b'],
+        'clarification_expires_at' => now()->addDays(1),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('composer.note', fn (?string $note) => $note === null || ! str_contains($note, 'land in the same conversation')));
+});
+
+test('canReroute is false for Setup mode', function () {
+    $task = YakTask::factory()->create(['mode' => TaskMode::Setup]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('actions.canReroute', false));
+});
+
+test('rerouteTargets excludes the current repo and inactive repos', function () {
+    $current = Repository::factory()->create(['slug' => 'org/current', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'org/other', 'is_active' => true]);
+    Repository::factory()->inactive()->create(['slug' => 'org/inactive']);
+
+    $task = YakTask::factory()->create(['repo' => $current->slug, 'mode' => TaskMode::Fix, 'pr_url' => null]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('actions.rerouteTargets', ['org/other']));
+});
