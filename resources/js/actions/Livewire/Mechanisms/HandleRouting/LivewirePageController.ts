@@ -327,112 +327,6 @@ LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7.head = (args: { repoSlug:
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments'
-*/
-const LivewirePageController4a179efa3e1327fe1fa966165df8127c = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController4a179efa3e1327fe1fa966165df8127c.url(options),
-    method: 'get',
-})
-
-LivewirePageController4a179efa3e1327fe1fa966165df8127c.definition = {
-    methods: ["get","head"],
-    url: '/deployments',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments'
-*/
-LivewirePageController4a179efa3e1327fe1fa966165df8127c.url = (options?: RouteQueryOptions) => {
-    return LivewirePageController4a179efa3e1327fe1fa966165df8127c.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments'
-*/
-LivewirePageController4a179efa3e1327fe1fa966165df8127c.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController4a179efa3e1327fe1fa966165df8127c.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments'
-*/
-LivewirePageController4a179efa3e1327fe1fa966165df8127c.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageController4a179efa3e1327fe1fa966165df8127c.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments/{deployment}'
-*/
-const LivewirePageController5479acbafef394b07eb8e9477867ef33 = (args: { deployment: string | number } | [deployment: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController5479acbafef394b07eb8e9477867ef33.url(args, options),
-    method: 'get',
-})
-
-LivewirePageController5479acbafef394b07eb8e9477867ef33.definition = {
-    methods: ["get","head"],
-    url: '/deployments/{deployment}',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments/{deployment}'
-*/
-LivewirePageController5479acbafef394b07eb8e9477867ef33.url = (args: { deployment: string | number } | [deployment: string | number ] | string | number, options?: RouteQueryOptions) => {
-    if (typeof args === 'string' || typeof args === 'number') {
-        args = { deployment: args }
-    }
-
-    if (Array.isArray(args)) {
-        args = {
-            deployment: args[0],
-        }
-    }
-
-    args = applyUrlDefaults(args)
-
-    const parsedArgs = {
-        deployment: args.deployment,
-    }
-
-    return LivewirePageController5479acbafef394b07eb8e9477867ef33.definition.url
-            .replace('{deployment}', parsedArgs.deployment.toString())
-            .replace(/\/+$/, '') + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments/{deployment}'
-*/
-LivewirePageController5479acbafef394b07eb8e9477867ef33.get = (args: { deployment: string | number } | [deployment: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController5479acbafef394b07eb8e9477867ef33.url(args, options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/deployments/{deployment}'
-*/
-LivewirePageController5479acbafef394b07eb8e9477867ef33.head = (args: { deployment: string | number } | [deployment: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageController5479acbafef394b07eb8e9477867ef33.url(args, options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/settings/profile'
 */
 const LivewirePageControllerfc6874003af373efc88e5e18eecd9c17 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -575,8 +469,6 @@ const LivewirePageController = {
     '/skills': LivewirePageController959dc9a14e4c2e5eec51ea9e4fbd8146,
     '/pr-reviews': LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5,
     '/pr-reviews/for/{repoSlug}/{prNumber}': LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7,
-    '/deployments': LivewirePageController4a179efa3e1327fe1fa966165df8127c,
-    '/deployments/{deployment}': LivewirePageController5479acbafef394b07eb8e9477867ef33,
     '/settings/profile': LivewirePageControllerfc6874003af373efc88e5e18eecd9c17,
     '/settings/linear': LivewirePageControllerfb19713afe56a42dfe25317208a7b263,
     '/settings/video': LivewirePageController8e94f99b226141ef399b6115395002b6,

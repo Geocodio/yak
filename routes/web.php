@@ -4,6 +4,9 @@ use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Http\Controllers\Deployments\AuthBounceController;
+use App\Http\Controllers\Deployments\DeploymentActionController;
+use App\Http\Controllers\Deployments\DeploymentController;
+use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\Repositories\GitHubCiDetectController;
@@ -21,8 +24,6 @@ use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
-use App\Livewire\Deployments\DeploymentIndex;
-use App\Livewire\Deployments\DeploymentShow;
 use App\Livewire\Health;
 use App\Livewire\PromptEditor;
 use App\Livewire\PrReviewFeedback;
@@ -110,9 +111,24 @@ Route::middleware(['auth'])->group(function () {
         ->where('repoSlug', '.+')
         ->where('prNumber', '[0-9]+');
 
-    Route::livewire('deployments', DeploymentIndex::class)->name('deployments');
-    Route::livewire('deployments/{deployment}', DeploymentShow::class)
+    Route::get('deployments', [DeploymentController::class, 'index'])->name('deployments');
+    Route::get('deployments/{deployment}', [DeploymentController::class, 'show'])
         ->name('deployments.show')
+        ->where('deployment', '[0-9]+');
+    Route::patch('deployments/{deployment}/hibernation', [DeploymentActionController::class, 'updateHibernation'])
+        ->name('deployments.hibernation.update')
+        ->where('deployment', '[0-9]+');
+    Route::post('deployments/{deployment}/rebuild', [DeploymentActionController::class, 'rebuild'])
+        ->name('deployments.rebuild')
+        ->where('deployment', '[0-9]+');
+    Route::delete('deployments/{deployment}', [DeploymentActionController::class, 'destroy'])
+        ->name('deployments.destroy')
+        ->where('deployment', '[0-9]+');
+    Route::post('deployments/{deployment}/share', [ShareLinkController::class, 'store'])
+        ->name('deployments.share.store')
+        ->where('deployment', '[0-9]+');
+    Route::delete('deployments/{deployment}/share', [ShareLinkController::class, 'destroy'])
+        ->name('deployments.share.destroy')
         ->where('deployment', '[0-9]+');
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
