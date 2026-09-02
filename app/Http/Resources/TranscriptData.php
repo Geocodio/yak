@@ -59,8 +59,15 @@ final class TranscriptData
 
         if ($type === 'tool_use') {
             $input = $metadata['input'] ?? null;
-            $entry['tool'] = (string) ($metadata['tool'] ?? '');
-            $entry['input'] = is_array($input) ? json_encode($input, JSON_PRETTY_PRINT) : null;
+            $tool = (string) ($metadata['tool'] ?? '');
+            $entry['tool'] = $tool;
+            // Bash calls show the raw command line rather than the whole
+            // input object as JSON, matching the old Blade transcript partial.
+            $entry['input'] = match (true) {
+                $tool === 'Bash' && is_array($input) && isset($input['command']) => (string) $input['command'],
+                is_array($input) => json_encode($input, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+                default => null,
+            };
             $entry['output'] = isset($metadata['output']) ? (string) $metadata['output'] : null;
         }
 

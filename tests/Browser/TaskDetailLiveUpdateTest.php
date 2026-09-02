@@ -22,7 +22,9 @@ test('task detail page reflects status update without manual refresh', function 
     $task->completed_at = now();
     $task->saveQuietly();
 
-    $page->wait(16)
+    // A running task polls every 5s (`TaskDetailData::build`'s `pollInterval`);
+    // wait past that plus a margin for the request/render round trip.
+    $page->wait(7)
         ->assertSee('success')
         ->assertSee('Search feature implemented successfully');
 });
