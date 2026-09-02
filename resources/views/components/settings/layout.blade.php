@@ -4,7 +4,6 @@
     <div class="me-10 w-full pb-4 md:w-[220px]">
         <flux:navlist aria-label="{{ __('Settings') }}">
             <flux:navlist.item :href="route('profile.edit')" wire:navigate>{{ __('Profile') }}</flux:navlist.item>
-            <flux:navlist.item :href="route('appearance.edit')" wire:navigate>{{ __('Appearance') }}</flux:navlist.item>
             <flux:navlist.item :href="route('settings.linear')" wire:navigate>{{ __('Linear') }}</flux:navlist.item>
             <flux:navlist.item :href="route('settings.video')" wire:navigate>{{ __('Video walkthroughs') }}</flux:navlist.item>
         </flux:navlist>

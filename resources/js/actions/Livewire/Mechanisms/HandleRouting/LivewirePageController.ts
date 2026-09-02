@@ -733,50 +733,6 @@ LivewirePageControllerfc6874003af373efc88e5e18eecd9c17.head = (options?: RouteQu
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/settings/appearance'
-*/
-const LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.url(options),
-    method: 'get',
-})
-
-LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.definition = {
-    methods: ["get","head"],
-    url: '/settings/appearance',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/settings/appearance'
-*/
-LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.url = (options?: RouteQueryOptions) => {
-    return LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/settings/appearance'
-*/
-LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/settings/appearance'
-*/
-LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/settings/linear'
 */
 const LivewirePageControllerfb19713afe56a42dfe25317208a7b263 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -883,7 +839,6 @@ const LivewirePageController = {
     '/deployments': LivewirePageController4a179efa3e1327fe1fa966165df8127c,
     '/deployments/{deployment}': LivewirePageController5479acbafef394b07eb8e9477867ef33,
     '/settings/profile': LivewirePageControllerfc6874003af373efc88e5e18eecd9c17,
-    '/settings/appearance': LivewirePageControllere19ee86e9cf603ce1a59a1ec5d21dec5,
     '/settings/linear': LivewirePageControllerfb19713afe56a42dfe25317208a7b263,
     '/settings/video': LivewirePageController8e94f99b226141ef399b6115395002b6,
 }
