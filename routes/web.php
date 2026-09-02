@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\Repositories\GitHubCiDetectController;
 use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
@@ -73,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('repos/create', [RepositoryController::class, 'create'])->name('repos.create');
     Route::post('repos', [RepositoryController::class, 'store'])->name('repos.store');
     Route::get('repos/github-search', GitHubRepoSearchController::class)->name('repos.github-search');
+    Route::get('repos/github-detect', GitHubCiDetectController::class)->name('repos.github-detect');
     Route::get('repos/{repository}/edit', [RepositoryController::class, 'edit'])
         ->name('repos.edit')
         ->where('repository', '.+');

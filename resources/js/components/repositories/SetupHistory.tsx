@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import { Button, StatusPill, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
 import { STATUS, type TaskStatus } from '@/lib/status';
 import type { SetupHistoryRow } from '@/types/repositories';
@@ -11,7 +12,7 @@ export function SetupHistory({ rows, viewAllHref }: { rows: SetupHistoryRow[]; v
         <div className="flex flex-col gap-3">
             {viewAllHref && (
                 <div className="flex justify-end">
-                    <Button variant="link" className="text-[12px]" onClick={() => (window.location.href = viewAllHref)}>
+                    <Button variant="link" className="text-[12px]" onClick={() => router.visit(viewAllHref)}>
                         View all
                     </Button>
                 </div>

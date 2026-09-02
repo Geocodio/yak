@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Badge, Button, Field, Select, StatusPill, Textarea, TextInput } from '@geocodio/console-ui';
-import { ExternalLink, RefreshCw } from 'lucide-react';
+import { ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
@@ -186,6 +186,10 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         }));
     };
 
+    const onCiDetected = (ciSystem: string) => {
+        form.setData('ci_system', ciSystem);
+    };
+
     return (
         <>
             <Head title={isEditing ? `Edit ${repository.slug}` : 'Add repository'} />
@@ -247,6 +251,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 sentryProjects={options.sentryProjects}
                                 onSelect={onSelectGithubRepo}
                                 onClear={clearGithubRepo}
+                                onCiDetected={onCiDetected}
                             />
                         </Section>
                     )}
@@ -389,6 +394,18 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             />
                         )}
                     </Section>
+
+                    {!isEditing && (
+                        <div className="mb-6 flex items-start gap-3 rounded-card border border-hair bg-panel-2 p-4">
+                            <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+                                <Sparkles size={14} />
+                            </div>
+                            <p className="text-[13px] leading-relaxed text-muted">
+                                <span className="font-medium text-accent">After saving,</span> Yak dispatches a setup task -- Claude Code reads
+                                your README and CLAUDE.md, prepares the dev environment, and verifies everything works.
+                            </p>
+                        </div>
+                    )}
 
                     {isEditing && repository && repository.deploymentsEnabled && manifest && <ManifestSection repository={repository} manifest={manifest} />}
 

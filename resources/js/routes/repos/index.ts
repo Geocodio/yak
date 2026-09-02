@@ -123,6 +123,50 @@ githubSearch.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
+* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @route '/repos/github-detect'
+*/
+export const githubDetect = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: githubDetect.url(options),
+    method: 'get',
+})
+
+githubDetect.definition = {
+    methods: ["get","head"],
+    url: '/repos/github-detect',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
+* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @route '/repos/github-detect'
+*/
+githubDetect.url = (options?: RouteQueryOptions) => {
+    return githubDetect.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
+* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @route '/repos/github-detect'
+*/
+githubDetect.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: githubDetect.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Repositories\GitHubCiDetectController::__invoke
+* @see app/Http/Controllers/Repositories/GitHubCiDetectController.php:18
+* @route '/repos/github-detect'
+*/
+githubDetect.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: githubDetect.url(options),
+    method: 'head',
+})
+
+/**
 * @see \App\Http\Controllers\Repositories\RepositoryController::edit
 * @see app/Http/Controllers/Repositories/RepositoryController.php:74
 * @route '/repos/{repository}/edit'
@@ -542,6 +586,7 @@ const repos = {
     create: Object.assign(create, create),
     store: Object.assign(store, store),
     githubSearch: Object.assign(githubSearch, githubSearch),
+    githubDetect: Object.assign(githubDetect, githubDetect),
     edit: Object.assign(edit, edit),
     update: Object.assign(update, update),
     destroy: Object.assign(destroy, destroy),

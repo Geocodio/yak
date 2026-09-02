@@ -1,10 +1,12 @@
 <?php
 
+use App\Channels\GitHub\AppService;
 use App\Enums\TaskMode;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -431,6 +433,148 @@ test('a repo already tracked under an old slug is not offered again after a gith
     $response = $this->getJson(route('repos.github-search'))->assertOk();
 
     expect($response->json('repos'))->toBe([]);
+});
+
+test('github detect returns the detected ci system', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+
+    $github = mock(AppService::class);
+    $github->shouldReceive('detectCiSystem')->with(12345, 'acme/api')->andReturn('drone');
+    app()->instance(AppService::class, $github);
+
+    $this->getJson(route('repos.github-detect', ['full_name' => 'acme/api']))
+        ->assertOk()
+        ->assertJson(['ciSystem' => 'drone']);
+});
+
+test('github detect returns none when github actions workflows are found', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+
+    $github = mock(AppService::class);
+    $github->shouldReceive('detectCiSystem')->with(12345, 'acme/api')->andReturn('github_actions');
+    app()->instance(AppService::class, $github);
+
+    $this->getJson(route('repos.github-detect', ['full_name' => 'acme/api']))
+        ->assertOk()
+        ->assertJson(['ciSystem' => 'github_actions']);
+});
+
+test('github detect returns none without an installation configured', function () {
+    config(['yak.channels.github.installation_id' => null]);
+
+    $this->getJson(route('repos.github-detect', ['full_name' => 'acme/api']))
+        ->assertOk()
+        ->assertJson(['ciSystem' => 'none']);
+});
+
+test('adding a path exclude pattern persists', function () {
+    $repo = Repository::factory()->create(['pr_review_enabled' => true, 'pr_review_path_excludes' => null]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'pr_review_enabled' => true,
+        'path_excludes' => ['custom/**'],
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->pr_review_path_excludes)->toBe(['custom/**']);
+});
+
+test('removing a path exclude pattern persists', function () {
+    $repo = Repository::factory()->create([
+        'pr_review_enabled' => true,
+        'pr_review_path_excludes' => ['a/**', 'b/**'],
+    ]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'pr_review_enabled' => true,
+        'path_excludes' => ['b/**'],
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->pr_review_path_excludes)->toBe(['b/**']);
+});
+
+test('resetting path excludes to defaults persists null', function () {
+    $repo = Repository::factory()->create([
+        'pr_review_enabled' => true,
+        'pr_review_path_excludes' => ['only-this/**'],
+    ]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'pr_review_enabled' => true,
+        'apply_to_open_prs' => false,
+        'path_excludes' => null,
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->pr_review_path_excludes)->toBeNull();
+});
+
+test('rejects an invalid glob pattern in path excludes', function () {
+    $repo = Repository::factory()->create(['pr_review_enabled' => true, 'pr_review_path_excludes' => null]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'pr_review_enabled' => true,
+        'path_excludes' => ['bad; rm -rf'],
+    ]))->assertSessionHasErrors(['path_excludes.0']);
+});
+
+test('pr_review_enabled toggle persists', function () {
+    $repo = Repository::factory()->create(['pr_review_enabled' => false]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'pr_review_enabled' => true,
+        'apply_to_open_prs' => false,
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->pr_review_enabled)->toBeTrue();
+});
+
+test('deployments_enabled toggle persists', function () {
+    $repo = Repository::factory()->create(['deployments_enabled' => false]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'deployments_enabled' => true,
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->deployments_enabled)->toBeTrue();
+});
+
+test('enabling pr review with apply_to_open_prs enqueues review tasks', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    config(['yak.channels.github.app_bot_login' => 'yak-bot[bot]']);
+
+    Bus::fake();
+    $repo = Repository::factory()->create(['pr_review_enabled' => false, 'slug' => 'geocodio/api']);
+
+    $github = mock(AppService::class);
+    $github->shouldReceive('appBotLogin')->andReturn('yak-bot[bot]');
+    $github->shouldReceive('listOpenPullRequests')->andReturn([
+        ['number' => 1, 'html_url' => 'u1', 'title' => '', 'body' => '', 'draft' => false, 'user' => ['login' => 'maria'], 'head' => ['ref' => 'h', 'sha' => 's1'], 'base' => ['ref' => 'main', 'sha' => 'b1']],
+    ]);
+    app()->instance(AppService::class, $github);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'pr_review_enabled' => true,
+        'apply_to_open_prs' => true,
+    ]))->assertRedirect();
+
+    expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
+});
+
+test('setup history is limited to the 10 most recent setup tasks', function () {
+    $repo = Repository::factory()->create(['slug' => 'limit-test']);
+
+    YakTask::factory()->count(12)->sequence(fn ($sequence) => [
+        'external_id' => 'setup-limit-' . $sequence->index,
+        'created_at' => now()->subMinutes(12 - $sequence->index),
+    ])->create([
+        'repo' => 'limit-test',
+        'mode' => TaskMode::Setup,
+    ]);
+
+    $this->get(route('repos.edit', $repo))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('setupHistory', 10)
+            ->where('setupHistory.0.id', 'setup-limit-11')
+            ->where('setupHistory.9.id', 'setup-limit-2'));
 });
 
 /**

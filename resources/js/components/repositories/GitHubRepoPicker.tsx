@@ -77,11 +77,14 @@ export function GitHubRepoPicker({
     sentryProjects,
     onSelect,
     onClear,
+    onCiDetected,
 }: {
     selected: { fullName: string; defaultBranch: string } | null;
     sentryProjects: { value: string; label: string }[];
     onSelect: (repo: GitHubSearchRepo, guessedSentryProject: string | null) => void;
     onClear: () => void;
+    /** Called once `repos.github-detect` resolves after a repo is picked. */
+    onCiDetected?: (ciSystem: string) => void;
 }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<GitHubSearchRepo[]>([]);
@@ -148,6 +151,15 @@ export function GitHubRepoPicker({
                                         onSelect(repo, guessSentryProject(repo.name, sentryProjects));
                                         setQuery('');
                                         setOpen(false);
+
+                                        if (onCiDetected) {
+                                            fetch(repos.githubDetect.url({ query: { full_name: repo.fullName } }), {
+                                                headers: { Accept: 'application/json' },
+                                            })
+                                                .then((response) => response.json())
+                                                .then((data: { ciSystem: string }) => onCiDetected(data.ciSystem))
+                                                .catch(() => {});
+                                        }
                                     }}
                                 >
                                     <div className="flex min-w-0 items-center gap-2">
