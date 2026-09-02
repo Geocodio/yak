@@ -1,4 +1,6 @@
 import { Head } from '@inertiajs/react';
+import type { ReactNode } from 'react';
+import { AppLayout } from '@/layouts/AppLayout';
 
 export default function Placeholder({ label }: { label: string }) {
     return (
@@ -8,3 +10,5 @@ export default function Placeholder({ label }: { label: string }) {
         </>
     );
 }
+
+Placeholder.layout = (page: ReactNode) => <AppLayout>{page}</AppLayout>;
