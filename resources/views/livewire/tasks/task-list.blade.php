@@ -166,7 +166,6 @@
                     <th class="{{ $headerClasses }}"><x-tasks.sort-header column="source" :sort="$sort" :direction="$direction">Source</x-tasks.sort-header></th>
                     <th class="{{ $headerClasses }}"><x-tasks.sort-header column="author_name" :sort="$sort" :direction="$direction">By</x-tasks.sort-header></th>
                     <th class="{{ $headerClasses }}"><x-tasks.sort-header column="repo" :sort="$sort" :direction="$direction">Repo</x-tasks.sort-header></th>
-                    <th class="{{ $headerClasses }}">ID</th>
                     <th class="{{ $headerClasses }}">Description</th>
                     <th class="{{ $headerClasses }}">PR</th>
                     <th class="{{ $headerClasses }}"><x-tasks.sort-header column="created_at" :sort="$sort" :direction="$direction">Created</x-tasks.sort-header></th>
@@ -231,13 +230,6 @@
                                 {{ $task->repo ?? '—' }}
                             @endif
                         </td>
-                        <td class="whitespace-nowrap px-3 py-2 sm:px-5">
-                            @if($task->external_url)
-                                <a href="{{ $task->external_url }}" target="_blank" class="relative font-medium text-accent hover:underline">{{ $task->external_id }}</a>
-                            @else
-                                <span class="text-zinc-700 dark:text-zinc-300">{{ $task->external_id ?? '—' }}</span>
-                            @endif
-                        </td>
                         {{-- `w-full max-w-0` lets this cell absorb the remaining width in an auto-layout table
                              while still truncating, so the fixed columns to its right never get clipped. --}}
                         <td class="w-full max-w-0 px-3 py-2 text-zinc-700 sm:px-5 dark:text-zinc-300">
@@ -254,10 +246,23 @@
                                         <img src="{{ $preview['poster'] }}" alt="" loading="lazy" class="h-8 w-14 rounded-md border border-zinc-200 object-cover dark:border-zinc-700" />
                                     </a>
                                 @endif
-                                <span class="truncate">{{ \Illuminate\Support\Str::limit($task->description, 140) }}</span>
-                                @if($children->isNotEmpty())
-                                    <span class="shrink-0 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $children->count() }} follow-ups</span>
-                                @endif
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="truncate">{{ \Illuminate\Support\Str::limit($task->description, 140) }}</span>
+                                        @if($children->isNotEmpty())
+                                            <span class="shrink-0 rounded-full bg-[rgba(212,145,94,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#d4915e]">{{ $children->count() }} follow-ups</span>
+                                        @endif
+                                    </div>
+                                    @if($task->external_id)
+                                        <div class="mt-0.5 truncate text-xs text-zinc-400 dark:text-zinc-500">
+                                            @if($task->external_url)
+                                                <a href="{{ $task->external_url }}" target="_blank" rel="noopener noreferrer" class="relative hover:text-accent hover:underline">{{ $task->external_id }}</a>
+                                            @else
+                                                {{ $task->external_id }}
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                         </td>
                         <td class="whitespace-nowrap px-3 py-2 sm:px-5">
@@ -307,10 +312,12 @@
                             <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
                             <td class="max-w-[10rem] truncate px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ $child->author_name ?? '—' }}</td>
                             <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
-                            <td class="whitespace-nowrap px-3 py-2 sm:px-5">
-                                <span class="text-zinc-500 dark:text-zinc-400">{{ $child->external_id ?? '—' }}</span>
+                            <td class="w-full max-w-0 px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">
+                                <div class="truncate">{{ \Illuminate\Support\Str::limit($child->description, 140) }}</div>
+                                @if($child->external_id)
+                                    <div class="mt-0.5 truncate text-xs text-zinc-400 dark:text-zinc-500">{{ $child->external_id }}</div>
+                                @endif
                             </td>
-                            <td class="w-full max-w-0 truncate px-3 py-2 text-zinc-500 sm:px-5 dark:text-zinc-400">{{ \Illuminate\Support\Str::limit($child->description, 140) }}</td>
                             <td class="px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">—</td>
                             <td class="whitespace-nowrap px-3 py-2 text-zinc-400 sm:px-5 dark:text-zinc-600">
                                 <flux:tooltip content="Created {{ $child->created_at?->format('M j, Y H:i') }} · Ran for {{ \App\Livewire\Tasks\TaskList::formatDuration($child->duration_ms) }}">
@@ -321,7 +328,7 @@
                     @endforeach
                 @empty
                     <tr>
-                        <td colspan="8" class="px-3 py-16 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
+                        <td colspan="7" class="px-3 py-16 text-center text-zinc-500 sm:px-5 dark:text-zinc-400">
                             <div class="flex flex-col items-center gap-3">
                                 <p class="text-sm">No tasks yet. Yak picks up work from your configured channels.</p>
                                 <x-doc-link anchor="channels" class="text-sm">How tasks get created</x-doc-link>
@@ -334,12 +341,14 @@
     </div>
 
     {{-- Floating walkthrough preview. Pointer events are off so the hovered row keeps its hover state
-         while the GIF is shown as large as the viewport allows. --}}
+         while the GIF is shown as large as the viewport allows. Teleported to <body> so `fixed` is
+         measured against the viewport rather than whichever layout ancestor forms a containing block. --}}
+    <template x-teleport="body">
     <div
         x-show="hoverPreview !== null"
         x-cloak
         x-transition.opacity.duration.150ms
-        class="pointer-events-none fixed inset-0 z-40 flex items-center justify-center p-6"
+        class="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center p-6"
         style="display:none"
         data-testid="hover-preview-overlay"
         aria-hidden="true"
@@ -354,6 +363,7 @@
             data-testid="hover-preview-image"
         />
     </div>
+    </template>
 
     @if($this->tasks->hasPages())
         <div class="mt-4">
