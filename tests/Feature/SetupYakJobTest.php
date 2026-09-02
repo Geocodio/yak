@@ -8,7 +8,6 @@ use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\SetupYakJob;
-use App\Livewire\Repos\RepoForm;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -564,19 +563,17 @@ test('a retry with no prior agent run proceeds normally (e.g. release from a mid
 |--------------------------------------------------------------------------
 */
 
-test('RepoForm dispatches SetupYakJob when creating repo', function () {
+test('creating a repo dispatches SetupYakJob', function () {
     Queue::fake();
 
     $this->actingAs(User::factory()->create());
 
-    Livewire\Livewire::test(RepoForm::class)
-        ->set('name', 'New Repo')
-        ->set('slug', 'new-repo')
-        ->set('git_url', 'https://github.com/acme/new-repo.git')
-        ->set('path', '/home/yak/repos/new-repo')
-        ->set('ci_system', 'github_actions')
-        ->call('save')
-        ->assertHasNoErrors();
+    $this->post(route('repos.store'), [
+        'name' => 'New Repo',
+        'git_url' => 'https://github.com/acme/new-repo.git',
+        'default_branch' => 'main',
+        'ci_system' => 'github_actions',
+    ])->assertRedirect();
 
     Queue::assertPushed(SetupYakJob::class, function ($job) {
         return $job->task->mode === TaskMode::Setup
@@ -584,7 +581,7 @@ test('RepoForm dispatches SetupYakJob when creating repo', function () {
     });
 });
 
-test('RepoForm dispatches SetupYakJob on rerun setup', function () {
+test('rerun setup dispatches SetupYakJob', function () {
     Queue::fake();
 
     $this->actingAs(User::factory()->create());
@@ -594,9 +591,7 @@ test('RepoForm dispatches SetupYakJob on rerun setup', function () {
         'setup_status' => 'failed',
     ]);
 
-    Livewire\Livewire::test(RepoForm::class, ['repository' => $repository])
-        ->call('rerunSetup')
-        ->assertHasNoErrors();
+    $this->post(route('repos.rerun-setup', $repository))->assertRedirect();
 
     Queue::assertPushed(SetupYakJob::class, function ($job) {
         return $job->task->repo === 'rerun-repo';

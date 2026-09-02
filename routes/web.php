@@ -6,6 +6,10 @@ use App\Http\Controllers\Auth\LinearOAuthController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\Repositories\GitHubRepoSearchController;
+use App\Http\Controllers\Repositories\ManifestController;
+use App\Http\Controllers\Repositories\RepositoryActionController;
+use App\Http\Controllers\Repositories\RepositoryController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Http\Controllers\Tasks\StoreTaskController;
@@ -22,8 +26,6 @@ use App\Livewire\Health;
 use App\Livewire\PromptEditor;
 use App\Livewire\PrReviewFeedback;
 use App\Livewire\PrReviewForPr;
-use App\Livewire\Repos\RepoForm;
-use App\Livewire\Repos\RepoList;
 use App\Livewire\Skills;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -66,11 +68,36 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
     Route::livewire('costs', CostDashboard::class)->name('costs');
-    Route::livewire('repos', RepoList::class)->name('repos');
-    Route::livewire('repos/create', RepoForm::class)->name('repos.create');
-    Route::livewire('repos/{repository}/edit', RepoForm::class)
+
+    Route::get('repos', [RepositoryController::class, 'index'])->name('repos');
+    Route::get('repos/create', [RepositoryController::class, 'create'])->name('repos.create');
+    Route::post('repos', [RepositoryController::class, 'store'])->name('repos.store');
+    Route::get('repos/github-search', GitHubRepoSearchController::class)->name('repos.github-search');
+    Route::get('repos/{repository}/edit', [RepositoryController::class, 'edit'])
         ->name('repos.edit')
         ->where('repository', '.+');
+    Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
+        ->name('repos.update')
+        ->where('repository', '.+');
+    Route::delete('repos/{repository}', [RepositoryController::class, 'destroy'])
+        ->name('repos.destroy')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/toggle-active', [RepositoryActionController::class, 'toggleActive'])
+        ->name('repos.toggle-active')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/rerun-setup', [RepositoryActionController::class, 'rerunSetup'])
+        ->name('repos.rerun-setup')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/review-open-prs', [RepositoryActionController::class, 'reviewOpenPrs'])
+        ->name('repos.review-open-prs')
+        ->where('repository', '.+');
+    Route::post('repos/{repository}/rebuild-deployments', [RepositoryActionController::class, 'rebuildDeployments'])
+        ->name('repos.rebuild-deployments')
+        ->where('repository', '.+');
+    Route::put('repos/{repository}/manifest', [ManifestController::class, 'update'])
+        ->name('repos.manifest.update')
+        ->where('repository', '.+');
+
     Route::livewire('health', Health::class)->name('health');
     Route::livewire('channels', ChannelList::class)->name('channels');
     Route::livewire('prompts', PromptEditor::class)->name('prompts');
