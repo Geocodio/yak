@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\AccountController::destroy
-* @see app/Http/Controllers/Settings/AccountController.php:13
+* @see app/Http/Controllers/Settings/AccountController.php:14
 * @route '/settings/account'
 */
 export const destroy = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -16,7 +16,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\AccountController::destroy
-* @see app/Http/Controllers/Settings/AccountController.php:13
+* @see app/Http/Controllers/Settings/AccountController.php:14
 * @route '/settings/account'
 */
 destroy.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ destroy.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\AccountController::destroy
-* @see app/Http/Controllers/Settings/AccountController.php:13
+* @see app/Http/Controllers/Settings/AccountController.php:14
 * @route '/settings/account'
 */
 destroy.delete = (options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

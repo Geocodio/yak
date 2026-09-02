@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::resend
-* @see app/Http/Controllers/Settings/ProfileController.php:42
+* @see app/Http/Controllers/Settings/ProfileController.php:45
 * @route '/settings/profile/resend-verification'
 */
 export const resend = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ resend.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::resend
-* @see app/Http/Controllers/Settings/ProfileController.php:42
+* @see app/Http/Controllers/Settings/ProfileController.php:45
 * @route '/settings/profile/resend-verification'
 */
 resend.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ resend.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::resend
-* @see app/Http/Controllers/Settings/ProfileController.php:42
+* @see app/Http/Controllers/Settings/ProfileController.php:45
 * @route '/settings/profile/resend-verification'
 */
 resend.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
