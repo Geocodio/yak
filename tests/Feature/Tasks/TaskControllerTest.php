@@ -308,14 +308,18 @@ test('deployment is null when the task has no branch', function () {
         ->assertInertia(fn (Assert $page) => $page->where('deployment', null));
 });
 
-test('poll interval is fast while the task is active and null once it is done', function () {
+test('poll interval is fast while the task is active or pending and slow once it is done', function () {
+    $pending = YakTask::factory()->create(['status' => TaskStatus::Pending]);
+    $this->get(route('tasks.show', $pending))
+        ->assertInertia(fn (Assert $page) => $page->where('pollInterval', 5000));
+
     $running = YakTask::factory()->create(['status' => TaskStatus::Running]);
     $this->get(route('tasks.show', $running))
         ->assertInertia(fn (Assert $page) => $page->where('pollInterval', 5000));
 
     $success = YakTask::factory()->create(['status' => TaskStatus::Success]);
     $this->get(route('tasks.show', $success))
-        ->assertInertia(fn (Assert $page) => $page->where('pollInterval', null));
+        ->assertInertia(fn (Assert $page) => $page->where('pollInterval', 15000));
 });
 
 test('activity rows flag milestones for the three isMilestone cases', function () {

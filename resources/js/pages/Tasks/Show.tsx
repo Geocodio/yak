@@ -45,7 +45,7 @@ type Props = PageProps<{
     composer: ComposerData;
     debug: DebugData;
     actions: ActionsData;
-    pollInterval: number | null;
+    pollInterval: number;
     transcriptLogId: number | null;
     transcript?: TranscriptEntry[];
 }>;
@@ -68,14 +68,7 @@ export default function Show({
     transcriptLogId,
     transcript,
 }: Props) {
-    const { stop } = usePoll(pollInterval ?? 0, {}, { autoStart: pollInterval !== null });
-
-    useEffect(() => {
-        if (pollInterval === null) {
-            stop();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pollInterval]);
+    usePoll(pollInterval);
 
     const [transcriptOpen, setTranscriptOpen] = useState(transcriptLogId !== null);
     const [openLogId, setOpenLogId] = useState<number | null>(transcriptLogId);

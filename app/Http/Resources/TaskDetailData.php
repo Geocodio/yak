@@ -39,6 +39,19 @@ final class TaskDetailData
     ];
 
     /**
+     * Statuses that poll at the fast interval. Distinct from {@see ACTIVE_STATUSES}:
+     * a just-created task is {@see TaskStatus::Pending} and needs to poll quickly too,
+     * even though it isn't "active" for thread/run-liveness purposes.
+     */
+    private const array FAST_POLL_STATUSES = [
+        TaskStatus::Pending,
+        TaskStatus::Running,
+        TaskStatus::AwaitingClarification,
+        TaskStatus::AwaitingCi,
+        TaskStatus::Retrying,
+    ];
+
+    /**
      * @return array<string, mixed>
      */
     public static function build(YakTask $task, Request $request): array
@@ -71,7 +84,7 @@ final class TaskDetailData
             'composer' => self::composer($task, $conversation),
             'debug' => self::debug($task, $focusedRun),
             'actions' => self::actions($task),
-            'pollInterval' => self::isActive($task->status) ? 5000 : null,
+            'pollInterval' => in_array($task->status, self::FAST_POLL_STATUSES, true) ? 5000 : 15000,
             'transcriptLogId' => self::resolveTranscriptLogId($request, $conversation),
         ];
     }
