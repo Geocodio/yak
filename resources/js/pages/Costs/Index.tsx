@@ -7,7 +7,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { SpendChart } from '@/components/costs/SpendChart';
 import { StatTile } from '@/components/costs/StatTile';
 import { costs } from '@/routes';
-import type { BreakdownRow, ChartData, CostFilters, CostSummary, MergeRateRow, VideoSummary } from '@/types/costs';
+import type { ApiSpendRow, BreakdownRow, ChartData, CostFilters, CostSummary, MergeRateRow, VideoSummary } from '@/types/costs';
 import type { PageProps } from '@/types/shared';
 
 type Props = PageProps<{
@@ -15,6 +15,7 @@ type Props = PageProps<{
     videoSummary: VideoSummary;
     chart: ChartData;
     breakdown: BreakdownRow[];
+    apiSpend: ApiSpendRow[];
     mergeRate: MergeRateRow[];
     filters: CostFilters;
 }>;
@@ -27,7 +28,13 @@ const PERIODS: { key: CostFilters['period']; label: string }[] = [
 
 const SOURCE_COLUMNS = ['slack', 'linear', 'sentry'];
 
-export default function Index({ summary, videoSummary, chart, breakdown, mergeRate, filters }: Props) {
+const PERIOD_TITLE: Record<CostFilters['period'], string> = {
+    daily: 'Daily',
+    weekly: 'Weekly',
+    monthly: 'Monthly',
+};
+
+export default function Index({ summary, videoSummary, chart, breakdown, apiSpend, mergeRate, filters }: Props) {
     const navigate = (next: Partial<Pick<CostFilters, 'period' | 'repo' | 'source'>>) => {
         router.get(
             costs.url(),
@@ -243,6 +250,35 @@ export default function Index({ summary, videoSummary, chart, breakdown, mergeRa
                             </section>
                         )}
                     </div>
+
+                    <section className="mt-6 overflow-hidden rounded-card border border-hair bg-panel shadow-card" data-testid="api-spend-breakdown">
+                        <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
+                            <h2 className="text-[13px] font-semibold">API Spend -- {PERIOD_TITLE[filters.period]} Breakdown</h2>
+                            <span className="text-[11px] text-faint">actual Anthropic billing</span>
+                        </div>
+                        {apiSpend.length > 0 ? (
+                            <Table className="w-full">
+                                <Thead>
+                                    <Tr>
+                                        <Th className="pl-4">Date</Th>
+                                        <Th className="text-right">Calls</Th>
+                                        <Th className="pr-4 text-right">Total</Th>
+                                    </Tr>
+                                </Thead>
+                                <Tbody>
+                                    {apiSpend.map((row) => (
+                                        <Tr key={row.date}>
+                                            <Td className="pl-4">{row.date}</Td>
+                                            <Td className="tnum text-right text-muted">{row.calls}</Td>
+                                            <Td className="tnum pr-4 text-right font-medium">${row.total.toFixed(4)}</Td>
+                                        </Tr>
+                                    ))}
+                                </Tbody>
+                            </Table>
+                        ) : (
+                            <p className="px-4 py-12 text-center text-[13px] text-muted">No API calls recorded for this period.</p>
+                        )}
+                    </section>
 
                     <p className="mt-6 text-[11px] leading-relaxed text-faint">
                         Claude Code cost is a list-price estimate from the agent; it&apos;s covered by the Team subscription and does not bill the

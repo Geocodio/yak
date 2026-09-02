@@ -281,6 +281,27 @@ test('api spend breakdown groups by date with four decimal totals', function () 
         ->assertInertia(fn (Assert $page) => $page->has('apiSpend', 2));
 });
 
+test('monthly period groups api spend breakdown into monthly buckets', function () {
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0010,
+        'created_at' => now()->startOfMonth(),
+    ]);
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0010,
+        'created_at' => now()->startOfMonth()->addDay(),
+    ]);
+    AiUsage::factory()->create([
+        'cost_usd' => 0.0040,
+        'created_at' => now()->subMonthNoOverflow()->startOfMonth(),
+    ]);
+
+    $this->get('/costs?period=monthly')
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('apiSpend', 2)
+            ->where('apiSpend.0.calls', 2)
+            ->where('apiSpend.1.total', 0.004));
+});
+
 test('video summary shows render counts, average render time and output size for the period', function () {
     VideoMetric::factory()->create(['render_ms' => 60_000, 'output_bytes' => 10 * 1024 * 1024]);
     VideoMetric::factory()->create(['render_ms' => 120_000, 'output_bytes' => 20 * 1024 * 1024]);
