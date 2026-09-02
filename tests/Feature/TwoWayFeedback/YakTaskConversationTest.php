@@ -9,6 +9,13 @@ test('prIsOpen reflects PR lifecycle', function () {
         ->and(YakTask::factory()->pending()->create(['pr_url' => null])->prIsOpen())->toBeFalse();
 });
 
+test('prState reflects PR lifecycle', function () {
+    expect(YakTask::factory()->success()->create()->prState())->toBe('open')
+        ->and(YakTask::factory()->merged()->create()->prState())->toBe('merged')
+        ->and(YakTask::factory()->closedWithoutMerge()->create()->prState())->toBe('closed')
+        ->and(YakTask::factory()->pending()->create(['pr_url' => null])->prState())->toBeNull();
+});
+
 test('conversation returns the full chain ordered by created_at', function () {
     $root = YakTask::factory()->success()->create(['branch_name' => 'yak/CHAIN-1']);
     $child = YakTask::factory()->create([

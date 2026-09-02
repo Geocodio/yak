@@ -4,7 +4,7 @@ use App\Models\Artifact;
 use App\Models\User;
 use App\Models\YakTask;
 
-test('hovering a task-list thumbnail swaps in the preview gif', function () {
+test('hovering a task row with a preview gif shows it in the floating overlay', function () {
     if (! file_exists(base_path('node_modules/playwright-core'))) {
         $this->markTestSkipped('Playwright browsers are unavailable in this environment.');
     }
@@ -20,12 +20,13 @@ test('hovering a task-list thumbnail swaps in the preview gif', function () {
         'disk_path' => 'walkthrough-preview.gif',
     ]);
 
-    $selector = '[data-testid="task-preview-' . $task->id . '"] img';
+    $overlayImage = '[data-testid="hover-preview-image"]';
 
     $page = visit(route('tasks'));
 
     $page->assertSee('Hover preview task')
-        ->assertAttributeContains($selector, 'src', 'walkthrough-thumbnail.jpg')
-        ->hover('[data-testid="task-preview-' . $task->id . '"]')
-        ->assertAttributeContains($selector, 'src', 'walkthrough-preview.gif');
+        ->assertMissing('[data-testid="hover-preview-overlay"]')
+        ->hover('[data-testid="task-row-preview-' . $task->id . '"]')
+        ->assertVisible('[data-testid="hover-preview-overlay"]')
+        ->assertAttributeContains($overlayImage, 'src', '/artifacts/public/');
 });
