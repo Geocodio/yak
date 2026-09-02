@@ -9,7 +9,6 @@ use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -42,7 +41,6 @@ test('successful research transitions task to success with result_summary and co
         '*git pull *' => Process::result(''),
     ]);
     Http::fake();
-    File::shouldReceive('exists')->andReturn(false);
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create([
@@ -123,7 +121,6 @@ test('research does not create any branch', function () {
         '*git pull *' => Process::result(''),
     ]);
     Http::fake();
-    File::shouldReceive('exists')->andReturn(false);
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
@@ -274,10 +271,6 @@ test('handles missing HTML artifact gracefully', function () {
     ]);
     Http::fake();
 
-    File::shouldReceive('exists')
-        ->with('/home/yak/repos/test-repo/.yak-artifacts/research.html')
-        ->andReturn(false);
-
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
@@ -409,7 +402,6 @@ test('moves Linear issue to Done state', function () {
         '*git pull *' => Process::result(''),
     ]);
     Http::fake();
-    File::shouldReceive('exists')->andReturn(false);
 
     LinearOauthConnection::factory()->create();
     config()->set('yak.channels.linear.done_state_id', 'done-state-uuid');
