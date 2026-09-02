@@ -24,7 +24,7 @@ test('the theme page renders the live preview and reflects a colour change', fun
         ->assertPresent('[data-testid="preview-chip-summary"]')
         ->assertAttributeContains('[data-testid="video-theme-preview"]', 'data-theme', '#c4744a');
 
-    $page->fill('input[wire\\:model\\.live\\.debounce\\.300ms="colors.accent"]', '#112233')
+    $page->fill('input[name="colors.accent"]', '#112233')
         ->wait(1)
         ->assertAttributeContains('[data-testid="video-theme-preview"]', 'data-theme', '#112233');
 });
@@ -105,8 +105,8 @@ test('the card strip paints a still of every block from the current theme', func
     $strip = $page->script(<<<'JS'
         (() => [...document.querySelectorAll('[data-testid^="preview-card-"]')].map((button) => ({
             kind: button.dataset.blockKind,
-            // <Thumbnail> paints one frame of the real composition, so a card
-            // that rendered has the composition's own markup inside it.
+            // The card surface paints one frame of the real composition, so a
+            // card that rendered has the composition's own markup inside it.
             painted: button.querySelector('[data-card-surface]')?.childElementCount > 0,
             text: button.innerText.trim(),
         })))()
@@ -131,7 +131,7 @@ test('clicking a chip moves the selection and seeks the player', function () {
     $page->wait(3);
 
     $before = $page->script('document.querySelector(\'[data-testid="preview-chip-summary"]\').className');
-    expect($before)->not->toContain('bg-yak-slate ');
+    expect($before)->not->toContain('bg-ink ');
 
     $page->click('[data-testid="preview-chip-summary"]')->wait(1);
 
@@ -143,8 +143,8 @@ test('clicking a chip moves the selection and seeks the player', function () {
         }))()
     JS);
 
-    expect($after['summary'])->toContain('bg-yak-slate ');
-    expect($after['title'])->not->toContain('bg-yak-slate ');
+    expect($after['summary'])->toContain('bg-ink ');
+    expect($after['title'])->not->toContain('bg-ink ');
     expect($after['card'])->toContain('ring-accent');
 
     $page->assertNoJavaScriptErrors();

@@ -14,6 +14,7 @@ import Deployments from './Deployments'
 import ArtifactController from './ArtifactController'
 import VideoThemeAssetController from './VideoThemeAssetController'
 import Internal from './Internal'
+import Settings from './Settings'
 
 const Controllers = {
     Auth: Object.assign(Auth, Auth),
@@ -32,6 +33,7 @@ const Controllers = {
     ArtifactController: Object.assign(ArtifactController, ArtifactController),
     VideoThemeAssetController: Object.assign(VideoThemeAssetController, VideoThemeAssetController),
     Internal: Object.assign(Internal, Internal),
+    Settings: Object.assign(Settings, Settings),
 }
 
 export default Controllers

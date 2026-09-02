@@ -1,7 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import linearCc9558 from './linear'
+import video6ca361 from './video'
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\LinearConnectionController::linear
+* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 export const linear = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -15,8 +17,8 @@ linear.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\LinearConnectionController::linear
+* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 linear.url = (options?: RouteQueryOptions) => {
@@ -24,8 +26,8 @@ linear.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\LinearConnectionController::linear
+* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 linear.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -34,8 +36,8 @@ linear.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\LinearConnectionController::linear
+* @see app/Http/Controllers/Settings/LinearConnectionController.php:16
 * @route '/settings/linear'
 */
 linear.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -44,8 +46,8 @@ linear.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\VideoThemeController::video
+* @see app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 export const video = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,8 +61,8 @@ video.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\VideoThemeController::video
+* @see app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 video.url = (options?: RouteQueryOptions) => {
@@ -68,8 +70,8 @@ video.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\VideoThemeController::video
+* @see app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 video.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -78,8 +80,8 @@ video.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\Settings\VideoThemeController::video
+* @see app/Http/Controllers/Settings/VideoThemeController.php:21
 * @route '/settings/video'
 */
 video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -88,8 +90,8 @@ video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 const settings = {
-    linear: Object.assign(linear, linear),
-    video: Object.assign(video, video),
+    linear: Object.assign(linear, linearCc9558),
+    video: Object.assign(video, video6ca361),
 }
 
 export default settings

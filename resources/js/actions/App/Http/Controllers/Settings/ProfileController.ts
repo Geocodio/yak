@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
 * @see app/Http/Controllers/Settings/ProfileController.php:16
@@ -77,9 +77,40 @@ update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     method: 'patch',
 })
 
-const profile = {
-    edit: Object.assign(edit, edit),
-    update: Object.assign(update, update),
+/**
+* @see \App\Http\Controllers\Settings\ProfileController::resendVerification
+* @see app/Http/Controllers/Settings/ProfileController.php:42
+* @route '/settings/profile/resend-verification'
+*/
+export const resendVerification = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resendVerification.url(options),
+    method: 'post',
+})
+
+resendVerification.definition = {
+    methods: ["post"],
+    url: '/settings/profile/resend-verification',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Settings\ProfileController::resendVerification
+* @see app/Http/Controllers/Settings/ProfileController.php:42
+* @route '/settings/profile/resend-verification'
+*/
+resendVerification.url = (options?: RouteQueryOptions) => {
+    return resendVerification.definition.url + queryParams(options)
 }
 
-export default profile
+/**
+* @see \App\Http\Controllers\Settings\ProfileController::resendVerification
+* @see app/Http/Controllers/Settings/ProfileController.php:42
+* @route '/settings/profile/resend-verification'
+*/
+resendVerification.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: resendVerification.url(options),
+    method: 'post',
+})
+
+const ProfileController = { edit, update, resendVerification }
+
+export default ProfileController

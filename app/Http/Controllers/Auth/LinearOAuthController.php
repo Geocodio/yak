@@ -36,13 +36,13 @@ class LinearOAuthController extends Controller
 
         if ($error = $request->query('error')) {
             return redirect()->route('settings.linear')
-                ->with('linear_oauth_error', 'Linear authorization failed: ' . $error);
+                ->with('error', 'Linear authorization failed: ' . $error);
         }
 
         $code = (string) $request->query('code', '');
         if ($code === '') {
             return redirect()->route('settings.linear')
-                ->with('linear_oauth_error', 'Linear returned no authorization code.');
+                ->with('error', 'Linear returned no authorization code.');
         }
 
         try {
@@ -51,10 +51,10 @@ class LinearOAuthController extends Controller
             report($e);
 
             return redirect()->route('settings.linear')
-                ->with('linear_oauth_error', 'Could not complete Linear connection: ' . $e->getMessage());
+                ->with('error', 'Could not complete Linear connection: ' . $e->getMessage());
         }
 
         return redirect()->route('settings.linear')
-            ->with('linear_oauth_success', "Connected to Linear workspace “{$connection->workspace_name}”.");
+            ->with('success', "Connected to Linear workspace “{$connection->workspace_name}”.");
     }
 }
