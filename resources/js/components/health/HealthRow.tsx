@@ -3,7 +3,7 @@ import { IconButton, Skeleton, StatusPill } from '@geocodio/console-ui';
 import { HelpCircle, RotateCw } from 'lucide-react';
 import { useState } from 'react';
 import check from '@/routes/health/check';
-import type { HealthCheckMeta, HealthResultData } from '@/types/health';
+import { HEALTH_TONE_LABELS, type HealthCheckMeta, type HealthResultData } from '@/types/health';
 
 type Props = {
     meta: HealthCheckMeta;
@@ -40,7 +40,7 @@ export function HealthRow({ meta, result }: Props) {
                 <Skeleton className="h-8 w-full" />
             ) : (
                 <>
-                    <StatusPill tone={result.status} label={result.status} />
+                    <StatusPill tone={result.status} label={HEALTH_TONE_LABELS[result.status]} />
                     <div className="min-w-0 flex-1">
                         <div className="mb-0.5 text-[13px] font-medium text-body">{meta.name}</div>
                         <div className="text-[12px] text-muted">{result.message}</div>

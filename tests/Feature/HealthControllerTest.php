@@ -69,8 +69,9 @@ it('includes only enabled channels in channelChecks', function () {
 
     $this->get(route('health'))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('channelChecks')
-            ->where('channelChecks.0.id', 'slack'));
+            ->has('channelChecks', 2)
+            ->where('channelChecks.0.id', 'slack')
+            ->where('channelChecks.1.id', 'slack-interactivity'));
 });
 
 it('resolves the deferred result for a system check', function () {
@@ -156,6 +157,20 @@ it('does not flag a claude-auth probe result just under the staleness threshold'
     ], now()->addDay());
 
     requestHealthResults()->assertJsonPath('props.results.claude-auth.status', 'ok');
+});
+
+it('renders the age of a fresh claude-auth probe result', function () {
+    Cache::put(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY, [
+        'result' => HealthResult::ok('Authenticated'),
+        'checked_at' => now()->subMinutes(5),
+    ], now()->addDay());
+
+    $response = requestHealthResults()->assertJsonPath('props.results.claude-auth.status', 'ok');
+
+    expect($response->json('props.results.claude-auth.checkedAgo'))->not->toBeNull();
+    expect($response->json('props.results.claude-auth.message'))
+        ->toContain('Authenticated')
+        ->toContain('ago');
 });
 
 it('requires authentication', function () {

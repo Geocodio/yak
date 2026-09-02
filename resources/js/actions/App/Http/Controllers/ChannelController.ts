@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:70
+* @see app/Http/Controllers/ChannelController.php:65
 * @route '/channels'
 */
 const ChannelController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ ChannelController.definition = {
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:70
+* @see app/Http/Controllers/ChannelController.php:65
 * @route '/channels'
 */
 ChannelController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ ChannelController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:70
+* @see app/Http/Controllers/ChannelController.php:65
 * @route '/channels'
 */
 ChannelController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ ChannelController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> =>
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:70
+* @see app/Http/Controllers/ChannelController.php:65
 * @route '/channels'
 */
 ChannelController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

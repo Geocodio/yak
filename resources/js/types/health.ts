@@ -1,5 +1,13 @@
 export type HealthTone = 'ok' | 'warn' | 'fail' | 'idle';
 
+/** Human labels for a `HealthTone`, matching the Channels page's status wording. */
+export const HEALTH_TONE_LABELS: Record<HealthTone, string> = {
+    ok: 'Ok',
+    warn: 'Warning',
+    fail: 'Failed',
+    idle: 'Idle',
+};
+
 export type HealthCheckMeta = {
     id: string;
     name: string;
