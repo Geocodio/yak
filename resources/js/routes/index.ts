@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:36
+* @see routes/web.php:38
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:44
+* @see routes/web.php:46
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:44
+* @see routes/web.php:46
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:44
+* @see routes/web.php:46
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:44
+* @see routes/web.php:46
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -380,50 +380,6 @@ channels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-export const prompts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: prompts.url(options),
-    method: 'get',
-})
-
-prompts.definition = {
-    methods: ["get","head"],
-    url: '/prompts',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-prompts.url = (options?: RouteQueryOptions) => {
-    return prompts.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-prompts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: prompts.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: prompts.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/skills'
 */
 export const skills = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -462,6 +418,50 @@ skills.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 */
 skills.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: skills.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\PromptController::prompts
+* @see app/Http/Controllers/PromptController.php:21
+* @route '/prompts'
+*/
+export const prompts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: prompts.url(options),
+    method: 'get',
+})
+
+prompts.definition = {
+    methods: ["get","head"],
+    url: '/prompts',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\PromptController::prompts
+* @see app/Http/Controllers/PromptController.php:21
+* @route '/prompts'
+*/
+prompts.url = (options?: RouteQueryOptions) => {
+    return prompts.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\PromptController::prompts
+* @see app/Http/Controllers/PromptController.php:21
+* @route '/prompts'
+*/
+prompts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: prompts.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\PromptController::prompts
+* @see app/Http/Controllers/PromptController.php:21
+* @route '/prompts'
+*/
+prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: prompts.url(options),
     method: 'head',
 })
 
@@ -554,7 +554,7 @@ deployments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:138
+* @see routes/web.php:148
 * @route '/inertia-boot'
 */
 export const inertiaBoot = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -568,7 +568,7 @@ inertiaBoot.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:138
+* @see routes/web.php:148
 * @route '/inertia-boot'
 */
 inertiaBoot.url = (options?: RouteQueryOptions) => {
@@ -576,7 +576,7 @@ inertiaBoot.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:138
+* @see routes/web.php:148
 * @route '/inertia-boot'
 */
 inertiaBoot.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -585,7 +585,7 @@ inertiaBoot.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:138
+* @see routes/web.php:148
 * @route '/inertia-boot'
 */
 inertiaBoot.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

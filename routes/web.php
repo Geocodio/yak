@@ -10,6 +10,9 @@ use App\Http\Controllers\Deployments\DeploymentController;
 use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\PromptController;
+use App\Http\Controllers\PromptPreviewController;
+use App\Http\Controllers\PromptVersionController;
 use App\Http\Controllers\Repositories\GitHubCiDetectController;
 use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
@@ -25,7 +28,6 @@ use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\Health;
-use App\Livewire\PromptEditor;
 use App\Livewire\PrReviewFeedback;
 use App\Livewire\PrReviewForPr;
 use App\Livewire\Skills;
@@ -103,8 +105,16 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('health', Health::class)->name('health');
     Route::livewire('channels', ChannelList::class)->name('channels');
-    Route::livewire('prompts', PromptEditor::class)->name('prompts');
     Route::livewire('skills', Skills::class)->name('skills');
+
+    Route::get('prompts', [PromptController::class, 'index'])->name('prompts');
+    Route::get('prompts/{slug}', [PromptController::class, 'show'])->name('prompts.show');
+    Route::put('prompts/{slug}', [PromptController::class, 'update'])->name('prompts.update');
+    Route::delete('prompts/{slug}', [PromptController::class, 'reset'])->name('prompts.reset');
+    Route::post('prompts/{slug}/preview', PromptPreviewController::class)->name('prompts.preview');
+    Route::get('prompts/{slug}/versions/{version}', [PromptVersionController::class, 'show'])
+        ->name('prompts.versions.show')
+        ->where('version', '[0-9]+');
     Route::livewire('pr-reviews', PrReviewFeedback::class)->name('pr-reviews');
     Route::livewire('pr-reviews/for/{repoSlug}/{prNumber}', PrReviewForPr::class)
         ->name('pr-reviews.for-pr')

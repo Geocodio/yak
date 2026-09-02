@@ -2,6 +2,9 @@ import Auth from './Auth'
 import Tasks from './Tasks'
 import CostDashboardController from './CostDashboardController'
 import Repositories from './Repositories'
+import PromptController from './PromptController'
+import PromptPreviewController from './PromptPreviewController'
+import PromptVersionController from './PromptVersionController'
 import Deployments from './Deployments'
 import ArtifactController from './ArtifactController'
 import VideoThemeAssetController from './VideoThemeAssetController'
@@ -12,6 +15,9 @@ const Controllers = {
     Tasks: Object.assign(Tasks, Tasks),
     CostDashboardController: Object.assign(CostDashboardController, CostDashboardController),
     Repositories: Object.assign(Repositories, Repositories),
+    PromptController: Object.assign(PromptController, PromptController),
+    PromptPreviewController: Object.assign(PromptPreviewController, PromptPreviewController),
+    PromptVersionController: Object.assign(PromptVersionController, PromptVersionController),
     Deployments: Object.assign(Deployments, Deployments),
     ArtifactController: Object.assign(ArtifactController, ArtifactController),
     VideoThemeAssetController: Object.assign(VideoThemeAssetController, VideoThemeAssetController),

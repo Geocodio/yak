@@ -90,50 +90,6 @@ LivewirePageController100b47a7e69980d7fc8f5594d43bb241.head = (options?: RouteQu
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-const LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.url(options),
-    method: 'get',
-})
-
-LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.definition = {
-    methods: ["get","head"],
-    url: '/prompts',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.url = (options?: RouteQueryOptions) => {
-    return LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/prompts'
-*/
-LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/skills'
 */
 const LivewirePageController959dc9a14e4c2e5eec51ea9e4fbd8146 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -420,7 +376,6 @@ LivewirePageController8e94f99b226141ef399b6115395002b6.head = (options?: RouteQu
 const LivewirePageController = {
     '/health': LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2,
     '/channels': LivewirePageController100b47a7e69980d7fc8f5594d43bb241,
-    '/prompts': LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b,
     '/skills': LivewirePageController959dc9a14e4c2e5eec51ea9e4fbd8146,
     '/pr-reviews': LivewirePageControllerd386bb3fdb6980c2076ee05a0d1f99d5,
     '/pr-reviews/for/{repoSlug}/{prNumber}': LivewirePageControllerefbb4b9273f03868efa251b52ecf8ff7,
