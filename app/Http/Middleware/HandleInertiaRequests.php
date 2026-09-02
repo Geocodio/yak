@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\TaskStatus;
 use App\Models\YakTask;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -49,10 +50,16 @@ class HandleInertiaRequests extends Middleware
                     'initials' => $user->initials(),
                 ],
             ],
-            'flash' => fn () => [
-                'success' => $request->session()->get('success'),
-                'error' => $request->session()->get('error'),
-            ],
+            'flash' => function () use ($request) {
+                $success = $request->session()->get('success');
+                $error = $request->session()->get('error');
+
+                return [
+                    'success' => $success,
+                    'error' => $error,
+                    'id' => ($success !== null || $error !== null) ? (string) Str::uuid() : null,
+                ];
+            },
             'nav' => fn () => [
                 'activeTaskCount' => $user === null ? 0 : YakTask::query()->whereIn('status', TaskStatus::activeValues())->count(),
             ],

@@ -12,6 +12,7 @@ export function FlashToasts() {
         if (flash.error) {
             toast.error(flash.error);
         }
-    }, [flash.success, flash.error]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [flash.id]);
     return null;
 }
