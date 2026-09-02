@@ -52,3 +52,18 @@ test('clarification chips prefill the composer', function () {
         ->call('prefillOption', 'Convert in place')
         ->assertSet('composerText', 'Convert in place');
 });
+
+test('active composer binds cmd+enter and ctrl+enter to sendMessage', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertSeeHtml('wire:keydown.cmd.enter.prevent="sendMessage"')
+        ->assertSeeHtml('wire:keydown.ctrl.enter.prevent="sendMessage"');
+});
+
+test('disabled composer does not bind the keyboard shortcut', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->assertDontSeeHtml('wire:keydown.cmd.enter.prevent="sendMessage"');
+});

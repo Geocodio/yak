@@ -31,7 +31,12 @@
         rows="3"
         placeholder="{{ $placeholder }}"
         data-testid="{{ $testid }}"
-        @unless($isActive) disabled @endunless
+        @if($isActive)
+            wire:keydown.cmd.enter.prevent="sendMessage"
+            wire:keydown.ctrl.enter.prevent="sendMessage"
+        @else
+            disabled
+        @endif
         class="w-full rounded-[14px] border border-[rgba(200,184,154,0.5)] bg-[#faf7f1] p-3 text-sm text-yak-slate focus:border-yak-orange focus:outline-none focus:ring-1 focus:ring-yak-orange disabled:cursor-not-allowed"
     ></textarea>
     @error('composerText')
