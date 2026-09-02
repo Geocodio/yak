@@ -30,14 +30,14 @@ class TaskMessageController extends Controller
             default => null,
         };
 
-        $result = match ($state) {
-            'clarification' => $this->sendClarification($head, $text),
-            'steering' => $this->sendSteering($head, $text),
+        [$flashKey, $message] = match ($state) {
+            'clarification' => ['success', $this->sendClarification($head, $text)],
+            'steering' => ['success', $this->sendSteering($head, $text)],
             'follow_up' => $this->sendFollowUpMessage($head, $text),
-            default => 'This conversation is closed.',
+            default => ['error', 'This conversation is closed.'],
         };
 
-        return redirect()->route('tasks.show', $task)->with('success', $result);
+        return redirect()->route('tasks.show', $task)->with($flashKey, $message);
     }
 
     private function sendClarification(YakTask $head, string $text): string
@@ -59,21 +59,24 @@ class TaskMessageController extends Controller
 
         TaskLogger::info($head, 'Steering message queued via Yak UI');
 
-        return 'Queued — Yak will pick this up when the current run finishes.';
+        return 'Queued -- Yak will pick this up when the current run finishes.';
     }
 
-    private function sendFollowUpMessage(YakTask $head, string $text): string
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function sendFollowUpMessage(YakTask $head, string $text): array
     {
         if (! $head->prIsOpen()) {
-            return 'This PR is no longer open for changes.';
+            return ['error', 'This PR is no longer open for changes.'];
         }
 
         $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name);
 
         if ($child === null) {
-            return 'This PR is no longer open for changes.';
+            return ['error', 'This PR is no longer open for changes.'];
         }
 
-        return 'Sent to Yak. It will push changes to this PR.';
+        return ['success', 'Sent to Yak. It will push changes to this PR.'];
     }
 }

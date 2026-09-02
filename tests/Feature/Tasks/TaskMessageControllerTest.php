@@ -17,7 +17,8 @@ test('a clarification reply dispatches ClarificationReplyJob', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::AwaitingClarification]);
 
     $this->post(route('tasks.messages.store', $task), ['message' => 'Convert in place'])
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('success', 'Reply sent. Yak is continuing the task.');
 
     Queue::assertPushed(ClarificationReplyJob::class);
 });
@@ -25,7 +26,8 @@ test('a clarification reply dispatches ClarificationReplyJob', function () {
 test('a running task queues a steering message', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 
-    $this->post(route('tasks.messages.store', $task), ['message' => 'also handle IPv6']);
+    $this->post(route('tasks.messages.store', $task), ['message' => 'also handle IPv6'])
+        ->assertSessionHas('success', 'Queued -- Yak will pick this up when the current run finishes.');
 
     expect(PendingSteeringMessage::where('root_task_id', $task->id)->count())->toBe(1);
 });
@@ -42,7 +44,8 @@ test('an open-pr task creates a chained follow-up and dispatches RunFollowUpJob'
     ]);
 
     $this->post(route('tasks.messages.store', $task), ['message' => 'Also handle the empty-state'])
-        ->assertRedirect(route('tasks.show', $task));
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('success', 'Sent to Yak. It will push changes to this PR.');
 
     expect(YakTask::where('parent_task_id', $task->id)->count())->toBe(1);
     Queue::assertPushed(RunFollowUpJob::class);
@@ -52,7 +55,8 @@ test('a merged pr creates nothing and dispatches nothing', function () {
     Queue::fake();
     $task = YakTask::factory()->merged()->create(['source' => 'dashboard', 'branch_name' => 'yak/M-1']);
 
-    $this->post(route('tasks.messages.store', $task), ['message' => 'too late']);
+    $this->post(route('tasks.messages.store', $task), ['message' => 'too late'])
+        ->assertSessionHas('error', 'This conversation is closed.');
 
     expect(YakTask::where('parent_task_id', $task->id)->count())->toBe(0);
     Queue::assertNothingPushed();

@@ -90,7 +90,7 @@ it('dispatches an incremental review when a prior review exists, then redirects 
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
         ->assertRedirect()
-        ->assertSessionHas('reReview', 'started');
+        ->assertSessionHas('success', 'Re-review requested. A fresh review is now running for this PR -- this page updates live as it progresses.');
 
     $new = YakTask::query()
         ->where('mode', TaskMode::Review)
@@ -141,7 +141,7 @@ it('redirects to the existing in-flight task when a review for the same head SHA
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('tasks.show', $existing))
-        ->assertSessionHas('reReview', 'in_progress');
+        ->assertSessionHas('error', "A re-review for this PR is already in progress. Showing the run that's already underway.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(2);
 });
@@ -153,7 +153,7 @@ it('bails to the original task page for closed PRs', function () {
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('tasks.show', $task))
-        ->assertSessionHas('reReview', 'not_open');
+        ->assertSessionHas('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
@@ -165,7 +165,7 @@ it('bails to the original task page for draft PRs', function () {
     $this->actingAs(User::factory()->create())
         ->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('tasks.show', $task))
-        ->assertSessionHas('reReview', 'not_open');
+        ->assertSessionHas('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
