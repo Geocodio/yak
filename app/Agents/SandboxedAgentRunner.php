@@ -5,6 +5,7 @@ namespace App\Agents;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\StreamOutcome;
 use App\Exceptions\ClaudeAuthException;
 use App\Models\YakTask;
 use App\Services\ClaudeAuthDetector;
@@ -25,6 +26,21 @@ use Throwable;
 class SandboxedAgentRunner implements AgentRunner
 {
     /**
+     * Prompt sent when resuming a session whose stream ended without a
+     * `result` event. Claude usually already finished; this just makes
+     * the CLI close the turn properly so the result event is emitted.
+     */
+    private const string RESUME_AFTER_TRUNCATED_STREAM_PROMPT = 'Your previous turn ended before a result was recorded. If the task is complete, reply with your final summary. Otherwise finish the remaining work, commit it, and then reply with your final summary.';
+
+    /**
+     * Cap on task-log warnings for undecodable stream lines per run, so
+     * a chatty CLI cannot flood the timeline.
+     */
+    private const int MAX_MALFORMED_LINE_WARNINGS = 3;
+
+    private int $malformedLineWarnings = 0;
+
+    /**
      * After Claude emits its `result` event, we wait this many seconds
      * for the `incus exec` process to exit naturally before terminating
      * it. Backgrounded services inside the sandbox (e.g. `php artisan
@@ -39,6 +55,7 @@ class SandboxedAgentRunner implements AgentRunner
         private readonly float $heartbeatIntervalSeconds = 60.0,
         private readonly float $sigkillEscalationSeconds = 5.0,
         private readonly float $memorySnapshotIntervalSeconds = 30.0,
+        private readonly int $maxResumeAttempts = 1,
     ) {}
 
     public function run(AgentRunRequest $request): AgentRunResult
@@ -217,29 +234,164 @@ class SandboxedAgentRunner implements AgentRunner
             ]);
         });
 
+        $this->malformedLineWarnings = 0;
+
         try {
-            return $this->runStreamingInner(
-                $request,
-                $containerName,
-                $command,
-                $handler,
-            );
+            $outcome = $this->runStreamingInner($request, $containerName, $command, $handler);
+
+            $resumeAttempts = 0;
+            while ($outcome->endedCleanlyWithoutResult()
+                && $handler->getSessionId() !== null
+                && $resumeAttempts < $this->maxResumeAttempts) {
+                $resumeAttempts++;
+                $outcome = $this->resumeAfterTruncatedStream($request, $containerName, $handler, $outcome, $resumeAttempts);
+            }
+
+            return $this->resultFromOutcome($request, $outcome, $handler);
         } finally {
             $streamCompleted = true;
         }
     }
 
     /**
+     * The CLI exited cleanly but never emitted its `result` event. The
+     * sandbox is still alive, so Claude's work (commits included) is
+     * intact; `--resume` the same session there rather than failing the
+     * task and losing it. Uses the same StreamEventHandler so tool logs
+     * keep flowing into the same task timeline.
+     */
+    private function resumeAfterTruncatedStream(
+        AgentRunRequest $request,
+        string $containerName,
+        StreamEventHandler $handler,
+        StreamOutcome $outcome,
+        int $attempt,
+    ): StreamOutcome {
+        assert($request->task !== null);
+
+        $sessionId = (string) $handler->getSessionId();
+        $metadata = [
+            'container' => $containerName,
+            'session_id' => $sessionId,
+            'lines' => $outcome->lineCount,
+            'attempt' => $attempt,
+            'max_attempts' => $this->maxResumeAttempts,
+        ];
+
+        Log::channel('yak')->warning('Claude stream ended without a result event; resuming session in place', $metadata + ['task_id' => $request->task->id]);
+        TaskLogger::warning(
+            $request->task,
+            "Claude exited without a result event — resuming session {$sessionId} in place (attempt {$attempt}/{$this->maxResumeAttempts})",
+            $metadata,
+        );
+
+        $resumeRequest = new AgentRunRequest(
+            prompt: self::RESUME_AFTER_TRUNCATED_STREAM_PROMPT,
+            systemPrompt: $request->systemPrompt,
+            containerName: $containerName,
+            timeoutSeconds: $request->timeoutSeconds,
+            maxBudgetUsd: $request->maxBudgetUsd,
+            maxTurns: $request->maxTurns,
+            model: $request->model,
+            resumeSessionId: $sessionId,
+            mcpConfigPath: $request->mcpConfigPath,
+            task: $request->task,
+        );
+
+        $this->logPrompts($resumeRequest);
+
+        return $this->runStreamingInner(
+            $resumeRequest,
+            $containerName,
+            $this->buildClaudeCommand($resumeRequest),
+            $handler,
+        );
+    }
+
+    /**
+     * Turn what the stream left behind into an AgentRunResult. Prefers a
+     * real `result` event; otherwise a clean exit with a final assistant
+     * message is treated as success with a synthesized result so the
+     * job still pushes and opens the PR.
+     */
+    private function resultFromOutcome(
+        AgentRunRequest $request,
+        StreamOutcome $outcome,
+        StreamEventHandler $handler,
+    ): AgentRunResult {
+        assert($request->task !== null);
+
+        $resultEvent = $outcome->resultEvent;
+
+        if ($resultEvent !== null) {
+            Log::channel('yak')->info('Claude result event (sandboxed)', [
+                'task_id' => $request->task->id,
+                'is_error' => $resultEvent['is_error'] ?? false,
+                'subtype' => $resultEvent['subtype'] ?? null,
+                'result' => substr((string) ($resultEvent['result'] ?? ''), 0, 500),
+                'num_turns' => $resultEvent['num_turns'] ?? null,
+                'total_cost_usd' => $resultEvent['total_cost_usd'] ?? null,
+            ]);
+
+            return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR))
+                ->withStderr($outcome->stderr);
+        }
+
+        if ($outcome->stderr !== '') {
+            return AgentRunResult::failure($outcome->stderr, '')->withStderr($outcome->stderr);
+        }
+
+        $finalText = $handler->getLastAssistantText();
+
+        if ($outcome->endedCleanlyWithoutResult() && $finalText !== '') {
+            $synthesized = [
+                'type' => 'result',
+                'subtype' => 'success',
+                'is_error' => false,
+                'result' => $finalText,
+                'session_id' => (string) $handler->getSessionId(),
+                'num_turns' => 0,
+                'total_cost_usd' => 0,
+                'duration_ms' => 0,
+                'synthesized' => true,
+            ];
+
+            Log::channel('yak')->warning('Claude result synthesized from final assistant message', [
+                'task_id' => $request->task->id,
+                'lines' => $outcome->lineCount,
+                'session_id' => $handler->getSessionId(),
+            ]);
+            TaskLogger::warning(
+                $request->task,
+                'No result event from Claude — result synthesized from its final message. Turn count and cost for this run are unknown.',
+                ['lines' => $outcome->lineCount, 'session_id' => $handler->getSessionId()],
+            );
+
+            return ClaudeCodeOutputParser::parse(json_encode($synthesized, JSON_THROW_ON_ERROR));
+        }
+
+        $terminationNote = $outcome->forcedTermination === 'stream_idle_timeout'
+            ? ' — terminated after stream idle timeout'
+            : '';
+
+        return AgentRunResult::failure(
+            "Claude Code stream ended without result event (lines={$outcome->lineCount}, exit={$outcome->exitCode}){$terminationNote}",
+            '',
+        );
+    }
+
+    /**
      * The actual streaming loop, split out so runStreaming() can wrap it
      * in a try/finally that marks the register_shutdown_function guard
-     * regardless of exception vs return.
+     * regardless of exception vs return. Reports what the stream left
+     * behind; runStreaming() decides what that means.
      */
     private function runStreamingInner(
         AgentRunRequest $request,
         string $containerName,
         string $command,
         StreamEventHandler $handler,
-    ): AgentRunResult {
+    ): StreamOutcome {
         assert($request->task !== null);
 
         [$process, $pipes] = $this->sandbox->streamExec($containerName, $command);
@@ -301,7 +453,7 @@ class SandboxedAgentRunner implements AgentRunner
                 $lineCount++;
                 $lastLineAt = microtime(true);
                 $lastHeartbeatAt = $lastLineAt;
-                $this->processLine($line, $handler);
+                $this->processLine($line, $handler, $request->task);
 
                 if ($resultReceivedAt === null && $handler->getResultEvent() !== null) {
                     $resultReceivedAt = microtime(true);
@@ -311,7 +463,7 @@ class SandboxedAgentRunner implements AgentRunner
                 if (! $status['running']) {
                     while (($line = fgets($stdout)) !== false) {
                         $lineCount++;
-                        $this->processLine($line, $handler);
+                        $this->processLine($line, $handler, $request->task);
                     }
                     break;
                 }
@@ -406,33 +558,12 @@ class SandboxedAgentRunner implements AgentRunner
             ]);
         }
 
-        $resultEvent = $handler->getResultEvent();
-
-        if ($resultEvent !== null) {
-            Log::channel('yak')->info('Claude result event (sandboxed)', [
-                'task_id' => $request->task->id,
-                'is_error' => $resultEvent['is_error'] ?? false,
-                'subtype' => $resultEvent['subtype'] ?? null,
-                'result' => substr((string) ($resultEvent['result'] ?? ''), 0, 500),
-                'num_turns' => $resultEvent['num_turns'] ?? null,
-                'total_cost_usd' => $resultEvent['total_cost_usd'] ?? null,
-            ]);
-
-            return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR))
-                ->withStderr($stderrOutput);
-        }
-
-        if ($stderrOutput !== '') {
-            return AgentRunResult::failure($stderrOutput, '')->withStderr($stderrOutput);
-        }
-
-        $terminationNote = $forcedTermination === 'stream_idle_timeout'
-            ? ' — terminated after stream idle timeout'
-            : '';
-
-        return AgentRunResult::failure(
-            "Claude Code stream ended without result event (lines={$lineCount}, exit={$exitCode}){$terminationNote}",
-            '',
+        return new StreamOutcome(
+            resultEvent: $handler->getResultEvent(),
+            stderr: $stderrOutput,
+            exitCode: $exitCode,
+            lineCount: $lineCount,
+            forcedTermination: $forcedTermination,
         );
     }
 
@@ -536,7 +667,7 @@ class SandboxedAgentRunner implements AgentRunner
         }
     }
 
-    private function processLine(string $line, StreamEventHandler $handler): void
+    private function processLine(string $line, StreamEventHandler $handler, YakTask $task): void
     {
         $line = trim($line);
 
@@ -548,10 +679,38 @@ class SandboxedAgentRunner implements AgentRunner
         $event = json_decode($line, true);
 
         if (! is_array($event)) {
+            $this->warnMalformedLine($line, $task);
+
             return;
         }
 
         $handler->handle($event);
+    }
+
+    /**
+     * A non-empty stream line that is not JSON. Recorded on the task so a
+     * missing `result` event can be traced to a line the parser rejected
+     * rather than one the CLI never wrote.
+     */
+    private function warnMalformedLine(string $line, YakTask $task): void
+    {
+        $excerpt = mb_substr($line, 0, 200);
+
+        Log::channel('yak')->warning('Claude stream line is not valid JSON', [
+            'task_id' => $task->id,
+            'line' => $excerpt,
+            'length' => strlen($line),
+        ]);
+
+        if ($this->malformedLineWarnings >= self::MAX_MALFORMED_LINE_WARNINGS) {
+            return;
+        }
+
+        $this->malformedLineWarnings++;
+        TaskLogger::warning($task, 'Stream line is not valid JSON — ignored', [
+            'line' => $excerpt,
+            'length' => strlen($line),
+        ]);
     }
 
     /**

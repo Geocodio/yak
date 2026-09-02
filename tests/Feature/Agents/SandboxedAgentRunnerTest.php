@@ -688,3 +688,186 @@ it('points the sandbox CLI at the shared claude config dir', function () {
 
     expect($command)->toContain("CLAUDE_CONFIG_DIR='/home/yak/.claude' claude -p");
 });
+
+/**
+ * Fake sandbox whose streamExec replays a scripted sequence of stream-json
+ * line sets: the Nth `claude -p` invocation prints the Nth script and exits 0.
+ */
+class ScriptedStreamSandbox extends RecordingSandboxManager
+{
+    /** @param list<list<array<string, mixed>>> $scripts */
+    public function __construct(public array $scripts) {}
+
+    public int $streamCalls = 0;
+
+    public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+    {
+        $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+        $events = $this->scripts[$this->streamCalls] ?? [];
+        $this->streamCalls++;
+
+        $lines = implode("\n", array_map(fn (array $e): string => json_encode($e), $events));
+
+        $descriptors = [
+            0 => ['pipe', 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ];
+
+        $process = proc_open(['bash', '-c', sprintf('cat > /dev/null; printf "%%s\n" %s', escapeshellarg($lines))], $descriptors, $pipes);
+
+        return [$process, $pipes];
+    }
+
+    /** @return list<string> */
+    public function claudeCommands(): array
+    {
+        return array_values(array_map(
+            fn (array $c): string => $c['command'],
+            array_filter($this->calls, fn (array $c): bool => str_contains($c['command'], 'claude -p')),
+        ));
+    }
+}
+
+function truncatedStreamScript(string $sessionId, string $finalText): array
+{
+    return [
+        ['type' => 'system', 'subtype' => 'init', 'session_id' => $sessionId],
+        ['type' => 'assistant', 'session_id' => $sessionId, 'message' => ['content' => [['type' => 'text', 'text' => $finalText]]]],
+    ];
+}
+
+it('resumes the session in place when the stream ends cleanly without a result event', function () {
+    // Regression for task 5585: Claude committed, wrote its summary, then the
+    // CLI exited 0 without ever emitting the `result` line. The sandbox is
+    // still alive at that point, so resume the same session there instead of
+    // failing the task and losing the commit.
+    $task = YakTask::factory()->running()->create();
+
+    $sandbox = new ScriptedStreamSandbox([
+        truncatedStreamScript('sess_cut', '## Summary\nDone, committed.'),
+        [[
+            'type' => 'result',
+            'is_error' => false,
+            'result' => 'Finished: committed the change.',
+            'num_turns' => 2,
+            'total_cost_usd' => 0.05,
+            'duration_ms' => 100,
+            'session_id' => 'sess_cut',
+        ]],
+    ]);
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    $commands = $sandbox->claudeCommands();
+    expect($commands)->toHaveCount(2);
+    expect($commands[0])->not->toContain('--resume');
+    expect($commands[1])->toContain("--resume 'sess_cut'");
+
+    expect($result->isError)->toBeFalse();
+    expect($result->resultSummary)->toBe('Finished: committed the change.');
+    expect($result->sessionId)->toBe('sess_cut');
+
+    $log = TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'like', '%without a result event%')
+        ->first();
+    expect($log)->not->toBeNull();
+    expect($log->level)->toBe('warning');
+});
+
+it('synthesizes a success result from the final assistant message when the resume also ends without a result event', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $sandbox = new ScriptedStreamSandbox([
+        truncatedStreamScript('sess_cut', '## Summary\nDone, committed.'),
+        truncatedStreamScript('sess_cut', 'Already finished. The change is committed.'),
+    ]);
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    expect($sandbox->claudeCommands())->toHaveCount(2);
+    expect($result->isError)->toBeFalse();
+    expect($result->resultSummary)->toBe('Already finished. The change is committed.');
+    expect($result->sessionId)->toBe('sess_cut');
+
+    $log = TaskLog::where('yak_task_id', $task->id)
+        ->where('message', 'like', '%synthesized%')
+        ->first();
+    expect($log)->not->toBeNull();
+    expect($log->level)->toBe('warning');
+});
+
+it('still fails when the stream ends without a result event and Claude never said anything', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $sandbox = new ScriptedStreamSandbox([
+        [['type' => 'system', 'subtype' => 'init', 'session_id' => 'sess_silent']],
+        [['type' => 'system', 'subtype' => 'init', 'session_id' => 'sess_silent']],
+    ]);
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    expect($sandbox->claudeCommands())->toHaveCount(2);
+    expect($result->isError)->toBeTrue();
+    expect($result->resultSummary)->toContain('without result event');
+});
+
+it('does not resume when there is no session id to resume', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $sandbox = new ScriptedStreamSandbox([
+        [['type' => 'assistant', 'message' => ['content' => [['type' => 'text', 'text' => 'hi']]]]],
+    ]);
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    expect($sandbox->claudeCommands())->toHaveCount(1);
+    // No session to resume, but a final message exists: synthesize rather than fail.
+    expect($result->isError)->toBeFalse();
+    expect($result->resultSummary)->toBe('hi');
+});
+
+it('records stream lines that are not valid JSON on the task log instead of dropping them silently', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $resultEvent = json_encode([
+                'type' => 'result',
+                'is_error' => false,
+                'result' => 'ok',
+                'num_turns' => 1,
+                'total_cost_usd' => 0.0,
+                'duration_ms' => 1,
+                'session_id' => 'sess_garbage',
+            ]);
+
+            $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            $shell = sprintf('cat > /dev/null; echo "not json at all {"; echo %s', escapeshellarg($resultEvent));
+            $process = proc_open(['bash', '-c', $shell], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    expect($result->isError)->toBeFalse();
+
+    $log = TaskLog::where('yak_task_id', $task->id)
+        ->where('level', 'warning')
+        ->where('message', 'like', '%not valid JSON%')
+        ->first();
+    expect($log)->not->toBeNull();
+    expect($log->metadata['line'] ?? null)->toBe('not json at all {');
+});

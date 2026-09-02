@@ -494,3 +494,37 @@ test('heartbeat is a no-op when no tool is pending but still touches the task', 
     expect(TaskLog::where('yak_task_id', $this->task->id)->count())->toBe(0);
     expect($this->task->fresh()->updated_at->greaterThan($before))->toBeTrue();
 });
+
+test('captures the session id from the first event that carries one', function () {
+    expect($this->handler->getSessionId())->toBeNull();
+
+    $this->handler->handle([
+        'type' => 'system',
+        'subtype' => 'init',
+        'session_id' => 'sess_from_init',
+    ]);
+
+    $this->handler->handle([
+        'type' => 'assistant',
+        'session_id' => 'sess_from_init',
+        'message' => ['content' => [['type' => 'text', 'text' => 'hello']]],
+    ]);
+
+    expect($this->handler->getSessionId())->toBe('sess_from_init');
+});
+
+test('keeps the full text of the most recent assistant message', function () {
+    $longText = str_repeat('x', 800);
+
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => ['content' => [['type' => 'text', 'text' => 'first']]],
+    ]);
+    $this->handler->handle([
+        'type' => 'assistant',
+        'message' => ['content' => [['type' => 'text', 'text' => $longText]]],
+    ]);
+
+    // The task log truncates at 500 chars; the handler keeps the whole message.
+    expect($this->handler->getLastAssistantText())->toBe($longText);
+});

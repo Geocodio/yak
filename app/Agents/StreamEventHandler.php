@@ -23,6 +23,19 @@ class StreamEventHandler
     private ?array $resultEvent = null;
 
     /**
+     * Session id from the first stream event that carries one (the
+     * `system.init` event, normally). Captured early so the runner can
+     * `--resume` the session when the CLI exits before the `result` event.
+     */
+    private ?string $sessionId = null;
+
+    /**
+     * Full text of the most recent assistant message, untruncated. Used to
+     * synthesize a result when the stream ends without a `result` event.
+     */
+    private string $lastAssistantText = '';
+
+    /**
      * In-flight tool calls keyed by tool_use_id, so a result attaches to
      * the call it belongs to rather than to whichever call happened to be
      * most recent.
@@ -73,6 +86,11 @@ class StreamEventHandler
     {
         $type = $event['type'] ?? '';
 
+        $sessionId = $event['session_id'] ?? null;
+        if ($this->sessionId === null && is_string($sessionId) && $sessionId !== '') {
+            $this->sessionId = $sessionId;
+        }
+
         match ($type) {
             'assistant' => $this->handleAssistant($event),
             'user' => $this->handleUser($event),
@@ -89,6 +107,16 @@ class StreamEventHandler
     public function getResultEvent(): ?array
     {
         return $this->resultEvent;
+    }
+
+    public function getSessionId(): ?string
+    {
+        return $this->sessionId;
+    }
+
+    public function getLastAssistantText(): string
+    {
+        return $this->lastAssistantText;
     }
 
     /**
@@ -193,6 +221,8 @@ class StreamEventHandler
         if ($content === '') {
             return;
         }
+
+        $this->lastAssistantText = $content;
 
         // Truncate long assistant messages
         $display = mb_strlen($content) > 500
