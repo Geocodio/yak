@@ -67,7 +67,7 @@ function fakeOpenPr(array $overrides = []): void
 it('redirects unauthenticated visitors to login', function () {
     $task = makeReviewTask();
 
-    $this->get(route('tasks.re-request-review', $task))
+    $this->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('login'));
 });
 
@@ -88,7 +88,7 @@ it('dispatches an incremental review when a prior review exists, then redirects 
     fakeOpenPr();
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertRedirect()
         ->assertSessionHas('reReview', 'started');
 
@@ -110,7 +110,7 @@ it('falls back to a full review when no prior review is on file', function () {
     fakeOpenPr();
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertRedirect();
 
     $new = YakTask::query()
@@ -139,7 +139,7 @@ it('redirects to the existing in-flight task when a review for the same head SHA
     ]);
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('tasks.show', $existing))
         ->assertSessionHas('reReview', 'in_progress');
 
@@ -151,7 +151,7 @@ it('bails to the original task page for closed PRs', function () {
     fakeOpenPr(['state' => 'closed']);
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('tasks.show', $task))
         ->assertSessionHas('reReview', 'not_open');
 
@@ -163,7 +163,7 @@ it('bails to the original task page for draft PRs', function () {
     fakeOpenPr(['draft' => true]);
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertRedirect(route('tasks.show', $task))
         ->assertSessionHas('reReview', 'not_open');
 
@@ -177,7 +177,7 @@ it('404s on non-review tasks', function () {
     ]);
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertNotFound();
 });
 
@@ -185,6 +185,6 @@ it('404s when the repo has pr review disabled', function () {
     $task = makeReviewTask(['repo' => ['pr_review_enabled' => false]]);
 
     $this->actingAs(User::factory()->create())
-        ->get(route('tasks.re-request-review', $task))
+        ->post(route('tasks.re-request-review', $task))
         ->assertNotFound();
 });

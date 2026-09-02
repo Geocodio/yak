@@ -127,12 +127,16 @@ test('it renders task info', function () {
 });
 
 test('it is accessible at /tasks/{id} route', function () {
+    // The route now serves the Inertia task detail page
+    // (App\Http\Controllers\Tasks\TaskController::show) instead of this
+    // Livewire component. Task 6 removes this whole test file once the
+    // React page replaces it; this assertion just confirms the route
+    // still resolves for a task URL in the meantime.
     $task = YakTask::factory()->success()->create();
 
     $response = $this->get('/tasks/' . $task->id);
 
     $response->assertOk();
-    $response->assertSeeLivewire(TaskDetail::class);
 });
 
 test('it requires authentication', function () {

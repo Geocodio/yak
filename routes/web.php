@@ -9,7 +9,10 @@ use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Http\Controllers\Tasks\StoreTaskController;
+use App\Http\Controllers\Tasks\TaskActionController;
+use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
+use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Livewire\Channels\ChannelList;
 use App\Livewire\CostDashboard;
@@ -22,7 +25,6 @@ use App\Livewire\PrReviewForPr;
 use App\Livewire\Repos\RepoForm;
 use App\Livewire\Repos\RepoList;
 use App\Livewire\Skills;
-use App\Livewire\Tasks\TaskDetail;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -54,8 +56,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tasks', TaskListController::class)->name('tasks');
     Route::post('tasks', StoreTaskController::class)->name('tasks.store');
     Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
-    Route::livewire('tasks/{task}', TaskDetail::class)->name('tasks.show');
-    Route::get('tasks/{task}/re-request-review', RequestReReviewController::class)
+    Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
+    Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
+    Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
+    Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
+    Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
+    Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('tasks.reroute');
+    Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
+    Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
     Route::livewire('costs', CostDashboard::class)->name('costs');
     Route::livewire('repos', RepoList::class)->name('repos');

@@ -797,7 +797,10 @@ class RunYakReviewJob implements ShouldQueue
 
     private function reReviewFooter(): string
     {
-        $url = route('tasks.re-request-review', $this->task);
+        // The re-request-review endpoint is a POST action (dashboard button),
+        // so a PR-body link can't hit it directly — send reviewers to the
+        // task page instead, where the button is one click away.
+        $url = route('tasks.show', $this->task);
 
         return "---\n\n_Made an update? [Request a re-review →]({$url})_";
     }

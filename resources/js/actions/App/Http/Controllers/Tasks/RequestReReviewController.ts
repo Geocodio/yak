@@ -4,15 +4,15 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
 * @route '/tasks/{task}/re-request-review'
 */
-const RequestReReviewController = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const RequestReReviewController = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RequestReReviewController.url(args, options),
-    method: 'get',
+    method: 'post',
 })
 
 RequestReReviewController.definition = {
-    methods: ["get","head"],
+    methods: ["post"],
     url: '/tasks/{task}/re-request-review',
-} satisfies RouteDefinition<["get","head"]>
+} satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
@@ -52,19 +52,9 @@ RequestReReviewController.url = (args: { task: string | number | { id: string | 
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
 * @route '/tasks/{task}/re-request-review'
 */
-RequestReReviewController.get = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+RequestReReviewController.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RequestReReviewController.url(args, options),
-    method: 'get',
-})
-
-/**
-* @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
-* @route '/tasks/{task}/re-request-review'
-*/
-RequestReReviewController.head = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: RequestReReviewController.url(args, options),
-    method: 'head',
+    method: 'post',
 })
 
 export default RequestReReviewController
