@@ -126,7 +126,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 * @see app/Http/Controllers/Repositories/RepositoryController.php:74
 * @route '/repos/{repository}/edit'
 */
-export const edit = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const edit = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: edit.url(args, options),
     method: 'get',
 })
@@ -141,7 +141,7 @@ edit.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryController.php:74
 * @route '/repos/{repository}/edit'
 */
-edit.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
+edit.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -174,7 +174,7 @@ edit.url = (args: { repository: string | number | { slug: string | number } } | 
 * @see app/Http/Controllers/Repositories/RepositoryController.php:74
 * @route '/repos/{repository}/edit'
 */
-edit.get = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+edit.get = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: edit.url(args, options),
     method: 'get',
 })
@@ -184,7 +184,7 @@ edit.get = (args: { repository: string | number | { slug: string | number } } | 
 * @see app/Http/Controllers/Repositories/RepositoryController.php:74
 * @route '/repos/{repository}/edit'
 */
-edit.head = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+edit.head = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: edit.url(args, options),
     method: 'head',
 })
@@ -194,7 +194,7 @@ edit.head = (args: { repository: string | number | { slug: string | number } } |
 * @see app/Http/Controllers/Repositories/RepositoryController.php:90
 * @route '/repos/{repository}'
 */
-export const update = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -209,7 +209,7 @@ update.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryController.php:90
 * @route '/repos/{repository}'
 */
-update.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
+update.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -242,7 +242,7 @@ update.url = (args: { repository: string | number | { slug: string | number } } 
 * @see app/Http/Controllers/Repositories/RepositoryController.php:90
 * @route '/repos/{repository}'
 */
-update.patch = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -252,7 +252,7 @@ update.patch = (args: { repository: string | number | { slug: string | number } 
 * @see app/Http/Controllers/Repositories/RepositoryController.php:110
 * @route '/repos/{repository}'
 */
-export const destroy = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -267,7 +267,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryController.php:110
 * @route '/repos/{repository}'
 */
-destroy.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -300,7 +300,7 @@ destroy.url = (args: { repository: string | number | { slug: string | number } }
 * @see app/Http/Controllers/Repositories/RepositoryController.php:110
 * @route '/repos/{repository}'
 */
-destroy.delete = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })

@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 const PrReviewFeedbackController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ PrReviewFeedbackController.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 PrReviewFeedbackController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ PrReviewFeedbackController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 PrReviewFeedbackController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ PrReviewFeedbackController.get = (options?: RouteQueryOptions): RouteDefinition<
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 PrReviewFeedbackController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

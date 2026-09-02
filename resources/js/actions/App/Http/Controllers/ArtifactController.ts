@@ -66,7 +66,7 @@ publicImage.head = (args: { token: string | number } | [token: string | number ]
 * @see app/Http/Controllers/ArtifactController.php:35
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-export const viewer = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const viewer = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: viewer.url(args, options),
     method: 'get',
 })
@@ -81,7 +81,7 @@ viewer.definition = {
 * @see app/Http/Controllers/ArtifactController.php:35
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-viewer.url = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions) => {
+viewer.url = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -109,7 +109,7 @@ viewer.url = (args: { task: string | number | { id: string | number }, filename:
 * @see app/Http/Controllers/ArtifactController.php:35
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-viewer.get = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+viewer.get = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: viewer.url(args, options),
     method: 'get',
 })
@@ -119,7 +119,7 @@ viewer.get = (args: { task: string | number | { id: string | number }, filename:
 * @see app/Http/Controllers/ArtifactController.php:35
 * @route '/artifacts/{task}/viewer/{filename}'
 */
-viewer.head = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+viewer.head = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: viewer.url(args, options),
     method: 'head',
 })
@@ -129,7 +129,7 @@ viewer.head = (args: { task: string | number | { id: string | number }, filename
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-export const show = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const show = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -144,7 +144,7 @@ show.definition = {
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-show.url = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions) => {
+show.url = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -172,7 +172,7 @@ show.url = (args: { task: string | number | { id: string | number }, filename: s
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-show.get = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+show.get = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: show.url(args, options),
     method: 'get',
 })
@@ -182,7 +182,7 @@ show.get = (args: { task: string | number | { id: string | number }, filename: s
 * @see app/Http/Controllers/ArtifactController.php:15
 * @route '/artifacts/{task}/{filename}'
 */
-show.head = (args: { task: string | number | { id: string | number }, filename: string | number } | [task: string | number | { id: string | number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+show.head = (args: { task: number | { id: number }, filename: string | number } | [task: number | { id: number }, filename: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: show.url(args, options),
     method: 'head',
 })

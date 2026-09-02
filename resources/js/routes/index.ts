@@ -467,7 +467,7 @@ prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 export const prReviews = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -482,7 +482,7 @@ prReviews.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 prReviews.url = (options?: RouteQueryOptions) => {
@@ -491,7 +491,7 @@ prReviews.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 prReviews.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -501,7 +501,7 @@ prReviews.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
 * @route '/pr-reviews'
 */
 prReviews.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
