@@ -34,7 +34,6 @@
         "lightningcss-linux-x64-gnu": "^1.29.1"
     },
     "devDependencies": {
-        "@inertiajs/vite": "^3.7.0",
         "@laravel/vite-plugin-wayfinder": "^0.1.10",
         "@tailwindcss/typography": "^0.5.19",
         "@types/node": "^26.4.1",
