@@ -2,50 +2,6 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 /**
 * @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
 * @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/costs'
-*/
-const LivewirePageController2c872e28f212301e5f28e254d61efb55 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController2c872e28f212301e5f28e254d61efb55.url(options),
-    method: 'get',
-})
-
-LivewirePageController2c872e28f212301e5f28e254d61efb55.definition = {
-    methods: ["get","head"],
-    url: '/costs',
-} satisfies RouteDefinition<["get","head"]>
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/costs'
-*/
-LivewirePageController2c872e28f212301e5f28e254d61efb55.url = (options?: RouteQueryOptions) => {
-    return LivewirePageController2c872e28f212301e5f28e254d61efb55.definition.url + queryParams(options)
-}
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/costs'
-*/
-LivewirePageController2c872e28f212301e5f28e254d61efb55.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: LivewirePageController2c872e28f212301e5f28e254d61efb55.url(options),
-    method: 'get',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
-* @route '/costs'
-*/
-LivewirePageController2c872e28f212301e5f28e254d61efb55.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: LivewirePageController2c872e28f212301e5f28e254d61efb55.url(options),
-    method: 'head',
-})
-
-/**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
 * @route '/health'
 */
 const LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2 = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -462,7 +418,6 @@ LivewirePageController8e94f99b226141ef399b6115395002b6.head = (options?: RouteQu
 * or import the route by name from your generated `routes/` directory.
 */
 const LivewirePageController = {
-    '/costs': LivewirePageController2c872e28f212301e5f28e254d61efb55,
     '/health': LivewirePageControllerf5005a7fa854a42af9f9f8f93fe8f2c2,
     '/channels': LivewirePageController100b47a7e69980d7fc8f5594d43bb241,
     '/prompts': LivewirePageControllere9713578cbcfc104921da2d1f0e9be0b,

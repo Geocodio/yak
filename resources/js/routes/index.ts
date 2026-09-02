@@ -202,8 +202,8 @@ tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\CostDashboardController::__invoke
+* @see app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 export const costs = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -217,8 +217,8 @@ costs.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\CostDashboardController::__invoke
+* @see app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 costs.url = (options?: RouteQueryOptions) => {
@@ -226,8 +226,8 @@ costs.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\CostDashboardController::__invoke
+* @see app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 costs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -236,8 +236,8 @@ costs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see \Livewire\Mechanisms\HandleRouting\LivewirePageController::__invoke
-* @see vendor/livewire/livewire/src/Mechanisms/HandleRouting/LivewirePageController.php:7
+* @see \App\Http\Controllers\CostDashboardController::__invoke
+* @see app/Http/Controllers/CostDashboardController.php:21
 * @route '/costs'
 */
 costs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

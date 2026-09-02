@@ -3,6 +3,7 @@
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
+use App\Http\Controllers\CostDashboardController;
 use App\Http\Controllers\Deployments\AuthBounceController;
 use App\Http\Controllers\Deployments\DeploymentActionController;
 use App\Http\Controllers\Deployments\DeploymentController;
@@ -23,7 +24,6 @@ use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Livewire\Channels\ChannelList;
-use App\Livewire\CostDashboard;
 use App\Livewire\Health;
 use App\Livewire\PromptEditor;
 use App\Livewire\PrReviewFeedback;
@@ -69,7 +69,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
     Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
-    Route::livewire('costs', CostDashboard::class)->name('costs');
+    Route::get('costs', CostDashboardController::class)->name('costs');
 
     Route::get('repos', [RepositoryController::class, 'index'])->name('repos');
     Route::get('repos/create', [RepositoryController::class, 'create'])->name('repos.create');
