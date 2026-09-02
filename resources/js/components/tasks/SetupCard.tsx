@@ -22,7 +22,7 @@ export function SetupCard({ card }: { card: SetupCardData }) {
                     <div className="flex items-center justify-between gap-3">
                         <div>
                             <h2 className="text-[12px] font-semibold uppercase tracking-wider text-warn">Getting started with Yak</h2>
-                            <p className="mt-1 text-[13px] text-muted">Three small steps and you're ready to ship papercuts.</p>
+                            <p className="mt-1 text-[13px] text-muted">Three small steps and Yak can open its first PR.</p>
                         </div>
                         <button
                             type="button"

@@ -21,7 +21,7 @@
 - **Opens PRs for papercuts.** Receives tasks from Slack, Linear, Sentry, and GitHub; sends Claude into an isolated sandbox; opens a reviewable PR and verifies CI passes
 - **Reviews pull requests.** Line-level comments, `suggestion` blocks, and a feedback dashboard
 - **Serves preview deployments.** Every open PR gets a unique URL, OAuth-gated, hibernated when idle, destroyed when the PR closes
-- **Shared sandbox fleet.** One Incus + ZFS substrate, one GitHub App, one Livewire dashboard, one cost model across all three workflows
+- **Shared sandbox fleet.** One Incus + ZFS substrate, one GitHub App, one Inertia dashboard, one cost model across all three workflows
 
 ## How It Works
 
@@ -44,7 +44,7 @@ See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a 
 
 ## Design Philosophy
 
-- **Laravel-native** -- built on Laravel 13, Livewire 4, and Flux UI.
+- **Laravel-native** -- built on Laravel 13, Inertia 3, and React on `@geocodio/console-ui`.
 - **Channel-agnostic** -- driver-based architecture makes it easy to add new input and notification channels.
 - **State machine driven** -- every task follows a defined lifecycle with explicit transitions.
 - **AI-assisted, human-supervised** -- tasks are automated but observable through the dashboard and notifications.
