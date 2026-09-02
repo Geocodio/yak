@@ -3,13 +3,16 @@
 namespace App\Livewire\Tasks;
 
 use App\Channels\ChannelRegistry;
+use App\Enums\DeploymentStatus;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Livewire\Tasks\Support\ArtifactPreviewUrl;
 use App\Models\Artifact;
+use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Support\Docs;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -21,6 +24,7 @@ use Livewire\WithPagination;
 
 /**
  * @property-read LengthAwarePaginator<int, YakTask> $tasks
+ * @property-read Collection<string, BranchDeployment> $deploymentsByTask
  */
 #[Title('Tasks')]
 class TaskList extends Component
@@ -39,6 +43,19 @@ class TaskList extends Component
     #[Url]
     public string $repo = '';
 
+    /** PR lifecycle filter: '', 'open', 'merged', 'closed', or 'none'. */
+    #[Url]
+    public string $pr = '';
+
+    #[Url]
+    public string $sort = 'created_at';
+
+    #[Url]
+    public string $direction = 'desc';
+
+    /** @var list<string> */
+    public const SORTABLE_COLUMNS = ['status', 'source', 'author_name', 'repo', 'created_at'];
+
     /**
      * @return LengthAwarePaginator<int, YakTask>
      */
@@ -51,8 +68,89 @@ class TaskList extends Component
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
             ->when($this->tab === 'tasks' && $this->source !== '', fn ($query) => $query->where('source', $this->source))
             ->when($this->repo !== '', fn ($query) => $query->where('repo', $this->repo))
-            ->latest()
+            ->when($this->pr !== '', fn ($query) => $this->applyPrFilter($query, $this->pr))
+            ->orderBy($this->sortColumn(), $this->sortDirection())
+            ->orderByDesc('id')
             ->paginate(50);
+    }
+
+    /**
+     * @param  Builder<YakTask>  $query
+     * @return Builder<YakTask>
+     */
+    protected function applyPrFilter(Builder $query, string $state): Builder
+    {
+        return match ($state) {
+            'open' => $query->whereNotNull('pr_url')->whereNull('pr_merged_at')->whereNull('pr_closed_at'),
+            'merged' => $query->whereNotNull('pr_merged_at'),
+            'closed' => $query->whereNotNull('pr_closed_at')->whereNull('pr_merged_at'),
+            'none' => $query->whereNull('pr_url'),
+            default => $query,
+        };
+    }
+
+    protected function sortColumn(): string
+    {
+        return in_array($this->sort, self::SORTABLE_COLUMNS, true) ? $this->sort : 'created_at';
+    }
+
+    protected function sortDirection(): string
+    {
+        return $this->direction === 'asc' ? 'asc' : 'desc';
+    }
+
+    /**
+     * Clicking a column header sorts by it; clicking the active column
+     * flips the direction. Created defaults to newest first, everything
+     * else to ascending.
+     */
+    public function sortBy(string $column): void
+    {
+        if (! in_array($column, self::SORTABLE_COLUMNS, true)) {
+            return;
+        }
+
+        if ($this->sort === $column) {
+            $this->direction = $this->direction === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sort = $column;
+            $this->direction = $column === 'created_at' ? 'desc' : 'asc';
+        }
+
+        $this->resetPage();
+    }
+
+    /**
+     * Live branch deployments for the roots on the current page, keyed by
+     * "repo slug/branch name" so the table can show a preview link without
+     * a per-row lookup.
+     *
+     * @return Collection<string, BranchDeployment>
+     */
+    #[Computed]
+    public function deploymentsByTask(): Collection
+    {
+        $tasks = collect($this->tasks->items())->filter(fn (YakTask $task) => $task->branch_name !== null);
+
+        if ($tasks->isEmpty()) {
+            return collect();
+        }
+
+        return BranchDeployment::query()
+            ->with('repository')
+            ->whereIn('branch_name', $tasks->pluck('branch_name')->unique()->values())
+            ->whereNotIn('status', [DeploymentStatus::Destroyed, DeploymentStatus::Destroying])
+            ->get()
+            ->keyBy(fn (BranchDeployment $deployment): string => $deployment->repository->slug . '/' . $deployment->branch_name);
+    }
+
+    public function deploymentFor(YakTask $task): ?BranchDeployment
+    {
+        if ($task->branch_name === null) {
+            return null;
+        }
+
+        return $this->deploymentsByTask->get($task->repo . '/' . $task->branch_name);
     }
 
     /**
@@ -234,6 +332,12 @@ class TaskList extends Component
         $this->status = '';
         $this->source = '';
         $this->repo = '';
+        $this->pr = '';
+        $this->resetPage();
+    }
+
+    public function updatedPr(): void
+    {
         $this->resetPage();
     }
 
@@ -295,6 +399,55 @@ class TaskList extends Component
             TaskStatus::Expired => 'bg-[rgba(200,184,154,0.12)] text-[#c8b89a]',
             TaskStatus::Cancelled => 'bg-[rgba(200,184,154,0.12)] text-[#c8b89a]',
         };
+    }
+
+    /**
+     * Fill colour for the compact status dot in the task table. The full
+     * label lives in the dot's tooltip and visually-hidden text.
+     */
+    public static function statusDotClasses(TaskStatus $status): string
+    {
+        return match ($status) {
+            TaskStatus::Pending => 'bg-[#6b8fa3]',
+            TaskStatus::Running => 'bg-[#8fb3c4] animate-pulse',
+            TaskStatus::AwaitingClarification => 'bg-[#d4915e]',
+            TaskStatus::AwaitingCi => 'bg-[#8fb3c4] animate-pulse',
+            TaskStatus::Retrying => 'bg-[#d4915e] animate-pulse',
+            TaskStatus::Success => 'bg-[#7a8c5e]',
+            TaskStatus::Failed => 'bg-[#b85450]',
+            TaskStatus::Expired => 'bg-[#c8b89a]',
+            TaskStatus::Cancelled => 'bg-[#e0b84c]',
+        };
+    }
+
+    public static function statusLabel(TaskStatus $status): string
+    {
+        return str_replace('_', ' ', $status->value);
+    }
+
+    /**
+     * Badge classes for the PR lifecycle column.
+     */
+    public static function prStateBadgeClasses(string $state): string
+    {
+        return match ($state) {
+            'merged' => 'bg-[rgba(139,92,246,0.12)] text-[#7c5cbf]',
+            'closed' => 'bg-[rgba(184,84,80,0.12)] text-[#b85450]',
+            default => 'bg-[rgba(122,140,94,0.12)] text-[#7a8c5e]',
+        };
+    }
+
+    /**
+     * Relative age shown in the table, e.g. "3h ago". The tooltip carries
+     * the absolute timestamps.
+     */
+    public static function formatAge(?CarbonInterface $timestamp): string
+    {
+        if ($timestamp === null) {
+            return '—';
+        }
+
+        return $timestamp->diffForHumans(['short' => true, 'parts' => 1]);
     }
 
     public static function formatDuration(?int $durationMs): string

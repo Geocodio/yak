@@ -10,7 +10,7 @@ beforeEach(function () {
     $this->actingAs(User::factory()->create());
 });
 
-test('a task with a preview artifact renders a poster and a data-preview-src', function () {
+test('a task with a preview artifact renders a poster and hands the gif to the row hover overlay', function () {
     $task = YakTask::factory()->success()->create();
     Artifact::factory()->for($task, 'task')->videoThumbnail()->create();
     Artifact::factory()->for($task, 'task')->create([
@@ -22,7 +22,9 @@ test('a task with a preview artifact renders a poster and a data-preview-src', f
 
     Livewire::test(TaskList::class)
         ->assertSeeHtml('data-testid="task-preview-' . $task->id . '"')
-        ->assertSeeHtml('data-preview-src=');
+        ->assertSeeHtml('data-testid="task-row-preview-' . $task->id . '"')
+        ->assertSeeHtml('data-preview-src=')
+        ->assertSeeHtml('data-testid="hover-preview-overlay"');
 });
 
 test('a task with only a poster renders the image without a preview source', function () {
@@ -31,6 +33,7 @@ test('a task with only a poster renders the image without a preview source', fun
 
     Livewire::test(TaskList::class)
         ->assertSeeHtml('data-testid="task-preview-' . $task->id . '"')
+        ->assertDontSeeHtml('data-testid="task-row-preview-' . $task->id . '"')
         ->assertDontSeeHtml('data-preview-src=');
 });
 

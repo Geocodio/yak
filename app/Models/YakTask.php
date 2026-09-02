@@ -146,6 +146,27 @@ class YakTask extends Model
     }
 
     /**
+     * Lifecycle of the task's PR: 'open', 'merged', or 'closed'. Null when
+     * the task never opened a PR.
+     */
+    public function prState(): ?string
+    {
+        if ($this->pr_url === null) {
+            return null;
+        }
+
+        if ($this->pr_merged_at !== null) {
+            return 'merged';
+        }
+
+        if ($this->pr_closed_at !== null) {
+            return 'closed';
+        }
+
+        return 'open';
+    }
+
+    /**
      * The whole follow-up conversation this task belongs to: the chain's
      * root plus every descendant, ordered oldest-first. Each follow-up's
      * parent is the previous head, so the chain is walked up to the root
