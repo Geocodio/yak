@@ -503,3 +503,16 @@ test('rerouteTargets excludes the current repo and inactive repos', function () 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('actions.rerouteTargets', ['org/other']));
 });
+
+test('canRerunReview stays true and canRetry stays false for a finished review task', function () {
+    // A Review-mode task's contextual action is `rerun_review` for any
+    // status (see the deleted TaskDetail::contextualAction()) -- canRetry
+    // is a plain status check with no mode gating, so it must independently
+    // stay false once the review has succeeded.
+    $task = YakTask::factory()->create(['mode' => TaskMode::Review, 'status' => TaskStatus::Success]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('actions.canRerunReview', true)
+            ->where('actions.canRetry', false));
+});

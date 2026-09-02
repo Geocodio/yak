@@ -42,6 +42,7 @@ export function TranscriptOverlay({
     const [filter, setFilter] = useState<Filter>('All');
     const [query, setQuery] = useState('');
     const listRef = useRef<HTMLOListElement>(null);
+    const dialogRef = useRef<HTMLDivElement>(null);
     const requestedRef = useRef(false);
 
     const list = entries ?? [];
@@ -91,11 +92,17 @@ export function TranscriptOverlay({
             return;
         }
         const onKey = (event: KeyboardEvent) => {
-            const target = event.target as HTMLElement;
-            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-                if (event.key === 'Escape') {
-                    onOpenChange(false);
-                }
+            const active = document.activeElement as HTMLElement | null;
+            if (active && (['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) || active.isContentEditable)) {
+                return;
+            }
+            // Scope to this overlay's own dialog -- a sibling dialog (a
+            // ConfirmDialog, the media lightbox) mounted at the same time
+            // must handle its own Escape/arrow keys, not have them
+            // swallowed here.
+            const dialog = dialogRef.current;
+            const target = event.target as Node;
+            if (!dialog || !(dialog.contains(active) || dialog.contains(target))) {
                 return;
             }
             if (event.key === 'ArrowRight' || event.key === 'j') {
@@ -136,6 +143,7 @@ export function TranscriptOverlay({
 
     return (
         <Dialog
+            ref={dialogRef}
             open={open}
             onOpenChange={onOpenChange}
             title="Transcript"

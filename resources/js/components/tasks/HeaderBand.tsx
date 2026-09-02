@@ -54,8 +54,13 @@ export function HeaderBand({
         }
     };
 
-    const showRerunReview = actions.canRerunReview && task.mode === 'review' && task.status === 'failed';
+    // Mirrors the old `TaskDetail::contextualAction()` priority exactly:
+    // review mode always wins (any status), regardless of canRetry/canCancel;
+    // `actions.canRerunReview` is already mode-gated server-side
+    // (`TaskDetailData::actions()`), so no client-side status check here.
+    const showRerunReview = actions.canRerunReview;
     const showRetry = !showRerunReview && actions.canRetry;
+    const showCancelButton = !showRerunReview && !showRetry && actions.canCancel;
 
     const copyLink = () => {
         void navigator.clipboard.writeText(window.location.origin + show.url(task.id));
@@ -94,7 +99,7 @@ export function HeaderBand({
                             Retry
                         </Button>
                     )}
-                    {actions.canCancel && (
+                    {showCancelButton && (
                         <Button variant="tertiary" data-testid="cancel-button" onClick={() => setConfirm({ kind: 'cancel' })}>
                             Cancel
                         </Button>
