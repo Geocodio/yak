@@ -10,6 +10,7 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -289,4 +290,35 @@ test('the deep-link seek waits for the player ref instead of reading it at root-
         ->test(TaskDetail::class, ['task' => $task])
         ->assertSeeHtml('x-init="$nextTick(() => { const p = $refs.player;')
         ->assertSeeHtml('p.readyState >= 1');
+});
+
+test('the lightbox links to the raw recording instead of playing it beside the walkthrough', function () {
+    $task = YakTask::factory()->success()->create();
+    $recording = Artifact::factory()->for($task, 'task')->video()->create();
+    Artifact::factory()->for($task, 'task')->create([
+        'type' => 'video_cut',
+        'role' => 'cut',
+        'filename' => 'reviewer-cut.mp4',
+        'disk_path' => 'reviewer-cut.mp4',
+    ]);
+
+    $html = Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertSeeHtml('data-testid="lightbox-raw-recording"')
+        ->html();
+
+    $lightbox = Str::after($html, 'data-testid="media-lightbox"');
+
+    expect(substr_count($lightbox, '<video'))->toBe(1);
+});
+
+test('the lightbox closes from its own close button', function () {
+    $task = YakTask::factory()->success()->create();
+    $recording = Artifact::factory()->for($task, 'task')->video()->create();
+
+    Livewire::test(TaskDetail::class, ['task' => $task])
+        ->call('openMediaLightbox', $recording->id)
+        ->assertSeeHtml('data-testid="lightbox-close"')
+        ->call('closeMediaLightbox')
+        ->assertSet('lightboxOpen', false);
 });
