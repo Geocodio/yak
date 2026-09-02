@@ -1,9 +1,9 @@
 <?php
 
-use App\Livewire\Tasks\Support\VideoRenderStatus;
 use App\Models\Artifact;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
+use App\Support\Tasks\VideoRenderStatus;
 
 test('a task with no video artifacts is none', function () {
     $task = YakTask::factory()->success()->create();

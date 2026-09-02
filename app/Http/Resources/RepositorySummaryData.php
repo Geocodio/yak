@@ -6,8 +6,8 @@ use App\Models\Repository;
 
 /**
  * Flattens a {@see Repository} into the plain array shape the repositories
- * index table renders. Business logic ported from the deleted
- * `App\Livewire\Repos\RepoList` component.
+ * index table renders. Business logic ported from the deleted RepoList
+ * component.
  */
 final class RepositorySummaryData
 {

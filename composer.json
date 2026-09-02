@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/livewire-starter-kit",
+    "name": "geocodio/yak",
     "type": "project",
-    "description": "The official Laravel starter kit for Livewire.",
+    "description": "Yak: an agent that opens PRs and serves preview deployments.",
     "keywords": [
         "laravel",
         "framework"
@@ -18,9 +18,7 @@
         "laravel/socialite": "^5.26",
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1",
-        "league/commonmark": "*",
-        "livewire/flux": "^2.13.1",
-        "livewire/livewire": "^4.1"
+        "league/commonmark": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",

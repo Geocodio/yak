@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Tasks\Support;
+namespace App\Support\Tasks;
 
 use App\Models\Artifact;
 use App\Models\VideoMetric;

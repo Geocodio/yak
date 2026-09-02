@@ -5,8 +5,6 @@ namespace App\Http\Resources;
 use App\DataTransferObjects\ThreadEntry;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Livewire\Tasks\Support\ArtifactPreviewUrl;
-use App\Livewire\Tasks\Support\VideoRenderStatus;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
@@ -17,6 +15,8 @@ use App\Models\YakTask;
 use App\Services\ChainMediaResolver;
 use App\Services\ThreadBuilder;
 use App\Support\Markdown;
+use App\Support\Tasks\ArtifactPreviewUrl;
+use App\Support\Tasks\VideoRenderStatus;
 use App\Support\TaskSourceUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -27,7 +27,7 @@ use Illuminate\Support\Str;
 /**
  * Flattens the root {@see YakTask} of a follow-up chain (plus the whole
  * chain) into the prop shape `Tasks/Show` renders. Business logic ported
- * from `App\Livewire\Tasks\TaskDetail`.
+ * from the deleted TaskDetail component.
  */
 final class TaskDetailData
 {

@@ -9,6 +9,7 @@ use App\Services\IncusSandboxManager;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -44,6 +45,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        // Flux previously registered this namespace so `<x-layouts::auth.simple>`
+        // resolves to resources/views/layouts/auth/simple.blade.php.
+        Blade::anonymousComponentNamespace('layouts', 'layouts');
 
         Event::listen(AgentPrompted::class, RecordAiUsage::class);
     }

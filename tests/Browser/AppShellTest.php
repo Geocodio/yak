@@ -5,7 +5,7 @@ use App\Models\User;
 test('the app shell renders the sidebar nav and the command palette opens', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/inertia-boot');
+    $page = visit('/tasks');
 
     $page->assertNoJavaScriptErrors();
 

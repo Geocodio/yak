@@ -34,7 +34,6 @@ use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', function () {
     if (auth()->check()) {
@@ -167,10 +166,6 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('auth/linear', [LinearOAuthController::class, 'redirect'])->name('auth.linear.redirect');
     Route::get('auth/linear/callback', [LinearOAuthController::class, 'callback'])->name('auth.linear.callback');
-
-    // Temporary route to prove the Inertia boot; removed once real pages land.
-    Route::get('inertia-boot', fn () => Inertia::render('Placeholder', ['label' => 'boot']))
-        ->name('inertia-boot');
 });
 
 Route::get('artifacts/public/{token}', [ArtifactController::class, 'publicImage'])

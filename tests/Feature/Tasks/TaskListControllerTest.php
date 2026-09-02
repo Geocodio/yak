@@ -19,6 +19,19 @@ test('it requires authentication', function () {
     $this->get(route('tasks'))->assertRedirect(route('login'));
 });
 
+test('it shares auth, nav, and docs props', function () {
+    auth()->logout();
+    $this->actingAs(User::factory()->create(['name' => 'Ada Lovelace', 'has_seen_setup_card_at' => now()]));
+
+    $this->get(route('tasks'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Tasks/Index')
+            ->where('auth.user.name', 'Ada Lovelace')
+            ->has('nav.activeTaskCount')
+            ->has('docs.baseUrl'));
+});
+
 test('index renders task rows', function () {
     $task = YakTask::factory()->running()->create([
         'description' => 'Fix something important',

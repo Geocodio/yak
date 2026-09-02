@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 /**
  * Flattens a {@see YakTask} (and its follow-up chain) into the plain array
  * shape the Tasks index page renders. Business logic ported from the
- * deleted `App\Livewire\Tasks\TaskList` component.
+ * deleted TaskList component.
  */
 final class TaskRowData
 {
