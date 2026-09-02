@@ -8,6 +8,7 @@
 @source '../js';
 @source '../views/app.blade.php';
 @source '../views/auth';
+@source '../views/layouts/auth';
 
 #app {
     isolation: isolate;
