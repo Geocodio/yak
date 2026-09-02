@@ -67,11 +67,23 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
     };
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Guards against a slow, stale preview response landing after a newer
+    // one -- only the response for the most recently issued request is
+    // ever applied.
+    const previewGenerationRef = useRef(0);
+    const previewAbortRef = useRef<AbortController | null>(null);
+
     useEffect(() => {
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
         }
         debounceRef.current = setTimeout(() => {
+            const generation = ++previewGenerationRef.current;
+
+            previewAbortRef.current?.abort();
+            const controller = new AbortController();
+            previewAbortRef.current = controller;
+
             fetch(prompts.preview.url(prompt.slug), {
                 method: 'POST',
                 headers: {
@@ -80,9 +92,14 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                     'X-XSRF-TOKEN': readCsrfCookie(),
                 },
                 body: JSON.stringify({ content, fixture: fixtureIndex }),
+                signal: controller.signal,
             })
                 .then((response) => response.json())
-                .then((data: PromptPreview) => setPreview(data))
+                .then((data: PromptPreview) => {
+                    if (generation === previewGenerationRef.current) {
+                        setPreview(data);
+                    }
+                })
                 .catch(() => undefined);
         }, 400);
 
@@ -90,6 +107,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
             if (debounceRef.current) {
                 clearTimeout(debounceRef.current);
             }
+            previewAbortRef.current?.abort();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [content, fixtureIndex, prompt.slug]);

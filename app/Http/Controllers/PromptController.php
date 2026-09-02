@@ -7,6 +7,7 @@ use App\Models\Prompt;
 use App\Models\PromptVersion;
 use App\Prompts\PromptDefinitions;
 use App\Prompts\PromptFixtures;
+use App\Prompts\PromptPreviewRenderer;
 use App\Services\PromptResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,7 @@ class PromptController extends Controller
         return redirect()->route('prompts.show', $first);
     }
 
-    public function show(string $slug, PromptResolver $resolver): Response
+    public function show(string $slug, PromptResolver $resolver, PromptPreviewRenderer $renderer): Response
     {
         abort_unless(PromptDefinitions::has($slug), 404);
 
@@ -36,7 +37,7 @@ class PromptController extends Controller
             'prompt' => fn () => $this->promptData($slug, $resolver),
             'fixtures' => fn () => $this->fixtureOptions($slug),
             'fixtureIndex' => 0,
-            'preview' => fn () => $this->previewData($slug, $resolver, $this->currentContent($slug, $resolver), 0),
+            'preview' => fn () => $renderer->render($slug, $this->currentContent($slug, $resolver), 0),
             'versions' => fn () => $this->versionsData($slug),
         ]);
     }
@@ -209,14 +210,6 @@ class PromptController extends Controller
             array_keys(PromptFixtures::for($slug)),
             PromptFixtures::for($slug),
         );
-    }
-
-    /**
-     * @return array{ok: bool, body?: string, error?: string}
-     */
-    private function previewData(string $slug, PromptResolver $resolver, string $content, int $fixtureIndex): array
-    {
-        return app(PromptPreviewController::class)->render($slug, $content, $fixtureIndex);
     }
 
     /**

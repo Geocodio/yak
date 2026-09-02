@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 import versions from './versions'
 /**
 * @see \App\Http\Controllers\PromptController::show
-* @see app/Http/Controllers/PromptController.php:30
+* @see app/Http/Controllers/PromptController.php:31
 * @route '/prompts/{slug}'
 */
 export const show = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +17,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptController::show
-* @see app/Http/Controllers/PromptController.php:30
+* @see app/Http/Controllers/PromptController.php:31
 * @route '/prompts/{slug}'
 */
 show.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ show.url = (args: { slug: string | number } | [slug: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\PromptController::show
-* @see app/Http/Controllers/PromptController.php:30
+* @see app/Http/Controllers/PromptController.php:31
 * @route '/prompts/{slug}'
 */
 show.get = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -54,7 +54,7 @@ show.get = (args: { slug: string | number } | [slug: string | number ] | string 
 
 /**
 * @see \App\Http\Controllers\PromptController::show
-* @see app/Http/Controllers/PromptController.php:30
+* @see app/Http/Controllers/PromptController.php:31
 * @route '/prompts/{slug}'
 */
 show.head = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -64,7 +64,7 @@ show.head = (args: { slug: string | number } | [slug: string | number ] | string
 
 /**
 * @see \App\Http\Controllers\PromptController::update
-* @see app/Http/Controllers/PromptController.php:44
+* @see app/Http/Controllers/PromptController.php:45
 * @route '/prompts/{slug}'
 */
 export const update = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -79,7 +79,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptController::update
-* @see app/Http/Controllers/PromptController.php:44
+* @see app/Http/Controllers/PromptController.php:45
 * @route '/prompts/{slug}'
 */
 update.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -106,7 +106,7 @@ update.url = (args: { slug: string | number } | [slug: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\PromptController::update
-* @see app/Http/Controllers/PromptController.php:44
+* @see app/Http/Controllers/PromptController.php:45
 * @route '/prompts/{slug}'
 */
 update.put = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -116,7 +116,7 @@ update.put = (args: { slug: string | number } | [slug: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\PromptController::reset
-* @see app/Http/Controllers/PromptController.php:97
+* @see app/Http/Controllers/PromptController.php:98
 * @route '/prompts/{slug}'
 */
 export const reset = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -131,7 +131,7 @@ reset.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptController::reset
-* @see app/Http/Controllers/PromptController.php:97
+* @see app/Http/Controllers/PromptController.php:98
 * @route '/prompts/{slug}'
 */
 reset.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -158,7 +158,7 @@ reset.url = (args: { slug: string | number } | [slug: string | number ] | string
 
 /**
 * @see \App\Http\Controllers\PromptController::reset
-* @see app/Http/Controllers/PromptController.php:97
+* @see app/Http/Controllers/PromptController.php:98
 * @route '/prompts/{slug}'
 */
 reset.delete = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -168,7 +168,7 @@ reset.delete = (args: { slug: string | number } | [slug: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\PromptPreviewController::__invoke
-* @see app/Http/Controllers/PromptPreviewController.php:16
+* @see app/Http/Controllers/PromptPreviewController.php:12
 * @route '/prompts/{slug}/preview'
 */
 export const preview = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -183,7 +183,7 @@ preview.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptPreviewController::__invoke
-* @see app/Http/Controllers/PromptPreviewController.php:16
+* @see app/Http/Controllers/PromptPreviewController.php:12
 * @route '/prompts/{slug}/preview'
 */
 preview.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -210,7 +210,7 @@ preview.url = (args: { slug: string | number } | [slug: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\PromptPreviewController::__invoke
-* @see app/Http/Controllers/PromptPreviewController.php:16
+* @see app/Http/Controllers/PromptPreviewController.php:12
 * @route '/prompts/{slug}/preview'
 */
 preview.post = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

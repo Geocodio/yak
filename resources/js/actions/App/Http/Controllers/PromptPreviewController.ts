@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\PromptPreviewController::__invoke
-* @see app/Http/Controllers/PromptPreviewController.php:16
+* @see app/Http/Controllers/PromptPreviewController.php:12
 * @route '/prompts/{slug}/preview'
 */
 const PromptPreviewController = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ PromptPreviewController.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptPreviewController::__invoke
-* @see app/Http/Controllers/PromptPreviewController.php:16
+* @see app/Http/Controllers/PromptPreviewController.php:12
 * @route '/prompts/{slug}/preview'
 */
 PromptPreviewController.url = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ PromptPreviewController.url = (args: { slug: string | number } | [slug: string |
 
 /**
 * @see \App\Http\Controllers\PromptPreviewController::__invoke
-* @see app/Http/Controllers/PromptPreviewController.php:16
+* @see app/Http/Controllers/PromptPreviewController.php:12
 * @route '/prompts/{slug}/preview'
 */
 PromptPreviewController.post = (args: { slug: string | number } | [slug: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

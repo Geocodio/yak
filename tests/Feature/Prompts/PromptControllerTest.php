@@ -109,3 +109,16 @@ test('version show 404s for a version belonging to a different prompt', function
     $this->getJson(route('prompts.versions.show', ['system', $baseline->id]))
         ->assertNotFound();
 });
+
+test('unknownVariables reports variables not in the definition', function () {
+    $prompt = Prompt::where('slug', 'tasks-setup')->firstOrFail();
+    $prompt->content = 'Hello {{ $ghost }}';
+    $prompt->is_customized = true;
+    $prompt->save();
+
+    $this->get(route('prompts.show', 'tasks-setup'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Prompts/Index')
+            ->where('prompt.unknownVariables', ['ghost']));
+});
