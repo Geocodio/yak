@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
 * @route '/tasks/{task}/re-request-review'
 */
-const RequestReReviewController = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const RequestReReviewController = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RequestReReviewController.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ RequestReReviewController.definition = {
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
 * @route '/tasks/{task}/re-request-review'
 */
-RequestReReviewController.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+RequestReReviewController.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -52,7 +52,7 @@ RequestReReviewController.url = (args: { task: number | { id: number } } | [task
 * @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
 * @route '/tasks/{task}/re-request-review'
 */
-RequestReReviewController.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+RequestReReviewController.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: RequestReReviewController.url(args, options),
     method: 'post',
 })

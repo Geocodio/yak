@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
-* @see app/Http/Controllers/Tasks/StoreTaskController.php:17
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:18
 * @route '/tasks'
 */
 const StoreTaskController = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ StoreTaskController.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
-* @see app/Http/Controllers/Tasks/StoreTaskController.php:17
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:18
 * @route '/tasks'
 */
 StoreTaskController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ StoreTaskController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
-* @see app/Http/Controllers/Tasks/StoreTaskController.php:17
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:18
 * @route '/tasks'
 */
 StoreTaskController.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

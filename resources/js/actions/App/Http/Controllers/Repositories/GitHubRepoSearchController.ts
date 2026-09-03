@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\GitHubRepoSearchController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:14
+* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:15
 * @route '/repos/github-search'
 */
 const GitHubRepoSearchController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ GitHubRepoSearchController.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\GitHubRepoSearchController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:14
+* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:15
 * @route '/repos/github-search'
 */
 GitHubRepoSearchController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ GitHubRepoSearchController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\GitHubRepoSearchController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:14
+* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:15
 * @route '/repos/github-search'
 */
 GitHubRepoSearchController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ GitHubRepoSearchController.get = (options?: RouteQueryOptions): RouteDefinition<
 
 /**
 * @see \App\Http\Controllers\Repositories\GitHubRepoSearchController::__invoke
-* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:14
+* @see app/Http/Controllers/Repositories/GitHubRepoSearchController.php:15
 * @route '/repos/github-search'
 */
 GitHubRepoSearchController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

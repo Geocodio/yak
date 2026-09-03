@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Deployments/ShareLinkController.php:13
 * @route '/deployments/{deployment}/share'
 */
-export const store = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ store.definition = {
 * @see app/Http/Controllers/Deployments/ShareLinkController.php:13
 * @route '/deployments/{deployment}/share'
 */
-store.url = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+store.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
@@ -52,7 +52,7 @@ store.url = (args: { deployment: number | { id: number } } | [deployment: number
 * @see app/Http/Controllers/Deployments/ShareLinkController.php:13
 * @route '/deployments/{deployment}/share'
 */
-store.post = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ store.post = (args: { deployment: number | { id: number } } | [deployment: numbe
 * @see app/Http/Controllers/Deployments/ShareLinkController.php:26
 * @route '/deployments/{deployment}/share'
 */
-export const destroy = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -77,7 +77,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Deployments/ShareLinkController.php:26
 * @route '/deployments/{deployment}/share'
 */
-destroy.url = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
@@ -110,7 +110,7 @@ destroy.url = (args: { deployment: number | { id: number } } | [deployment: numb
 * @see app/Http/Controllers/Deployments/ShareLinkController.php:26
 * @route '/deployments/{deployment}/share'
 */
-destroy.delete = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })

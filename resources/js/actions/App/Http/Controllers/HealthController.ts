@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshAll
-* @see app/Http/Controllers/HealthController.php:67
+* @see app/Http/Controllers/HealthController.php:68
 * @route '/health/refresh'
 */
 export const refreshAll = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ refreshAll.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshAll
-* @see app/Http/Controllers/HealthController.php:67
+* @see app/Http/Controllers/HealthController.php:68
 * @route '/health/refresh'
 */
 refreshAll.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ refreshAll.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshAll
-* @see app/Http/Controllers/HealthController.php:67
+* @see app/Http/Controllers/HealthController.php:68
 * @route '/health/refresh'
 */
 refreshAll.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -79,7 +79,7 @@ refreshAll.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshOne
-* @see app/Http/Controllers/HealthController.php:78
+* @see app/Http/Controllers/HealthController.php:79
 * @route '/health/{check}/refresh'
 */
 export const refreshOne = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -94,7 +94,7 @@ refreshOne.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshOne
-* @see app/Http/Controllers/HealthController.php:78
+* @see app/Http/Controllers/HealthController.php:79
 * @route '/health/{check}/refresh'
 */
 refreshOne.url = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -121,7 +121,7 @@ refreshOne.url = (args: { check: string | number } | [check: string | number ] |
 
 /**
 * @see \App\Http\Controllers\HealthController::refreshOne
-* @see app/Http/Controllers/HealthController.php:78
+* @see app/Http/Controllers/HealthController.php:79
 * @route '/health/{check}/refresh'
 */
 refreshOne.post = (args: { check: string | number } | [check: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
