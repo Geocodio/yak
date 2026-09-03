@@ -3,6 +3,8 @@
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Jobs\RunFollowUpJob;
+use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\TaskLog;
 use App\Models\YakTask;
@@ -58,6 +60,60 @@ test('forces stragglers to Failed after the wait budget is exhausted', function 
         SendNotificationJob::class,
         fn ($job) => $job->task->id === $task->id && $job->type === NotificationType::Error,
     );
+});
+
+test('marks a straggler with interrupted_by_deploy_at', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->running()->create();
+
+    $this->artisan('yak:drain', ['--wait' => 0, '--poll' => 1])
+        ->assertSuccessful();
+
+    expect($task->fresh()->interrupted_by_deploy_at)->not->toBeNull();
+});
+
+test('promises automatic resume for a task claimed by one of the four resumable jobs', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->running()->create([
+        'claimed_job_class' => RunYakJob::class,
+    ]);
+
+    $this->artisan('yak:drain', ['--wait' => 0, '--poll' => 1])
+        ->assertSuccessful();
+
+    expect($task->fresh()->error_log)->toContain('resume automatically');
+});
+
+test('tells the operator to retry manually when the straggler is not resumable', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->running()->create([
+        'claimed_job_class' => RunFollowUpJob::class,
+    ]);
+
+    $this->artisan('yak:drain', ['--wait' => 0, '--poll' => 1])
+        ->assertSuccessful();
+
+    expect($task->fresh()->error_log)->toContain('manual retry');
+});
+
+test('a Retrying straggler always gets a manual-retry message, even with a resumable claimed_job_class', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->retrying()->create([
+        // claimed_job_class reflects the original RunYakJob claim from
+        // before the task reached AwaitingCi — RetryYakJob never touches
+        // it — so status, not claimed_job_class, must be what excludes a
+        // Retrying task from the resumable message.
+        'claimed_job_class' => RunYakJob::class,
+    ]);
+
+    $this->artisan('yak:drain', ['--wait' => 0, '--poll' => 1])
+        ->assertSuccessful();
+
+    expect($task->fresh()->error_log)->toContain('manual retry');
 });
 
 test('does not notify system-source stragglers', function () {

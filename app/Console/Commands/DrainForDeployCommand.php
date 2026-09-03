@@ -7,6 +7,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use Carbon\CarbonInterface;
@@ -139,7 +140,7 @@ class DrainForDeployCommand extends Command
                 $this->failStraggler(
                     $task,
                     $sandbox,
-                    "Deploy interrupted the task after hitting the {$maxWaitSeconds}s drain ceiling. Retry it once the deploy is done.",
+                    "Deploy interrupted the task after hitting the {$maxWaitSeconds}s drain ceiling.",
                     ['max_wait_seconds' => $maxWaitSeconds],
                 );
 
@@ -152,7 +153,7 @@ class DrainForDeployCommand extends Command
                 $this->failStraggler(
                     $task,
                     $sandbox,
-                    "Deploy interrupted the task after {$waitSeconds}s with no activity. Retry it once the deploy is done.",
+                    "Deploy interrupted the task after {$waitSeconds}s with no activity.",
                     ['wait_seconds' => $waitSeconds, 'silence_minutes' => self::SILENCE_MINUTES],
                 );
 
@@ -237,12 +238,26 @@ class DrainForDeployCommand extends Command
      */
     private function failStraggler(YakTask $task, IncusSandboxManager $sandbox, string $reason, array $context = []): void
     {
-        TaskLogger::warning($task, 'Task interrupted by deploy drain', $context);
+        // yak:resume-interrupted-tasks only resumes a task that was
+        // actually running one of the four claiming jobs when interrupted —
+        // a Retrying task is mid-CI-retry via RetryYakJob, and a Running
+        // task can also be driven by RunFollowUpJob or ClarificationReplyJob
+        // (both stamp claimed_job_class themselves at pickup). Any of
+        // those needs a human, so the message must not promise otherwise.
+        $resumable = $task->status === TaskStatus::Running
+            && in_array($task->claimed_job_class, AgentJobDispatcher::claimableJobClasses(), true);
+
+        $reason .= $resumable
+            ? ' It will resume automatically once the deploy finishes.'
+            : ' It needs a manual retry once the deploy is done.';
+
+        TaskLogger::warning($task, 'Task interrupted by deploy drain', $context + ['resumable' => $resumable]);
 
         $task->update([
             'status' => TaskStatus::Failed,
             'error_log' => $reason,
             'completed_at' => now(),
+            'interrupted_by_deploy_at' => now(),
         ]);
 
         try {
