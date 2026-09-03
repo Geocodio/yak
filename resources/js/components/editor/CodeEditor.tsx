@@ -1,6 +1,6 @@
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { completionKeymap } from '@codemirror/autocomplete';
-import { EditorState } from '@codemirror/state';
+import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, highlightActiveLine, keymap, lineNumbers } from '@codemirror/view';
 import { useEffect, useRef } from 'react';
 import { bladeOverlay, bladeTheme, variableAutocomplete } from './bladeTheme';
@@ -8,17 +8,26 @@ import { bladeOverlay, bladeTheme, variableAutocomplete } from './bladeTheme';
 export function CodeEditor({
     value,
     onChange,
-    variables,
+    variables = [],
     onSave,
     ariaLabel = 'Prompt editor',
     'data-testid': dataTestId,
+    languageExtensions,
 }: {
     value: string;
     onChange: (value: string) => void;
-    variables: string[];
+    /** Only used by the default Blade highlighting -- ignored when `languageExtensions` is passed. */
+    variables?: string[];
     onSave?: () => void;
     ariaLabel?: string;
     'data-testid'?: string;
+    /**
+     * Syntax highlighting / autocomplete extensions for the field's language.
+     * Defaults to Blade `{{ $var }}` / `@directive` highlighting plus
+     * `$variable` autocomplete, which is what the Prompts page relies on.
+     * Pass an empty array for freeform prose with no highlighting.
+     */
+    languageExtensions?: Extension[];
 }) {
     const host = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
@@ -57,8 +66,7 @@ export function CodeEditor({
                 highlightActiveLine(),
                 saveKeymap,
                 keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap, indentWithTab]),
-                bladeOverlay(),
-                variableAutocomplete(variablesRef),
+                ...(languageExtensions ?? [bladeOverlay(), variableAutocomplete(variablesRef)]),
                 bladeTheme,
                 EditorView.lineWrapping,
                 EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
