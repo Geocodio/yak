@@ -12,6 +12,7 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
@@ -255,13 +256,15 @@ class WebhookController extends Controller
      */
     private function dispatchAgentJob(YakTask $task): void
     {
+        $dispatcher = app(AgentJobDispatcher::class);
+
         if ($task->mode === TaskMode::Research) {
-            ResearchYakJob::dispatch($task);
+            $dispatcher->dispatch($task, ResearchYakJob::class);
 
             return;
         }
 
-        RunYakJob::dispatch($task);
+        $dispatcher->dispatch($task, RunYakJob::class);
     }
 
     /**

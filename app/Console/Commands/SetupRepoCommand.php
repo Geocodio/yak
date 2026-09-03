@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -39,7 +40,7 @@ class SetupRepoCommand extends Command
             'setup_status' => 'pending',
         ]);
 
-        SetupYakJob::dispatch($task);
+        app(AgentJobDispatcher::class)->dispatch($task, SetupYakJob::class);
 
         $this->components->info("Setup task dispatched for {$repository->name} (task #{$task->id}).");
 

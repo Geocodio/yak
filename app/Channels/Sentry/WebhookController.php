@@ -6,6 +6,7 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
@@ -92,7 +93,7 @@ class WebhookController extends Controller
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'sentry', 'repo' => $resolvedSlug]);
-        RunYakJob::dispatch($task);
+        app(AgentJobDispatcher::class)->dispatch($task, RunYakJob::class);
 
         return response()->json(['ok' => true, 'task_id' => $task->id], 201);
     }

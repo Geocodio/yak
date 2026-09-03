@@ -8,13 +8,14 @@ use App\Http\Requests\Tasks\StoreTaskRequest;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\TaskLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 
 class StoreTaskController extends Controller
 {
-    public function __invoke(StoreTaskRequest $request): RedirectResponse
+    public function __invoke(StoreTaskRequest $request, AgentJobDispatcher $dispatcher): RedirectResponse
     {
         $validated = $request->validated();
 
@@ -32,9 +33,9 @@ class StoreTaskController extends Controller
         $mode = $task->mode;
 
         if ($mode === TaskMode::Research) {
-            ResearchYakJob::dispatch($task);
+            $dispatcher->dispatch($task, ResearchYakJob::class);
         } else {
-            RunYakJob::dispatch($task);
+            $dispatcher->dispatch($task, RunYakJob::class);
         }
 
         return redirect()->route('tasks.show', $task)->with('success', 'Task created.');

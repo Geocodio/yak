@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use Illuminate\Support\Str;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Support\Str;
  */
 class DispatchRepositorySetupTask
 {
+    public function __construct(private readonly AgentJobDispatcher $dispatcher) {}
+
     public function __invoke(Repository $repository): YakTask
     {
         $task = YakTask::create([
@@ -30,7 +33,7 @@ class DispatchRepositorySetupTask
             'setup_status' => 'pending',
         ]);
 
-        SetupYakJob::dispatch($task);
+        $this->dispatcher->dispatch($task, SetupYakJob::class);
 
         return $task;
     }

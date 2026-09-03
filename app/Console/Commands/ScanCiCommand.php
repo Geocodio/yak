@@ -10,6 +10,7 @@ use App\Enums\TaskMode;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -143,7 +144,7 @@ class ScanCiCommand extends Command
             ]);
 
             TaskLogger::info($task, 'Task created', ['source' => 'flaky-test', 'repo' => $repository->slug]);
-            RunYakJob::dispatch($task);
+            app(AgentJobDispatcher::class)->dispatch($task, RunYakJob::class);
             $tasksCreated++;
 
             $this->components->info("Created task #{$task->id} for flaky test: {$canonical->testName}");
