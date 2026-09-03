@@ -4,6 +4,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
@@ -425,7 +426,7 @@ test('SetupYakJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('SetupYakJob has PausesDuringDrain, HoldsForClaudeAuth, and EnsureDailyBudget middleware', function () {
+test('SetupYakJob has PausesDuringDrain, HoldsForClaudeAuth, ClaimsTaskAtomically, and EnsureDailyBudget middleware', function () {
     Process::fake();
 
     $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
@@ -434,10 +435,11 @@ test('SetupYakJob has PausesDuringDrain, HoldsForClaudeAuth, and EnsureDailyBudg
     $job = new SetupYakJob($task);
     $middleware = $job->middleware();
 
-    expect($middleware)->toHaveCount(3)
+    expect($middleware)->toHaveCount(4)
         ->and($middleware[0])->toBeInstanceOf(PausesDuringDrain::class)
         ->and($middleware[1])->toBeInstanceOf(HoldsForClaudeAuth::class)
-        ->and($middleware[2])->toBeInstanceOf(EnsureDailyBudget::class);
+        ->and($middleware[2])->toBeInstanceOf(ClaimsTaskAtomically::class)
+        ->and($middleware[3])->toBeInstanceOf(EnsureDailyBudget::class);
 });
 
 /*

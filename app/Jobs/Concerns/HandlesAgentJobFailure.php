@@ -25,6 +25,15 @@ trait HandlesAgentJobFailure
 {
     public function failed(?Throwable $e): void
     {
+        // Set by ClaimsTaskAtomically when this copy lost the race for its
+        // task. The job never reached handle() or a middleware that could
+        // legitimately fail it, so there is nothing to report — reporting
+        // anyway would mark the winning copy's task Failed and destroy its
+        // live sandbox.
+        if ($this->taskClaimLost ?? false) {
+            return;
+        }
+
         $errorMessage = $e?->getMessage() ?? 'Job failed without exception';
 
         Log::channel('yak')->error(static::class . ' failed', [

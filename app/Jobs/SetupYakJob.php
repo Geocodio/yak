@@ -9,7 +9,9 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
@@ -22,12 +24,14 @@ use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-class SetupYakJob implements ShouldQueue
+class SetupYakJob implements ShouldBeUnique, ShouldQueue
 {
+    use ClaimsTask;
     use HandlesAgentJobFailure {
         failed as handleAgentJobFailure;
     }
@@ -76,6 +80,21 @@ class SetupYakJob implements ShouldQueue
     }
 
     /**
+     * Dispatch-level dedupe, defence in depth against the atomic claim in
+     * ClaimsTaskAtomically. See RunYakJob::uniqueFor() for the reasoning
+     * on the 900s window.
+     */
+    public function uniqueId(): string
+    {
+        return "task:{$this->task->id}";
+    }
+
+    public function uniqueFor(): int
+    {
+        return 900;
+    }
+
+    /**
      * @return array<int, object>
      */
     public function middleware(): array
@@ -83,6 +102,7 @@ class SetupYakJob implements ShouldQueue
         return [
             new PausesDuringDrain,
             new HoldsForClaudeAuth,
+            new ClaimsTaskAtomically,
             new EnsureDailyBudget,
         ];
     }
@@ -132,14 +152,16 @@ class SetupYakJob implements ShouldQueue
             return;
         }
 
+        // Normally already claimed by the ClaimsTaskAtomically middleware
+        // before this method ran; claimTask() is idempotent per instance,
+        // so this is the actual claim only when handle() is called
+        // directly (as in tests), bypassing the middleware pipeline.
+        if (! $this->claimTask()) {
+            return;
+        }
+
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
-
-        $this->task->update([
-            'status' => TaskStatus::Running,
-            'started_at' => now(),
-            'attempts' => $this->task->attempts + 1,
-        ]);
 
         TaskLogger::info($this->task, 'Picked up by worker — setup');
         $repository->update(['setup_status' => 'running']);

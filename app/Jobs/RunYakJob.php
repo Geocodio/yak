@@ -9,7 +9,9 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
+use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
@@ -25,12 +27,14 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-class RunYakJob implements ShouldQueue
+class RunYakJob implements ShouldBeUnique, ShouldQueue
 {
+    use ClaimsTask;
     use HandlesAgentJobFailure;
     use Queueable;
 
@@ -63,6 +67,23 @@ class RunYakJob implements ShouldQueue
     }
 
     /**
+     * Dispatch-level dedupe, defence in depth against the atomic claim in
+     * ClaimsTaskAtomically. Longer than change 3's 10-minute lost-pending
+     * sweep threshold so a lock orphaned by a SIGKILLed worker still
+     * clears before the sweep would otherwise re-dispatch into a locked-out
+     * task.
+     */
+    public function uniqueId(): string
+    {
+        return "task:{$this->task->id}";
+    }
+
+    public function uniqueFor(): int
+    {
+        return 900;
+    }
+
+    /**
      * @return array<int, object>
      */
     public function middleware(): array
@@ -70,6 +91,7 @@ class RunYakJob implements ShouldQueue
         return [
             new PausesDuringDrain,
             new HoldsForClaudeAuth,
+            new ClaimsTaskAtomically,
             new EnsureRepoReady,
             new EnsureDailyBudget,
         ];
@@ -107,14 +129,16 @@ class RunYakJob implements ShouldQueue
             return;
         }
 
+        // Normally already claimed by the ClaimsTaskAtomically middleware
+        // before this method ran; claimTask() is idempotent per instance,
+        // so this is the actual claim only when handle() is called
+        // directly (as in tests), bypassing the middleware pipeline.
+        if (! $this->claimTask()) {
+            return;
+        }
+
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
-
-        $this->task->update([
-            'status' => TaskStatus::Running,
-            'started_at' => now(),
-            'attempts' => $this->task->attempts + 1,
-        ]);
 
         TaskLogger::info($this->task, 'Picked up by worker', ['attempt' => $this->task->attempts + 1]);
 
