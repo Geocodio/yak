@@ -24,6 +24,36 @@
     mode: "0644"
   when: github_app_private_key | default('') | length > 0
 
+- name: Ensure Yak logs directory exists
+  ansible.builtin.file:
+    path: "{{ yak_logs_path }}"
+    state: directory
+    owner: "{{ yak_user }}"
+    group: "{{ yak_user }}"
+    mode: "0755"
+
+# storage/logs is bind-mounted below so a container recreate (every deploy)
+# no longer truncates it. Rotate it the same way as Caddy's logs (see the
+# ssl role): copytruncate, because the `single` Laravel driver and every
+# supervisord program hold their log file handles open for the life of the
+# process, so a rename-based rotation would just keep writing into the
+# renamed file. copytruncate truncates the file in place, which both
+# writers tolerate without reopening.
+- name: Configure log rotation for Yak logs
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/yak
+    content: |
+      {{ yak_logs_path }}/*.log {
+          daily
+          rotate 14
+          compress
+          delaycompress
+          missingok
+          notifempty
+          copytruncate
+      }
+    mode: "0644"
+
 - name: Pull Yak Docker image
   community.docker.docker_image:
     name: "geocodio/yak"
@@ -42,7 +72,7 @@
   community.docker.docker_container_exec:
     container: "{{ yak_container_name }}"
     user: www-data
-    command: "php /app/artisan yak:drain --wait={{ yak_drain_wait_seconds | default(300) }}"
+    command: "php /app/artisan yak:drain --wait={{ yak_drain_wait_seconds | default(300) }} --max-wait={{ yak_drain_max_wait_seconds | default(2700) }}"
   when: yak_container_info.exists and yak_container_info.container.State.Running | default(false)
   # Drain is best-effort — if it fails (e.g. DB unreachable) we still
   # want the deploy to proceed rather than leave the instance stuck on
@@ -65,6 +95,13 @@
     volumes:
       - "{{ yak_data_path }}:/data"
       - "{{ yak_claude_path }}:/home/yak/.claude"
+      # Persist storage/logs across recreates. A 2026-09-03 incident lost
+      # the evidence for two stuck tasks because the container recreate
+      # that a routine deploy performs truncates any log living only
+      # inside the container. entrypoint.sh already chowns /app/storage
+      # to www-data on every start, so no extra ownership handling is
+      # needed here.
+      - "{{ yak_logs_path }}:/app/storage/logs"
       - "/etc/yak/github-app.pem:/etc/yak/github-app.pem:ro"
       - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
       - "{{ yak_home }}/.docker:/home/yak/.docker:ro"
@@ -113,5 +150,16 @@
     container: "{{ yak_container_name }}"
     user: www-data
     command: "php /app/artisan yak:resume"
+  failed_when: false
+
+# Must run after the drain flag is cleared above — otherwise a task
+# resumed here would immediately be paused again by PausesDuringDrain,
+# sitting Pending until the next scheduled yak:reap-lost-pending sweep
+# picks it up instead of resuming right away.
+- name: Resume tasks a drain force-failed for this deploy
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    user: www-data
+    command: "php /app/artisan yak:resume-interrupted-tasks"
   failed_when: false
 

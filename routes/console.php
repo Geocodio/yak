@@ -18,6 +18,7 @@ Schedule::command('yak:cleanup')->daily();
 Schedule::command('yak:video:prune')->daily();
 Schedule::command('yak:cleanup-sandboxes')->hourly();
 Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('yak:reap-lost-pending')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours();

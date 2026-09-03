@@ -18,6 +18,7 @@ use App\Jobs\SetupYakJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use Illuminate\Http\RedirectResponse;
@@ -46,14 +47,14 @@ class TaskActionController extends Controller
         /** @var TaskMode $mode */
         $mode = $task->mode;
 
-        $job = match ($mode) {
-            TaskMode::Setup => new SetupYakJob($task),
-            TaskMode::Research => new ResearchYakJob($task),
-            TaskMode::Review => new RunYakReviewJob($task),
-            default => new RunYakJob($task),
+        $jobClass = match ($mode) {
+            TaskMode::Setup => SetupYakJob::class,
+            TaskMode::Research => ResearchYakJob::class,
+            TaskMode::Review => RunYakReviewJob::class,
+            default => RunYakJob::class,
         };
 
-        dispatch($job);
+        app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
 
         return redirect()->route('tasks.show', $task)->with('success', 'Task re-queued.');
     }
@@ -159,7 +160,7 @@ class TaskActionController extends Controller
 
         $task->refresh();
 
-        RunYakReviewJob::dispatch($task);
+        app(AgentJobDispatcher::class)->dispatch($task, RunYakReviewJob::class);
 
         return redirect()->route('tasks.show', $task)->with('success', 'Re-running review for this PR.');
     }
@@ -238,12 +239,12 @@ class TaskActionController extends Controller
         /** @var TaskMode $mode */
         $mode = $task->mode;
 
-        $job = match ($mode) {
-            TaskMode::Research => new ResearchYakJob($task),
-            default => new RunYakJob($task),
+        $jobClass = match ($mode) {
+            TaskMode::Research => ResearchYakJob::class,
+            default => RunYakJob::class,
         };
 
-        dispatch($job);
+        app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
 
         SendNotificationJob::dispatch(
             $task,

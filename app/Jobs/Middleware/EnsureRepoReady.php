@@ -9,6 +9,7 @@ use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use Closure;
 use Illuminate\Support\Facades\Log;
@@ -137,7 +138,7 @@ class EnsureRepoReady
             'setup_status' => 'pending',
         ]);
 
-        SetupYakJob::dispatch($setupTask);
+        app(AgentJobDispatcher::class)->dispatch($setupTask, SetupYakJob::class);
 
         return $setupTask;
     }

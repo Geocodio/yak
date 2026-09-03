@@ -27,7 +27,12 @@ use Illuminate\Support\Collection;
  * @property array<int, mixed>|null $screenshots
  * @property CarbonImmutable|null $clarification_expires_at
  * @property CarbonImmutable|null $started_at
+ * @property CarbonImmutable|null $dispatched_at
+ * @property string|null $queue_job_uuid
  * @property CarbonImmutable|null $completed_at
+ * @property CarbonImmutable|null $interrupted_by_deploy_at
+ * @property int $deploy_resume_count
+ * @property string|null $claimed_job_class
  * @property CarbonImmutable|null $pr_merged_at
  * @property CarbonImmutable|null $pr_closed_at
  */
@@ -69,7 +74,9 @@ class YakTask extends Model
             'screenshots' => 'json',
             'cost_usd' => 'decimal:4',
             'started_at' => 'datetime',
+            'dispatched_at' => 'datetime',
             'completed_at' => 'datetime',
+            'interrupted_by_deploy_at' => 'datetime',
             'pr_merged_at' => 'datetime',
             'pr_closed_at' => 'datetime',
         ];

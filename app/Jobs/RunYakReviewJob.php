@@ -12,6 +12,9 @@ use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Jobs\Concerns\ClaimsTask;
+use App\Jobs\Concerns\GuardsTerminalTaskStatus;
+use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
@@ -32,12 +35,15 @@ use App\Support\GitHubDiffLines;
 use App\Support\PathMatcher;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
-class RunYakReviewJob implements ShouldQueue
+class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 {
+    use ClaimsTask;
+    use GuardsTerminalTaskStatus;
     use Queueable;
 
     public int $timeout = 3600;
@@ -70,11 +76,32 @@ class RunYakReviewJob implements ShouldQueue
     }
 
     /**
+     * Dispatch-level dedupe, defence in depth against the atomic claim in
+     * ClaimsTaskAtomically. See RunYakJob::uniqueFor() for the reasoning
+     * on the 900s window.
+     */
+    public function uniqueId(): string
+    {
+        return "task:{$this->task->id}";
+    }
+
+    public function uniqueFor(): int
+    {
+        return 900;
+    }
+
+    /**
      * @return array<int, object>
      */
     public function middleware(): array
     {
-        return [new PausesDuringDrain, new HoldsForClaudeAuth, new EnsureRepoReady, new EnsureDailyBudget];
+        return [
+            new PausesDuringDrain,
+            new HoldsForClaudeAuth,
+            new ClaimsTaskAtomically,
+            new EnsureRepoReady,
+            new EnsureDailyBudget,
+        ];
     }
 
     public function handle(AgentRunner $agent): void
@@ -93,24 +120,28 @@ class RunYakReviewJob implements ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->first();
 
         if ($repository === null || ! $repository->pr_review_enabled) {
-            $this->task->update([
-                'status' => TaskStatus::Failed,
-                'error_log' => 'Repository missing or PR review not enabled',
-                'completed_at' => now(),
-            ]);
+            if (! $this->taskIsTerminal($this->task->fresh())) {
+                $this->task->update([
+                    'status' => TaskStatus::Failed,
+                    'error_log' => 'Repository missing or PR review not enabled',
+                    'completed_at' => now(),
+                ]);
+            }
 
+            return;
+        }
+
+        // Normally already claimed by the ClaimsTaskAtomically middleware
+        // before this method ran; claimTask() is idempotent per instance,
+        // so this is the actual claim only when handle() is called
+        // directly (as in tests), bypassing the middleware pipeline.
+        if (! $this->claimTask()) {
             return;
         }
 
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
         $metadata = $this->metadata();
-
-        $this->task->update([
-            'status' => TaskStatus::Running,
-            'started_at' => now(),
-            'attempts' => $this->task->attempts + 1,
-        ]);
 
         TaskLogger::info($this->task, 'Picked up review task', ['pr' => $this->task->pr_url]);
 
@@ -807,7 +838,9 @@ class RunYakReviewJob implements ShouldQueue
 
     private function handleError(string $message): void
     {
-        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+        // Don't overwrite a task that's already terminal — see
+        // RunYakJob::handleError() for the full reasoning.
+        if ($this->taskIsTerminal($this->task->fresh())) {
             return;
         }
 
