@@ -72,7 +72,7 @@
   community.docker.docker_container_exec:
     container: "{{ yak_container_name }}"
     user: www-data
-    command: "php /app/artisan yak:drain --wait={{ yak_drain_wait_seconds | default(300) }}"
+    command: "php /app/artisan yak:drain --wait={{ yak_drain_wait_seconds | default(300) }} --max-wait={{ yak_drain_max_wait_seconds | default(2700) }}"
   when: yak_container_info.exists and yak_container_info.container.State.Running | default(false)
   # Drain is best-effort — if it fails (e.g. DB unreachable) we still
   # want the deploy to proceed rather than leave the instance stuck on
