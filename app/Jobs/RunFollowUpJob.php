@@ -97,6 +97,11 @@ class RunFollowUpJob implements ShouldQueue
         $this->task->update([
             'status' => TaskStatus::Running,
             'started_at' => now(),
+            // Recorded so a drain interruption can tell this apart from a
+            // fresh RunYakJob run — yak:resume-interrupted-tasks must never
+            // resume a follow-up as a plain RunYakJob, which would get a
+            // fresh branch and lose its follow-up context.
+            'claimed_job_class' => self::class,
         ]);
         TaskLogger::info($this->task, 'Picked up by worker — follow-up');
 

@@ -94,6 +94,12 @@ class ClarificationReplyJob implements ShouldQueue
 
         $this->task->update([
             'status' => TaskStatus::Running,
+            // Recorded so a drain interruption can tell this apart from a
+            // fresh RunYakJob run — yak:resume-interrupted-tasks must never
+            // resume a clarification reply as a plain RunYakJob, since the
+            // user's reply text is a constructor argument here, not
+            // persisted on the task row.
+            'claimed_job_class' => self::class,
         ]);
 
         TaskLogger::info($this->task, 'Picked up by worker — clarification reply');

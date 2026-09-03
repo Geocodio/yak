@@ -50,6 +50,11 @@ trait ClaimsTask
                 'status' => TaskStatus::Running->value,
                 'started_at' => now(),
                 'attempts' => DB::raw('attempts + 1'),
+                // Persisted so yak:resume-interrupted-tasks can re-dispatch
+                // the exact class that was running instead of guessing from
+                // `mode` — static::class here is the job using this trait
+                // (RunYakJob, ResearchYakJob, RunYakReviewJob, SetupYakJob).
+                'claimed_job_class' => static::class,
             ]);
 
         if ($claimed === 0) {

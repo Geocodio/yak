@@ -60,6 +60,21 @@ class AgentJobDispatcher
     ];
 
     /**
+     * The four claiming job classes this dispatcher will send, as a plain
+     * list. Single source of truth for anything that needs to check
+     * whether a `claimed_job_class` value can be faithfully re-dispatched —
+     * currently DrainForDeployCommand (deciding what copy to use in its
+     * straggler message) and yak:resume-interrupted-tasks (deciding what to
+     * resume).
+     *
+     * @return array<int, class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>>
+     */
+    public static function claimableJobClasses(): array
+    {
+        return array_keys(self::ALLOWED_JOBS);
+    }
+
+    /**
      * Tracks which event dispatcher instances we've already attached the
      * uuid-capturing listener to. Keyed by instance (not a plain bool)
      * because the application — and with it the event dispatcher — is
