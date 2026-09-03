@@ -1,117 +1,151 @@
 /*
- * Yak docs theme — overrides Starlight's defaults to match Yak's design
- * system (spec/design.md). Warm, earthy, approachable. Cream background,
- * slate text, orange accent. Outfit for body, Instrument Serif for brand.
+ * Yak docs theme — maps Starlight's tokens onto the same design tokens as
+ * the Yak app (@geocodio/console-ui). IBM Plex Sans / IBM Plex Mono,
+ * neutral panel/bg surfaces, a single purple accent, hairline borders,
+ * small radii, restrained shadows. No gradients, blur, or hover-lift.
+ *
+ * console-ui defines its tokens with CSS light-dark(), which Starlight has
+ * no equivalent for — Starlight instead stamps `[data-theme="dark"]` on the
+ * root and expects two explicit blocks. Every pair below is split that way.
+ * Source of truth: node_modules/@geocodio/console-ui/styles/{tokens,fonts,base}.css
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap');
-
-/* ---------- Core color palette (spec/design.md) ---------- */
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-sans/latin-600.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-600.css';
 
 :root {
-  /* Yak brand palette */
-  --yak-slate: #3d4f5f;
-  --yak-brown: #5c4a3a;
-  --yak-blue: #6b8fa3;
-  --yak-blue-light: #8fb3c4;
-  --yak-green: #7a8c5e;
-  --yak-green-muted: #9aaa7e;
-  --yak-orange: #c4744a;
-  --yak-orange-warm: #d4915e;
-  --yak-tan: #c8b89a;
-  --yak-cream: #f5f0e8;
-  --yak-cream-dark: #e8e0d2;
-  --yak-danger: #b85450;
+  /* ---- console-ui tokens, light values ---- */
+  --yak-bg: #fbfbfc;
+  --yak-sidebar: #f5f6f8;
+  --yak-panel: #ffffff;
+  --yak-panel-2: #eef0f2;
+  --yak-border: #ebecef;
+  --yak-border-strong: #e0e1e6;
+  --yak-text: #282a30;
+  --yak-text-2: #62666d;
+  --yak-text-3: #9598a1;
+  --yak-accent: #503ba3;
+  --yak-accent-soft: rgba(80, 59, 163, 0.08);
+  --yak-accent-text: #503ba3;
+  --yak-accent-ink: #ffffff;
+  --yak-ok: #3e8e38;
+  --yak-warn: #d97a22;
+  --yak-fail: #c93f3b;
+  --yak-info: #3d7cb8;
+  --yak-shadow-card: 0 1px 2px rgba(40, 42, 48, 0.05);
+  --yak-shadow-overlay: 0 6px 24px rgba(30, 31, 36, 0.13), 0 1px 3px rgba(30, 31, 36, 0.09);
 
-  /* Typography */
-  --sl-font: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --sl-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* Typography — same families/stacks as the app */
+  --sl-font: 'IBM Plex Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --sl-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --sl-font-system: var(--sl-font);
   --sl-font-system-mono: var(--sl-font-mono);
 
-  /* Content width — comfortable line length (~72ch) */
-  --sl-content-width: 52rem;
+  /* Content width — comfortable line length */
+  --sl-content-width: 46rem;
   --sl-content-pad-x: 1.5rem;
-
-  /* Shadows based on slate RGB, not pure black */
-  --yak-shadow-1: 0 4px 6px rgba(61, 79, 95, 0.04), 0 12px 24px rgba(61, 79, 95, 0.08);
-  --yak-shadow-2: 0 4px 6px rgba(61, 79, 95, 0.04), 0 12px 24px rgba(61, 79, 95, 0.08), 0 32px 64px rgba(61, 79, 95, 0.10);
 }
 
 /* ---------- Light theme (default) ---------- */
 
 :root,
 :root[data-theme='light'] {
-  /* Starlight's semantic tokens mapped to Yak palette */
-  --sl-color-bg: var(--yak-cream);
-  --sl-color-bg-nav: var(--yak-cream-dark);
-  --sl-color-bg-sidebar: var(--yak-cream-dark);
-  --sl-color-bg-inline-code: rgba(196, 116, 74, 0.08);
-  --sl-color-bg-accent: var(--yak-orange);
+  --sl-color-bg: var(--yak-bg);
+  --sl-color-bg-nav: var(--yak-sidebar);
+  --sl-color-bg-sidebar: var(--yak-sidebar);
+  --sl-color-bg-inline-code: var(--yak-panel-2);
+  --sl-color-bg-accent: var(--yak-accent);
 
-  --sl-color-text: var(--yak-slate);
-  --sl-color-text-accent: var(--yak-orange);
-  --sl-color-text-invert: #ffffff;
+  --sl-color-text: var(--yak-text);
+  --sl-color-text-accent: var(--yak-accent-text);
+  --sl-color-text-invert: var(--yak-accent-ink);
 
-  /* Hues Starlight uses for accents, borders, etc. */
-  --sl-color-accent-low: rgba(196, 116, 74, 0.12);
-  --sl-color-accent: var(--yak-orange);
-  --sl-color-accent-high: var(--yak-brown);
+  --sl-color-accent-low: var(--yak-accent-soft);
+  --sl-color-accent: var(--yak-accent);
+  --sl-color-accent-high: var(--yak-accent-text);
 
-  --sl-color-white: var(--yak-slate);
-  --sl-color-gray-1: #4a5a69;
-  --sl-color-gray-2: #5a6a79;
-  --sl-color-gray-3: var(--yak-blue);
-  --sl-color-gray-4: #8a9aa8;
-  --sl-color-gray-5: var(--yak-tan);
-  --sl-color-gray-6: var(--yak-cream-dark);
-  --sl-color-gray-7: #efe6d6;
-  --sl-color-black: var(--yak-cream);
+  --sl-color-white: var(--yak-text);
+  --sl-color-gray-1: var(--yak-text-2);
+  --sl-color-gray-2: var(--yak-text-2);
+  --sl-color-gray-3: var(--yak-text-3);
+  --sl-color-gray-4: var(--yak-border-strong);
+  --sl-color-gray-5: var(--yak-border);
+  --sl-color-gray-6: var(--yak-panel-2);
+  --sl-color-gray-7: var(--yak-panel);
+  --sl-color-black: var(--yak-bg);
 
-  --sl-color-hairline-light: rgba(200, 184, 154, 0.5);
-  --sl-color-hairline: rgba(200, 184, 154, 0.7);
-  --sl-color-hairline-shade: var(--yak-tan);
+  --sl-color-hairline-light: var(--yak-border);
+  --sl-color-hairline: var(--yak-border);
+  --sl-color-hairline-shade: var(--yak-border-strong);
 
-  --sl-shadow-md: var(--yak-shadow-1);
-  --sl-shadow-lg: var(--yak-shadow-2);
+  --sl-shadow-sm: var(--yak-shadow-card);
+  --sl-shadow-md: var(--yak-shadow-card);
+  --sl-shadow-lg: var(--yak-shadow-overlay);
 }
 
-/* ---------- Dark theme (warm, not pure black) ---------- */
+/* ---------- Dark theme ---------- */
 
 :root[data-theme='dark'] {
-  --sl-color-bg: #1f2830;
-  --sl-color-bg-nav: #1a2229;
-  --sl-color-bg-sidebar: #1a2229;
-  --sl-color-bg-inline-code: rgba(212, 145, 94, 0.12);
-  --sl-color-bg-accent: var(--yak-orange-warm);
+  --yak-bg: #0f1011;
+  --yak-sidebar: #141517;
+  --yak-panel: #171819;
+  --yak-panel-2: #232427;
+  --yak-border: #232428;
+  --yak-border-strong: #303137;
+  --yak-text: #e6e7ea;
+  --yak-text-2: #9499a1;
+  --yak-text-3: #62666e;
+  --yak-accent: #8b7bd8;
+  --yak-accent-soft: rgba(139, 123, 216, 0.14);
+  --yak-accent-text: #a99ce3;
+  --yak-accent-ink: #1a1620;
+  --yak-ok: #6fbe68;
+  --yak-warn: #e8985a;
+  --yak-fail: #e0655f;
+  --yak-info: #6fa6d8;
+  --yak-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --yak-shadow-overlay: 0 6px 24px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
 
-  --sl-color-text: #e6dfd1;
-  --sl-color-text-accent: var(--yak-orange-warm);
-  --sl-color-text-invert: #1f2830;
+  --sl-color-bg: var(--yak-bg);
+  --sl-color-bg-nav: var(--yak-sidebar);
+  --sl-color-bg-sidebar: var(--yak-sidebar);
+  --sl-color-bg-inline-code: var(--yak-panel-2);
+  --sl-color-bg-accent: var(--yak-accent);
 
-  --sl-color-accent-low: rgba(212, 145, 94, 0.15);
-  --sl-color-accent: var(--yak-orange-warm);
-  --sl-color-accent-high: #f0a878;
+  --sl-color-text: var(--yak-text);
+  --sl-color-text-accent: var(--yak-accent-text);
+  --sl-color-text-invert: var(--yak-accent-ink);
 
-  --sl-color-white: #f0ebe0;
-  --sl-color-gray-1: #d5ccbc;
-  --sl-color-gray-2: #b8ac99;
-  --sl-color-gray-3: #9a8e7b;
-  --sl-color-gray-4: #7a705f;
-  --sl-color-gray-5: #4d4638;
-  --sl-color-gray-6: #2a3139;
-  --sl-color-gray-7: #252c34;
-  --sl-color-black: #141a1f;
+  --sl-color-accent-low: var(--yak-accent-soft);
+  --sl-color-accent: var(--yak-accent);
+  --sl-color-accent-high: var(--yak-accent-text);
 
-  --sl-color-hairline-light: rgba(200, 184, 154, 0.12);
-  --sl-color-hairline: rgba(200, 184, 154, 0.2);
-  --sl-color-hairline-shade: rgba(200, 184, 154, 0.3);
+  --sl-color-white: var(--yak-text);
+  --sl-color-gray-1: var(--yak-text-2);
+  --sl-color-gray-2: var(--yak-text-2);
+  --sl-color-gray-3: var(--yak-text-3);
+  --sl-color-gray-4: var(--yak-border-strong);
+  --sl-color-gray-5: var(--yak-border);
+  --sl-color-gray-6: var(--yak-panel-2);
+  --sl-color-gray-7: var(--yak-panel);
+  --sl-color-black: var(--yak-bg);
+
+  --sl-color-hairline-light: var(--yak-border);
+  --sl-color-hairline: var(--yak-border);
+  --sl-color-hairline-shade: var(--yak-border-strong);
+
+  --sl-shadow-sm: var(--yak-shadow-card);
+  --sl-shadow-md: var(--yak-shadow-card);
+  --sl-shadow-lg: var(--yak-shadow-overlay);
 }
 
-/* ---------- Global typography polish ---------- */
+/* ---------- Global typography ---------- */
 
 html {
-  font-feature-settings: 'ss01', 'cv11';
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -120,25 +154,15 @@ html {
 body {
   font-family: var(--sl-font);
   font-weight: 400;
-  letter-spacing: -0.005em;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-/* Brand wordmark — italic orange "a" like the app */
 .site-title {
   font-family: var(--sl-font);
   font-weight: 600;
-  font-size: 1.25rem;
-  letter-spacing: -0.02em;
-}
-
-header.header a.site-title span {
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 1.75rem;
-  font-style: normal;
-  font-weight: 400;
+  font-size: 1rem;
   letter-spacing: -0.01em;
-  line-height: 1;
 }
 
 /* ---------- Heading hierarchy ---------- */
@@ -149,53 +173,47 @@ header.header a.site-title span {
 .sl-markdown-content h4 {
   font-family: var(--sl-font);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   color: var(--sl-color-white);
 }
 
-/* Starlight's page title (from frontmatter) */
 .content-panel h1,
 h1#_top {
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-weight: 400;
-  font-size: clamp(2.25rem, 4vw, 3.25rem);
-  line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-family: var(--sl-font);
+  font-weight: 600;
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   color: var(--sl-color-white);
-  margin-block-end: 1rem;
+  margin-block-end: 0.75rem;
 }
 
 .sl-markdown-content h2 {
-  font-size: 1.625rem;
-  margin-block-start: 3rem;
-  padding-block-start: 1.5rem;
+  font-size: 1.375rem;
+  margin-block-start: 2.5rem;
+  padding-block-start: 1.25rem;
   border-block-start: 1px solid var(--sl-color-hairline-light);
 }
 
 .sl-markdown-content h3 {
-  font-size: 1.25rem;
-  margin-block-start: 2rem;
+  font-size: 1.125rem;
+  margin-block-start: 1.75rem;
 }
 
 .sl-markdown-content h4 {
-  font-size: 1.05rem;
-  color: var(--yak-blue);
+  font-size: 0.9375rem;
+  color: var(--yak-text-2);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: 600;
-}
-
-:root[data-theme='dark'] .sl-markdown-content h4 {
-  color: var(--yak-orange-warm);
-  opacity: 0.85;
 }
 
 /* ---------- Body content ---------- */
 
 .sl-markdown-content p,
 .sl-markdown-content li {
-  font-size: 1.0625rem;
-  line-height: 1.75;
+  font-size: 0.9375rem;
+  line-height: 1.65;
 }
 
 .sl-markdown-content p strong {
@@ -206,51 +224,41 @@ h1#_top {
 /* ---------- Links ---------- */
 
 .sl-markdown-content a:not(.sl-anchor-link) {
-  color: var(--yak-orange);
+  color: var(--yak-accent-text);
   text-decoration: none;
   font-weight: 500;
-  border-block-end: 1px solid rgba(196, 116, 74, 0.3);
-  transition: border-color 0.15s ease, color 0.15s ease;
+  border-block-end: 1px solid var(--yak-accent-soft);
+  transition: border-color 0.1s ease, color 0.1s ease;
 }
 
 .sl-markdown-content a:not(.sl-anchor-link):hover {
-  color: var(--yak-orange-warm);
-  border-block-end-color: var(--yak-orange-warm);
-}
-
-:root[data-theme='dark'] .sl-markdown-content a:not(.sl-anchor-link) {
-  color: var(--yak-orange-warm);
-  border-block-end-color: rgba(212, 145, 94, 0.35);
+  border-block-end-color: var(--yak-accent-text);
 }
 
 /* ---------- Inline code ---------- */
 
 .sl-markdown-content :not(pre) > code {
+  font-family: var(--sl-font-mono);
   background-color: var(--sl-color-bg-inline-code);
-  color: var(--yak-brown);
+  color: var(--yak-accent-text);
   padding: 0.15em 0.4em;
-  border-radius: 6px;
-  font-size: 0.92em;
+  border-radius: var(--radius-chip, 5px);
+  font-size: 0.85em;
   font-weight: 500;
-  border: 1px solid rgba(196, 116, 74, 0.12);
-}
-
-:root[data-theme='dark'] .sl-markdown-content :not(pre) > code {
-  color: var(--yak-orange-warm);
-  border-color: rgba(212, 145, 94, 0.2);
+  border: 1px solid var(--yak-border);
 }
 
 /* ---------- Code blocks ---------- */
 
 .sl-markdown-content pre,
 .expressive-code .frame {
-  border-radius: 14px !important;
-  box-shadow: var(--yak-shadow-1);
+  border-radius: var(--radius-card, 8px) !important;
+  box-shadow: none;
   border: 1px solid var(--sl-color-hairline-light);
 }
 
 .expressive-code .frame pre {
-  border-radius: 0 0 14px 14px !important;
+  border-radius: 0 0 var(--radius-card, 8px) var(--radius-card, 8px) !important;
 }
 
 /* ---------- Tables ---------- */
@@ -258,52 +266,45 @@ h1#_top {
 .sl-markdown-content table {
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 14px;
+  border-radius: var(--radius-card, 8px);
   overflow: hidden;
-  box-shadow: var(--yak-shadow-1);
+  box-shadow: none;
   border: 1px solid var(--sl-color-hairline-light);
 }
 
 .sl-markdown-content thead {
-  background-color: var(--yak-cream-dark);
-}
-
-:root[data-theme='dark'] .sl-markdown-content thead {
-  background-color: rgba(200, 184, 154, 0.08);
+  background-color: var(--yak-panel-2);
 }
 
 .sl-markdown-content th {
-  font-size: 0.75rem;
+  font-family: var(--sl-font);
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--yak-blue);
-  padding: 0.85rem 1rem;
+  letter-spacing: 0.06em;
+  color: var(--yak-text-2);
+  padding: 0.6rem 0.85rem;
   text-align: start;
 }
 
-:root[data-theme='dark'] .sl-markdown-content th {
-  color: var(--yak-orange-warm);
-}
-
 .sl-markdown-content td {
-  padding: 0.85rem 1rem;
+  padding: 0.6rem 0.85rem;
   border-block-start: 1px solid var(--sl-color-hairline-light);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .sl-markdown-content tbody tr:hover {
-  background-color: rgba(200, 184, 154, 0.12);
+  background-color: var(--yak-panel-2);
 }
 
 /* ---------- Blockquotes ---------- */
 
 .sl-markdown-content blockquote {
-  border-inline-start: 3px solid var(--yak-orange);
-  background-color: rgba(196, 116, 74, 0.06);
-  padding: 1rem 1.5rem;
-  border-radius: 0 14px 14px 0;
-  margin-block: 1.5rem;
+  border-inline-start: 2px solid var(--yak-accent);
+  background-color: var(--yak-accent-soft);
+  padding: 0.85rem 1.25rem;
+  border-radius: 0 var(--radius-card, 8px) var(--radius-card, 8px) 0;
+  margin-block: 1.25rem;
   font-style: normal;
   color: var(--sl-color-text);
 }
@@ -314,242 +315,168 @@ h1#_top {
   border: 0;
   height: 1px;
   background-color: var(--sl-color-hairline-light);
-  margin-block: 3rem;
+  margin-block: 2.5rem;
 }
 
 /* ---------- Sidebar ---------- */
 
 nav[aria-label='Main'] {
-  padding-block-start: 1rem;
+  padding-block-start: 0.75rem;
 }
 
 .sidebar-content summary,
 .sidebar-content a {
   font-weight: 500;
-  font-size: 0.95rem;
-  border-radius: 10px;
-  transition: background-color 0.15s ease;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-control, 6px);
+  transition: background-color 0.1s ease;
 }
 
 .sidebar-content a[aria-current='page'] {
-  background-color: rgba(196, 116, 74, 0.12);
-  color: var(--yak-orange) !important;
+  background-color: var(--yak-accent-soft);
+  color: var(--yak-accent-text) !important;
   font-weight: 600;
-  border-inline-start: 3px solid var(--yak-orange);
-}
-
-:root[data-theme='dark'] .sidebar-content a[aria-current='page'] {
-  background-color: rgba(212, 145, 94, 0.15);
-  color: var(--yak-orange-warm) !important;
-  border-inline-start-color: var(--yak-orange-warm);
+  border-inline-start: 2px solid var(--yak-accent);
 }
 
 .sidebar-content .group-label {
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-style: italic;
-  font-size: 1.15rem;
-  font-weight: 400;
-  color: var(--yak-slate);
-  letter-spacing: 0;
-  text-transform: none;
+  font-family: var(--sl-font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--yak-text-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   padding-inline-start: 0.5rem;
-}
-
-:root[data-theme='dark'] .sidebar-content .group-label {
-  color: var(--yak-orange-warm);
 }
 
 /* ---------- Top header ---------- */
 
 header.header {
   border-block-end: 1px solid var(--sl-color-hairline-light);
-  backdrop-filter: blur(8px) saturate(1.2);
-  background-color: rgba(245, 240, 232, 0.85);
-}
-
-:root[data-theme='dark'] header.header {
-  background-color: rgba(26, 34, 41, 0.85);
+  background-color: var(--yak-sidebar);
 }
 
 /* ---------- Search button ---------- */
 
 button[data-open-modal] {
-  border-radius: 12px;
+  border-radius: var(--radius-control, 6px);
   border: 1px solid var(--sl-color-hairline);
-  background-color: rgba(255, 255, 255, 0.5);
-  box-shadow: var(--yak-shadow-1);
-}
-
-:root[data-theme='dark'] button[data-open-modal] {
-  background-color: rgba(42, 49, 57, 0.5);
+  background-color: var(--yak-panel);
+  box-shadow: none;
 }
 
 /* ---------- Page footer links ---------- */
 
 .pagination-links a {
-  border-radius: 14px;
+  border-radius: var(--radius-card, 8px);
   border: 1px solid var(--sl-color-hairline-light);
-  box-shadow: var(--yak-shadow-1);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: none;
+  transition: border-color 0.1s ease, background-color 0.1s ease;
 }
 
 .pagination-links a:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--yak-shadow-2);
-  border-color: var(--yak-orange);
+  border-color: var(--yak-accent);
+  background-color: var(--yak-accent-soft);
 }
 
 /* ---------- Hero (splash page) ---------- */
 
 .hero {
-  padding-block: 4rem 2rem;
+  padding-block: 3rem 1.5rem;
 }
 
 .hero h1 {
-  font-family: 'Instrument Serif', Georgia, serif !important;
-  font-weight: 400 !important;
-  font-size: clamp(3rem, 8vw, 5.5rem) !important;
-  line-height: 1 !important;
-  letter-spacing: -0.03em !important;
+  font-family: var(--sl-font) !important;
+  font-weight: 600 !important;
+  font-size: clamp(2rem, 5vw, 3rem) !important;
+  line-height: 1.15 !important;
+  letter-spacing: -0.01em !important;
   color: var(--sl-color-white);
 }
 
 .hero .tagline {
-  font-size: 1.25rem;
-  line-height: 1.5;
-  color: var(--yak-blue);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--yak-text-2);
   max-width: 42rem;
-  margin-block-start: 1.5rem;
-}
-
-:root[data-theme='dark'] .hero .tagline {
-  color: #b0a696;
+  margin-block-start: 1rem;
 }
 
 .hero .actions a[aria-label] {
-  border-radius: 14px;
-  padding: 0.95rem 1.75rem;
+  border-radius: var(--radius-control, 6px);
+  padding: 0.6rem 1.25rem;
   font-weight: 500;
-  letter-spacing: 0.01em;
-  font-size: 1rem;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  letter-spacing: 0;
+  font-size: 0.875rem;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
 }
 
 .hero .actions a[aria-label][data-variant='primary'] {
-  background-color: var(--yak-slate);
-  color: var(--yak-cream);
-  border: 1px solid var(--yak-slate);
-  box-shadow: var(--yak-shadow-1);
+  background-color: var(--yak-accent);
+  color: var(--yak-accent-ink);
+  border: 1px solid var(--yak-accent);
+  box-shadow: none;
 }
 
 .hero .actions a[aria-label][data-variant='primary']:hover {
-  background-color: var(--yak-brown);
-  transform: translateY(-2px);
-  box-shadow: var(--yak-shadow-2);
+  background-color: var(--yak-accent-text);
 }
 
 .hero .actions a[aria-label][data-variant='secondary'] {
   background-color: transparent;
-  color: var(--yak-slate);
-  border: 1px solid var(--yak-tan);
-}
-
-:root[data-theme='dark'] .hero .actions a[aria-label][data-variant='secondary'] {
-  color: var(--yak-cream);
+  color: var(--yak-text);
+  border: 1px solid var(--yak-border-strong);
 }
 
 .hero .actions a[aria-label][data-variant='secondary']:hover {
-  background-color: rgba(200, 184, 154, 0.15);
-  transform: translateY(-2px);
+  background-color: var(--yak-panel-2);
 }
 
 .hero img {
-  border-radius: 24px;
-  box-shadow: var(--yak-shadow-2);
+  border-radius: var(--radius-card, 8px);
+  box-shadow: none;
+  border: 1px solid var(--sl-color-hairline-light);
   max-width: 420px;
-  transform: rotate(-2deg);
-  transition: transform 0.3s ease;
-}
-
-.hero img:hover {
-  transform: rotate(0deg) scale(1.02);
 }
 
 /* ---------- Card grid (splash page) ---------- */
 
 .card {
-  border-radius: 20px !important;
-  background-color: rgba(255, 255, 255, 0.65) !important;
-  backdrop-filter: blur(20px) saturate(1.3);
-  border: 1px solid rgba(255, 255, 255, 0.7) !important;
-  box-shadow: var(--yak-shadow-1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-:root[data-theme='dark'] .card {
-  background-color: rgba(42, 49, 57, 0.6) !important;
-  border-color: rgba(200, 184, 154, 0.15) !important;
+  border-radius: var(--radius-card, 8px) !important;
+  background-color: var(--yak-panel) !important;
+  border: 1px solid var(--sl-color-hairline-light) !important;
+  box-shadow: none;
+  transition: border-color 0.1s ease;
 }
 
 .card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--yak-shadow-2);
+  border-color: var(--yak-border-strong) !important;
 }
 
 .card .icon {
-  color: var(--yak-orange) !important;
-}
-
-:root[data-theme='dark'] .card .icon {
-  color: var(--yak-orange-warm) !important;
+  color: var(--yak-accent) !important;
 }
 
 .card .title {
-  font-family: 'Instrument Serif', Georgia, serif !important;
-  font-style: italic;
-  font-size: 1.35rem !important;
-  font-weight: 400 !important;
-  letter-spacing: -0.01em;
-}
-
-/* ---------- Subtle background texture ---------- */
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(139, 179, 196, 0.08), transparent 60%),
-    radial-gradient(ellipse 70% 60% at 80% 20%, rgba(196, 116, 74, 0.06), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 50% 90%, rgba(122, 140, 94, 0.06), transparent 60%);
-}
-
-:root[data-theme='dark'] body::before {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 20% 10%, rgba(139, 179, 196, 0.04), transparent 60%),
-    radial-gradient(ellipse 70% 60% at 80% 20%, rgba(212, 145, 94, 0.04), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 50% 90%, rgba(154, 170, 126, 0.03), transparent 60%);
+  font-family: var(--sl-font) !important;
+  font-style: normal;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em;
 }
 
 /* ---------- Selection color ---------- */
 
 ::selection {
-  background-color: rgba(196, 116, 74, 0.3);
-  color: var(--yak-slate);
-}
-
-:root[data-theme='dark'] ::selection {
-  background-color: rgba(212, 145, 94, 0.35);
-  color: var(--yak-cream);
+  background-color: var(--yak-accent-soft);
+  color: var(--yak-text);
 }
 
 /* ---------- Scrollbar (webkit) ---------- */
 
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -557,11 +484,11 @@ body::before {
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: var(--yak-tan);
+  background-color: var(--yak-border-strong);
   border-radius: 10px;
   border: 3px solid var(--sl-color-bg);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: var(--yak-orange);
+  background-color: var(--yak-text-3);
 }
