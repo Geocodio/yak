@@ -159,6 +159,7 @@ class CreatePullRequestJob implements ShouldQueue
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }
 
+        $parts[] = "**Yak task:** [#{$this->task->id}]({$this->yakTaskUrl()})";
         $parts[] = "**Repository:** {$this->task->repo}";
         $parts[] = "**Attempts:** {$this->task->attempts}";
 
@@ -180,22 +181,55 @@ class CreatePullRequestJob implements ShouldQueue
             );
         }
 
-        $parts[] = '';
-        $parts[] = $this->walkthroughSection();
+        $walkthrough = $this->walkthroughSection();
+
+        if ($walkthrough !== '') {
+            $parts[] = '';
+            $parts[] = $walkthrough;
+        }
 
         return implode("\n", $parts);
     }
 
     /**
+     * Whether a render is on its way. The v3 pipeline needs both a script
+     * and a manifest artifact (RenderWalkthroughJob's own precondition);
+     * the legacy v2 pipeline renders from raw footage alone.
+     */
+    private function hasRenderableCapture(): bool
+    {
+        if ($this->task->artifacts()->rawFootage()->exists()) {
+            return true;
+        }
+
+        return $this->task->artifacts()->role('script')->exists()
+            && $this->task->artifacts()->role('manifest')->exists();
+    }
+
+    /**
+     * Deep link back to the task's page on this Yak install, so a reviewer
+     * can reach the run log, the cost, and the follow-up box from the PR.
+     */
+    private function yakTaskUrl(): string
+    {
+        return route('tasks.show', $this->task);
+    }
+
+    /**
      * The PR opens on green CI, usually before the render finishes, so the
      * section starts as a placeholder the render replaces (spec §8).
+     *
+     * A task that captured nothing — a backend-only change, or a run that
+     * skipped visual capture — never dispatches a render, so a placeholder
+     * would sit at "Rendering…" forever. The section is omitted unless a
+     * render is actually coming.
      */
     private function walkthroughSection(): string
     {
         $cut = $this->task->artifacts()->cut()->latest('id')->first();
 
         if ($cut === null) {
-            return WalkthroughPrSection::pending();
+            return $this->hasRenderableCapture() ? WalkthroughPrSection::pending() : '';
         }
 
         $preview = $this->task->artifacts()->preview()->latest('id')->first();

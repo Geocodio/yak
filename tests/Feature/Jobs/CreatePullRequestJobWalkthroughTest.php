@@ -20,13 +20,24 @@ function invokeBuildPrBody(YakTask $task, array $signedUrls): string
     return (string) $method->invoke($job, $signedUrls);
 }
 
-it('writes the rendering placeholder when there is no cut', function (): void {
+it('writes the rendering placeholder when a capture is waiting on its render', function (): void {
     $task = YakTask::factory()->create();
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'script', 'role' => 'script', 'filename' => 'script.json', 'disk_path' => "{$task->id}/script.json", 'size_bytes' => 1]);
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'manifest', 'role' => 'manifest', 'filename' => 'manifest.json', 'disk_path' => "{$task->id}/manifest.json", 'size_bytes' => 1]);
 
     $body = invokeBuildPrBody($task, []);
 
     expect($body)->toContain(WalkthroughPrSection::MARKER_START)
         ->toContain('_Rendering, this section will update automatically._');
+});
+
+it('omits the walkthrough section entirely when nothing was captured', function (): void {
+    $task = YakTask::factory()->create();
+
+    $body = invokeBuildPrBody($task, []);
+
+    expect($body)->not->toContain(WalkthroughPrSection::MARKER_START)
+        ->not->toContain('### Video walkthrough');
 });
 
 it('embeds the gif by public url and captions the screenshots', function (): void {
