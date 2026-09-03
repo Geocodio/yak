@@ -219,6 +219,30 @@ return [
     'ci_scan' => [
         'scan_interval_minutes' => (int) env('YAK_SCAN_INTERVAL_MINUTES', 120),
         'max_failure_age_hours' => (int) env('YAK_MAX_FAILURE_AGE_HOURS', 48),
+
+        // Which CI jobs are worth reading logs from. A workflow run also
+        // contains build, lint, deploy and notify jobs; their failures are
+        // real breakage, not flaky tests, and their logs are large. A job
+        // qualifies when its name contains one of these (case-insensitive).
+        // Set YAK_CI_TEST_JOB_PATTERNS to a comma-separated list to override.
+        'test_job_patterns' => array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) env(
+                'YAK_CI_TEST_JOB_PATTERNS',
+                'test,spec,pest,phpunit,jest,vitest,pytest,rspec',
+            )),
+        ))),
+
+        // Checked after the list above and wins over it. Jobs that act *on* a
+        // test run rather than running one — "Notify Slack (tests)", "Deploy
+        // after tests" — otherwise match on the word alone.
+        'test_job_exclude_patterns' => array_values(array_filter(array_map(
+            trim(...),
+            explode(',', (string) env(
+                'YAK_CI_TEST_JOB_EXCLUDE_PATTERNS',
+                'notify,deploy,publish,release,announce,upload',
+            )),
+        ))),
     ],
 
     /*
@@ -263,6 +287,13 @@ return [
             'region_url' => env('YAK_SENTRY_REGION_URL', 'https://us.sentry.io'),
             'min_events' => (int) env('YAK_SENTRY_MIN_EVENTS', 5),
             'min_actionability' => env('YAK_SENTRY_MIN_ACTIONABILITY', 'medium'),
+
+            // Optional extra opt-in: when set, an issue is only picked up if
+            // its event carries a tag with this key. Off by default — the
+            // alert rule you point at Yak is already the opt-in, and a tag
+            // has to be set in application code at the moment the error is
+            // thrown, which is the wrong place to decide this.
+            'required_tag' => env('YAK_SENTRY_REQUIRED_TAG') ?: null,
         ],
 
         'drone' => [

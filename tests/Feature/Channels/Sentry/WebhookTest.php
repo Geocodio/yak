@@ -714,11 +714,17 @@ it('ignores non-triggered action events', function () {
 
 /*
 |--------------------------------------------------------------------------
-| Missing yak-eligible Tag Ignored
+| Optional Required Tag
 |--------------------------------------------------------------------------
+|
+| The alert rule pointed at Yak is the opt-in. An extra per-event tag gate
+| is available for installs that want one, but it stays off by default: the
+| tag has to be set in application code when the error is thrown, which is
+| the wrong place to decide whether an issue is worth fixing.
+|
 */
 
-it('ignores events without yak-eligible tag', function () {
+it('processes events with no opt-in tag when no required tag is configured', function () {
     $secret = enableSentryChannel();
     Queue::fake();
 
@@ -741,6 +747,66 @@ it('ignores events without yak-eligible tag', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
+    expect(YakTask::count())->toBe(1);
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('ignores events missing the required tag when one is configured', function () {
+    $secret = enableSentryChannel();
+    config(['yak.channels.sentry.required_tag' => 'yak-eligible']);
+    Queue::fake();
+
+    Repository::factory()->withSentry()->create([
+        'sentry_project' => 'my-sentry-project',
+    ]);
+
+    $body = sentryAlertPayload([
+        'issueId' => '99070',
+        'tags' => [
+            ['key' => 'environment', 'value' => 'production'],
+        ],
+        'seerActionability' => 'high',
+        'count' => 10,
+    ]);
+    $signature = signSentryPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful()
+        ->assertJson(['filtered' => 'missing_tag:yak-eligible']);
+
     expect(YakTask::count())->toBe(0);
     Queue::assertNotPushed(RunYakJob::class);
+});
+
+it('accepts the required tag when Sentry sends tags as [key, value] pairs', function () {
+    $secret = enableSentryChannel();
+    config(['yak.channels.sentry.required_tag' => 'yak-eligible']);
+    Queue::fake();
+
+    Repository::factory()->withSentry()->create([
+        'sentry_project' => 'my-sentry-project',
+    ]);
+
+    // Sentry serializes event tags as objects in some payloads and as plain
+    // pairs in others. Both have to satisfy the gate.
+    $body = sentryAlertPayload([
+        'issueId' => '99071',
+        'tags' => [
+            ['environment', 'production'],
+            ['yak-eligible', 'yes'],
+        ],
+        'seerActionability' => 'high',
+        'count' => 10,
+    ]);
+    $signature = signSentryPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => $signature,
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::count())->toBe(1);
+    Queue::assertPushed(RunYakJob::class);
 });
