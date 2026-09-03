@@ -2,7 +2,7 @@ import { Button, TextInput, cn } from '@geocodio/console-ui';
 import { CheckCircle2, Clock, ExternalLink, Loader2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
-import mcp from '@/routes/settings/mcp';
+import mcp from '@/routes/mcp';
 import type { McpLoginSessionData, McpServerRow } from '@/types/settings';
 
 type StepState = 'done' | 'current' | 'upcoming';

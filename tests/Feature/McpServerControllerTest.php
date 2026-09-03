@@ -30,26 +30,26 @@ beforeEach(function () {
  */
 function requestMcpServers(?string $only = 'servers,checkedAgo')
 {
-    $version = test()->get(route('settings.mcp'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+    $version = test()->get(route('mcp'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
 
     $headers = [
         'X-Inertia' => 'true',
         'X-Inertia-Version' => (string) $version,
-        'X-Inertia-Partial-Component' => 'Settings/McpServers',
+        'X-Inertia-Partial-Component' => 'Mcp/Index',
     ];
 
     if ($only !== null) {
         $headers['X-Inertia-Partial-Data'] = $only;
     }
 
-    return test()->get(route('settings.mcp'), $headers);
+    return test()->get(route('mcp'), $headers);
 }
 
 it('renders the page with deferred servers and eager login sessions', function () {
-    $this->get(route('settings.mcp'))
+    $this->get(route('mcp'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Settings/McpServers')
+            ->component('Mcp/Index')
             ->where('checkedAgo', null)
             ->has('loginSessions')
             ->has('docsUrl')
@@ -98,7 +98,7 @@ it('flashes an error and omits user/plugin servers when claude mcp list fails', 
 });
 
 it('adds a server via the CLI and flashes success', function () {
-    $this->post(route('settings.mcp.store'), [
+    $this->post(route('mcp.store'), [
         'name' => 'my-server',
         'transport' => 'http',
         'target' => 'https://mcp.example.com/mcp',
@@ -112,7 +112,7 @@ it('adds a server via the CLI and flashes success', function () {
 });
 
 it('splits a stdio target into command and args after --', function () {
-    $this->post(route('settings.mcp.store'), [
+    $this->post(route('mcp.store'), [
         'name' => 'local',
         'transport' => 'stdio',
         'target' => 'npx -y some-server',
@@ -122,7 +122,7 @@ it('splits a stdio target into command and args after --', function () {
 });
 
 it('rejects a store request with an invalid server name', function () {
-    $this->post(route('settings.mcp.store'), [
+    $this->post(route('mcp.store'), [
         'name' => 'bad name!',
         'transport' => 'http',
         'target' => 'https://mcp.example.com',
@@ -130,7 +130,7 @@ it('rejects a store request with an invalid server name', function () {
 });
 
 it('rejects a store request with a non-url target for an http transport', function () {
-    $this->post(route('settings.mcp.store'), [
+    $this->post(route('mcp.store'), [
         'name' => 'ok-name',
         'transport' => 'http',
         'target' => 'not a url',
@@ -145,7 +145,7 @@ it('refuses to remove a deploy-config server', function () {
     ]));
     config()->set('yak.mcp_config_path', $tmp . '/mcp.json');
 
-    $this->delete(route('settings.mcp.destroy', ['name' => 'deploy-one']))
+    $this->delete(route('mcp.destroy', ['name' => 'deploy-one']))
         ->assertRedirect()
         ->assertSessionHas('error');
 
@@ -155,7 +155,7 @@ it('refuses to remove a deploy-config server', function () {
 });
 
 it('refuses to remove a plugin server', function () {
-    $this->delete(route('settings.mcp.destroy', ['name' => 'plugin:figma:figma']))
+    $this->delete(route('mcp.destroy', ['name' => 'plugin:figma:figma']))
         ->assertRedirect()
         ->assertSessionHas('error');
 
@@ -169,7 +169,7 @@ it('removes a user server, ignoring logout failure', function () {
         '*mcp list*' => Process::result(output: CONTROLLER_MCP_LIST_FIXTURE),
     ]);
 
-    $this->delete(route('settings.mcp.destroy', ['name' => 'linear']))
+    $this->delete(route('mcp.destroy', ['name' => 'linear']))
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -179,7 +179,7 @@ it('removes a user server, ignoring logout failure', function () {
 it('logs out of a server', function () {
     Process::fake(['*mcp logout*' => Process::result()]);
 
-    $this->post(route('settings.mcp.logout', ['name' => 'linear']))
+    $this->post(route('mcp.logout', ['name' => 'linear']))
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -189,7 +189,7 @@ it('logs out of a server', function () {
 it('starts a login session and dispatches the login job', function () {
     Queue::fake();
 
-    $this->post(route('settings.mcp.login.start', ['name' => 'plugin:figma:figma']))
+    $this->post(route('mcp.login.start', ['name' => 'plugin:figma:figma']))
         ->assertRedirect();
 
     Queue::assertPushed(McpLoginJob::class, fn (McpLoginJob $job) => $job->server === 'plugin:figma:figma');
@@ -204,7 +204,7 @@ it('refuses to start a second login while one is already in progress', function 
 
     McpLoginSession::start('linear');
 
-    $this->post(route('settings.mcp.login.start', ['name' => 'linear']))
+    $this->post(route('mcp.login.start', ['name' => 'linear']))
         ->assertRedirect()
         ->assertSessionHas('error');
 
@@ -217,7 +217,7 @@ it('validates and applies a redirect url, moving the session to finishing', func
     $session->authorizationUrl = 'https://mcp.linear.app/authorize';
     $session->save();
 
-    $this->post(route('settings.mcp.login.redirect', ['name' => 'linear']), [
+    $this->post(route('mcp.login.redirect', ['name' => 'linear']), [
         'redirectUrl' => 'http://localhost:57772/callback?code=abc',
     ])->assertRedirect();
 
@@ -231,7 +231,7 @@ it('rejects a redirect url that is not a localhost address', function () {
     $session->status = 'awaiting_redirect';
     $session->save();
 
-    $this->post(route('settings.mcp.login.redirect', ['name' => 'linear']), [
+    $this->post(route('mcp.login.redirect', ['name' => 'linear']), [
         'redirectUrl' => 'https://evil.example.com/callback',
     ])->assertRedirect()->assertSessionHas('error');
 
@@ -241,7 +241,7 @@ it('rejects a redirect url that is not a localhost address', function () {
 it('cancels an in-progress login', function () {
     McpLoginSession::start('linear');
 
-    $this->delete(route('settings.mcp.login.cancel', ['name' => 'linear']))
+    $this->delete(route('mcp.login.cancel', ['name' => 'linear']))
         ->assertRedirect();
 
     expect(McpLoginSession::find('linear')->status)->toBe('cancelled');
@@ -250,5 +250,5 @@ it('cancels an in-progress login', function () {
 it('requires authentication', function () {
     auth()->logout();
 
-    $this->get(route('settings.mcp'))->assertRedirect(route('login'));
+    $this->get(route('mcp'))->assertRedirect(route('login'));
 });

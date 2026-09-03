@@ -40,7 +40,7 @@ afterEach(function () {
 });
 
 test('MCP servers page renders servers and starts a login for one that needs auth', function () {
-    $page = visit(route('settings.mcp'));
+    $page = visit(route('mcp'));
 
     $page->assertNoJavaScriptErrors();
     $page->assertSee('MCP servers');

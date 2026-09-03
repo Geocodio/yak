@@ -19,6 +19,9 @@ use Throwable;
  */
 class ClaudeCli
 {
+    /** Home of the shared Claude Code config every sandbox bind-mounts. */
+    private const HOME = '/home/yak';
+
     public function exec(string $args, int $timeout = 60): ProcessResult
     {
         $command = $this->interactiveCommand($args);
@@ -38,8 +41,16 @@ class ClaudeCli
      */
     public function interactiveCommand(string $args): string
     {
+        // Run from the shared config home, not the app checkout. Claude Code
+        // treats the working directory as "the project", so running from
+        // /app would pick up Yak's own .mcp.json (Laravel Boost) and any
+        // other project-scoped config as if it belonged to the agents. The
+        // `2>/dev/null;` keeps local dev working when /home/yak is absent.
         return sprintf(
-            'env HOME=/home/yak CLAUDE_CONFIG_DIR=/home/yak/.claude %sclaude %s',
+            'cd %s 2>/dev/null; env HOME=%s CLAUDE_CONFIG_DIR=%s %sclaude %s',
+            escapeshellarg(self::HOME),
+            escapeshellarg(self::HOME),
+            escapeshellarg(self::HOME . '/.claude'),
             $this->gitCredentialEnv(),
             $args,
         );

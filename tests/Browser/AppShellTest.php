@@ -17,6 +17,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
         'Prompts',
         'Costs',
         'Skills',
+        'MCP servers',
         'Health',
         'Settings',
     ] as $label) {

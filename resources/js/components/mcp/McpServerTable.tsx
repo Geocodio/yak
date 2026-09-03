@@ -3,8 +3,8 @@ import { Badge, Button, cn } from '@geocodio/console-ui';
 import { useState } from 'react';
 import { skills } from '@/routes';
 import { useRouterAction } from '@/lib/useRouterAction';
-import { McpLoginPanel } from '@/components/settings/mcp/McpLoginPanel';
-import mcp from '@/routes/settings/mcp';
+import { McpLoginPanel } from '@/components/mcp/McpLoginPanel';
+import mcp from '@/routes/mcp';
 import type { McpLoginSessionData, McpServerRow } from '@/types/settings';
 
 const ACTIVE_STATUSES: McpLoginSessionData['status'][] = ['starting', 'awaiting_redirect', 'finishing'];

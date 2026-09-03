@@ -1,10 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { SettingsShell, type SettingsNavSection } from '@geocodio/console-ui';
-import { Inbox, Server, User, Video as VideoIcon, Zap } from 'lucide-react';
+import { Inbox, User, Video as VideoIcon, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { channels, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
-import { linear, mcp, video } from '@/routes/settings';
+import { linear, video } from '@/routes/settings';
 
 const SECTIONS: SettingsNavSection[] = [
     {
@@ -46,19 +46,11 @@ const SECTIONS: SettingsNavSection[] = [
                 icon: <Inbox size={15} />,
                 description: 'Slack, Linear, and Sentry inputs.',
             },
-            {
-                slug: 'mcp',
-                href: mcp.url(),
-                label: 'MCP servers',
-                icon: <Server size={15} />,
-                description: 'Tool servers agents can reach inside every sandbox, and their logins.',
-                keywords: ['mcp', 'tools', 'oauth'],
-            },
         ],
     },
 ];
 
-export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video' | 'channels' | 'mcp'; children: ReactNode }) {
+export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video' | 'channels'; children: ReactNode }) {
     const currentPath = usePage().url.split('?')[0];
 
     return (
@@ -68,7 +60,7 @@ export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' 
             currentPath={currentPath}
             backHref={tasks.url()}
             backLabel="Back to Yak"
-            wide={slug === 'video' || slug === 'channels' || slug === 'mcp'}
+            wide={slug === 'video' || slug === 'channels'}
             LinkComponent={Link}
             onNavigate={(href) => router.visit(href)}
         >

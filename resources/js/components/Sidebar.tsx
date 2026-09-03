@@ -15,11 +15,12 @@ import {
     Puzzle,
     Rocket,
     Search,
+    Server,
     Settings as SettingsIcon,
     Type,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { channels, costs, deployments, health, logout, prReviews, prompts, repos, skills, tasks } from '@/routes';
+import { channels, costs, deployments, health, logout, mcp, prReviews, prompts, repos, skills, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import type { SharedProps } from '@/types/shared';
 
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Prompts', icon: Type, url: prompts.url() },
     { label: 'Costs', icon: DollarSign, url: costs.url() },
     { label: 'Skills', icon: Puzzle, url: skills.url() },
+    { label: 'MCP servers', icon: Server, url: mcp.url() },
     { label: 'Health', icon: Heart, url: health.url() },
 ];
 

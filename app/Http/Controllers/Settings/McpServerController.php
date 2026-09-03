@@ -28,7 +28,7 @@ class McpServerController extends Controller
         $requestedProps = $partialData !== '' ? explode(',', $partialData) : [];
         $resolvingServers = in_array('servers', $requestedProps, true);
 
-        return Inertia::render('Settings/McpServers', [
+        return Inertia::render('Mcp/Index', [
             'servers' => Inertia::defer(fn () => $this->serversData(), 'servers'),
             'loginSessions' => fn () => $this->loginSessionsData(),
             'checkedAgo' => $resolvingServers ? 'just now' : null,

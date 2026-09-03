@@ -6,6 +6,7 @@ import HealthController from './HealthController'
 import ChannelController from './ChannelController'
 import SkillController from './SkillController'
 import MarketplaceController from './MarketplaceController'
+import Settings from './Settings'
 import PromptController from './PromptController'
 import PromptPreviewController from './PromptPreviewController'
 import PromptVersionController from './PromptVersionController'
@@ -14,7 +15,6 @@ import Deployments from './Deployments'
 import ArtifactController from './ArtifactController'
 import VideoThemeAssetController from './VideoThemeAssetController'
 import Internal from './Internal'
-import Settings from './Settings'
 
 const Controllers = {
     Auth: Object.assign(Auth, Auth),
@@ -25,6 +25,7 @@ const Controllers = {
     ChannelController: Object.assign(ChannelController, ChannelController),
     SkillController: Object.assign(SkillController, SkillController),
     MarketplaceController: Object.assign(MarketplaceController, MarketplaceController),
+    Settings: Object.assign(Settings, Settings),
     PromptController: Object.assign(PromptController, PromptController),
     PromptPreviewController: Object.assign(PromptPreviewController, PromptPreviewController),
     PromptVersionController: Object.assign(PromptVersionController, PromptVersionController),
@@ -33,7 +34,6 @@ const Controllers = {
     ArtifactController: Object.assign(ArtifactController, ArtifactController),
     VideoThemeAssetController: Object.assign(VideoThemeAssetController, VideoThemeAssetController),
     Internal: Object.assign(Internal, Internal),
-    Settings: Object.assign(Settings, Settings),
 }
 
 export default Controllers

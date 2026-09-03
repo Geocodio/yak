@@ -1,8 +1,8 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::redirect
 * @see app/Http/Controllers/Settings/McpLoginController.php:28
-* @route '/settings/mcp/{name}/login/redirect'
+* @route '/mcp/{name}/login/redirect'
 */
 export const redirect = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: redirect.url(args, options),
@@ -11,13 +11,13 @@ export const redirect = (args: { name: string | number } | [name: string | numbe
 
 redirect.definition = {
     methods: ["post"],
-    url: '/settings/mcp/{name}/login/redirect',
+    url: '/mcp/{name}/login/redirect',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::redirect
 * @see app/Http/Controllers/Settings/McpLoginController.php:28
-* @route '/settings/mcp/{name}/login/redirect'
+* @route '/mcp/{name}/login/redirect'
 */
 redirect.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -44,7 +44,7 @@ redirect.url = (args: { name: string | number } | [name: string | number ] | str
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::redirect
 * @see app/Http/Controllers/Settings/McpLoginController.php:28
-* @route '/settings/mcp/{name}/login/redirect'
+* @route '/mcp/{name}/login/redirect'
 */
 redirect.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: redirect.url(args, options),
@@ -54,7 +54,7 @@ redirect.post = (args: { name: string | number } | [name: string | number ] | st
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::start
 * @see app/Http/Controllers/Settings/McpLoginController.php:13
-* @route '/settings/mcp/{name}/login'
+* @route '/mcp/{name}/login'
 */
 export const start = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: start.url(args, options),
@@ -63,13 +63,13 @@ export const start = (args: { name: string | number } | [name: string | number ]
 
 start.definition = {
     methods: ["post"],
-    url: '/settings/mcp/{name}/login',
+    url: '/mcp/{name}/login',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::start
 * @see app/Http/Controllers/Settings/McpLoginController.php:13
-* @route '/settings/mcp/{name}/login'
+* @route '/mcp/{name}/login'
 */
 start.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -96,7 +96,7 @@ start.url = (args: { name: string | number } | [name: string | number ] | string
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::start
 * @see app/Http/Controllers/Settings/McpLoginController.php:13
-* @route '/settings/mcp/{name}/login'
+* @route '/mcp/{name}/login'
 */
 start.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: start.url(args, options),
@@ -106,7 +106,7 @@ start.post = (args: { name: string | number } | [name: string | number ] | strin
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::cancel
 * @see app/Http/Controllers/Settings/McpLoginController.php:53
-* @route '/settings/mcp/{name}/login'
+* @route '/mcp/{name}/login'
 */
 export const cancel = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: cancel.url(args, options),
@@ -115,13 +115,13 @@ export const cancel = (args: { name: string | number } | [name: string | number 
 
 cancel.definition = {
     methods: ["delete"],
-    url: '/settings/mcp/{name}/login',
+    url: '/mcp/{name}/login',
 } satisfies RouteDefinition<["delete"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::cancel
 * @see app/Http/Controllers/Settings/McpLoginController.php:53
-* @route '/settings/mcp/{name}/login'
+* @route '/mcp/{name}/login'
 */
 cancel.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -148,7 +148,7 @@ cancel.url = (args: { name: string | number } | [name: string | number ] | strin
 /**
 * @see \App\Http\Controllers\Settings\McpLoginController::cancel
 * @see app/Http/Controllers/Settings/McpLoginController.php:53
-* @route '/settings/mcp/{name}/login'
+* @route '/mcp/{name}/login'
 */
 cancel.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: cancel.url(args, options),
