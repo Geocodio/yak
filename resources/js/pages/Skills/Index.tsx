@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Button, ConfirmDialog, Menu, TextInput } from '@geocodio/console-ui';
-import { ChevronDown, Plus, RotateCw } from 'lucide-react';
+import { ChevronDown, Loader2, Plus, RotateCw } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
@@ -31,6 +31,7 @@ const FILTER_OPTIONS: { value: SkillsFilterValue; label: string }[] = [
 
 export default function Index({ installed, bundled, available, availableTotal, marketplaces: marketplaceRows, filters }: Props) {
     const [search, setSearch] = useState(filters.search);
+    const [searching, setSearching] = useState(false);
     const [showInstallFromUrl, setShowInstallFromUrl] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [togglingKey, setTogglingKey] = useState<string | null>(null);
@@ -53,8 +54,14 @@ export default function Index({ installed, bundled, available, availableTotal, m
             clearTimeout(debounceRef.current);
         }
 
+        setSearching(true);
+
         debounceRef.current = setTimeout(() => {
-            router.get(skills.url(), { search, filter: filters.filter }, { preserveState: true, replace: true });
+            router.get(
+                skills.url(),
+                { search, filter: filters.filter },
+                { preserveState: true, replace: true, onFinish: () => setSearching(false) },
+            );
         }, 200);
 
         return () => {
@@ -64,6 +71,14 @@ export default function Index({ installed, bundled, available, availableTotal, m
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [search]);
+
+    // The effect above returns early when the box already matches the applied
+    // filter, so reset the flag here rather than leaving a spinner running.
+    useEffect(() => {
+        if (search === filters.search) {
+            setSearching(false);
+        }
+    }, [search, filters.search]);
 
     const toggle = (skill: InstalledSkillRow, enabled: boolean) => {
         setTogglingKey(skill.key);
@@ -131,14 +146,23 @@ export default function Index({ installed, bundled, available, availableTotal, m
                 }
             >
                 <div className="ml-4 flex items-center gap-2">
-                    <TextInput
-                        type="search"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search plugins…"
-                        className="w-56"
-                        data-testid="skills-search"
-                    />
+                    <div className="relative">
+                        <TextInput
+                            type="search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search plugins…"
+                            className="w-56"
+                            data-testid="skills-search"
+                        />
+                        {searching && (
+                            <Loader2
+                                size={13}
+                                className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 animate-spin text-faint"
+                                data-testid="skills-search-spinner"
+                            />
+                        )}
+                    </div>
                     <Menu
                         trigger={
                             <span className="flex items-center gap-1.5 text-[12px]">
