@@ -336,7 +336,6 @@ nav[aria-label='Main'] {
   background-color: var(--yak-accent-soft);
   color: var(--yak-accent-text) !important;
   font-weight: 600;
-  border-inline-start: 2px solid var(--yak-accent);
 }
 
 .sidebar-content .group-label {
