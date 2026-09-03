@@ -3,6 +3,7 @@
 namespace App\Prompts;
 
 use App\Services\PromptResolver;
+use App\Support\Markdown;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Throwable;
@@ -17,7 +18,7 @@ use Throwable;
 class PromptPreviewRenderer
 {
     /**
-     * @return array{ok: bool, body?: string, error?: string}
+     * @return array{ok: bool, body?: string, bodyHtml?: string, error?: string}
      */
     public function render(string $slug, string $content, int $fixtureIndex): array
     {
@@ -31,7 +32,9 @@ class PromptPreviewRenderer
         }
 
         try {
-            return ['ok' => true, 'body' => trim(Blade::render($content, $data))];
+            $body = trim(Blade::render($content, $data));
+
+            return ['ok' => true, 'body' => $body, 'bodyHtml' => Markdown::toHtml($body)];
         } catch (Throwable $e) {
             $factory = View::getFacadeRoot();
             if (is_object($factory) && method_exists($factory, 'flushState')) {
