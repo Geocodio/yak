@@ -7,6 +7,8 @@ use App\Enums\TaskMode;
 use App\Facades\Prompts;
 use App\Models\Prompt;
 use App\Models\YakTask;
+use App\Prompts\PromptDefinitions;
+use App\Prompts\PromptFixtures;
 use App\Services\PromptResolver;
 use App\YakPromptBuilder;
 
@@ -134,4 +136,47 @@ test('validate returns empty array for valid content with a matching fixture', f
     $errors = $resolver->validate('Hello {{ $name }}!', ['name' => 'World']);
 
     expect($errors)->toBe([]);
+});
+
+test('validate allows @include of a prompts.partials view', function () {
+    /** @var PromptResolver $resolver */
+    $resolver = app(PromptResolver::class);
+
+    $errors = $resolver->validate("Hello.\n\n@include('prompts.partials.clarification-contract')");
+
+    expect($errors)->toBe([]);
+});
+
+test('validate rejects @include outside the prompts.partials namespace', function () {
+    /** @var PromptResolver $resolver */
+    $resolver = app(PromptResolver::class);
+
+    $errors = $resolver->validate("@include('layouts.app')");
+
+    expect($errors)->toBeArray()->not->toBeEmpty();
+    expect($errors[0])->toContain('prompts.partials.');
+});
+
+test('validate rejects @include with a dynamic argument', function () {
+    /** @var PromptResolver $resolver */
+    $resolver = app(PromptResolver::class);
+
+    $errors = $resolver->validate('@include($view)');
+
+    expect($errors)->toBeArray()->not->toBeEmpty();
+    expect($errors[0])->toContain('prompts.partials.');
+});
+
+test('every shipped default prompt template validates cleanly', function () {
+    /** @var PromptResolver $resolver */
+    $resolver = app(PromptResolver::class);
+
+    foreach (array_keys(PromptDefinitions::all()) as $slug) {
+        $content = $resolver->fileContent($slug);
+        $fixture = PromptFixtures::firstData($slug);
+
+        $errors = $resolver->validate($content, $fixture);
+
+        expect($errors)->toBe([], "Prompt [{$slug}] failed validation: " . implode(' ', $errors));
+    }
 });

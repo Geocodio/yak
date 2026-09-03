@@ -162,6 +162,8 @@ class PromptFixtures
                 [
                     'label' => 'Failed test output',
                     'data' => [
+                        'taskDescription' => 'Add a customer_id column to the orders table and backfill it from the linked customer record.',
+                        'previousSummary' => 'Added the customer_id column via migration and updated the checkout controller to set it on order creation.',
                         'failureOutput' => "FAIL  Tests\\Feature\\CheckoutTest > user can complete checkout\n\nExpected 200 but got 500.\n\nSQLSTATE[42S22]: Column not found: 'customer_id'",
                     ],
                 ],
@@ -171,6 +173,14 @@ class PromptFixtures
                     'label' => 'Chose option 2',
                     'data' => [
                         'chosenOption' => 'Use a database lock to prevent duplicate charges',
+                    ],
+                ],
+            ],
+            'tasks-follow-up' => [
+                [
+                    'label' => 'Requested change',
+                    'data' => [
+                        'instructions' => 'Can you also add a test for the case where the webhook payload is missing the customer_id?',
                     ],
                 ],
             ],

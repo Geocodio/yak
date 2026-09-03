@@ -24,10 +24,10 @@ class PromptPreviewRenderer
         $fixtures = PromptFixtures::for($slug);
         $data = $fixtures[$fixtureIndex]['data'] ?? [];
 
-        foreach (PromptResolver::DISALLOWED_DIRECTIVES as $directive) {
-            if (preg_match('/@' . preg_quote($directive, '/') . '\b/', $content) === 1) {
-                return ['ok' => false, 'error' => "Directive @{$directive} is not allowed in prompts."];
-            }
+        $errors = PromptResolver::checkDisallowedDirectives($content);
+
+        if ($errors !== []) {
+            return ['ok' => false, 'error' => $errors[0]];
         }
 
         try {

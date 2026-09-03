@@ -86,7 +86,7 @@ class PromptDefinitions
                 'label' => 'Retry',
                 'category' => 'advanced',
                 'type' => 'task',
-                'variables' => ['failureOutput'],
+                'variables' => ['taskDescription', 'previousSummary', 'failureOutput'],
             ],
             'tasks-clarification-reply' => [
                 'view' => 'prompts.tasks.clarification-reply',

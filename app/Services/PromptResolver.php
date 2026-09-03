@@ -39,6 +39,77 @@ class PromptResolver
     ];
 
     /**
+     * Prefix that a `@include(...)` argument must resolve to in order to be
+     * permitted. Shipped default templates pull in shared boilerplate (e.g.
+     * the clarification contract) this way; only that namespace is safe
+     * because it points at views this app ships and controls, not
+     * user-reachable content.
+     */
+    private const ALLOWED_INCLUDE_PREFIX = 'prompts.partials.';
+
+    /**
+     * Check prompt content for disallowed Blade directives.
+     *
+     * `@include` is allowed only when its single string-literal argument
+     * names a view under {@see self::ALLOWED_INCLUDE_PREFIX}. Every other
+     * directive in {@see self::DISALLOWED_DIRECTIVES} is rejected outright,
+     * as is `@include` with a dynamic or out-of-namespace argument.
+     *
+     * @return array<int, string>
+     */
+    public static function checkDisallowedDirectives(string $content): array
+    {
+        $errors = [];
+
+        foreach (self::DISALLOWED_DIRECTIVES as $directive) {
+            if (preg_match('/@' . preg_quote($directive, '/') . '\b/', $content) !== 1) {
+                continue;
+            }
+
+            if ($directive === 'include') {
+                $errors = array_merge($errors, self::checkIncludeDirectives($content));
+
+                continue;
+            }
+
+            $errors[] = "Directive @{$directive} is not allowed in prompts.";
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Validate every `@include(...)` occurrence, allowing only literal
+     * references to views under {@see self::ALLOWED_INCLUDE_PREFIX}.
+     *
+     * @return array<int, string>
+     */
+    private static function checkIncludeDirectives(string $content): array
+    {
+        $errors = [];
+
+        preg_match_all('/@include\s*\(([^)]*)\)/', $content, $matches);
+
+        foreach ($matches[1] as $argument) {
+            $argument = trim($argument);
+
+            if (preg_match('/^([\'"])(.*)\1$/', $argument, $literal) !== 1) {
+                $errors[] = "Directive @include is only allowed with a literal view name under '" . self::ALLOWED_INCLUDE_PREFIX . "'.";
+
+                continue;
+            }
+
+            $view = $literal[2];
+
+            if (! str_starts_with($view, self::ALLOWED_INCLUDE_PREFIX)) {
+                $errors[] = "Directive @include is only allowed with a literal view name under '" . self::ALLOWED_INCLUDE_PREFIX . "'.";
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
      * Render a prompt by slug, with DB override if customized.
      *
      * Falls back to the canonical Blade file if DB rendering throws, so a
@@ -103,13 +174,7 @@ class PromptResolver
      */
     public function validate(string $content, array $fixture = []): array
     {
-        $errors = [];
-
-        foreach (self::DISALLOWED_DIRECTIVES as $directive) {
-            if (preg_match('/@' . preg_quote($directive, '/') . '\b/', $content) === 1) {
-                $errors[] = "Directive @{$directive} is not allowed in prompts.";
-            }
-        }
+        $errors = self::checkDisallowedDirectives($content);
 
         if ($errors !== []) {
             return $errors;
