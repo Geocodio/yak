@@ -191,3 +191,53 @@ test('raises instead of reporting zero failures when GitHub rejects a request', 
     expect(fn () => app(ActionsBuildScanner::class)->getRecentFailures($repo, 48))
         ->toThrow(RequestException::class);
 });
+
+test('skips a job whose log has expired instead of abandoning the repository scan', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'acme/app',
+        'default_branch' => 'master',
+        'ci_system' => 'github_actions',
+    ]);
+
+    // GitHub expires job logs long before it forgets the run, so a 404 here
+    // is routine for older runs — the rest of the scan must survive it.
+    Http::fake([
+        'api.github.com/repos/acme/app/actions/runs?*' => Http::response(failedRunResponse()),
+        'api.github.com/repos/acme/app/actions/runs/900/jobs*' => Http::response([
+            'jobs' => [
+                ['id' => 51, 'name' => 'Go tests', 'conclusion' => 'failure'],
+                ['id' => 52, 'name' => 'Tests (Pest)', 'conclusion' => 'failure'],
+            ],
+        ]),
+        'api.github.com/repos/acme/app/actions/jobs/51/logs' => Http::response(['message' => 'Not Found'], 404),
+        'api.github.com/repos/acme/app/actions/jobs/52/logs' => Http::response(pestJobLog()),
+    ]);
+
+    $failures = app(ActionsBuildScanner::class)->getRecentFailures($repo, 48);
+
+    expect($failures)->toHaveCount(1)
+        ->and($failures->first()->testName)->toBe('Tests\Dash\Feature\OneOffInvoiceIssuanceTest…');
+});
+
+test('still raises when a log is refused for a reason other than expiry', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'acme/app',
+        'default_branch' => 'master',
+        'ci_system' => 'github_actions',
+    ]);
+
+    // A 403 means the App lacks Actions: Read. Reporting "no flaky tests" for
+    // a permissions problem is exactly the silent failure this scanner had.
+    Http::fake([
+        'api.github.com/repos/acme/app/actions/runs?*' => Http::response(failedRunResponse()),
+        'api.github.com/repos/acme/app/actions/runs/900/jobs*' => Http::response([
+            'jobs' => [
+                ['id' => 61, 'name' => 'Tests (Pest)', 'conclusion' => 'failure'],
+            ],
+        ]),
+        'api.github.com/repos/acme/app/actions/jobs/61/logs' => Http::response(['message' => 'Forbidden'], 403),
+    ]);
+
+    expect(fn () => app(ActionsBuildScanner::class)->getRecentFailures($repo, 48))
+        ->toThrow(RequestException::class);
+});
