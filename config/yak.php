@@ -155,6 +155,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Recommended plugins
+    |--------------------------------------------------------------------------
+    |
+    | Plugin names highlighted in the Skills page "Recommended" section when
+    | not yet installed. Order here is the display order.
+    */
+
+    'recommended_plugins' => [
+        'code-review',
+        'pr-review-toolkit',
+        'security-guidance',
+        'feature-dev',
+        'code-simplifier',
+        'commit-commands',
+        'context7',
+        'playwright',
+        'sentry',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | API Keys
     |--------------------------------------------------------------------------
     */

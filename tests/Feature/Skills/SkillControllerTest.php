@@ -18,6 +18,52 @@ afterEach(function () {
     File::deleteDirectory($this->tmp);
 });
 
+/**
+ * Writes a `known_marketplaces.json` + marketplace manifest fixture with the
+ * given plugin entries (each: name, description, category).
+ *
+ * @param  array<int, array{name: string, description?: string, category?: ?string}>  $plugins
+ */
+function writeMarketplaceFixture(string $tmp, string $marketplace, array $plugins): void
+{
+    File::makeDirectory("{$tmp}/marketplaces/{$marketplace}/.claude-plugin", recursive: true);
+
+    File::put("{$tmp}/known_marketplaces.json", json_encode([
+        $marketplace => [
+            'source' => ['repo' => "github:acme/{$marketplace}"],
+            'installLocation' => "{$tmp}/marketplaces/{$marketplace}",
+            'lastUpdated' => '2026-04-14T00:00:00Z',
+        ],
+    ]));
+
+    File::put(
+        "{$tmp}/marketplaces/{$marketplace}/.claude-plugin/marketplace.json",
+        json_encode([
+            'owner' => ['name' => 'acme'],
+            'plugins' => array_map(fn (array $p) => [
+                'name' => $p['name'],
+                'description' => $p['description'] ?? "{$p['name']} description",
+                'category' => array_key_exists('category', $p) ? $p['category'] : 'general',
+            ], $plugins),
+        ]),
+    );
+}
+
+/**
+ * @param  array<int, array{scope?: string, version?: string}>  $overrides  keyed by plugin key (name@marketplace)
+ */
+function writeInstalledPluginsFixture(string $tmp, array $keys): void
+{
+    $plugins = [];
+    foreach ($keys as $key) {
+        $plugins[$key] = [[
+            'scope' => 'user', 'installPath' => '/x', 'version' => '1', 'installedAt' => '2026-01-01T00:00:00Z',
+        ]];
+    }
+
+    File::put("{$tmp}/installed_plugins.json", json_encode(['version' => 2, 'plugins' => $plugins]));
+}
+
 it('renders the page', function () {
     $this->get(route('skills'))
         ->assertOk()
@@ -26,9 +72,17 @@ it('renders the page', function () {
             ->has('installed')
             ->has('bundled')
             ->has('available')
+            ->has('available.items')
+            ->has('available.page')
+            ->has('available.lastPage')
+            ->has('available.total')
+            ->has('available.perPage')
+            ->has('categories')
+            ->has('recommended')
             ->has('marketplaces')
             ->where('filters.search', '')
-            ->where('filters.filter', 'all'));
+            ->where('filters.filter', 'all')
+            ->where('filters.category', ''));
 });
 
 it('installs a plugin from a marketplace', function () {
@@ -141,4 +195,131 @@ it('says so when a plugin is already at the latest version', function () {
     $this->post(route('skills.upgrade', 'code-review@official'))
         ->assertRedirect()
         ->assertSessionHas('success', 'code-review@official is already at the latest version (0120fb83da5d).');
+});
+
+it('paginates available plugins', function () {
+    writeMarketplaceFixture($this->tmp, 'acme', array_map(
+        fn (int $i) => ['name' => sprintf('plugin-%02d', $i)],
+        range(1, 30),
+    ));
+
+    $this->get(route('skills'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('available.items', 24)
+            ->where('available.page', 1)
+            ->where('available.lastPage', 2)
+            ->where('available.total', 30)
+            ->where('available.perPage', 24));
+
+    $this->get(route('skills', ['page' => 2]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('available.items', 6)
+            ->where('available.page', 2));
+
+    $this->get(route('skills', ['page' => 99]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('available.page', 2)
+            ->has('available.items', 6));
+});
+
+it('sorts available plugins by category then name and computes category counts', function () {
+    writeMarketplaceFixture($this->tmp, 'acme', [
+        ['name' => 'alpha-charlie', 'category' => 'alpha'],
+        ['name' => 'alpha-alpha', 'category' => 'alpha'],
+        ['name' => 'alpha-bravo', 'category' => 'alpha'],
+        ['name' => 'zeta-bravo', 'category' => 'zeta'],
+        ['name' => 'zeta-alpha', 'category' => 'zeta'],
+        ['name' => 'null-bravo', 'category' => null],
+        ['name' => 'null-alpha', 'category' => null],
+    ]);
+
+    $this->get(route('skills'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('available.items', 7, fn (Assert $row) => $row->where('name', 'alpha-alpha')->etc())
+            ->where('available.items.1.name', 'alpha-bravo')
+            ->where('available.items.2.name', 'alpha-charlie')
+            ->where('available.items.3.name', 'zeta-alpha')
+            ->where('available.items.4.name', 'zeta-bravo')
+            ->where('available.items.5.name', 'null-alpha')
+            ->where('available.items.6.name', 'null-bravo')
+            ->where('categories', [
+                ['value' => 'alpha', 'label' => 'Alpha', 'count' => 3],
+                ['value' => 'zeta', 'label' => 'Zeta', 'count' => 2],
+                ['value' => 'other', 'label' => 'Other', 'count' => 2],
+            ]));
+});
+
+it('filters available plugins by category, including other for null category', function () {
+    writeMarketplaceFixture($this->tmp, 'acme', [
+        ['name' => 'alpha-charlie', 'category' => 'alpha'],
+        ['name' => 'alpha-alpha', 'category' => 'alpha'],
+        ['name' => 'alpha-bravo', 'category' => 'alpha'],
+        ['name' => 'zeta-bravo', 'category' => 'zeta'],
+        ['name' => 'zeta-alpha', 'category' => 'zeta'],
+        ['name' => 'null-bravo', 'category' => null],
+        ['name' => 'null-alpha', 'category' => null],
+    ]);
+
+    $this->get(route('skills', ['category' => 'alpha']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('available.items', 3)
+            ->where('available.total', 3)
+            ->where('available.items.0.name', 'alpha-alpha')
+            ->where('categories', [
+                ['value' => 'alpha', 'label' => 'Alpha', 'count' => 3],
+                ['value' => 'zeta', 'label' => 'Zeta', 'count' => 2],
+                ['value' => 'other', 'label' => 'Other', 'count' => 2],
+            ]));
+
+    $this->get(route('skills', ['category' => 'other']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('available.items', 2)
+            ->where('available.total', 2)
+            ->where('available.items.0.name', 'null-alpha')
+            ->where('available.items.1.name', 'null-bravo'));
+});
+
+it('recommends configured popular plugins first, then plugins sharing an installed category', function () {
+    writeMarketplaceFixture($this->tmp, 'acme', [
+        ['name' => 'my-installed', 'category' => 'productivity'],
+        ['name' => 'code-review', 'category' => null],
+        ['name' => 'context7', 'category' => null],
+        ['name' => 'sibling-c', 'category' => 'productivity'],
+        ['name' => 'sibling-a', 'category' => 'productivity'],
+        ['name' => 'sibling-b', 'category' => 'productivity'],
+        ['name' => 'unrelated', 'category' => 'testing'],
+    ]);
+
+    writeInstalledPluginsFixture($this->tmp, ['my-installed@acme']);
+
+    $this->get(route('skills'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('recommended', 5)
+            ->where('recommended.0.name', 'code-review')
+            ->where('recommended.0.recommendedReason', 'popular')
+            ->where('recommended.1.name', 'context7')
+            ->where('recommended.1.recommendedReason', 'popular')
+            ->where('recommended.2.name', 'sibling-a')
+            ->where('recommended.2.recommendedReason', 'similar')
+            ->where('recommended.3.name', 'sibling-b')
+            ->where('recommended.3.recommendedReason', 'similar')
+            ->where('recommended.4.name', 'sibling-c')
+            ->where('recommended.4.recommendedReason', 'similar'));
+
+    $this->get(route('skills', ['search' => 'code']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('recommended', []));
+});
+
+it('echoes the selected category back in filters', function () {
+    $this->get(route('skills', ['category' => 'testing']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('filters.category', 'testing'));
 });
