@@ -1,10 +1,12 @@
-import { router } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { Check, ExternalLink, Rocket, X } from 'lucide-react';
 import { dismiss } from '@/routes/tasks/setup-card';
+import { useRouterAction } from '@/lib/useRouterAction';
 import type { SetupCard as SetupCardData } from '@/types/tasks';
 
 export function SetupCard({ card }: { card: SetupCardData }) {
+    const action = useRouterAction();
+
     if (card === null) {
         return null;
     }
@@ -26,10 +28,11 @@ export function SetupCard({ card }: { card: SetupCardData }) {
                         </div>
                         <button
                             type="button"
-                            onClick={() => router.post(dismiss.url(), {}, { preserveScroll: true })}
+                            disabled={action.isPending('dismiss')}
+                            onClick={() => action.run('dismiss', 'post', dismiss.url())}
                             aria-label="Dismiss"
                             data-testid="dismiss-setup-card"
-                            className="shrink-0 text-faint hover:text-body"
+                            className="shrink-0 text-faint hover:text-body disabled:opacity-50"
                         >
                             <X size={16} />
                         </button>

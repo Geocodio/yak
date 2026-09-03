@@ -1,7 +1,8 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { Badge, Button, Field, Select, StatusPill, Textarea, TextInput } from '@geocodio/console-ui';
 import { ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useRouterAction } from '@/lib/useRouterAction';
 import { AppLayout } from '@/layouts/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { DangerZone } from '@/components/repositories/DangerZone';
@@ -89,6 +90,8 @@ function ManifestSection({
     errors: Partial<Record<'manifest.port' | 'manifest.health_probe_path' | 'manifest.wake_timeout_seconds', string>>;
     onChange: (manifest: ManifestData) => void;
 }) {
+    const action = useRouterAction();
+
     const setField = <K extends keyof ManifestData>(key: K, value: ManifestData[K]) => {
         onChange({ ...manifest, [key]: value });
     };
@@ -140,7 +143,9 @@ function ManifestSection({
             <div>
                 <Button
                     icon={<RefreshCw size={13} />}
-                    onClick={() => router.post(repos.rebuildDeployments.url(repository.slug), {}, { preserveScroll: true })}
+                    pending={action.isPending('rebuild')}
+                    pendingLabel="Rebuilding…"
+                    onClick={() => action.run('rebuild', 'post', repos.rebuildDeployments.url(repository.slug))}
                 >
                     Rebuild all deployments
                 </Button>
@@ -152,6 +157,8 @@ function ManifestSection({
 export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsUrl }: Props) {
     const isEditing = repository !== null;
     const showManifest = isEditing && repository.deploymentsEnabled && manifest !== null;
+
+    const action = useRouterAction();
 
     const form = useForm<FormData>({
         name: repository?.name ?? '',
@@ -240,7 +247,9 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         {isEditing && repository && (
                             <Button
                                 icon={<RefreshCw size={13} />}
-                                onClick={() => router.post(repos.rerunSetup.url(repository.slug), {}, { preserveScroll: true })}
+                                pending={action.isPending('rerun-setup')}
+                                pendingLabel="Dispatching…"
+                                onClick={() => action.run('rerun-setup', 'post', repos.rerunSetup.url(repository.slug))}
                                 title="Tears down the sandbox's dev environment and rebuilds it from scratch -- README, CLAUDE.md, dependencies, migrations, and a fresh sandbox snapshot."
                             >
                                 Re-run setup
@@ -431,7 +440,9 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         {isEditing && repository && form.data.pr_review_enabled && repository.prReviewEnabled && (
                             <div>
                                 <Button
-                                    onClick={() => router.post(repos.reviewOpenPrs.url(repository.slug), {}, { preserveScroll: true })}
+                                    pending={action.isPending('review-open-prs')}
+                                    pendingLabel="Queueing reviews…"
+                                    onClick={() => action.run('review-open-prs', 'post', repos.reviewOpenPrs.url(repository.slug))}
                                 >
                                     Re-review all open PRs
                                 </Button>
@@ -508,9 +519,10 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 isActive={form.data.is_active}
                                 canDelete={canDelete}
                                 deleteBlockedReason={deleteBlockedReason}
-                                processing={form.processing}
-                                onToggleActive={() => router.post(repos.toggleActive.url(repository.slug), {}, { preserveScroll: true })}
-                                onDelete={() => router.delete(repos.destroy.url(repository.slug))}
+                                processing={form.processing || action.isPending('delete')}
+                                onToggleActive={() => action.run('toggle-active', 'post', repos.toggleActive.url(repository.slug))}
+                                onDelete={() => action.run('delete', 'delete', repos.destroy.url(repository.slug))}
+                                togglingActive={action.isPending('toggle-active')}
                             />
                         </Section>
                     )}

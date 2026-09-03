@@ -10,6 +10,7 @@ export function DangerZone({
     onToggleActive,
     onDelete,
     processing,
+    togglingActive = false,
 }: {
     slug: string;
     isActive: boolean;
@@ -18,6 +19,7 @@ export function DangerZone({
     onToggleActive: () => void;
     onDelete: () => void;
     processing: boolean;
+    togglingActive?: boolean;
 }) {
     const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -31,7 +33,9 @@ export function DangerZone({
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button onClick={onToggleActive}>{isActive ? 'Deactivate' : 'Activate'}</Button>
+                    <Button pending={togglingActive} onClick={onToggleActive}>
+                        {isActive ? 'Deactivate' : 'Activate'}
+                    </Button>
                     <Button variant="destructive" disabled={!canDelete} icon={<Trash2 size={13} />} onClick={() => setConfirmOpen(true)} data-testid="delete-repository">
                         Delete
                     </Button>

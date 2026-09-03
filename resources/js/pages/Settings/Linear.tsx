@@ -2,6 +2,7 @@ import { Head, router } from '@inertiajs/react';
 import { Button, ConfirmDialog, Toggle } from '@geocodio/console-ui';
 import { CheckCircle2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { useRouterAction } from '@/lib/useRouterAction';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { redirect } from '@/routes/auth/linear';
 import { disconnect, update } from '@/routes/settings/linear';
@@ -15,11 +16,12 @@ function Card({ children, className }: { children: ReactNode; className?: string
 }
 
 export default function Linear({ linear }: Props) {
+    const action = useRouterAction();
     const [confirmDisconnect, setConfirmDisconnect] = useState(false);
     const [disconnecting, setDisconnecting] = useState(false);
 
     const toggleStartedState = (checked: boolean) => {
-        router.patch(update.url(), { moveIssuesToStartedState: checked }, { preserveScroll: true });
+        action.run('started-state', 'patch', update.url(), { moveIssuesToStartedState: checked });
     };
 
     const doDisconnect = () => {

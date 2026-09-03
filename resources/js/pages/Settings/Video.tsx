@@ -1,7 +1,8 @@
-import { Head, router, useForm, usePoll } from '@inertiajs/react';
+import { Head, useForm, usePoll } from '@inertiajs/react';
 import { Badge, Button } from '@geocodio/console-ui';
 import { Play } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useRouterAction } from '@/lib/useRouterAction';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { ColorField } from '@/components/settings/ColorField';
 import { FontPicker } from '@/components/settings/FontPicker';
@@ -41,6 +42,7 @@ type FormData = {
 };
 
 export default function Video({ theme, sample, renderPending, previewAvailable }: Props) {
+    const action = useRouterAction();
     // The download link only ever appears once the queued render finishes,
     // so the poll has to keep running until a sample exists rather than
     // stopping after one refresh.
@@ -69,7 +71,12 @@ export default function Video({ theme, sample, renderPending, previewAvailable }
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center justify-between">
                             <h3 className="text-[13px] font-medium">Colors</h3>
-                            <Button variant="link" className="text-[12px]" onClick={() => router.post(video.reset.url(), {}, { preserveScroll: true })}>
+                            <Button
+                                variant="link"
+                                className="text-[12px]"
+                                pending={action.isPending('reset-theme')}
+                                onClick={() => action.run('reset-theme', 'post', video.reset.url())}
+                            >
                                 Reset to defaults
                             </Button>
                         </div>
@@ -112,7 +119,7 @@ export default function Video({ theme, sample, renderPending, previewAvailable }
                         <LogoCard
                             logoUrl={theme.logoUrl}
                             onSelect={(file) => form.setData('logo', file)}
-                            onRemove={() => router.delete(destroyLogo.url(), { preserveScroll: true })}
+                            onRemove={() => action.run('remove-logo', 'delete', destroyLogo.url())}
                         />
                         {form.errors.logo && <p className="text-[12px] text-fail">{form.errors.logo}</p>}
                     </div>
@@ -138,7 +145,12 @@ export default function Video({ theme, sample, renderPending, previewAvailable }
                         <Button variant="primary" pending={form.processing} onClick={submit}>
                             Save
                         </Button>
-                        <Button icon={<Play size={12} />} onClick={() => router.post(video.sample.url(), {}, { preserveScroll: true })}>
+                        <Button
+                            icon={<Play size={12} />}
+                            pending={action.isPending('render-sample')}
+                            pendingLabel="Queueing render…"
+                            onClick={() => action.run('render-sample', 'post', video.sample.url())}
+                        >
                             Render sample video
                         </Button>
                         {/* Sits outside any conditional: it is what makes the link appear once the queued render finishes. */}

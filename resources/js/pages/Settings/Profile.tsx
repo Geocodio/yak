@@ -1,6 +1,7 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { Button, Dialog, Field, TextInput } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
+import { useRouterAction } from '@/lib/useRouterAction';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { destroy } from '@/routes/account';
 import { update } from '@/routes/profile';
@@ -46,6 +47,7 @@ function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 }
 
 export default function Profile({ profile }: Props) {
+    const action = useRouterAction();
     const form = useForm({ name: profile.name, email: profile.email });
     const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -70,10 +72,11 @@ export default function Profile({ profile }: Props) {
                             Your email address is unverified.{' '}
                             <button
                                 type="button"
-                                className="cursor-pointer underline"
-                                onClick={() => router.post(resend.url())}
+                                className="cursor-pointer underline disabled:cursor-default disabled:no-underline disabled:opacity-60"
+                                disabled={action.isPending('resend')}
+                                onClick={() => action.run('resend', 'post', resend.url())}
                             >
-                                Click here to re-send the verification email.
+                                {action.isPending('resend') ? 'Sending…' : 'Click here to re-send the verification email.'}
                             </button>
                         </p>
                     )}

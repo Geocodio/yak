@@ -1,6 +1,6 @@
 import { Button, StatusPill } from '@geocodio/console-ui';
 import { retryRender } from '@/routes/tasks';
-import { router } from '@inertiajs/react';
+import { useRouterAction } from '@/lib/useRouterAction';
 import type { WalkthroughData } from '@/types/tasks';
 
 export function WalkthroughCard({
@@ -14,6 +14,8 @@ export function WalkthroughCard({
     canRetryRender: boolean;
     onOpen: () => void;
 }) {
+    const action = useRouterAction();
+
     if (walkthrough.status === 'none') {
         return null;
     }
@@ -38,7 +40,9 @@ export function WalkthroughCard({
                         <Button
                             variant="tertiary"
                             className="mt-2"
-                            onClick={() => router.post(retryRender.url(taskId), {}, { preserveScroll: true })}
+                            pending={action.isPending('retry-render')}
+                            pendingLabel="Queueing…"
+                            onClick={() => action.run('retry-render', 'post', retryRender.url(taskId))}
                             data-testid="retry-render"
                         >
                             Retry render
