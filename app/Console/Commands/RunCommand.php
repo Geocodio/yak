@@ -7,6 +7,7 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\AgentJobDispatcher;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -52,15 +53,14 @@ class RunCommand extends Command
 
         TaskLogger::info($task, 'Task created', ['source' => 'cli', 'repo' => $repository->slug]);
 
-        $job = $isResearch
-            ? new ResearchYakJob($task)
-            : new RunYakJob($task);
+        $jobClass = $isResearch ? ResearchYakJob::class : RunYakJob::class;
+        $dispatcher = app(AgentJobDispatcher::class);
 
         if ($isSync) {
             $this->components->info("Running task #{$task->id} synchronously...");
-            dispatch_sync($job);
+            $dispatcher->dispatchSync($task, $jobClass);
         } else {
-            dispatch($job);
+            $dispatcher->dispatch($task, $jobClass);
         }
 
         $this->components->info("Task #{$task->id} dispatched for {$repository->name}.");

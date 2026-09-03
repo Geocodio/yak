@@ -49,6 +49,21 @@ test('retry dispatches ResearchYakJob for research tasks', function () {
     Queue::assertPushed(ResearchYakJob::class);
 });
 
+test('retry restamps dispatched_at through AgentJobDispatcher', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'dispatched_at' => now()->subDays(3),
+        'queue_job_uuid' => 'stale-uuid',
+    ]);
+
+    $this->post(route('tasks.retry', $task));
+
+    $task->refresh();
+    expect($task->dispatched_at)->not->toBeNull()
+        ->and($task->dispatched_at->greaterThan(now()->subMinute()))->toBeTrue();
+});
+
 test('cancel destroys the sandbox and marks the task cancelled', function () {
     Queue::fake();
     Process::fake(['*' => Process::result(exitCode: 0)]);
@@ -145,6 +160,27 @@ test('reroute moves the task to a new repo and restarts it', function () {
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->repo)->toBe('api');
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+});
+
+test('reroute restamps dispatched_at through AgentJobDispatcher', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
+    Repository::factory()->create(['slug' => 'api', 'is_active' => true]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'web',
+        'pr_url' => null,
+        'dispatched_at' => now()->subDays(3),
+        'queue_job_uuid' => 'stale-uuid',
+    ]);
+
+    $this->post(route('tasks.reroute', $task), ['repo' => 'api'])
+        ->assertRedirect(route('tasks.show', $task));
+
+    $task->refresh();
+    expect($task->dispatched_at)->not->toBeNull()
+        ->and($task->dispatched_at->greaterThan(now()->subMinute()))->toBeTrue();
 });
 
 test('reroute is rejected for a review task', function () {

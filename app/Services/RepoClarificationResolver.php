@@ -105,12 +105,14 @@ class RepoClarificationResolver
 
         TaskLogger::info($task, "Repo resolved to {$repository->slug}");
 
+        $dispatcher = app(AgentJobDispatcher::class);
+
         if ($mode === TaskMode::Research) {
-            ResearchYakJob::dispatch($task);
+            $dispatcher->dispatch($task, ResearchYakJob::class);
 
             return;
         }
 
-        RunYakJob::dispatch($task);
+        $dispatcher->dispatch($task, RunYakJob::class);
     }
 }
