@@ -31,15 +31,21 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
     { label: 'Tasks', icon: ClipboardList, url: tasks.url() },
-    { label: 'Costs', icon: DollarSign, url: costs.url() },
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
     { label: 'PR Reviews', icon: MessageSquare, url: prReviews.url() },
-    { label: 'Channels', icon: Inbox, url: channels.url() },
     { label: 'Prompts', icon: Type, url: prompts.url() },
+    { label: 'Costs', icon: DollarSign, url: costs.url() },
     { label: 'Skills', icon: Puzzle, url: skills.url() },
     { label: 'Health', icon: Heart, url: health.url() },
 ];
+
+/**
+ * Pages that live under Settings and so are deliberately absent from the
+ * sidebar, but that the command palette still offers so they stay one
+ * keystroke away.
+ */
+export const SECONDARY_NAV_ITEMS: NavItem[] = [{ label: 'Channels', icon: Inbox, url: channels.url() }];
 
 export const SETTINGS_ITEM: NavItem = { label: 'Settings', icon: SettingsIcon, url: profileEdit.url() };
 

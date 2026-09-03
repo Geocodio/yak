@@ -2,9 +2,9 @@ import { router } from '@inertiajs/react';
 import { CommandPalette, type CommandPaletteSection } from '@geocodio/console-ui';
 import { useEffect, useState } from 'react';
 import type React from 'react';
-import { NAV_ITEMS, SETTINGS_ITEM, openNewTask } from '@/components/Sidebar';
+import { NAV_ITEMS, SECONDARY_NAV_ITEMS, SETTINGS_ITEM, openNewTask } from '@/components/Sidebar';
 
-const ALL_NAV = [...NAV_ITEMS, SETTINGS_ITEM];
+const ALL_NAV = [...NAV_ITEMS, ...SECONDARY_NAV_ITEMS, SETTINGS_ITEM];
 
 export function AppCommandPalette() {
     const [open, setOpen] = useState(false);
