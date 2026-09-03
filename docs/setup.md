@@ -30,7 +30,7 @@ Only configure the channels you use. Everything except GitHub (for pushing branc
 |---|---|
 | **Slack** | Slack app with bot token plus signing secret. |
 | **Linear** | OAuth application (client id + secret + webhook signing secret). Authorize at `/settings/linear`. Requires workspace admin approval. |
-| **Sentry** | Auth token plus webhook secret. Alert rules tagged `yak-eligible`. |
+| **Sentry** | Auth token plus webhook secret. An issue alert rule that notifies the integration. |
 | **Drone CI** | API token. Yak polls the Drone API — no webhook needed. |
 | **GitHub Actions** | Included with the GitHub App — no additional setup. |
 
@@ -259,7 +259,7 @@ See [Channels → Linear](channels.md#linear-optional) for usage and gotchas.
 5. Copy the **Token** into `sentry_auth_token`
 6. Copy the **Webhook Signing Secret** (under "Webhook Secret" in the integration's Client Secret section) into `sentry_webhook_secret`
 7. Set `sentry_org_slug` to your Sentry organization slug
-8. Create an alert rule tagged `yak-eligible` for the issues you want Yak to pick up
+8. Create an issue alert rule whose action notifies this integration, scoped to the issues you want Yak to pick up
 9. Map Sentry projects to repos via the `sentry_project` field on each repo in the dashboard
 
 See [Channels → Sentry](channels.md#sentry-optional) for filtering rules and gotchas.

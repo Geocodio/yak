@@ -142,7 +142,7 @@ Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sen
 
 - **Slack** — channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
 - **Linear** — the webhook must subscribe to **Agent session events** so delegation events come through, and the OAuth connection must be active; if the `linear_oauth_connections.installer_user_id` column is null, re-authorize the app from Yak's settings. The install requires workspace admin approval — a non-admin install will appear to succeed but agent session events will not arrive.
-- **Sentry** — alerts must be tagged `yak-eligible`. Alerts without the tag are ignored even if they hit the webhook.
+- **Sentry** — the issue must reach the webhook *and* clear the filters: not a CSP violation, not a transient infra error, Seer actionability at least `medium`, and at least 5 events (a `yak-priority` tag bypasses the last two). Each rejection is logged to the `yak` channel with its reason — check there first. If `YAK_SENTRY_REQUIRED_TAG` is set, the event must also carry that tag key.
 - **GitHub** — the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
 
 ## Claude CLI Errors

@@ -6,6 +6,7 @@ use App\Channels\Contracts\CIBuildScanner;
 use App\DataTransferObjects\BuildResult;
 use App\DataTransferObjects\CIBuildFailure;
 use App\Models\Repository;
+use App\Services\TestFailureParser;
 use Carbon\Carbon;
 use DateTimeInterface;
 use Illuminate\Support\Collection;
@@ -13,6 +14,10 @@ use Illuminate\Support\Facades\Http;
 
 class BuildScanner implements CIBuildScanner
 {
+    public function __construct(
+        private readonly TestFailureParser $parser = new TestFailureParser,
+    ) {}
+
     /**
      * @return Collection<int, CIBuildFailure>
      */
@@ -44,7 +49,7 @@ class BuildScanner implements CIBuildScanner
 
             $buildUrl = $build['link'];
             $logs = $this->getBuildLogs($droneUrl, $droneToken, $repository->github_full_name, $build['number']);
-            $testFailures = $this->parseTestFailures($logs);
+            $testFailures = $this->parser->parse($logs);
 
             foreach ($testFailures as $failure) {
                 $failures->push(new CIBuildFailure(
@@ -151,66 +156,5 @@ class BuildScanner implements CIBuildScanner
         }
 
         return $logs;
-    }
-
-    /**
-     * Parses Pest's `FAILED` markers from a build log. Only lines matching
-     * the `Class\\Path > it does something` shape are accepted — bare
-     * `FAILED` banners (e.g. build summaries, parallel runner stats) are
-     * ignored so we don't emit blank test names.
-     *
-     * @return array<int, array{test: string, output: string}>
-     */
-    private function parseTestFailures(string $output): array
-    {
-        // Drone interleaves ANSI colour codes; strip them so the regex
-        // doesn't match "FAILED<esc>[0m" and capture garbage.
-        $output = preg_replace('/\e\[[0-9;]*[A-Za-z]/', '', $output) ?? $output;
-
-        $failures = [];
-        $lines = explode("\n", $output);
-
-        /** @var string|null $currentTest */
-        $currentTest = null;
-        $currentOutput = '';
-
-        $flush = function () use (&$failures, &$currentTest, &$currentOutput): void {
-            if ($currentTest !== null) {
-                $failures[] = [
-                    'test' => $currentTest,
-                    'output' => trim($currentOutput),
-                ];
-            }
-            $currentTest = null;
-            $currentOutput = '';
-        };
-
-        foreach ($lines as $line) {
-            // Pest's FAILED header: `   FAILED  Tests\Foo > it does something`.
-            // Require the ` > ` separator so bare `FAILED` banners don't count.
-            if (preg_match('/^\s*FAILED\s+(\S.*?\s>\s.+?)\s*$/', $line, $matches)) {
-                $flush();
-                $currentTest = trim($matches[1]);
-                $currentOutput = $line . "\n";
-
-                continue;
-            }
-
-            // Pest summary line ends the failure block:
-            //   `Tests:    1 failed, 8 skipped, 64 passed (225 assertions)`
-            if (preg_match('/^\s*Tests:\s+\d+\s+failed/', $line)) {
-                $flush();
-
-                continue;
-            }
-
-            if ($currentTest !== null) {
-                $currentOutput .= $line . "\n";
-            }
-        }
-
-        $flush();
-
-        return $failures;
     }
 }

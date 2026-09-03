@@ -10,6 +10,7 @@ use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -34,9 +35,12 @@ class WebhookController extends Controller
 
         $tags = $this->extractTagKeys($request);
 
-        // Must have yak-eligible tag
-        if (! in_array('yak-eligible', $tags, true)) {
-            return response()->json(['ok' => true]);
+        // Optional per-event opt-in, off unless configured. See
+        // `yak.channels.sentry.required_tag`.
+        $requiredTag = config('yak.channels.sentry.required_tag');
+
+        if (is_string($requiredTag) && ! in_array($requiredTag, $tags, true)) {
+            return $this->rejected($request, "missing_tag:{$requiredTag}", $tags);
         }
 
         $hasPriorityTag = in_array('yak-priority', $tags, true);
@@ -53,7 +57,7 @@ class WebhookController extends Controller
         );
 
         if ($rejection !== null) {
-            return response()->json(['ok' => true, 'filtered' => $rejection]);
+            return $this->rejected($request, $rejection, $tags);
         }
 
         // Parse the payload into a task description
@@ -65,7 +69,7 @@ class WebhookController extends Controller
 
         // Repo must be resolved (sentry_project mapped to an active repository)
         if (! $detection->resolved) {
-            return response()->json(['ok' => true, 'filtered' => 'unknown_project']);
+            return $this->rejected($request, 'unknown_project', $tags);
         }
 
         $resolvedSlug = $detection->firstRepository()->slug;
@@ -94,18 +98,61 @@ class WebhookController extends Controller
     }
 
     /**
+     * Record why an issue was dropped and answer 200 so Sentry doesn't retry.
+     *
+     * Every rejection here is a deliberate no-op, but a silent one is
+     * indistinguishable from a webhook that never arrived — which is how the
+     * Sentry channel sat idle unnoticed. The log line is the only trace.
+     *
+     * @param  list<string>  $tags
+     */
+    private function rejected(Request $request, string $reason, array $tags): JsonResponse
+    {
+        Log::channel('yak')->debug('Sentry issue filtered', [
+            'reason' => $reason,
+            'issue_id' => $request->input('data.issue.id'),
+            'project' => $request->input('data.issue.project.slug'),
+            'tag_keys' => $tags,
+        ]);
+
+        return response()->json(['ok' => true, 'filtered' => $reason]);
+    }
+
+    /**
      * Extract tag key names from the event's tags array.
+     *
+     * Sentry serializes event tags two ways depending on the payload: a list
+     * of `{key, value}` objects, or a list of `[key, value]` pairs. Read both
+     * so an opt-in tag can't be missed on a shape technicality.
      *
      * @return list<string>
      */
     private function extractTagKeys(Request $request): array
     {
-        /** @var list<array{key?: string, value?: string}> $tags */
+        // Deliberately typed loose: this is unvalidated webhook JSON, and the
+        // guards below are the only thing standing between a malformed
+        // payload and a fatal.
+        /** @var mixed $tags */
         $tags = $request->input('data.event.tags', []);
 
-        return array_map(
-            fn (array $tag): string => (string) ($tag['key'] ?? ''),
-            $tags,
-        );
+        if (! is_array($tags)) {
+            return [];
+        }
+
+        $keys = [];
+
+        foreach ($tags as $tag) {
+            if (! is_array($tag)) {
+                continue;
+            }
+
+            $key = $tag['key'] ?? ($tag[0] ?? null);
+
+            if (is_string($key) && $key !== '') {
+                $keys[] = $key;
+            }
+        }
+
+        return $keys;
     }
 }

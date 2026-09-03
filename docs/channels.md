@@ -49,6 +49,7 @@ If you already have a GitHub App and want to reuse it, fill in `github_app_id`, 
 | Pull requests | Read & Write (create PRs, add labels) |
 | Issues | Read & Write (react to follow-up comments) |
 | Checks | Read (CI results) |
+| Actions | Read (flaky-test scan reads workflow jobs and their logs) |
 | Metadata | Read (default) |
 
 ### Webhook Events
@@ -309,7 +310,7 @@ The picked-up → started transition is automatic: Yak queries the issue's team'
 1. Create an internal integration at **Settings → Developer Settings → Internal Integrations**
 2. Permissions required: **Organization: Read**, **Project: Read**, **Issue & Event: Read**. Organization+Project read are what lets the Add Repository form populate the Sentry project dropdown — skip them and the form silently falls back to a plain slug text input.
 3. Set the webhook URL: `https://{your-domain}/webhooks/sentry`
-4. Create an alert rule tagged `yak-eligible` for the issues you want Yak to pick up
+4. Create an issue alert rule whose action notifies this integration. The rule is the opt-in: whichever issues it fires on are the ones Yak considers
 5. Map Sentry projects to repositories via the `sentry_project` field on each repo (see the [Repositories](repositories.md) page)
 6. Add to `ansible/vault/secrets.yml`:
 
@@ -341,6 +342,8 @@ Issues tagged `yak-priority` bypass both the event count and actionability filte
 
 - **Inactive repos are skipped.** If `sentry_project` points to a repo where `is_active = 0`, the webhook is silently dropped.
 - **No fallback repo.** Unlike Slack/Linear, Sentry webhooks do not fall back to the default repo — they require an explicit `sentry_project` mapping.
+- **Rejections are logged, not silent.** Every filtered issue writes a `Sentry issue filtered` debug line to the `yak` log channel with its reason and the event's tag keys. Start there when an alert you expected never became a task.
+- **Optional per-event opt-in.** Set `YAK_SENTRY_REQUIRED_TAG` (e.g. `yak-eligible`) to additionally require that tag key on the event. Off by default — the tag has to be set in application code at the moment the error is thrown, so the alert rule is usually the better place to decide eligibility.
 
 ---
 
