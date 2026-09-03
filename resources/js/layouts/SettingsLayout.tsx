@@ -60,7 +60,7 @@ export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' 
             currentPath={currentPath}
             backHref={tasks.url()}
             backLabel="Back to Yak"
-            wide={slug === 'video'}
+            wide={slug === 'video' || slug === 'channels'}
             LinkComponent={Link}
             onNavigate={(href) => router.visit(href)}
         >
