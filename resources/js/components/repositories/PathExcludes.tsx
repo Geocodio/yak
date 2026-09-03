@@ -48,7 +48,7 @@ export function PathExcludes({
     };
 
     return (
-        <div className="ml-4 rounded-card border border-hair bg-panel px-4 py-3 shadow-card">
+        <div className="rounded-card border border-hair bg-panel px-4 py-3 shadow-card">
             <div className="flex items-center justify-between">
                 <div className="text-[13px] font-medium">PR review path filters</div>
                 {!usingDefaults && (
@@ -57,7 +57,10 @@ export function PathExcludes({
                     </Button>
                 )}
             </div>
-            {usingDefaults && <p className="mt-1 text-[12px] text-muted">Using global defaults.</p>}
+            <p className="mt-1 text-[12px] text-muted">
+                Glob patterns matching files Yak's PR review skips -- vendored code, lockfiles, and minified assets by default.
+                {usingDefaults && ' Using global defaults.'}
+            </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
                 {patterns.map((pattern, index) => (
                     <span key={pattern} className="flex items-center gap-1 rounded-chip border border-hair bg-panel-2 px-1.5 py-0.5 font-mono text-[11px]">

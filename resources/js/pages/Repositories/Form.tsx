@@ -1,10 +1,12 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { Badge, Button, Field, Select, StatusPill, Textarea, TextInput } from '@geocodio/console-ui';
 import { ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { DangerZone } from '@/components/repositories/DangerZone';
+import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
+import { shellLanguage } from '@/components/editor/shellLanguage';
 import { GitHubRepoPicker } from '@/components/repositories/GitHubRepoPicker';
 import { PathExcludes } from '@/components/repositories/PathExcludes';
 import { SetupHistory } from '@/components/repositories/SetupHistory';
@@ -31,6 +33,7 @@ type Props = PageProps<{
     stats: RepositoryStats | null;
     canDelete: boolean;
     deleteBlockedReason: string | null;
+    docsUrl: string;
 }>;
 
 type FormData = {
@@ -52,6 +55,7 @@ type FormData = {
     path: string;
     selected_github_repo: string;
     selected_github_repo_id: number | null;
+    manifest: ManifestData | null;
 };
 
 function Section({ id, title, description, children, aside }: { id: string; title: string; description?: string; children: ReactNode; aside?: ReactNode }) {
@@ -62,76 +66,92 @@ function Section({ id, title, description, children, aside }: { id: string; titl
                 {description && <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>}
                 {aside}
             </div>
-            <div className="flex flex-col gap-4">{children}</div>
+            <div className="flex flex-col gap-6">{children}</div>
         </section>
     );
 }
 
-function ManifestSection({ repository, manifest }: { repository: RepositoryDetail; manifest: ManifestData }) {
-    const form = useForm<ManifestData>({
-        port: manifest.port,
-        healthProbePath: manifest.healthProbePath,
-        coldStart: manifest.coldStart,
-        checkoutRefresh: manifest.checkoutRefresh,
-        wakeTimeoutSeconds: manifest.wakeTimeoutSeconds,
-    });
+const shellHighlighting = [shellLanguage()];
 
-    const submit = () => {
-        form.transform((data) => ({
-            port: data.port,
-            health_probe_path: data.healthProbePath,
-            cold_start: data.coldStart,
-            checkout_refresh: data.checkoutRefresh,
-            wake_timeout_seconds: data.wakeTimeoutSeconds,
-        }));
-        form.put(repos.manifest.update.url(repository.slug), { preserveScroll: true });
+/**
+ * Preview manifest fields, bound directly to the page's single form. Saved
+ * together with the repository fields by the header's "Save repository"
+ * button -- there is no separate submit here.
+ */
+function ManifestSection({
+    repository,
+    manifest,
+    errors,
+    onChange,
+}: {
+    repository: RepositoryDetail;
+    manifest: ManifestData;
+    errors: Partial<Record<'manifest.port' | 'manifest.health_probe_path' | 'manifest.wake_timeout_seconds', string>>;
+    onChange: (manifest: ManifestData) => void;
+}) {
+    const setField = <K extends keyof ManifestData>(key: K, value: ManifestData[K]) => {
+        onChange({ ...manifest, [key]: value });
     };
 
     return (
-        <Section id="branch-deployments" title="Branch deployments" description="How a preview for this repository is built and served.">
+        <Section id="branch-deployments" title="Branch deployments" description="How the preview for this repository is built and served.">
             <div className="grid grid-cols-2 gap-4">
-                <Field label="Port" error={form.errors.port}>
-                    <TextInput type="number" value={form.data.port} onChange={(e) => form.setData('port', Number(e.target.value))} />
+                <Field label="Port" description="Container port serving HTTP inside the preview." error={errors['manifest.port']}>
+                    <TextInput type="number" value={manifest.port} onChange={(e) => setField('port', Number(e.target.value))} />
                 </Field>
-                <Field label="Health probe path" error={form.errors.healthProbePath}>
-                    <TextInput value={form.data.healthProbePath} onChange={(e) => form.setData('healthProbePath', e.target.value)} />
+                <Field
+                    label="Health probe path"
+                    description="Path that returns a 2xx response once the app is ready to serve traffic."
+                    error={errors['manifest.health_probe_path']}
+                >
+                    <TextInput value={manifest.healthProbePath} onChange={(e) => setField('healthProbePath', e.target.value)} />
                 </Field>
             </div>
-            <Field label="Cold start command">
-                <Textarea rows={3} className="font-mono text-[12px]" value={form.data.coldStart} onChange={(e) => form.setData('coldStart', e.target.value)} />
-            </Field>
-            <Field label="Checkout refresh command">
-                <Textarea
-                    rows={3}
-                    className="font-mono text-[12px]"
-                    value={form.data.checkoutRefresh}
-                    onChange={(e) => form.setData('checkoutRefresh', e.target.value)}
+            <Field label="Cold start command" description="Brings services up from a stopped container, e.g. docker compose up -d.">
+                <ExpandableCodeField
+                    value={manifest.coldStart}
+                    onChange={(value) => setField('coldStart', value)}
+                    languageExtensions={shellHighlighting}
+                    title="Cold start command"
+                    ariaLabel="Cold start command"
+                    data-testid="manifest-cold-start"
                 />
             </Field>
-            <Field label="Wake timeout (seconds)" error={form.errors.wakeTimeoutSeconds}>
-                <TextInput
-                    type="number"
-                    value={form.data.wakeTimeoutSeconds}
-                    onChange={(e) => form.setData('wakeTimeoutSeconds', Number(e.target.value))}
+            <Field
+                label="Checkout refresh command"
+                description="Full rebuild run on every push to the branch (image builds, dependency installs, migrations, cache clears). If the repo has a .yak/preview.sh script, Yak runs that instead."
+            >
+                <ExpandableCodeField
+                    value={manifest.checkoutRefresh}
+                    onChange={(value) => setField('checkoutRefresh', value)}
+                    languageExtensions={shellHighlighting}
+                    title="Checkout refresh command"
+                    ariaLabel="Checkout refresh command"
+                    data-testid="manifest-checkout-refresh"
                 />
             </Field>
-            <div className="flex items-center gap-2">
+            <Field
+                label="Wake timeout (seconds)"
+                description="Overall cap on wake-plus-refresh time before a request to a hibernated preview gives up."
+                error={errors['manifest.wake_timeout_seconds']}
+            >
+                <TextInput type="number" value={manifest.wakeTimeoutSeconds} onChange={(e) => setField('wakeTimeoutSeconds', Number(e.target.value))} />
+            </Field>
+            <div>
                 <Button
                     icon={<RefreshCw size={13} />}
                     onClick={() => router.post(repos.rebuildDeployments.url(repository.slug), {}, { preserveScroll: true })}
                 >
                     Rebuild all deployments
                 </Button>
-                <Button variant="primary" pending={form.processing} onClick={submit}>
-                    Save manifest
-                </Button>
             </div>
         </Section>
     );
 }
 
-export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason }: Props) {
+export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsUrl }: Props) {
     const isEditing = repository !== null;
+    const showManifest = isEditing && repository.deploymentsEnabled && manifest !== null;
 
     const form = useForm<FormData>({
         name: repository?.name ?? '',
@@ -152,10 +172,25 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         path: repository?.path ?? '',
         selected_github_repo: '',
         selected_github_repo_id: null,
+        manifest,
     });
+
+    const manifestErrors = form.errors as Partial<Record<'manifest.port' | 'manifest.health_probe_path' | 'manifest.wake_timeout_seconds', string>>;
 
     const submit = () => {
         if (isEditing && repository) {
+            form.transform((data) => ({
+                ...data,
+                manifest: showManifest && data.manifest
+                    ? {
+                          port: data.manifest.port,
+                          health_probe_path: data.manifest.healthProbePath,
+                          cold_start: data.manifest.coldStart,
+                          checkout_refresh: data.manifest.checkoutRefresh,
+                          wake_timeout_seconds: data.manifest.wakeTimeoutSeconds,
+                      }
+                    : undefined,
+            }));
             form.patch(repos.update.url(repository.slug), { preserveScroll: true });
         } else {
             form.post(repos.store.url());
@@ -206,6 +241,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             <Button
                                 icon={<RefreshCw size={13} />}
                                 onClick={() => router.post(repos.rerunSetup.url(repository.slug), {}, { preserveScroll: true })}
+                                title="Tears down the sandbox's dev environment and rebuilds it from scratch -- README, CLAUDE.md, dependencies, migrations, and a fresh sandbox snapshot."
                             >
                                 Re-run setup
                             </Button>
@@ -243,6 +279,23 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             )}
                         </div>
                     )}
+
+                    <p className="mb-6 max-w-[720px] text-[13px] leading-relaxed text-muted">
+                        This page configures how Yak clones and automates this repository -- where it comes from, what agent instructions it gets, and
+                        whether Yak reviews its pull requests.
+                        {isEditing && repository.deploymentsEnabled && (
+                            <>
+                                {' '}
+                                With branch deployments enabled, Yak also serves a preview deployment for every open PR branch; each preview hibernates
+                                after a period of inactivity and wakes automatically on the next request.
+                            </>
+                        )}{' '}
+                        See the{' '}
+                        <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                            repositories guide
+                        </a>{' '}
+                        for details.
+                    </p>
 
                     {!isEditing && (
                         <Section id="github" title="GitHub repository" description="Pick the repository Yak should clone. It dispatches a setup task after saving.">
@@ -303,11 +356,13 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 description="Freeform notes appended to every task's system prompt for this repo. Leave empty to use only the global rules."
                                 error={form.errors.agent_instructions}
                             >
-                                <Textarea
-                                    rows={5}
-                                    className="font-mono text-[12px]"
+                                <ExpandableCodeField
                                     value={form.data.agent_instructions}
-                                    onChange={(e) => form.setData('agent_instructions', e.target.value)}
+                                    onChange={(value) => form.setData('agent_instructions', value)}
+                                    languageExtensions={[]}
+                                    title="Agent instructions"
+                                    ariaLabel="Agent instructions"
+                                    data-testid="agent-instructions"
                                 />
                             </Field>
                         )}
@@ -388,7 +443,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         {isEditing && (
                             <ToggleRow
                                 label="Branch deployments"
-                                description="Serve preview deployments for PR branches."
+                                description="Serve a preview deployment for every open PR branch on this repo, each in its own isolated container that hibernates when idle."
                                 checked={form.data.deployments_enabled}
                                 onChange={(v) => form.setData('deployments_enabled', v)}
                             />
@@ -407,7 +462,14 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         </div>
                     )}
 
-                    {isEditing && repository && repository.deploymentsEnabled && manifest && <ManifestSection repository={repository} manifest={manifest} />}
+                    {isEditing && repository && showManifest && form.data.manifest && (
+                        <ManifestSection
+                            repository={repository}
+                            manifest={form.data.manifest}
+                            errors={manifestErrors}
+                            onChange={(next) => form.setData('manifest', next)}
+                        />
+                    )}
 
                     {isEditing && sandbox && (
                         <Section id="sandbox" title="Sandbox template" description="The snapshot every task for this repository starts from.">
