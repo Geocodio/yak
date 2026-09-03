@@ -126,6 +126,15 @@ return [
 
     'mcp_config_path' => env('YAK_MCP_CONFIG_PATH'),
 
+    // SSH host the Settings > MCP servers page shows for running `yak-mcp`
+    // commands directly on the box (e.g. to complete a login without going
+    // through the browser flow). Null hides the ssh prefix and shows a hint
+    // to configure it instead.
+    'ssh_host' => env('YAK_SSH_HOST'),
+
+    // Docker container name used in the same page's ssh command hints.
+    'container_name' => env('YAK_CONTAINER_NAME', 'yak'),
+
     /*
     |--------------------------------------------------------------------------
     | Claude Code plugin / skill paths

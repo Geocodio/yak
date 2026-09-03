@@ -1,6 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 import linearCc9558 from './linear'
 import video6ca361 from './video'
+import mcp62c737 from './mcp'
 /**
 * @see \App\Http\Controllers\Settings\LinearConnectionController::linear
 * @see app/Http/Controllers/Settings/LinearConnectionController.php:16
@@ -89,9 +90,54 @@ video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     method: 'head',
 })
 
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/settings/mcp'
+*/
+export const mcp = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: mcp.url(options),
+    method: 'get',
+})
+
+mcp.definition = {
+    methods: ["get","head"],
+    url: '/settings/mcp',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/settings/mcp'
+*/
+mcp.url = (options?: RouteQueryOptions) => {
+    return mcp.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/settings/mcp'
+*/
+mcp.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: mcp.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/settings/mcp'
+*/
+mcp.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: mcp.url(options),
+    method: 'head',
+})
+
 const settings = {
     linear: Object.assign(linear, linearCc9558),
     video: Object.assign(video, video6ca361),
+    mcp: Object.assign(mcp, mcp62c737),
 }
 
 export default settings
