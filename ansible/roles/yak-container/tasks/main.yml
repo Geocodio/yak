@@ -152,3 +152,14 @@
     command: "php /app/artisan yak:resume"
   failed_when: false
 
+# Must run after the drain flag is cleared above — otherwise a task
+# resumed here would immediately be paused again by PausesDuringDrain,
+# sitting Pending until the next scheduled yak:reap-lost-pending sweep
+# picks it up instead of resuming right away.
+- name: Resume tasks a drain force-failed for this deploy
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    user: www-data
+    command: "php /app/artisan yak:resume-interrupted-tasks"
+  failed_when: false
+
