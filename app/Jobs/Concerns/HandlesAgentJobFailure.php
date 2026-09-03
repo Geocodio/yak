@@ -25,14 +25,25 @@ trait HandlesAgentJobFailure
 {
     use GuardsTerminalTaskStatus;
 
+    /**
+     * Set by ClaimsTaskAtomically when this copy lost the race for its task.
+     *
+     * Declared here as well as in ClaimsTask because only the four claiming
+     * jobs use that trait, while RetryYakJob, RunFollowUpJob and
+     * ClarificationReplyJob use this one without it. PHP allows both traits
+     * to declare it as long as the declarations stay identical -- keep them
+     * in sync.
+     */
+    public bool $taskClaimLost = false;
+
     public function failed(?Throwable $e): void
     {
         // Set by ClaimsTaskAtomically when this copy lost the race for its
         // task. The job never reached handle() or a middleware that could
-        // legitimately fail it, so there is nothing to report — reporting
+        // legitimately fail it, so there is nothing to report -- reporting
         // anyway would mark the winning copy's task Failed and destroy its
         // live sandbox.
-        if ($this->taskClaimLost ?? false) {
+        if ($this->taskClaimLost) {
             return;
         }
 
