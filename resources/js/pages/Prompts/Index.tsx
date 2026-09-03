@@ -164,35 +164,38 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                 <PromptSidebar groups={groups} activeSlug={prompt.slug} />
 
                 <div className="flex min-w-0 flex-1 flex-col">
-                    <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2">
-                        <span className="text-[13px] font-medium">{prompt.label}</span>
-                        <Badge>{prompt.type}</Badge>
-                        {prompt.customized && <Badge tone="accent">Customized</Badge>}
-                        {form.errors.content && (
-                            <span className="text-[11px] text-fail" data-testid="save-message">
-                                {form.errors.content}
-                            </span>
-                        )}
-                        {prompt.variables.length > 0 && (
-                            <>
-                                <span className="ml-4 text-[11px] text-faint">Variables</span>
-                                {prompt.variables.map((v) => (
-                                    <code key={v} className="rounded-chip bg-panel-2 px-1.5 py-0.5 font-mono text-[11px] text-muted">
-                                        ${v}
-                                    </code>
-                                ))}
-                            </>
-                        )}
-                        {warnings.unknown.length > 0 && (
-                            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-fail">
-                                <AlertTriangle size={12} /> Unknown variables in prompt: {warnings.unknown.map((v) => `$${v}`).join(', ')}
-                            </span>
-                        )}
-                        {warnings.unknown.length === 0 && warnings.unused.length > 0 && (
-                            <span className="ml-auto flex items-center gap-1.5 text-[11px] text-warn">
-                                <AlertTriangle size={12} /> Unused variables: {warnings.unused.map((v) => `$${v}`).join(', ')}
-                            </span>
-                        )}
+                    <div className="flex flex-col gap-1 border-b border-hair px-4 py-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[13px] font-medium">{prompt.label}</span>
+                            <Badge>{prompt.type}</Badge>
+                            {prompt.customized && <Badge tone="accent">Customized</Badge>}
+                            {form.errors.content && (
+                                <span className="text-[11px] text-fail" data-testid="save-message">
+                                    {form.errors.content}
+                                </span>
+                            )}
+                            {prompt.variables.length > 0 && (
+                                <>
+                                    <span className="ml-4 text-[11px] text-faint">Variables</span>
+                                    {prompt.variables.map((v) => (
+                                        <code key={v} className="rounded-chip bg-panel-2 px-1.5 py-0.5 font-mono text-[11px] text-muted">
+                                            ${v}
+                                        </code>
+                                    ))}
+                                </>
+                            )}
+                            {warnings.unknown.length > 0 && (
+                                <span className="ml-auto flex items-center gap-1.5 text-[11px] text-fail">
+                                    <AlertTriangle size={12} /> Unknown variables in prompt: {warnings.unknown.map((v) => `$${v}`).join(', ')}
+                                </span>
+                            )}
+                            {warnings.unknown.length === 0 && warnings.unused.length > 0 && (
+                                <span className="ml-auto flex items-center gap-1.5 text-[11px] text-warn">
+                                    <AlertTriangle size={12} /> Unused variables: {warnings.unused.map((v) => `$${v}`).join(', ')}
+                                </span>
+                            )}
+                        </div>
+                        {prompt.description && <p className="text-[11px] text-muted" data-testid="prompt-description">{prompt.description}</p>}
                     </div>
 
                     <div className="grid min-h-0 flex-1 grid-cols-[1fr_minmax(320px,40%)]">

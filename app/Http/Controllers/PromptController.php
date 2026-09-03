@@ -111,7 +111,7 @@ class PromptController extends Controller
     }
 
     /**
-     * @return array<int, array{group: string, items: array<int, array{slug: string, label: string, type: string, customized: bool}>}>
+     * @return array<int, array{group: string, items: array<int, array{slug: string, label: string, type: string, description: string, customized: bool}>}>
      */
     private function sidebarGroups(): array
     {
@@ -127,6 +127,7 @@ class PromptController extends Controller
                 'slug' => $slug,
                 'label' => $def['label'],
                 'type' => $def['type'],
+                'description' => $def['description'],
                 'customized' => (bool) ($customized[$slug] ?? false),
             ];
         }
@@ -135,7 +136,7 @@ class PromptController extends Controller
     }
 
     /**
-     * @return array{slug: string, label: string, type: string, content: string, defaultContent: string, customized: bool, variables: array<int, string>, unusedVariables: array<int, string>, unknownVariables: array<int, string>}
+     * @return array{slug: string, label: string, type: string, description: string, content: string, defaultContent: string, customized: bool, variables: array<int, string>, unusedVariables: array<int, string>, unknownVariables: array<int, string>}
      */
     private function promptData(string $slug, PromptResolver $resolver): array
     {
@@ -147,6 +148,7 @@ class PromptController extends Controller
             'slug' => $slug,
             'label' => $def['label'],
             'type' => $def['type'],
+            'description' => $def['description'],
             'content' => $content,
             'defaultContent' => $resolver->fileContent($slug),
             'customized' => $this->isCustomized($slug),

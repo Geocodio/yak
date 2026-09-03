@@ -2,6 +2,7 @@ export type PromptListItem = {
     slug: string;
     label: string;
     type: string;
+    description: string;
     customized: boolean;
 };
 
@@ -14,6 +15,7 @@ export type PromptDetail = {
     slug: string;
     label: string;
     type: string;
+    description: string;
     content: string;
     defaultContent: string;
     customized: boolean;
@@ -30,6 +32,7 @@ export type PromptFixtureOption = {
 export type PromptPreview = {
     ok: boolean;
     body?: string;
+    bodyHtml?: string;
     error?: string;
 };
 
