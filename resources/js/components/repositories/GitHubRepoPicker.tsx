@@ -151,6 +151,7 @@ export function GitHubRepoPicker({
         <div className="relative">
             <TextInput
                 placeholder="Search your GitHub repositories..."
+                className="pl-8 pr-8"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 onFocus={() => setOpen(true)}
