@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:38
+* @see routes/web.php:40
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:38
+* @see routes/web.php:40
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:38
+* @see routes/web.php:40
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:38
+* @see routes/web.php:40
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:46
+* @see routes/web.php:48
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:46
+* @see routes/web.php:48
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:46
+* @see routes/web.php:48
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:46
+* @see routes/web.php:48
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -418,6 +418,50 @@ skills.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 */
 skills.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: skills.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/mcp'
+*/
+export const mcp = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: mcp.url(options),
+    method: 'get',
+})
+
+mcp.definition = {
+    methods: ["get","head"],
+    url: '/mcp',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/mcp'
+*/
+mcp.url = (options?: RouteQueryOptions) => {
+    return mcp.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/mcp'
+*/
+mcp.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: mcp.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Settings\McpServerController::mcp
+* @see app/Http/Controllers/Settings/McpServerController.php:25
+* @route '/mcp'
+*/
+mcp.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: mcp.url(options),
     method: 'head',
 })
 

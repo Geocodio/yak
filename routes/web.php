@@ -23,6 +23,8 @@ use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\Settings\McpLoginController;
+use App\Http\Controllers\Settings\McpServerController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
@@ -125,6 +127,23 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('marketplaces/{name}', [MarketplaceController::class, 'destroy'])
         ->name('marketplaces.destroy')
         ->where('name', '.+');
+
+    Route::get('mcp', [McpServerController::class, 'index'])->name('mcp');
+    Route::post('mcp', [McpServerController::class, 'store'])->name('mcp.store');
+
+    // Registered before the shorter mcp.destroy/logout routes below:
+    // {name} is deliberately greedy (`.+`) so a colon-bearing plugin name
+    // like "plugin:figma:figma" is captured whole, but that greediness
+    // also lets it swallow a trailing "/login" or "/login/redirect"
+    // segment. Laravel matches routes in registration order, so the
+    // longer URIs must come first or every one of these would be
+    // shadowed by mcp.destroy/mcp.logout.
+    Route::post('mcp/{name}/login/redirect', [McpLoginController::class, 'redirect'])->where('name', '.+')->name('mcp.login.redirect');
+    Route::post('mcp/{name}/login', [McpLoginController::class, 'start'])->where('name', '.+')->name('mcp.login.start');
+    Route::delete('mcp/{name}/login', [McpLoginController::class, 'cancel'])->where('name', '.+')->name('mcp.login.cancel');
+
+    Route::post('mcp/{name}/logout', [McpServerController::class, 'logout'])->where('name', '.+')->name('mcp.logout');
+    Route::delete('mcp/{name}', [McpServerController::class, 'destroy'])->where('name', '.+')->name('mcp.destroy');
 
     Route::get('prompts', [PromptController::class, 'index'])->name('prompts');
     Route::get('prompts/{slug}', [PromptController::class, 'show'])->name('prompts.show');

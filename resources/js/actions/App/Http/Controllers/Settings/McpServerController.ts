@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::index
 * @see app/Http/Controllers/Settings/McpServerController.php:25
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
@@ -11,13 +11,13 @@ export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 index.definition = {
     methods: ["get","head"],
-    url: '/settings/mcp',
+    url: '/mcp',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::index
 * @see app/Http/Controllers/Settings/McpServerController.php:25
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 index.url = (options?: RouteQueryOptions) => {
     return index.definition.url + queryParams(options)
@@ -26,7 +26,7 @@ index.url = (options?: RouteQueryOptions) => {
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::index
 * @see app/Http/Controllers/Settings/McpServerController.php:25
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(options),
@@ -36,7 +36,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::index
 * @see app/Http/Controllers/Settings/McpServerController.php:25
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(options),
@@ -46,7 +46,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::store
 * @see app/Http/Controllers/Settings/McpServerController.php:40
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
@@ -55,13 +55,13 @@ export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => (
 
 store.definition = {
     methods: ["post"],
-    url: '/settings/mcp',
+    url: '/mcp',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::store
 * @see app/Http/Controllers/Settings/McpServerController.php:40
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 store.url = (options?: RouteQueryOptions) => {
     return store.definition.url + queryParams(options)
@@ -70,7 +70,7 @@ store.url = (options?: RouteQueryOptions) => {
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::store
 * @see app/Http/Controllers/Settings/McpServerController.php:40
-* @route '/settings/mcp'
+* @route '/mcp'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(options),
@@ -80,7 +80,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::logout
 * @see app/Http/Controllers/Settings/McpServerController.php:107
-* @route '/settings/mcp/{name}/logout'
+* @route '/mcp/{name}/logout'
 */
 export const logout = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: logout.url(args, options),
@@ -89,13 +89,13 @@ export const logout = (args: { name: string | number } | [name: string | number 
 
 logout.definition = {
     methods: ["post"],
-    url: '/settings/mcp/{name}/logout',
+    url: '/mcp/{name}/logout',
 } satisfies RouteDefinition<["post"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::logout
 * @see app/Http/Controllers/Settings/McpServerController.php:107
-* @route '/settings/mcp/{name}/logout'
+* @route '/mcp/{name}/logout'
 */
 logout.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -122,7 +122,7 @@ logout.url = (args: { name: string | number } | [name: string | number ] | strin
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::logout
 * @see app/Http/Controllers/Settings/McpServerController.php:107
-* @route '/settings/mcp/{name}/logout'
+* @route '/mcp/{name}/logout'
 */
 logout.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: logout.url(args, options),
@@ -132,7 +132,7 @@ logout.post = (args: { name: string | number } | [name: string | number ] | stri
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::destroy
 * @see app/Http/Controllers/Settings/McpServerController.php:80
-* @route '/settings/mcp/{name}'
+* @route '/mcp/{name}'
 */
 export const destroy = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
@@ -141,13 +141,13 @@ export const destroy = (args: { name: string | number } | [name: string | number
 
 destroy.definition = {
     methods: ["delete"],
-    url: '/settings/mcp/{name}',
+    url: '/mcp/{name}',
 } satisfies RouteDefinition<["delete"]>
 
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::destroy
 * @see app/Http/Controllers/Settings/McpServerController.php:80
-* @route '/settings/mcp/{name}'
+* @route '/mcp/{name}'
 */
 destroy.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -174,7 +174,7 @@ destroy.url = (args: { name: string | number } | [name: string | number ] | stri
 /**
 * @see \App\Http\Controllers\Settings\McpServerController::destroy
 * @see app/Http/Controllers/Settings/McpServerController.php:80
-* @route '/settings/mcp/{name}'
+* @route '/mcp/{name}'
 */
 destroy.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),

@@ -1,7 +1,7 @@
 import { Button, Dialog, Field, Select, Textarea, TextInput } from '@geocodio/console-ui';
 import { useForm } from '@inertiajs/react';
 import { useEffect } from 'react';
-import mcp from '@/routes/settings/mcp';
+import mcp from '@/routes/mcp';
 
 type Transport = 'http' | 'sse' | 'stdio';
 
