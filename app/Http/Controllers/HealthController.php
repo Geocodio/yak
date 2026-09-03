@@ -60,7 +60,8 @@ class HealthController extends Controller
         return Inertia::render('Health/Index', [
             'systemChecks' => array_map(fn (string $id) => $this->checkMeta($registry, $id), $systemIds),
             'channelChecks' => array_map(fn (string $id) => $this->checkMeta($registry, $id), $channelIds),
-            'results' => Inertia::defer(fn () => $this->allResults(array_merge($systemIds, $channelIds))),
+            'systemResults' => Inertia::defer(fn () => $this->allResults($systemIds), 'system'),
+            'channelResults' => Inertia::defer(fn () => $this->allResults($channelIds), 'channels'),
         ]);
     }
 
@@ -105,15 +106,20 @@ class HealthController extends Controller
      * entry was cleared only re-runs that one check; the rest are served
      * from cache.
      *
-     * Note: this is one deferred prop for the whole map, not one deferred
-     * prop per check id. Inertia's partial-reload resolver treats every
-     * child of an already-resolved array as included once its parent path
-     * matches the request (see PropsResolver::shouldIncludeInPartialResponse,
-     * where `parentWasResolved` short-circuits the per-child "only" filter),
-     * so nesting `Inertia::defer()` calls under a shared `results` array
-     * does not give independent per-id partial loads -- requesting
-     * `results.{id}` still resolves every id. Deferring the whole map
-     * avoids relying on that unsupported granularity.
+     * Note: this is one deferred prop per section, not one deferred prop
+     * per check id. Inertia's partial-reload resolver treats every child of
+     * an already-resolved array as included once its parent path matches the
+     * request (see PropsResolver::shouldIncludeInPartialResponse, where
+     * `parentWasResolved` short-circuits the per-child "only" filter), so
+     * nesting `Inertia::defer()` calls under a shared results array does not
+     * give independent per-id partial loads -- requesting `results.{id}`
+     * still resolves every id.
+     *
+     * Sections are separate top-level deferred props in separate groups,
+     * which Inertia does fetch independently. System checks are fast and
+     * local; channel checks hit third-party APIs and dominate the page's
+     * load time. Splitting them means the System section paints as soon as
+     * it is ready instead of waiting on the slowest channel.
      *
      * @param  list<string>  $ids
      * @return array<string, HealthResultData>

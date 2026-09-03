@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
-import { IconButton, Skeleton, StatusPill } from '@geocodio/console-ui';
-import { HelpCircle, RotateCw } from 'lucide-react';
+import { IconButton, StatusPill } from '@geocodio/console-ui';
+import { HelpCircle, Loader2, RotateCw } from 'lucide-react';
 import { useState } from 'react';
 import check from '@/routes/health/check';
 import { HEALTH_TONE_LABELS, type HealthCheckMeta, type HealthResultData } from '@/types/health';
@@ -8,17 +8,20 @@ import { HEALTH_TONE_LABELS, type HealthCheckMeta, type HealthResultData } from 
 type Props = {
     meta: HealthCheckMeta;
     result: HealthResultData | undefined;
+    /**
+     * The deferred prop holding this row's section. A single-row refresh
+     * reloads only that section, so clearing one channel's cache doesn't
+     * re-request the system checks (see `HealthController::allResults()`).
+     */
+    resultsProp: 'systemResults' | 'channelResults';
 };
 
 /**
- * One health check row. `result` is `undefined` while the page's single
- * `results` deferred prop hasn't resolved yet -- the parent renders this
- * inside a `<Deferred data="results">` and passes the resolved map down,
- * so every row skeletons together rather than independently (see
- * `HealthController::allResults()` for why the results can't be deferred
- * per row).
+ * One health check row. `result` is `undefined` while the section's deferred
+ * prop hasn't resolved yet; the row still shows the check's name so a slow
+ * page reads as "working on it" rather than as an anonymous grey bar.
  */
-export function HealthRow({ meta, result }: Props) {
+export function HealthRow({ meta, result, resultsProp }: Props) {
     const [refreshing, setRefreshing] = useState(false);
 
     const refresh = () => {
@@ -28,7 +31,7 @@ export function HealthRow({ meta, result }: Props) {
             {},
             {
                 preserveScroll: true,
-                onSuccess: () => router.reload({ only: ['results'] }),
+                onSuccess: () => router.reload({ only: [resultsProp] }),
                 onFinish: () => setRefreshing(false),
             },
         );
@@ -37,7 +40,18 @@ export function HealthRow({ meta, result }: Props) {
     return (
         <div className="flex items-center gap-4 border-b border-hair px-8 py-5 last:border-b-0 hover:bg-app/60" data-testid={`health-row-${meta.id}`}>
             {!result ? (
-                <Skeleton className="h-8 w-full" />
+                <>
+                    <span
+                        className="flex items-center gap-1.5 text-[12px] text-faint"
+                        data-testid={`health-row-pending-${meta.id}`}
+                    >
+                        <Loader2 size={13} className="animate-spin" />
+                        Checking
+                    </span>
+                    <div className="min-w-0 flex-1">
+                        <div className="mb-0.5 text-[13px] font-medium text-muted">{meta.name}</div>
+                    </div>
+                </>
             ) : (
                 <>
                     <StatusPill tone={result.status} label={HEALTH_TONE_LABELS[result.status]} />
@@ -69,9 +83,11 @@ export function HealthRow({ meta, result }: Props) {
                 </a>
             )}
 
-            <IconButton label={`Refresh ${meta.name}`} onClick={refresh} className={refreshing ? 'animate-spin' : undefined}>
-                <RotateCw size={14} />
-            </IconButton>
+            {result && (
+                <IconButton label={`Refresh ${meta.name}`} onClick={refresh} className={refreshing ? 'animate-spin' : undefined}>
+                    <RotateCw size={14} />
+                </IconButton>
+            )}
         </div>
     );
 }

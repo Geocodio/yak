@@ -11,12 +11,11 @@ test('the app shell renders the sidebar nav and the command palette opens', func
 
     foreach ([
         'Tasks',
-        'Costs',
         'Repositories',
         'Deployments',
         'PR Reviews',
-        'Channels',
         'Prompts',
+        'Costs',
         'Skills',
         'Health',
         'Settings',
@@ -24,9 +23,17 @@ test('the app shell renders the sidebar nav and the command palette opens', func
         $page->assertSee($label);
     }
 
+    // Channels lives under Settings, so it is deliberately absent from the
+    // sidebar -- but the command palette must still offer it.
+    $page->assertDontSee('Channels');
+
     $page->keys('[data-testid="app-shell"]', ['Meta+k']);
 
     $page->assertVisible('[data-testid="app-palette"]');
+
+    $page->type('[data-testid="app-palette"] input', 'Channels');
+
+    $page->assertSee('Channels');
 
     $page->assertNoJavaScriptErrors();
 });

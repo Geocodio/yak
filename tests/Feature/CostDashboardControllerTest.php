@@ -54,6 +54,22 @@ test('date filtering switches between daily, weekly, monthly', function () {
         ->assertInertia(fn (Assert $page) => $page->where('summary.claudeCode.amount', 6));
 });
 
+test('a period switch survives blank repo and source filters', function () {
+    // The dashboard sends every filter on each switch, so an unset filter
+    // arrives as a blank query parameter. That used to fail validation and
+    // redirect back to an unfiltered, daily /costs -- the period toggle
+    // appeared to do nothing.
+    $this->get('/costs?period=weekly&repo=&source=')
+        ->assertOk()
+        ->assertSessionHasNoErrors()
+        ->assertInertia(fn (Assert $page) => $page->where('filters.period', 'weekly'));
+
+    $this->get('/costs?period=monthly&repo&source')
+        ->assertOk()
+        ->assertSessionHasNoErrors()
+        ->assertInertia(fn (Assert $page) => $page->where('filters.period', 'monthly'));
+});
+
 test('invalid period falls back to validation error', function () {
     $this->get('/costs?period=yearly')->assertSessionHasErrors('period');
 });
