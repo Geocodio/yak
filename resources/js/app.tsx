@@ -17,10 +17,46 @@ router.on('httpException', (event) => {
         return;
     }
 
+    if (status === 403) {
+        toast.error('You are not allowed to do that.');
+
+        return false;
+    }
+
     if (status >= 500) {
         toast.error('Something went wrong on the server.');
 
         return false;
+    }
+});
+
+router.on('networkError', () => {
+    toast.error('Could not reach the server. Check your connection and try again.');
+
+    return false;
+});
+
+/**
+ * The method of the visit currently in flight. Validation errors on a form
+ * submit are rendered inline by `useForm`, but a GET visit -- a filter, a
+ * sort, a period switch -- has no form to render them, so without this the
+ * request silently bounces back and the control looks dead.
+ */
+let inFlightMethod = 'get';
+
+router.on('before', (event) => {
+    inFlightMethod = event.detail.visit.method;
+});
+
+router.on('error', (event) => {
+    if (inFlightMethod !== 'get') {
+        return;
+    }
+
+    const message = Object.values(event.detail.errors ?? {}).flat()[0];
+
+    if (typeof message === 'string' && message !== '') {
+        toast.error(message);
     }
 });
 
