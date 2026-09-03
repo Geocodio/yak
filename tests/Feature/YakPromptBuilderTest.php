@@ -424,6 +424,17 @@ test('retry prompt omits the previous-summary block when none is stored', functi
         ->not->toContain('What the previous attempt did');
 });
 
+test('retry prompt tells the agent its summary becomes the whole PR body', function () {
+    $task = YakTask::factory()->make(['description' => 'Do a thing']);
+
+    $prompt = YakPromptBuilder::retryPrompt($task, 'CI blew up');
+
+    expect($prompt)
+        ->toContain('replaces the **entire** pull request body')
+        ->toContain('The original task is the headline.')
+        ->toContain('Do not complain about the CI failure');
+});
+
 test('retry prompt handles null failure output', function () {
     $task = YakTask::factory()->make(['description' => 'Do a thing']);
 

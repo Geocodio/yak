@@ -534,7 +534,7 @@ test('PR body includes source, repo, attempts, and result summary', function () 
     $job = new CreatePullRequestJob($task);
     app()->call([$job, 'handle']);
 
-    Http::assertSent(function ($request) {
+    Http::assertSent(function ($request) use ($task) {
         if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
             return false;
         }
@@ -545,7 +545,8 @@ test('PR body includes source, repo, attempts, and result summary', function () 
             && str_contains($body, '**Repository:** org/test-repo')
             && str_contains($body, '**Attempts:** 2')
             && str_contains($body, 'Refactored authentication flow')
-            && str_contains($body, '**Task:** [LIN-500](https://linear.app/team/LIN-500)');
+            && str_contains($body, '**Task:** [LIN-500](https://linear.app/team/LIN-500)')
+            && str_contains($body, "**Yak task:** [#{$task->id}](" . route('tasks.show', $task) . ')');
     });
 });
 
@@ -818,6 +819,116 @@ test('PR body shows the rendering placeholder when no rendered walkthrough exist
         return str_contains($body, WalkthroughPrSection::MARKER_START)
             && str_contains($body, '_Rendering, this section will update automatically._')
             && ! str_contains($body, 'walkthrough.webm');
+    });
+});
+
+test('PR body omits the walkthrough section when nothing was captured', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    // A backend-only change: the run skipped visual capture, so no render
+    // is dispatched and a placeholder would never be replaced.
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-BACKEND',
+        'source' => 'manual',
+        'description' => 'Fix a multiplier',
+        'attempts' => 1,
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
+            return false;
+        }
+
+        $body = $request['body'];
+
+        return ! str_contains($body, WalkthroughPrSection::MARKER_START)
+            && ! str_contains($body, '### Video walkthrough')
+            && ! str_contains($body, '_Rendering, this section will update automatically._');
+    });
+});
+
+test('PR body keeps the rendering placeholder when a v3 capture is waiting on its render', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/my-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'path' => '/home/yak/repos/my-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-V3',
+        'source' => 'manual',
+        'description' => 'Restyle the dashboard',
+        'attempts' => 1,
+    ]);
+
+    Artifact::factory()->create([
+        'yak_task_id' => $task->id,
+        'type' => 'script',
+        'role' => 'script',
+        'filename' => 'script.json',
+        'disk_path' => 'script.json',
+    ]);
+
+    Artifact::factory()->create([
+        'yak_task_id' => $task->id,
+        'type' => 'manifest',
+        'role' => 'manifest',
+        'filename' => 'manifest.json',
+        'disk_path' => 'manifest.json',
+    ]);
+
+    $job = new CreatePullRequestJob($task);
+    app()->call([$job, 'handle']);
+
+    Http::assertSent(function ($request) {
+        if ($request->method() !== 'POST' || ! str_contains($request->url(), '/pulls')) {
+            return false;
+        }
+
+        return str_contains($request['body'], '_Rendering, this section will update automatically._');
     });
 });
 
