@@ -255,9 +255,6 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 Re-run setup
                             </Button>
                         )}
-                        <Button variant="primary" pending={form.processing} onClick={submit} data-testid="save-repository">
-                            {isEditing ? 'Save repository' : 'Add repository'}
-                        </Button>
                     </>
                 }
             />
@@ -481,6 +478,12 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             onChange={(next) => form.setData('manifest', next)}
                         />
                     )}
+
+                    <div className="mb-6 flex items-center justify-end gap-2 border-t border-hair pt-4">
+                        <Button variant="primary" pending={form.processing} onClick={submit} data-testid="save-repository">
+                            {isEditing ? 'Save repository' : 'Add repository'}
+                        </Button>
+                    </div>
 
                     {isEditing && sandbox && (
                         <Section id="sandbox" title="Sandbox template" description="The snapshot every task for this repository starts from.">
