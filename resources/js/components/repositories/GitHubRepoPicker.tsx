@@ -1,5 +1,5 @@
-import { Button, TextInput } from '@geocodio/console-ui';
-import { Folder, Lock, Search } from 'lucide-react';
+import { Button, TextInput, toast } from '@geocodio/console-ui';
+import { Folder, Loader2, Lock, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import repos from '@/routes/repos';
 import type { GitHubSearchRepo } from '@/types/repositories';
@@ -88,6 +88,8 @@ export function GitHubRepoPicker({
 }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<GitHubSearchRepo[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [searchError, setSearchError] = useState<string | null>(null);
     const [open, setOpen] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -97,12 +99,30 @@ export function GitHubRepoPicker({
         }
 
         debounceRef.current = setTimeout(() => {
+            setSearching(true);
+
             fetch(repos.githubSearch.url({ query: { q: query } }), {
                 headers: { Accept: 'application/json' },
             })
-                .then((response) => response.json())
-                .then((data: { repos: GitHubSearchRepo[] }) => setResults(data.repos ?? []))
-                .catch(() => setResults([]));
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Search failed (${response.status}).`);
+                    }
+
+                    return response.json();
+                })
+                .then((data: { repos: GitHubSearchRepo[]; error: string | null }) => {
+                    setResults(data.repos ?? []);
+                    setSearchError(data.error ?? null);
+                })
+                .catch(() => {
+                    // Reporting a failed search as "no matches" reads as "that
+                    // repository does not exist", which sends people looking in
+                    // the wrong place. Say which one it is.
+                    setResults([]);
+                    setSearchError('Could not reach GitHub. Check the GitHub App credentials on the health page, then try again.');
+                })
+                .finally(() => setSearching(false));
         }, 300);
 
         return () => {
@@ -138,7 +158,28 @@ export function GitHubRepoPicker({
                 data-testid="github-repo-search"
             />
             <Search size={14} className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
-            {open && results.length > 0 && (
+            {searching && (
+                <Loader2
+                    size={14}
+                    className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 animate-spin text-faint"
+                    data-testid="github-search-spinner"
+                />
+            )}
+            {open && searchError !== null && (
+                <div className="absolute z-20 mt-1 w-full rounded-card border border-hair bg-panel px-4 py-3 shadow-card">
+                    <p className="text-[12px] text-fail" data-testid="github-search-error">
+                        {searchError}
+                    </p>
+                </div>
+            )}
+            {open && searchError === null && !searching && query !== '' && results.length === 0 && (
+                <div className="absolute z-20 mt-1 w-full rounded-card border border-hair bg-panel px-4 py-3 shadow-card">
+                    <p className="text-[12px] text-muted" data-testid="github-search-empty">
+                        No repositories match &ldquo;{query}&rdquo;.
+                    </p>
+                </div>
+            )}
+            {open && searchError === null && results.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full rounded-card border border-hair bg-panel shadow-card">
                     <ul className="max-h-64 overflow-y-auto py-1">
                         {results.map((repo) => (
@@ -158,7 +199,12 @@ export function GitHubRepoPicker({
                                             })
                                                 .then((response) => response.json())
                                                 .then((data: { ciSystem: string }) => onCiDetected(data.ciSystem))
-                                                .catch(() => {});
+                                                .catch(() => {
+                                                    // Detection is a convenience, so this is not fatal --
+                                                    // but silently leaving the CI field on its default
+                                                    // looks like Yak inspected the repo and decided.
+                                                    toast.info('Could not detect the CI system for this repository. Pick it below.');
+                                                });
                                         }
                                     }}
                                 >

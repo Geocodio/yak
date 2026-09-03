@@ -385,6 +385,47 @@ test('github search returns the json shape and hides already-added repos', funct
     expect($names)->toBe(['acme/fresh']);
 });
 
+test('github search reports an unconfigured installation instead of an empty list', function () {
+    config(['yak.channels.github.installation_id' => null]);
+
+    $this->getJson(route('repos.github-search'))
+        ->assertOk()
+        ->assertJsonPath('repos', [])
+        ->assertJsonPath('error', 'The GitHub App is not connected yet. Check the GitHub check on the health page.');
+});
+
+test('github search reports an unreachable GitHub instead of an empty list', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::forget('github-installation-repos');
+
+    $this->mock(AppService::class)
+        ->shouldReceive('listInstallationRepositories')
+        ->andThrow(new RuntimeException('502 Bad Gateway'));
+
+    // An outage must not look identical to "nothing matched" -- that sends
+    // people looking for a repository they think was never added.
+    $this->getJson(route('repos.github-search'))
+        ->assertOk()
+        ->assertJsonPath('repos', [])
+        ->assertJsonPath('error', 'Could not reach GitHub. Check the GitHub check on the health page, then try again.');
+});
+
+test('github search returns a null error when it succeeds', function () {
+    config(['yak.channels.github.installation_id' => 12345]);
+    Cache::put('github-installation-repos', [
+        [
+            'full_name' => 'acme/website',
+            'name' => 'website',
+            'default_branch' => 'main',
+            'clone_url' => 'https://github.com/acme/website.git',
+        ],
+    ], 300);
+
+    $this->getJson(route('repos.github-search'))
+        ->assertOk()
+        ->assertJsonPath('error', null);
+});
+
 test('github search filters results by query', function () {
     config(['yak.channels.github.installation_id' => 12345]);
     Cache::put('github-installation-repos', [

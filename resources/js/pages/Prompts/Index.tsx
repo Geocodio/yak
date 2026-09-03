@@ -50,6 +50,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
     const [showHistory, setShowHistory] = useState(false);
     const [showReset, setShowReset] = useState(false);
     const [resetBusy, setResetBusy] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
 
     useEffect(() => {
         setContent(prompt.content);
@@ -84,6 +85,8 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
             const controller = new AbortController();
             previewAbortRef.current = controller;
 
+            setPreviewLoading(true);
+
             fetch(prompts.preview.url(prompt.slug), {
                 method: 'POST',
                 headers: {
@@ -94,13 +97,38 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                 body: JSON.stringify({ content, fixture: fixtureIndex }),
                 signal: controller.signal,
             })
-                .then((response) => response.json())
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(`Preview request failed (${response.status}).`);
+                    }
+
+                    return response.json();
+                })
                 .then((data: PromptPreview) => {
                     if (generation === previewGenerationRef.current) {
                         setPreview(data);
+                        setPreviewLoading(false);
                     }
                 })
-                .catch(() => undefined);
+                .catch((error: unknown) => {
+                    // Every keystroke aborts the previous request; that is
+                    // expected and must not be reported as a failure.
+                    if (error instanceof DOMException && error.name === 'AbortError') {
+                        return;
+                    }
+
+                    if (generation !== previewGenerationRef.current) {
+                        return;
+                    }
+
+                    // Showing stale output with no warning is worse than
+                    // saying the preview could not be refreshed.
+                    setPreview({
+                        ok: false,
+                        error: 'Could not refresh the preview. Check your connection and keep editing -- it retries on the next change.',
+                    });
+                    setPreviewLoading(false);
+                });
         }, 400);
 
         return () => {
@@ -116,11 +144,21 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
 
     const loadVersion = (version: PromptVersionRow) => {
         fetch(prompts.versions.show.url([prompt.slug, version.id]), { headers: { Accept: 'application/json' } })
-            .then((response) => response.json())
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Request failed (${response.status}).`);
+                }
+
+                return response.json();
+            })
             .then((data: { content: string }) => {
                 setContent(data.content);
                 setShowHistory(false);
                 toast.info(`Loaded version ${version.number} (unsaved).`);
+            })
+            .catch(() => {
+                // Without this the click is a no-op and the dialog just sits there.
+                toast.error(`Could not load version ${version.number}.`);
             });
     };
 
@@ -213,7 +251,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                             )}
                         </div>
 
-                        <PreviewPane preview={preview} fixtures={fixtures} fixtureIndex={fixtureIndex} onFixtureChange={setFixtureIndex} />
+                        <PreviewPane preview={preview} loading={previewLoading} fixtures={fixtures} fixtureIndex={fixtureIndex} onFixtureChange={setFixtureIndex} />
                     </div>
                 </div>
             </div>

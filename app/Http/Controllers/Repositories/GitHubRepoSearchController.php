@@ -8,6 +8,7 @@ use App\Models\Repository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class GitHubRepoSearchController extends Controller
 {
@@ -15,30 +16,45 @@ class GitHubRepoSearchController extends Controller
     {
         $query = $request->string('q')->toString();
 
+        [$repos, $error] = $this->installationRepos();
+
+        // `error` is what lets the picker distinguish "GitHub is unreachable"
+        // from "nothing matched". Returning an empty list for both made an
+        // outage look like the repository did not exist.
         return response()->json([
-            'repos' => $this->filteredRepos($this->installationRepos(), $query),
+            'repos' => $this->filteredRepos($repos, $query),
+            'error' => $error,
         ]);
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * Repositories visible to the GitHub App installation, plus a
+     * human-readable reason when they could not be fetched.
+     *
+     * @return array{0: array<int, array<string, mixed>>, 1: ?string}
      */
     private function installationRepos(): array
     {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if (! $installationId) {
+            return [[], 'The GitHub App is not connected yet. Check the GitHub check on the health page.'];
+        }
+
         try {
-            $installationId = (int) config('yak.channels.github.installation_id');
-
-            if (! $installationId) {
-                return [];
-            }
-
-            return Cache::remember(
+            $repos = Cache::remember(
                 'github-installation-repos',
                 300,
                 fn (): array => app(GitHubAppService::class)->listInstallationRepositories($installationId),
             );
-        } catch (\Throwable) {
-            return [];
+
+            return [$repos, null];
+        } catch (\Throwable $e) {
+            Log::warning('GitHubRepoSearchController: could not list installation repositories', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return [[], 'Could not reach GitHub. Check the GitHub check on the health page, then try again.'];
         }
     }
 
