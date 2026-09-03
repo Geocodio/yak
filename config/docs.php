@@ -57,7 +57,15 @@ return [
         'repositories.adding' => 'repositories/#adding-a-repository',
         'repositories.setup' => 'repositories/#the-setup-task',
         'repositories.claude-md' => 'repositories/#claudemd-the-highest-leverage-config-point',
+        'repositories.management' => 'repositories/#repo-management-pages',
+        'repositories.multi-repo' => 'repositories/#multi-repo-requests',
+        'repositories.pr-review' => 'repositories/#pr-review-toggle',
+        'repositories.refresh' => 'repositories/#repo-refresh',
+        'repositories.rerun-setup' => 'repositories/#re-running-setup',
         'repositories.routing' => 'repositories/#routing-tasks-to-repos',
+
+        // PR review
+        'pr-review' => 'pr-review/',
 
         // Architecture
         'architecture' => 'architecture/',

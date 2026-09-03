@@ -7,6 +7,14 @@
     group: root
     mode: "0755"
 
+- name: Install yak-mcp helper
+  ansible.builtin.template:
+    src: yak-mcp.j2
+    dest: /usr/local/bin/yak-mcp
+    owner: root
+    group: root
+    mode: "0755"
+
 # The shared config dir is read/write for the sandbox (raw.idmap maps only
 # host uid 33/www-data <-> container yak uid 1001) and the health probe
 # runs `claude` against it from the app container every 15 minutes. Claude

@@ -1,7 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Button, ConfirmDialog, Menu, TextInput } from '@geocodio/console-ui';
+import { Button, ConfirmDialog, Menu, TextInput, cn } from '@geocodio/console-ui';
 import { ChevronDown, Loader2, Plus, RotateCw } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { PageHeader } from '@/components/PageHeader';
 import { SkillCard } from '@/components/skills/SkillCard';
@@ -11,13 +11,24 @@ import { skills } from '@/routes';
 import { destroy, install as installSkill, update, upgrade } from '@/routes/skills';
 import { refresh } from '@/routes/marketplaces';
 import type { PageProps } from '@/types/shared';
-import type { AvailableSkillRow, BundledSkillRow, InstalledSkillRow, MarketplaceRow, SkillsFilters, SkillsFilterValue } from '@/types/skills';
+import type {
+    AvailablePage,
+    AvailableSkillRow,
+    BundledSkillRow,
+    InstalledSkillRow,
+    MarketplaceRow,
+    RecommendedSkillRow,
+    SkillCategory,
+    SkillsFilters,
+    SkillsFilterValue,
+} from '@/types/skills';
 
 type Props = PageProps<{
     installed: InstalledSkillRow[];
     bundled: BundledSkillRow[];
-    available: AvailableSkillRow[];
-    availableTotal: number;
+    available: AvailablePage;
+    categories: SkillCategory[];
+    recommended: RecommendedSkillRow[];
     marketplaces: MarketplaceRow[];
     filters: SkillsFilters;
 }>;
@@ -29,7 +40,7 @@ const FILTER_OPTIONS: { value: SkillsFilterValue; label: string }[] = [
     { value: 'available', label: 'Available' },
 ];
 
-export default function Index({ installed, bundled, available, availableTotal, marketplaces: marketplaceRows, filters }: Props) {
+export default function Index({ installed, bundled, available, categories, recommended, marketplaces: marketplaceRows, filters }: Props) {
     const [search, setSearch] = useState(filters.search);
     const [searching, setSearching] = useState(false);
     const [showInstallFromUrl, setShowInstallFromUrl] = useState(false);
@@ -40,8 +51,14 @@ export default function Index({ installed, bundled, available, availableTotal, m
     const [pendingUninstall, setPendingUninstall] = useState<InstalledSkillRow | null>(null);
     const [uninstalling, setUninstalling] = useState(false);
 
-    const navigate = (next: Partial<SkillsFilters>) => {
-        router.get(skills.url(), { search, filter: filters.filter, ...next }, { preserveState: true, replace: true });
+    // Any change other than an explicit page navigation resets to page 1, so
+    // `page` is only included when the caller passes it.
+    const navigate = (next: Partial<SkillsFilters> & { page?: number }) => {
+        router.get(
+            skills.url(),
+            { search, filter: filters.filter, category: filters.category, page: undefined, ...next },
+            { preserveState: true, replace: true },
+        );
     };
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,7 +76,7 @@ export default function Index({ installed, bundled, available, availableTotal, m
         debounceRef.current = setTimeout(() => {
             router.get(
                 skills.url(),
-                { search, filter: filters.filter },
+                { search, filter: filters.filter, category: filters.category },
                 { preserveState: true, replace: true, onFinish: () => setSearching(false) },
             );
         }, 200);
@@ -128,6 +145,10 @@ export default function Index({ installed, bundled, available, availableTotal, m
     const showBundled = filters.filter === 'all' || filters.filter === 'bundled';
     const showAvailable = filters.filter === 'all' || filters.filter === 'available';
     const showMarketplaces = filters.filter === 'all';
+    const showAvailableSection = showAvailable && (marketplaceRows.length > 0 || available.total > 0);
+    const recommendedMeta = recommended.some((r) => r.recommendedReason === 'similar')
+        ? 'based on what you have installed'
+        : 'popular picks';
 
     return (
         <>
@@ -216,10 +237,10 @@ export default function Index({ installed, bundled, available, availableTotal, m
                     </Section>
                 )}
 
-                {showAvailable && available.length > 0 && (
-                    <Section title="Available" meta={marketplaceRows.length > 0 ? `from ${marketplaceRows.map((m) => m.name).join(', ')}` : 'no marketplaces configured'}>
+                {showAvailable && recommended.length > 0 && (
+                    <Section title="Recommended" meta={recommendedMeta} data-testid="recommended-section">
                         <Grid>
-                            {available.map((skill) => (
+                            {recommended.map((skill) => (
                                 <SkillCard
                                     key={skill.key}
                                     variant="available"
@@ -229,10 +250,87 @@ export default function Index({ installed, bundled, available, availableTotal, m
                                 />
                             ))}
                         </Grid>
-                        {availableTotal > available.length && (
-                            <p className="mt-3 text-[12px] text-muted">
-                                Showing {available.length} of {availableTotal}. Use search to narrow results.
-                            </p>
+                    </Section>
+                )}
+
+                {showAvailableSection && (
+                    <Section
+                        title="Available"
+                        meta={marketplaceRows.length > 0 ? `${available.total} from ${marketplaceRows.map((m) => m.name).join(', ')}` : 'no marketplaces configured'}
+                    >
+                        {categories.length > 0 && (
+                            <div className="mb-3 flex flex-wrap gap-1.5">
+                                <CategoryChip
+                                    label={`All (${available.total})`}
+                                    selected={filters.category === ''}
+                                    onClick={() => navigate({ category: '' })}
+                                    testId="category-all"
+                                />
+                                {categories.map((category) => (
+                                    <CategoryChip
+                                        key={category.value}
+                                        label={`${category.label} (${category.count})`}
+                                        selected={filters.category === category.value}
+                                        onClick={() => navigate({ category: category.value })}
+                                        testId={`category-${category.value}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {available.items.length === 0 ? (
+                            <p className="text-[12.5px] text-muted">No plugins match.</p>
+                        ) : (
+                            <>
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    {available.items.map((skill, index) => {
+                                        const previous = available.items[index - 1];
+                                        const showHeading = filters.category === '' && (index === 0 || skill.category !== previous?.category);
+
+                                        return (
+                                            <Fragment key={skill.key}>
+                                                {showHeading && (
+                                                    <div className="col-span-full mt-2 first:mt-0">
+                                                        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-faint">
+                                                            {skill.category ?? 'Other'}
+                                                        </h3>
+                                                    </div>
+                                                )}
+                                                <SkillCard
+                                                    variant="available"
+                                                    skill={skill}
+                                                    onInstall={() => install(skill)}
+                                                    installing={installingKey === skill.key}
+                                                />
+                                            </Fragment>
+                                        );
+                                    })}
+                                </div>
+
+                                {available.lastPage > 1 && (
+                                    <div className="mt-3 flex items-center justify-between border-t border-hair pt-3" data-testid="available-pagination">
+                                        <Button
+                                            variant="tertiary"
+                                            disabled={available.page <= 1}
+                                            onClick={() => navigate({ page: available.page - 1 })}
+                                            data-testid="available-prev"
+                                        >
+                                            Previous
+                                        </Button>
+                                        <span className="tnum text-[12px] text-muted">
+                                            Page {available.page} of {available.lastPage} · {available.total} plugins
+                                        </span>
+                                        <Button
+                                            variant="tertiary"
+                                            disabled={available.page >= available.lastPage}
+                                            onClick={() => navigate({ page: available.page + 1 })}
+                                            data-testid="available-next"
+                                        >
+                                            Next
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </Section>
                 )}
@@ -264,9 +362,9 @@ export default function Index({ installed, bundled, available, availableTotal, m
     );
 }
 
-function Section({ title, meta, children }: { title: string; meta?: string; children: ReactNode }) {
+function Section({ title, meta, children, ...rest }: { title: string; meta?: string; children: ReactNode; 'data-testid'?: string }) {
     return (
-        <div className="mb-8">
+        <div className="mb-8" data-testid={rest['data-testid']}>
             <div className="mb-3 flex items-baseline gap-2">
                 <h2 className="text-[12px] font-semibold uppercase tracking-wide text-faint">{title}</h2>
                 {meta && <span className="text-[11px] text-faint">{meta}</span>}
@@ -278,6 +376,22 @@ function Section({ title, meta, children }: { title: string; meta?: string; chil
 
 function Grid({ children }: { children: ReactNode }) {
     return <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{children}</div>;
+}
+
+function CategoryChip({ label, selected, onClick, testId }: { label: string; selected: boolean; onClick: () => void; testId: string }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            data-testid={testId}
+            className={cn(
+                'rounded-pill border border-hair px-2 py-0.5 text-[12px] text-muted transition-colors hover:text-body',
+                selected && 'border-accent/40 bg-accent-soft text-accent-text',
+            )}
+        >
+            {label}
+        </button>
+    );
 }
 
 Index.layout = (page: ReactNode) => <AppLayout>{page}</AppLayout>;

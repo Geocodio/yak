@@ -21,17 +21,28 @@ class ClaudeCli
 {
     public function exec(string $args, int $timeout = 60): ProcessResult
     {
-        $command = sprintf(
-            'env HOME=/home/yak CLAUDE_CONFIG_DIR=/home/yak/.claude %sclaude %s',
-            $this->gitCredentialEnv(),
-            $args,
-        );
+        $command = $this->interactiveCommand($args);
 
         try {
             return Process::timeout($timeout)->run($command);
         } catch (ProcessTimedOutException|SymfonyProcessTimedOutException $e) {
             throw new ClaudeCliException("claude {$args} timed out after {$timeout}s", previous: $e);
         }
+    }
+
+    /**
+     * Builds the same shell command string `exec()` runs, without running
+     * it. Used by callers that need to drive the process themselves (e.g.
+     * McpLoginJob, which needs a PTY and an interactive stdin) instead of
+     * going through Process::run().
+     */
+    public function interactiveCommand(string $args): string
+    {
+        return sprintf(
+            'env HOME=/home/yak CLAUDE_CONFIG_DIR=/home/yak/.claude %sclaude %s',
+            $this->gitCredentialEnv(),
+            $args,
+        );
     }
 
     /**

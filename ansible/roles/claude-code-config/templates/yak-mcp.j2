@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Manage the MCP servers Yak's agents can reach.
+#
+# Thin wrapper around `claude mcp` run inside the Yak container against the
+# shared config directory, the same way yak-claude-login wraps `claude`.
+# Every sandbox bind-mounts that directory, so a server added or logged in
+# here is visible to the next task without a restart.
+#
+#   yak-mcp list                                   # health-check every server
+#   yak-mcp login <name>                           # OAuth login (prints a URL,
+#                                                  #   then asks for the redirect)
+#   yak-mcp add --transport http <name> <url>      # add a remote server
+#   yak-mcp remove <name>                          # remove a server added here
+#
+# The dashboard's Settings > MCP servers page does the same things; this
+# script is the terminal fallback.
+#
+# Managed by Ansible (roles/claude-code-config). Do not edit on the host.
+set -euo pipefail
+
+if [[ $# -eq 0 ]]; then
+    set -- list
+fi
+
+# `login` needs --no-browser because there is no display in the container;
+# the CLI prints the authorization URL and waits for the redirect URL.
+if [[ "$1" == "login" ]]; then
+    case " $* " in
+        *" --no-browser "*) ;;
+        *) set -- "$@" --no-browser ;;
+    esac
+fi
+
+exec /usr/local/bin/yak-claude-login mcp "$@"

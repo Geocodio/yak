@@ -22,6 +22,24 @@ export type AvailableSkillRow = {
     link: string | null;
 };
 
+export type RecommendedSkillRow = AvailableSkillRow & {
+    recommendedReason: 'popular' | 'similar';
+};
+
+export type AvailablePage = {
+    items: AvailableSkillRow[];
+    page: number;
+    lastPage: number;
+    total: number;
+    perPage: number;
+};
+
+export type SkillCategory = {
+    value: string;
+    label: string;
+    count: number;
+};
+
 export type MarketplaceRow = {
     name: string;
     source: string;
@@ -33,4 +51,5 @@ export type SkillsFilterValue = 'all' | 'installed' | 'bundled' | 'available';
 export type SkillsFilters = {
     search: string;
     filter: SkillsFilterValue;
+    category: string;
 };

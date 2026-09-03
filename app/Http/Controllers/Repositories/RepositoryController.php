@@ -38,7 +38,7 @@ class RepositoryController extends Controller
             'stats' => null,
             'canDelete' => false,
             'deleteBlockedReason' => null,
-            'docsUrl' => Docs::url('repositories'),
+            'docsLinks' => $this->docsLinks(),
         ]);
     }
 
@@ -86,8 +86,25 @@ class RepositoryController extends Controller
             'deleteBlockedReason' => fn () => $this->canDelete($repository)
                 ? null
                 : 'This repository has tasks and cannot be deleted. Deactivate it instead.',
-            'docsUrl' => Docs::url('repositories'),
+            'docsLinks' => $this->docsLinks(),
         ]);
+    }
+
+    /**
+     * @return array{guide: string, adding: string, setup: string, claudeMd: string, routing: string, prReview: string, refresh: string, rerunSetup: string}
+     */
+    private function docsLinks(): array
+    {
+        return [
+            'guide' => Docs::url('repositories'),
+            'adding' => Docs::url('repositories.adding'),
+            'setup' => Docs::url('repositories.setup'),
+            'claudeMd' => Docs::url('repositories.claude-md'),
+            'routing' => Docs::url('repositories.routing'),
+            'prReview' => Docs::url('repositories.pr-review'),
+            'refresh' => Docs::url('repositories.refresh'),
+            'rerunSetup' => Docs::url('repositories.rerun-setup'),
+        ];
     }
 
     public function update(SaveRepositoryRequest $request, Repository $repository, ApplyPrReviewToOpenPulls $applyPrReview): RedirectResponse

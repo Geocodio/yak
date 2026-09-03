@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\SkillController::install
-* @see app/Http/Controllers/SkillController.php:46
+* @see app/Http/Controllers/SkillController.php:50
 * @route '/skills'
 */
 export const install = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ install.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::install
-* @see app/Http/Controllers/SkillController.php:46
+* @see app/Http/Controllers/SkillController.php:50
 * @route '/skills'
 */
 install.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ install.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SkillController::install
-* @see app/Http/Controllers/SkillController.php:46
+* @see app/Http/Controllers/SkillController.php:50
 * @route '/skills'
 */
 install.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -35,7 +35,7 @@ install.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::update
-* @see app/Http/Controllers/SkillController.php:66
+* @see app/Http/Controllers/SkillController.php:70
 * @route '/skills/{name}'
 */
 export const update = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -50,7 +50,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::update
-* @see app/Http/Controllers/SkillController.php:66
+* @see app/Http/Controllers/SkillController.php:70
 * @route '/skills/{name}'
 */
 update.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -77,7 +77,7 @@ update.url = (args: { name: string | number } | [name: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\SkillController::update
-* @see app/Http/Controllers/SkillController.php:66
+* @see app/Http/Controllers/SkillController.php:70
 * @route '/skills/{name}'
 */
 update.patch = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -87,7 +87,7 @@ update.patch = (args: { name: string | number } | [name: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SkillController::upgrade
-* @see app/Http/Controllers/SkillController.php:90
+* @see app/Http/Controllers/SkillController.php:94
 * @route '/skills/{name}/update'
 */
 export const upgrade = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -102,7 +102,7 @@ upgrade.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::upgrade
-* @see app/Http/Controllers/SkillController.php:90
+* @see app/Http/Controllers/SkillController.php:94
 * @route '/skills/{name}/update'
 */
 upgrade.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -129,7 +129,7 @@ upgrade.url = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\SkillController::upgrade
-* @see app/Http/Controllers/SkillController.php:90
+* @see app/Http/Controllers/SkillController.php:94
 * @route '/skills/{name}/update'
 */
 upgrade.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -139,7 +139,7 @@ upgrade.post = (args: { name: string | number } | [name: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SkillController::destroy
-* @see app/Http/Controllers/SkillController.php:81
+* @see app/Http/Controllers/SkillController.php:85
 * @route '/skills/{name}'
 */
 export const destroy = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -154,7 +154,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::destroy
-* @see app/Http/Controllers/SkillController.php:81
+* @see app/Http/Controllers/SkillController.php:85
 * @route '/skills/{name}'
 */
 destroy.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -181,7 +181,7 @@ destroy.url = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\SkillController::destroy
-* @see app/Http/Controllers/SkillController.php:81
+* @see app/Http/Controllers/SkillController.php:85
 * @route '/skills/{name}'
 */
 destroy.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
