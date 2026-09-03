@@ -118,13 +118,15 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 ? "Could not determine which repo to use. Add `repo: <slug>` to the task description, or mark a repo as default. Active repos: {$activeSlugs}."
                 : "Repository '{$this->task->repo}' not found or not configured in Yak. Active repos: {$activeSlugs}.";
 
-            $this->task->update([
-                'status' => TaskStatus::Failed,
-                'error_log' => $message,
-                'completed_at' => now(),
-            ]);
+            if (! $this->taskIsTerminal($this->task->fresh())) {
+                $this->task->update([
+                    'status' => TaskStatus::Failed,
+                    'error_log' => $message,
+                    'completed_at' => now(),
+                ]);
 
-            TaskLogger::error($this->task, 'Task failed — repo not resolved', ['repo' => $this->task->repo]);
+                TaskLogger::error($this->task, 'Task failed — repo not resolved', ['repo' => $this->task->repo]);
+            }
 
             return;
         }
@@ -423,10 +425,13 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
-        // Don't downgrade a user-cancelled task back to Failed — the
-        // cancel action already set a terminal status and destroyed
-        // the sandbox; this error is the expected aftermath.
-        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+        // Don't overwrite a task that's already terminal — cancelled
+        // mid-run, force-failed by a deploy drain with an accurate
+        // reason, or finalised by a parallel path. Overwriting it here
+        // would replace that reason with whatever this run's own error
+        // happened to be (often just the abnormal-termination artifact of
+        // whatever interrupted it).
+        if ($this->taskIsTerminal($this->task->fresh())) {
             return;
         }
 

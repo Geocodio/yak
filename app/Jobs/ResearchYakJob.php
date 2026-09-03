@@ -289,8 +289,9 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
-        // Don't downgrade a user-cancelled task back to Failed.
-        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+        // Don't overwrite a task that's already terminal — see
+        // RunYakJob::handleError() for the full reasoning.
+        if ($this->taskIsTerminal($this->task->fresh())) {
             return;
         }
 

@@ -13,6 +13,7 @@ use App\DataTransferObjects\ReviewFinding;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
+use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -42,6 +43,7 @@ use Illuminate\Support\Facades\Log;
 class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
+    use GuardsTerminalTaskStatus;
     use Queueable;
 
     public int $timeout = 3600;
@@ -118,11 +120,13 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->first();
 
         if ($repository === null || ! $repository->pr_review_enabled) {
-            $this->task->update([
-                'status' => TaskStatus::Failed,
-                'error_log' => 'Repository missing or PR review not enabled',
-                'completed_at' => now(),
-            ]);
+            if (! $this->taskIsTerminal($this->task->fresh())) {
+                $this->task->update([
+                    'status' => TaskStatus::Failed,
+                    'error_log' => 'Repository missing or PR review not enabled',
+                    'completed_at' => now(),
+                ]);
+            }
 
             return;
         }
@@ -834,7 +838,9 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
     private function handleError(string $message): void
     {
-        if ($this->task->fresh()?->status === TaskStatus::Cancelled) {
+        // Don't overwrite a task that's already terminal — see
+        // RunYakJob::handleError() for the full reasoning.
+        if ($this->taskIsTerminal($this->task->fresh())) {
             return;
         }
 

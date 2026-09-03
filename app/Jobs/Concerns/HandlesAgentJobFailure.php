@@ -23,6 +23,8 @@ use Throwable;
  */
 trait HandlesAgentJobFailure
 {
+    use GuardsTerminalTaskStatus;
+
     public function failed(?Throwable $e): void
     {
         // Set by ClaimsTaskAtomically when this copy lost the race for its
@@ -51,11 +53,7 @@ trait HandlesAgentJobFailure
             return;
         }
 
-        $terminal = [TaskStatus::Success, TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled];
-
-        /** @var TaskStatus $currentStatus */
-        $currentStatus = $task->status;
-        if (! in_array($currentStatus, $terminal, true)) {
+        if (! $this->taskIsTerminal($task)) {
             $task->update([
                 'status' => TaskStatus::Failed,
                 'error_log' => $errorMessage,

@@ -189,6 +189,12 @@ class RunFollowUpJob implements ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
+        // Don't overwrite a task that's already terminal — see
+        // RunYakJob::handleError() for the full reasoning.
+        if ($this->taskIsTerminal($this->task->fresh())) {
+            return;
+        }
+
         $this->task->update([
             'status' => TaskStatus::Failed,
             'error_log' => $errorMessage,
