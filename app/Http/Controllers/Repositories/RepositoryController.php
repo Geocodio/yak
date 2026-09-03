@@ -12,6 +12,7 @@ use App\Http\Resources\RepositorySummaryData;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
@@ -37,6 +38,7 @@ class RepositoryController extends Controller
             'stats' => null,
             'canDelete' => false,
             'deleteBlockedReason' => null,
+            'docsUrl' => Docs::url('repositories'),
         ]);
     }
 
@@ -84,6 +86,7 @@ class RepositoryController extends Controller
             'deleteBlockedReason' => fn () => $this->canDelete($repository)
                 ? null
                 : 'This repository has tasks and cannot be deleted. Deactivate it instead.',
+            'docsUrl' => Docs::url('repositories'),
         ]);
     }
 
@@ -98,6 +101,17 @@ class RepositoryController extends Controller
         $wasEnabled = (bool) $repository->pr_review_enabled;
 
         $data = $this->repositoryDataFromRequest($validated, $validated['slug'], $validated['path']);
+
+        if (array_key_exists('manifest', $validated)) {
+            $data['preview_manifest'] = [
+                'port' => $validated['manifest']['port'],
+                'health_probe_path' => $validated['manifest']['health_probe_path'],
+                'cold_start' => $validated['manifest']['cold_start'] ?? '',
+                'checkout_refresh' => $validated['manifest']['checkout_refresh'] ?? '',
+                'wake_timeout_seconds' => $validated['manifest']['wake_timeout_seconds'] ?? 120,
+            ];
+        }
+
         $repository->update($data);
 
         if (($validated['pr_review_enabled'] ?? false) && ! $wasEnabled && ($validated['apply_to_open_prs'] ?? false)) {

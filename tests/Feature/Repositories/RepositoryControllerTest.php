@@ -577,6 +577,60 @@ test('setup history is limited to the 10 most recent setup tasks', function () {
             ->where('setupHistory.9.id', 'setup-limit-2'));
 });
 
+test('edit exposes a docs link for the repositories guide', function () {
+    $repo = Repository::factory()->create();
+
+    $this->get(route('repos.edit', $repo))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('docsUrl', fn (string $url) => str_contains($url, 'repositories')));
+});
+
+test('saving the repository form persists manifest fields in the same request', function () {
+    $repo = Repository::factory()->create(['deployments_enabled' => true, 'preview_manifest' => null]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'manifest' => [
+            'port' => 4000,
+            'health_probe_path' => '/healthz',
+            'cold_start' => 'docker compose up -d',
+            'checkout_refresh' => 'docker compose build && composer install',
+            'wake_timeout_seconds' => 90,
+        ],
+    ]))->assertRedirect();
+
+    $manifest = $repo->fresh()->preview_manifest;
+    expect($manifest['port'])->toBe(4000);
+    expect($manifest['health_probe_path'])->toBe('/healthz');
+    expect($manifest['cold_start'])->toBe('docker compose up -d');
+    expect($manifest['checkout_refresh'])->toBe('docker compose build && composer install');
+    expect($manifest['wake_timeout_seconds'])->toBe(90);
+});
+
+test('saving the repository form without a manifest payload leaves the existing manifest untouched', function () {
+    $repo = Repository::factory()->create([
+        'deployments_enabled' => false,
+        'preview_manifest' => ['port' => 5000, 'health_probe_path' => '/', 'cold_start' => 'x', 'checkout_refresh' => 'y', 'wake_timeout_seconds' => 60],
+    ]);
+
+    $this->patch(route('repos.update', $repo), baseRepoPayload($repo))->assertRedirect();
+
+    expect($repo->fresh()->preview_manifest['port'])->toBe(5000);
+});
+
+test('manifest port validation errors surface on the merged save', function () {
+    $repo = Repository::factory()->create(['deployments_enabled' => true]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'manifest' => [
+            'port' => 0,
+            'health_probe_path' => '/',
+            'cold_start' => '',
+            'checkout_refresh' => '',
+            'wake_timeout_seconds' => 60,
+        ],
+    ]))->assertSessionHasErrors(['manifest.port']);
+});
+
 /**
  * Minimal valid payload for an edit-mode save, so each test only needs to
  * override the fields it cares about.
