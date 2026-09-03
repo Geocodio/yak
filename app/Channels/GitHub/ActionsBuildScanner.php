@@ -46,6 +46,10 @@ class ActionsBuildScanner implements CIBuildScanner
             foreach ($this->failedTestJobs($client, $repository->github_full_name, (int) $run['id']) as $job) {
                 $log = $this->getJobLog($client, $repository->github_full_name, (int) $job['id']);
 
+                if ($log === null) {
+                    continue;
+                }
+
                 foreach ($this->parser->parse($log) as $failure) {
                     $failures->push(new CIBuildFailure(
                         testName: $failure['test'],
@@ -111,12 +115,22 @@ class ActionsBuildScanner implements CIBuildScanner
     /**
      * Fetch a job's raw log. GitHub answers with a redirect to short-lived
      * blob storage; the HTTP client follows it for us.
+     *
+     * Returns null when the log is gone. GitHub expires job logs well before
+     * it forgets the run itself, so a 404 here is an ordinary fact about an
+     * older run — skip the job rather than abandoning the repository's whole
+     * scan. Every other failure still throws: a 403 means the App is missing
+     * `Actions: Read`, and silently reporting "no flaky tests" for a
+     * permissions problem is the bug this scanner just came out of.
      */
-    private function getJobLog(PendingRequest $client, string $repoSlug, int $jobId): string
+    private function getJobLog(PendingRequest $client, string $repoSlug, int $jobId): ?string
     {
-        return $client
-            ->get("https://api.github.com/repos/{$repoSlug}/actions/jobs/{$jobId}/logs")
-            ->throw()
-            ->body();
+        $response = $client->get("https://api.github.com/repos/{$repoSlug}/actions/jobs/{$jobId}/logs");
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        return $response->throw()->body();
     }
 }
