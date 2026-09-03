@@ -13,7 +13,18 @@ test('preview renders successfully when content matches the fixture', function (
     ])->assertOk()->assertJson([
         'ok' => true,
         'body' => 'Setup for acme/billing.',
+        'bodyHtml' => "<p>Setup for acme/billing.</p>\n",
     ]);
+});
+
+test('preview renders markdown formatting to html', function () {
+    $this->postJson(route('prompts.preview', 'tasks-setup'), [
+        'content' => "Setup for **{{ \$repoName }}**.\n\n- one\n- two",
+        'fixture' => 0,
+    ])->assertOk()->assertJson(['ok' => true])
+        ->assertJsonPath('bodyHtml', function (string $html) {
+            return str_contains($html, '<strong>acme/billing</strong>') && str_contains($html, '<li>one</li>');
+        });
 });
 
 test('preview reports a runtime error', function () {

@@ -3,6 +3,7 @@
 namespace App\Prompts;
 
 use App\Services\PromptResolver;
+use App\Support\Markdown;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Throwable;
@@ -17,21 +18,23 @@ use Throwable;
 class PromptPreviewRenderer
 {
     /**
-     * @return array{ok: bool, body?: string, error?: string}
+     * @return array{ok: bool, body?: string, bodyHtml?: string, error?: string}
      */
     public function render(string $slug, string $content, int $fixtureIndex): array
     {
         $fixtures = PromptFixtures::for($slug);
         $data = $fixtures[$fixtureIndex]['data'] ?? [];
 
-        foreach (PromptResolver::DISALLOWED_DIRECTIVES as $directive) {
-            if (preg_match('/@' . preg_quote($directive, '/') . '\b/', $content) === 1) {
-                return ['ok' => false, 'error' => "Directive @{$directive} is not allowed in prompts."];
-            }
+        $errors = PromptResolver::checkDisallowedDirectives($content);
+
+        if ($errors !== []) {
+            return ['ok' => false, 'error' => $errors[0]];
         }
 
         try {
-            return ['ok' => true, 'body' => trim(Blade::render($content, $data))];
+            $body = trim(Blade::render($content, $data));
+
+            return ['ok' => true, 'body' => $body, 'bodyHtml' => Markdown::toHtml($body)];
         } catch (Throwable $e) {
             $factory = View::getFacadeRoot();
             if (is_object($factory) && method_exists($factory, 'flushState')) {
