@@ -90,9 +90,12 @@ class SkillController extends Controller
     public function upgrade(string $name): RedirectResponse
     {
         return $this->runSafely(function () use ($name) {
-            $this->skills->update($name);
+            $result = $this->skills->update($name);
+            $version = $result->version !== null ? " ({$result->version})" : '';
 
-            return "Updated {$name}.";
+            return $result->updated
+                ? "Updated {$name}{$version}."
+                : "{$name} is already at the latest version{$version}.";
         });
     }
 

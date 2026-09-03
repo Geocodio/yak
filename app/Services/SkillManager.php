@@ -6,8 +6,10 @@ use App\ClaudeCli;
 use App\DataTransferObjects\BundledSkill;
 use App\DataTransferObjects\InstalledPlugin;
 use App\DataTransferObjects\Marketplace;
+use App\DataTransferObjects\PluginUpdateResult;
 use App\Exceptions\ClaudeCliException;
 use Carbon\Carbon;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Collection;
 
 class SkillManager
@@ -154,9 +156,16 @@ class SkillManager
         $this->runOrThrow('plugins disable ' . escapeshellarg($plugin));
     }
 
-    public function update(string $plugin): void
+    /**
+     * `--yes` is required when stdin is not a TTY, which is always the case
+     * here; without it the CLI cannot confirm a marketplace-declared install
+     * command and aborts.
+     */
+    public function update(string $plugin): PluginUpdateResult
     {
-        $this->runOrThrow('plugins update ' . escapeshellarg($plugin), timeout: 180);
+        $result = $this->runOrThrow('plugins update ' . escapeshellarg($plugin) . ' --yes', timeout: 180);
+
+        return PluginUpdateResult::fromCliOutput($result->output());
     }
 
     public function addMarketplace(string $source): void
@@ -174,7 +183,7 @@ class SkillManager
         $this->runOrThrow('plugins marketplace update', timeout: 120);
     }
 
-    private function runOrThrow(string $args, int $timeout = 60): void
+    private function runOrThrow(string $args, int $timeout = 60): ProcessResult
     {
         $result = $this->cli->exec($args, $timeout);
 
@@ -183,6 +192,8 @@ class SkillManager
 
             throw new ClaudeCliException("claude {$args} failed: {$message}");
         }
+
+        return $result;
     }
 
     private function extractFrontMatterField(string $markdown, string $field): ?string

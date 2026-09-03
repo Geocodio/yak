@@ -117,13 +117,28 @@ it('uninstalls a plugin', function () {
         && str_contains($p->command, 'code-review@official'));
 });
 
-it('updates a plugin', function () {
-    Process::fake(['*' => Process::result(output: '', exitCode: 0)]);
+it('updates a plugin and reports the new version', function () {
+    Process::fake(['*' => Process::result(
+        output: "Checking for updates for plugin \"code-review@official\" at user scope…\n✔ Updated code-review to version (2.1.0).\n",
+        exitCode: 0,
+    )]);
 
     $this->post(route('skills.upgrade', 'code-review@official'))
         ->assertRedirect()
-        ->assertSessionHas('success', 'Updated code-review@official.');
+        ->assertSessionHas('success', 'Updated code-review@official (2.1.0).');
 
     Process::assertRan(fn ($p) => str_contains($p->command, 'plugins update')
-        && str_contains($p->command, 'code-review@official'));
+        && str_contains($p->command, 'code-review@official')
+        && str_contains($p->command, '--yes'));
+});
+
+it('says so when a plugin is already at the latest version', function () {
+    Process::fake(['*' => Process::result(
+        output: "Checking for updates for plugin \"code-review@official\" at user scope…\n✔ code-review is already at the latest version (0120fb83da5d).\n",
+        exitCode: 0,
+    )]);
+
+    $this->post(route('skills.upgrade', 'code-review@official'))
+        ->assertRedirect()
+        ->assertSessionHas('success', 'code-review@official is already at the latest version (0120fb83da5d).');
 });
