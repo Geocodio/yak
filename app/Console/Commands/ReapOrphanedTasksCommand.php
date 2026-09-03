@@ -13,27 +13,31 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-#[Signature('yak:reap-orphaned-tasks {--minutes=15 : Silence threshold before a Running task is considered orphaned}')]
-#[Description('Finalise tasks stuck in Running whose queue worker crashed without calling failed()')]
+#[Signature('yak:reap-orphaned-tasks {--minutes=15 : Silence threshold before a Running or Retrying task is considered orphaned}')]
+#[Description('Finalise tasks stuck in Running or Retrying whose queue worker crashed without calling failed()')]
 class ReapOrphanedTasksCommand extends Command
 {
     /**
      * A worker can die without triggering Laravel's failed() hook —
      * an OOM kill, a container restart, a supervisord-initiated stop
      * during deploy, etc. When that happens the task row stays
-     * `running`, the Incus sandbox stays alive, and the existing
-     * yak:cleanup-sandboxes sweep (which only touches containers for
-     * terminal tasks) doesn't help.
+     * `running` (or `retrying`), the Incus sandbox stays alive, and
+     * the existing yak:cleanup-sandboxes sweep (which only touches
+     * containers for terminal tasks) doesn't help.
      *
-     * This command finds Running tasks whose latest task_log is
-     * older than the threshold, marks them Failed with a helpful
-     * error, destroys the sandbox, and notifies the source channel
-     * via the standard failure path.
+     * This command finds Running or Retrying tasks whose latest
+     * task_log is older than the threshold, marks them Failed with a
+     * helpful error, destroys the sandbox, and notifies the source
+     * channel via the standard failure path.
      *
-     * Only `Running` is in scope:
+     * `Running` and `Retrying` are both in scope:
+     *   - Retrying is set by ProcessCIResultJob before dispatching
+     *     RetryYakJob, which runs a full agent session and never sets
+     *     Running again. It is not a brief transitional state — a
+     *     worker crash mid-retry leaves the task stuck exactly like a
+     *     crash mid-Running would, with no other sweep covering it.
      *   - AwaitingCi has its own yak:timeout-ci command
      *   - AwaitingClarification has its own yak:cleanup-expired-clarifications
-     *   - Retrying is a brief transitional state
      *   - Pending tasks are just queued, not orphaned
      */
     public function handle(IncusSandboxManager $sandbox): int
@@ -42,7 +46,7 @@ class ReapOrphanedTasksCommand extends Command
         $threshold = now()->subMinutes($minutes);
 
         $candidates = YakTask::query()
-            ->where('status', TaskStatus::Running)
+            ->whereIn('status', [TaskStatus::Running, TaskStatus::Retrying])
             ->where('updated_at', '<', $threshold)
             ->get();
 
