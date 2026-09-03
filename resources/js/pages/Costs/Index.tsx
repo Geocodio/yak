@@ -36,16 +36,19 @@ const PERIOD_TITLE: Record<CostFilters['period'], string> = {
 
 export default function Index({ summary, videoSummary, chart, breakdown, apiSpend, mergeRate, filters }: Props) {
     const navigate = (next: Partial<Pick<CostFilters, 'period' | 'repo' | 'source'>>) => {
-        router.get(
-            costs.url(),
-            {
-                period: filters.period,
-                repo: filters.repo,
-                source: filters.source,
-                ...next,
-            },
-            { preserveState: true, replace: true },
-        );
+        const merged = {
+            period: filters.period,
+            repo: filters.repo,
+            source: filters.source,
+            ...next,
+        };
+
+        // Only send filters that are actually set. An empty filter sent as a
+        // blank query parameter arrives server-side as null, not '', which
+        // used to fail validation and bounce the whole request.
+        const query = Object.fromEntries(Object.entries(merged).filter(([, value]) => value !== '' && value !== null));
+
+        router.get(costs.url(), query, { preserveState: true, replace: true });
     };
 
     return (
@@ -113,12 +116,20 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
 
             <div className="min-h-0 flex-1 overflow-auto">
                 <div className="mx-auto max-w-[1200px] px-8 py-6">
+                    <p className="mb-4 max-w-prose text-[12.5px] leading-relaxed text-muted" data-testid="cost-basis-note">
+                        <span className="font-medium text-body">Claude Code figures are estimates, not a bill.</span> They are the
+                        list price of the tokens each task used, as reported by the agent. If Yak runs on a Claude subscription, that
+                        work is covered by the subscription and almost none of it is charged to you. Claude Code does not report
+                        whether a given run was covered, so treat these numbers as relative usage, not spend. The API-billed figure
+                        below is different: it is real usage against your API key and does appear on your Anthropic invoice.
+                    </p>
+
                     <div className="grid grid-cols-7 gap-3">
                         <StatTile
-                            label="Claude Code (est.)"
+                            label="Claude Code (est. list price)"
                             value={`$${summary.claudeCode.amount.toFixed(2)}`}
                             sub={`${summary.claudeCode.tasks} tasks`}
-                            hint="List-price token cost reported by Claude Code. Covered by subscription -- not a direct bill."
+                            hint="What these tokens would cost at API list price. Covered by the subscription, so this is usually not money you were charged."
                         />
                         <StatTile
                             label="API-billed spend"
@@ -160,7 +171,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                             <div className="flex items-center gap-4 text-[11px] text-muted">
                                 <span className="flex items-center gap-1.5">
                                     <span className="h-2 w-2 rounded-[2px] border border-accent bg-accent-soft" />
-                                    Claude Code (est.)
+                                    Claude Code (est. list price)
                                 </span>
                                 <span className="flex items-center gap-1.5">
                                     <span className="h-2 w-2 rounded-[2px] bg-info" />
@@ -175,7 +186,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                         <section className="overflow-hidden rounded-card border border-hair bg-panel shadow-card">
                             <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                                 <h2 className="text-[13px] font-semibold">Claude Code · {filters.period} breakdown</h2>
-                                <span className="text-[11px] text-faint">est. token cost (subscription)</span>
+                                <span className="text-[11px] text-faint">est. list price, not billed</span>
                             </div>
                             {breakdown.length > 0 ? (
                                 <Table className="w-full">
@@ -281,9 +292,8 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                     </section>
 
                     <p className="mt-6 text-[11px] leading-relaxed text-faint">
-                        Claude Code cost is a list-price estimate from the agent; it&apos;s covered by the Team subscription and does not bill the
-                        API key. API-billed spend covers notification copy and repo routing via the AI SDK and is what appears on your Anthropic
-                        invoice.
+                        API-billed spend covers notification copy and repo routing through the AI SDK. That is the only figure on this page
+                        that bills your API key.
                     </p>
                 </div>
             </div>

@@ -20,10 +20,14 @@ class CostDashboardController extends Controller
 {
     public function __invoke(Request $request): Response
     {
+        // `repo` and `source` are nullable because the dashboard's filters
+        // serialise an unset filter as an empty query parameter. Requiring a
+        // string there failed validation and bounced the request back to an
+        // unfiltered `/costs`, which silently undid the period switch.
         $validated = $request->validate([
-            'period' => ['sometimes', 'in:daily,weekly,monthly'],
-            'repo' => ['sometimes', 'string'],
-            'source' => ['sometimes', 'string'],
+            'period' => ['sometimes', 'nullable', 'in:daily,weekly,monthly'],
+            'repo' => ['sometimes', 'nullable', 'string'],
+            'source' => ['sometimes', 'nullable', 'string'],
         ]);
 
         $period = $validated['period'] ?? 'daily';
