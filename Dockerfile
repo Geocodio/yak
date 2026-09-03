@@ -50,7 +50,7 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && chmod a+r /etc/apt/keyrings/zabbly.asc \
     && echo "deb [signed-by=/etc/apt/keyrings/zabbly.asc] https://pkgs.zabbly.com/incus/stable $(. /etc/os-release && echo "$VERSION_CODENAME") main" > /etc/apt/sources.list.d/zabbly-incus.list
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get update && apt-get install -y --no-install-recommends \
         nodejs \
         incus-client \

@@ -36,7 +36,7 @@ class RequestReReviewController extends Controller
         // sense on open, ready-for-review work. Sending the user back to the
         // original task page is friendlier than 4xx for a stale link click.
         if ((bool) ($pr['draft'] ?? false) || ($pr['state'] ?? '') !== 'open') {
-            return redirect()->route('tasks.show', $task)->with('reReview', 'not_open');
+            return redirect()->route('tasks.show', $task)->with('error', "This pull request isn't open for review (it may be closed, merged, or in draft), so there's nothing to re-review.");
         }
 
         $scope = 'incremental';
@@ -55,7 +55,7 @@ class RequestReReviewController extends Controller
         $newTask = $enqueue->dispatch($repo, $pr, $scope, $incrementalBase);
 
         if ($newTask !== null) {
-            return redirect()->route('tasks.show', $newTask)->with('reReview', 'started');
+            return redirect()->route('tasks.show', $newTask)->with('success', 'Re-review requested. A fresh review is now running for this PR -- this page updates live as it progresses.');
         }
 
         // Duplicate — a review for this head SHA is already pending/running.
@@ -67,6 +67,6 @@ class RequestReReviewController extends Controller
             ->latest('id')
             ->first();
 
-        return redirect()->route('tasks.show', $existing ?? $task)->with('reReview', 'in_progress');
+        return redirect()->route('tasks.show', $existing ?? $task)->with('error', "A re-review for this PR is already in progress. Showing the run that's already underway.");
     }
 }

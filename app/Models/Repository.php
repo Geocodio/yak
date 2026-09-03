@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  *
  * @property array<int, string>|null $pr_review_path_excludes
  * @property int $pr_reviews_30d_count
+ * @property int $tasks_count
+ * @property int $tasks_recent_count
  * @property int|null $github_repo_id
  * @property string $github_full_name
  * @property array<string, mixed>|null $preview_manifest

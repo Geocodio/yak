@@ -5,7 +5,7 @@ namespace App\Support;
 /**
  * Resolves short doc anchor keys (e.g. `channels.slack`) into absolute
  * URLs on the hosted Yak docs site. Configuration lives in
- * `config/docs.php`. Used by `<x-doc-link>` and any PHP-side callers.
+ * `config/docs.php`.
  */
 class Docs
 {

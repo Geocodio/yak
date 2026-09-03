@@ -48,7 +48,7 @@ test('Skills page renders and the Install button click invokes the backend', fun
     $page->assertSee('Skills');
     $page->assertSee('demo-plugin');
 
-    $page->click('[data-test="install-demo-plugin@acme-plugins"]');
+    $page->click('[data-testid="install-demo-plugin@acme-plugins"]');
 
     $page->waitForText('Installed demo-plugin');
 

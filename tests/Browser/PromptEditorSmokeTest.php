@@ -8,12 +8,11 @@ test('prompts page renders and CodeMirror mounts', function () {
     $page = visit(route('prompts'));
 
     $page->assertNoJavaScriptErrors();
-    $page->assertSee('Prompts');
     $page->assertSee('System Rules');
-    $page->assertSee('Available variables');
-    // The editor surface has a data-test attribute. If CodeMirror initialized
+    $page->assertSee('Variables');
+    // The editor surface is CodeMirror's mount point. If it initialized
     // without errors, assertNoJavaScriptErrors above passed.
-    $page->assertPresent('[data-test="prompt-editor-surface"]');
+    $page->assertPresent('[data-testid="prompt-editor"]');
 });
 
 test('prompts page has no accessibility issues', function () {
@@ -29,7 +28,17 @@ test('selecting a different prompt loads its content', function () {
 
     $page = visit(route('prompts'));
 
-    $page->click('[data-test="prompt-item-tasks-linear-fix"]');
+    $page->click('[data-testid="prompt-item-tasks-linear-fix"]');
 
     $page->assertSee('Linear Fix');
+});
+
+test('toggling the diff view renders the merge editor', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('prompts'));
+
+    $page->click('[data-testid="toggle-diff"]');
+
+    $page->assertPresent('[data-testid="prompt-diff"]');
 });

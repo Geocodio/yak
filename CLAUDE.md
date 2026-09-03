@@ -193,22 +193,38 @@ This project has domain-specific skills available. You MUST activate the relevan
 - `app/Enums/` -- TaskStatus (state machine), TaskMode, NotificationType
 - `app/GitOperations.php` -- centralized git commands via Process facade
 - `app/Http/Concerns/` -- HTTP traits (e.g. VerifiesWebhookSignature)
+- `app/Http/Controllers/` -- grouped by area (`Tasks/`, `Repositories/`, `Deployments/`, `Settings/`, `PrReviews/`, plus top-level controllers for single-page areas); each returns `Inertia::render(...)`
+- `app/Http/Requests/` -- Form Request classes per action, grouped by area
+- `app/Http/Resources/` -- prop-shaping `*Data` classes whose docblock array shape is the source of truth for the matching TypeScript type
 - `app/Jobs/` -- queued jobs; middleware in `app/Jobs/Middleware/`
-- `app/Livewire/` -- Livewire component classes (MFC format)
 - `app/Models/` -- Eloquent models; YakTask uses `$table = 'tasks'`
 - `app/Services/` -- external API integrations and detection logic
 - `app/YakPromptBuilder.php` -- Blade-based prompt rendering
 - `resources/views/prompts/` -- Blade prompt templates
+- `resources/js/pages/` -- Inertia pages, `<Area>/<Name>.tsx` matching the render name `Area/Name`
+- `resources/js/components/` -- shared React components
+- `resources/js/layouts/` -- persistent layouts (e.g. `AppLayout`, `SettingsLayout`)
+- `resources/js/types/` -- TypeScript types per area, mirroring the PHP `*Data` array shapes
+- `resources/js/routes` and `resources/js/actions` -- Wayfinder-generated typed route/action helpers; run `php artisan wayfinder:generate` after route changes, never hand-edit
 - `docker/` -- production Docker config; root Dockerfile for builds
 
 ## Test Patterns
 
 - Feature tests use `RefreshDatabase` globally (configured in `tests/Pest.php`)
+- Page tests use Inertia's `assertInertia` (`Inertia\Testing\AssertableInertia`) on controller responses; browser tests target `data-testid` hooks
 - Browser tests live in `tests/Browser/` using Pest Browser plugin (Playwright)
 - Use factories for model creation; check for existing states before manual setup
 - `Process::fake()` patterns: specific patterns before wildcards
 - `Http::fake()` with URL patterns for external API tests
 - Webhook tests: use signature helpers (e.g. `signSlackPayload()`)
+
+## Frontend
+
+- Inertia 3 + React 19 + TypeScript on `@geocodio/console-ui` (Base UI + Tailwind v4)
+- Icons come from `lucide-react` only
+- Theme follows the OS; there is no toggle, stored preference, or `data-theme` stamp
+- Live updates use Inertia's `usePoll`; forms use `useForm`
+- Markdown is rendered server-side and shown through the `Prose` component
 
 ## Local development login
 

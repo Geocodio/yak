@@ -2,12 +2,23 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\PrReviewFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * Cast-backed attributes are declared here because Larastan resolves casts
+ * from the `$casts` property only -- it does not read the `casts()` method
+ * form this model uses, so without these it infers the raw column types.
+ *
+ * @property CarbonImmutable|null $submitted_at
+ * @property CarbonImmutable|null $dismissed_at
+ * @property CarbonImmutable|null $pr_closed_at
+ * @property CarbonImmutable|null $pr_merged_at
+ */
 class PrReview extends Model
 {
     /** @use HasFactory<PrReviewFactory> */

@@ -9,6 +9,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
+/**
+ * Cast-backed attributes are declared here because Larastan resolves casts
+ * from the `$casts` property only -- it does not read the `casts()` method
+ * form this model uses, so without these it infers the raw column types.
+ *
+ * @property Carbon|null $expires_at
+ * @property Carbon|null $disconnected_at
+ * @property array<int, string>|null $scopes
+ */
 class LinearOauthConnection extends Model
 {
     /** @use HasFactory<LinearOauthConnectionFactory> */

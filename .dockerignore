@@ -3,6 +3,10 @@ vendor
 .env
 .git
 .chief
+# A local dev checkout's discovery cache is built against dev dependencies
+# (e.g. laravel/boost). Copying it in would make artisan commands run during
+# the build (wayfinder:generate) fail against the --no-dev vendor install.
+bootstrap/cache/*.php
 storage/logs/*
 storage/framework/cache/*
 storage/framework/sessions/*

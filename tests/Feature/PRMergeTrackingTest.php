@@ -1,6 +1,5 @@
 <?php
 
-use App\Livewire\CostDashboard;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Testing\TestResponse;
@@ -209,33 +208,5 @@ test('closedWithoutMerge factory state sets pr_closed_at', function () {
         ->and($task->pr_url)->not->toBeNull();
 });
 
-/*
-|--------------------------------------------------------------------------
-| Dashboard — Merge Rate
-|--------------------------------------------------------------------------
-*/
-
-test('cost dashboard merge rate computed property returns data by repo', function () {
-    YakTask::factory()->merged()->create(['repo' => 'org/repo-a']);
-    YakTask::factory()->merged()->create(['repo' => 'org/repo-a']);
-    YakTask::factory()->closedWithoutMerge()->create(['repo' => 'org/repo-a']);
-    YakTask::factory()->merged()->create(['repo' => 'org/repo-b']);
-
-    $component = Livewire\Livewire::test(CostDashboard::class);
-
-    $instance = $component->instance();
-    $mergeRate = $instance->mergeRate;
-
-    expect($mergeRate)->toHaveCount(2);
-
-    $repoA = $mergeRate->firstWhere('repo', 'org/repo-a');
-    expect($repoA->total_prs)->toBe(3)
-        ->and($repoA->merged_count)->toBe(2)
-        ->and($repoA->closed_count)->toBe(1)
-        ->and($repoA->merge_rate)->toBe(67.0);
-
-    $repoB = $mergeRate->firstWhere('repo', 'org/repo-b');
-    expect($repoB->total_prs)->toBe(1)
-        ->and($repoB->merged_count)->toBe(1)
-        ->and($repoB->merge_rate)->toBe(100.0);
-});
+// Dashboard merge-rate computation moved to CostDashboardController; see
+// tests/Feature/CostDashboardControllerTest.php.
