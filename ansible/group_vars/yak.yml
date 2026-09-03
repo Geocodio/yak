@@ -34,3 +34,11 @@ incus_zfs_arc_max: "8589934592"  # 8GB ZFS ARC cache (tune based on total RAM)
 # templates whose stored `sandbox_base_version` is older.
 # 4: playwright 1.62.1 pinned + PLAYWRIGHT_BROWSERS_PATH, required by `yak-browser shoot`.
 yak_sandbox_base_version: 4
+
+# Hard ceiling for yak:drain before a container recreate: every in-flight
+# task (Running or Retrying) is force-failed once this many seconds have
+# elapsed, regardless of activity. Agent tasks routinely run 30-40
+# minutes, so this is deliberately generous — a deploy can block for up
+# to this long rather than destroy live work. --wait keeps its shorter
+# meaning: the minimum patience for a task that's gone silent.
+yak_drain_max_wait_seconds: 2700
