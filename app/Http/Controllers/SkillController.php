@@ -200,10 +200,13 @@ class SkillController extends Controller
         }
 
         $installed = $this->skills->listInstalled();
-        $installedKeys = $installed->map->key()->all();
+        $installedNames = $installed->map(fn (InstalledPlugin $p) => $p->name)->all();
 
+        // The same plugin is often published in more than one marketplace, so
+        // recommendations exclude and dedupe by name rather than by key.
         $available = $this->marketplaceReader->listAll()
-            ->reject(fn (MarketplacePlugin $p) => in_array($p->key(), $installedKeys, true))
+            ->reject(fn (MarketplacePlugin $p) => in_array($p->name, $installedNames, true))
+            ->unique(fn (MarketplacePlugin $p) => $p->name)
             ->values();
 
         /** @var array<int, string> $popularNames */
@@ -226,7 +229,7 @@ class SkillController extends Controller
 
         return $popular->map(fn (MarketplacePlugin $p) => $this->toRow($p) + ['recommendedReason' => 'popular'])
             ->concat($similar->map(fn (MarketplacePlugin $p) => $this->toRow($p) + ['recommendedReason' => 'similar']))
-            ->unique('key')
+            ->unique('name')
             ->take(6)
             ->values()
             ->all();

@@ -323,3 +323,30 @@ it('echoes the selected category back in filters', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('filters.category', 'testing'));
 });
+
+it('dedupes recommendations by name across marketplaces and skips installed names', function () {
+    foreach (['official', 'mirror'] as $marketplace) {
+        File::makeDirectory("{$this->tmp}/marketplaces/{$marketplace}/.claude-plugin", recursive: true);
+        File::put("{$this->tmp}/marketplaces/{$marketplace}/.claude-plugin/marketplace.json", json_encode([
+            'owner' => ['name' => 'acme'],
+            'plugins' => [
+                ['name' => 'code-review', 'description' => "Review from {$marketplace}", 'category' => 'development'],
+                ['name' => 'security-guidance', 'description' => "Security from {$marketplace}", 'category' => 'security'],
+            ],
+        ]));
+    }
+
+    File::put("{$this->tmp}/known_marketplaces.json", json_encode([
+        'official' => ['source' => ['repo' => 'github:acme/official'], 'installLocation' => "{$this->tmp}/marketplaces/official"],
+        'mirror' => ['source' => ['repo' => 'github:acme/mirror'], 'installLocation' => "{$this->tmp}/marketplaces/mirror"],
+    ]));
+    writeInstalledPluginsFixture($this->tmp, ['security-guidance@official']);
+
+    $this->get(route('skills'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('recommended', 1, fn (Assert $row) => $row
+                ->where('name', 'code-review')
+                ->where('marketplace', 'official')
+                ->etc()));
+});
