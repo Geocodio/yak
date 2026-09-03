@@ -1,6 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Badge, Button, Field, Select, StatusPill, Textarea, TextInput } from '@geocodio/console-ui';
-import { ExternalLink, RefreshCw, Sparkles } from 'lucide-react';
+import { Badge, Button, Field, Select, StatusPill, Textarea, TextInput, Tooltip } from '@geocodio/console-ui';
+import { BookOpen, ExternalLink, Info, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -19,6 +19,7 @@ import type {
     GitHubSearchRepo,
     ManifestData,
     RepositoryDetail,
+    RepositoryDocsLinks,
     RepositoryOptions,
     RepositoryStats,
     SandboxData,
@@ -34,7 +35,7 @@ type Props = PageProps<{
     stats: RepositoryStats | null;
     canDelete: boolean;
     deleteBlockedReason: string | null;
-    docsUrl: string;
+    docsLinks: RepositoryDocsLinks;
 }>;
 
 type FormData = {
@@ -59,16 +60,49 @@ type FormData = {
     manifest: ManifestData | null;
 };
 
-function Section({ id, title, description, children, aside }: { id: string; title: string; description?: string; children: ReactNode; aside?: ReactNode }) {
+function Section({
+    id,
+    title,
+    description,
+    children,
+    aside,
+    docsHref,
+}: {
+    id: string;
+    title: string;
+    description?: string;
+    children: ReactNode;
+    aside?: ReactNode;
+    docsHref?: string;
+}) {
     return (
         <section id={id} className="grid grid-cols-[220px_1fr] gap-8 border-b border-hair py-8 first:pt-2 last:border-0">
             <div>
                 <h2 className="text-[13px] font-semibold">{title}</h2>
                 {description && <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>}
+                {docsHref && (
+                    <a
+                        href={docsHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-[12px] text-accent-text hover:underline"
+                    >
+                        <BookOpen size={12} /> Docs
+                    </a>
+                )}
                 {aside}
             </div>
             <div className="flex flex-col gap-6">{children}</div>
         </section>
+    );
+}
+
+/** Small hover hint for compact fields that have no room for a full description. */
+function InfoTip({ label }: { label: string }) {
+    return (
+        <Tooltip label={label}>
+            <Info size={12} className="shrink-0 text-faint hover:text-muted" aria-label={label} />
+        </Tooltip>
     );
 }
 
@@ -154,7 +188,7 @@ function ManifestSection({
     );
 }
 
-export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsUrl }: Props) {
+export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks }: Props) {
     const isEditing = repository !== null;
     const showManifest = isEditing && repository.deploymentsEnabled && manifest !== null;
 
@@ -245,15 +279,27 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             </a>
                         )}
                         {isEditing && repository && (
-                            <Button
-                                icon={<RefreshCw size={13} />}
-                                pending={action.isPending('rerun-setup')}
-                                pendingLabel="Dispatching…"
-                                onClick={() => action.run('rerun-setup', 'post', repos.rerunSetup.url(repository.slug))}
-                                title="Tears down the sandbox's dev environment and rebuilds it from scratch -- README, CLAUDE.md, dependencies, migrations, and a fresh sandbox snapshot."
-                            >
-                                Re-run setup
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Tooltip label="Tears down the sandbox's dev environment and rebuilds it from scratch -- README, CLAUDE.md, dependencies, migrations, and a fresh sandbox snapshot.">
+                                    <Button
+                                        icon={<RefreshCw size={13} />}
+                                        pending={action.isPending('rerun-setup')}
+                                        pendingLabel="Dispatching…"
+                                        onClick={() => action.run('rerun-setup', 'post', repos.rerunSetup.url(repository.slug))}
+                                    >
+                                        Re-run setup
+                                    </Button>
+                                </Tooltip>
+                                <a
+                                    href={docsLinks.rerunSetup}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-faint hover:text-muted"
+                                    aria-label="Re-run setup docs"
+                                >
+                                    <BookOpen size={13} />
+                                </a>
+                            </div>
                         )}
                     </>
                 }
@@ -297,14 +343,19 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             </>
                         )}{' '}
                         See the{' '}
-                        <a href={docsUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                        <a href={docsLinks.guide} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
                             repositories guide
                         </a>{' '}
                         for details.
                     </p>
 
                     {!isEditing && (
-                        <Section id="github" title="GitHub repository" description="Pick the repository Yak should clone. It dispatches a setup task after saving.">
+                        <Section
+                            id="github"
+                            title="GitHub repository"
+                            description="Pick the repository Yak should clone. It dispatches a setup task after saving."
+                            docsHref={docsLinks.adding}
+                        >
                             <GitHubRepoPicker
                                 selected={form.data.selected_github_repo ? { fullName: form.data.selected_github_repo, defaultBranch: form.data.default_branch } : null}
                                 sentryProjects={options.sentryProjects}
@@ -315,7 +366,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         </Section>
                     )}
 
-                    <Section id="basics" title="Basics" description="How Yak identifies this repository and where it clones from.">
+                    <Section id="basics" title="Basics" description="How Yak identifies this repository and where it clones from." docsHref={docsLinks.adding}>
                         <div className="grid grid-cols-2 gap-4">
                             {isEditing && repository && (
                                 <Field label="Slug" description="Auto-generated. Cannot be changed.">
@@ -331,7 +382,10 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </Field>
                             )}
                             <Field label="Display name" error={form.errors.name}>
-                                <TextInput value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
+                                <div className="flex items-center gap-2">
+                                    <TextInput className="flex-1" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
+                                    <InfoTip label="Shown in the dashboard and in task lists. Defaults to the GitHub repo name." />
+                                </div>
                             </Field>
                             <Field label="Git URL" description="HTTPS clone URL. Authenticated via the GitHub App." error={form.errors.git_url}>
                                 <TextInput
@@ -342,11 +396,22 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 />
                             </Field>
                             <Field label="Default branch" error={form.errors.default_branch}>
-                                <TextInput
-                                    className="font-mono text-[12px]"
-                                    value={form.data.default_branch}
-                                    onChange={(e) => form.setData('default_branch', e.target.value)}
-                                />
+                                <div className="flex items-center gap-2">
+                                    <TextInput
+                                        className="flex-1 font-mono text-[12px]"
+                                        value={form.data.default_branch}
+                                        onChange={(e) => form.setData('default_branch', e.target.value)}
+                                    />
+                                    <InfoTip label="Branch Yak bases task branches on and opens pull requests against." />
+                                </div>
+                                <a
+                                    href={docsLinks.refresh}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-accent-text hover:underline"
+                                >
+                                    <BookOpen size={11} /> How refresh works
+                                </a>
                             </Field>
                         </div>
                         <Field
@@ -356,6 +421,11 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         >
                             <Textarea rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
                         </Field>
+                        <p className="-mt-4 text-[12px] text-muted">
+                            <a href={docsLinks.routing} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent-text hover:underline">
+                                <BookOpen size={11} /> See how routing works
+                            </a>
+                        </p>
                         {isEditing && (
                             <Field
                                 label="Agent instructions"
@@ -373,6 +443,18 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             </Field>
                         )}
                         {isEditing && (
+                            <p className="-mt-4 text-[12px] text-muted">
+                                <a
+                                    href={docsLinks.claudeMd}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-accent-text hover:underline"
+                                >
+                                    <BookOpen size={11} /> See CLAUDE.md guidance
+                                </a>
+                            </p>
+                        )}
+                        {isEditing && (
                             <div className="grid grid-cols-3 gap-4">
                                 <Field label="Public site URL" description="Shown in the video's browser bar instead of the sandbox address." error={form.errors.public_site_url}>
                                     <TextInput
@@ -382,15 +464,27 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                     />
                                 </Field>
                                 <Field label="CI system" error={form.errors.ci_system}>
-                                    <Select options={options.ciSystems} value={form.data.ci_system} onChange={(v) => form.setData('ci_system', v ?? 'none')} />
+                                    <div className="flex items-center gap-2">
+                                        <Select
+                                            className="flex-1"
+                                            options={options.ciSystems}
+                                            value={form.data.ci_system}
+                                            onChange={(v) => form.setData('ci_system', v ?? 'none')}
+                                        />
+                                        <InfoTip label="Where Yak reads CI results from after it pushes a branch. Detected from the repo when you add it." />
+                                    </div>
                                 </Field>
                                 {options.sentryProjects.length > 0 ? (
                                     <Field label="Sentry project">
-                                        <Select
-                                            options={[{ value: '', label: 'None' }, ...options.sentryProjects]}
-                                            value={form.data.sentry_project}
-                                            onChange={(v) => form.setData('sentry_project', v ?? '')}
-                                        />
+                                        <div className="flex items-center gap-2">
+                                            <Select
+                                                className="flex-1"
+                                                options={[{ value: '', label: 'None' }, ...options.sentryProjects]}
+                                                value={form.data.sentry_project}
+                                                onChange={(v) => form.setData('sentry_project', v ?? '')}
+                                            />
+                                            <InfoTip label="Maps incoming Sentry alerts for this project to this repository." />
+                                        </div>
                                     </Field>
                                 ) : (
                                     <Field label="Sentry project slug" description="Maps incoming Sentry webhooks to this repository.">
@@ -405,7 +499,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         )}
                     </Section>
 
-                    <Section id="automation" title="Automation" description="What Yak does on its own for this repository.">
+                    <Section id="automation" title="Automation" description="What Yak does on its own for this repository." docsHref={docsLinks.prReview}>
                         {isEditing && (
                             <ToggleRow
                                 label="Active"
@@ -419,12 +513,14 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             description="Tasks that name no repository land here. Only one repository can be the default."
                             checked={form.data.is_default}
                             onChange={(v) => form.setData('is_default', v)}
+                            docsHref={docsLinks.routing}
                         />
                         <ToggleRow
                             label="PR review"
                             description="Have Yak review every open, non-draft pull request on this repo."
                             checked={form.data.pr_review_enabled}
                             onChange={(v) => form.setData('pr_review_enabled', v)}
+                            docsHref={docsLinks.prReview}
                         />
                         {form.data.pr_review_enabled && !(repository?.prReviewEnabled ?? false) && (
                             <ToggleRow
@@ -486,7 +582,12 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                     </div>
 
                     {isEditing && sandbox && (
-                        <Section id="sandbox" title="Sandbox template" description="The snapshot every task for this repository starts from.">
+                        <Section
+                            id="sandbox"
+                            title="Sandbox template"
+                            description="The snapshot every task for this repository starts from."
+                            docsHref={docsLinks.setup}
+                        >
                             <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-[12px]">
                                 <dt className="text-faint">Snapshot</dt>
                                 <dd className="font-mono">{sandbox.snapshot ?? '—'}</dd>
@@ -510,6 +611,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             id="setup-history"
                             title="Setup history"
                             description="Setup tasks prepare the dev environment and verify it works."
+                            docsHref={docsLinks.setup}
                         >
                             <SetupHistory rows={setupHistory} viewAllHref={setupHistory.length > 0 ? tasks.url({ query: { tab: 'setup', repo: repository.slug } }) : null} />
                         </Section>

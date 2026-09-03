@@ -6,6 +6,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Support\Docs;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
@@ -618,12 +619,34 @@ test('setup history is limited to the 10 most recent setup tasks', function () {
             ->where('setupHistory.9.id', 'setup-limit-2'));
 });
 
-test('edit exposes a docs link for the repositories guide', function () {
+test('edit exposes docs links for the repositories guide', function () {
     $repo = Repository::factory()->create();
 
     $this->get(route('repos.edit', $repo))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('docsUrl', fn (string $url) => str_contains($url, 'repositories')));
+            ->has('docsLinks', fn (Assert $links) => $links
+                ->where('guide', Docs::url('repositories'))
+                ->where('adding', Docs::url('repositories.adding'))
+                ->where('setup', Docs::url('repositories.setup'))
+                ->where('claudeMd', Docs::url('repositories.claude-md'))
+                ->where('routing', Docs::url('repositories.routing'))
+                ->where('prReview', Docs::url('repositories.pr-review'))
+                ->where('refresh', Docs::url('repositories.refresh'))
+                ->where('rerunSetup', Docs::url('repositories.rerun-setup'))));
+});
+
+test('create exposes docs links for the repositories guide', function () {
+    $this->get(route('repos.create'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('docsLinks', fn (Assert $links) => $links
+                ->where('guide', Docs::url('repositories'))
+                ->where('adding', Docs::url('repositories.adding'))
+                ->where('setup', Docs::url('repositories.setup'))
+                ->where('claudeMd', Docs::url('repositories.claude-md'))
+                ->where('routing', Docs::url('repositories.routing'))
+                ->where('prReview', Docs::url('repositories.pr-review'))
+                ->where('refresh', Docs::url('repositories.refresh'))
+                ->where('rerunSetup', Docs::url('repositories.rerun-setup'))));
 });
 
 test('saving the repository form persists manifest fields in the same request', function () {

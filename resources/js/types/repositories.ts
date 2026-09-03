@@ -67,6 +67,17 @@ export type RepositoryStats = {
     reviews30d: number;
 };
 
+export type RepositoryDocsLinks = {
+    guide: string;
+    adding: string;
+    setup: string;
+    claudeMd: string;
+    routing: string;
+    prReview: string;
+    refresh: string;
+    rerunSetup: string;
+};
+
 export type GitHubSearchRepo = {
     id: number | null;
     fullName: string;

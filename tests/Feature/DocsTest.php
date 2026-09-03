@@ -19,6 +19,10 @@ it('falls back to the base URL for unknown anchors', function () {
     expect(Docs::url('does.not.exist'))->toBe('https://geocodio.github.io/yak/');
 });
 
+it('resolves the repositories PR review anchor', function () {
+    expect(Docs::url('repositories.pr-review'))->toEndWith('repositories/#pr-review-toggle');
+});
+
 it('respects the YAK_DOCS_URL env override', function () {
     config()->set('docs.base_url', 'https://custom.example.com/docs/');
 
