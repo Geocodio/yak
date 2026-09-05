@@ -26,3 +26,18 @@
 #app {
     isolation: isolate;
 }
+
+/*
+ * Base UI moves focus to an overlay's own panel when it opens, so the panel
+ * matches `:focus-visible` and console-ui's global ring draws a 2px accent
+ * outline around the whole surface. A panel is a container, not a control:
+ * the ring belongs on the focusable elements inside it, which keep their own.
+ * The utilities layer is required -- the global ring sits in Tailwind's base
+ * layer, which any utility beats regardless of source order.
+ */
+@layer utilities {
+    [role='dialog']:focus-visible,
+    .ui-palette:focus-visible {
+        outline: none;
+    }
+}
