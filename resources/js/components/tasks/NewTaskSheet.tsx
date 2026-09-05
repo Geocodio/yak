@@ -34,7 +34,7 @@ export function NewTaskSheet({
     };
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange} title="New task" width="w-[440px]">
+        <Sheet open={open} onOpenChange={onOpenChange} title="New task" width="w-[min(440px,100vw)]">
             <div className="flex flex-col gap-4 pt-2" data-testid="new-task-sheet" onKeyDown={onKeyDown}>
                 <Field label="Repository" error={form.errors.repo}>
                     <Select
@@ -54,7 +54,7 @@ export function NewTaskSheet({
                                 data-testid={`mode-${mode}`}
                                 onClick={() => form.setData('mode', mode)}
                                 className={cn(
-                                    'rounded-card border border-hair bg-panel p-3 text-left hover:border-hair-strong',
+                                    'min-w-0 rounded-card border border-hair bg-panel p-3 text-left hover:border-hair-strong',
                                     form.data.mode === mode && 'border-accent bg-accent-soft',
                                 )}
                             >

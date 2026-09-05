@@ -66,8 +66,8 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
             />
 
             <div className="min-h-0 flex-1 overflow-auto">
-                <div className="mx-auto max-w-[1200px] px-8 py-6">
-                    <div className="mb-6 flex items-start justify-between gap-6">
+                <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-8">
+                    <div className="mb-6 flex flex-wrap items-start justify-between gap-6">
                         <div>
                             <div className="flex items-center gap-2.5">
                                 <h1 className="font-mono text-[18px] font-semibold tracking-tight">{deployment.hostname}</h1>
@@ -77,7 +77,7 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
                                 {deployment.repoSlug} / <span className="font-mono">{deployment.branch}</span>
                             </p>
                         </div>
-                        <dl className="grid shrink-0 grid-cols-[auto_auto] gap-x-6 gap-y-1 text-[12px]">
+                        <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-1 text-[12px]">
                             <dt className="text-faint">Current commit</dt>
                             <dd className="font-mono">{deployment.commit ?? '—'}</dd>
                             <dt className="text-faint">Template version</dt>
@@ -99,7 +99,7 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
                         </div>
                     )}
 
-                    <div className="grid grid-cols-[1fr_360px] gap-6">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
                         <ActivityLog logs={logs} />
 
                         <div className="flex flex-col gap-4">

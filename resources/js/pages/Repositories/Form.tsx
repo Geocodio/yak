@@ -76,7 +76,7 @@ function Section({
     docsHref?: string;
 }) {
     return (
-        <section id={id} className="grid grid-cols-[220px_1fr] gap-8 border-b border-hair py-8 first:pt-2 last:border-0">
+        <section id={id} className="grid grid-cols-1 gap-4 border-b border-hair py-8 first:pt-2 last:border-0 lg:grid-cols-[220px_1fr] lg:gap-8">
             <div>
                 <h2 className="text-[13px] font-semibold">{title}</h2>
                 {description && <p className="mt-1 text-[12px] leading-relaxed text-muted">{description}</p>}
@@ -132,7 +132,7 @@ function ManifestSection({
 
     return (
         <Section id="branch-deployments" title="Branch deployments" description="How the preview for this repository is built and served.">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Port" description="Container port serving HTTP inside the preview." error={errors['manifest.port']}>
                     <TextInput type="number" value={manifest.port} onChange={(e) => setField('port', Number(e.target.value))} />
                 </Field>
@@ -306,9 +306,9 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
             />
 
             <div className="min-h-0 flex-1 overflow-auto">
-                <div className="mx-auto max-w-[920px] px-8 py-6">
+                <div className="mx-auto max-w-[920px] px-4 py-6 sm:px-8">
                     {isEditing && repository && (
-                        <div className="mb-2 flex items-center gap-3">
+                        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-2">
                             <h1 className="text-[20px] font-semibold tracking-tight">{repository.slug}</h1>
                             <StatusPill tone={repository.isActive ? 'ok' : 'idle'} label={repository.isActive ? 'Active' : 'Inactive'} />
                             {sandbox && sandbox.baseVersion !== null && sandbox.baseVersion !== sandbox.latestBaseVersion && (
@@ -317,7 +317,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </Badge>
                             )}
                             {stats && (
-                                <span className="ml-auto flex items-center gap-4 text-[12px] text-faint">
+                                <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-faint">
                                     <span>
                                         <span className="tnum text-muted">{stats.tasks}</span> tasks
                                     </span>
@@ -367,7 +367,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                     )}
 
                     <Section id="basics" title="Basics" description="How Yak identifies this repository and where it clones from." docsHref={docsLinks.adding}>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             {isEditing && repository && (
                                 <Field label="Slug" description="Auto-generated. Cannot be changed.">
                                     <TextInput value={repository.slug} disabled readOnly />
@@ -455,7 +455,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             </p>
                         )}
                         {isEditing && (
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                                 <Field label="Public site URL" description="Shown in the video's browser bar instead of the sandbox address." error={form.errors.public_site_url}>
                                     <TextInput
                                         placeholder="https://www.example.com"
@@ -588,7 +588,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             description="The snapshot every task for this repository starts from."
                             docsHref={docsLinks.setup}
                         >
-                            <dl className="grid grid-cols-[140px_1fr] gap-y-2 text-[12px]">
+                            <dl className="grid grid-cols-1 gap-y-2 text-[12px] sm:grid-cols-[140px_1fr]">
                                 <dt className="text-faint">Snapshot</dt>
                                 <dd className="font-mono">{sandbox.snapshot ?? '—'}</dd>
                                 <dt className="text-faint">yak-base version</dt>

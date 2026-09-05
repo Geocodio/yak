@@ -21,7 +21,7 @@ export default function Index({ channels }: Props) {
                     channel stays inactive until its credentials are set.
                 </p>
 
-                <div className="overflow-hidden rounded-card border border-hair bg-panel shadow-card">
+                <div className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
                     <Table className="w-full table-auto">
                         <Thead>
                             <Tr>

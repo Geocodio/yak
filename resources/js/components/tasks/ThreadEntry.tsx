@@ -27,7 +27,7 @@ function MediaGrid({ media, onOpen }: { media: MediaItem[]; onOpen: (media: Medi
         return null;
     }
     return (
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {media.map((item, index) => (
                 <button
                     key={item.id}

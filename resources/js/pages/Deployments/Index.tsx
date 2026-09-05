@@ -98,14 +98,14 @@ export default function Index({ deployments, filters }: Props) {
                         </Tbody>
                     </Table>
                 ) : (
-                    <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
+                    <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-[13px] text-muted sm:px-5">
                         <p>No deployments found.</p>
                     </div>
                 )}
             </div>
 
             {deployments.last_page > 1 && (
-                <div className="flex items-center justify-between border-t border-hair px-5 py-2" data-testid="deployment-pagination">
+                <div className="flex items-center justify-between border-t border-hair px-4 py-2 sm:px-5" data-testid="deployment-pagination">
                     <button
                         type="button"
                         disabled={deployments.current_page <= 1}

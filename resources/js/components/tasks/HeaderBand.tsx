@@ -69,7 +69,7 @@ export function HeaderBand({
 
     return (
         <>
-            <header className="flex h-12 shrink-0 items-center gap-3 border-b border-hair bg-app px-5">
+            <header className="flex h-12 shrink-0 items-center gap-3 border-b border-hair bg-app px-4 sm:px-5">
                 <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
                     <a href={tasksIndex.url()} className="text-muted hover:text-body">
                         Tasks
@@ -78,7 +78,7 @@ export function HeaderBand({
                     <span className="truncate font-medium text-body">{task.externalId ?? `#${task.id}`}</span>
                 </div>
 
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
                     <Button
                         variant="tertiary"
                         icon={<MenuIcon size={13} />}
@@ -86,7 +86,7 @@ export function HeaderBand({
                         data-testid="details-drawer-trigger"
                         onClick={onOpenDetailsDrawer}
                     >
-                        Details
+                        <span className="max-sm:sr-only">Details</span>
                     </Button>
 
                     {showRerunReview && (
@@ -112,7 +112,7 @@ export function HeaderBand({
                             onClick={() => window.open(deployment.url, '_blank', 'noopener,noreferrer')}
                             data-testid="preview-button"
                         >
-                            Preview
+                            <span className="max-sm:sr-only">Preview</span>
                         </Button>
                     )}
 
@@ -156,7 +156,7 @@ export function HeaderBand({
                 </div>
             </header>
 
-            <div className="mx-auto w-full max-w-[820px] px-8 pt-6">
+            <div className="mx-auto w-full max-w-[820px] px-4 pt-6 sm:px-8">
                 <div className="flex items-center gap-2">
                     <StatusPill tone={STATUS[task.status].tone} label={task.statusLabel} pulse={STATUS[task.status].live} />
                     <span className="tnum text-[12px] text-faint">#{task.id}</span>

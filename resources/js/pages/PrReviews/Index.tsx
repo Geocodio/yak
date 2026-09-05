@@ -109,7 +109,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
         <>
             <Head title="PR Reviews" />
             <PageHeader crumbs={['PR Reviews']}>
-                <div className="ml-4 flex items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="pr-review-tabs">
+                <div className="ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="pr-review-tabs">
                     {(
                         [
                             { key: 'all', label: 'All comments' },
@@ -134,14 +134,14 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                 </div>
             </PageHeader>
 
-            <div className="grid grid-cols-2 gap-3 px-5 py-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 px-4 sm:px-5 py-3 md:grid-cols-4">
                 <StatTile label="Reviews" value={String(stats.reviews)} sub="total" />
                 <StatTile label="Suggestions" value={String(stats.suggestions)} sub="total" />
                 <StatTile label="👍 rate" value={`${stats.thumbsUpRate}%`} sub="of reacted comments" />
                 <StatTile label="Most 👎 category" value={stats.mostDownvotedCategory ?? '—'} sub="by downvotes" />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-b border-hair px-5 py-2" data-testid="pr-review-filters">
+            <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 sm:px-5 py-2" data-testid="pr-review-filters">
                 <FilterMenu
                     label="Severity"
                     value={filters.severity}
@@ -278,7 +278,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
             </div>
 
             {filters.tab === 'all' && comments.last_page > 1 && (
-                <div className="flex items-center justify-between border-t border-hair px-5 py-2" data-testid="pr-review-pagination">
+                <div className="flex items-center justify-between border-t border-hair px-4 sm:px-5 py-2" data-testid="pr-review-pagination">
                     <Button variant="tertiary" disabled={comments.current_page <= 1} onClick={() => navigate({ page: comments.current_page - 1 })}>
                         Previous
                     </Button>

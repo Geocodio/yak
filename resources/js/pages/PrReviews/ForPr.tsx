@@ -33,7 +33,7 @@ export default function ForPr({ pr, reviews }: Props) {
                 }
             />
 
-            <div className="flex items-center gap-3 border-b border-hair px-5 py-3">
+            <div className="flex items-center gap-3 border-b border-hair px-4 sm:px-5 py-3">
                 <h1 className="truncate text-[15px] font-medium text-body">{pr.title}</h1>
                 <a href={pr.url} target="_blank" rel="noopener" className="flex shrink-0 items-center gap-1 text-[12px] text-accent-text hover:underline">
                     View on GitHub
@@ -41,7 +41,7 @@ export default function ForPr({ pr, reviews }: Props) {
                 </a>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-auto px-4 sm:px-5 py-4">
                 {reviews.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
                         <p>No reviews yet for this PR.</p>

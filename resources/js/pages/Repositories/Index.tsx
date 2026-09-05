@@ -108,7 +108,7 @@ export default function Index({ repositories }: Props) {
                         </Tbody>
                     </Table>
                 ) : (
-                    <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
+                    <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-[13px] text-muted sm:px-5">
                         <p>No repositories yet. Add one so Yak can clone and work on it.</p>
                     </div>
                 )}

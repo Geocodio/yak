@@ -178,7 +178,7 @@ export function LivePreview({
             </div>
 
             {/* One still per block kind, painted from the same theme as the player. Clicking one seeks the player to that card. */}
-            <div ref={stripRef} data-testid="video-theme-card-strip" className="grid grid-cols-4 gap-2.5">
+            <div ref={stripRef} data-testid="video-theme-card-strip" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                 {BLOCK_KINDS.map(({ kind, label }) => (
                     <button
                         key={kind}

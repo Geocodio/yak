@@ -9,7 +9,7 @@ import type { McpLoginSessionData, McpServerRow } from '@/types/settings';
 
 const ACTIVE_STATUSES: McpLoginSessionData['status'][] = ['starting', 'awaiting_redirect', 'finishing'];
 
-const GRID_COLS = 'grid-cols-[1.2fr_2fr_150px_170px_160px]';
+const GRID_COLS = 'grid-cols-1 md:grid-cols-[1.2fr_2fr_150px_170px_160px]';
 
 export function McpServerTable({
     servers,
@@ -44,8 +44,8 @@ export function McpServerTable({
     };
 
     return (
-        <div className="overflow-hidden rounded-card border border-hair bg-panel shadow-card">
-            <div className={cn('grid gap-2 border-b border-hair bg-panel-2 px-4 py-2 text-[11.5px] font-medium text-faint', GRID_COLS)}>
+        <div className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
+            <div className={cn('hidden gap-2 border-b border-hair bg-panel-2 px-4 py-2 text-[11.5px] font-medium text-faint md:grid', GRID_COLS)}>
                 <span>Server</span>
                 <span>Command or URL</span>
                 <span>Source</span>
@@ -74,7 +74,7 @@ export function McpServerTable({
                             <div>
                                 <StatusBadge server={server} />
                             </div>
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
                                 {server.canConnect && !sessionActive && (
                                     <Button
                                         variant="primary"

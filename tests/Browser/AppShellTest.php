@@ -39,3 +39,32 @@ test('the app shell renders the sidebar nav and the command palette opens', func
 
     $page->assertNoJavaScriptErrors();
 });
+
+test('the sidebar shows the Yak brand lockup', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/tasks');
+
+    $page->assertVisible('[data-testid="app-brand"]')
+        ->assertMissing('[data-testid="mobile-nav-trigger"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('on a phone the sidebar folds into a top bar and a navigation drawer', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/tasks')->on()->mobile();
+
+    // The desktop sidebar stays in the DOM but is hidden below `lg`; the top
+    // bar carries the brand and the menu button instead.
+    $page->assertMissing('[data-testid="sidebar"]')
+        ->assertVisible('[data-testid="mobile-top-bar"]')
+        ->assertMissing('[data-testid="mobile-nav"]')
+        ->click('[data-testid="mobile-nav-trigger"]')
+        ->assertVisible('[data-testid="mobile-nav"]')
+        ->assertVisible('[data-testid="mobile-nav"] a[href="/repos"]')
+        ->click('[data-testid="mobile-nav"] a[href="/repos"]')
+        ->assertPathIs('/repos')
+        ->assertMissing('[data-testid="mobile-nav"]')
+        ->assertNoJavaScriptErrors();
+});

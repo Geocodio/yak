@@ -156,7 +156,7 @@ export function TranscriptOverlay({
                 <div className="flex h-11 shrink-0 items-center gap-3 border-b border-hair px-4">
                     <span className="text-[13px] font-semibold">Transcript</span>
                     <span className="truncate text-[12px] text-muted">{headline}</span>
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="ml-auto flex min-w-0 items-center gap-2 overflow-x-auto">
                         {runs.length > 1 &&
                             runs.map((run) => (
                                 <Badge key={run.id} tone={run.id === currentRunId ? 'accent' : 'neutral'}>
@@ -191,9 +191,9 @@ export function TranscriptOverlay({
                         </button>
                     </div>
                 </div>
-                <div className="grid min-h-0 flex-1 grid-cols-[340px_1fr]">
-                    <div className="flex min-h-0 flex-col border-r border-hair bg-sidebar">
-                        <div className="flex items-center gap-2 border-b border-hair p-2">
+                <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[340px_1fr]">
+                    <div className="flex min-h-0 flex-col overflow-y-auto border-b border-hair bg-sidebar max-md:max-h-[40dvh] md:border-r md:border-b-0">
+                        <div className="flex flex-wrap items-center gap-2 gap-y-2 border-b border-hair p-2">
                             <div className="flex gap-0.5 rounded-control bg-panel-2 p-0.5">
                                 {(['All', 'Actions', 'Milestones'] as const).map((f) => (
                                     <button
@@ -269,7 +269,7 @@ export function TranscriptOverlay({
                                 <Kbd keys={['←', '→']} /> or <Kbd keys={['j', 'k']} /> · <Kbd keys={['/']} /> to search
                             </span>
                         </div>
-                        <div className="min-h-0 flex-1 overflow-auto p-5">
+                        <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-5">
                             {current ? (
                                 <>
                                     <h3 className={cn('text-[14px] font-semibold', current.error && 'text-fail')}>{current.text}</h3>
@@ -292,7 +292,7 @@ export function TranscriptOverlay({
                                     </div>
                                     {current.kind === 'prompt' && current.prompt ? (
                                         <>
-                                            <dl className="mt-4 grid grid-cols-4 gap-3 text-[11px]">
+                                            <dl className="mt-4 grid grid-cols-2 gap-3 text-[11px] md:grid-cols-4">
                                                 {Object.entries(current.prompt.meta).map(([k, v]) => (
                                                     <div key={k} className="rounded-card border border-hair bg-panel px-3 py-2">
                                                         <dt className="font-mono text-faint">{k}</dt>

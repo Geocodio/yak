@@ -97,7 +97,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                     </>
                 }
             >
-                <div className="ml-4 flex items-center gap-0.5 rounded-control bg-panel-2 p-0.5">
+                <div className="ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5">
                     {PERIODS.map((period) => (
                         <button
                             key={period.key}
@@ -115,7 +115,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
             </PageHeader>
 
             <div className="min-h-0 flex-1 overflow-auto">
-                <div className="mx-auto max-w-[1200px] px-8 py-6">
+                <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-8">
                     <p className="mb-4 max-w-prose text-[12.5px] leading-relaxed text-muted" data-testid="cost-basis-note">
                         <span className="font-medium text-body">Claude Code figures are estimates, not a bill.</span> They are the
                         list price of the tokens each task used, as reported by the agent. If Yak runs on a Claude subscription, that
@@ -124,7 +124,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                         below is different: it is real usage against your API key and does appear on your Anthropic invoice.
                     </p>
 
-                    <div className="grid grid-cols-7 gap-3">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
                         <StatTile
                             label="Claude Code (est. list price)"
                             value={`$${summary.claudeCode.amount.toFixed(2)}`}
@@ -144,7 +144,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                         <StatTile label="Clarification rate" value={`${summary.clarificationRate}%`} sub="of tasks" />
                     </div>
 
-                    <div className="mt-3 grid grid-cols-3 gap-3">
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <StatTile
                             label="Videos rendered"
                             value={String(videoSummary.rendered)}
@@ -166,9 +166,9 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                     </div>
 
                     <section className="mt-6 rounded-card border border-hair bg-panel p-4 shadow-card">
-                        <div className="mb-3 flex items-center justify-between">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-y-2">
                             <h2 className="text-[13px] font-semibold">Spend · {filters.period} view</h2>
-                            <div className="flex items-center gap-4 text-[11px] text-muted">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-muted">
                                 <span className="flex items-center gap-1.5">
                                     <span className="h-2 w-2 rounded-[2px] border border-accent bg-accent-soft" />
                                     Claude Code (est. list price)
@@ -182,8 +182,8 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                         <SpendChart buckets={chart.buckets} max={chart.max} />
                     </section>
 
-                    <div className={cn('mt-6 grid gap-6', mergeRate.length > 0 ? 'grid-cols-[3fr_2fr]' : 'grid-cols-1')}>
-                        <section className="overflow-hidden rounded-card border border-hair bg-panel shadow-card">
+                    <div className={cn('mt-6 grid gap-6', mergeRate.length > 0 ? 'grid-cols-1 lg:grid-cols-[3fr_2fr]' : 'grid-cols-1')}>
+                        <section className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
                             <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                                 <h2 className="text-[13px] font-semibold">Claude Code · {filters.period} breakdown</h2>
                                 <span className="text-[11px] text-faint">est. list price, not billed</span>
@@ -223,7 +223,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                         </section>
 
                         {mergeRate.length > 0 && (
-                            <section className="overflow-hidden rounded-card border border-hair bg-panel shadow-card">
+                            <section className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
                                 <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                                     <h2 className="text-[13px] font-semibold">PR merge rate</h2>
                                 </div>
@@ -262,7 +262,7 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                         )}
                     </div>
 
-                    <section className="mt-6 overflow-hidden rounded-card border border-hair bg-panel shadow-card" data-testid="api-spend-breakdown">
+                    <section className="mt-6 overflow-x-auto rounded-card border border-hair bg-panel shadow-card" data-testid="api-spend-breakdown">
                         <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                             <h2 className="text-[13px] font-semibold">API Spend -- {PERIOD_TITLE[filters.period]} Breakdown</h2>
                             <span className="text-[11px] text-faint">actual Anthropic billing</span>

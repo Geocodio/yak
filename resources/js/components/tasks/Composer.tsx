@@ -33,7 +33,7 @@ export function Composer({ taskId, composer, fillValue }: { taskId: number; comp
     };
 
     return (
-        <div className="shrink-0 border-t border-hair bg-app px-8 py-4">
+        <div className="shrink-0 border-t border-hair bg-app px-4 py-4 sm:px-8">
             <div className="mx-auto max-w-[820px]">
                 <div className="rounded-card border border-hair bg-panel shadow-card focus-within:border-accent">
                     <Textarea

@@ -13,8 +13,8 @@ export function PageHeader({
     children?: ReactNode;
 }) {
     return (
-        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-hair bg-app px-5">
-            <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
+        <header className="flex h-12 shrink-0 items-center gap-3 border-b border-hair bg-app px-4 sm:px-5">
+            <div className="flex min-w-0 shrink-0 items-center gap-1.5 text-[13px]">
                 {crumbs?.map((c, i) => (
                     <span key={i} className="flex items-center gap-1.5">
                         {i > 0 && <ChevronRight size={12} className="text-faint" />}
@@ -28,8 +28,9 @@ export function PageHeader({
                     </>
                 )}
             </div>
-            {children}
-            <div className="ml-auto flex items-center gap-2">{actions}</div>
+            {/* Tab strips and toolbars scroll sideways on a phone rather than pushing the actions off-screen. */}
+            <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none]">{children}</div>
+            <div className="flex shrink-0 items-center gap-2">{actions}</div>
         </header>
     );
 }

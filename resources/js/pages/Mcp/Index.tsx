@@ -98,7 +98,7 @@ export default function Index({ servers, loginSessions, checkedAgo, sshHost, doc
 
             <div className="min-h-0 flex-1 overflow-auto p-5">
                 <div className="flex flex-col gap-4">
-                    <div className="flex items-start justify-between gap-6">
+                    <div className="flex flex-wrap items-start justify-between gap-6 gap-y-2">
                         <p className="max-w-prose text-[13px] leading-relaxed text-muted">
                             Tool servers the agent can reach inside every sandbox. Servers from Yak&apos;s generated config use tokens set at
                             deploy time; servers added here may need a one-time login. See the{' '}

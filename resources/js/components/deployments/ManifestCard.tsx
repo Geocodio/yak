@@ -29,7 +29,7 @@ export function ManifestCard({ repoSlug, manifest }: { repoSlug: string; manifes
                 <h2 className="text-[12px] font-semibold uppercase tracking-wide text-faint">Preview manifest</h2>
             </div>
             <div className="flex flex-col gap-3 p-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <Field label="Port" error={form.errors.port}>
                         <TextInput type="number" value={form.data.port} onChange={(e) => form.setData('port', Number(e.target.value))} />
                     </Field>
