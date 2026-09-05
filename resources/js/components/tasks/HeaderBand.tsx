@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Button, ConfirmDialog, Menu, StatusPill, cn, toast } from '@geocodio/console-ui';
-import { ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, Menu as MenuIcon, Wrench } from 'lucide-react';
+import { ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MoreHorizontal, PanelBottom, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { cancel, rerunReview, reroute, retry, show } from '@/routes/tasks';
 import { tasks as tasksIndex } from '@/routes';
@@ -81,7 +81,7 @@ export function HeaderBand({
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                     <Button
                         variant="tertiary"
-                        icon={<MenuIcon size={13} />}
+                        icon={<PanelBottom size={13} />}
                         className="lg:hidden"
                         data-testid="details-drawer-trigger"
                         onClick={onOpenDetailsDrawer}
@@ -137,7 +137,7 @@ export function HeaderBand({
                     ) : null}
 
                     <Menu
-                        trigger={<MenuIcon size={15} />}
+                        trigger={<MoreHorizontal size={15} />}
                         className="h-8 w-8 px-0"
                         align="end"
                         items={[
