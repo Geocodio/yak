@@ -5,7 +5,7 @@ import type { PromptGroup } from '@/types/prompts';
 
 export function PromptSidebar({ groups, activeSlug }: { groups: PromptGroup[]; activeSlug: string }) {
     return (
-        <aside className="w-[240px] shrink-0 overflow-auto border-r border-hair bg-sidebar py-3" data-testid="prompt-sidebar">
+        <aside className="max-h-48 w-full shrink-0 overflow-auto border-b border-hair bg-sidebar py-3 lg:max-h-none lg:w-[240px] lg:border-r lg:border-b-0" data-testid="prompt-sidebar">
             {groups.map(({ group, items }) => (
                 <div key={group} className="mb-3">
                     <div className="px-4 pb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">{group}</div>

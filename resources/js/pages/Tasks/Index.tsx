@@ -120,7 +120,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                     </Button>
                 }
             >
-                <div className="ml-4 flex items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
+                <div className="ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
                     {TABS.map((tab) => (
                         <button
                             key={tab.key}
@@ -143,7 +143,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <SetupCard card={setupCard} />
 
-            <div className="flex items-center gap-2 border-b border-hair px-5 py-2" data-testid="task-filters">
+            <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2 sm:px-5" data-testid="task-filters">
                 <FilterMenu
                     label="Status"
                     value={filters.status}
@@ -211,7 +211,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
             </div>
 
             {tasks.last_page > 1 && (
-                <div className="flex items-center justify-between border-t border-hair px-5 py-2" data-testid="task-pagination">
+                <div className="flex items-center justify-between border-t border-hair px-4 sm:px-5 py-2" data-testid="task-pagination">
                     <Button
                         variant="tertiary"
                         disabled={tasks.current_page <= 1}

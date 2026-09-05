@@ -198,7 +198,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                 }
             />
 
-            <div className="flex min-h-0 flex-1" data-testid="prompt-editor">
+            <div className="flex min-h-0 flex-1 flex-col lg:flex-row" data-testid="prompt-editor">
                 <PromptSidebar groups={groups} activeSlug={prompt.slug} />
 
                 <div className="flex min-w-0 flex-1 flex-col">
@@ -236,13 +236,13 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                         {prompt.description && <p className="text-[11px] text-muted" data-testid="prompt-description">{prompt.description}</p>}
                     </div>
 
-                    <div className="grid min-h-0 flex-1 grid-cols-[1fr_minmax(320px,40%)]">
-                        <div className="min-h-0 border-r border-hair">
+                    <div className="grid min-h-0 flex-1 grid-cols-1 max-lg:grid-rows-2 lg:grid-cols-[1fr_minmax(320px,40%)]">
+                        <div className="min-h-0 border-b border-hair lg:border-r lg:border-b-0">
                             {showDiff ? (
                                 <div className="flex h-full min-h-0 flex-col" data-testid="prompt-diff">
                                     <div className="grid grid-cols-2 border-b border-hair bg-sidebar text-[11px] font-semibold uppercase tracking-wide text-faint">
-                                        <div className="px-3 py-1.5">Shipped default</div>
-                                        <div className="border-l border-hair px-3 py-1.5">Current draft</div>
+                                        <div className="min-w-0 px-3 py-1.5">Shipped default</div>
+                                        <div className="min-w-0 border-l border-hair px-3 py-1.5">Current draft</div>
                                     </div>
                                     <DiffEditor before={prompt.defaultContent} after={content} />
                                 </div>

@@ -19,8 +19,8 @@
              page recovers if JS is disabled or breaks. --}}
         <meta http-equiv="refresh" content="15">
     @endif
-    <link rel="icon" href="{{ config('app.url') }}/favicon.ico" sizes="any">
-    <link rel="icon" href="{{ config('app.url') }}/favicon.png" type="image/png">
+    <link rel="icon" href="{{ config('app.url') }}/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="{{ config('app.url') }}/favicon.ico" sizes="32x32">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Outfit:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">

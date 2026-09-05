@@ -17,7 +17,7 @@ export function SetupHistory({ rows, viewAllHref }: { rows: SetupHistoryRow[]; v
                     </Button>
                 </div>
             )}
-            <div className="overflow-hidden rounded-card border border-hair bg-panel shadow-card">
+            <div className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
                 <Table className="w-full">
                     <Thead>
                         <Tr>

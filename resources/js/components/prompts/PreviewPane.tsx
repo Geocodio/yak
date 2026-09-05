@@ -24,7 +24,7 @@ export function PreviewPane({
 
     return (
         <div className="flex min-h-0 flex-col bg-sidebar">
-            <div className="flex items-center justify-between gap-2 border-b border-hair px-3 py-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 gap-y-2 border-b border-hair px-3 py-1.5">
                 <div className="flex items-center gap-3">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-faint">Preview</span>
                     {loading && (
@@ -56,7 +56,7 @@ export function PreviewPane({
                 </div>
                 {fixtures.length > 1 ? (
                     <Select
-                        className="h-6 min-w-[200px] text-[11px]"
+                        className="h-6 min-w-[160px] text-[11px]"
                         options={fixtures.map((f) => ({ value: String(f.index), label: f.label }))}
                         value={String(fixtureIndex)}
                         onChange={(value) => onFixtureChange(Number(value))}

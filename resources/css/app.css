@@ -10,6 +10,19 @@
 @source '../views/auth';
 @source '../views/layouts/auth';
 
+/*
+ * Yak's brand colour, in the shape console-ui expects (`bg-brand`,
+ * `text-brand`, `bg-brand-soft`). It is identity, not interaction: the mark,
+ * the favicon and the active nav rail wear it; buttons, links and focus rings
+ * stay on the shared accent. The pair comes from the mascot's coat -- the
+ * landing page's `--yak-brown` in light mode and its `--yak-tan` in dark --
+ * and is mirrored by hand in `resources/js/lib/brand.ts` for the favicon.
+ */
+:root {
+    --brand: light-dark(#5c4a3a, #c8b89a);
+    --brand-soft: light-dark(rgba(92, 74, 58, 0.1), rgba(200, 184, 154, 0.16));
+}
+
 #app {
     isolation: isolate;
 }

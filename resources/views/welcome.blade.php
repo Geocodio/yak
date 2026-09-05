@@ -6,8 +6,8 @@
     <title>Yak — Papercuts, handled.</title>
     <meta name="description" content="Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and our CI and delivers reviewable pull requests — or answers questions about the codebase.">
 
-    <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" href="/favicon.png" type="image/png">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -51,7 +51,7 @@ export default function Index({ systemChecks, channelChecks, systemResults, chan
                 </Button>
             </PageHeader>
 
-            <div className="min-h-0 flex-1 overflow-auto p-5">
+            <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-5">
                 <p className="mb-5 max-w-prose text-[13px] leading-relaxed text-muted">
                     Every check runs live against the real dependency, so a full pass takes a few seconds. Channel checks call third-party
                     APIs and are usually the slowest.

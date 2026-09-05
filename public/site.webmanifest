@@ -1,0 +1,17 @@
+{
+    "name": "Yak",
+    "short_name": "Yak",
+    "description": "Papercuts, handled. Yak picks up small tasks and opens PRs for review.",
+    "id": "/",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#fbfbfc",
+    "theme_color": "#fbfbfc",
+    "icons": [
+        { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+        { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+        { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    ]
+}

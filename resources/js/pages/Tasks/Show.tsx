@@ -181,7 +181,7 @@ export default function Show({
             <div className="flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col">
                     <div className="min-h-0 flex-1 overflow-auto">
-                        <div className="mx-auto max-w-[820px] px-8 py-6">
+                        <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-8">
                             <div className="flex flex-col gap-6">
                                 {thread.map((entry, index) => (
                                     <ThreadEntry

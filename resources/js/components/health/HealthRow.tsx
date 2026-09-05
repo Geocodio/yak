@@ -38,7 +38,7 @@ export function HealthRow({ meta, result, resultsProp }: Props) {
     };
 
     return (
-        <div className="flex items-center gap-4 border-b border-hair px-8 py-5 last:border-b-0 hover:bg-app/60" data-testid={`health-row-${meta.id}`}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-hair px-4 py-5 last:border-b-0 hover:bg-app/60 sm:px-8" data-testid={`health-row-${meta.id}`}>
             {!result ? (
                 <>
                     <span

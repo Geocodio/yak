@@ -15,7 +15,7 @@
         "@codemirror/merge": "^6.12.1",
         "@codemirror/state": "^6.6.0",
         "@codemirror/view": "^6.41.0",
-        "@geocodio/console-ui": "^0.1.1",
+        "@geocodio/console-ui": "^0.2.0",
         "@inertiajs/react": "^3.7.0",
         "@tailwindcss/vite": "^4.1.11",
         "autoprefixer": "^10.4.20",

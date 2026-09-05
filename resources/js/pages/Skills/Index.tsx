@@ -173,7 +173,7 @@ export default function Index({ installed, bundled, available, categories, recom
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search plugins…"
-                            className="w-56"
+                            className="w-40 sm:w-56"
                             data-testid="skills-search"
                         />
                         {searching && (
@@ -202,7 +202,7 @@ export default function Index({ installed, bundled, available, categories, recom
                 </div>
             </PageHeader>
 
-            <div className="min-h-0 flex-1 overflow-auto p-5">
+            <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-5">
                 {showInstalled && (
                     <Section title="Installed" meta={`${installed.length}`}>
                         {installed.length === 0 ? (

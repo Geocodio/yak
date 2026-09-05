@@ -70,7 +70,7 @@ export default function Linear({ linear }: Props) {
                                     </dl>
                                 </div>
                             </div>
-                            <div className="mt-4 flex items-center gap-3">
+                            <div className="mt-4 flex flex-wrap items-center gap-3">
                                 <a href={redirect.url()}>
                                     <Button>Reconnect</Button>
                                 </a>
@@ -80,7 +80,7 @@ export default function Linear({ linear }: Props) {
                             </div>
                         </Card>
 
-                        <Card className="flex items-start justify-between gap-6">
+                        <Card className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
                             <div>
                                 <div className="text-[13px] font-medium">Move issues to In Progress when Yak picks them up</div>
                                 <p className="mt-0.5 text-[12px] text-muted">

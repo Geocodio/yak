@@ -86,7 +86,7 @@ export default function Profile({ profile }: Props) {
                         </Button>
                     </div>
                 </Card>
-                <Card className="flex items-center justify-between border-fail/30">
+                <Card className="flex flex-wrap items-center justify-between gap-y-2 border-fail/30">
                     <div>
                         <div className="text-[13px] font-medium">Delete account</div>
                         <div className="text-[12px] text-muted">Delete your account and all of its resources</div>
