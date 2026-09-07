@@ -9,6 +9,7 @@ import { DeploymentCard } from '@/components/tasks/DeploymentCard';
 import { HeaderBand } from '@/components/tasks/HeaderBand';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { ProgressList } from '@/components/tasks/ProgressList';
+import { TaskSummary } from '@/components/tasks/TaskSummary';
 import { ThreadEntry } from '@/components/tasks/ThreadEntry';
 import { TranscriptOverlay } from '@/components/tasks/TranscriptOverlay';
 import { VideoPlayer } from '@/components/tasks/VideoPlayer';
@@ -186,7 +187,9 @@ export default function Show({
                 <div className="flex min-w-0 flex-1 flex-col">
                     <div className="min-h-0 flex-1 overflow-auto">
                         <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-8">
-                            <div className="flex flex-col gap-6">
+                            <TaskSummary task={task} />
+
+                            <div className="mt-6 flex flex-col gap-6">
                                 {thread.map((entry, index) => (
                                     <ThreadEntry
                                         key={index}
