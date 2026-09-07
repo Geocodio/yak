@@ -109,7 +109,11 @@ export default function Show({
 
     const sidebar = (hiddenBelowLg: boolean) => (
         <aside
-            className={hiddenBelowLg ? 'hidden w-[320px] shrink-0 flex-col gap-5 overflow-auto border-l border-hair bg-sidebar px-4 py-5 lg:flex' : 'flex flex-col gap-5'}
+            className={
+                hiddenBelowLg
+                    ? 'hidden w-[320px] shrink-0 flex-col gap-5 overflow-auto border-l border-hair bg-sidebar px-4 py-5 lg:flex [&>*]:shrink-0'
+                    : 'flex flex-col gap-5 [&>*]:shrink-0'
+            }
             data-testid="task-sidebar"
         >
             {(task.status === 'running' ||

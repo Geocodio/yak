@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Models\Artifact;
+use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
 
@@ -28,4 +30,28 @@ test('desktop shows sidebar without trigger', function () {
     visit(route('tasks.show', $task))
         ->assertVisible('[data-testid="task-sidebar"]:visible')
         ->assertMissing('[data-testid="details-drawer-trigger"]');
+});
+
+test('the activity log does not overlap the cards below it on a short viewport', function () {
+    $this->actingAs(User::factory()->create());
+
+    $task = YakTask::factory()->success()->create();
+    TaskLog::factory()->count(40)->for($task, 'task')->create();
+    Artifact::factory()->for($task, 'task')->videoThumbnail()->create();
+    Artifact::factory()->for($task, 'task')->videoCut()->create();
+
+    $page = visit(route('tasks.show', $task))->on()->macbookAir();
+
+    $page->assertVisible('[data-testid="activity-log"]');
+
+    /** @var array{activityBottom: float, walkthroughTop: float} $rects */
+    $rects = $page->script(
+        '(() => {'
+        . 'const activity = document.querySelector(\'[data-testid="activity-log"] [data-scroller]\');'
+        . 'const walkthrough = document.querySelector(\'[data-testid="walkthrough-card"]\');'
+        . 'return { activityBottom: activity.getBoundingClientRect().bottom, walkthroughTop: walkthrough.getBoundingClientRect().top };'
+        . '})()'
+    );
+
+    expect($rects['activityBottom'])->toBeLessThanOrEqual($rects['walkthroughTop']);
 });

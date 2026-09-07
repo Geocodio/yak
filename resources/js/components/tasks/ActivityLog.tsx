@@ -122,7 +122,7 @@ export function ActivityLog({
     };
 
     return (
-        <section className="flex min-h-0 flex-col" data-testid="activity-log">
+        <section className="flex shrink-0 flex-col" data-testid="activity-log">
             <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-faint">Activity</h2>
                 <div className="flex items-center gap-1">
@@ -137,71 +137,73 @@ export function ActivityLog({
                 </div>
             </div>
 
-            {runs.length > 1 && (
-                <div className="mb-2 flex flex-wrap items-center gap-1" data-testid="run-picker">
-                    {runs.map((run) => (
-                        <button
-                            key={run.id}
-                            type="button"
-                            onClick={() => navigateTaskQuery({ run: run.id, attempt: undefined })}
-                            data-testid={`run-chip-${run.id}`}
-                        >
-                            <Badge tone={run.id === currentRunId ? 'accent' : 'neutral'}>
-                                {run.label}
-                                {run.live && ' · live'}
-                            </Badge>
-                        </button>
-                    ))}
-                </div>
-            )}
+            <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card">
+                <div className="flex flex-col gap-2 border-b border-hair bg-panel-2/40 px-2 py-2">
+                    {runs.length > 1 && (
+                        <div className="flex flex-wrap items-center gap-1" data-testid="run-picker">
+                            {runs.map((run) => (
+                                <button
+                                    key={run.id}
+                                    type="button"
+                                    onClick={() => navigateTaskQuery({ run: run.id, attempt: undefined })}
+                                    data-testid={`run-chip-${run.id}`}
+                                >
+                                    <Badge tone={run.id === currentRunId ? 'accent' : 'neutral'}>
+                                        {run.label}
+                                        {run.live && ' · live'}
+                                    </Badge>
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
-            {attempts.length > 1 && (
-                <div className="mb-2 flex flex-wrap items-center gap-2" data-testid="attempt-selector">
-                    <span className="text-[11px] text-faint">Attempt</span>
-                    <div className="flex gap-0.5 rounded-control bg-panel-2 p-0.5">
-                        {attempts.map((attempt) => (
-                            <button
-                                key={attempt}
-                                type="button"
-                                onClick={() => navigateTaskQuery({ attempt })}
-                                className={cn(
-                                    'h-5 rounded-chip px-1.5 text-[11px] text-muted',
-                                    attempt === currentAttempt && 'bg-panel text-body shadow-card',
-                                )}
-                                data-testid={`attempt-${attempt}`}
-                            >
-                                #{attempt}
-                            </button>
-                        ))}
+                    {attempts.length > 1 && (
+                        <div className="flex flex-wrap items-center gap-2" data-testid="attempt-selector">
+                            <span className="text-[11px] text-faint">Attempt</span>
+                            <div className="flex gap-0.5 rounded-control bg-panel-2 p-0.5">
+                                {attempts.map((attempt) => (
+                                    <button
+                                        key={attempt}
+                                        type="button"
+                                        onClick={() => navigateTaskQuery({ attempt })}
+                                        className={cn(
+                                            'h-5 rounded-chip px-1.5 text-[11px] text-muted',
+                                            attempt === currentAttempt && 'bg-panel text-body shadow-card',
+                                        )}
+                                        data-testid={`attempt-${attempt}`}
+                                    >
+                                        #{attempt}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                        <div className="flex gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="log-filter">
+                            {(['all', 'actions', 'milestones'] as const).map((f) => (
+                                <button
+                                    key={f}
+                                    type="button"
+                                    onClick={() => setFilter(f)}
+                                    className={cn('h-5 rounded-chip px-1.5 text-[11px] capitalize text-muted', filter === f && 'bg-panel text-body shadow-card')}
+                                >
+                                    {f}
+                                </button>
+                            ))}
+                        </div>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search…"
+                            className="h-6 flex-1 rounded-control border border-hair bg-panel px-2 text-[11px] outline-none focus:border-accent"
+                            data-testid="log-search"
+                        />
                     </div>
                 </div>
-            )}
 
-            <div className="mb-2 flex items-center gap-2">
-                <div className="flex gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="log-filter">
-                    {(['all', 'actions', 'milestones'] as const).map((f) => (
-                        <button
-                            key={f}
-                            type="button"
-                            onClick={() => setFilter(f)}
-                            className={cn('h-5 rounded-chip px-1.5 text-[11px] capitalize text-muted', filter === f && 'bg-panel text-body shadow-card')}
-                        >
-                            {f}
-                        </button>
-                    ))}
-                </div>
-                <input
-                    type="text"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search…"
-                    className="h-6 flex-1 rounded-control border border-hair bg-panel px-2 text-[11px] outline-none focus:border-accent"
-                    data-testid="log-search"
-                />
-            </div>
-
-            <div className="relative">
-                <div ref={scrollRef} data-scroller className="max-h-[420px] overflow-y-auto rounded-card border border-hair bg-panel shadow-card">
+                <div ref={scrollRef} data-scroller className="max-h-[420px] overflow-y-auto">
                     {displayItems.length === 0 && <p className="px-3 py-6 text-center text-[12px] text-faint">No entries match &ldquo;{search}&rdquo;.</p>}
                     {displayItems.map((item) =>
                         item.type === 'group' ? (
