@@ -123,22 +123,22 @@ export function ActivityLog({
 
     return (
         <section className="flex shrink-0 flex-col" data-testid="activity-log">
-            <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-[11px] font-semibold uppercase tracking-wide text-faint">Activity</h2>
-                <div className="flex items-center gap-1">
-                    <span className="tnum text-[11px] text-faint">
-                        {activity.entries} entries · {activity.duration}
-                    </span>
-                    <Tooltip label="Open the full transcript">
-                        <IconButton label="Open the full transcript" onClick={onOpenTranscriptCold} className="h-6 w-6 border-0 bg-transparent shadow-none" data-testid="open-transcript">
-                            <Expand size={12} />
-                        </IconButton>
-                    </Tooltip>
-                </div>
-            </div>
-
             <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card">
                 <div className="flex flex-col gap-2 border-b border-hair bg-panel-2/40 px-2 py-2">
+                    <div className="flex items-center justify-between pl-0.5">
+                        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-faint">Activity</h2>
+                        <div className="flex items-center gap-1">
+                            <span className="tnum text-[11px] text-faint">
+                                {activity.entries} entries · {activity.duration}
+                            </span>
+                            <Tooltip label="Open the full transcript">
+                                <IconButton label="Open the full transcript" onClick={onOpenTranscriptCold} className="h-6 w-6 border-0 bg-transparent shadow-none" data-testid="open-transcript">
+                                    <Expand size={12} />
+                                </IconButton>
+                            </Tooltip>
+                        </div>
+                    </div>
+
                     {runs.length > 1 && (
                         <div className="flex flex-wrap items-center gap-1" data-testid="run-picker">
                             {runs.map((run) => (
