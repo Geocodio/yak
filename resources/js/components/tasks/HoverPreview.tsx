@@ -1,11 +1,10 @@
 /**
  * Floating walkthrough preview shown while hovering a task row with a
  * preview GIF. Pointer events are off so the hovered row keeps its hover
- * state while the GIF is shown as large as the viewport allows.
+ * state while the GIF is shown.
  *
- * Preview GIFs are encoded at 720px wide, so the height is derived from the
- * viewport and the width follows the GIF's own aspect ratio -- this
- * upscales it to fill the screen without distortion.
+ * The preview stays small on purpose: large enough to read the gist of the
+ * walkthrough, small enough to leave most of the task list visible behind it.
  */
 export function HoverPreview({ src }: { src: string | null }) {
     if (src === null) {
@@ -21,8 +20,8 @@ export function HoverPreview({ src }: { src: string | null }) {
             <img
                 src={src}
                 alt=""
-                style={{ height: 'min(85vh, calc(90vw * 9 / 16))', width: 'auto' }}
-                className="max-w-[90vw] rounded-card border border-hair bg-panel object-contain shadow-2xl"
+                style={{ width: 'min(380px, 60vw)', height: 'auto' }}
+                className="max-h-[40vh] rounded-card border border-hair bg-panel object-contain shadow-2xl"
                 data-testid="task-preview-overlay-image"
             />
         </div>
