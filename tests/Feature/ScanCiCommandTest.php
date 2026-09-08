@@ -911,3 +911,153 @@ test('a failed pull request lookup does not stop the scan', function () {
 
     expect(YakTask::where('repo', 'apifail-repo')->count())->toBe(1);
 });
+
+test('two methods of one class each keep their own failure output', function () {
+    Repository::factory()->create(['slug' => 'multi-method-repo', 'ci_system' => 'github_actions']);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\CheckoutTest > guest checkout',
+            output: 'GUEST OUTPUT',
+            buildUrl: 'https://example.com/runs/1',
+            buildId: '1',
+            branch: 'main',
+            commitSha: 'sha-x',
+        ),
+        new CIBuildFailure(
+            testName: 'Tests\Feature\CheckoutTest > member checkout',
+            output: 'MEMBER OUTPUT',
+            buildUrl: 'https://example.com/runs/2',
+            buildId: '2',
+            branch: 'main',
+            commitSha: 'sha-x',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'multi-method-repo'])->assertSuccessful();
+
+    $tasks = YakTask::where('repo', 'multi-method-repo')->get();
+    expect($tasks)->toHaveCount(1);
+
+    $context = json_decode($tasks->first()->context, true);
+    expect($context['tests'])->toHaveCount(2);
+    expect(collect($context['tests'])->pluck('failure_output')->all())
+        ->toEqualCanonicalizing(['GUEST OUTPUT', 'MEMBER OUTPUT']);
+    expect(collect($context['tests'])->pluck('build_urls')->flatten()->all())
+        ->toEqualCanonicalizing(['https://example.com/runs/1', 'https://example.com/runs/2']);
+
+    // Both methods live in one class, so they share a single claim.
+    expect(FlakyTestClaim::where('repo', 'multi-method-repo')->count())->toBe(1);
+});
+
+test('a truncated method name does not become a second test', function () {
+    Repository::factory()->create(['slug' => 'trunc-method-repo', 'ci_system' => 'github_actions']);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\CheckoutTest > it applies the discount code',
+            output: 'boom',
+            buildUrl: 'https://example.com/runs/1',
+            buildId: '1',
+            branch: 'main',
+            commitSha: 'sha-y',
+        ),
+        new CIBuildFailure(
+            testName: "Tests\Feature\CheckoutTest > it applies the disc\u{2026}",
+            output: 'boom',
+            buildUrl: 'https://example.com/runs/2',
+            buildId: '2',
+            branch: 'main',
+            commitSha: 'sha-y',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'trunc-method-repo'])->assertSuccessful();
+
+    $context = json_decode(YakTask::where('repo', 'trunc-method-repo')->first()->context, true);
+    expect($context['tests'])->toHaveCount(1);
+    expect($context['tests'][0]['test_name'])->toBe('Tests\Feature\CheckoutTest > it applies the discount code');
+    expect($context['tests'][0]['failure_count'])->toBe(2);
+});
+
+test('a failure with no commit is recorded rather than dropped silently', function () {
+    Repository::factory()->create(['slug' => 'nocommit-repo', 'ci_system' => 'github_actions']);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'boom',
+            buildUrl: 'https://example.com/runs/7',
+            buildId: '7',
+            branch: 'main',
+            commitSha: null,
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'nocommit-repo'])->assertSuccessful();
+
+    expect(YakTask::where('repo', 'nocommit-repo')->count())->toBe(0);
+
+    $observation = Observation::where('repo', 'nocommit-repo')->sole();
+    expect($observation->kind)->toBe('flaky_test.no_commit');
+    expect($observation->outcome)->toBe('declined');
+    expect($observation->subject)->toBe('Tests\Feature\LoginTest');
+});
+
+test('liveClassesFor reports the newest live claim for a class', function () {
+    $task = YakTask::factory()->create(['repo' => 'newest-repo', 'status' => TaskStatus::Running]);
+
+    FlakyTestClaim::factory()->create([
+        'repo' => 'newest-repo',
+        'test_class' => 'Tests\Feature\LoginTest',
+        'skipped_pr_url' => 'https://github.com/org/repo/pull/1',
+    ]);
+    FlakyTestClaim::factory()->create([
+        'repo' => 'newest-repo',
+        'test_class' => 'Tests\Feature\LoginTest',
+        'yak_task_id' => $task->id,
+    ]);
+
+    $live = FlakyTestClaim::liveClassesFor('newest-repo');
+
+    expect($live['Tests\Feature\LoginTest']->yak_task_id)->toBe($task->id);
+});
+
+test('a dry run reports the existing-pr skip without writing anything', function () {
+    config()->set('yak.channels.github.installation_id', 4242);
+
+    Repository::factory()->create([
+        'slug' => 'dry-pr-repo',
+        'ci_system' => 'github_actions',
+        'github_full_name' => 'org/dry-pr-repo',
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'boom',
+            buildUrl: 'https://example.com/runs/9',
+            buildId: '9',
+            branch: 'main',
+            commitSha: 'sha-dry',
+        ),
+    );
+
+    $github = Mockery::mock(GitHubAppService::class);
+    $github->shouldReceive('listOpenPullRequests')->andReturn([
+        ['number' => 12, 'title' => 'Fix login', 'body' => '', 'html_url' => 'https://github.com/org/repo/pull/12', 'updated_at' => '2026-09-08T00:00:00Z'],
+    ]);
+    $github->shouldReceive('listRecentlyMergedPullRequests')->andReturn([]);
+    $github->shouldReceive('listPullRequestFiles')->andReturn([
+        ['filename' => 'tests/Feature/LoginTest.php'],
+    ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'dry-pr-repo', '--dry-run' => true])
+        ->expectsOutputToContain('already fixes it')
+        ->assertSuccessful();
+
+    expect(YakTask::count())->toBe(0);
+    expect(FlakyTestClaim::count())->toBe(0);
+    expect(Observation::count())->toBe(0);
+});

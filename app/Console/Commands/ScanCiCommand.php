@@ -30,11 +30,17 @@ class ScanCiCommand extends Command
 {
     private const SOURCE = 'flaky-test';
 
+    /**
+     * A dry run reports what a real run would do and writes nothing, so
+     * every observation, claim and task is suppressed while it is set.
+     */
+    private bool $dryRun = false;
+
     public function handle(): int
     {
         /** @var string|null $repoSlug */
         $repoSlug = $this->option('repo');
-        $dryRun = (bool) $this->option('dry-run');
+        $this->dryRun = (bool) $this->option('dry-run');
 
         $repositories = $repoSlug !== null
             ? Repository::where('slug', $repoSlug)->where('is_active', true)->get()
@@ -49,10 +55,10 @@ class ScanCiCommand extends Command
         $tasksCreated = 0;
 
         foreach ($repositories as $repository) {
-            $tasksCreated += $this->scanRepository($repository, $dryRun);
+            $tasksCreated += $this->scanRepository($repository);
         }
 
-        if ($dryRun) {
+        if ($this->dryRun) {
             $this->components->info("Dry run complete. Would have created {$tasksCreated} task(s).");
         } else {
             $this->components->info("Scan complete. Created {$tasksCreated} task(s).");
@@ -61,7 +67,7 @@ class ScanCiCommand extends Command
         return self::SUCCESS;
     }
 
-    private function scanRepository(Repository $repository, bool $dryRun = false): int
+    private function scanRepository(Repository $repository): int
     {
         $scanner = $this->resolveScanner($repository);
 
@@ -97,9 +103,10 @@ class ScanCiCommand extends Command
         }
 
         $claimed = FlakyTestClaim::liveClassesFor($repository->slug);
-        $openPullRequests = $dryRun
-            ? collect()
-            : app(ExistingFixPrFinder::class)->forRepository($repository);
+
+        // The lookup is read-only, so a dry run makes it too: skipping it
+        // would report tasks a real run would not create.
+        $openPullRequests = app(ExistingFixPrFinder::class)->forRepository($repository);
 
         $tasksCreated = 0;
 
@@ -107,15 +114,18 @@ class ScanCiCommand extends Command
         // several tests at once, and one task per test means several agents
         // opening near-identical pull requests for the same root cause.
         foreach ($candidates->groupBy(fn (array $c): string => $c['commit_sha']) as $commitSha => $group) {
-            /** @var Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}> $group */
+            /** @var Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}> $group */
             $tests = $this->filterAlreadyHandled($repository, $group, $claimed, $openPullRequests);
 
             if ($tests->isEmpty()) {
                 continue;
             }
 
-            if ($dryRun) {
-                $names = $tests->map(fn (array $t): string => $t['failure']->testName)->implode(', ');
+            if ($this->dryRun) {
+                $names = $tests
+                    ->flatMap(fn (array $t): Collection => $t['variants'])
+                    ->map(fn (CIBuildFailure $f): string => $f->testName)
+                    ->implode(', ');
                 $this->components->info("Would create task for commit {$commitSha}: {$names}");
                 $tasksCreated++;
 
@@ -135,7 +145,7 @@ class ScanCiCommand extends Command
      * most recent default-branch failure that qualified it.
      *
      * @param  Collection<string, Collection<int, CIBuildFailure>>  $grouped
-     * @return Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>
+     * @return Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>
      */
     private function qualifyingFailures(Repository $repository, Collection $grouped): Collection
     {
@@ -153,7 +163,7 @@ class ScanCiCommand extends Command
                     "Below flaky threshold: {$testName} ({$occurrences->count()} failure(s), {$commitCount} distinct commit(s))"
                 );
 
-                ObservationRecorder::declined(
+                $this->observeDeclined(
                     source: self::SOURCE,
                     kind: 'flaky_test.below_threshold',
                     summary: "{$testName} failed {$occurrences->count()} time(s) but never on {$repository->default_branch}, so it is not treated as flaky.",
@@ -176,7 +186,29 @@ class ScanCiCommand extends Command
                 ->sortByDesc('buildId')
                 ->first();
 
-            if ($canonical === null || ($canonical->commitSha ?? '') === '') {
+            if ($canonical === null) {
+                continue;
+            }
+
+            // Tasks are keyed on the commit, so a failure the CI provider
+            // reported without one cannot be grouped. Record the drop rather
+            // than letting the test disappear from the scan silently.
+            if (($canonical->commitSha ?? '') === '') {
+                $this->components->warn("Skipping {$canonical->testName} — build {$canonical->buildId} reports no commit.");
+
+                $this->observeDeclined(
+                    source: self::SOURCE,
+                    kind: 'flaky_test.no_commit',
+                    summary: "{$canonical->testName} is failing on {$repository->default_branch}, but build {$canonical->buildId} reports no commit to group the fix under.",
+                    repo: $repository->slug,
+                    subject: $canonical->testClass(),
+                    referenceUrl: $canonical->buildUrl,
+                    metadata: [
+                        'test_name' => $canonical->testName,
+                        'build_id' => $canonical->buildId,
+                    ],
+                );
+
                 continue;
             }
 
@@ -196,8 +228,13 @@ class ScanCiCommand extends Command
      * become separate candidates; collapsing by class merges them back into
      * one, keeping the newest build and the union of the occurrences.
      *
+     * A class holds more than one test, so the collapsed candidate keeps a
+     * `variants` list: one failure per distinct method, each with its own
+     * output. Claims and pull-request matching key on the class, but the
+     * agent needs every method's failure to fix them all.
+     *
      * @param  Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>  $candidates
-     * @return Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>
+     * @return Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>
      */
     private function collapseByTestClass(Collection $candidates): Collection
     {
@@ -210,6 +247,9 @@ class ScanCiCommand extends Command
 
                 return [
                     'failure' => $newest['failure'],
+                    'variants' => self::distinctMethods($group->map(
+                        fn (array $c): CIBuildFailure => $c['failure'],
+                    )->values()),
                     'occurrences' => $group->flatMap(fn (array $c): Collection => $c['occurrences'])->values(),
                     'commit_sha' => $newest['commit_sha'],
                 ];
@@ -218,13 +258,59 @@ class ScanCiCommand extends Command
     }
 
     /**
+     * One failure per distinct test method, longest method name first.
+     *
+     * @param  Collection<int, CIBuildFailure>  $failures
+     * @return Collection<int, CIBuildFailure>
+     */
+    private static function distinctMethods(Collection $failures): Collection
+    {
+        /** @var Collection<int, CIBuildFailure> $kept */
+        $kept = collect();
+
+        $ordered = $failures
+            ->sortByDesc(fn (CIBuildFailure $f): int => strlen($f->testMethod()))
+            ->values();
+
+        foreach ($ordered as $failure) {
+            $covered = $kept->contains(
+                fn (CIBuildFailure $k): bool => self::covers($k, $failure),
+            );
+
+            if (! $covered) {
+                $kept->push($failure);
+            }
+        }
+
+        return $kept;
+    }
+
+    /**
+     * Whether `$variant` and `$occurrence` are the same test. Two names match
+     * when their methods are equal, or when the occurrence's name was cut
+     * short at a point where the variant's name still agrees with it.
+     */
+    private static function covers(CIBuildFailure $variant, CIBuildFailure $occurrence): bool
+    {
+        $variantMethod = $variant->testMethod();
+        $occurrenceMethod = $occurrence->testMethod();
+
+        if ($variantMethod === $occurrenceMethod) {
+            return true;
+        }
+
+        return $occurrence->testNameWasTruncated()
+            && str_starts_with($variantMethod, $occurrenceMethod);
+    }
+
+    /**
      * Drop the tests Yak has already dealt with: one it is still working on,
      * and one a pull request already fixes.
      *
-     * @param  Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>  $group
+     * @param  Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>  $group
      * @param  array<string, FlakyTestClaim>  $claimed
      * @param  Collection<int, PullRequestCandidate>  $openPullRequests
-     * @return Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>
+     * @return Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>
      */
     private function filterAlreadyHandled(
         Repository $repository,
@@ -243,7 +329,7 @@ class ScanCiCommand extends Command
 
                 $claim = $claimed[$testClass];
 
-                ObservationRecorder::declined(
+                $this->observeDeclined(
                     source: self::SOURCE,
                     kind: 'flaky_test.already_claimed',
                     summary: "{$testClass} is still failing, but Yak is already on it.",
@@ -273,6 +359,64 @@ class ScanCiCommand extends Command
         })->values();
     }
 
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function observeDeclined(
+        string $source,
+        string $kind,
+        string $summary,
+        ?string $repo = null,
+        ?string $subject = null,
+        ?string $referenceUrl = null,
+        ?YakTask $task = null,
+        array $metadata = [],
+    ): void {
+        if ($this->dryRun) {
+            return;
+        }
+
+        ObservationRecorder::declined(
+            source: $source,
+            kind: $kind,
+            summary: $summary,
+            repo: $repo,
+            subject: $subject,
+            referenceUrl: $referenceUrl,
+            task: $task,
+            metadata: $metadata,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function observeActed(
+        string $source,
+        string $kind,
+        string $summary,
+        ?string $repo = null,
+        ?string $subject = null,
+        ?string $referenceUrl = null,
+        ?YakTask $task = null,
+        array $metadata = [],
+    ): void {
+        if ($this->dryRun) {
+            return;
+        }
+
+        ObservationRecorder::acted(
+            source: $source,
+            kind: $kind,
+            summary: $summary,
+            repo: $repo,
+            subject: $subject,
+            referenceUrl: $referenceUrl,
+            task: $task,
+            metadata: $metadata,
+        );
+    }
+
     private function recordExistingPrSkip(
         Repository $repository,
         CIBuildFailure $failure,
@@ -281,14 +425,16 @@ class ScanCiCommand extends Command
     ): void {
         $state = $match->pullRequest->isMerged ? 'was merged' : 'is open';
 
-        FlakyTestClaim::create([
-            'repo' => $repository->slug,
-            'test_class' => $testClass,
-            'skipped_pr_url' => $match->pullRequest->url,
-            'created_at' => now(),
-        ]);
+        if (! $this->dryRun) {
+            FlakyTestClaim::create([
+                'repo' => $repository->slug,
+                'test_class' => $testClass,
+                'skipped_pr_url' => $match->pullRequest->url,
+                'created_at' => now(),
+            ]);
+        }
 
-        ObservationRecorder::declined(
+        $this->observeDeclined(
             source: self::SOURCE,
             kind: 'flaky_test.existing_pr',
             summary: "{$testClass} is failing on {$repository->default_branch}, but PR #{$match->pullRequest->number} {$state} and {$match->reason}.",
@@ -307,20 +453,57 @@ class ScanCiCommand extends Command
     }
 
     /**
-     * @param  Collection<int, array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>  $tests
+     * One task-context entry per failing test method, each carrying only the
+     * builds that ran that method. Counts are per method rather than per
+     * class, so a class with two broken tests reports each one honestly.
+     *
+     * @param  Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>  $tests
+     * @return list<array{test_name: string, test_class: string, failure_output: string, failure_count: int, build_urls: list<string>, distinct_commits: list<string>}>
+     */
+    private function contextEntries(Collection $tests): array
+    {
+        $entries = [];
+
+        foreach ($tests as $test) {
+            foreach ($test['variants'] as $variant) {
+                $occurrences = $test['occurrences']->filter(
+                    fn (CIBuildFailure $o): bool => self::covers($variant, $o),
+                );
+
+                if ($occurrences->isEmpty()) {
+                    $occurrences = collect([$variant]);
+                }
+
+                /** @var list<string> $buildUrls */
+                $buildUrls = $occurrences->pluck('buildUrl')->unique()->values()->all();
+                /** @var list<string> $distinctCommits */
+                $distinctCommits = $occurrences->pluck('commitSha')->filter()->unique()->values()->all();
+
+                $entries[] = [
+                    'test_name' => $variant->testName,
+                    'test_class' => $variant->testClass(),
+                    'failure_output' => $variant->output,
+                    'failure_count' => $occurrences->count(),
+                    'build_urls' => $buildUrls,
+                    'distinct_commits' => $distinctCommits,
+                ];
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param  Collection<int, array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string}>  $tests
      */
     private function createTaskForCommit(Repository $repository, string $commitSha, Collection $tests): bool
     {
-        /** @var array{failure: CIBuildFailure, occurrences: Collection<int, CIBuildFailure>, commit_sha: string} $first */
+        /** @var array{failure: CIBuildFailure, variants: Collection<int, CIBuildFailure>, occurrences: Collection<int, CIBuildFailure>, commit_sha: string} $first */
         $first = $tests->first();
         $canonical = $first['failure'];
 
-        $description = $tests->count() === 1
-            ? "Fix flaky test: {$canonical->testName}"
-            : "Fix {$tests->count()} tests failing at {$repository->default_branch} " . substr($commitSha, 0, 7);
-
         try {
-            $task = DB::transaction(function () use ($repository, $commitSha, $tests, $canonical, $description): ?YakTask {
+            $created = DB::transaction(function () use ($repository, $commitSha, $tests, $canonical): ?array {
                 // Re-check inside the transaction: a concurrent pass may have
                 // claimed these tests since the snapshot was taken.
                 $stillLive = FlakyTestClaim::liveClassesFor($repository->slug);
@@ -333,6 +516,12 @@ class ScanCiCommand extends Command
                     return null;
                 }
 
+                $entries = $this->contextEntries($remaining);
+
+                $description = count($entries) === 1
+                    ? "Fix flaky test: {$entries[0]['test_name']}"
+                    : 'Fix ' . count($entries) . " tests failing at {$repository->default_branch} " . substr($commitSha, 0, 7);
+
                 $task = YakTask::create([
                     'repo' => $repository->slug,
                     'external_id' => CIBuildFailure::commitExternalId($repository->slug, $commitSha),
@@ -340,14 +529,7 @@ class ScanCiCommand extends Command
                     'mode' => TaskMode::Fix,
                     'description' => $description,
                     'context' => json_encode([
-                        'tests' => $remaining->map(fn (array $t): array => [
-                            'test_name' => $t['failure']->testName,
-                            'test_class' => $t['failure']->testClass(),
-                            'failure_output' => $t['failure']->output,
-                            'failure_count' => $t['occurrences']->count(),
-                            'build_urls' => $t['occurrences']->pluck('buildUrl')->unique()->values()->all(),
-                            'distinct_commits' => $t['occurrences']->pluck('commitSha')->filter()->unique()->values()->all(),
-                        ])->all(),
+                        'tests' => $entries,
                         'commit_sha' => $commitSha,
                         'build_url' => $canonical->buildUrl,
                         'build_id' => $canonical->buildId,
@@ -364,7 +546,7 @@ class ScanCiCommand extends Command
                     ]);
                 }
 
-                return $task;
+                return ['task' => $task, 'tests' => $remaining, 'entry_count' => count($entries)];
             });
         } catch (\Throwable $e) {
             // An overlapping scan pass losing a race must not abort the
@@ -379,20 +561,27 @@ class ScanCiCommand extends Command
             return false;
         }
 
-        if ($task === null) {
+        if ($created === null) {
             return false;
         }
 
-        $testNames = $tests->map(fn (array $t): string => $t['failure']->testClass())->unique()->values()->all();
+        $task = $created['task'];
+        $entryCount = $created['entry_count'];
+
+        $testNames = $created['tests']
+            ->map(fn (array $t): string => $t['failure']->testClass())
+            ->unique()
+            ->values()
+            ->all();
 
         TaskLogger::info($task, 'Task created', ['source' => self::SOURCE, 'repo' => $repository->slug]);
 
-        ObservationRecorder::acted(
+        $this->observeActed(
             source: self::SOURCE,
             kind: 'flaky_test.task_created',
-            summary: $tests->count() === 1
+            summary: $entryCount === 1
                 ? "{$canonical->testClass()} is failing on {$repository->default_branch}; opened task #{$task->id}."
-                : "{$tests->count()} tests are failing at one commit on {$repository->default_branch}; opened task #{$task->id} covering all of them.",
+                : "{$entryCount} tests are failing at one commit on {$repository->default_branch}; opened task #{$task->id} covering all of them.",
             repo: $repository->slug,
             subject: $canonical->testClass(),
             referenceUrl: $canonical->buildUrl,

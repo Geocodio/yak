@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Observation;
 use App\Models\YakTask;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Records what Yak decided about something it looked at, so decisions that
@@ -80,8 +81,13 @@ class ObservationRecorder
     {
         return Observation::query()
             ->where('kind', $kind)
-            ->where('repo', $repo)
-            ->where('subject', $subject)
+            // `where('repo', null)` renders as `repo = null`, which never
+            // matches, so a null-repo or null-subject observation would
+            // bypass dedupe entirely.
+            ->when($repo === null, fn (Builder $query) => $query->whereNull('repo'))
+            ->when($repo !== null, fn (Builder $query) => $query->where('repo', $repo))
+            ->when($subject === null, fn (Builder $query) => $query->whereNull('subject'))
+            ->when($subject !== null, fn (Builder $query) => $query->where('subject', $subject))
             ->where('created_at', '>=', now()->subHours($hours))
             ->exists();
     }

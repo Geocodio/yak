@@ -89,7 +89,9 @@ class FlakyTestClaim extends Model
                             ->orWhere('pr_merged_at', '>=', $window);
                     });
             })
-            ->orderByDesc('id')
+            // Ascending, so the newest live claim is the one that survives
+            // the keyed assignment below and gets reported.
+            ->orderBy('id')
             ->get();
 
         foreach ($rows as $claim) {

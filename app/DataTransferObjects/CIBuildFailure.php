@@ -64,6 +64,35 @@ readonly class CIBuildFailure
         return str_contains($classPart, "\u{2026}");
     }
 
+    /**
+     * The method half of `Class > description`, with any width-truncation
+     * ellipsis removed. A name carrying no ` > ` has no method half and
+     * returns an empty string.
+     */
+    public function testMethod(): string
+    {
+        $name = trim($this->testName);
+
+        if (! str_contains($name, ' > ')) {
+            return '';
+        }
+
+        $method = substr($name, (int) strpos($name, ' > ') + 3);
+        $method = (string) preg_replace('/\x{2026}.*$/u', '', $method);
+
+        return trim($method);
+    }
+
+    /**
+     * Whether Pest cut this name short at the terminal width. A truncated
+     * name that is a prefix of a longer one is that longer name, not a
+     * separate test.
+     */
+    public function testNameWasTruncated(): bool
+    {
+        return str_contains($this->testName, "\u{2026}");
+    }
+
     public static function normalizeTestClass(string $testName): string
     {
         $name = trim($testName);

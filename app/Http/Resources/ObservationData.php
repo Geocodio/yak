@@ -63,6 +63,7 @@ final class ObservationData
             'flaky_test.below_threshold' => 'Below threshold',
             'flaky_test.already_claimed' => 'Already handled',
             'flaky_test.existing_pr' => 'PR already out',
+            'flaky_test.no_commit' => 'No commit',
             default => $kind,
         };
     }
