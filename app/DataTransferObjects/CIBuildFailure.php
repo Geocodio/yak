@@ -26,6 +26,59 @@ readonly class CIBuildFailure
     }
 
     /**
+     * The external_id for the task covering every test that failed at one
+     * commit. Keyed on the commit rather than the build: on GitHub Actions a
+     * single push produces one workflow run per workflow file, so build ids
+     * would split one breakage across several tasks.
+     */
+    public static function commitExternalId(string $repoSlug, string $commitSha): string
+    {
+        return 'flaky-test:commit:' . md5($repoSlug . ':' . $commitSha);
+    }
+
+    /**
+     * The test class alone, with Pest's `> description` suffix and any
+     * width-truncation ellipsis removed.
+     *
+     * Claims and pull-request file matching both key on this rather than the
+     * full test name: Pest truncates names to the terminal width, so the same
+     * test yields different names across builds, but the class survives.
+     */
+    public function testClass(): string
+    {
+        return self::normalizeTestClass($this->testName);
+    }
+
+    /**
+     * Whether the class name itself was cut short by Pest's terminal-width
+     * truncation. A truncated class cannot be resolved to a file path, so
+     * pull-request matching falls back to the file basename.
+     */
+    public function testClassWasTruncated(): bool
+    {
+        $name = trim($this->testName);
+        $classPart = str_contains($name, ' > ')
+            ? substr($name, 0, (int) strpos($name, ' > '))
+            : $name;
+
+        return str_contains($classPart, "\u{2026}");
+    }
+
+    public static function normalizeTestClass(string $testName): string
+    {
+        $name = trim($testName);
+
+        if (str_contains($name, ' > ')) {
+            $name = substr($name, 0, (int) strpos($name, ' > '));
+        }
+
+        // Anything from the truncation ellipsis onwards is a partial word.
+        $name = (string) preg_replace('/\x{2026}.*$/u', '', $name);
+
+        return trim(rtrim(trim($name), '\\/ '));
+    }
+
+    /**
      * Strip Pest's trailing ellipsis and surrounding whitespace so the
      * test name is stable across builds regardless of terminal width.
      */

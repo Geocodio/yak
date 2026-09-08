@@ -3,6 +3,7 @@
 namespace App\Channels\GitHub;
 
 use App\Models\GitHubInstallationToken;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -565,6 +566,76 @@ class AppService
         }
 
         return $results;
+    }
+
+    /**
+     * Pull requests merged within the last `$withinHours`, most recently
+     * updated first.
+     *
+     * The CI scan looks back further than it runs, so a fix that merged an
+     * hour ago still leaves pre-fix failures inside the window. Without the
+     * merged PRs, those failures look like an unfixed flaky test.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listRecentlyMergedPullRequests(int $installationId, string $repoSlug, int $withinHours, int $limit = 50): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $cutoff = now()->subHours($withinHours);
+        $results = [];
+        $page = 1;
+
+        while (count($results) < $limit) {
+            $response = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls", [
+                    'state' => 'closed',
+                    'sort' => 'updated',
+                    'direction' => 'desc',
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $batch = $response->json();
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $stale = false;
+
+            foreach ($batch as $pr) {
+                if (! is_array($pr)) {
+                    continue;
+                }
+
+                $updatedAt = isset($pr['updated_at']) && is_string($pr['updated_at'])
+                    ? CarbonImmutable::parse($pr['updated_at'])
+                    : null;
+
+                // Sorted by updated_at desc, so once we are past the cutoff
+                // every remaining page is older too.
+                if ($updatedAt !== null && $updatedAt->lt($cutoff)) {
+                    $stale = true;
+                    break;
+                }
+
+                $mergedAt = isset($pr['merged_at']) && is_string($pr['merged_at'])
+                    ? CarbonImmutable::parse($pr['merged_at'])
+                    : null;
+
+                if ($mergedAt !== null && $mergedAt->gte($cutoff)) {
+                    $results[] = $pr;
+                }
+            }
+
+            if ($stale || count($batch) < 100) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return array_slice($results, 0, $limit);
     }
 
     /**

@@ -203,36 +203,107 @@ test('sentry fix prompt includes error, culprit, stacktrace, context, and instru
 |--------------------------------------------------------------------------
 */
 
-test('flaky test prompt includes test class, method, failure output, and build url', function () {
+test('flaky test prompt includes test name, class, failure output, and build url', function () {
     $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
 
     $prompt = YakPromptBuilder::taskPrompt($task, [
-        'test_class' => 'Tests\\Feature\\UserTest',
-        'test_method' => 'test_user_can_login',
+        'tests' => [
+            [
+                'test_name' => 'Tests\\Feature\\UserTest > user can login',
+                'test_class' => 'Tests\\Feature\\UserTest',
+                'failure_output' => 'Expected 200 but got 500',
+                'failure_count' => 1,
+                'build_urls' => ['https://ci.example.com/builds/123'],
+            ],
+        ],
+        'commit_sha' => 'abc123',
+    ]);
+
+    expect($prompt)->toContain('Tests\\Feature\\UserTest')
+        ->toContain('user can login')
+        ->toContain('Expected 200 but got 500')
+        ->toContain('https://ci.example.com/builds/123')
+        ->toContain('abc123');
+});
+
+test('flaky test prompt lists every test when one commit broke several', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'tests' => [
+            [
+                'test_name' => 'Tests\\Api\\AccuracyScoreAPITest > it scores',
+                'test_class' => 'Tests\\Api\\AccuracyScoreAPITest',
+                'failure_output' => 'Call to undefined method',
+                'failure_count' => 1,
+                'build_urls' => ['https://ci.example.com/builds/1'],
+            ],
+            [
+                'test_name' => 'Tests\\Api\\ParcelCentroidAPITest > it centroids',
+                'test_class' => 'Tests\\Api\\ParcelCentroidAPITest',
+                'failure_output' => 'Call to undefined method',
+                'failure_count' => 1,
+                'build_urls' => ['https://ci.example.com/builds/2'],
+            ],
+        ],
+        'commit_sha' => 'shared',
+    ]);
+
+    expect($prompt)->toContain('2 tests are all failing at the same commit')
+        ->toContain('AccuracyScoreAPITest')
+        ->toContain('ParcelCentroidAPITest');
+});
+
+test('flaky test prompt still renders tasks created before commit grouping', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'test_name' => 'Tests\\Feature\\UserTest > user can login',
         'failure_output' => 'Expected 200 but got 500',
         'build_url' => 'https://ci.example.com/builds/123',
     ]);
 
     expect($prompt)->toContain('Tests\\Feature\\UserTest')
-        ->toContain('test_user_can_login')
         ->toContain('Expected 200 but got 500')
         ->toContain('https://ci.example.com/builds/123');
+});
+
+test('flaky test prompt never renders a blank test class header', function () {
+    $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
+
+    $prompt = YakPromptBuilder::taskPrompt($task, [
+        'tests' => [
+            [
+                'test_name' => 'Tests\\Feature\\UserTest > user can login',
+                'test_class' => 'Tests\\Feature\\UserTest',
+                'failure_output' => 'boom',
+                'failure_count' => 1,
+                'build_urls' => [],
+            ],
+        ],
+    ]);
+
+    expect($prompt)->not->toContain('**Test:** ' . "\n")
+        ->not->toContain('**Test Class:** ' . "\n");
 });
 
 test('flaky test prompt lists every observed build url when build_urls is provided', function () {
     $task = YakTask::factory()->pending()->create(['source' => 'flaky-test']);
 
     $prompt = YakPromptBuilder::taskPrompt($task, [
-        'test_class' => 'Tests\\Feature\\UserTest',
-        'test_method' => 'test_user_can_login',
-        'failure_output' => 'Expected 200 but got 500',
-        'build_url' => 'https://ci.example.com/builds/103',
-        'build_urls' => [
-            'https://ci.example.com/builds/101',
-            'https://ci.example.com/builds/102',
-            'https://ci.example.com/builds/103',
+        'tests' => [
+            [
+                'test_name' => 'Tests\\Feature\\UserTest > user can login',
+                'test_class' => 'Tests\\Feature\\UserTest',
+                'failure_output' => 'Expected 200 but got 500',
+                'failure_count' => 3,
+                'build_urls' => [
+                    'https://ci.example.com/builds/101',
+                    'https://ci.example.com/builds/102',
+                    'https://ci.example.com/builds/103',
+                ],
+            ],
         ],
-        'failure_count' => 3,
     ]);
 
     expect($prompt)->toContain('Observed failures (3)')

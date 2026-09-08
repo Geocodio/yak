@@ -2,6 +2,7 @@ import Auth from './Auth'
 import Tasks from './Tasks'
 import CostDashboardController from './CostDashboardController'
 import Repositories from './Repositories'
+import ObservationController from './ObservationController'
 import HealthController from './HealthController'
 import ChannelController from './ChannelController'
 import SkillController from './SkillController'
@@ -21,6 +22,7 @@ const Controllers = {
     Tasks: Object.assign(Tasks, Tasks),
     CostDashboardController: Object.assign(CostDashboardController, CostDashboardController),
     Repositories: Object.assign(Repositories, Repositories),
+    ObservationController: Object.assign(ObservationController, ObservationController),
     HealthController: Object.assign(HealthController, HealthController),
     ChannelController: Object.assign(ChannelController, ChannelController),
     SkillController: Object.assign(SkillController, SkillController),

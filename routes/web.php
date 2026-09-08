@@ -13,6 +13,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
 use App\Http\Controllers\MarketplaceController;
+use App\Http\Controllers\ObservationController;
 use App\Http\Controllers\PromptController;
 use App\Http\Controllers\PromptPreviewController;
 use App\Http\Controllers\PromptVersionController;
@@ -104,6 +105,8 @@ Route::middleware(['auth'])->group(function () {
     Route::put('repos/{repository}/manifest', [ManifestController::class, 'update'])
         ->name('repos.manifest.update')
         ->where('repository', '.+');
+
+    Route::get('observations', ObservationController::class)->name('observations');
 
     Route::get('health', [HealthController::class, 'index'])->name('health');
     Route::post('health/refresh', [HealthController::class, 'refreshAll'])->name('health.refresh');

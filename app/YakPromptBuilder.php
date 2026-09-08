@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Channels\ChannelRegistry;
+use App\DataTransferObjects\CIBuildFailure;
 use App\Enums\TaskMode;
 use App\Facades\Prompts;
 use App\Models\Repository;
@@ -162,20 +163,60 @@ class YakPromptBuilder
      */
     private static function flakyTestPrompt(array $metadata): string
     {
-        /** @var list<string> $buildUrls */
-        $buildUrls = array_values(array_filter(
-            (array) ($metadata['build_urls'] ?? []),
-            fn ($u): bool => is_string($u) && $u !== '',
-        ));
-
         return Prompts::render('tasks-flaky-test', [
-            'testClass' => (string) ($metadata['test_class'] ?? ''),
-            'testMethod' => (string) ($metadata['test_method'] ?? ''),
-            'failureOutput' => (string) ($metadata['failure_output'] ?? ''),
-            'buildUrl' => (string) ($metadata['build_url'] ?? ''),
-            'buildUrls' => $buildUrls,
-            'failureCount' => (int) ($metadata['failure_count'] ?? 0),
+            'tests' => self::flakyTestEntries($metadata),
+            'commitSha' => (string) ($metadata['commit_sha'] ?? ''),
         ]);
+    }
+
+    /**
+     * Normalise a flaky-test task's context into one entry per failing test.
+     *
+     * Tasks created before failures were grouped by commit carry a single
+     * test at the top level of the context, so both shapes are read here.
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return list<array{test_name: string, test_class: string, failure_output: string, failure_count: int, build_urls: list<string>}>
+     */
+    private static function flakyTestEntries(array $metadata): array
+    {
+        $tests = is_array($metadata['tests'] ?? null) && $metadata['tests'] !== []
+            ? array_values($metadata['tests'])
+            : [$metadata];
+
+        $entries = [];
+
+        foreach ($tests as $test) {
+            if (! is_array($test)) {
+                continue;
+            }
+
+            $name = (string) ($test['test_name'] ?? $test['test_class'] ?? '');
+
+            if ($name === '') {
+                continue;
+            }
+
+            /** @var list<string> $buildUrls */
+            $buildUrls = array_values(array_filter(
+                (array) ($test['build_urls'] ?? []),
+                fn ($u): bool => is_string($u) && $u !== '',
+            ));
+
+            if ($buildUrls === [] && is_string($test['build_url'] ?? null) && $test['build_url'] !== '') {
+                $buildUrls = [$test['build_url']];
+            }
+
+            $entries[] = [
+                'test_name' => $name,
+                'test_class' => (string) ($test['test_class'] ?? CIBuildFailure::normalizeTestClass($name)),
+                'failure_output' => (string) ($test['failure_output'] ?? ''),
+                'failure_count' => (int) ($test['failure_count'] ?? 0),
+                'build_urls' => $buildUrls,
+            ];
+        }
+
+        return $entries;
     }
 
     /**
