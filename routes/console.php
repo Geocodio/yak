@@ -21,7 +21,8 @@ Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlap
 Schedule::command('yak:reap-lost-pending')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('yak:timeout-ci')->everyFifteenMinutes();
 Schedule::command('yak:healthcheck')->everyFifteenMinutes();
-Schedule::command('yak:scan-ci')->everyTwoHours();
+Schedule::command('yak:scan-ci')->everyTwoHours()->withoutOverlapping();
+Schedule::command('yak:observations:prune')->daily();
 Schedule::command('yak:poll-drone-ci')->everyMinute()->withoutOverlapping();
 Schedule::job(PollPullRequestReactionsJob::class)->hourly()->name('poll-pr-reactions');
 Schedule::job(HibernateIdleDeploymentsJob::class)->everyMinute()->name('deployments:hibernate-idle')->withoutOverlapping();

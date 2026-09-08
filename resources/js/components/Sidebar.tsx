@@ -7,6 +7,7 @@ import {
     Code2,
     DollarSign,
     ExternalLink,
+    Eye,
     Heart,
     Inbox,
     LogOut,
@@ -21,7 +22,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { YAK_MARK } from '@/lib/brand';
-import { channels, costs, deployments, health, logout, mcp, prReviews, prompts, repos, skills, tasks } from '@/routes';
+import { channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import type { SharedProps } from '@/types/shared';
 
@@ -33,6 +34,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
     { label: 'Tasks', icon: ClipboardList, url: tasks.url() },
+    { label: 'Observations', icon: Eye, url: observations.url() },
     { label: 'Repositories', icon: Code2, url: repos.url() },
     { label: 'Deployments', icon: Rocket, url: deployments.url() },
     { label: 'PR Reviews', icon: MessageSquare, url: prReviews.url() },

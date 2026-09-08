@@ -135,10 +135,16 @@ class PromptFixtures
                 [
                     'label' => 'Database seeding race',
                     'data' => [
-                        'testClass' => 'Tests\\Feature\\CheckoutTest',
-                        'testMethod' => 'user can complete checkout',
-                        'failureOutput' => "Failed asserting that 2 matches expected 1.\n--- Expected\n+++ Actual\n-1\n+2",
-                        'buildUrl' => 'https://ci.acme.com/builds/12345',
+                        'tests' => [
+                            [
+                                'test_name' => 'Tests\\Feature\\CheckoutTest > user can complete checkout',
+                                'test_class' => 'Tests\\Feature\\CheckoutTest',
+                                'failure_output' => "Failed asserting that 2 matches expected 1.\n--- Expected\n+++ Actual\n-1\n+2",
+                                'failure_count' => 3,
+                                'build_urls' => ['https://ci.acme.com/builds/12345'],
+                            ],
+                        ],
+                        'commitSha' => '9f2c1ab4d5e6f708192a3b4c5d6e7f8091a2b3c4',
                     ],
                 ],
             ],

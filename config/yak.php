@@ -250,6 +250,14 @@ return [
         'scan_interval_minutes' => (int) env('YAK_SCAN_INTERVAL_MINUTES', 120),
         'max_failure_age_hours' => (int) env('YAK_MAX_FAILURE_AGE_HOURS', 48),
 
+        // How many pull requests the existing-fix check inspects per repo per
+        // scan. Each one costs a file listing, so this bounds the scan's API
+        // use; the most recently updated are checked first.
+        'max_prs_inspected' => (int) env('YAK_CI_MAX_PRS_INSPECTED', 20),
+
+        // How long scan decisions stay on the Observations page.
+        'observation_retention_days' => (int) env('YAK_OBSERVATION_RETENTION_DAYS', 90),
+
         // Which CI jobs are worth reading logs from. A workflow run also
         // contains build, lint, deploy and notify jobs; their failures are
         // real breakage, not flaky tests, and their logs are large. A job

@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:40
+* @see routes/web.php:41
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:40
+* @see routes/web.php:41
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:40
+* @see routes/web.php:41
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:40
+* @see routes/web.php:41
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:48
+* @see routes/web.php:49
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:48
+* @see routes/web.php:49
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:48
+* @see routes/web.php:49
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:48
+* @see routes/web.php:49
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -286,6 +286,50 @@ repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 */
 repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: repos.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\ObservationController::__invoke
+* @see app/Http/Controllers/ObservationController.php:15
+* @route '/observations'
+*/
+export const observations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: observations.url(options),
+    method: 'get',
+})
+
+observations.definition = {
+    methods: ["get","head"],
+    url: '/observations',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\ObservationController::__invoke
+* @see app/Http/Controllers/ObservationController.php:15
+* @route '/observations'
+*/
+observations.url = (options?: RouteQueryOptions) => {
+    return observations.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\ObservationController::__invoke
+* @see app/Http/Controllers/ObservationController.php:15
+* @route '/observations'
+*/
+observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: observations.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\ObservationController::__invoke
+* @see app/Http/Controllers/ObservationController.php:15
+* @route '/observations'
+*/
+observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: observations.url(options),
     method: 'head',
 })
 
