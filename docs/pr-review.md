@@ -35,13 +35,15 @@ Each review comment has three pieces of metadata:
 
 | Field | Values | Meaning |
 |---|---|---|
-| Category | Simplicity, Test Quality, Performance, ... | What kind of issue this is |
+| Category | Correctness, Security, Data, Compatibility, Ticket Alignment, Tests, Performance, Conventions | What kind of issue this is, in the order Yak hunts for them |
 | Severity | `must_fix`, `should_fix`, `consider` | How important |
 | Suggestion | yes/no | Whether the comment contains a 1–10 line code suggestion block |
 
-`consider` findings are bundled into a single collapsed "Nitpicks" block at the bottom of the review body — they don't create line-level comments. `should_fix` and `must_fix` are inline.
+Comments are written like a senior engineer's inline GitHub comments: one sentence that names the concrete failure, with `nit:` marking the optional ones. Yak does not post a review report, a summary of what the PR does, or a list of what it tested. A clean review body says `LGTM` and nothing else. Findings whose line falls outside a diff hunk are folded into the review body; `consider` findings that can't be posted inline land in a collapsed "Nitpicks" block.
 
-Every review ends with a **verdict**: `Approve`, `Approve with suggestions`, or `Request changes`. The verdict is advisory — Yak does not use GitHub's Request Changes feature.
+Every review body ends with a collapsed **For the reviewer** block. It is written for the human doing the intent review, not the author: what the PR does, how it covers the Linear ticket's requirements, risk areas worth a human question, and what Yak verified in the sandbox versus what it could not check. Open it before you start your own review.
+
+Yak still records a **verdict** (`Approve`, `Approve with suggestions`, or `Request changes`) for the dashboard, but it is not shown on the PR. Approval is a human's call.
 
 ## Linear Ticket Context
 
@@ -74,7 +76,7 @@ TaskDetail (`/tasks/{id}`) for a `review` task shows three additional panels: re
 
 ## Limitations
 
-- Yak does not post **approvals** — the verdict is advisory. GitHub's branch protection still requires a human reviewer if configured that way.
+- Yak does not post **approvals** — the verdict lives in the dashboard only. GitHub's branch protection still requires a human reviewer if configured that way.
 - Review accuracy scales with the prompt; expect some noise on `consider` findings. Use the 👎 reaction to signal false positives — the dashboard surfaces patterns.
 - The `max_findings_per_review` cap (default 10) keeps reviews focused. Tune via `config/yak.php` if needed.
 - Incremental reviews only compute the diff between Yak's last reviewed SHA and the current head. Re-reviews of the full PR can always be triggered from TaskDetail.

@@ -738,7 +738,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     private function renderReviewBody(ParsedReview $parsed, array $nitpicks, array $outOfDiff = []): string
     {
         $parts = [];
-        $parts[] = "## Summary\n\n" . $parsed->summary;
+
+        if ($parsed->findings === []) {
+            $parts[] = 'LGTM';
+        }
 
         if ($outOfDiff !== []) {
             $byFile = [];
@@ -766,7 +769,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             $parts[] = "<details>\n<summary>Nitpicks (" . count($nitpicks) . ")</summary>\n\n" . $nitsBody . "\n</details>";
         }
 
-        $parts[] = "## Verdict\n\n**{$parsed->verdict}** — {$parsed->verdictDetail}";
+        $parts[] = $this->reviewerNotesBlock($parsed);
 
         $parts[] = $this->reReviewFooter();
 
@@ -785,7 +788,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     private function renderReviewBodyWithInlineFindings(ParsedReview $parsed, array $findings, array $nitpicks): string
     {
         $parts = [];
-        $parts[] = "## Summary\n\n" . $parsed->summary;
+
+        if ($findings === []) {
+            $parts[] = 'LGTM';
+        }
 
         $grouped = ['must_fix' => [], 'should_fix' => []];
         foreach ($findings as $f) {
@@ -819,11 +825,21 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             $parts[] = "<details>\n<summary>Nitpicks (" . count($nitpicks) . ")</summary>\n\n" . $nitsBody . "\n</details>";
         }
 
-        $parts[] = "## Verdict\n\n**{$parsed->verdict}** — {$parsed->verdictDetail}";
+        $parts[] = $this->reviewerNotesBlock($parsed);
 
         $parts[] = $this->reReviewFooter();
 
         return implode("\n\n", $parts);
+    }
+
+    /**
+     * The reviewer-facing notes are for the human doing the intent review,
+     * not the author, so they render collapsed. The verdict stays in the
+     * database for the dashboard and is not shown on the PR.
+     */
+    private function reviewerNotesBlock(ParsedReview $parsed): string
+    {
+        return "<details>\n<summary>For the reviewer</summary>\n\n" . trim($parsed->summary) . "\n</details>";
     }
 
     private function reReviewFooter(): string

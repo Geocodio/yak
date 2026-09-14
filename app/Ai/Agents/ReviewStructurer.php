@@ -36,8 +36,15 @@ below. Do NOT introduce new findings, soften existing ones, or editorialize
 
 Rules:
 - Copy each finding's file path, line number, severity, category, and body
-  from the source review. Preserve markdown formatting inside the body,
-  including any ```suggestion fenced blocks.
+  from the source review. The body is the comment text after the
+  `**[Category]** path:LINE —` prefix; do not repeat the category or the
+  path inside it. Preserve markdown formatting inside the body, including
+  any ```suggestion fenced blocks. Findings are written as short inline
+  comments (often one sentence); keep them that short.
+- `summary` is the source review's `## For the reviewer` section, copied
+  verbatim as markdown (without the heading). If the source has no such
+  section, write one or two sentences describing what the PR does.
+- If the `## Findings` section is exactly `LGTM`, emit `findings: []`.
 - Set `suggestion_loc` to the number of changed lines in the
   suggestion block (only when a ```suggestion fence is present in the body).
 - Only set `start_line` when the source review's prose explicitly names a
@@ -84,7 +91,7 @@ PROMPT;
                 ->description('First line of the original range a multi-line suggestion replaces. Must be strictly less than `line`. Omit for single-line suggestions or findings without a suggestion fence.'),
             'severity' => $schema->string()->enum(['must_fix', 'should_fix', 'consider'])->required(),
             'category' => $schema->string()->required()
-                ->description('Rubric category, e.g. `Simplicity`, `Test Quality`, `Performance`.'),
+                ->description('Rubric category: `Correctness`, `Security`, `Data`, `Compatibility`, `Ticket Alignment`, `Tests`, `Performance`, or `Conventions`.'),
             'body' => $schema->string()->required()
                 ->description('Full markdown body of the comment. May include a ```suggestion fence.'),
             'suggestion_loc' => $schema->integer()
@@ -104,7 +111,7 @@ PROMPT;
 
         return [
             'summary' => $schema->string()->required()
-                ->description('2–3 sentence walkthrough of what the PR does.'),
+                ->description('Reviewer-facing notes: the `## For the reviewer` section as markdown (what the PR does, ticket coverage, risk areas with suggested questions, what was and was not verified).'),
             'verdict' => $schema->string()
                 ->enum(['Approve', 'Approve with suggestions', 'Request changes'])
                 ->required(),

@@ -59,7 +59,7 @@ Omit the `Reply:` line for UNTOUCHED entries. The pipeline lowercases the status
 Title: {{ $linearTicket['title'] }}
 {{ $linearTicket['description'] }}
 
-Evaluate whether this PR accomplishes what this ticket describes. Flag drift, out-of-scope changes, or unaddressed requirements as a `should_fix` finding in the **Ticket Alignment** category.
+Evaluate whether this PR accomplishes what this ticket describes. Flag drift, out-of-scope changes, or unaddressed requirements as a `should_fix` finding in the **Ticket Alignment** category. A change can be flawless and still be the wrong change.
 @endif
 
 **PR description:**
@@ -67,12 +67,17 @@ Evaluate whether this PR accomplishes what this ticket describes. Flag drift, ou
 
 ---
 
+Two halves, and they stay separate:
+
+1. **The review** — as deep as the change deserves. Steps 1 to 6.
+2. **The write-up** — only what the author needs. The rules under "Write-up".
+
+Never let the depth of half 1 leak into half 2. The author does not want your review diary.
+
 ## Step 1: Gather the Diff
 
-Run these commands to understand the full scope of changes:
-
 ```bash
-# List all commits on this PR
+# Commits on this PR
 git log {{ $baseBranch ?: 'origin/main' }}..HEAD --oneline --no-decorate
 
 # Changed files summary
@@ -80,118 +85,109 @@ git diff {{ $baseBranch ?: 'origin/main' }}...HEAD --stat
 
 # Full diff
 git diff {{ $baseBranch ?: 'origin/main' }}...HEAD
+
+# What the branch is missing from its base (a behaviour change there can invalidate the review)
+git log --oneline {{ $baseBranch ?: 'origin/main' }} ^HEAD | head -20
 ```
+
+Three dots, not two: `base...HEAD` diffs from the merge base, which is what the author actually wrote. `base..HEAD` mixes in commits that landed on the base since the branch forked and produces phantom findings.
 
 For an incremental review, substitute the last-reviewed SHA for the base in these commands — the `--scope` context above tells you which mode you're in.
 
-## Step 2: Read Changed Files in Full
+## Step 2: Context Before Code
 
-For every file that appears in the diff, **read the entire file** (not just the diff hunks) so you understand the full context: surrounding code, class structure, imports, and how the change fits into the bigger picture.
+Read the PR description and the linked ticket for *intent* — what was this supposed to do? Hold every later finding against that.
 
-Also read directly related files:
+Note the author's language. A Danish PR gets Danish comments.
+
+If the PR is large, review it in coherent chunks (per module, per concern), not file-by-file top to bottom.
+
+## Step 3: Read Beyond the Diff
+
+The diff shows what changed, never what broke. Most real bugs live in the files the PR did *not* change.
+
+For every file in the diff, **read the entire file**, not just the hunks: surrounding code, class structure, imports, how the change fits.
+
+For each changed or removed symbol (method, class, route, event, config key, column):
+
+- **Who calls it?** `grep -rn "symbolName"` — check every call site the diff didn't touch.
+- **What did the old behaviour guarantee that the new one doesn't?** Return shape, nullability, ordering, exceptions thrown, side effects.
+- **Is there a second path to the same outcome that wasn't updated?** A queue job, a console command, a scheduled task, a policy, an event listener, an API resource, a Nova action, a Blade view, a frontend caller.
+
+Also read the directly related files:
 - If a controller changed, read its Form Request, Resource, and route registration
 - If a model changed, read its factory, migration, and policy
 - If a service changed, read its tests and callers
 - If tests changed, read the code under test
 
-## Step 3: Run Tests and Checks (When Feasible)
+## Step 4: Run the Gate
 
-If the repository has a test suite and `CLAUDE.md` / `README.md` tells you how to run a subset, run the tests relevant to the changed files. Genuine failures are **must_fix** findings.
-
-If the repository has type checkers (`phpstan`, `tsc`) or linters beyond auto-formatters (pint/prettier/biome — don't run those), run them against the changed files. Real issues are findings; style-only noise is not.
+If the repository has a test suite and `CLAUDE.md` / `README.md` tells you how to run a subset, run the tests relevant to the changed files. If it has type checkers (`phpstan`, `tsc`) or linters beyond auto-formatters (skip pint/prettier/biome), run them against the changed files.
 
 If running the full suite would take longer than a minute or two, skip it — target runs over blanket runs.
 
-## Step 4: Review Against Development Principles
+Gate output is **input to your judgement, not output to the author**. A genuine failure is a `must_fix` finding. A green result is never a comment — it goes in the "For the reviewer" section as one line, nowhere else.
 
-Evaluate the PR against each category below. **Only report findings that are genuinely actionable** — skip categories where everything looks fine. The bar for emitting a finding is high: if you're not sure it's worth raising, don't raise it.
+## Step 5: Hunt in Priority Order
 
-### Simplicity (KISS)
-- Is there a simpler, less complex way to solve this problem?
-- Is the solution over-engineered for what it needs to do?
-- Will someone unfamiliar with this code understand it quickly?
+Work down this list. Stop nitting once you find something serious — don't polish a PR that has a data-loss bug in it. If you have a `must_fix`, skip Conventions entirely.
 
-### Test Quality
-- Are there meaningful tests that verify actual functionality — not just coverage padding?
-- Are the right test types used (unit, feature, browser) for what's being tested?
-- Is mocking used thoughtfully and intentionally?
-- Are edge cases and failure paths covered?
-
-### Code Duplication & Reuse
-- Does existing code already handle this (or something very similar)?
-- If abstracting, has the pattern repeated at least three times (rule of three)?
-- Are action classes, services, or SDK-like abstractions used where appropriate?
-
-### Clean Code
-- Are function and variable names descriptive and intention-revealing?
-- Are functions focused on a single responsibility and not too large?
-- Are magic numbers or strings avoided in favor of constants, config, or enums?
-- Are multi-level logic branches avoided?
-
-### Code Expressiveness
-- Does the code speak for itself without needing comments?
-- Are comments limited to explaining business logic and non-obvious decisions?
-- Are there any single-character variable names or cryptic abbreviations?
-
-### Technology & Dependencies
-- Are we using boring, proven technologies — not chasing shiny new things?
-- Are any new dependencies justified and necessary?
-- Are dependencies well-maintained and appropriate for the use case?
-
-### Documentation
-- Is the "why" documented for non-obvious decisions?
-- Are new APIs, configuration options, or behaviors documented?
-- Is documentation concise and useful (not walls of text)?
-
-### Performance & Infrastructure
-- Are there obvious performance issues (N+1 queries, missing indexes, unbounded loops)?
-- Are timeouts configured where external calls are made?
-- Are queue jobs used for time-consuming operations?
-- Are there any single points of failure introduced?
-
-### Laravel Conventions (when applicable)
-- Proper use of Eloquent relationships over raw queries?
-- Form Requests for validation (not inline in controllers)?
-- `config()` over `env()` outside of config files?
-- Named routes and proper URL generation?
-- API Resources for API responses?
-- Eager loading to prevent N+1 problems?
-
-### Commit Hygiene
-- Do commits follow conventional commit format (`type(scope): description`)?
-- Are commits logically structured (not one giant commit, not micro-commits)?
-- Do commit messages explain intent, not just describe what changed?
-
+1. **Correctness** — off-by-one, null/empty, wrong branch, silent early return, swallowed exceptions, race conditions, wrong state after a failure mid-way (payments, jobs, multi-step writes), an N+1 or unbounded loop that becomes a timeout at real row counts.
+2. **Security & authorization** — missing policy/gate check, mass assignment, tenant or team scoping dropped, user input reaching a query, path, or shell, secrets or tokens in code or logs, auth bypass on a new route.
+3. **Data** — migrations that are not reversible or not safe on a live table (locking rewrites, destructive drops without a backfill), missing index for a new query, backfills without batching, nullable columns that code assumes are filled, encrypted fields written in the clear.
+4. **Compatibility** — public API or contract changes, event or payload shape changes, config keys renamed without a fallback, anything that forces a dependent repo, client library, or job in flight to move.
 @if ($linearTicket !== null)
-### Ticket Alignment
-- Does the PR actually accomplish what the Linear ticket describes?
-- Is there significant drift from the ticket scope?
-- Are any explicit ticket requirements left unaddressed?
+5. **Ticket Alignment** — does the PR do what the ticket asks, and only that? Explicit requirements left unaddressed; scope drift.
 @endif
+6. **Tests** — does a test actually fail if you revert the fix? Assertions that can't fail, happy path only, mocked to the point of proving nothing, missing coverage for the failure path the change introduces.
+7. **Performance & infrastructure** — external calls without timeouts, slow work outside a queue, new single points of failure.
+8. **Conventions** — whatever *this* repo holds itself to: `CLAUDE.md`, `CONTRIBUTING.md`, the repository-specific instructions above, linter config, and the patterns in the surrounding code. Read them before you cite a rule. For Laravel repos that usually means Form Requests over inline validation, `config()` over `env()` outside config files, eager loading, API Resources for API responses, and small focused classes. Only flag a convention when the surrounding code actually follows it.
 
-## Review Conduct
+## Step 6: Verify Before You Write
 
-- **Stay inside the diff.** Every finding must point to a line that was **added or modified in this PR** — a `+` line (or an adjacent context line inside the same hunk) from `git diff {{ $baseBranch ?: 'origin/main' }}...HEAD`. Reading untouched code is for context only; pre-existing issues in files the PR doesn't change are out of scope for this review. If the code is tempting to refactor but isn't part of this PR, say nothing.
-- **Be specific.** Always reference exact file paths and line numbers. Vague advice is useless.
-- **Provide alternatives.** Don't just say what's wrong — show what better looks like with a brief example or ` ```suggestion ` block when it fits.
+A finding you haven't verified is a guess, and guesses cost the author more than they're worth.
+
+For each candidate, do the cheapest thing that settles it: trace the actual code path, check the call sites, read the test, or run it. Then ask: **what concrete input or state produces the wrong result?** If you can't name one, drop the finding.
+
+Drop anything that survives only as "might", "consider possibly", "in theory", or "could be slightly more readable".
+
+## Write-up
+
+**Do not write a review report.** Output comments, not a document.
+
+Say something only if:
+
+- there is a real problem or risk
+- something should change before merge
+- you have a question the author needs to answer
+- something is genuinely surprising
+
+Otherwise say nothing. Silence means approval.
+
+- **One sentence is normal.** Two only when needed. Aim for 5–20 words. Write like a quick inline GitHub comment from a senior engineer, not a paragraph.
+- **Name the failure in the sentence.** "This 500s when `$team` is null — `resolveTeam()` returns null for API tokens." "Dropping this column breaks `ExportJob`, which still selects it." Not "consider adding a null check".
+- **Blocking versus nit lives in the sentence, not in a table.** `must_fix` and `should_fix` comments say what breaks. `consider` comments start with `nit:` and stay on one line.
+- **Never describe the review.** No "I tested", "I ran", "I also checked", no test counts, no "PHPStan is clean", no recap of what the PR does. The author knows what they wrote.
+- **Mirror the author's language.** Danish PR, Danish comments.
+- **Stay inside the diff.** Every finding anchors to a line that was **added or modified in this PR** — a `+` line (or an adjacent context line inside the same hunk). A bug caused by an untouched call site is anchored to the changed line that breaks it, and the sentence names the call site. Pre-existing issues in code the PR doesn't touch are out of scope; say nothing.
+- **Provide the fix when it is unambiguous.** A ` ```suggestion ` fence when the change is 1–10 lines AND inside the relevant diff hunk. Otherwise a short phrase in the sentence.
 - **Do NOT report any of these.** They are noise, not findings:
-    - Anything an auto-formatter handles: indentation, trailing commas, quote style, spacing, line length, import order. Pint, Prettier, ESLint, Biome, etc. handle these.
-    - Naming preferences: variable names, function names, file names — unless the name is actively misleading (says the opposite of what the code does).
-    - Comment phrasing, docblock wording, or "this comment could be clearer".
-    - Type-hint style choices (`?string` vs `string|null`, union order) when both forms are already used in the codebase.
-    - Log/exception message wording or test name aesthetics.
-    - "Could be slightly more readable" or "I'd personally prefer" rewrites with no concrete benefit.
+    - Anything an auto-formatter handles: indentation, trailing commas, quote style, spacing, line length, import order.
+    - Naming preferences — unless the name says the opposite of what the code does.
+    - Comment phrasing, docblock wording, log or exception message wording, test name aesthetics.
+    - Type-hint style choices (`?string` vs `string|null`, union order) when both forms exist in the codebase.
+    - Commit message format or commit granularity.
     - Suggesting an extracted helper, constant, or abstraction for code that appears once or twice. Rule of three.
-- **Cull ruthlessly.** A review with 3 sharp findings beats one with 20 trivial notes. **Hard caps: max 10 findings total, max 3 `consider` findings.** If you're at the cap, drop the weakest ones.
-- **Consider the whole.** Review the PR as a cohesive change, not just individual files. Does the overall approach make sense?
-- **Be direct.** Say "this should change" not "you might consider possibly changing". Respectful but clear.
-- **Skip clean categories.** If a category has no findings, don't include it. Silence means approval. Most reviews should have zero or one `consider` finding — three is the exception, not the target.
+    - "I'd personally prefer" rewrites with no concrete benefit.
+- **Cull ruthlessly.** Three sharp findings beat twenty notes. **Hard caps: max 10 findings total, max 3 `consider` findings.** Most reviews should have zero or one `consider`; three is the exception, not the target.
+- **Consider the whole.** Does the overall approach make sense? If the approach is wrong, one finding on the entry point saying so beats ten findings on its consequences.
+- **No praise sections.** If something is especially good and the author would want to know, one line in "For the reviewer".
 
 ## Severity Buckets
 
-- **must_fix** — blocks merge; real bug, test failure, obvious security issue, data loss risk
-- **should_fix** — meaningful improvement but not a blocker; code smell with a concrete maintainability or correctness cost
-- **consider** — small but real improvements with a concrete user-visible or maintainability benefit. NOT a place to dump style preferences, naming opinions, or "while you're here" suggestions. If you can't name the benefit in one short sentence, don't post it.
+- **must_fix** — blocks merge: real bug, failing test, security issue, data loss risk, migration that isn't safe on a live table.
+- **should_fix** — should change before merge but a human may reasonably overrule: a correctness risk with a narrow trigger, a missing test for the failure path, ticket drift, a compatibility break with a known consumer.
+- **consider** — a nit with a concrete, nameable benefit. NOT a place for style preferences or "while you're here" suggestions. If you can't name the benefit in one short sentence, don't post it.
 
 ## Rules
 
@@ -199,34 +195,46 @@ Evaluate the PR against each category below. **Only report findings that are gen
 - Skip any file matching `pathExcludes`: @json($pathExcludes)
 - Use ` ```suggestion ` blocks only when the change is 1–10 lines AND inside the relevant diff hunk. Populate `suggestion_loc` with the line count.
 - **The fence REPLACES the lines in the comment's range — exactly those, nothing else.** Pick the range to cover ONLY the lines that should disappear when the suggestion is accepted, not the surrounding context. Example: to rewrite a docblock above a function, the range is the existing docblock's lines (or the single line above the function if there is no docblock yet) — NEVER the function body or its closing brace. A range that covers extra lines will silently delete them on accept. A single-line range with a multi-line fence is also wrong: it expands one line into many, leaving the lines you meant to replace untouched. Match the range to the fence size precisely.
-- Suggestion blocks are optional, not expected. Only attach one when the rewrite is unambiguous and obviously correct. A finding without a suggestion is fine.
+- Suggestion blocks are optional, not expected. Only attach one when the rewrite is unambiguous and obviously correct.
 
 ## Output
 
-Write the review in prose, formatted like this:
+The pipeline turns this into GitHub review comments. The author sees the findings as inline comments. The "For the reviewer" section is shown collapsed, for the human doing the intent review. The verdict is recorded for the dashboard and is not shown on the PR. Write:
 
 ```
-## Summary
-2–3 sentences describing what this PR accomplishes.
+## For the reviewer
+- What the PR does, in one or two sentences.
+@if ($linearTicket !== null)
+- Ticket coverage: each explicit requirement in {{ $linearTicket['identifier'] }} → where it is satisfied, or "not addressed".
+@endif
+- Risk areas worth a human question (payments, auth, migrations, infra, external calls, deletion, anything that needs production state to confirm), each with one suggested question.
+- Verified: what you ran and what passed, one line. Not verified: what you could not check from the sandbox.
 
 ## Findings
 
 ### Must Fix
-- **[Category]** `path/to/file.php:LINE` — concrete description of the issue and a suggestion for fixing it. Include a ```suggestion fenced block below when a 1–10 line change fits inside the diff hunk.
+- **[Category]** `path/to/file.php:LINE` — one sentence naming the concrete failure. Optional ```suggestion fence on the next lines.
 
 ### Should Fix
-- **[Category]** `path/to/file.php:LINE` — description and suggestion. Use `LINE-LINE` (e.g. `tests/Foo.php:138-140`) when the suggestion replaces a multi-line range.
+- **[Category]** `path/to/file.php:LINE` — one sentence. Use `LINE-LINE` (e.g. `tests/Foo.php:138-140`) when a suggestion replaces a multi-line range.
 
 ### Consider
-- **[Category]** `path/to/file.php:LINE` — description. Include a ```suggestion fenced block whenever the nit is a concrete 1–10 line rewrite. Use `LINE-LINE` when the suggestion replaces a multi-line range.
-
-## What's Done Well
-Highlight 2–3 specific things the PR does right. Be genuine, not patronizing.
+- **[Category]** `path/to/file.php:LINE` — nit: one line.
 
 ## Verdict
-**Approve** / **Approve with suggestions** / **Request changes**
-
-One sentence justifying the verdict.
+**Approve** / **Approve with suggestions** / **Request changes** — one sentence.
 ```
 
-Skip any section that has no findings — don't write "Must Fix" with nothing under it. If the whole PR is clean, a summary, "What's Done Well", and an **Approve** verdict is the right shape. Don't emit JSON — the pipeline structures your review automatically.
+Category is one of: Correctness, Security, Data, Compatibility, Ticket Alignment, Tests, Performance, Conventions.
+
+Skip any severity section that has no findings. If there are no findings at all, the Findings section is exactly:
+
+```
+## Findings
+
+LGTM
+```
+
+with nothing after it, and the verdict is **Approve**. A thorough review that found nothing looks exactly like a shallow one, and that's fine — the receipts go in "For the reviewer", not in the comments.
+
+Don't emit JSON — the pipeline structures your review automatically.
