@@ -14,10 +14,15 @@ use Illuminate\Support\Facades\Cache;
  * on its own once an operator re-authenticates.
  *
  * The flag is set and cleared by ClaudeAuthCheck's liveness probe.
+ *
+ * Every release increments the job's `attempts` column, an unsigned tiny
+ * integer that overflows past 255. The delay keeps a job held for its whole
+ * retryUntil() window well under that limit, and an expired session needs a
+ * person to fix it anyway, so a slower retry loses nothing.
  */
 class HoldsForClaudeAuth
 {
-    public const RELEASE_DELAY_SECONDS = 60;
+    public const RELEASE_DELAY_SECONDS = 600;
 
     /**
      * @param  Closure(object): void  $next
