@@ -398,3 +398,42 @@ it('writes an error-level log when a command fails, then throws', function () {
     expect($log->output())->toContain('boom on fetch');
     expect($log->metadata['exit_code'])->toBe(1);
 });
+
+it('reclaims only what git manages, leaving ignored service data alone', function () {
+    Process::fake();
+    Http::fake();
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => ['checkout_refresh' => 'composer install'],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-reclaim',
+    ]);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'abc123');
+
+    $reclaim = $deployment->logs()->where('phase', 'reclaim_workspace')->first();
+
+    expect($reclaim->message)
+        ->toContain('ls-files --others --ignored --exclude-standard --directory')
+        ->toContain('-prune')
+        ->not->toContain('chown -R yak:yak /workspace');
+});
+
+it('falls back to a full reclaim when the workspace is not a git checkout', function () {
+    Process::fake();
+    Http::fake();
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => ['checkout_refresh' => 'composer install'],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-nogit',
+    ]);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'abc123');
+
+    $reclaim = $deployment->logs()->where('phase', 'reclaim_workspace')->first();
+
+    expect($reclaim->message)->toContain('chown -R yak:yak');
+});
