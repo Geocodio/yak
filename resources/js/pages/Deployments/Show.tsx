@@ -47,7 +47,7 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
 
     return (
         <>
-            <Head title={deployment.hostname} />
+            <Head title={deployment.branch} />
             <PageHeader
                 crumbs={['Deployments', `${deployment.repoSlug} / ${deployment.branch}`]}
                 actions={
@@ -68,18 +68,26 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
             <div className="min-h-0 flex-1 overflow-auto">
                 <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-8">
                     <div className="mb-6 flex flex-wrap items-start justify-between gap-6">
-                        <div>
+                        <div className="min-w-0">
                             <div className="flex items-center gap-2.5">
-                                <h1 className="font-mono text-[18px] font-semibold tracking-tight">{deployment.hostname}</h1>
+                                <h1 className="truncate font-mono text-[18px] font-semibold tracking-tight">{deployment.branch}</h1>
                                 <StatusPill tone={deployment.tone} label={deployment.statusLabel} />
                             </div>
                             <p className="mt-1 text-[12.5px] text-muted">
-                                {deployment.repoSlug} / <span className="font-mono">{deployment.branch}</span>
+                                {deployment.repoSlug}
                             </p>
                         </div>
                         <dl className="grid grid-cols-[auto_auto] gap-x-6 gap-y-1 text-[12px]">
                             <dt className="text-faint">Current commit</dt>
-                            <dd className="font-mono">{deployment.commit ?? '—'}</dd>
+                            <dd className="font-mono">
+                                {deployment.commit && deployment.commitUrl ? (
+                                    <a href={deployment.commitUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                                        {deployment.commit}
+                                    </a>
+                                ) : (
+                                    '—'
+                                )}
+                            </dd>
                             <dt className="text-faint">Template version</dt>
                             <dd>
                                 v{deployment.templateVersion}{' '}
@@ -99,7 +107,7 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
                         <ActivityLog logs={logs} />
 
                         <div className="flex flex-col gap-4">

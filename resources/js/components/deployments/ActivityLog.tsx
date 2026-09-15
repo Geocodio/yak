@@ -14,11 +14,17 @@ const PHASE_TONE: Record<string, string> = {
 export function ActivityLog({ logs }: { logs: DeploymentLogEntry[] }) {
     const [following, setFollowing] = useState(true);
     const containerRef = useRef<HTMLDivElement>(null);
-    const bottomRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        const el = containerRef.current;
+        if (el) {
+            el.scrollTop = el.scrollHeight;
+        }
+    };
 
     useEffect(() => {
         if (following) {
-            bottomRef.current?.scrollIntoView({ block: 'end' });
+            scrollToBottom();
         }
     }, [logs, following]);
 
@@ -33,11 +39,11 @@ export function ActivityLog({ logs }: { logs: DeploymentLogEntry[] }) {
 
     const jumpToLatest = () => {
         setFollowing(true);
-        bottomRef.current?.scrollIntoView({ block: 'end' });
+        scrollToBottom();
     };
 
     return (
-        <section className="rounded-card border border-hair bg-panel shadow-card">
+        <section className="min-w-0 rounded-card border border-hair bg-panel shadow-card">
             <div className="flex items-center justify-between border-b border-hair px-4 py-2.5">
                 <h2 className="text-[12px] font-semibold uppercase tracking-wide text-faint">Activity log</h2>
                 <div className="flex items-center gap-2 text-[11px] text-faint">
@@ -64,11 +70,10 @@ export function ActivityLog({ logs }: { logs: DeploymentLogEntry[] }) {
                                 {log.phase && <span className={cn('shrink-0 rounded-chip px-1.5 text-[10px] leading-5', PHASE_TONE[log.phase] ?? 'bg-panel-2 text-muted')}>{log.phase}</span>}
                                 <span className={cn('min-w-0 flex-1 break-all', log.error && 'text-fail')}>{log.message}</span>
                             </div>
-                            {log.output !== '' && <pre className="mt-1.5 ml-[104px] whitespace-pre-wrap rounded-chip bg-panel-2 px-2 py-1.5 text-[11px] text-muted">{log.output}</pre>}
+                            {log.output !== '' && <pre className="mt-1.5 overflow-x-auto whitespace-pre-wrap break-words rounded-chip bg-panel-2 px-2 py-1.5 text-[11px] text-muted">{log.output}</pre>}
                         </div>
                     ))
                 )}
-                <div ref={bottomRef} />
             </div>
         </section>
     );

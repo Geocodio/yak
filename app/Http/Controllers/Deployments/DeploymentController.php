@@ -72,7 +72,7 @@ class DeploymentController extends Controller
             'statusLabel' => DeploymentPresentation::label($deployment->status),
             'tone' => DeploymentPresentation::tone($deployment->status),
             'hostname' => $deployment->hostname,
-            'lastAccessedAgo' => $deployment->last_accessed_at?->diffForHumans(),
+            'lastAccessedAgo' => $this->lastAccessedAgo($deployment),
             'longLived' => (bool) $deployment->long_lived,
             'hibernatesAfter' => HibernationDuration::humanize($deployment->effectiveIdleMinutes()),
         ]);
@@ -93,11 +93,30 @@ class DeploymentController extends Controller
             'statusLabel' => DeploymentPresentation::label($deployment->status),
             'tone' => DeploymentPresentation::tone($deployment->status),
             'commit' => $deployment->current_commit_sha !== null ? substr($deployment->current_commit_sha, 0, 10) : null,
+            'commitUrl' => $deployment->current_commit_sha !== null
+                ? "https://github.com/{$deployment->repository->github_full_name}/commit/{$deployment->current_commit_sha}"
+                : null,
             'templateVersion' => $deployment->template_version,
             'repoTemplateVersion' => $deployment->repository->current_template_version,
-            'lastAccessedAgo' => $deployment->last_accessed_at?->diffForHumans(),
+            'lastAccessedAgo' => $this->lastAccessedAgo($deployment),
             'failure' => $deployment->status === DeploymentStatus::Failed ? $deployment->failure_reason : null,
         ];
+    }
+
+    /**
+     * Sub-minute access times read as "less than a minute ago" so polling does not tick through seconds.
+     */
+    private function lastAccessedAgo(BranchDeployment $deployment): ?string
+    {
+        if ($deployment->last_accessed_at === null) {
+            return null;
+        }
+
+        if ($deployment->last_accessed_at->diffInSeconds(now(), absolute: true) < 60) {
+            return 'less than a minute ago';
+        }
+
+        return $deployment->last_accessed_at->diffForHumans();
     }
 
     /**

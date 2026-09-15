@@ -23,6 +23,7 @@ export type DeploymentDetail = {
     statusLabel: string;
     tone: DeploymentTone;
     commit: string | null;
+    commitUrl: string | null;
     templateVersion: number;
     repoTemplateVersion: number;
     lastAccessedAgo: string | null;

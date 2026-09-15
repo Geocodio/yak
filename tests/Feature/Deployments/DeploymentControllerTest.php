@@ -47,6 +47,23 @@ test('index status=all includes destroyed deployments', function () {
             ->has('deployments.data', 2));
 });
 
+test('show links the current commit to github', function () {
+    $deployment = BranchDeployment::factory()->running()->create(['current_commit_sha' => 'eb18bab0f4c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5']);
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployment.commit', 'eb18bab0f4')
+            ->where('deployment.commitUrl', "https://github.com/{$deployment->repository->github_full_name}/commit/eb18bab0f4c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5"));
+});
+
+test('show reports sub-minute access as less than a minute ago', function () {
+    $deployment = BranchDeployment::factory()->running()->create(['last_accessed_at' => now()->subSeconds(7)]);
+
+    $this->get(route('deployments.show', $deployment))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployment.lastAccessedAgo', 'less than a minute ago'));
+});
+
 test('show renders deployment props', function () {
     $deployment = BranchDeployment::factory()->running()->create(['hostname' => 'foo.yak.example.com']);
 
