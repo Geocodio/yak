@@ -665,7 +665,7 @@ final class TaskDetailData
     }
 
     /**
-     * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
+     * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
      */
     private static function actions(YakTask $task): array
     {
@@ -691,6 +691,9 @@ final class TaskDetailData
             'canRetry' => $canRetry,
             'canCancel' => $canCancel,
             'canRerunReview' => $task->mode === TaskMode::Review,
+            'canRequestReview' => $task->mode !== TaskMode::Review
+                && $task->pr_url !== null
+                && Repository::where('slug', (string) $task->repo)->where('is_active', true)->where('pr_review_enabled', true)->exists(),
             'canRetryRender' => $task->artifacts()->rawFootage()->exists(),
             'canReroute' => $canReroute,
             'rerouteTargets' => $rerouteTargets,

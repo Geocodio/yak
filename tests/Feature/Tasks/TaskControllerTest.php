@@ -520,3 +520,25 @@ test('canRerunReview stays true and canRetry stays false for a finished review t
             ->where('actions.canRerunReview', true)
             ->where('actions.canRetry', false));
 });
+
+test('canRequestReview is true for a task with a PR on a repo with PR review enabled', function () {
+    $repository = Repository::factory()->create(['slug' => 'org/reviewed', 'is_active' => true, 'pr_review_enabled' => true]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'mode' => TaskMode::Fix, 'pr_url' => 'https://github.com/org/reviewed/pull/1']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', true));
+});
+
+test('canRequestReview is false without a PR, on review tasks, or when PR review is disabled', function () {
+    $enabled = Repository::factory()->create(['slug' => 'org/enabled', 'is_active' => true, 'pr_review_enabled' => true]);
+    $disabled = Repository::factory()->create(['slug' => 'org/disabled', 'is_active' => true, 'pr_review_enabled' => false]);
+
+    $withoutPr = YakTask::factory()->create(['repo' => $enabled->slug, 'mode' => TaskMode::Fix, 'pr_url' => null]);
+    $review = YakTask::factory()->create(['repo' => $enabled->slug, 'mode' => TaskMode::Review, 'pr_url' => 'https://github.com/org/enabled/pull/2']);
+    $reviewDisabled = YakTask::factory()->create(['repo' => $disabled->slug, 'mode' => TaskMode::Fix, 'pr_url' => 'https://github.com/org/disabled/pull/3']);
+
+    foreach ([$withoutPr, $review, $reviewDisabled] as $task) {
+        $this->get(route('tasks.show', $task))
+            ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', false));
+    }
+});

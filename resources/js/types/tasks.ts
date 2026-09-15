@@ -205,6 +205,7 @@ export type ActionsData = {
     canRetry: boolean;
     canCancel: boolean;
     canRerunReview: boolean;
+    canRequestReview: boolean;
     canRetryRender: boolean;
     canReroute: boolean;
     rerouteTargets: string[];

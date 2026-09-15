@@ -170,10 +170,39 @@ it('bails to the original task page for draft PRs', function () {
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
 });
 
-it('404s on non-review tasks', function () {
+it('requests a review from a task that opened the PR', function () {
+    Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'is_active' => true,
+        'pr_review_enabled' => true,
+        'git_url' => 'https://github.com/geocodio/api.git',
+    ]);
+
     $task = YakTask::factory()->create([
         'mode' => TaskMode::Fix,
-        'pr_url' => 'https://github.com/geocodio/api/pull/1',
+        'repo' => 'geocodio/api',
+        'pr_url' => 'https://github.com/geocodio/api/pull/77',
+        'pr_number' => 77,
+    ]);
+
+    fakeOpenPr(['user' => ['login' => 'yak-bot[bot]']]);
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('tasks.re-request-review', $task))
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Review requested. Yak is now reviewing this PR -- this page updates live as it progresses.');
+
+    $review = YakTask::where('mode', TaskMode::Review)->sole();
+    $ctx = json_decode((string) $review->context, true);
+
+    expect($review->pr_url)->toBe('https://github.com/geocodio/api/pull/77')
+        ->and($ctx['review_scope'])->toBe('full');
+});
+
+it('404s on tasks without a PR', function () {
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Fix,
+        'pr_url' => null,
     ]);
 
     $this->actingAs(User::factory()->create())

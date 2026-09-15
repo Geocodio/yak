@@ -115,8 +115,35 @@ it('skips draft PRs', function () {
     expect(YakTask::count())->toBe(0);
 });
 
-it('skips Yak-authored PRs', function () {
+it('reviews Yak-authored PRs by default', function () {
     Bus::fake();
+
+    Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
+
+    $payload = [
+        'action' => 'opened',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/3',
+            'draft' => false,
+            'user' => ['login' => 'yak-bot[bot]'],
+            'head' => ['ref' => 'x', 'sha' => 'a'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+            'number' => 3, 'title' => '', 'body' => '',
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload($body),
+    ])->assertOk();
+
+    expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
+});
+
+it('skips Yak-authored PRs when self review is disabled', function () {
+    Bus::fake();
+    config()->set('yak.pr_review.self_review_enabled', false);
 
     Repository::factory()->create(['slug' => 'geocodio/api', 'is_active' => true, 'pr_review_enabled' => true]);
 

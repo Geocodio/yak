@@ -1,12 +1,12 @@
 import { router } from '@inertiajs/react';
 import { Button, ConfirmDialog, Menu, toast } from '@geocodio/console-ui';
-import { ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MoreHorizontal, PanelBottom, Wrench } from 'lucide-react';
+import { ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MessageSquareCode, MoreHorizontal, PanelBottom, Wrench } from 'lucide-react';
 import { useState } from 'react';
-import { cancel, rerunReview, reroute, retry, show } from '@/routes/tasks';
+import { cancel, reRequestReview, rerunReview, reroute, retry, show } from '@/routes/tasks';
 import { tasks as tasksIndex } from '@/routes';
 import type { ActionsData, DeploymentData, TaskDetail } from '@/types/tasks';
 
-type ConfirmAction = { kind: 'retry' | 'cancel' | 'rerunReview' | 'reroute'; target?: string };
+type ConfirmAction = { kind: 'retry' | 'cancel' | 'rerunReview' | 'requestReview' | 'reroute'; target?: string };
 
 export function HeaderBand({
     task,
@@ -39,6 +39,8 @@ export function HeaderBand({
             router.post(cancel.url(task.id), {}, { preserveScroll: true, onFinish: finish });
         } else if (confirm.kind === 'rerunReview') {
             router.post(rerunReview.url(task.id), {}, { preserveScroll: true, onFinish: finish });
+        } else if (confirm.kind === 'requestReview') {
+            router.post(reRequestReview.url(task.id), {}, { onFinish: finish });
         } else {
             router.post(reroute.url(task.id), { repo: confirm.target }, { preserveScroll: true, onFinish: finish });
         }
@@ -79,6 +81,16 @@ export function HeaderBand({
                         <span className="max-sm:sr-only">Details</span>
                     </Button>
 
+                    {actions.canRequestReview && (
+                        <Button
+                            variant="secondary"
+                            icon={<MessageSquareCode size={13} />}
+                            onClick={() => setConfirm({ kind: 'requestReview' })}
+                            data-testid="request-review-button"
+                        >
+                            <span className="max-sm:sr-only">Request review</span>
+                        </Button>
+                    )}
                     {showRerunReview && (
                         <Button variant="primary" icon={<Wrench size={13} />} onClick={() => setConfirm({ kind: 'rerunReview' })}>
                             Re-run review
@@ -156,6 +168,8 @@ export function HeaderBand({
                           ? 'Retry this task?'
                           : confirm?.kind === 'rerunReview'
                             ? 'Re-run this review?'
+                            : confirm?.kind === 'requestReview'
+                              ? 'Request a review of this PR?'
                             : `Move this task to ${confirm?.target ?? ''}?`
                 }
                 body={
@@ -163,7 +177,9 @@ export function HeaderBand({
                         ? 'The sandbox will be destroyed and the agent will stop.'
                         : confirm?.kind === 'reroute'
                           ? 'The current sandbox (if any) will be destroyed and the task will restart there.'
-                          : 'This re-queues the task.'
+                          : confirm?.kind === 'requestReview'
+                            ? 'Yak starts a new review task for the latest commit on this PR.'
+                            : 'This re-queues the task.'
                 }
                 confirmLabel={confirm?.kind === 'cancel' ? 'Cancel task' : 'Confirm'}
                 destructive={confirm?.kind === 'cancel' || confirm?.kind === 'reroute'}

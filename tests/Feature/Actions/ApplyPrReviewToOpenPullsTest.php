@@ -12,8 +12,9 @@ beforeEach(function () {
     config()->set('yak.channels.github.app_bot_login', 'yak-bot[bot]');
 });
 
-it('enqueues review tasks for each open non-draft non-Yak PR', function () {
+it('enqueues review tasks for each open non-draft non-Yak PR when self review is disabled', function () {
     Bus::fake();
+    config()->set('yak.pr_review.self_review_enabled', false);
 
     $repo = Repository::factory()->create([
         'slug' => 'geocodio/api',
@@ -33,4 +34,25 @@ it('enqueues review tasks for each open non-draft non-Yak PR', function () {
     app(ApplyPrReviewToOpenPulls::class)($repo);
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
+});
+
+it('includes Yak-authored PRs when self review is enabled', function () {
+    Bus::fake();
+
+    $repo = Repository::factory()->create([
+        'slug' => 'geocodio/api',
+        'pr_review_enabled' => true,
+        'is_active' => true,
+    ]);
+
+    $github = mock(GitHubAppService::class);
+    $github->shouldReceive('listOpenPullRequests')->andReturn([
+        ['number' => 1, 'html_url' => 'u1', 'title' => '', 'body' => '', 'draft' => false, 'user' => ['login' => 'maria'], 'head' => ['ref' => 'h1', 'sha' => 's1'], 'base' => ['ref' => 'main', 'sha' => 'b1']],
+        ['number' => 3, 'html_url' => 'u3', 'title' => '', 'body' => '', 'draft' => false, 'user' => ['login' => 'yak-bot[bot]'], 'head' => ['ref' => 'h3', 'sha' => 's3'], 'base' => ['ref' => 'main', 'sha' => 'b3']],
+    ]);
+    app()->instance(GitHubAppService::class, $github);
+
+    app(ApplyPrReviewToOpenPulls::class)($repo);
+
+    expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(2);
 });

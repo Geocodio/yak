@@ -11,7 +11,7 @@ class ApplyPrReviewToOpenPulls
     {
         $installationId = (int) config('yak.channels.github.installation_id');
         $github = app(GitHubAppService::class);
-        $yakBot = $github->appBotLogin();
+        $yakBot = config('yak.pr_review.self_review_enabled') ? null : $github->appBotLogin();
 
         $prs = $github->listOpenPullRequests($installationId, $repository->github_full_name);
 

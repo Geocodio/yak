@@ -494,7 +494,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'draft PR']);
         }
 
-        if ((string) ($pr['user']['login'] ?? '') === app(AppService::class)->appBotLogin()) {
+        if (! config('yak.pr_review.self_review_enabled') && (string) ($pr['user']['login'] ?? '') === app(AppService::class)->appBotLogin()) {
             return response()->json(['ok' => true, 'skipped' => 'yak-authored PR']);
         }
 
