@@ -123,7 +123,7 @@ class DeploymentContainerManager
         // (Laravel's bootstrap/cache, storage/*) as their own user
         // (root or www-data). Yak then can't unlink files inside those
         // dirs during checkout. Reclaim ownership as root first.
-        $this->exec($deployment, 'reclaim_workspace', "chown -R yak:yak {$workspace}", $manifest->checkoutRefreshTimeoutSeconds, asRoot: true);
+        $this->exec($deployment, 'reclaim_workspace', $this->reclaimWorkspaceCommand($workspace), $manifest->checkoutRefreshTimeoutSeconds, asRoot: true);
 
         $this->exec($deployment, 'fetch', "cd {$workspace} && git fetch --all --prune", $manifest->checkoutRefreshTimeoutSeconds);
         $this->exec($deployment, 'checkout', "cd {$workspace} && git checkout --force {$commitSha}", $manifest->checkoutRefreshTimeoutSeconds);
@@ -141,6 +141,37 @@ class DeploymentContainerManager
             'current_commit_sha' => $commitSha,
             'dirty' => false,
         ]);
+    }
+
+    /**
+     * Shell script that gives `yak` ownership of everything git touches
+     * during fetch/checkout, and nothing else.
+     *
+     * A blanket `chown -R` also captures git-ignored paths, which is where
+     * a compose stack keeps its bind-mounted state: ClickHouse's data dir,
+     * Redis' dump, an app's node_modules. Those belong to the service's own
+     * uid, and the services are already running by the time this executes,
+     * so reassigning them pulls the filesystem out from under a live
+     * process that will not recover until its container is recreated.
+     *
+     * Git only ever reads or rewrites tracked files, so pruning the ignored
+     * set costs nothing and leaves service state intact. A workspace that
+     * is not a git checkout keeps the blanket behaviour.
+     */
+    private function reclaimWorkspaceCommand(string $workspace): string
+    {
+        return <<<SH
+        cd {$workspace} || exit 1
+        if [ -d .git ]; then
+          ignored=()
+          while IFS= read -r -d '' path; do
+            ignored+=( -path "./\${path%/}" -prune -o )
+          done < <(git -c safe.directory='*' ls-files --others --ignored --exclude-standard --directory -z)
+          find . "\${ignored[@]}" -exec chown yak:yak {} +
+        else
+          chown -R yak:yak .
+        fi
+        SH;
     }
 
     public function stop(BranchDeployment $deployment): void
