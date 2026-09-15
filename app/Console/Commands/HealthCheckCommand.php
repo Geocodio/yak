@@ -19,7 +19,20 @@ use Illuminate\Support\Facades\Log;
 #[Description('Run health checks and post to Slack on failure')]
 class HealthCheckCommand extends Command
 {
-    private const FAILING_CACHE_KEY = 'yak:healthcheck:failing';
+    /**
+     * Set per check when its failure alert posts. A check alerts at most
+     * once per ALERT_COOLDOWN_HOURS, however often it fails or flaps, and
+     * a check that stays down is re-announced once that window passes.
+     */
+    private const ALERTED_CACHE_KEY_PREFIX = 'yak:healthcheck:alerted:';
+
+    private const ALERT_COOLDOWN_HOURS = 24;
+
+    /**
+     * Set when a failure alert posts and cleared when the recovery message
+     * posts, so each alert gets at most one recovery message.
+     */
+    private const AWAITING_RECOVERY_CACHE_KEY = 'yak:healthcheck:awaiting-recovery';
 
     public function handle(Registry $registry): int
     {
@@ -36,13 +49,9 @@ class HealthCheckCommand extends Command
             $failures[$check->id()] = ['name' => $check->name(), 'result' => $result];
         }
 
-        /** @var list<string> $previouslyFailingIds */
-        $previouslyFailingIds = Cache::get(self::FAILING_CACHE_KEY, []);
-
         if (count($failures) === 0) {
-            if ($previouslyFailingIds !== []) {
-                Cache::forget(self::FAILING_CACHE_KEY);
-                $this->notifyRecovered();
+            if (Cache::has(self::AWAITING_RECOVERY_CACHE_KEY) && $this->notifyRecovered()) {
+                Cache::forget(self::AWAITING_RECOVERY_CACHE_KEY);
             }
 
             $this->components->info('All health checks passed.');
@@ -58,12 +67,18 @@ class HealthCheckCommand extends Command
             ]);
         }
 
-        $newlyFailing = array_diff_key($failures, array_flip($previouslyFailingIds));
+        $unannounced = array_filter(
+            $failures,
+            fn (string $id): bool => ! Cache::has(self::ALERTED_CACHE_KEY_PREFIX . $id),
+            ARRAY_FILTER_USE_KEY,
+        );
 
-        Cache::put(self::FAILING_CACHE_KEY, array_keys($failures), now()->addDays(7));
+        if ($unannounced !== [] && $this->notifySlack(array_values($unannounced))) {
+            foreach (array_keys($unannounced) as $id) {
+                Cache::put(self::ALERTED_CACHE_KEY_PREFIX . $id, true, now()->addHours(self::ALERT_COOLDOWN_HOURS));
+            }
 
-        if ($newlyFailing !== []) {
-            $this->notifySlack(array_values($newlyFailing));
+            Cache::forever(self::AWAITING_RECOVERY_CACHE_KEY, true);
         }
 
         return self::FAILURE;
@@ -72,14 +87,14 @@ class HealthCheckCommand extends Command
     /**
      * @param  list<array{name: string, result: HealthResult}>  $failures
      */
-    private function notifySlack(array $failures): void
+    private function notifySlack(array $failures): bool
     {
         $slack = app(ChannelRegistry::class)->for('slack');
 
         if ($slack === null || ! $slack->enabled()) {
             $this->components->warn('Slack not configured — skipping notification.');
 
-            return;
+            return false;
         }
 
         $lines = array_map(
@@ -95,35 +110,54 @@ class HealthCheckCommand extends Command
             . "```\nssh root@" . parse_url((string) config('app.url'), PHP_URL_HOST) . "\nyak-claude-login\n```\n"
             . 'Then type `/login` in the Claude session that opens.';
 
-        $this->postToSlack($slack, $text);
+        return $this->postToSlack($slack, $text);
     }
 
-    private function notifyRecovered(): void
+    private function notifyRecovered(): bool
     {
         $slack = app(ChannelRegistry::class)->for('slack');
 
         if ($slack === null || ! $slack->enabled()) {
-            return;
+            return false;
         }
 
-        $this->postToSlack($slack, ':white_check_mark: *Yak Health Check Recovered*');
+        return $this->postToSlack($slack, ':white_check_mark: *Yak Health Check Recovered*');
     }
 
-    private function postToSlack(Channel $slack, string $text): void
+    /**
+     * Slack answers most failures (an unknown channel, a bot that is not a
+     * member) with HTTP 200 and `ok: false`, so success is read from the body.
+     */
+    private function postToSlack(Channel $slack, string $text): bool
     {
+        $channel = config('yak.channels.slack.alert_channel');
+
+        if (blank($channel)) {
+            $this->components->warn('YAK_SLACK_ALERT_CHANNEL is not set — skipping notification.');
+
+            return false;
+        }
+
         $config = $slack->config();
         /** @var string $token */
         $token = $config['bot_token'] ?? '';
 
         $response = Http::withToken($token)->post('https://slack.com/api/chat.postMessage', [
-            'channel' => config('yak.healthcheck_slack_channel', '#engineering'),
+            'channel' => $channel,
             'text' => $text,
         ]);
 
-        if ($response->successful()) {
+        if ($response->successful() && $response->json('ok') === true) {
             $this->components->info('Slack notification sent.');
-        } else {
-            $this->components->warn('Failed to send Slack notification.');
+
+            return true;
         }
+
+        $error = $response->json('error') ?? "HTTP {$response->status()}";
+
+        $this->components->warn("Failed to send Slack notification: {$error}");
+        Log::warning('Health check Slack notification failed', ['error' => $error]);
+
+        return false;
     }
 }

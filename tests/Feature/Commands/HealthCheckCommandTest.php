@@ -72,6 +72,7 @@ beforeEach(function () {
     config([
         'yak.channels.slack.bot_token' => null,
         'yak.channels.slack.signing_secret' => null,
+        'yak.channels.slack.alert_channel' => 'C0ALERTS',
     ]);
 });
 
@@ -228,4 +229,95 @@ test('healthcheck command alerts on a newly-failing check without a false recove
     bindHealthCheckRegistry($checkAOk, $checkBOk);
     $this->artisan('yak:healthcheck')->assertExitCode(0);
     Http::assertSentCount(3);
+});
+
+function enableHealthCheckSlack(): void
+{
+    config([
+        'yak.channels.slack.bot_token' => 'xoxb-test-token',
+        'yak.channels.slack.signing_secret' => 'test-secret',
+    ]);
+
+    Cache::flush();
+}
+
+test('healthcheck command posts the alert to the configured channel', function () {
+    enableHealthCheckSlack();
+
+    Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
+
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertSent(fn ($request) => $request['channel'] === 'C0ALERTS');
+});
+
+test('healthcheck command alerts a flapping check at most once per day', function () {
+    enableHealthCheckSlack();
+
+    Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
+
+    $failing = fakeHealthCheck(fn () => HealthResult::error('down'));
+    $healthy = fakeHealthCheck(fn () => HealthResult::ok('Authenticated'));
+
+    foreach (range(1, 3) as $flap) {
+        bindHealthCheckRegistry($failing);
+        $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+        bindHealthCheckRegistry($healthy);
+        $this->artisan('yak:healthcheck')->assertExitCode(0);
+    }
+
+    // One failure alert and one recovery message for the whole day.
+    Http::assertSentCount(2);
+});
+
+test('healthcheck command re-alerts a check that is still failing a day later', function () {
+    enableHealthCheckSlack();
+
+    Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
+
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    $this->travel(23)->hours();
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertSentCount(1);
+
+    $this->travel(2)->hours();
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertSentCount(2);
+});
+
+test('healthcheck command retries the alert when slack rejects the post', function () {
+    enableHealthCheckSlack();
+
+    Http::fakeSequence('slack.com/api/chat.postMessage')
+        ->push(['ok' => false, 'error' => 'channel_not_found'])
+        ->push(['ok' => true]);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
+
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertSentCount(2);
+});
+
+test('healthcheck command skips slack when no alert channel is set', function () {
+    enableHealthCheckSlack();
+    config(['yak.channels.slack.alert_channel' => null]);
+
+    Http::fake();
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
+
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertNothingSent();
 });

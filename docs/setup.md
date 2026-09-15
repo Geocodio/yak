@@ -343,6 +343,8 @@ docker exec yak php artisan yak:healthcheck
 
 The check covers queue workers, repo fetchability, Claude CLI responsiveness, enabled channel MCP servers, and setup status for each repo.
 
+The scheduler runs it every 15 minutes. When a check fails, Yak posts to the Slack channel in `YAK_SLACK_ALERT_CHANNEL` (a channel ID; invite the bot first). Each failing check alerts at most once per 24 hours, followed by one recovery message.
+
 ### Smoke Test
 
 Run a manual task against your default repo:

@@ -162,9 +162,19 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
    slack_bot_token: xoxb-...
    slack_signing_secret: ...
    slack_workspace_url: https://{your-workspace}.slack.com  # for dashboard → thread deep links
+   slack_alert_channel: C0123ABCD  # channel ID for health check alerts
    ```
 
-9. Re-run Ansible
+9. If you set `slack_alert_channel`, invite the bot to that channel (`/invite @yak`)
+10. Re-run Ansible
+
+### Health Check Alerts
+
+The scheduler runs `yak:healthcheck` every 15 minutes. When a check fails, such as an expired Claude session, Yak posts the failure, the number of queued agent jobs, and the re-authentication steps to the channel in `slack_alert_channel`. It uses the same bot token, so no extra scopes or credentials are needed.
+
+- Each failing check alerts at most once per 24 hours, even if it flaps. A check that is still failing a day later alerts again as a reminder.
+- When every check passes again, Yak posts one recovery message per alert.
+- While the Claude session is unusable, agent jobs wait in the queue and retry every 10 minutes for up to 6 hours. Re-authenticate within that window and they start on their own.
 
 ### Usage
 
@@ -214,6 +224,7 @@ After Yak has opened a PR, replying in the same thread keeps the conversation go
 - **`app_home_opened` event must be subscribed** for welcome DMs. Enable the App Home tab in the Slack app config even if you never customize it — the event only fires when the tab is enabled.
 - **Bot token rotation** requires re-running Ansible to update the container env vars.
 - **3-day TTL** — clarifications that aren't answered auto-expire with a "Closing this — mention me again" message.
+- **Use a channel ID for `slack_alert_channel`**, not a name, and invite the bot first. Without it, or if Slack rejects the post, no alert is sent; the command logs a `Health check Slack notification failed` warning and retries on the next run.
 - **`slack_workspace_url` is optional but recommended.** Without it, the dashboard's "Source: Slack" chip renders as plain text instead of linking back to the originating thread.
 
 ---

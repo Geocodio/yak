@@ -299,6 +299,10 @@ return [
             // Workspace URL (e.g. "https://acme.slack.com"). Used to build
             // deep links from the dashboard back to the original thread.
             'workspace_url' => env('YAK_SLACK_WORKSPACE_URL'),
+
+            // Channel ID (e.g. "C0123ABCD") that receives health check alerts,
+            // such as an expired Claude session. The bot must be a member.
+            'alert_channel' => env('YAK_SLACK_ALERT_CHANNEL'),
         ],
 
         'linear' => [
