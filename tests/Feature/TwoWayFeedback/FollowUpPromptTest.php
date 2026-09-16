@@ -16,3 +16,19 @@ test('followUpPrompt tells the agent to summarize only the follow-up changes', f
     expect($prompt)->toContain('only what you changed in response to this feedback')
         ->and($prompt)->toContain('Do not restate the original PR description');
 });
+
+test('followUpPrompt asks for the two-section summary', function () {
+    $prompt = YakPromptBuilder::followUpPrompt('Handle the empty-state');
+
+    expect($prompt)->toContain('## What changed in this run')
+        ->and($prompt)->toContain('## PR description')
+        ->and($prompt)->toContain('`Unchanged.`')
+        ->and($prompt)->toContain('Rewrite; do not append a changelog');
+});
+
+test('followUpPrompt asks for a recapture only when something visible changed', function () {
+    $prompt = YakPromptBuilder::followUpPrompt('Handle the empty-state');
+
+    expect($prompt)->toContain('capture them again under rule 6')
+        ->and($prompt)->toContain('If nothing visible changed, capture nothing');
+});
