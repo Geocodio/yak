@@ -240,6 +240,72 @@ test('successful retry accumulates cost and turns on task', function () {
         ->and($task->duration_ms)->toBe(180000);
 });
 
+test('successful retry clears a stale pr_body_update from the failed attempt', function () {
+    // Regression: a follow-up that fails CI leaves pr_body_update set from
+    // its (unpublished) attempt. Without clearing it here, green CI on the
+    // retry would have CreatePullRequestJob::refreshOwnedSections() publish
+    // the failed attempt's description instead of the retry's.
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_clear',
+        resultSummary: 'Fixed the CI failures',
+        costUsd: 0.10,
+        numTurns: 2,
+        durationMs: 5000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'stale-body-repo', 'path' => '/home/yak/repos/stale-body-repo']);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'stale-body-repo',
+        'branch_name' => 'yak/ISSUE-400',
+        'pr_body_update' => "## Summary\n\nFailed attempt's rewrite.",
+    ]);
+
+    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+
+    expect($task->fresh()->pr_body_update)->toBeNull();
+});
+
+test('retry marks task Success and clears a stale pr_body_update when there are no new commits', function () {
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_answered_clear',
+        resultSummary: 'No code change needed.',
+        costUsd: 0.10,
+        numTurns: 2,
+        durationMs: 5000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = (new FakeSandboxManager)->setCommitCount(0);
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'stale-body-nc-repo', 'path' => '/home/yak/repos/stale-body-nc-repo']);
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'stale-body-nc-repo',
+        'branch_name' => 'yak/ISSUE-401',
+        'pr_body_update' => "## Summary\n\nFailed attempt's rewrite.",
+    ]);
+
+    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+
+    expect($task->fresh()->pr_body_update)->toBeNull();
+});
+
 /*
 |--------------------------------------------------------------------------
 | Claude --resume Flag — intentionally NOT used on retry
