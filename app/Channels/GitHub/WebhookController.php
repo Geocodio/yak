@@ -360,7 +360,10 @@ class WebhookController extends Controller
         $review = (array) $request->input('review', []);
         $reviewerLogin = (string) ($review['user']['login'] ?? '');
 
-        if ($reviewerLogin !== '' && $reviewerLogin === $github->appBotLogin()) {
+        /** @var array<string, mixed> $reviewer */
+        $reviewer = (array) ($review['user'] ?? []);
+
+        if ($this->isBotAuthor($reviewer, $github)) {
             return response()->json(['ok' => true, 'skipped' => 'yak authored review']);
         }
 
@@ -399,7 +402,10 @@ class WebhookController extends Controller
         $comment = (array) $request->input('comment', []);
         $authorLogin = (string) ($comment['user']['login'] ?? '');
 
-        if ($authorLogin !== '' && $authorLogin === $github->appBotLogin()) {
+        /** @var array<string, mixed> $author */
+        $author = (array) ($comment['user'] ?? []);
+
+        if ($this->isBotAuthor($author, $github)) {
             return response()->json(['ok' => true, 'skipped' => 'yak authored comment']);
         }
 
@@ -463,6 +469,43 @@ class WebhookController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * GitHub marks App and integration accounts with `type: "Bot"`. Yak never
+     * acts on a bot's review or comment: that covers its own output even when
+     * the configured bot login drifts from the real App slug, and it keeps
+     * third-party review bots from driving Yak.
+     *
+     * @param  array<string, mixed>  $user  the `user` object from a review or comment payload
+     */
+    private function isBotAuthor(array $user, AppService $github): bool
+    {
+        if ((string) ($user['type'] ?? '') === 'Bot') {
+            return true;
+        }
+
+        $login = (string) ($user['login'] ?? '');
+
+        if ($login === '') {
+            return false;
+        }
+
+        $botLogin = $github->appBotLogin();
+
+        if ($login === $botLogin) {
+            return true;
+        }
+
+        if ($login . '[bot]' === $botLogin) {
+            return true;
+        }
+
+        if ($botLogin . '[bot]' === $login) {
+            return true;
+        }
+
+        return false;
     }
 
     private function extractPrNumber(string $prUrl): int

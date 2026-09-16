@@ -109,6 +109,24 @@ it('skips a review that Yak wrote itself', function () {
     Bus::assertNotDispatched(TriageReviewJob::class);
 });
 
+it('skips a review from any bot account, regardless of login', function () {
+    reviewedYakTask();
+
+    postReview(['review' => ['user' => ['login' => 'some-other-bot[bot]', 'type' => 'Bot']]])
+        ->assertOk()->assertJsonPath('skipped', 'yak authored review');
+
+    Bus::assertNotDispatched(TriageReviewJob::class);
+});
+
+it('skips a review from the bot login without its [bot] suffix', function () {
+    reviewedYakTask();
+
+    postReview(['review' => ['user' => ['login' => 'yak-bot']]])
+        ->assertOk()->assertJsonPath('skipped', 'yak authored review');
+
+    Bus::assertNotDispatched(TriageReviewJob::class);
+});
+
 it('skips a closed PR', function () {
     reviewedYakTask(['pr_closed_at' => now()]);
 
