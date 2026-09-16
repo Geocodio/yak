@@ -193,3 +193,12 @@ it('bounds a Replies section placed before What changed at the next heading', fu
     expect($parsed->changes)->toBe('- x')
         ->and($parsed->replies)->toBe([5 => 'Fixed.']);
 });
+
+it('drops entries with a zero id or an empty body', function () {
+    $output = "## What changed in this run\n\n- x\n\n## Replies\n\n- [c:0] junk\n- [c:7]\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([])
+        ->and($parsed->changes)->not->toContain('[c:');
+});

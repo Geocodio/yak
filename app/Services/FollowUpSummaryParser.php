@@ -170,7 +170,8 @@ class FollowUpSummaryParser
     /**
      * Commits the reply lines gathered for the current tagged entry, if
      * any, into `$replies` and resets the entry so the next tag starts
-     * clean.
+     * clean. An id of 0 or less, or a body that is blank once trimmed, is
+     * discarded rather than stored -- it is not a usable reply.
      *
      * @param  array<int, string>  $replies
      *
@@ -181,7 +182,11 @@ class FollowUpSummaryParser
     private function flushReply(array &$replies, ?int &$currentId, array &$currentLines): void
     {
         if ($currentId !== null) {
-            $replies[$currentId] = trim(implode("\n", array_map(trim(...), $currentLines)));
+            $body = trim(implode("\n", array_map(trim(...), $currentLines)));
+
+            if ($currentId > 0 && $body !== '') {
+                $replies[$currentId] = $body;
+            }
         }
 
         $currentId = null;
