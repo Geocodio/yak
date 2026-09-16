@@ -47,7 +47,7 @@ class FollowUpTaskFactory
                 'external_id' => $root->external_id . '-followup',
                 'description' => $instructions,
                 'author_name' => $authorName,
-                're_request_review_from' => $reRequestReviewFrom !== [] ? array_values(array_unique($reRequestReviewFrom)) : null,
+                're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
                 'status' => TaskStatus::Pending,
             ]);
 
@@ -64,5 +64,19 @@ class FollowUpTaskFactory
         RunFollowUpJob::dispatch($child)->afterCommit();
 
         return $child;
+    }
+
+    /**
+     * Distinct, non-empty logins, or null when nothing remains -- an empty
+     * login flowing through would ask GitHub to re-request review from "".
+     *
+     * @param  array<int, string>  $logins
+     * @return array<int, string>|null
+     */
+    private function cleanLogins(array $logins): ?array
+    {
+        $cleaned = array_values(array_unique(array_filter($logins, fn (string $login): bool => $login !== '')));
+
+        return $cleaned !== [] ? $cleaned : null;
     }
 }

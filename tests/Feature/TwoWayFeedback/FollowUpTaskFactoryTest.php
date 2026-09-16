@@ -150,3 +150,19 @@ test('leaves re_request_review_from null when no logins are given', function () 
 
     expect($child->re_request_review_from)->toBeNull();
 });
+
+test('drops empty reviewer logins and stores null when nothing remains', function () {
+    Queue::fake();
+
+    $parent = YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'pr_number' => 9,
+        'branch_name' => 'yak/CSV-1',
+    ]);
+
+    $mixed = app(FollowUpTaskFactory::class)->create($parent, 'Fix it', 'github', reRequestReviewFrom: ['alice', '', 'alice']);
+    expect($mixed->re_request_review_from)->toBe(['alice']);
+
+    $onlyEmpty = app(FollowUpTaskFactory::class)->create($mixed, 'Fix it again', 'github', reRequestReviewFrom: ['']);
+    expect($onlyEmpty->re_request_review_from)->toBeNull();
+});
