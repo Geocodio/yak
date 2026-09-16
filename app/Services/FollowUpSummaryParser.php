@@ -7,8 +7,8 @@ use App\DataTransferObjects\ParsedFollowUpSummary;
 /**
  * Splits a follow-up run's summary on the two headings the follow-up prompt
  * asks for. Anything before the "PR description" heading is the change
- * summary (including a "## Replies" section when the agent answered
- * questions). Missing headings degrade to today's behaviour: the whole
+ * summary, and a "## Replies" section within it is pulled out into tagged
+ * reply entries. Missing headings degrade to today's behaviour: the whole
  * output is the change summary and the description is left alone.
  */
 class FollowUpSummaryParser
@@ -17,22 +17,88 @@ class FollowUpSummaryParser
 
     private const string DESCRIPTION_HEADING = 'pr description';
 
+    private const string REPLIES_HEADING = 'replies';
+
     public function parse(string $agentOutput): ParsedFollowUpSummary
     {
         $descriptionOffset = $this->headingOffset($agentOutput, self::DESCRIPTION_HEADING);
 
+        $changesText = $descriptionOffset === null
+            ? $agentOutput
+            : substr($agentOutput, 0, $descriptionOffset['start']);
+
+        [$changes, $replies] = $this->extractReplies($this->stripStrayMarkers($this->stripChangesHeading($changesText)));
+
         if ($descriptionOffset === null) {
-            return new ParsedFollowUpSummary(trim($this->stripChangesHeading($agentOutput)), null);
+            return new ParsedFollowUpSummary(trim($changes), null, $replies);
         }
 
-        $changes = $this->stripStrayMarkers($this->stripChangesHeading(substr($agentOutput, 0, $descriptionOffset['start'])));
         $description = trim($this->stripStrayMarkers(substr($agentOutput, $descriptionOffset['end'])));
 
         if ($description === '' || $this->isUnchanged($description)) {
             $description = null;
         }
 
-        return new ParsedFollowUpSummary(trim($changes), $description);
+        return new ParsedFollowUpSummary(trim($changes), $description, $replies);
+    }
+
+    /**
+     * Pull `- [c:<id>] ...` entries out of a "## Replies" section. An entry
+     * runs until the next tagged entry or the end of the section, so a
+     * reply may span several lines. Untagged prose in the section stays in
+     * the changes text; the heading itself is dropped.
+     *
+     * @return array{0: string, 1: array<int, string>}
+     */
+    private function extractReplies(string $changes): array
+    {
+        $offset = $this->headingOffset($changes, self::REPLIES_HEADING);
+
+        if ($offset === null) {
+            return [$changes, []];
+        }
+
+        $before = rtrim(substr($changes, 0, $offset['start']));
+        $section = substr($changes, $offset['end']);
+
+        $replies = [];
+        $leftover = [];
+        $currentId = null;
+        $currentLines = [];
+
+        $flush = function () use (&$replies, &$currentId, &$currentLines): void {
+            if ($currentId !== null) {
+                $replies[$currentId] = trim(implode("\n", array_map(trim(...), $currentLines)));
+            }
+
+            $currentId = null;
+            $currentLines = [];
+        };
+
+        foreach (preg_split('/\r?\n/', $section) ?: [] as $line) {
+            if (preg_match('/^\s*-\s*\[c:(\d+)\]\s*(.*)$/', $line, $match) === 1) {
+                $flush();
+                $currentId = (int) $match[1];
+                $currentLines = [$match[2]];
+
+                continue;
+            }
+
+            if ($currentId !== null) {
+                $currentLines[] = $line;
+
+                continue;
+            }
+
+            $leftover[] = $line;
+        }
+
+        $flush();
+
+        $leftoverText = trim(implode("\n", $leftover));
+        $changesText = $leftoverText === '' ? $before : rtrim($before) . "\n\n" . $leftoverText;
+
+        return [$changesText, $replies];
     }
 
     /**

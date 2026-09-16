@@ -84,12 +84,68 @@ it('matches headings case-insensitively and with trailing whitespace', function 
         ->and($parsed->description)->toBe('New text');
 });
 
-it('keeps a Replies section inside changes', function () {
+it('strips an untagged Replies heading but keeps its prose in changes', function () {
     $output = "## What changed in this run\n\n- z\n\n## Replies\n\n> why a queue?\n\nBecause the upload is slow.\n\n## PR description\n\nUnchanged.";
 
     $parsed = (new FollowUpSummaryParser)->parse($output);
 
-    expect($parsed->changes)->toContain('## Replies')
-        ->and($parsed->changes)->toContain('Because the upload is slow.')
+    expect($parsed->changes)->toContain('Because the upload is slow.')
+        ->and($parsed->changes)->not->toContain('## Replies')
         ->and($parsed->description)->toBeNull();
+});
+
+it('extracts tagged replies and removes the section from changes', function () {
+    $output = <<<'MD'
+## What changed in this run
+
+- Switched to exponential backoff
+
+## Replies
+
+- [c:101] Done in a1b2c3d: the loop now caps at five attempts.
+- [c:102] Because the upload can take minutes; a sync call would block the request.
+  See `UploadJob::handle()` for the timeout.
+
+## PR description
+
+Unchanged.
+MD;
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([
+        101 => 'Done in a1b2c3d: the loop now caps at five attempts.',
+        102 => "Because the upload can take minutes; a sync call would block the request.\nSee `UploadJob::handle()` for the timeout.",
+    ])
+        ->and($parsed->changes)->toBe('- Switched to exponential backoff')
+        ->and($parsed->description)->toBeNull();
+});
+
+it('keeps untagged text from the replies section in changes', function () {
+    $output = "## What changed in this run\n\n- x\n\n## Replies\n\nGeneral note for the reviewer.\n\n- [c:5] Fixed.\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([5 => 'Fixed.'])
+        ->and($parsed->changes)->toBe("- x\n\nGeneral note for the reviewer.");
+});
+
+it('returns no replies when the section is absent', function () {
+    $parsed = (new FollowUpSummaryParser)->parse("## What changed in this run\n\n- x\n\n## PR description\n\nUnchanged.");
+
+    expect($parsed->replies)->toBe([])
+        ->and($parsed->changes)->toBe('- x');
+});
+
+it('extracts replies even when the PR description heading is missing', function () {
+    $parsed = (new FollowUpSummaryParser)->parse("## What changed in this run\n\n- x\n\n## Replies\n\n- [c:9] Answered.");
+
+    expect($parsed->replies)->toBe([9 => 'Answered.'])
+        ->and($parsed->changes)->toBe('- x');
+});
+
+it('takes the last entry when the same comment id is answered twice', function () {
+    $parsed = (new FollowUpSummaryParser)->parse("## What changed in this run\n\n- x\n\n## Replies\n\n- [c:9] First.\n- [c:9] Second.\n\n## PR description\n\nUnchanged.");
+
+    expect($parsed->replies)->toBe([9 => 'Second.']);
 });

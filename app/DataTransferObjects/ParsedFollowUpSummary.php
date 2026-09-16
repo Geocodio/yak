@@ -8,8 +8,12 @@ namespace App\DataTransferObjects;
  */
 final readonly class ParsedFollowUpSummary
 {
+    /**
+     * @param  array<int, string>  $replies  review-comment id => reply body, in the order the agent wrote them
+     */
     public function __construct(
         public string $changes,
         public ?string $description,
+        public array $replies = [],
     ) {}
 }
