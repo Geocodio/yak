@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\WalkthroughPrSection;
 
@@ -292,4 +293,42 @@ it('replaces the marked section with the unavailable line on failure', function 
     app(PullRequestBodyUpdater::class)->setWalkthroughUnavailable('acme/site', 7, 'QA: caption too long');
 
     expect($captured())->toContain('_Video walkthrough unavailable (render failed: QA: caption too long)._');
+});
+
+test('setSections replaces several named sections with one read and one write', function () {
+    $existing = implode("\n\n", [
+        '**Source:** github',
+        PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
+        PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'old shots'),
+        WalkthroughPrSection::pending(),
+    ]);
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->with(77, 'owner/repo', 42)->andReturn(['body' => $existing]);
+    $github->shouldReceive('updatePullRequest')
+        ->once()
+        ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
+            return str_contains($data['body'], 'new description')
+                && str_contains($data['body'], 'new shots')
+                && ! str_contains($data['body'], 'old description')
+                && ! str_contains($data['body'], 'old shots')
+                && str_contains($data['body'], '_Rendering, this section will update automatically._')
+                && str_contains($data['body'], '**Source:** github');
+        })
+        ->andReturn(['body' => 'ok']);
+
+    (new PullRequestBodyUpdater($github))->setSections('owner/repo', 42, [
+        PullRequestBodySections::DESCRIPTION => PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'new description'),
+        PullRequestBodySections::SCREENSHOTS => PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'new shots'),
+    ]);
+});
+
+test('setSections writes nothing when no named section exists in the body', function () {
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "## Summary\n\nlegacy body"]);
+    $github->shouldNotReceive('updatePullRequest');
+
+    (new PullRequestBodyUpdater($github))->setSections('owner/repo', 42, [
+        PullRequestBodySections::DESCRIPTION => PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'new description'),
+    ]);
 });

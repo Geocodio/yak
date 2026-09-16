@@ -38,6 +38,32 @@ class PullRequestBodyUpdater
     }
 
     /**
+     * Replace several of Yak's marked sections in one read and one write.
+     * A section whose markers are missing from the body is skipped, so a
+     * PR opened before the markers existed is never rewritten.
+     *
+     * @param  array<string, string>  $sections  section name => already-wrapped block
+     */
+    public function setSections(string $repoFullName, int $prNumber, array $sections): void
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
+        $body = (string) ($pr['body'] ?? '');
+        $updated = $body;
+
+        foreach ($sections as $name => $section) {
+            $updated = PullRequestBodySections::replace($updated, $name, $section);
+        }
+
+        if ($updated === $body) {
+            return;
+        }
+
+        $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+    }
+
+    /**
      * Publish the finished walkthrough. `$filename` is retained for the
      * legacy `RenderVideoJob` caller; the rendered section labels the link
      * by duration rather than by file name.
