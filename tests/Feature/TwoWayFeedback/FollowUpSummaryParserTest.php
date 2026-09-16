@@ -202,3 +202,11 @@ it('drops entries with a zero id or an empty body', function () {
     expect($parsed->replies)->toBe([])
         ->and($parsed->changes)->not->toContain('[c:');
 });
+
+it('strips a colon separator after the tag', function () {
+    $output = "## What changed in this run\n\n- x\n\n## Replies\n\n- [c:5]: Fixed.\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([5 => 'Fixed.']);
+});

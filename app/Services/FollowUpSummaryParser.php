@@ -106,7 +106,7 @@ class FollowUpSummaryParser
         $sawFirstEntry = false;
 
         foreach (preg_split('/\r?\n/', $text) ?: [] as $line) {
-            if (preg_match('/^\s*-\s*\[c:(\d+)\]\s*(.*)$/', $line, $match) === 1) {
+            if (preg_match('/^\s*-\s*\[c:(\d+)\]\s*[:\-]?\s*(.*)$/', $line, $match) === 1) {
                 $this->flushReply($replies, $currentId, $currentLines);
 
                 if ($stripBareHeading && ! $sawFirstEntry) {
