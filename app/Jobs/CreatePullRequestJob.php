@@ -11,6 +11,7 @@ use App\Models\YakTask;
 use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
+use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -62,13 +63,23 @@ class CreatePullRequestJob implements ShouldQueue
                 'pr_number' => $existing['number'],
             ]);
 
-            $summary = $this->task->result_summary ?? '_No summary available._';
-            $gitHub->commentOnPullRequest(
-                $installationId,
-                $repository->github_full_name,
-                (int) $existing['number'],
-                mb_convert_encoding("Yak pushed changes addressing your feedback:\n\n{$summary}", 'UTF-8', 'UTF-8'),
-            );
+            app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $existing['number']);
+
+            $summary = $this->task->result_summary;
+            $hasReplies = ! empty($this->task->review_replies);
+
+            // A run that only answered questions has replies on their threads
+            // and nothing to summarise; a "pushed changes" comment would be
+            // noise. A run with neither still gets the placeholder so the
+            // reviewer sees that Yak finished.
+            if (($summary !== null && trim($summary) !== '') || ! $hasReplies) {
+                $gitHub->commentOnPullRequest(
+                    $installationId,
+                    $repository->github_full_name,
+                    (int) $existing['number'],
+                    mb_convert_encoding("Yak pushed changes addressing your feedback:\n\n" . ($summary ?? '_No summary available._'), 'UTF-8', 'UTF-8'),
+                );
+            }
 
             $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number']);
 

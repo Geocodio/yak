@@ -7,6 +7,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
+use App\Services\ReviewReplyPoster;
 use Illuminate\Support\Facades\Log;
 use Mockery\MockInterface;
 
@@ -46,6 +47,25 @@ function existingPrGitHub(): MockInterface
 
     return $github;
 }
+
+it('posts thread replies before the summary comment', function () {
+    $github = existingPrGitHub();
+    $poster = $this->mock(ReviewReplyPoster::class);
+    $poster->shouldReceive('post')->once()->withArgs(fn (YakTask $task, string $repo, int $number): bool => $repo === 'acme/web' && $number === 9);
+    $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setSections');
+
+    (new CreatePullRequestJob(followUpTask(['review_replies' => [1 => 'Done.']])))->handle($github);
+});
+
+it('skips the summary comment when the run only produced replies', function () {
+    $github = test()->mock(GitHubAppService::class);
+    $github->shouldReceive('findOpenPullRequestForBranch')->once()->andReturn(['number' => 9, 'html_url' => 'https://github.com/acme/web/pull/9']);
+    $github->shouldNotReceive('commentOnPullRequest');
+    $this->mock(ReviewReplyPoster::class)->shouldReceive('post')->once();
+    $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setSections');
+
+    (new CreatePullRequestJob(followUpTask(['result_summary' => null, 'review_replies' => [1 => 'Done.']])))->handle($github);
+});
 
 it('posts the comment and rewrites the description section when a rewrite is stored', function () {
     $github = existingPrGitHub();
