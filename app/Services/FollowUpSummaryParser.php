@@ -49,39 +49,80 @@ class FollowUpSummaryParser
     }
 
     /**
-     * Pull `- [c:<id>] ...` entries out of a "## Replies" section. An entry
-     * runs until the next tagged entry or the end of the section, so a
-     * reply may span several lines. Untagged prose in the section stays in
-     * the changes text; the heading itself is dropped. The section is
-     * bounded at the next second-level heading (or the end of the text),
-     * so a Replies section that comes before another section never runs
-     * into it.
+     * Pulls `- [c:<id>] ...` entries out of the changes text. A "## Replies"
+     * heading bounds the sweep to that section, running to the next
+     * second-level heading or the end of the text, so a Replies section
+     * placed before "What changed" cannot swallow it. Without that heading
+     * the whole text is swept for tagged entries instead, which also picks
+     * up entries sitting under a lower-level "### Replies" / "**Replies**"
+     * heading or no heading at all.
      *
      * @return array{0: string, 1: array<int, string>}
      */
-    private function extractReplies(string $changes): array
+    private function extractReplies(string $text): array
     {
-        $offset = $this->headingOffset($changes, self::REPLIES_HEADING);
+        $offset = $this->headingOffset($text, self::REPLIES_HEADING);
 
         if ($offset === null) {
-            return [$changes, []];
+            return $this->sweepTaggedEntries($text, stripBareHeading: true);
         }
 
-        $before = rtrim(substr($changes, 0, $offset['start']));
-        $sectionEnd = $this->nextTopHeadingOffset($changes, $offset['end']);
-        $section = substr($changes, $offset['end'], $sectionEnd - $offset['end']);
-        $after = trim(substr($changes, $sectionEnd));
+        $before = rtrim(substr($text, 0, $offset['start']));
+        $sectionEnd = $this->nextTopHeadingOffset($text, $offset['end']);
+        $section = substr($text, $offset['end'], $sectionEnd - $offset['end']);
+        $after = trim(substr($text, $sectionEnd));
+
+        [$leftover, $replies] = $this->sweepTaggedEntries($section);
+
+        $changes = trim(implode("\n\n", array_filter(
+            [$before, $leftover, $after],
+            fn (string $part): bool => $part !== '',
+        )));
+
+        return [$changes, $replies];
+    }
+
+    /**
+     * Walks a block of text line by line, pulling `- [c:<id>] ...` entries
+     * out into `$replies` and leaving everything else in the returned
+     * string. An entry runs until the next tagged entry or the next
+     * Markdown heading (any level), so prose and headings after an entry
+     * are never swallowed into its body. A block with no tagged entries at
+     * all is returned unchanged, byte for byte, so text with no replies
+     * never has its line endings normalised.
+     *
+     * @return array{0: string, 1: array<int, string>}
+     */
+    private function sweepTaggedEntries(string $text, bool $stripBareHeading = false): array
+    {
+        if (preg_match('/^\s*-\s*\[c:\d+\]/m', $text) !== 1) {
+            return [$text, []];
+        }
 
         $replies = [];
         $leftover = [];
         $currentId = null;
         $currentLines = [];
+        $sawFirstEntry = false;
 
-        foreach (preg_split('/\r?\n/', $section) ?: [] as $line) {
+        foreach (preg_split('/\r?\n/', $text) ?: [] as $line) {
             if (preg_match('/^\s*-\s*\[c:(\d+)\]\s*(.*)$/', $line, $match) === 1) {
                 $this->flushReply($replies, $currentId, $currentLines);
+
+                if ($stripBareHeading && ! $sawFirstEntry) {
+                    $sawFirstEntry = true;
+                    $this->stripBareRepliesHeading($leftover);
+                }
+
                 $currentId = (int) $match[1];
                 $currentLines = [$match[2]];
+
+                continue;
+            }
+
+            if ($currentId !== null && preg_match('/^#{1,6}[ \t]/', $line) === 1) {
+                $this->flushReply($replies, $currentId, $currentLines);
+                $leftover[] = $line;
 
                 continue;
             }
@@ -97,14 +138,33 @@ class FollowUpSummaryParser
 
         $this->flushReply($replies, $currentId, $currentLines);
 
-        $leftoverText = trim(implode("\n", $leftover));
+        return [trim(implode("\n", $leftover)), $replies];
+    }
 
-        $changesText = trim(implode("\n\n", array_filter(
-            [$before, $leftoverText, $after],
-            fn (string $part): bool => $part !== '',
-        )));
+    /**
+     * Removes the last non-blank leftover line when it is a bare "Replies"
+     * label (`### Replies`, `**Replies**`, `Replies:`) with nothing else on
+     * it. `headingOffset()` only recognises `## Replies`, so a lower-level
+     * or bold label would otherwise leak into the changes text once the
+     * entries below it are pulled out.
+     *
+     * @param  array<int, string>  $leftover
+     */
+    private function stripBareRepliesHeading(array &$leftover): void
+    {
+        $index = count($leftover) - 1;
 
-        return [$changesText, $replies];
+        while ($index >= 0 && trim($leftover[$index]) === '') {
+            $index--;
+        }
+
+        if ($index < 0) {
+            return;
+        }
+
+        if (preg_match('/^(#{1,6}\s*Replies\s*:?|\*\*Replies\*\*:?|Replies:)\s*$/i', trim($leftover[$index])) === 1) {
+            array_splice($leftover, $index, 1);
+        }
     }
 
     /**

@@ -156,6 +156,35 @@ it('strips echoed markers even when the headings are missing', function () {
     expect($parsed->changes)->toBe('Addressed it.');
 });
 
+it('sweeps tagged entries out from under a bare ### Replies heading', function () {
+    $output = "## What changed in this run\n\n- x\n\n### Replies\n\n- [c:5] Fixed.\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([5 => 'Fixed.'])
+        ->and($parsed->changes)->toBe('- x')
+        ->and($parsed->changes)->not->toContain('[c:');
+});
+
+it('sweeps tagged entries out from under a bare **Replies** heading', function () {
+    $output = "## What changed in this run\n\n- x\n\n**Replies**\n\n- [c:5] Fixed.\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([5 => 'Fixed.'])
+        ->and($parsed->changes)->toBe('- x')
+        ->and($parsed->changes)->not->toContain('[c:');
+});
+
+it('sweeps tagged entries with no Replies heading at all', function () {
+    $output = "## What changed in this run\n\n- [c:9] Answered.\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->replies)->toBe([9 => 'Answered.'])
+        ->and($parsed->changes)->not->toContain('[c:');
+});
+
 it('bounds a Replies section placed before What changed at the next heading', function () {
     $output = "## Replies\n\n- [c:5] Fixed.\n\n## What changed in this run\n\n- x\n\n## PR description\n\nSomething";
 
