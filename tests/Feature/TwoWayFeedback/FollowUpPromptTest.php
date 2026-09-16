@@ -16,3 +16,10 @@ test('followUpPrompt tells the agent to summarize only the follow-up changes', f
     expect($prompt)->toContain('only what you changed in response to this feedback')
         ->and($prompt)->toContain('Do not restate the original PR description');
 });
+
+test('followUpPrompt tells the agent to answer questions without changing code', function () {
+    $prompt = YakPromptBuilder::followUpPrompt('Why a queue here?');
+
+    expect($prompt)->toContain('question or a disagreement')
+        ->and($prompt)->toContain('do not change code for them');
+});
