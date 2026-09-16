@@ -102,7 +102,7 @@ class YakTask extends Model
             }
 
             if ($task->wasChanged('status') && $task->status === TaskStatus::Success && ! empty($task->re_request_review_from)) {
-                ReRequestReviewJob::dispatch($task);
+                ReRequestReviewJob::dispatch($task)->afterCommit();
             }
         });
     }
