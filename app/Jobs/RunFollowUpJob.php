@@ -166,7 +166,7 @@ class RunFollowUpJob implements ShouldQueue
         $parsed = app(FollowUpSummaryParser::class)->parse($result->resultSummary);
 
         $update = [
-            'result_summary' => $parsed->changes,
+            'result_summary' => $parsed->changes !== '' ? $parsed->changes : null,
             'pr_body_update' => $parsed->description,
             'model_used' => config('yak.default_model'),
         ];

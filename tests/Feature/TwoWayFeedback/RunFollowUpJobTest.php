@@ -197,6 +197,58 @@ test('RunFollowUpJob leaves pr_body_update null when the description is unchange
         ->and($task->pr_body_update)->toBeNull();
 });
 
+test('RunFollowUpJob stores a null result_summary instead of an empty string when the changes section is blank', function () {
+    $output = "## What changed in this run\n\n   \n\n## PR description\n\nUnchanged.";
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_followup',
+        resultSummary: $output,
+        costUsd: 0.50,
+        numTurns: 4,
+        durationMs: 20000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $recorder = new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse --abbrev-ref HEAD')) {
+                return Process::result('yak/CSV-1');
+            }
+
+            if (str_contains($command, 'git push --force-with-lease')) {
+                return Process::result('');
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'fu-repo', 'path' => '/home/yak/repos/fu-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'fu-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/CSV-1',
+        'pr_url' => 'https://github.com/acme/fu-repo/pull/9',
+        'pr_number' => 9,
+        'description' => 'Also handle the empty-state',
+    ]);
+
+    Queue::fake([ProcessCIResultJob::class, SendNotificationJob::class]);
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->result_summary)->toBeNull();
+});
+
 test('RunFollowUpJob never creates a new branch', function () {
     $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
     $this->app->instance(AgentRunner::class, $fake);
