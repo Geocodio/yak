@@ -66,18 +66,9 @@ class FollowUpSummaryParser
         $currentId = null;
         $currentLines = [];
 
-        $flush = function () use (&$replies, &$currentId, &$currentLines): void {
-            if ($currentId !== null) {
-                $replies[$currentId] = trim(implode("\n", array_map(trim(...), $currentLines)));
-            }
-
-            $currentId = null;
-            $currentLines = [];
-        };
-
         foreach (preg_split('/\r?\n/', $section) ?: [] as $line) {
             if (preg_match('/^\s*-\s*\[c:(\d+)\]\s*(.*)$/', $line, $match) === 1) {
-                $flush();
+                $this->flushReply($replies, $currentId, $currentLines);
                 $currentId = (int) $match[1];
                 $currentLines = [$match[2]];
 
@@ -93,12 +84,33 @@ class FollowUpSummaryParser
             $leftover[] = $line;
         }
 
-        $flush();
+        $this->flushReply($replies, $currentId, $currentLines);
 
         $leftoverText = trim(implode("\n", $leftover));
         $changesText = $leftoverText === '' ? $before : rtrim($before) . "\n\n" . $leftoverText;
 
         return [$changesText, $replies];
+    }
+
+    /**
+     * Commits the reply lines gathered for the current tagged entry, if
+     * any, into `$replies` and resets the entry so the next tag starts
+     * clean.
+     *
+     * @param  array<int, string>  $replies
+     *
+     * @param-out  null  $currentId
+     *
+     * @param  array<int, string>  $currentLines
+     */
+    private function flushReply(array &$replies, ?int &$currentId, array &$currentLines): void
+    {
+        if ($currentId !== null) {
+            $replies[$currentId] = trim(implode("\n", array_map(trim(...), $currentLines)));
+        }
+
+        $currentId = null;
+        $currentLines = [];
     }
 
     /**
