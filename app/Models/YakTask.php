@@ -180,6 +180,24 @@ class YakTask extends Model
     }
 
     /**
+     * The root task of the conversation that owns a PR, or null when the PR is
+     * not one Yak opened. Review-mode tasks share the PR URL of the human PR
+     * they reviewed and must never be treated as the PR's owner.
+     */
+    public static function followUpRootForPr(string $prUrl): ?self
+    {
+        return self::where('pr_url', $prUrl)
+            ->where('mode', '!=', TaskMode::Review)
+            ->whereNull('parent_task_id')
+            ->oldest()
+            ->first()
+            ?? self::where('pr_url', $prUrl)
+                ->where('mode', '!=', TaskMode::Review)
+                ->oldest()
+                ->first();
+    }
+
+    /**
      * The whole follow-up conversation this task belongs to: the chain's
      * root plus every descendant, ordered oldest-first. Each follow-up's
      * parent is the previous head, so the chain is walked up to the root

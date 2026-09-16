@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService;
 use App\Channels\GitHub\FollowUpCommentParser;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
@@ -56,7 +57,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
     {
         $task = YakTask::find($this->taskId);
 
-        if ($task === null || ! $task->prIsOpen()) {
+        if ($task === null || $task->mode === TaskMode::Review || ! $task->prIsOpen()) {
             return;
         }
 

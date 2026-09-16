@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Jobs\TriageReviewJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\YakTask;
@@ -130,6 +131,23 @@ it('still triages an approval that has a body', function () {
     postReview(['review' => ['state' => 'approved', 'body' => 'One nit inline.']])->assertOk();
 
     Bus::assertDispatched(TriageReviewJob::class);
+});
+
+it('skips a Review-mode task with the PR url', function () {
+    reviewedYakTask(['mode' => TaskMode::Review]);
+
+    postReview()->assertOk()->assertJsonPath('skipped', 'no yak task for pr');
+
+    Bus::assertNotDispatched(TriageReviewJob::class);
+});
+
+it('resolves the Fix root when a Fix root and a Review task share the PR url', function () {
+    $fixRoot = reviewedYakTask();
+    reviewedYakTask(['mode' => TaskMode::Review, 'created_at' => now()->subMinute()]);
+
+    postReview()->assertOk()->assertJsonPath('ok', true);
+
+    Bus::assertDispatched(TriageReviewJob::class, fn (TriageReviewJob $job) => $job->taskId === $fixRoot->id);
 });
 
 it('ignores reviews entirely when the flag is off', function () {

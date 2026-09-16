@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Jobs\FlushFollowUpBatchJob;
 use App\Models\FollowUpPendingComment;
 use App\Models\GitHubInstallationToken;
@@ -171,6 +172,41 @@ it('skips an issue_comment on a PR with no matching YakTask', function () {
         'X-GitHub-Event' => 'issue_comment',
         'X-Hub-Signature-256' => signGhFollowUpPayload($body),
     ])->assertOk();
+
+    expect(FollowUpPendingComment::count())->toBe(0);
+    Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
+});
+
+it('skips an issue_comment on a PR that only a Review-mode task owns', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    YakTask::factory()->success()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'issue' => [
+            'number' => 9,
+            'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/9'],
+        ],
+        'comment' => [
+            'id' => 46,
+            'user' => ['login' => 'mathias'],
+            'body' => '/yak please do this',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'issue_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk()->assertJsonPath('skipped', 'no yak task for pr');
 
     expect(FollowUpPendingComment::count())->toBe(0);
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);

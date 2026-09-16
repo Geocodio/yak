@@ -365,7 +365,7 @@ class WebhookController extends Controller
         }
 
         $prUrl = (string) $request->input('pull_request.html_url', '');
-        $task = $prUrl !== '' ? YakTask::where('pr_url', $prUrl)->first() : null;
+        $task = $prUrl !== '' ? YakTask::followUpRootForPr($prUrl) : null;
 
         if ($task === null) {
             return response()->json(['ok' => true, 'skipped' => 'no yak task for pr']);
@@ -413,7 +413,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'no pr url']);
         }
 
-        $task = YakTask::where('pr_url', $prUrl)->first();
+        $task = YakTask::followUpRootForPr($prUrl);
 
         if ($task === null) {
             return response()->json(['ok' => true, 'skipped' => 'no yak task for pr']);

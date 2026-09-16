@@ -36,9 +36,8 @@ class FlushFollowUpBatchJob implements ShouldQueue
         // run are not swept up and can be retried if create() throws.
         $ids = $comments->pluck('id')->all();
 
-        // Resolve the conversation root (or any task) for this PR.
-        $parent = YakTask::where('pr_url', $this->prUrl)->whereNull('parent_task_id')->first()
-            ?? YakTask::where('pr_url', $this->prUrl)->first();
+        // Resolve the conversation root (or any non-review task) for this PR.
+        $parent = YakTask::followUpRootForPr($this->prUrl);
 
         if ($parent === null) {
             FollowUpPendingComment::whereIn('id', $ids)->delete();
