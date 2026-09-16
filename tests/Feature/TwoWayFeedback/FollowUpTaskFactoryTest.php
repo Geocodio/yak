@@ -122,3 +122,31 @@ test('create() leaves author name null when not provided', function () {
 
     expect($child->author_name)->toBeNull();
 });
+
+test('stores the reviewer logins to re-request on the child', function () {
+    Queue::fake();
+
+    $parent = YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'pr_number' => 9,
+        'branch_name' => 'yak/CSV-1',
+    ]);
+
+    $child = app(FollowUpTaskFactory::class)->create($parent, 'Fix it', 'github', authorName: 'alice', reRequestReviewFrom: ['alice', 'bob']);
+
+    expect($child->re_request_review_from)->toBe(['alice', 'bob']);
+});
+
+test('leaves re_request_review_from null when no logins are given', function () {
+    Queue::fake();
+
+    $parent = YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'pr_number' => 9,
+        'branch_name' => 'yak/CSV-1',
+    ]);
+
+    $child = app(FollowUpTaskFactory::class)->create($parent, 'Fix it', 'github');
+
+    expect($child->re_request_review_from)->toBeNull();
+});

@@ -55,7 +55,9 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
         $instructions = "While you were working, these replies arrived:\n\n"
             . $messages->map(fn (PendingSteeringMessage $m) => '- ' . $m->text)->implode("\n");
 
-        $child = $factory->create($root, $instructions, 'steering');
+        $reviewerLogins = $messages->pluck('reviewer_login')->filter()->unique()->values()->all();
+
+        $child = $factory->create($root, $instructions, 'steering', null, $reviewerLogins);
 
         if ($child !== null) {
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();

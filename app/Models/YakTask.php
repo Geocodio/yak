@@ -70,6 +70,7 @@ class YakTask extends Model
             'status' => TaskStatus::class,
             'mode' => TaskMode::class,
             'clarification_options' => 'json',
+            're_request_review_from' => 'array',
             'clarification_expires_at' => 'datetime',
             'screenshots' => 'json',
             'cost_usd' => 'decimal:4',

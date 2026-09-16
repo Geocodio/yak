@@ -77,3 +77,27 @@ test('a save that does not change status does not dispatch the flush job', funct
 
     Queue::assertNotPushed(FlushSteeringMessagesJob::class);
 });
+
+test('queueFor records the reviewer login when given', function () {
+    $root = YakTask::factory()->create();
+
+    $msg = PendingSteeringMessage::queueFor($root, 'off by one', 'github_review', reviewerLogin: 'alice');
+
+    expect($msg->reviewer_login)->toBe('alice');
+});
+
+test('flush passes the distinct reviewer logins to the factory', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => 'https://github.com/geocodio/geocodio/pull/1']);
+    PendingSteeringMessage::queueFor($root, 'first', 'github_review', reviewerLogin: 'alice');
+    PendingSteeringMessage::queueFor($root, 'second', 'github_review', reviewerLogin: 'bob');
+    PendingSteeringMessage::queueFor($root, 'third', 'github_review', reviewerLogin: 'alice');
+    PendingSteeringMessage::queueFor($root, 'fourth', 'slack');
+
+    $this->mock(FollowUpTaskFactory::class)
+        ->shouldReceive('create')
+        ->once()
+        ->withArgs(fn (YakTask $parent, string $instructions, string $source, ?string $authorName, array $reRequestReviewFrom) => $reRequestReviewFrom === ['alice', 'bob'])
+        ->andReturn(YakTask::factory()->create(['parent_task_id' => $root->id]));
+
+    (new FlushSteeringMessagesJob($root->id))->handle(app(FollowUpTaskFactory::class));
+});

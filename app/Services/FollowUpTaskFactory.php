@@ -12,9 +12,11 @@ class FollowUpTaskFactory
     /**
      * Create a chained follow-up task for an open PR and dispatch the runner.
      * Returns null (and dispatches nothing) when the PR is already merged or
-     * closed — the caller should post a polite decline.
+     * closed -- the caller should post a polite decline.
+     *
+     * @param  array<int, string>  $reRequestReviewFrom  GitHub logins to re-request review from once this follow-up succeeds
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = []): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -27,7 +29,7 @@ class FollowUpTaskFactory
             return null;
         }
 
-        $child = DB::transaction(function () use ($head, $root, $instructions, $source, $authorName): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $instructions, $source, $authorName, $reRequestReviewFrom): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -45,6 +47,7 @@ class FollowUpTaskFactory
                 'external_id' => $root->external_id . '-followup',
                 'description' => $instructions,
                 'author_name' => $authorName,
+                're_request_review_from' => $reRequestReviewFrom !== [] ? array_values(array_unique($reRequestReviewFrom)) : null,
                 'status' => TaskStatus::Pending,
             ]);
 
