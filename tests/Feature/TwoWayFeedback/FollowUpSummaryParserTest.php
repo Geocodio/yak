@@ -149,3 +149,9 @@ it('takes the last entry when the same comment id is answered twice', function (
 
     expect($parsed->replies)->toBe([9 => 'Second.']);
 });
+
+it('strips echoed markers even when the headings are missing', function () {
+    $parsed = (new FollowUpSummaryParser)->parse("Addressed it.\n<!-- /yak:description -->");
+
+    expect($parsed->changes)->toBe('Addressed it.');
+});

@@ -218,9 +218,10 @@ class RunFollowUpJob implements ShouldQueue
 
     /**
      * Whether the sandbox's HEAD has commits the follow-up branch's remote
-     * doesn't have yet. A non-numeric result (an unexpected command output)
-     * is treated as unknown and defaults to true, so the safer, existing
-     * push-and-wait path runs rather than silently dropping work.
+     * doesn't have yet. A failed command or a non-numeric result (an
+     * unexpected command output) is treated as unknown and defaults to
+     * true, so the safer, existing push-and-wait path runs rather than
+     * silently dropping work.
      */
     private function hasNewCommits(IncusSandboxManager $sandbox, string $containerName, string $branchName): bool
     {
@@ -231,6 +232,10 @@ class RunFollowUpJob implements ShouldQueue
             "cd {$workspacePath} && git rev-list --count origin/{$branchName}..HEAD",
             timeout: 15,
         );
+
+        if ($result->exitCode() !== 0) {
+            return true;
+        }
 
         $output = trim($result->output());
 

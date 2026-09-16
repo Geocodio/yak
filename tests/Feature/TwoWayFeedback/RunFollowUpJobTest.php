@@ -387,6 +387,36 @@ test('RunFollowUpJob skips the push and resolves immediately when there are no n
     Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $task->id && $job->passed === true);
 });
 
+test('RunFollowUpJob pushes and awaits CI when the commit count check fails', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $sandbox = (new FakeSandboxManager)->failCommand('git rev-list --count', 'fatal: bad revision', 128);
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'revlistfail-repo', 'path' => '/home/yak/repos/revlistfail-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'revlistfail-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/REVLISTFAIL-1',
+        'pr_url' => 'https://github.com/acme/revlistfail-repo/pull/14',
+        'description' => 'add the missing test',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $pushCommands = array_filter($sandbox->commands, fn (string $c) => str_contains($c, 'git push'));
+
+    expect($pushCommands)->not->toBeEmpty()
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+});
+
 test('RunFollowUpJob pushes and awaits CI when there are new commits', function () {
     Queue::fake();
 
