@@ -274,7 +274,7 @@ test('successful retry clears a stale pr_body_update from the failed attempt', f
     (new RetryYakJob($task, 'Tests failed'))->handle($fake);
 
     expect($task->fresh()->pr_body_update)->toBeNull()
-        ->and($task->fresh()->review_replies)->toBeNull();
+        ->and($task->fresh()->review_replies)->toBe([1 => 'stale']);
 });
 
 test('retry marks task Success and clears a stale pr_body_update when there are no new commits', function () {
@@ -307,7 +307,7 @@ test('retry marks task Success and clears a stale pr_body_update when there are 
     (new RetryYakJob($task, 'Tests failed'))->handle($fake);
 
     expect($task->fresh()->pr_body_update)->toBeNull()
-        ->and($task->fresh()->review_replies)->toBeNull();
+        ->and($task->fresh()->review_replies)->toBe([1 => 'stale']);
 });
 
 /*
