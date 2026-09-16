@@ -27,7 +27,13 @@ class FollowUpSummaryParser
             ? $agentOutput
             : substr($agentOutput, 0, $descriptionOffset['start']);
 
-        [$changes, $replies] = $this->extractReplies($this->stripStrayMarkers($this->stripChangesHeading($changesText)));
+        // Extracted before the "What changed" heading is stripped, so a
+        // "## Replies" section placed ahead of "## What changed in this
+        // run" is bounded at that heading rather than running to the end
+        // of the text and swallowing it.
+        [$withoutReplies, $replies] = $this->extractReplies($changesText);
+
+        $changes = $this->stripStrayMarkers($this->stripChangesHeading($withoutReplies));
 
         if ($descriptionOffset === null) {
             return new ParsedFollowUpSummary(trim($changes), null, $replies);
@@ -46,7 +52,10 @@ class FollowUpSummaryParser
      * Pull `- [c:<id>] ...` entries out of a "## Replies" section. An entry
      * runs until the next tagged entry or the end of the section, so a
      * reply may span several lines. Untagged prose in the section stays in
-     * the changes text; the heading itself is dropped.
+     * the changes text; the heading itself is dropped. The section is
+     * bounded at the next second-level heading (or the end of the text),
+     * so a Replies section that comes before another section never runs
+     * into it.
      *
      * @return array{0: string, 1: array<int, string>}
      */
@@ -59,7 +68,9 @@ class FollowUpSummaryParser
         }
 
         $before = rtrim(substr($changes, 0, $offset['start']));
-        $section = substr($changes, $offset['end']);
+        $sectionEnd = $this->nextTopHeadingOffset($changes, $offset['end']);
+        $section = substr($changes, $offset['end'], $sectionEnd - $offset['end']);
+        $after = trim(substr($changes, $sectionEnd));
 
         $replies = [];
         $leftover = [];
@@ -87,7 +98,11 @@ class FollowUpSummaryParser
         $this->flushReply($replies, $currentId, $currentLines);
 
         $leftoverText = trim(implode("\n", $leftover));
-        $changesText = $leftoverText === '' ? $before : rtrim($before) . "\n\n" . $leftoverText;
+
+        $changesText = trim(implode("\n\n", array_filter(
+            [$before, $leftoverText, $after],
+            fn (string $part): bool => $part !== '',
+        )));
 
         return [$changesText, $replies];
     }
@@ -151,6 +166,21 @@ class FollowUpSummaryParser
         $end = $start + strlen($match[0][0]);
 
         return ['start' => $start, 'end' => $end];
+    }
+
+    /**
+     * Byte offset of the next second-level ("## ") heading at or after
+     * `$from`, or the end of the text when there is none. Bounds a
+     * "## Replies" section so it cannot run past the next heading and
+     * swallow the sections that follow it.
+     */
+    private function nextTopHeadingOffset(string $text, int $from): int
+    {
+        if (preg_match('/^##[ \t]/m', $text, $match, PREG_OFFSET_CAPTURE, $from) === 1) {
+            return (int) $match[0][1];
+        }
+
+        return strlen($text);
     }
 
     private function stripChangesHeading(string $text): string
