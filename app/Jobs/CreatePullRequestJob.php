@@ -63,10 +63,15 @@ class CreatePullRequestJob implements ShouldQueue
                 'pr_number' => $existing['number'],
             ]);
 
-            app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $existing['number']);
-
             $summary = $this->task->result_summary;
             $hasReplies = ! empty($this->task->review_replies);
+
+            app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $existing['number']);
+
+            // The replies just posted must not be re-posted if this job runs
+            // again (ProcessCIResultJob can re-dispatch it), so clear them
+            // once ReviewReplyPoster has had its turn.
+            $this->task->update(['review_replies' => null]);
 
             // A run that only answered questions has replies on their threads
             // and nothing to summarise; a "pushed changes" comment would be

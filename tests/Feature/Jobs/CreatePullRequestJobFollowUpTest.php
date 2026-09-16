@@ -55,7 +55,10 @@ it('posts thread replies before the summary comment', function () {
     $poster->shouldReceive('post')->once()->withArgs(fn (YakTask $task, string $repo, int $number): bool => $repo === 'acme/web' && $number === 9);
     $this->mock(PullRequestBodyUpdater::class)->shouldNotReceive('setSections');
 
-    (new CreatePullRequestJob(followUpTask(['review_replies' => [1 => 'Done.']])))->handle($github);
+    $task = followUpTask(['review_replies' => [1 => 'Done.']]);
+    (new CreatePullRequestJob($task))->handle($github);
+
+    expect($task->fresh()->review_replies)->toBeNull();
 });
 
 it('skips the summary comment when the run only produced replies', function () {
