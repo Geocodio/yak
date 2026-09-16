@@ -8,7 +8,10 @@ use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
+use App\Services\PullRequestBodySections;
+use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
+use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -66,6 +69,8 @@ class CreatePullRequestJob implements ShouldQueue
                 (int) $existing['number'],
                 mb_convert_encoding("Yak pushed changes addressing your feedback:\n\n{$summary}", 'UTF-8', 'UTF-8'),
             );
+
+            $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number']);
 
             return;
         }
@@ -166,19 +171,16 @@ class CreatePullRequestJob implements ShouldQueue
         $parts[] = '';
         $parts[] = '---';
         $parts[] = '';
-        $parts[] = $this->task->result_summary ?? '_No summary available._';
+        $parts[] = PullRequestBodySections::wrap(
+            PullRequestBodySections::DESCRIPTION,
+            $this->task->result_summary ?? '_No summary available._',
+        );
 
-        $screenshotArtifacts = $this->task->artifacts()->role('screenshot')->orderBy('id')->get();
-        if ($screenshotArtifacts->isNotEmpty()) {
+        $screenshots = $this->screenshotsSection();
+
+        if ($screenshots !== null) {
             $parts[] = '';
-            $parts[] = '### Screenshots';
-            $parts[] = '';
-            $parts[] = WalkthroughPrSection::screenshots(
-                $screenshotArtifacts->map(fn (Artifact $artifact): array => [
-                    'caption' => $artifact->caption,
-                    'url' => $artifact->publicUrl() ?? $artifact->signedUrl(),
-                ])->all(),
-            );
+            $parts[] = $screenshots;
         }
 
         $walkthrough = $this->walkthroughSection();
@@ -213,6 +215,68 @@ class CreatePullRequestJob implements ShouldQueue
     private function yakTaskUrl(): string
     {
         return route('tasks.show', $this->task);
+    }
+
+    /**
+     * The owned screenshots block for this task, or null when the task
+     * captured none. A follow-up that captured new screenshots replaces
+     * the block wholesale; one that captured nothing leaves it alone.
+     */
+    private function screenshotsSection(): ?string
+    {
+        $screenshotArtifacts = $this->task->artifacts()->role('screenshot')->orderBy('id')->get();
+
+        if ($screenshotArtifacts->isEmpty()) {
+            return null;
+        }
+
+        $rendered = WalkthroughPrSection::screenshots(
+            $screenshotArtifacts->map(fn (Artifact $artifact): array => [
+                'caption' => $artifact->caption,
+                'url' => $artifact->publicUrl() ?? $artifact->signedUrl(),
+            ])->all(),
+        );
+
+        return PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, "### Screenshots\n\n" . rtrim($rendered));
+    }
+
+    /**
+     * After a follow-up lands, swap the description and screenshots blocks
+     * so the body describes the PR as it now stands. The comment above is
+     * the changelog; the body is the current state. Runs on green CI only,
+     * so a follow-up that failed CI never rewrites the description.
+     */
+    private function refreshOwnedSections(string $repoFullName, int $prNumber): void
+    {
+        $sections = [];
+
+        if ($this->task->pr_body_update !== null && trim((string) $this->task->pr_body_update) !== '') {
+            $sections[PullRequestBodySections::DESCRIPTION] = PullRequestBodySections::wrap(
+                PullRequestBodySections::DESCRIPTION,
+                mb_convert_encoding((string) $this->task->pr_body_update, 'UTF-8', 'UTF-8'),
+            );
+        }
+
+        $screenshots = $this->screenshotsSection();
+
+        if ($screenshots !== null) {
+            $sections[PullRequestBodySections::SCREENSHOTS] = $screenshots;
+        }
+
+        if ($sections === []) {
+            return;
+        }
+
+        try {
+            app(PullRequestBodyUpdater::class)->setSections($repoFullName, $prNumber, $sections);
+            TaskLogger::info($this->task, 'PR body sections refreshed', ['sections' => array_keys($sections)]);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('CreatePullRequestJob: failed to refresh PR body sections', [
+                'task_id' => $this->task->id,
+                'sections' => array_keys($sections),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
