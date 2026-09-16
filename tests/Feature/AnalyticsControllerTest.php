@@ -60,10 +60,10 @@ test('headline computes the funnel, merge rate, one-shot rate and latency percen
         'repo' => 'acme/widgets', 'source' => 'slack', 'cost_usd' => 1.0, 'pr_url' => 'https://github.com/acme/widgets/pull/2',
         'created_at' => now()->subHours(3), 'pr_opened_at' => now()->subHours(2), 'pr_merged_at' => now()->subMinutes(30), 'human_commits' => 3,
     ]);
-    YakTask::factory()->success()->create(['parent_task_id' => $mergedWithFollowUp->id, 'pr_url' => $mergedWithFollowUp->pr_url, 'repo' => 'acme/widgets', 'cost_usd' => 0.5]);
+    YakTask::factory()->success()->create(['parent_task_id' => $mergedWithFollowUp->id, 'pr_url' => $mergedWithFollowUp->pr_url, 'repo' => 'acme/widgets', 'source' => 'slack', 'cost_usd' => 0.5]);
     YakTask::factory()->closedWithoutMerge()->create(['repo' => 'acme/widgets', 'source' => 'slack', 'cost_usd' => 0.5, 'created_at' => now()->subHours(2)]);
     YakTask::factory()->failed()->create(['repo' => 'acme/widgets', 'source' => 'sentry', 'cost_usd' => 0.25]);
-    YakTask::factory()->pending()->create(['repo' => 'other/repo', 'created_at' => now()->subDays(40)]);
+    YakTask::factory()->pending()->create(['repo' => 'other/repo', 'source' => 'linear', 'created_at' => now()->subDays(40)]);
 
     $this->get('/analytics')
         ->assertInertia(fn (Assert $page) => $page
