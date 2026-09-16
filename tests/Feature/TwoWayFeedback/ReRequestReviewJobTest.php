@@ -4,6 +4,7 @@ use App\Channels\GitHub\AppService;
 use App\Enums\TaskStatus;
 use App\Jobs\ReRequestReviewJob;
 use App\Models\GitHubInstallationToken;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -62,7 +63,7 @@ test('the job asks GitHub to re-request review from the stored logins', function
 test('a GitHub rejection is logged and does not fail the job', function () {
     Http::fake(['api.github.com/*' => Http::response(['message' => 'nope'], 422)]);
     Log::shouldReceive('channel')->with('yak')->andReturnSelf();
-    Log::shouldReceive('warning')->once();
+    Log::shouldReceive('warning')->twice();
 
     $task = YakTask::factory()->success()->create([
         'repo' => 'acme/web',
@@ -72,4 +73,10 @@ test('a GitHub rejection is logged and does not fail the job', function () {
     ]);
 
     (new ReRequestReviewJob($task))->handle(app(AppService::class));
+
+    $log = TaskLog::where('yak_task_id', $task->id)->where('level', 'warning')->first();
+
+    expect($log)->not->toBeNull()
+        ->and($log->message)->toBe('GitHub declined the review re-request')
+        ->and($log->metadata['reviewers'])->toBe(['alice']);
 });

@@ -48,6 +48,11 @@ class ReRequestReviewJob implements ShouldQueue
                 'reviewers' => $logins,
                 'error' => $e->getMessage(),
             ]);
+
+            TaskLogger::warning($this->task, 'GitHub declined the review re-request', [
+                'reviewers' => $logins,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }
