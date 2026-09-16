@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\FlushSteeringMessagesJob;
+use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
@@ -98,6 +99,10 @@ class YakTask extends Model
                 if (PendingSteeringMessage::where('root_task_id', $root->id)->exists()) {
                     FlushSteeringMessagesJob::dispatch($root->id)->delay(now()->addSeconds(5));
                 }
+            }
+
+            if ($task->wasChanged('status') && $task->status === TaskStatus::Success && ! empty($task->re_request_review_from)) {
+                ReRequestReviewJob::dispatch($task);
             }
         });
     }
