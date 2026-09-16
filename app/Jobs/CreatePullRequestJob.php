@@ -253,7 +253,7 @@ class CreatePullRequestJob implements ShouldQueue
         if ($this->task->pr_body_update !== null && trim((string) $this->task->pr_body_update) !== '') {
             $sections[PullRequestBodySections::DESCRIPTION] = PullRequestBodySections::wrap(
                 PullRequestBodySections::DESCRIPTION,
-                mb_convert_encoding((string) $this->task->pr_body_update, 'UTF-8', 'UTF-8'),
+                (string) $this->task->pr_body_update,
             );
         }
 
@@ -267,9 +267,41 @@ class CreatePullRequestJob implements ShouldQueue
             return;
         }
 
+        // One place to sanitise every owned section before it goes to
+        // GitHub, rather than converting the description inline and
+        // leaving the screenshots block untouched.
+        $sections = array_map(
+            fn (string $section): string => mb_convert_encoding($section, 'UTF-8', 'UTF-8'),
+            $sections,
+        );
+
+        $updater = app(PullRequestBodyUpdater::class);
+
         try {
-            app(PullRequestBodyUpdater::class)->setSections($repoFullName, $prNumber, $sections);
-            TaskLogger::info($this->task, 'PR body sections refreshed', ['sections' => array_keys($sections)]);
+            $applied = $updater->setSections($repoFullName, $prNumber, $sections);
+            $skipped = array_values(array_diff(array_keys($sections), $applied));
+
+            // A follow-up that captured screenshots for a PR opened without
+            // any has no screenshots markers to swap, so setSections skips
+            // it. Insert the block right after the description instead;
+            // insertSectionAfter leaves a legacy PR with no description
+            // markers untouched.
+            if (isset($sections[PullRequestBodySections::SCREENSHOTS]) && in_array(PullRequestBodySections::SCREENSHOTS, $skipped, true)) {
+                $inserted = $updater->insertSectionAfter(
+                    $repoFullName,
+                    $prNumber,
+                    PullRequestBodySections::DESCRIPTION,
+                    PullRequestBodySections::SCREENSHOTS,
+                    $sections[PullRequestBodySections::SCREENSHOTS],
+                );
+
+                if ($inserted) {
+                    $applied[] = PullRequestBodySections::SCREENSHOTS;
+                    $skipped = array_values(array_diff($skipped, [PullRequestBodySections::SCREENSHOTS]));
+                }
+            }
+
+            TaskLogger::info($this->task, 'PR body sections refreshed', ['applied' => $applied, 'skipped' => $skipped]);
         } catch (\Throwable $e) {
             Log::channel('yak')->warning('CreatePullRequestJob: failed to refresh PR body sections', [
                 'task_id' => $this->task->id,

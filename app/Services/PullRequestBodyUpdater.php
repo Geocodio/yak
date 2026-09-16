@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Edits an existing PR's body on GitHub so the walkthrough section reflects
@@ -23,18 +24,20 @@ class PullRequestBodyUpdater
      */
     public function setWalkthroughSection(string $repoFullName, int $prNumber, string $section): void
     {
-        $installationId = (int) config('yak.channels.github.installation_id');
+        $this->withBodyLock($repoFullName, $prNumber, function () use ($repoFullName, $prNumber, $section): void {
+            $installationId = (int) config('yak.channels.github.installation_id');
 
-        $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
-        $body = (string) ($pr['body'] ?? '');
+            $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
+            $body = (string) ($pr['body'] ?? '');
 
-        $updated = WalkthroughPrSection::replaceIn($body, $section);
+            $updated = WalkthroughPrSection::replaceIn($body, $section);
 
-        if ($updated === $body) {
-            return;
-        }
+            if ($updated === $body) {
+                return;
+            }
 
-        $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+            $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+        });
     }
 
     /**
@@ -43,24 +46,68 @@ class PullRequestBodyUpdater
      * PR opened before the markers existed is never rewritten.
      *
      * @param  array<string, string>  $sections  section name => already-wrapped block
+     * @return array<int, string> the names of the sections actually replaced
      */
-    public function setSections(string $repoFullName, int $prNumber, array $sections): void
+    public function setSections(string $repoFullName, int $prNumber, array $sections): array
     {
-        $installationId = (int) config('yak.channels.github.installation_id');
+        return $this->withBodyLock($repoFullName, $prNumber, function () use ($repoFullName, $prNumber, $sections): array {
+            $installationId = (int) config('yak.channels.github.installation_id');
 
-        $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
-        $body = (string) ($pr['body'] ?? '');
-        $updated = $body;
+            $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
+            $body = (string) ($pr['body'] ?? '');
+            $updated = $body;
+            $applied = [];
 
-        foreach ($sections as $name => $section) {
-            $updated = PullRequestBodySections::replace($updated, $name, $section);
-        }
+            foreach ($sections as $name => $section) {
+                $next = PullRequestBodySections::replace($updated, $name, $section);
 
-        if ($updated === $body) {
-            return;
-        }
+                if ($next !== $updated) {
+                    $applied[] = $name;
+                }
 
-        $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+                $updated = $next;
+            }
+
+            if ($updated === $body) {
+                return [];
+            }
+
+            $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+
+            return $applied;
+        });
+    }
+
+    /**
+     * Insert a section that has no markers of its own yet, right after
+     * another owned section's end marker. Used when a follow-up captures
+     * screenshots for a PR that was originally opened without any: the
+     * screenshots markers don't exist, so `setSections` would skip it, but
+     * the PR does have a description block to anchor the insert to.
+     *
+     * A legacy PR with no `$afterName` markers, and a PR that already has
+     * `$name` markers, are both left untouched.
+     */
+    public function insertSectionAfter(string $repoFullName, int $prNumber, string $afterName, string $name, string $section): bool
+    {
+        return $this->withBodyLock($repoFullName, $prNumber, function () use ($repoFullName, $prNumber, $afterName, $name, $section): bool {
+            $installationId = (int) config('yak.channels.github.installation_id');
+
+            $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
+            $body = (string) ($pr['body'] ?? '');
+
+            if (PullRequestBodySections::has($body, $name) || ! PullRequestBodySections::has($body, $afterName)) {
+                return false;
+            }
+
+            $marker = PullRequestBodySections::endMarker($afterName);
+            $insertAt = strpos($body, $marker) + strlen($marker);
+            $updated = substr($body, 0, $insertAt) . "\n\n{$section}" . substr($body, $insertAt);
+
+            $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
+
+            return true;
+        });
     }
 
     /**
@@ -113,5 +160,21 @@ class PullRequestBodyUpdater
         }
 
         return "[![Watch {$filename}]({$thumbnailUrl})]({$videoUrl})";
+    }
+
+    /**
+     * Serializes every read-replace-write against the same PR body behind
+     * one lock key, so `RenderWalkthroughJob` and `CreatePullRequestJob`
+     * (or two calls from either) never race a GET/PATCH pair against each
+     * other and drop one side's edit.
+     *
+     * @template TReturn
+     *
+     * @param  \Closure(): TReturn  $callback
+     * @return TReturn
+     */
+    private function withBodyLock(string $repoFullName, int $prNumber, \Closure $callback): mixed
+    {
+        return Cache::lock("pr-body:{$repoFullName}#{$prNumber}", 10)->block(5, $callback);
     }
 }

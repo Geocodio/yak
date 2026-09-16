@@ -55,7 +55,8 @@ it('posts the comment and rewrites the description section when a rewrite is sto
         ->withArgs(fn (string $repo, int $number, array $sections): bool => $repo === 'acme/web'
             && $number === 9
             && array_keys($sections) === [PullRequestBodySections::DESCRIPTION]
-            && str_contains($sections[PullRequestBodySections::DESCRIPTION], "## Summary\n\nWhole PR."));
+            && str_contains($sections[PullRequestBodySections::DESCRIPTION], "## Summary\n\nWhole PR."))
+        ->andReturn([PullRequestBodySections::DESCRIPTION]);
 
     $task = followUpTask(['pr_body_update' => "## Summary\n\nWhole PR."]);
 
@@ -69,7 +70,29 @@ it('rebuilds the screenshots section from the follow-up task screenshots', funct
         ->once()
         ->withArgs(fn (string $repo, int $number, array $sections): bool => array_keys($sections) === [PullRequestBodySections::SCREENSHOTS]
             && str_contains($sections[PullRequestBodySections::SCREENSHOTS], '### Screenshots')
-            && str_contains($sections[PullRequestBodySections::SCREENSHOTS], '_After the fix_'));
+            && str_contains($sections[PullRequestBodySections::SCREENSHOTS], '_After the fix_'))
+        ->andReturn([PullRequestBodySections::SCREENSHOTS]);
+
+    $task = followUpTask();
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'screenshot', 'role' => 'screenshot', 'filename' => 'b.png', 'disk_path' => "{$task->id}/screenshots/b.png", 'size_bytes' => 1, 'caption' => 'After the fix']);
+
+    (new CreatePullRequestJob($task))->handle($github);
+});
+
+it('inserts the screenshots section after the description when the PR body has no screenshots markers', function () {
+    $github = existingPrGitHub();
+    $updater = $this->mock(PullRequestBodyUpdater::class);
+    $updater->shouldReceive('setSections')
+        ->once()
+        ->andReturn([]);
+    $updater->shouldReceive('insertSectionAfter')
+        ->once()
+        ->withArgs(fn (string $repo, int $number, string $afterName, string $name, string $section): bool => $repo === 'acme/web'
+            && $number === 9
+            && $afterName === PullRequestBodySections::DESCRIPTION
+            && $name === PullRequestBodySections::SCREENSHOTS
+            && str_contains($section, '_After the fix_'))
+        ->andReturn(true);
 
     $task = followUpTask();
     Artifact::create(['yak_task_id' => $task->id, 'type' => 'screenshot', 'role' => 'screenshot', 'filename' => 'b.png', 'disk_path' => "{$task->id}/screenshots/b.png", 'size_bytes' => 1, 'caption' => 'After the fix']);
