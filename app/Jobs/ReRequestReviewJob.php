@@ -29,7 +29,7 @@ class ReRequestReviewJob implements ShouldQueue
 
     public function handle(AppService $github): void
     {
-        $logins = array_values(array_filter((array) ($this->task->re_request_review_from ?? [])));
+        $logins = array_filter((array) ($this->task->re_request_review_from ?? []));
         $installationId = (int) config('yak.channels.github.installation_id');
         $prNumber = (int) ($this->task->pr_number ?? 0);
 
