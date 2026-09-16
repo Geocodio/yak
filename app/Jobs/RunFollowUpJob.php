@@ -181,6 +181,7 @@ class RunFollowUpJob implements ShouldQueue
             $this->task->update([
                 'result_summary' => $parsed->changes !== '' ? $parsed->changes : null,
                 'pr_body_update' => $parsed->description,
+                'review_replies' => $parsed->replies !== [] ? $parsed->replies : null,
                 'model_used' => config('yak.default_model'),
             ]);
 
@@ -194,6 +195,7 @@ class RunFollowUpJob implements ShouldQueue
         $update = [
             'result_summary' => $parsed->changes !== '' ? $parsed->changes : null,
             'pr_body_update' => $parsed->description,
+            'review_replies' => $parsed->replies !== [] ? $parsed->replies : null,
             'model_used' => config('yak.default_model'),
         ];
 

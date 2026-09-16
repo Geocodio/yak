@@ -268,11 +268,13 @@ test('successful retry clears a stale pr_body_update from the failed attempt', f
         'repo' => 'stale-body-repo',
         'branch_name' => 'yak/ISSUE-400',
         'pr_body_update' => "## Summary\n\nFailed attempt's rewrite.",
+        'review_replies' => [1 => 'stale'],
     ]);
 
     (new RetryYakJob($task, 'Tests failed'))->handle($fake);
 
-    expect($task->fresh()->pr_body_update)->toBeNull();
+    expect($task->fresh()->pr_body_update)->toBeNull()
+        ->and($task->fresh()->review_replies)->toBeNull();
 });
 
 test('retry marks task Success and clears a stale pr_body_update when there are no new commits', function () {
@@ -299,11 +301,13 @@ test('retry marks task Success and clears a stale pr_body_update when there are 
         'repo' => 'stale-body-nc-repo',
         'branch_name' => 'yak/ISSUE-401',
         'pr_body_update' => "## Summary\n\nFailed attempt's rewrite.",
+        'review_replies' => [1 => 'stale'],
     ]);
 
     (new RetryYakJob($task, 'Tests failed'))->handle($fake);
 
-    expect($task->fresh()->pr_body_update)->toBeNull();
+    expect($task->fresh()->pr_body_update)->toBeNull()
+        ->and($task->fresh()->review_replies)->toBeNull();
 });
 
 /*

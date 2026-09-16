@@ -15,11 +15,11 @@ use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
-function fakeFollowUpResult(string $sessionId = 'sess_followup'): AgentRunResult
+function fakeFollowUpResult(string $sessionId = 'sess_followup', string $resultSummary = 'Addressed the feedback'): AgentRunResult
 {
     return new AgentRunResult(
         sessionId: $sessionId,
-        resultSummary: 'Addressed the feedback',
+        resultSummary: $resultSummary,
         costUsd: 0.50,
         numTurns: 4,
         durationMs: 20000,
@@ -82,7 +82,7 @@ test('RunFollowUpJob resumes the session, force-pushes the existing branch, and 
 });
 
 test('RunFollowUpJob stores the change summary and the rewritten description separately', function () {
-    $output = "## What changed in this run\n\n- Added backoff\n\n## PR description\n\n## Summary\n\nWhole PR, rewritten.";
+    $output = "## What changed in this run\n\n- Added backoff\n\n## Replies\n\n- [c:42] Fixed in a1b2c3d.\n\n## PR description\n\n## Summary\n\nWhole PR, rewritten.";
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_followup',
         resultSummary: $output,
@@ -136,7 +136,8 @@ test('RunFollowUpJob stores the change summary and the rewritten description sep
 
     $task->refresh();
     expect($task->result_summary)->toBe('- Added backoff')
-        ->and($task->pr_body_update)->toBe("## Summary\n\nWhole PR, rewritten.");
+        ->and($task->pr_body_update)->toBe("## Summary\n\nWhole PR, rewritten.")
+        ->and($task->review_replies)->toBe([42 => 'Fixed in a1b2c3d.']);
 });
 
 test('RunFollowUpJob leaves pr_body_update null when the description is unchanged', function () {
@@ -194,7 +195,8 @@ test('RunFollowUpJob leaves pr_body_update null when the description is unchange
 
     $task->refresh();
     expect($task->result_summary)->toBe('- Fixed typo')
-        ->and($task->pr_body_update)->toBeNull();
+        ->and($task->pr_body_update)->toBeNull()
+        ->and($task->review_replies)->toBeNull();
 });
 
 test('RunFollowUpJob stores a null result_summary instead of an empty string when the changes section is blank', function () {
@@ -356,7 +358,8 @@ test('RunFollowUpJob retries without --resume when the session transcript is gon
 test('RunFollowUpJob skips the push and resolves immediately when there are no new commits', function () {
     Queue::fake();
 
-    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $output = "## What changed in this run\n\n- Nothing to commit\n\n## Replies\n\n- [c:7] Answered without changing code.\n\n## PR description\n\nUnchanged.";
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult(resultSummary: $output));
     $this->app->instance(AgentRunner::class, $fake);
 
     $sandbox = (new FakeSandboxManager)->setCommitCount(0);
@@ -378,7 +381,8 @@ test('RunFollowUpJob skips the push and resolves immediately when there are no n
     $pushCommands = array_filter($sandbox->commands, fn (string $c) => str_contains($c, 'git push'));
 
     expect($pushCommands)->toBeEmpty()
-        ->and($task->fresh()->status)->not->toBe(TaskStatus::AwaitingCi);
+        ->and($task->fresh()->status)->not->toBe(TaskStatus::AwaitingCi)
+        ->and($task->fresh()->review_replies)->toBe([7 => 'Answered without changing code.']);
 
     Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $task->id && $job->passed === true);
 });
