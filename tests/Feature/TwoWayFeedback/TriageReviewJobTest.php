@@ -205,4 +205,5 @@ it('is unique per review id', function () {
     $job = new TriageReviewJob(1, 500, 9, 'commented', '', 'alice');
 
     expect($job->uniqueId())->toBe('review:500');
+    expect($job->uniqueFor())->toBe(120);
 });

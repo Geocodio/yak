@@ -53,6 +53,12 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
         return "review:{$this->reviewId}";
     }
 
+    /** Double the job timeout, so a lock orphaned by a killed worker expires. */
+    public function uniqueFor(): int
+    {
+        return 120;
+    }
+
     public function handle(AppService $github): void
     {
         $task = YakTask::find($this->taskId);
