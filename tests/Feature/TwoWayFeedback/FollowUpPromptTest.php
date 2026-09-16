@@ -39,3 +39,13 @@ test('followUpPrompt tells the agent to answer questions without changing code',
     expect($prompt)->toContain('question or a disagreement')
         ->and($prompt)->toContain('do not change code for them');
 });
+
+test('followUpPrompt asks for one tagged reply per inline comment', function () {
+    $prompt = YakPromptBuilder::followUpPrompt('- [c:12345] app/Foo.php:7 — why a queue here?');
+
+    expect($prompt)->toContain('## Replies')
+        ->and($prompt)->toContain('- [c:<id>]')
+        ->and($prompt)->toContain('one entry for every tagged comment')
+        ->and($prompt)->toContain('question or a disagreement')
+        ->and($prompt)->toContain('do not change code for them');
+});
