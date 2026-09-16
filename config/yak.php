@@ -423,6 +423,7 @@ return [
     'followup' => [
         'github_prefixes' => env('YAK_FOLLOWUP_GITHUB_PREFIXES', '/yak,@yak-bot[bot],yak:'),
         'github_batch_window_seconds' => (int) env('YAK_FOLLOWUP_GITHUB_BATCH_WINDOW_SECONDS', 60),
+        'github_review_triage_enabled' => (bool) env('YAK_FOLLOWUP_GITHUB_REVIEW_TRIAGE', true),
     ],
 
     /*

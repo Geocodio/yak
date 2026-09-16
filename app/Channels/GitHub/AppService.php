@@ -278,7 +278,11 @@ class AppService
             ]);
     }
 
-    public function addReaction(int $installationId, string $repoSlug, int $commentId, string $content, bool $isReviewComment = false): void
+    /**
+     * Returns the id GitHub assigns to the reaction, or null when the call
+     * fails, so a caller can remove the reaction again later.
+     */
+    public function addReaction(int $installationId, string $repoSlug, int $commentId, string $content, bool $isReviewComment = false): ?int
     {
         $token = $this->getInstallationToken($installationId);
 
@@ -286,11 +290,58 @@ class AppService
             ? "https://api.github.com/repos/{$repoSlug}/pulls/comments/{$commentId}/reactions"
             : "https://api.github.com/repos/{$repoSlug}/issues/comments/{$commentId}/reactions";
 
-        Http::withToken($token)
+        $response = Http::withToken($token)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->post($path, [
                 'content' => $content,
             ]);
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $id = $response->json('id');
+
+        return is_int($id) ? $id : null;
+    }
+
+    public function removeReaction(int $installationId, string $repoSlug, int $commentId, int $reactionId, bool $isReviewComment = false): void
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $path = $isReviewComment
+            ? "https://api.github.com/repos/{$repoSlug}/pulls/comments/{$commentId}/reactions/{$reactionId}"
+            : "https://api.github.com/repos/{$repoSlug}/issues/comments/{$commentId}/reactions/{$reactionId}";
+
+        Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->delete($path);
+    }
+
+    /**
+     * Ask the given users to review the PR again. GitHub answers 422 when a
+     * login is the PR author or lacks access; the caller decides whether
+     * that is worth more than a warning.
+     *
+     * @param  array<int, string>  $logins
+     */
+    public function requestReviewers(int $installationId, string $repoSlug, int $prNumber, array $logins): void
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/requested_reviewers", [
+                'reviewers' => array_values($logins),
+            ]);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException(sprintf(
+                'GitHub rejected review request (status %d): %s',
+                $response->status(),
+                (string) $response->body(),
+            ));
+        }
     }
 
     /**
