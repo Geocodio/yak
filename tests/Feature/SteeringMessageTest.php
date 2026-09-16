@@ -86,6 +86,29 @@ test('queueFor records the reviewer login when given', function () {
     expect($msg->reviewer_login)->toBe('alice');
 });
 
+test('flush renders a github_review message as its own paragraph, not a bullet', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => 'https://github.com/geocodio/geocodio/pull/1']);
+    PendingSteeringMessage::queueFor($root, 'plain note', 'dashboard');
+    PendingSteeringMessage::queueFor(
+        $root,
+        "> Quoted summary\n\nInline comments:\n```\nsome hunk\n```",
+        'github_review',
+        reviewerLogin: 'alice',
+    );
+
+    $this->mock(FollowUpTaskFactory::class)
+        ->shouldReceive('create')
+        ->once()
+        ->withArgs(function (YakTask $parent, string $instructions, string $source) {
+            return str_contains($instructions, "- plain note\n")
+                && str_contains($instructions, "\n> Quoted summary\n\nInline comments:\n```\nsome hunk\n```\n")
+                && ! str_contains($instructions, '- > Quoted summary');
+        })
+        ->andReturn(YakTask::factory()->create(['parent_task_id' => $root->id]));
+
+    (new FlushSteeringMessagesJob($root->id))->handle(app(FollowUpTaskFactory::class));
+});
+
 test('flush passes the distinct reviewer logins to the factory', function () {
     $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => 'https://github.com/geocodio/geocodio/pull/1']);
     PendingSteeringMessage::queueFor($root, 'first', 'github_review', reviewerLogin: 'alice');

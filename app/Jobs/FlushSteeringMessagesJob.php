@@ -8,6 +8,7 @@ use App\Services\FollowUpTaskFactory;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Collection;
 
 class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
 {
@@ -53,7 +54,7 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
         }
 
         $instructions = "While you were working, these replies arrived:\n\n"
-            . $messages->map(fn (PendingSteeringMessage $m) => '- ' . $m->text)->implode("\n");
+            . $this->renderMessages($messages);
 
         $reviewerLogins = $messages->pluck('reviewer_login')->filter()->unique()->values()->all();
 
@@ -62,5 +63,21 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
         if ($child !== null) {
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();
         }
+    }
+
+    /**
+     * A GitHub review's formatted text (quoted summary, "Inline comments:",
+     * fenced hunks) breaks a bullet list item, so it gets its own paragraph
+     * instead. Everything else keeps the bullet.
+     *
+     * @param  Collection<int, PendingSteeringMessage>  $messages
+     */
+    private function renderMessages(Collection $messages): string
+    {
+        return $messages
+            ->map(fn (PendingSteeringMessage $m): string => $m->source === 'github_review'
+                ? "\n" . $m->text . "\n"
+                : '- ' . $m->text)
+            ->implode("\n");
     }
 }
