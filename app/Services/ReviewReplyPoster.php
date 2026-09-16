@@ -21,7 +21,13 @@ class ReviewReplyPoster
         $replies = (array) ($task->review_replies ?? []);
         $installationId = (int) config('yak.channels.github.installation_id');
 
-        if ($replies === [] || $installationId <= 0) {
+        if ($replies === []) {
+            return;
+        }
+
+        if ($installationId <= 0) {
+            TaskLogger::warning($task, 'Review replies skipped: no GitHub installation id');
+
             return;
         }
 
@@ -50,18 +56,31 @@ class ReviewReplyPoster
             : "Replying to review comment {$commentId} (GitHub would not accept a thread reply):\n\n";
 
         try {
-            $this->github->commentOnPullRequest($installationId, $repoSlug, $prNumber, $intro . $body);
-            TaskLogger::warning($task, 'Thread reply failed; posted as a PR comment', [
-                'comment_id' => $commentId,
-                'error' => $threadError->getMessage(),
-            ]);
+            $posted = $this->github->commentOnPullRequest($installationId, $repoSlug, $prNumber, $intro . $body);
         } catch (Throwable $fallbackError) {
             TaskLogger::warning($task, 'Review reply could not be posted', [
                 'comment_id' => $commentId,
                 'thread_error' => $threadError->getMessage(),
                 'fallback_error' => $fallbackError->getMessage(),
             ]);
+
+            return;
         }
+
+        if (! $posted) {
+            TaskLogger::warning($task, 'Review reply could not be posted', [
+                'comment_id' => $commentId,
+                'thread_error' => $threadError->getMessage(),
+                'fallback_error' => 'GitHub rejected the PR comment',
+            ]);
+
+            return;
+        }
+
+        TaskLogger::warning($task, 'Thread reply failed; posted as a PR comment', [
+            'comment_id' => $commentId,
+            'error' => $threadError->getMessage(),
+        ]);
     }
 
     /**

@@ -69,7 +69,8 @@ test('merged PR posts a decline comment and creates no follow-up', function () {
     Queue::fake();
     $github = $this->mock(AppService::class);
     $github->shouldReceive('commentOnPullRequest')->once()
-        ->withArgs(fn ($inst, $slug, $num, $body) => $num === 9);
+        ->withArgs(fn ($inst, $slug, $num, $body) => $num === 9)
+        ->andReturn(true);
 
     $root = YakTask::factory()->merged()->create([
         'repo' => 'acme/web',

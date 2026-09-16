@@ -43,7 +43,8 @@ function existingPrGitHub(): MockInterface
         ->andReturn(['number' => 9, 'html_url' => 'https://github.com/acme/web/pull/9']);
     $github->shouldReceive('commentOnPullRequest')
         ->once()
-        ->withArgs(fn (int $installationId, string $repo, int $number, string $body): bool => str_contains($body, '- Added backoff'));
+        ->withArgs(fn (int $installationId, string $repo, int $number, string $body): bool => str_contains($body, '- Added backoff'))
+        ->andReturn(true);
 
     return $github;
 }
