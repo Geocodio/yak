@@ -114,6 +114,11 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
     {
         $raw = $github->listReviewComments($installationId, $repoSlug, $this->prNumber, $this->reviewId);
 
+        // An error payload (404/403/410, e.g. {"message":"Not Found"}) is a
+        // non-empty array whose entries are not comment shapes; drop them so
+        // the job proceeds on the review body alone instead of throwing.
+        $raw = array_filter($raw, 'is_array');
+
         return array_values(array_map(fn (array $comment): array => [
             'id' => (int) ($comment['id'] ?? 0),
             'body' => (string) ($comment['body'] ?? ''),

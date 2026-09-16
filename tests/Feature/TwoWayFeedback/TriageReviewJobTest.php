@@ -186,6 +186,21 @@ it('does nothing when the PR is no longer open', function () {
     Http::assertNothingSent();
 });
 
+it('tolerates a github error payload when listing review comments', function () {
+    Queue::fake();
+    ReviewFeedbackTriage::fake(['none']);
+    Http::fake([
+        'api.github.com/repos/acme/web/pulls/9/reviews/500/comments*' => Http::response(['message' => 'Not Found'], 404),
+        'api.github.com/*' => Http::response([], 200),
+    ]);
+
+    $task = yakReviewTask();
+    runTriage($task, 'changes_requested', 'The retry loop is wrong.');
+
+    expect(YakTask::where('parent_task_id', $task->id)->exists())->toBeTrue();
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/reactions'));
+});
+
 it('is unique per review id', function () {
     $job = new TriageReviewJob(1, 500, 9, 'commented', '', 'alice');
 
