@@ -10,6 +10,7 @@ use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Jobs\FlushFollowUpBatchJob;
 use App\Jobs\ProcessCIResultJob;
+use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
 use App\Models\FollowUpPendingComment;
 use App\Models\PrReview;
@@ -51,7 +52,15 @@ class WebhookController extends Controller
         }
 
         if ($event === 'pull_request_review_comment') {
+            if ((bool) config('yak.followup.github_review_triage_enabled', true)) {
+                return response()->json(['ok' => true, 'skipped' => 'handled by review triage']);
+            }
+
             return $this->handlePullRequestReviewComment($request, $github);
+        }
+
+        if ($event === 'pull_request_review') {
+            return $this->handlePullRequestReview($request, $github);
         }
 
         if ($event === 'repository') {
@@ -332,6 +341,59 @@ class WebhookController extends Controller
         return $this->processFollowUpComment($request, $github, $prUrl, isReviewComment: true);
     }
 
+    /**
+     * A submitted review is the unit of feedback: its summary body plus
+     * every inline comment. The checks here are cheap and synchronous;
+     * everything that touches the GitHub API or an LLM runs in
+     * TriageReviewJob so the webhook answers inside GitHub's timeout.
+     */
+    private function handlePullRequestReview(Request $request, AppService $github): JsonResponse
+    {
+        if (! (bool) config('yak.followup.github_review_triage_enabled', true)) {
+            return response()->json(['ok' => true, 'skipped' => 'review triage disabled']);
+        }
+
+        if ($request->input('action') !== 'submitted') {
+            return response()->json(['ok' => true, 'skipped' => 'not a submitted review']);
+        }
+
+        $review = (array) $request->input('review', []);
+        $reviewerLogin = (string) ($review['user']['login'] ?? '');
+
+        if ($reviewerLogin !== '' && $reviewerLogin === $github->appBotLogin()) {
+            return response()->json(['ok' => true, 'skipped' => 'yak authored review']);
+        }
+
+        $prUrl = (string) $request->input('pull_request.html_url', '');
+        $task = $prUrl !== '' ? YakTask::followUpRootForPr($prUrl) : null;
+
+        if ($task === null) {
+            return response()->json(['ok' => true, 'skipped' => 'no yak task for pr']);
+        }
+
+        if (! $task->prIsOpen()) {
+            return response()->json(['ok' => true, 'skipped' => 'pr not open']);
+        }
+
+        $state = strtolower((string) ($review['state'] ?? ''));
+        $body = (string) ($review['body'] ?? '');
+
+        if ($state === 'approved' && trim($body) === '') {
+            return response()->json(['ok' => true, 'skipped' => 'empty approval']);
+        }
+
+        TriageReviewJob::dispatch(
+            taskId: $task->id,
+            reviewId: (int) ($review['id'] ?? 0),
+            prNumber: (int) ($task->pr_number ?? $request->input('pull_request.number') ?? $this->extractPrNumber($prUrl)),
+            reviewState: $state,
+            reviewBody: $body,
+            reviewerLogin: $reviewerLogin,
+        );
+
+        return response()->json(['ok' => true]);
+    }
+
     private function processFollowUpComment(Request $request, AppService $github, string $prUrl, bool $isReviewComment): JsonResponse
     {
         $comment = (array) $request->input('comment', []);
@@ -351,7 +413,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'no pr url']);
         }
 
-        $task = YakTask::where('pr_url', $prUrl)->first();
+        $task = YakTask::followUpRootForPr($prUrl);
 
         if ($task === null) {
             return response()->json(['ok' => true, 'skipped' => 'no yak task for pr']);

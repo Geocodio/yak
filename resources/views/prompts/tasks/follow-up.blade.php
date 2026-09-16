@@ -3,6 +3,8 @@ The pull request for this task is already open. The user has reviewed it and is 
 **Feedback:**
 {{ $instructions }}
 
+Some feedback may be a question or a disagreement rather than a change request. Read the relevant code first, then answer those directly in your final summary under a heading `## Replies`, quoting the comment you are answering, and do not change code for them. Change code only where a change is asked for.
+
 If your change alters anything the existing screenshots or walkthrough show, capture them again under rule 6 (VISUAL CAPTURE). If nothing visible changed, capture nothing.
 
 **Final summary format:** This run's final summary is parsed by Yak. Produce exactly these two sections, in this order, with these exact headings:

@@ -37,3 +37,37 @@ test('followup config exposes github prefixes and batch window', function () {
     expect(config('yak.followup.github_prefixes'))->not->toBeNull()
         ->and((int) config('yak.followup.github_batch_window_seconds'))->toBeGreaterThan(0);
 });
+
+it('returns the reaction id GitHub assigns', function () {
+    Http::fake(['api.github.com/*' => Http::response(['id' => 9001, 'content' => 'eyes'], 201)]);
+
+    $id = app(AppService::class)->addReaction(4242, 'acme/web', 77, 'eyes', isReviewComment: true);
+
+    expect($id)->toBe(9001);
+});
+
+it('returns null when GitHub gives no reaction id', function () {
+    Http::fake(['api.github.com/*' => Http::response([], 500)]);
+
+    $id = app(AppService::class)->addReaction(4242, 'acme/web', 77, 'eyes');
+
+    expect($id)->toBeNull();
+});
+
+it('removes a reaction from a review comment', function () {
+    Http::fake(['api.github.com/*' => Http::response('', 204)]);
+
+    app(AppService::class)->removeReaction(4242, 'acme/web', 77, 9001, isReviewComment: true);
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && $request->url() === 'https://api.github.com/repos/acme/web/pulls/comments/77/reactions/9001');
+});
+
+it('removes a reaction from an issue comment', function () {
+    Http::fake(['api.github.com/*' => Http::response('', 204)]);
+
+    app(AppService::class)->removeReaction(4242, 'acme/web', 55, 9002);
+
+    Http::assertSent(fn ($request) => $request->method() === 'DELETE'
+        && $request->url() === 'https://api.github.com/repos/acme/web/issues/comments/55/reactions/9002');
+});

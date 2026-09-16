@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\FlushSteeringMessagesJob;
+use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
@@ -70,6 +71,7 @@ class YakTask extends Model
             'status' => TaskStatus::class,
             'mode' => TaskMode::class,
             'clarification_options' => 'json',
+            're_request_review_from' => 'array',
             'clarification_expires_at' => 'datetime',
             'screenshots' => 'json',
             'cost_usd' => 'decimal:4',
@@ -97,6 +99,10 @@ class YakTask extends Model
                 if (PendingSteeringMessage::where('root_task_id', $root->id)->exists()) {
                     FlushSteeringMessagesJob::dispatch($root->id)->delay(now()->addSeconds(5));
                 }
+            }
+
+            if ($task->wasChanged('status') && $task->status === TaskStatus::Success && ! empty($task->re_request_review_from)) {
+                ReRequestReviewJob::dispatch($task)->afterCommit();
             }
         });
     }
@@ -171,6 +177,24 @@ class YakTask extends Model
         }
 
         return 'open';
+    }
+
+    /**
+     * The root task of the conversation that owns a PR, or null when the PR is
+     * not one Yak opened. Review-mode tasks share the PR URL of the human PR
+     * they reviewed and must never be treated as the PR's owner.
+     */
+    public static function followUpRootForPr(string $prUrl): ?self
+    {
+        return self::where('pr_url', $prUrl)
+            ->where('mode', '!=', TaskMode::Review)
+            ->whereNull('parent_task_id')
+            ->oldest()
+            ->first()
+            ?? self::where('pr_url', $prUrl)
+                ->where('mode', '!=', TaskMode::Review)
+                ->oldest()
+                ->first();
     }
 
     /**

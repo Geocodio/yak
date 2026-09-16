@@ -7,9 +7,9 @@ use App\Models\FollowUpPendingComment;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
+use App\Services\ReviewFeedbackFormatter;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Collection;
 
 class FlushFollowUpBatchJob implements ShouldQueue
 {
@@ -36,9 +36,8 @@ class FlushFollowUpBatchJob implements ShouldQueue
         // run are not swept up and can be retried if create() throws.
         $ids = $comments->pluck('id')->all();
 
-        // Resolve the conversation root (or any task) for this PR.
-        $parent = YakTask::where('pr_url', $this->prUrl)->whereNull('parent_task_id')->first()
-            ?? YakTask::where('pr_url', $this->prUrl)->first();
+        // Resolve the conversation root (or any non-review task) for this PR.
+        $parent = YakTask::followUpRootForPr($this->prUrl);
 
         if ($parent === null) {
             FollowUpPendingComment::whereIn('id', $ids)->delete();
@@ -46,7 +45,18 @@ class FlushFollowUpBatchJob implements ShouldQueue
             return;
         }
 
-        $instructions = $this->composeInstructions($comments);
+        $instructions = app(ReviewFeedbackFormatter::class)->format(
+            '',
+            '',
+            $comments->map(fn (FollowUpPendingComment $comment): array => [
+                'body' => (string) $comment->body,
+                'author' => $comment->author,
+                'file' => $comment->file,
+                'line' => $comment->line !== null ? (int) $comment->line : null,
+                'diff_hunk' => $comment->diff_hunk,
+            ])->all(),
+            '',
+        );
 
         $authorName = $comments->pluck('author')->filter()->unique()->implode(', ') ?: null;
 
@@ -70,32 +80,5 @@ class FlushFollowUpBatchJob implements ShouldQueue
         // Delete only the buffered comments we processed. Comments that arrived
         // during the run have new IDs not in $ids, so they survive for the next batch.
         FollowUpPendingComment::whereIn('id', $ids)->delete();
-    }
-
-    /**
-     * @param  Collection<int, FollowUpPendingComment>  $comments
-     */
-    private function composeInstructions(Collection $comments): string
-    {
-        $lines = ['The following feedback was left on the pull request:', ''];
-
-        foreach ($comments as $comment) {
-            $anchor = $comment->file !== null
-                ? "{$comment->file}" . ($comment->line !== null ? ":{$comment->line}" : '') . ' — '
-                : '';
-
-            $lines[] = "- {$anchor}{$comment->body}";
-
-            if ($comment->diff_hunk !== null && $comment->diff_hunk !== '') {
-                $lines[] = '';
-                $lines[] = '  ```diff';
-                foreach (explode("\n", $comment->diff_hunk) as $hunkLine) {
-                    $lines[] = '  ' . $hunkLine;
-                }
-                $lines[] = '  ```';
-            }
-        }
-
-        return implode("\n", $lines);
     }
 }

@@ -32,3 +32,10 @@ test('followUpPrompt asks for a recapture only when something visible changed', 
     expect($prompt)->toContain('capture them again under rule 6')
         ->and($prompt)->toContain('If nothing visible changed, capture nothing');
 });
+
+test('followUpPrompt tells the agent to answer questions without changing code', function () {
+    $prompt = YakPromptBuilder::followUpPrompt('Why a queue here?');
+
+    expect($prompt)->toContain('question or a disagreement')
+        ->and($prompt)->toContain('do not change code for them');
+});
