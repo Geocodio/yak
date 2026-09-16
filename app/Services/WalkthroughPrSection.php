@@ -14,9 +14,9 @@ use Illuminate\Support\Facades\Storage;
  */
 final class WalkthroughPrSection
 {
-    public const string MARKER_START = '<!-- yak:walkthrough -->';
+    public const string MARKER_START = '<!-- yak:' . PullRequestBodySections::WALKTHROUGH . ' -->';
 
-    public const string MARKER_END = '<!-- /yak:walkthrough -->';
+    public const string MARKER_END = '<!-- /yak:' . PullRequestBodySections::WALKTHROUGH . ' -->';
 
     /**
      * The legacy unmarked section emitted by the old code: a heading plus
@@ -99,16 +99,8 @@ final class WalkthroughPrSection
     /** Replace the marked block wholesale, or append it when absent. */
     public static function replaceIn(string $body, string $section): string
     {
-        if (str_contains($body, self::MARKER_START) && str_contains($body, self::MARKER_END)) {
-            // preg_replace_callback (not preg_replace) so a literal '$1' or
-            // trailing backslash in a chapter title or URL is never
-            // interpreted as a backreference in the replacement string.
-            return preg_replace_callback(
-                '/<!-- yak:walkthrough -->.*?<!-- \/yak:walkthrough -->/s',
-                fn (): string => $section,
-                $body,
-                1,
-            ) ?? $body;
+        if (PullRequestBodySections::has($body, PullRequestBodySections::WALKTHROUGH)) {
+            return PullRequestBodySections::replace($body, PullRequestBodySections::WALKTHROUGH, $section);
         }
 
         $body = preg_replace(self::LEGACY_SECTION_PATTERN, "\n", $body, 1) ?? $body;
@@ -151,6 +143,6 @@ final class WalkthroughPrSection
 
     private static function wrap(string $body): string
     {
-        return self::MARKER_START . "\n### Video walkthrough\n\n{$body}\n" . self::MARKER_END;
+        return PullRequestBodySections::wrap(PullRequestBodySections::WALKTHROUGH, "### Video walkthrough\n\n{$body}");
     }
 }
