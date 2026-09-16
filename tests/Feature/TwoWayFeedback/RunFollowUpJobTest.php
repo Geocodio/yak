@@ -185,6 +185,66 @@ test('RunFollowUpJob retries without --resume when the session transcript is gon
         ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
 });
 
+test('RunFollowUpJob skips the push and resolves immediately when there are no new commits', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $sandbox = (new FakeSandboxManager)->setCommitCount(0);
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'noop-repo', 'path' => '/home/yak/repos/noop-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'noop-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/NOOP-1',
+        'pr_url' => 'https://github.com/acme/noop-repo/pull/12',
+        'description' => 'is this thread-safe?',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $pushCommands = array_filter($sandbox->commands, fn (string $c) => str_contains($c, 'git push'));
+
+    expect($pushCommands)->toBeEmpty()
+        ->and($task->fresh()->status)->not->toBe(TaskStatus::AwaitingCi);
+
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $task->id && $job->passed === true);
+});
+
+test('RunFollowUpJob pushes and awaits CI when there are new commits', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $sandbox = (new FakeSandboxManager)->setCommitCount(2);
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*git rev-parse *' => Process::result(output: 'yak/HASCOMMITS-1'), '*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'hascommits-repo', 'path' => '/home/yak/repos/hascommits-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'hascommits-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/HASCOMMITS-1',
+        'pr_url' => 'https://github.com/acme/hascommits-repo/pull/13',
+        'description' => 'add the missing test',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $pushCommands = array_filter($sandbox->commands, fn (string $c) => str_contains($c, 'git push'));
+
+    expect($pushCommands)->not->toBeEmpty()
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+});
+
 test('RunFollowUpJob surfaces CLI stderr in error_log when the run fails', function () {
     $failure = new AgentRunResult(
         sessionId: '',
