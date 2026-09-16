@@ -20,6 +20,7 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
+use App\Services\FollowUpSummaryParser;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
@@ -162,8 +163,11 @@ class RunFollowUpJob implements ShouldQueue
     {
         TaskMetricsAccumulator::applyAccumulated($this->task, $result);
 
+        $parsed = app(FollowUpSummaryParser::class)->parse($result->resultSummary);
+
         $update = [
-            'result_summary' => $result->resultSummary,
+            'result_summary' => $parsed->changes,
+            'pr_body_update' => $parsed->description,
             'model_used' => config('yak.default_model'),
         ];
 
