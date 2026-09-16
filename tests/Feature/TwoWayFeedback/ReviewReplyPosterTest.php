@@ -47,13 +47,15 @@ it('falls back to a general comment that quotes the original when the thread rep
     expect(TaskLog::where('yak_task_id', $task->id)->where('level', 'warning')->where('message', 'Thread reply failed; posted as a PR comment')->count())->toBe(1);
 });
 
-it('quotes only the comment id when the original line is not in the task description', function () {
+it('skips a reply whose comment id is not in the task description', function () {
     $github = $this->mock(AppService::class);
-    $github->shouldReceive('replyToReviewComment')->once()->andThrow(new RuntimeException('nope'));
-    $github->shouldReceive('commentOnPullRequest')->once()->withArgs(fn (int $i, string $r, int $n, string $body): bool => str_contains($body, 'review comment 555') && str_contains($body, 'Answer.'))->andReturn(true);
+    $github->shouldNotReceive('replyToReviewComment');
+    $github->shouldNotReceive('commentOnPullRequest');
 
     $task = repliedTask(['description' => 'no tagged lines here', 'review_replies' => [555 => 'Answer.']]);
     app(ReviewReplyPoster::class)->post($task, 'acme/web', 9);
+
+    expect(TaskLog::where('yak_task_id', $task->id)->where('level', 'warning')->where('message', 'Review reply skipped: comment id not in the review')->count())->toBe(1);
 });
 
 it('does nothing when the task has no replies', function () {

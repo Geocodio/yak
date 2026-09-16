@@ -39,6 +39,12 @@ class ReviewReplyPoster
                 continue;
             }
 
+            if ($this->originalCommentLine($task, $commentId) === null) {
+                TaskLogger::warning($task, 'Review reply skipped: comment id not in the review', ['comment_id' => $commentId]);
+
+                continue;
+            }
+
             try {
                 $this->github->replyToReviewComment($installationId, $repoSlug, $prNumber, $commentId, $body);
                 TaskLogger::info($task, 'Replied on review comment', ['comment_id' => $commentId]);
