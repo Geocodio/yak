@@ -149,6 +149,40 @@ it('skips a bot-authored issue_comment', function () {
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
 });
 
+it('skips an issue_comment from any bot account, regardless of login', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'issue' => [
+            'number' => 9,
+            'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/9'],
+        ],
+        'comment' => [
+            'id' => 47,
+            'user' => ['login' => 'some-other-bot[bot]', 'type' => 'Bot'],
+            'body' => '/yak do something',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'issue_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk()->assertJsonPath('skipped', 'yak authored comment');
+
+    expect(FollowUpPendingComment::count())->toBe(0);
+    Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
+});
+
 it('skips an issue_comment on a PR with no matching YakTask', function () {
     Bus::fake();
     Http::fake(['api.github.com/*' => Http::response([], 201)]);
