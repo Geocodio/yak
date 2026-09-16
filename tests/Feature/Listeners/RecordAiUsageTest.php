@@ -85,5 +85,13 @@ test('records zero cost and still persists row for unknown model', function () {
 
 test('listener is registered for AgentPrompted event', function () {
     $listeners = app('events')->getRawListeners()[AgentPrompted::class] ?? [];
-    expect($listeners)->toContain(RecordAiUsage::class);
+    expect($listeners)->toContain(RecordAiUsage::class . '@handle');
+});
+
+test('an AgentPrompted event is recorded exactly once', function () {
+    // The listener is auto-discovered from app/Listeners; an explicit
+    // Event::listen() on top of that used to write every call twice.
+    event(makeAgentPromptedEvent());
+
+    expect(AiUsage::count())->toBe(1);
 });

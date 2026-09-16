@@ -6,7 +6,9 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Facades\Telemetry;
 use App\Models\Repository;
+use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
 use App\Services\YakPersonality;
@@ -120,6 +122,8 @@ class ProcessCIResultJob implements ShouldQueue
 
             TaskLogger::info($this->task, self::RESULT_LOG_MESSAGE, ['passed' => $this->passed]);
 
+            $this->recordCiResult();
+
             if ($this->passed) {
                 $this->handleGreenPath();
             } elseif ($this->task->attempts < (int) config('yak.max_attempts')) {
@@ -130,6 +134,29 @@ class ProcessCIResultJob implements ShouldQueue
         } finally {
             TaskContext::clear();
         }
+    }
+
+    /**
+     * `ci.result` carries how long CI took after the agent's last push,
+     * measured from the most recent run's agent_finished_at.
+     */
+    private function recordCiResult(): void
+    {
+        $lastRun = TaskRun::query()
+            ->where('yak_task_id', $this->task->id)
+            ->whereNotNull('agent_finished_at')
+            ->latest('agent_finished_at')
+            ->first();
+
+        Telemetry::record('ci.result', [
+            'passed' => $this->passed,
+            'attempts' => (int) $this->task->attempts,
+            'synthetic' => $this->output === null && $this->passed && $lastRun !== null
+                && $lastRun->agent_finished_at !== null
+                && $lastRun->agent_finished_at->diffInSeconds(now()) < 5,
+        ], task: $this->task, durationMs: $lastRun?->agent_finished_at !== null
+            ? max(0, now()->getTimestampMs() - $lastRun->agent_finished_at->getTimestampMs())
+            : null);
     }
 
     private function handleGreenPath(): void

@@ -22,14 +22,14 @@ function makeResult(float $cost, int $turns, int $duration, string $session = 's
     );
 }
 
-it('applies fresh metrics by replacing existing values', function () {
+it('adds a first run onto an empty task and records the session', function () {
     $task = YakTask::factory()->create([
         'cost_usd' => 0,
         'num_turns' => 0,
         'duration_ms' => 0,
     ]);
 
-    TaskMetricsAccumulator::applyFresh($task, makeResult(1.5, 10, 60000, 'sess_a'));
+    TaskMetricsAccumulator::record($task, makeResult(1.5, 10, 60000, 'sess_a'));
 
     $task->refresh();
 
@@ -39,7 +39,7 @@ it('applies fresh metrics by replacing existing values', function () {
         ->and($task->session_id)->toBe('sess_a');
 });
 
-it('accumulates metrics on top of existing values for retries', function () {
+it('accumulates metrics on top of existing values so a retry keeps the earlier cost', function () {
     $task = YakTask::factory()->create([
         'cost_usd' => 2.0,
         'num_turns' => 20,
@@ -47,11 +47,20 @@ it('accumulates metrics on top of existing values for retries', function () {
         'session_id' => 'sess_a',
     ]);
 
-    TaskMetricsAccumulator::applyAccumulated($task, makeResult(0.75, 5, 30000, 'sess_a'));
+    TaskMetricsAccumulator::record($task, makeResult(0.75, 5, 30000, 'sess_b'));
 
     $task->refresh();
 
     expect((float) $task->cost_usd)->toBe(2.75)
         ->and($task->num_turns)->toBe(25)
-        ->and($task->duration_ms)->toBe(150000);
+        ->and($task->duration_ms)->toBe(150000)
+        ->and($task->session_id)->toBe('sess_b');
+});
+
+it('keeps the previous session id when a failed run reports none', function () {
+    $task = YakTask::factory()->create(['session_id' => 'sess_a']);
+
+    TaskMetricsAccumulator::record($task, makeResult(0.1, 1, 1000, ''));
+
+    expect($task->refresh()->session_id)->toBe('sess_a');
 });

@@ -5,6 +5,8 @@ namespace App\Channels\Slack;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Facades\Telemetry;
+use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
@@ -26,6 +28,7 @@ use Illuminate\Support\Facades\Http;
 
 class WebhookController extends Controller
 {
+    use RecordsWebhookTelemetry;
     use VerifiesWebhookSignature;
 
     public function __invoke(Request $request): JsonResponse
@@ -40,15 +43,27 @@ class WebhookController extends Controller
         /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string} $event */
         $event = $request->input('event', []);
 
+        return $this->recordWebhook(
+            'slack',
+            (string) ($event['type'] ?? 'unknown'),
+            fn (): JsonResponse => $this->route($request, $event),
+        );
+    }
+
+    /**
+     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string}  $event
+     */
+    private function route(Request $request, array $event): JsonResponse
+    {
         // Ignore bot messages to prevent loops
         if (isset($event['bot_id']) || ($event['subtype'] ?? null) === 'bot_message') {
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'skipped' => 'bot_message']);
         }
 
         // Deduplicate Slack event retries using the event_id
         $eventId = $request->input('event_id', '');
         if ($eventId !== '' && ! Cache::add("slack-event:{$eventId}", true, 300)) {
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'skipped' => 'duplicate']);
         }
 
         return match ($event['type'] ?? null) {
@@ -92,7 +107,9 @@ class WebhookController extends Controller
                 threadTs: (string) ($description->metadata['slack_thread_ts'] ?? ''),
             );
 
-            return response()->json(['ok' => true]);
+            Telemetry::feature('help_card', source: 'slack');
+
+            return response()->json(['ok' => true, 'handled' => 'help_card']);
         }
 
         $detector = new RepoDetector;
@@ -128,7 +145,9 @@ class WebhookController extends Controller
                 SendNotificationJob::dispatch($dummyTask, NotificationType::Acknowledgment, "Working across repos: {$repoList}");
             }
 
-            return response()->json(['ok' => true]);
+            Telemetry::feature('multi_repo_task', ['repos' => $detection->repositories->count()], source: 'slack');
+
+            return response()->json(['ok' => true, 'handled' => 'multi_repo_tasks']);
         }
 
         // Low-confidence: needs clarification
@@ -154,7 +173,9 @@ class WebhookController extends Controller
             TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
             SendNotificationJob::dispatch($task, NotificationType::Clarification, 'Which repo should I work in?');
 
-            return response()->json(['ok' => true]);
+            Telemetry::feature('repo_clarification', ['options' => count($repoOptions)], task: $task);
+
+            return response()->json(['ok' => true, 'handled' => 'repo_clarification']);
         }
 
         // Single resolved repo or unresolved
@@ -180,7 +201,7 @@ class WebhookController extends Controller
 
         $this->dispatchAgentJob($task);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'handled' => 'task_created', 'task_id' => $task->id]);
     }
 
     /**
@@ -196,12 +217,12 @@ class WebhookController extends Controller
         $userId = (string) ($event['user'] ?? '');
 
         if ($userId === '' || ! UserTracker::markSeen($userId)) {
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'skipped' => 'already_welcomed']);
         }
 
         $this->postWelcomeDm($userId);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'handled' => 'welcome_dm']);
     }
 
     private function postWelcomeDm(string $userId): void
@@ -329,7 +350,7 @@ class WebhookController extends Controller
                 ClarificationReplyJob::dispatch($clarificationTask, $replyText);
             }
 
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
         }
 
         $followUpTask = YakTask::where('slack_channel', $channel)
@@ -348,13 +369,15 @@ class WebhookController extends Controller
             if (! $followUpTask->prIsOpen()) {
                 SendNotificationJob::dispatch($followUpTask, NotificationType::Error, "This PR is already merged or closed — start a new request and I'll pick it up.");
 
-                return response()->json(['ok' => true]);
+                Telemetry::feature('follow_up_declined', ['reason' => 'pr_closed'], task: $followUpTask, source: 'slack');
+
+                return response()->json(['ok' => true, 'skipped' => 'pr_closed']);
             }
 
             TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
             app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')));
 
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
 
         $activeTask = YakTask::where('slack_channel', $channel)
@@ -372,6 +395,8 @@ class WebhookController extends Controller
 
             PendingSteeringMessage::queueFor($activeTask, $text, 'slack');
             TaskLogger::info($activeTask, 'Steering reply queued (mid-run)');
+
+            return response()->json(['ok' => true, 'handled' => 'steering']);
         }
 
         return response()->json(['ok' => true]);

@@ -23,6 +23,7 @@ class Registry
         'claude-auth' => ClaudeAuthCheck::class,
         'repositories' => RepositoriesCheck::class,
         'webhook-signatures' => WebhookSignaturesCheck::class,
+        'telemetry' => TelemetryCheck::class,
     ];
 
     public function __construct(private readonly ChannelRegistry $channels) {}

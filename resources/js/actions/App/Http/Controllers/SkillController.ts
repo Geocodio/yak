@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\SkillController::index
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::index
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SkillController::index
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::index
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::store
-* @see app/Http/Controllers/SkillController.php:50
+* @see app/Http/Controllers/SkillController.php:51
 * @route '/skills'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -60,7 +60,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::store
-* @see app/Http/Controllers/SkillController.php:50
+* @see app/Http/Controllers/SkillController.php:51
 * @route '/skills'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SkillController::store
-* @see app/Http/Controllers/SkillController.php:50
+* @see app/Http/Controllers/SkillController.php:51
 * @route '/skills'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -79,7 +79,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::update
-* @see app/Http/Controllers/SkillController.php:70
+* @see app/Http/Controllers/SkillController.php:73
 * @route '/skills/{name}'
 */
 export const update = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -94,7 +94,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::update
-* @see app/Http/Controllers/SkillController.php:70
+* @see app/Http/Controllers/SkillController.php:73
 * @route '/skills/{name}'
 */
 update.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -121,7 +121,7 @@ update.url = (args: { name: string | number } | [name: string | number ] | strin
 
 /**
 * @see \App\Http\Controllers\SkillController::update
-* @see app/Http/Controllers/SkillController.php:70
+* @see app/Http/Controllers/SkillController.php:73
 * @route '/skills/{name}'
 */
 update.patch = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -131,7 +131,7 @@ update.patch = (args: { name: string | number } | [name: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SkillController::upgrade
-* @see app/Http/Controllers/SkillController.php:94
+* @see app/Http/Controllers/SkillController.php:97
 * @route '/skills/{name}/update'
 */
 export const upgrade = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -146,7 +146,7 @@ upgrade.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::upgrade
-* @see app/Http/Controllers/SkillController.php:94
+* @see app/Http/Controllers/SkillController.php:97
 * @route '/skills/{name}/update'
 */
 upgrade.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -173,7 +173,7 @@ upgrade.url = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\SkillController::upgrade
-* @see app/Http/Controllers/SkillController.php:94
+* @see app/Http/Controllers/SkillController.php:97
 * @route '/skills/{name}/update'
 */
 upgrade.post = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -183,7 +183,7 @@ upgrade.post = (args: { name: string | number } | [name: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SkillController::destroy
-* @see app/Http/Controllers/SkillController.php:85
+* @see app/Http/Controllers/SkillController.php:88
 * @route '/skills/{name}'
 */
 export const destroy = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -198,7 +198,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::destroy
-* @see app/Http/Controllers/SkillController.php:85
+* @see app/Http/Controllers/SkillController.php:88
 * @route '/skills/{name}'
 */
 destroy.url = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -225,7 +225,7 @@ destroy.url = (args: { name: string | number } | [name: string | number ] | stri
 
 /**
 * @see \App\Http\Controllers\SkillController::destroy
-* @see app/Http/Controllers/SkillController.php:85
+* @see app/Http/Controllers/SkillController.php:88
 * @route '/skills/{name}'
 */
 destroy.delete = (args: { name: string | number } | [name: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
