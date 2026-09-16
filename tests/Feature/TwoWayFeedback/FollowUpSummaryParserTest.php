@@ -37,6 +37,33 @@ it('returns a null description for Unchanged in any casing or punctuation', func
         ->and($parsed->description)->toBeNull();
 })->with(['Unchanged.', 'unchanged', 'UNCHANGED', 'Unchanged']);
 
+it('returns a null description for Unchanged followed by a trailer sentence', function () {
+    $output = "## What changed in this run\n\n- Fixed a typo\n\n## PR description\n\nUnchanged. The existing description still covers this.\n";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->changes)->toBe('- Fixed a typo')
+        ->and($parsed->description)->toBeNull();
+});
+
+it('parses CRLF line endings end to end', function () {
+    $output = "## What changed in this run\r\n\r\n- Fixed a typo\r\n\r\n## PR description\r\n\r\n## Summary\r\n\r\nRewritten body.\r\n";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->changes)->toBe('- Fixed a typo')
+        ->and($parsed->description)->toBe("## Summary\r\n\r\nRewritten body.");
+});
+
+it('strips a stray marker the agent echoed back in either section', function () {
+    $output = "## What changed in this run\n\n- Fixed a typo <!-- /yak:description -->\n\n## PR description\n\n## Summary\n\nBody <!-- yak:description --> text.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->changes)->toBe('- Fixed a typo')
+        ->and($parsed->description)->toBe("## Summary\n\nBody  text.");
+});
+
 it('returns a null description when the section is empty', function () {
     $parsed = (new FollowUpSummaryParser)->parse("## What changed in this run\n\n- x\n\n## PR description\n\n   \n");
 

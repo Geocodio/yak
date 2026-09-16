@@ -25,14 +25,37 @@ class FollowUpSummaryParser
             return new ParsedFollowUpSummary(trim($this->stripChangesHeading($agentOutput)), null);
         }
 
-        $changes = $this->stripChangesHeading(substr($agentOutput, 0, $descriptionOffset['start']));
-        $description = trim(substr($agentOutput, $descriptionOffset['end']));
+        $changes = $this->stripStrayMarkers($this->stripChangesHeading(substr($agentOutput, 0, $descriptionOffset['start'])));
+        $description = trim($this->stripStrayMarkers(substr($agentOutput, $descriptionOffset['end'])));
 
-        if ($description === '' || preg_match('/^unchanged[.!]?$/i', $description) === 1) {
+        if ($description === '' || $this->isUnchanged($description)) {
             $description = null;
         }
 
         return new ParsedFollowUpSummary(trim($changes), $description);
+    }
+
+    /**
+     * A real rewrite starts with "## Summary" (per the follow-up prompt), so
+     * anything whose first non-empty line merely starts with "unchanged" is
+     * treated as unchanged, trailer sentence and all.
+     */
+    private function isUnchanged(string $description): bool
+    {
+        $firstLine = strtok($description, "\n");
+
+        return $firstLine !== false && preg_match('/^unchanged\b/i', trim($firstLine)) === 1;
+    }
+
+    /**
+     * Strips any marker the agent echoed back verbatim from its own output
+     * (e.g. copying the wrapped block it was shown as an example). Left in
+     * place, a stray end marker would give a section two end markers and
+     * corrupt later replacements.
+     */
+    private function stripStrayMarkers(string $text): string
+    {
+        return preg_replace('/<!-- \/?yak:[a-z]+ -->/', '', $text) ?? $text;
     }
 
     /**
