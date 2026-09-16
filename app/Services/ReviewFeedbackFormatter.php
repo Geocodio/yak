@@ -6,11 +6,13 @@ namespace App\Services;
  * Renders review feedback as the plain-text instructions a follow-up task
  * receives. Both the prefixed-comment batch and the review triage path use
  * it, so inline comments look the same to Claude whichever way they came in.
+ * Inline review comments carry a `[c:<id>]` tag so the agent can address its
+ * reply to that thread; conversation-tab comments have no thread and no tag.
  */
 class ReviewFeedbackFormatter
 {
     /**
-     * @param  array<int, array{body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
+     * @param  array<int, array{id: ?int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
      */
     public function format(string $state, string $summary, array $comments, string $reviewer): string
     {
@@ -48,7 +50,7 @@ class ReviewFeedbackFormatter
     }
 
     /**
-     * @param  array<int, array{body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
+     * @param  array<int, array{id: ?int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
      * @return array<int, string>
      */
     private function commentLines(array $comments): array
@@ -60,7 +62,9 @@ class ReviewFeedbackFormatter
                 ? $comment['file'] . ($comment['line'] !== null ? ":{$comment['line']}" : '') . ' — '
                 : '';
 
-            $lines[] = "- {$anchor}{$comment['body']}";
+            $tag = ($comment['id'] ?? null) !== null && $comment['id'] > 0 ? "[c:{$comment['id']}] " : '';
+
+            $lines[] = "- {$tag}{$anchor}{$comment['body']}";
 
             if ($comment['diff_hunk'] !== null && $comment['diff_hunk'] !== '') {
                 $lines[] = '';

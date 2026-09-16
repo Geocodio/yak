@@ -131,7 +131,8 @@ it('creates a follow-up on a quiet PR when the agent says act', function () {
     $child = YakTask::where('parent_task_id', $task->id)->first();
     expect($child)->not->toBeNull()
         ->and($child->description)->toContain('a.php:3 — why a queue here?')
-        ->and($child->description)->toContain('@@ -1 +1 @@');
+        ->and($child->description)->toContain('@@ -1 +1 @@')
+        ->and($child->description)->toContain('- [c:1] a.php:3 — why a queue here?');
 });
 
 it('queues a steering message instead when the PR is busy', function () {

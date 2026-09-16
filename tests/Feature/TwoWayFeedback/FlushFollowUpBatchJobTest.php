@@ -29,6 +29,7 @@ test('flushes buffered comments into one follow-up and clears the buffer', funct
             'file' => $i === 1 ? 'app/Report.php' : null,
             'line' => $i === 1 ? 42 : null,
             'diff_hunk' => $i === 1 ? '@@ -1 +1 @@' : null,
+            'github_comment_id' => $i === 1 ? 777 : ($i === 0 ? 778 : null),
         ]);
     }
 
@@ -43,7 +44,9 @@ test('flushes buffered comments into one follow-up and clears the buffer', funct
         ->and($child->description)->toContain('handle empty state')
         ->and($child->description)->toContain('rename the column')
         ->and($child->description)->toContain('add a test')
-        ->and($child->description)->toContain('app/Report.php');
+        ->and($child->description)->toContain('app/Report.php')
+        ->and($child->description)->toContain('- [c:777] app/Report.php:42 — rename the column')
+        ->and($child->description)->not->toContain('[c:777] handle empty state');
 
     // buffer cleared
     expect(FollowUpPendingComment::where('pr_url', $root->pr_url)->count())->toBe(0);

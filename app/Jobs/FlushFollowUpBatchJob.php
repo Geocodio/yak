@@ -49,6 +49,7 @@ class FlushFollowUpBatchJob implements ShouldQueue
             '',
             '',
             $comments->map(fn (FollowUpPendingComment $comment): array => [
+                'id' => $comment->file !== null && $comment->github_comment_id !== null ? (int) $comment->github_comment_id : null,
                 'body' => (string) $comment->body,
                 'author' => $comment->author,
                 'file' => $comment->file,
