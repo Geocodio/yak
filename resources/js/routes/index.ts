@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:41
+* @see routes/web.php:42
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:41
+* @see routes/web.php:42
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:41
+* @see routes/web.php:42
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:41
+* @see routes/web.php:42
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:49
+* @see routes/web.php:50
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:49
+* @see routes/web.php:50
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:49
+* @see routes/web.php:50
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:49
+* @see routes/web.php:50
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -242,6 +242,50 @@ costs.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 */
 costs.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: costs.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\AnalyticsController::__invoke
+* @see app/Http/Controllers/AnalyticsController.php:15
+* @route '/analytics'
+*/
+export const analytics = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: analytics.url(options),
+    method: 'get',
+})
+
+analytics.definition = {
+    methods: ["get","head"],
+    url: '/analytics',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\AnalyticsController::__invoke
+* @see app/Http/Controllers/AnalyticsController.php:15
+* @route '/analytics'
+*/
+analytics.url = (options?: RouteQueryOptions) => {
+    return analytics.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\AnalyticsController::__invoke
+* @see app/Http/Controllers/AnalyticsController.php:15
+* @route '/analytics'
+*/
+analytics.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: analytics.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\AnalyticsController::__invoke
+* @see app/Http/Controllers/AnalyticsController.php:15
+* @route '/analytics'
+*/
+analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: analytics.url(options),
     method: 'head',
 })
 
@@ -423,7 +467,7 @@ channels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 export const skills = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -438,7 +482,7 @@ skills.definition = {
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 skills.url = (options?: RouteQueryOptions) => {
@@ -447,7 +491,7 @@ skills.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 skills.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -457,7 +501,7 @@ skills.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\SkillController::skills
-* @see app/Http/Controllers/SkillController.php:28
+* @see app/Http/Controllers/SkillController.php:29
 * @route '/skills'
 */
 skills.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -511,7 +555,7 @@ mcp.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:22
+* @see app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 export const prompts = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -526,7 +570,7 @@ prompts.definition = {
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:22
+* @see app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 prompts.url = (options?: RouteQueryOptions) => {
@@ -535,7 +579,7 @@ prompts.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:22
+* @see app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 prompts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -545,7 +589,7 @@ prompts.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\PromptController::prompts
-* @see app/Http/Controllers/PromptController.php:22
+* @see app/Http/Controllers/PromptController.php:23
 * @route '/prompts'
 */
 prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

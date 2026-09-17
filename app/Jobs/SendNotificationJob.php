@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Channels\ChannelRegistry;
 use App\Channels\Contracts\NotificationDriver;
 use App\Enums\NotificationType;
+use App\Facades\Telemetry;
 use App\Models\YakTask;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
@@ -50,7 +51,12 @@ class SendNotificationJob implements ShouldQueue
             }
 
             $personalizedMessage = YakPersonality::generate($this->type, $this->message);
-            $driver->send($this->task, $this->type, $personalizedMessage);
+
+            Telemetry::time('notification.sent', fn () => $driver->send($this->task, $this->type, $personalizedMessage), [
+                'type' => $this->type->value,
+                'channel' => strtolower(explode('\\', $driver::class)[2] ?? 'unknown'),
+                'length' => mb_strlen($personalizedMessage),
+            ], task: $this->task);
         } finally {
             TaskContext::clear();
         }

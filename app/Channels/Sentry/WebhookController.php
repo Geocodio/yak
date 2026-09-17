@@ -2,6 +2,7 @@
 
 namespace App\Channels\Sentry;
 
+use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
+    use RecordsWebhookTelemetry;
     use VerifiesWebhookSignature;
 
     public function __invoke(Request $request): JsonResponse
@@ -26,9 +28,21 @@ class WebhookController extends Controller
             prefix: '',
         );
 
+        $action = (string) $request->input('action', '');
+
+        return $this->recordWebhook(
+            'sentry',
+            $action !== '' ? "issue_alert.{$action}" : 'issue_alert',
+            fn (): JsonResponse => $this->route($request),
+            ['project' => (string) $request->input('data.issue.project.slug', '')],
+        );
+    }
+
+    private function route(Request $request): JsonResponse
+    {
         // Only handle triggered issue alert events
         if ($request->input('action') !== 'triggered') {
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'skipped' => 'not a triggered alert']);
         }
 
         /** @var array{id?: string|int, title?: string, culprit?: string, count?: string|int, firstSeen?: string, userCount?: int, seerActionability?: string, project?: array{slug?: string}} $issue */

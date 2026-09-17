@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Deployments;
 
+use App\Facades\Telemetry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Deployments\StoreShareLinkRequest;
 use App\Models\BranchDeployment;
@@ -15,6 +16,8 @@ class ShareLinkController extends Controller
         $token = $tokens->mint($deployment, (int) $request->validated('expires_in_days'));
 
         $deployment->refresh();
+
+        Telemetry::feature('deployment.share_link', ['days' => (int) $request->validated('expires_in_days')], repo: $deployment->repository->slug, source: 'dashboard');
 
         $url = "https://{$deployment->hostname}/_share/{$token}/";
 

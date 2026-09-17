@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
+* @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
 * @route '/tasks/{task}/re-request-review'
 */
 const RequestReReviewController = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ RequestReReviewController.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
+* @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
 * @route '/tasks/{task}/re-request-review'
 */
 RequestReReviewController.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ RequestReReviewController.url = (args: { task: string | number | { id: string | 
 
 /**
 * @see \App\Http\Controllers\Tasks\RequestReReviewController::__invoke
-* @see app/Http/Controllers/Tasks/RequestReReviewController.php:16
+* @see app/Http/Controllers/Tasks/RequestReReviewController.php:17
 * @route '/tasks/{task}/re-request-review'
 */
 RequestReReviewController.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

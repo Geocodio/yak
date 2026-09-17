@@ -5,6 +5,8 @@ namespace App\Channels\Linear;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Facades\Telemetry;
+use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
@@ -23,6 +25,7 @@ use Illuminate\Support\Facades\Cache;
 
 class WebhookController extends Controller
 {
+    use RecordsWebhookTelemetry;
     use VerifiesWebhookSignature;
 
     public function __invoke(Request $request): JsonResponse
@@ -34,6 +37,18 @@ class WebhookController extends Controller
             prefix: '',
         );
 
+        $event = (string) $request->header('Linear-Event', '');
+        $action = (string) $request->input('action', '');
+
+        return $this->recordWebhook(
+            'linear',
+            $action !== '' ? "{$event}.{$action}" : $event,
+            fn (): JsonResponse => $this->route($request, $event),
+        );
+    }
+
+    private function route(Request $request, string $event): JsonResponse
+    {
         // Replay protection: reject stale events when Linear includes a timestamp.
         $timestampMs = $request->input('webhookTimestamp');
         if ($timestampMs !== null && abs(now()->getTimestampMs() - (int) $timestampMs) > 60_000) {
@@ -46,18 +61,16 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'duplicate delivery']);
         }
 
-        $event = (string) $request->header('Linear-Event', '');
-
         if ($event === 'InboxNotificationEvent') {
             return $this->handleInboxNotification($request);
         }
 
         if ($event !== 'AgentSessionEvent') {
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'skipped' => "unhandled event: {$event}"]);
         }
 
         if ($this->resolveConnection($request) === null) {
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'skipped' => 'no connection for workspace']);
         }
 
         return match ((string) $request->input('action')) {
@@ -141,6 +154,7 @@ class WebhookController extends Controller
             foreach ($tasks as $task) {
                 $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
                 TaskLogger::info($task, 'Cancelled — unassigned from the Linear issue');
+                Telemetry::feature('linear.unassigned_cancel', [], task: $task);
 
                 $sessionId = (string) $task->linear_agent_session_id;
                 if ($sessionId !== '') {
@@ -326,20 +340,21 @@ class WebhookController extends Controller
             }
 
             app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'response', body: 'Stopped.');
+            Telemetry::feature('linear.stop', ['was_active' => in_array($status, $cancellable, strict: true)], task: $task);
 
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'handled' => 'stop']);
         }
 
         if ($status === TaskStatus::AwaitingClarification) {
             ClarificationReplyJob::dispatch($task, $message);
 
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
         }
 
         if ($task->prIsOpen()) {
             app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
 
-            return response()->json(['ok' => true]);
+            return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
 
         app(NotificationDriver::class)->postAgentActivity(
@@ -348,6 +363,8 @@ class WebhookController extends Controller
             body: "This PR is already merged or closed — mention me in a fresh issue and I'll pick it up.",
         );
 
-        return response()->json(['ok' => true]);
+        Telemetry::feature('follow_up_declined', ['reason' => 'pr_closed'], task: $task, source: 'linear');
+
+        return response()->json(['ok' => true, 'skipped' => 'pr_closed']);
     }
 }

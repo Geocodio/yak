@@ -3,6 +3,7 @@
 namespace App\Agents;
 
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\RunUsage;
 
 class ClaudeCodeOutputParser
 {
@@ -21,6 +22,7 @@ class ClaudeCodeOutputParser
 
         $isError = ($decoded['is_error'] ?? false) === true;
         $subtype = isset($decoded['subtype']) ? (string) $decoded['subtype'] : null;
+        $denials = $decoded['permission_denials'] ?? [];
 
         return new AgentRunResult(
             sessionId: (string) ($decoded['session_id'] ?? ''),
@@ -33,6 +35,9 @@ class ClaudeCodeOutputParser
             clarificationOptions: $clarification['options'],
             rawOutput: $output,
             errorSubtype: $isError ? $subtype : null,
+            usage: RunUsage::fromResultEvent($decoded),
+            permissionDenials: is_array($denials) ? count($denials) : 0,
+            synthesized: ($decoded['synthesized'] ?? false) === true,
         );
     }
 

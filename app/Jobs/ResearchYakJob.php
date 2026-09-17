@@ -8,6 +8,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
@@ -24,9 +25,11 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -56,9 +59,16 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         return now()->addHours(6);
     }
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(
         public YakTask $task,
     ) {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -116,6 +126,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Research, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up by worker — research');
 
@@ -133,6 +144,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         try {
             // Create sandbox from repo snapshot
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created for research', ['container' => $containerName]);
 
             // Ensure we're on the default branch with latest code. The
@@ -144,8 +156,9 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
             $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
             $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard origin/{$repository->default_branch}", timeout: 30);
+            $recorder->mark('git_prepare');
 
-            $result = $agent->run(new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: YakPromptBuilder::taskPrompt($this->task),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -156,21 +169,28 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $agent->run($request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
+                TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->failureMessage());
 
                 return;
             }
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $recorder->mark('post_agent');
         } catch (ClaudeAuthException $e) {
             Log::error('ResearchYakJob auth failure', [
                 'task_id' => $this->task->id,
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
@@ -179,11 +199,17 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e);
             $this->handleError($e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             if ($containerName !== null) {
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
@@ -194,7 +220,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
         $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
 
-        TaskMetricsAccumulator::applyFresh($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
 
         $this->task->update([
             'status' => TaskStatus::Success,

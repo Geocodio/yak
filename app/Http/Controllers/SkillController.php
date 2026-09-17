@@ -7,6 +7,7 @@ use App\DataTransferObjects\InstalledPlugin;
 use App\DataTransferObjects\Marketplace;
 use App\DataTransferObjects\MarketplacePlugin;
 use App\Exceptions\ClaudeCliException;
+use App\Facades\Telemetry;
 use App\Http\Requests\Skills\InstallSkillRequest;
 use App\Services\MarketplaceReader;
 use App\Services\SkillManager;
@@ -54,6 +55,7 @@ class SkillController extends Controller
         return $this->runSafely(function () use ($validated) {
             if (! empty($validated['url'])) {
                 $this->skills->installFromUrl($validated['url']);
+                Telemetry::feature('skill.install', ['via' => 'url'], source: 'dashboard');
 
                 return 'Plugin installed.';
             }
@@ -62,6 +64,7 @@ class SkillController extends Controller
             $marketplace = $validated['marketplace'] ?? null;
 
             $this->skills->install($name, $marketplace !== '' ? $marketplace : null);
+            Telemetry::feature('skill.install', ['via' => 'marketplace', 'name' => $name], source: 'dashboard');
 
             return "Installed {$name}.";
         });

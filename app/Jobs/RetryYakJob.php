@@ -6,6 +6,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
@@ -23,9 +24,11 @@ use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -51,10 +54,17 @@ class RetryYakJob implements ShouldQueue
         return now()->addHours(6);
     }
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(
         public readonly YakTask $task,
         public readonly ?string $failureOutput = null,
     ) {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -88,18 +98,21 @@ class RetryYakJob implements ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Retry, self::class, $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up by worker — retry', ['attempt' => $this->task->attempts]);
 
         try {
             // Create sandbox from repo snapshot (has the setup environment ready)
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created for retry', ['container' => $containerName]);
 
             // Configure git and checkout the task branch
             $this->prepareRetryBranch($sandbox, $containerName, $repository);
+            $recorder->mark('git_prepare');
 
-            $result = $agent->run(new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: YakPromptBuilder::retryPrompt($this->task, $this->failureOutput),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -113,9 +126,14 @@ class RetryYakJob implements ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $agent->run($request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
+                TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->failureMessage());
 
                 return;
@@ -130,13 +148,14 @@ class RetryYakJob implements ShouldQueue
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
             ArtifactPersister::persist($this->task);
 
-            $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
         } catch (ClaudeAuthException $e) {
             Log::error('RetryYakJob auth failure', [
                 'task_id' => $this->task->id,
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
@@ -145,12 +164,18 @@ class RetryYakJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e);
             $this->handleError($e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             if ($containerName !== null) {
                 $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
@@ -213,10 +238,11 @@ class RetryYakJob implements ShouldQueue
         ]);
     }
 
-    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName, RunRecorder $recorder): void
     {
-        TaskMetricsAccumulator::applyAccumulated($this->task, $result);
-        DailyCost::accumulate($result->costUsd);
+        TaskMetricsAccumulator::record($this->task, $result);
+        // The task was counted the day its first run finished.
+        DailyCost::accumulate($result->costUsd, newTask: false);
 
         $workspacePath = IncusSandboxManager::workspacePath();
 
@@ -238,6 +264,8 @@ class RetryYakJob implements ShouldQueue
                     );
                 }
 
+                $recorder->noChanges();
+
                 $this->task->update([
                     'status' => TaskStatus::Success,
                     'completed_at' => now(),
@@ -253,6 +281,10 @@ class RetryYakJob implements ShouldQueue
                 return;
             }
 
+            // Counted against the branch as it was fetched; the rebase above
+            // rewrites hashes, so the commit count can include replayed ones.
+            $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, $workspacePath, "origin/{$this->task->branch_name}"));
+
             $this->task->update($this->postAgentUpdate($repository, $result));
 
             // Refresh the baked-in credential helper — the agent may have run
@@ -266,6 +298,8 @@ class RetryYakJob implements ShouldQueue
             if ($pushResult->exitCode() !== 0) {
                 throw new \RuntimeException("Git push failed in sandbox: {$pushResult->errorOutput()}");
             }
+
+            $recorder->mark('post_agent');
 
             TaskLogger::info($this->task, 'Fix pushed — retry', ['branch' => $this->task->branch_name]);
         } else {
@@ -299,7 +333,7 @@ class RetryYakJob implements ShouldQueue
 
     private function handleClarification(AgentRunResult $result): void
     {
-        TaskMetricsAccumulator::applyAccumulated($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
 
         $this->task->update([
             'status' => TaskStatus::AwaitingClarification,
@@ -307,7 +341,7 @@ class RetryYakJob implements ShouldQueue
             'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days')),
         ]);
 
-        DailyCost::accumulate($result->costUsd);
+        DailyCost::accumulate($result->costUsd, newTask: false);
 
         $numberedOptions = collect($result->clarificationOptions)
             ->map(fn (string $option, int $i) => ($i + 1) . '. ' . $option)

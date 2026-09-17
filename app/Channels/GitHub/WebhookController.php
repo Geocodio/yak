@@ -3,6 +3,8 @@
 namespace App\Channels\GitHub;
 
 use App\Actions\EnqueuePrReview;
+use App\Actions\RecordPullRequestOutcome;
+use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\Deployments\DeployBranchJob;
@@ -22,6 +24,7 @@ use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
+    use RecordsWebhookTelemetry;
     use VerifiesWebhookSignature;
 
     public function __invoke(Request $request, AppService $github): JsonResponse
@@ -33,7 +36,18 @@ class WebhookController extends Controller
         );
 
         $event = (string) $request->header('X-GitHub-Event', '');
+        $action = (string) $request->input('action', '');
 
+        return $this->recordWebhook(
+            'github',
+            $action !== '' ? "{$event}.{$action}" : $event,
+            fn (): JsonResponse => $this->route($request, $github, $event),
+            ['repo' => (string) $request->input('repository.full_name', '')],
+        );
+    }
+
+    private function route(Request $request, AppService $github, string $event): JsonResponse
+    {
         if ($event === 'check_suite') {
             return $this->handleCheckSuite($request, $github);
         }
@@ -146,35 +160,17 @@ class WebhookController extends Controller
     {
         /** @var string $prUrl */
         $prUrl = $request->input('pull_request.html_url', '');
-
-        $task = YakTask::where('pr_url', $prUrl)->first();
         $merged = (bool) $request->input('pull_request.merged', false);
 
-        if ($task) {
-            if ($merged) {
-                $task->update(['pr_merged_at' => $request->input('pull_request.merged_at', now())]);
-            } else {
-                $task->update(['pr_closed_at' => $request->input('pull_request.closed_at', now())]);
-            }
-        }
+        $recorded = app(RecordPullRequestOutcome::class)->record(
+            $prUrl,
+            merged: $merged,
+            mergedAt: $request->input('pull_request.merged_at'),
+            closedAt: $request->input('pull_request.closed_at'),
+            via: 'webhook',
+        );
 
-        // Stamp the whole follow-up chain (children share the root's pr_url) so
-        // the merged/closed guard (prIsOpen) is correct for every task in the
-        // conversation, not just the first row found.
-        $timestampColumn = $merged ? 'pr_merged_at' : 'pr_closed_at';
-        YakTask::where('pr_url', $prUrl)->whereNull($timestampColumn)->update([$timestampColumn => now()]);
-
-        $prReviews = PrReview::where('pr_url', $prUrl)->get();
-
-        foreach ($prReviews as $pr) {
-            $updates = ['pr_closed_at' => $request->input('pull_request.closed_at', now())];
-            if ($merged) {
-                $updates['pr_merged_at'] = $request->input('pull_request.merged_at', now());
-            }
-            $pr->update($updates);
-        }
-
-        if (! $task && $prReviews->isEmpty()) {
+        if (! $recorded) {
             return response()->json(['ok' => true, 'skipped' => 'no task found for PR']);
         }
 

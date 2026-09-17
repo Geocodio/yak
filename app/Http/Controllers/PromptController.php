@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Facades\Telemetry;
 use App\Http\Requests\Prompts\SavePromptRequest;
 use App\Models\Prompt;
 use App\Models\PromptVersion;
@@ -92,6 +93,8 @@ class PromptController extends Controller
             return redirect()->route('prompts.show', $slug)->with('error', 'Could not save: ' . $e->getMessage());
         }
 
+        Telemetry::feature('prompt.customized', ['slug' => $slug], source: 'dashboard');
+
         return redirect()->route('prompts.show', $slug)->with('success', 'Saved.');
     }
 
@@ -106,6 +109,8 @@ class PromptController extends Controller
             $prompt->is_customized = false;
             $prompt->save();
         }
+
+        Telemetry::feature('prompt.reset', ['slug' => $slug], source: 'dashboard');
 
         return redirect()->route('prompts.show', $slug)->with('success', 'Reset to default.');
     }
