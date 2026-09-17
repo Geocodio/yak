@@ -4,18 +4,19 @@ namespace App\Providers;
 
 use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
-use App\Listeners\RecordAiUsage;
 use App\Services\IncusSandboxManager;
+use App\Services\Telemetry\Contracts\TelemetrySink;
+use App\Services\Telemetry\Sinks\DatabaseSink;
+use App\Services\Telemetry\Sinks\NullSink;
+use App\Services\Telemetry\Telemetry;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
-use Laravel\Ai\Events\AgentPrompted;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,6 +38,17 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(VideoThumbnailer::class, fn () => new VideoThumbnailer(
             overlayPath: base_path('video/fixtures/play-overlay.png'),
         ));
+
+        // Telemetry is local-only and opt-out: with the flag off the null
+        // sink is bound and every emitter short-circuits before it.
+        $this->app->singleton(TelemetrySink::class, function (): TelemetrySink {
+            return (bool) config('yak.telemetry.enabled', true) ? new DatabaseSink : new NullSink;
+        });
+
+        $this->app->singleton(Telemetry::class, fn () => new Telemetry(
+            sink: app(TelemetrySink::class),
+            enabled: (bool) config('yak.telemetry.enabled', true),
+        ));
     }
 
     /**
@@ -50,7 +62,9 @@ class AppServiceProvider extends ServiceProvider
         // resolves to resources/views/layouts/auth/simple.blade.php.
         Blade::anonymousComponentNamespace('layouts', 'layouts');
 
-        Event::listen(AgentPrompted::class, RecordAiUsage::class);
+        // Listeners in app/Listeners are auto-discovered. Registering
+        // RecordAiUsage here as well made every AI SDK call write two
+        // ai_usages rows, doubling API spend on the Costs page.
     }
 
     /**

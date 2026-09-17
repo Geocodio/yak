@@ -6,6 +6,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
@@ -24,9 +25,11 @@ use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -60,9 +63,16 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         return now()->addHours(6);
     }
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(
         public YakTask $task,
     ) {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -141,6 +151,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Initial, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up by worker', ['attempt' => $this->task->attempts + 1]);
 
@@ -159,13 +170,15 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         try {
             // Create isolated sandbox container (instant CoW clone from snapshot)
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
 
             $this->prepareBranch($sandbox, $containerName, $repository);
+            $recorder->mark('git_prepare');
 
             $prompt = $this->assemblePrompt();
 
-            $result = $agent->run(new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: $prompt,
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -176,10 +189,14 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $agent->run($request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
-                TaskMetricsAccumulator::applyFresh($this->task, $result);
+                TaskMetricsAccumulator::record($this->task, $result);
 
                 $errorMessage = $result->failureMessage();
 
@@ -215,13 +232,14 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             // rendering sat idle instead of running in parallel with CI.
             ArtifactPersister::persist($this->task);
 
-            $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
         } catch (ClaudeAuthException $e) {
             Log::error('RunYakJob auth failure', [
                 'task_id' => $this->task->id,
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
@@ -230,12 +248,18 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e);
             $this->handleError($e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             if ($containerName !== null) {
                 $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
@@ -301,9 +325,9 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         return [];
     }
 
-    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName, RunRecorder $recorder): void
     {
-        TaskMetricsAccumulator::applyFresh($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
         DailyCost::accumulate($result->costUsd);
 
         $workspacePath = IncusSandboxManager::workspacePath();
@@ -334,6 +358,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 // Clean tree + no commits: the agent legitimately answered
                 // without writing code. Artifacts were already persisted
                 // in the main handle() flow above. Skip push + CI.
+                $recorder->noChanges();
+
                 $this->task->update([
                     'status' => TaskStatus::Success,
                     'completed_at' => now(),
@@ -349,6 +375,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
+            $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, $workspacePath, "origin/{$repository->default_branch}"));
+
             $this->task->update($this->postAgentUpdate($repository, $result));
 
             // Refresh the baked-in credential helper — the agent may have run
@@ -362,6 +390,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 throw new \RuntimeException("Git push failed in sandbox: {$pushResult->errorOutput()}");
             }
 
+            $recorder->mark('post_agent');
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         } else {
             $this->task->update($this->postAgentUpdate($repository, $result));
@@ -400,7 +429,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
     private function handleClarification(AgentRunResult $result): void
     {
-        TaskMetricsAccumulator::applyFresh($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
 
         $this->task->update([
             'status' => TaskStatus::AwaitingClarification,

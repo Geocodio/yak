@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Events\TaskStatusChanged;
 use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
@@ -36,6 +37,9 @@ use Illuminate\Support\Collection;
  * @property string|null $claimed_job_class
  * @property CarbonImmutable|null $pr_merged_at
  * @property CarbonImmutable|null $pr_closed_at
+ * @property CarbonImmutable|null $pr_opened_at
+ * @property int|null $human_commits
+ * @property CarbonImmutable|null $pr_state_checked_at
  */
 class YakTask extends Model
 {
@@ -81,6 +85,8 @@ class YakTask extends Model
             'interrupted_by_deploy_at' => 'datetime',
             'pr_merged_at' => 'datetime',
             'pr_closed_at' => 'datetime',
+            'pr_opened_at' => 'datetime',
+            'pr_state_checked_at' => 'datetime',
         ];
     }
 
@@ -93,6 +99,16 @@ class YakTask extends Model
         });
 
         static::updated(function (YakTask $task): void {
+            if ($task->wasChanged('status')) {
+                $original = $task->getOriginal('status');
+
+                TaskStatusChanged::dispatch(
+                    $task,
+                    $original instanceof TaskStatus ? $original : TaskStatus::tryFrom((string) $original),
+                    $task->status,
+                );
+            }
+
             if ($task->wasChanged('status') && $task->status === TaskStatus::Success) {
                 $root = $task->conversation()->first() ?? $task;
 
@@ -121,6 +137,14 @@ class YakTask extends Model
     public function logs(): HasMany
     {
         return $this->hasMany(TaskLog::class, 'yak_task_id');
+    }
+
+    /**
+     * @return HasMany<TaskRun, $this>
+     */
+    public function runs(): HasMany
+    {
+        return $this->hasMany(TaskRun::class, 'yak_task_id')->orderBy('started_at');
     }
 
     /**

@@ -19,23 +19,41 @@ final readonly class AgentRunResult
         public string $rawOutput,
         public ?string $errorSubtype = null,
         public string $stderr = '',
+        public ?RunUsage $usage = null,
+        public ?RunStats $stats = null,
+        public int $permissionDenials = 0,
+        public bool $synthesized = false,
+        public bool $staleSessionRetry = false,
     ) {}
 
     public function withStderr(string $stderr): self
     {
-        return new self(
-            sessionId: $this->sessionId,
-            resultSummary: $this->resultSummary,
-            costUsd: $this->costUsd,
-            numTurns: $this->numTurns,
-            durationMs: $this->durationMs,
-            isError: $this->isError,
-            clarificationNeeded: $this->clarificationNeeded,
-            clarificationOptions: $this->clarificationOptions,
-            rawOutput: $this->rawOutput,
-            errorSubtype: $this->errorSubtype,
-            stderr: $stderr,
-        );
+        return $this->copy(['stderr' => $stderr]);
+    }
+
+    public function withStats(RunStats $stats): self
+    {
+        return $this->copy(['stats' => $stats]);
+    }
+
+    /**
+     * Marks a result produced by the non-resumed re-run that
+     * RetriesWithoutStaleSession falls back to.
+     */
+    public function withStaleSessionRetry(): self
+    {
+        return $this->copy(['staleSessionRetry' => true]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function copy(array $overrides): self
+    {
+        /** @var array<string, mixed> $values */
+        $values = array_merge(get_object_vars($this), $overrides);
+
+        return new self(...$values);
     }
 
     /**
@@ -99,5 +117,29 @@ final readonly class AgentRunResult
             'error_during_execution' => "Agent error during execution after {$this->numTurns} turns (cost \${$cost}){$stderrSuffix}",
             default => "Agent returned an error after {$this->numTurns} turns (cost \${$cost}){$stderrSuffix}",
         };
+    }
+
+    /**
+     * Failure category for the run row and the failure-taxonomy chart:
+     * the CLI subtype when it gave one, otherwise a stable label derived
+     * from the same heuristics failureMessage() uses.
+     */
+    public function failureCategory(): ?string
+    {
+        if (! $this->isError) {
+            return null;
+        }
+
+        $maxBudget = (float) config('yak.max_budget_per_task', 5);
+
+        if ($this->errorSubtype === 'error_during_execution' && $this->costUsd >= $maxBudget * 0.99) {
+            return 'budget_cap';
+        }
+
+        if ($this->isStaleSessionResume()) {
+            return 'stale_session';
+        }
+
+        return $this->errorSubtype ?? 'agent_error';
     }
 }

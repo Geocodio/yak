@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\ArtifactController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\LinearOAuthController;
@@ -75,6 +76,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
     Route::get('costs', CostDashboardController::class)->name('costs');
+    Route::get('analytics', AnalyticsController::class)->name('analytics');
 
     Route::get('repos', [RepositoryController::class, 'index'])->name('repos');
     Route::get('repos/create', [RepositoryController::class, 'create'])->name('repos.create');

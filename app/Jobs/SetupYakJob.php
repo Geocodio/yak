@@ -7,6 +7,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
@@ -22,8 +23,10 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -73,9 +76,16 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         return now()->addHours(6);
     }
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(
         public YakTask $task,
     ) {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -162,6 +172,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Setup, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up by worker — setup');
         $repository->update(['setup_status' => 'running']);
@@ -178,6 +189,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             }
 
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
 
             // Clone the repo inside the sandbox
@@ -186,10 +198,11 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             // Checkout default branch
             $workspacePath = IncusSandboxManager::workspacePath();
             $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
+            $recorder->mark('git_prepare');
 
             TaskLogger::info($this->task, 'Starting Claude agent');
 
-            $result = $agent->run(new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: YakPromptBuilder::setupPrompt($repository->name),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -200,9 +213,14 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $agent->run($request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
+                TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError(
                     $repository,
                     $result->failureMessage(),
@@ -212,12 +230,14 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             }
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $recorder->mark('post_agent');
         } catch (ClaudeAuthException $e) {
             Log::error('SetupYakJob auth failure', [
                 'task_id' => $this->task->id,
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($repository, $e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
@@ -226,12 +246,18 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e);
             $this->handleError($repository, $e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             // Always clean up the sandbox on setup (we snapshot first on success)
             if ($containerName !== null) {
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
@@ -277,7 +303,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
-        TaskMetricsAccumulator::applyFresh($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
 
         // Capture the preview_manifest if the agent emitted one.
         $manifest = ClaudeCodeOutputParser::extractPreviewManifest($result->resultSummary);

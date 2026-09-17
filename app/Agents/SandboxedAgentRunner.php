@@ -5,9 +5,11 @@ namespace App\Agents;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\RunStats;
 use App\DataTransferObjects\StreamOutcome;
 use App\Exceptions\ClaudeAuthException;
 use App\Models\YakTask;
+use App\Services\AiPricing;
 use App\Services\ClaudeAuthDetector;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
@@ -39,6 +41,12 @@ class SandboxedAgentRunner implements AgentRunner
     private const int MAX_MALFORMED_LINE_WARNINGS = 3;
 
     private int $malformedLineWarnings = 0;
+
+    /**
+     * CLI version observed by the last refreshClaude() call, stamped on
+     * the run record so a regression can be tied to a release.
+     */
+    private ?string $lastCliVersion = null;
 
     /**
      * After Claude emits its `result` event, we wait this many seconds
@@ -113,6 +121,7 @@ class SandboxedAgentRunner implements AgentRunner
         }
 
         $versionBefore = $this->claudeVersion($containerName);
+        $this->lastCliVersion = self::versionNumber($versionBefore) ?? $this->lastCliVersion;
 
         try {
             $updateResult = $this->sandbox->run(
@@ -143,6 +152,7 @@ class SandboxedAgentRunner implements AgentRunner
         }
 
         $versionAfter = $this->claudeVersion($containerName);
+        $this->lastCliVersion = self::versionNumber($versionAfter) ?? $this->lastCliVersion;
         $metadata = [
             'container' => $containerName,
             'version_before' => $versionBefore,
@@ -161,6 +171,14 @@ class SandboxedAgentRunner implements AgentRunner
 
             TaskLogger::info($request->task, $line, $metadata);
         }
+    }
+
+    /**
+     * "2.1.300 (Claude Code)" -> "2.1.300", for the run record.
+     */
+    private static function versionNumber(string $versionOutput): ?string
+    {
+        return preg_match('/\d+\.\d+\.\d+/', $versionOutput, $m) === 1 ? $m[0] : null;
     }
 
     /**
@@ -199,7 +217,9 @@ class SandboxedAgentRunner implements AgentRunner
 
         $containerName = $request->containerName;
         $command = $this->buildClaudeCommand($request);
-        $handler = new StreamEventHandler($request->task);
+        $stats = new RunStats;
+        $stats->cliVersion = $this->lastCliVersion;
+        $handler = new StreamEventHandler($request->task, $stats);
 
         Log::channel('yak')->info('Claude stream starting (sandboxed)', [
             'task_id' => $request->task->id,
@@ -244,10 +264,14 @@ class SandboxedAgentRunner implements AgentRunner
                 && $handler->getSessionId() !== null
                 && $resumeAttempts < $this->maxResumeAttempts) {
                 $resumeAttempts++;
+                $stats->resumedInPlace = true;
                 $outcome = $this->resumeAfterTruncatedStream($request, $containerName, $handler, $outcome, $resumeAttempts);
             }
 
-            return $this->resultFromOutcome($request, $outcome, $handler);
+            $stats->forcedTermination = $outcome->forcedTermination;
+            $stats->malformedLines = $this->malformedLineWarnings;
+
+            return $this->resultFromOutcome($request, $outcome, $handler)->withStats($stats);
         } finally {
             $streamCompleted = true;
         }
@@ -344,15 +368,23 @@ class SandboxedAgentRunner implements AgentRunner
         $finalText = $handler->getLastAssistantText();
 
         if ($outcome->endedCleanlyWithoutResult() && $finalText !== '') {
+            // The `result` event never arrived, so price the run from the
+            // usage each assistant message reported instead of recording
+            // zero cost and zero turns for work that plainly happened.
+            $stats = $handler->getStats();
+            $estimated = $this->estimateUsageFromStream($stats);
+
             $synthesized = [
                 'type' => 'result',
                 'subtype' => 'success',
                 'is_error' => false,
                 'result' => $finalText,
                 'session_id' => (string) $handler->getSessionId(),
-                'num_turns' => 0,
-                'total_cost_usd' => 0,
+                'num_turns' => $stats->assistantMessages,
+                'total_cost_usd' => $estimated['cost_usd'],
                 'duration_ms' => 0,
+                'usage' => $stats->usageTotals(),
+                'modelUsage' => $estimated['model_usage'],
                 'synthesized' => true,
             ];
 
@@ -360,11 +392,17 @@ class SandboxedAgentRunner implements AgentRunner
                 'task_id' => $request->task->id,
                 'lines' => $outcome->lineCount,
                 'session_id' => $handler->getSessionId(),
+                'estimated_cost_usd' => $estimated['cost_usd'],
+                'assistant_messages' => $stats->assistantMessages,
             ]);
             TaskLogger::warning(
                 $request->task,
-                'No result event from Claude — result synthesized from its final message. Turn count and cost for this run are unknown.',
-                ['lines' => $outcome->lineCount, 'session_id' => $handler->getSessionId()],
+                sprintf(
+                    'No result event from Claude — result synthesized from its final message. Cost estimated from the stream: $%.2f over %d turns.',
+                    $estimated['cost_usd'],
+                    $stats->assistantMessages,
+                ),
+                ['lines' => $outcome->lineCount, 'session_id' => $handler->getSessionId(), 'estimated_cost_usd' => $estimated['cost_usd']],
             );
 
             return ClaudeCodeOutputParser::parse(json_encode($synthesized, JSON_THROW_ON_ERROR));
@@ -378,6 +416,40 @@ class SandboxedAgentRunner implements AgentRunner
             "Claude Code stream ended without result event (lines={$outcome->lineCount}, exit={$outcome->exitCode}){$terminationNote}",
             '',
         );
+    }
+
+    /**
+     * Price the per-model usage the stream accumulated, in the shape the
+     * CLI's own `modelUsage` block uses so the parser reads both alike.
+     *
+     * @return array{cost_usd: float, model_usage: array<string, array<string, int|float>>}
+     */
+    private function estimateUsageFromStream(RunStats $stats): array
+    {
+        $costUsd = 0.0;
+        $modelUsage = [];
+
+        foreach ($stats->usageByModel as $model => $usage) {
+            $modelCost = AiPricing::costForTokens(
+                'anthropic',
+                $model,
+                inputTokens: $usage['input'],
+                outputTokens: $usage['output'],
+                cacheWriteTokens: $usage['cache_creation'],
+                cacheReadTokens: $usage['cache_read'],
+            );
+
+            $costUsd += $modelCost;
+            $modelUsage[$model] = [
+                'inputTokens' => $usage['input'],
+                'outputTokens' => $usage['output'],
+                'cacheReadInputTokens' => $usage['cache_read'],
+                'cacheCreationInputTokens' => $usage['cache_creation'],
+                'costUSD' => $modelCost,
+            ];
+        }
+
+        return ['cost_usd' => round($costUsd, 4), 'model_usage' => $modelUsage];
     }
 
     /**

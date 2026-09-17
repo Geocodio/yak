@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tasks;
 use App\Actions\EnqueuePrReview;
 use App\Channels\GitHub\AppService;
 use App\Enums\TaskMode;
+use App\Facades\Telemetry;
 use App\Http\Controllers\Controller;
 use App\Models\PrReview;
 use App\Models\Repository;
@@ -56,6 +57,8 @@ class RequestReReviewController extends Controller
         }
 
         $newTask = $enqueue->dispatch($repo, $pr, $scope, $incrementalBase);
+
+        Telemetry::feature('re_request_review', ['scope' => $scope, 'queued' => $newTask !== null], task: $newTask ?? $task, source: 'dashboard');
 
         if ($newTask !== null) {
             return redirect()->route('tasks.show', $newTask)->with('success', $task->mode === TaskMode::Review

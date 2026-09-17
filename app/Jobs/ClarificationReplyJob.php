@@ -6,8 +6,11 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Facades\Telemetry;
+use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
@@ -24,9 +27,11 @@ use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -54,10 +59,17 @@ class ClarificationReplyJob implements ShouldQueue
         return now()->addHours(6);
     }
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(
         public readonly YakTask $task,
         public readonly string $replyText,
     ) {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -104,17 +116,31 @@ class ClarificationReplyJob implements ShouldQueue
 
         TaskLogger::info($this->task, 'Picked up by worker — clarification reply');
 
+        // How long the question sat unanswered: from when the task parked in
+        // awaiting_clarification (its updated_at at that point) to the reply.
+        $askedAt = $this->task->clarification_expires_at?->subDays((int) config('yak.clarification_ttl_days', 3));
+        Telemetry::record('feature.used', [
+            'feature' => 'clarification.answered',
+            'options' => count($this->task->clarification_options ?? []),
+        ], task: $this->task, durationMs: $askedAt !== null
+            ? max(0, $this->queuedAt->getTimestampMs() - $askedAt->getTimestampMs())
+            : null);
+
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Clarification, self::class, $this->queuedAt);
+
         try {
             // Create sandbox from repo snapshot
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created for clarification reply', ['container' => $containerName]);
 
             // Configure git and checkout the task branch
             $this->prepareBranch($sandbox, $containerName, $repository);
 
             $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
+            $recorder->mark('git_prepare');
 
-            $result = $this->runAgentWithStaleSessionFallback($agent, new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: YakPromptBuilder::clarificationReplyPrompt($this->replyText),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -125,9 +151,14 @@ class ClarificationReplyJob implements ShouldQueue
                 resumeSessionId: $this->task->session_id,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $this->runAgentWithStaleSessionFallback($agent, $request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
+                TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->failureMessage());
 
                 return;
@@ -136,13 +167,14 @@ class ClarificationReplyJob implements ShouldQueue
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
             ArtifactPersister::persist($this->task);
 
-            $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
         } catch (ClaudeAuthException $e) {
             Log::error('ClarificationReplyJob auth failure', [
                 'task_id' => $this->task->id,
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
@@ -151,12 +183,18 @@ class ClarificationReplyJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
+            $recorder->failed($e);
             $this->handleError($e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             if ($containerName !== null) {
                 $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
@@ -167,9 +205,9 @@ class ClarificationReplyJob implements ShouldQueue
         $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
     }
 
-    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName, RunRecorder $recorder): void
     {
-        TaskMetricsAccumulator::applyAccumulated($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
 
         $update = [
             'result_summary' => $result->resultSummary,
@@ -185,10 +223,14 @@ class ClarificationReplyJob implements ShouldQueue
 
         $this->task->update($update);
 
-        DailyCost::accumulate($result->costUsd);
+        // The task was counted the day its first run finished.
+        DailyCost::accumulate($result->costUsd, newTask: false);
 
         if ($this->task->branch_name !== null) {
+            $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$this->task->branch_name}"));
+
             $this->pushExistingBranch($sandbox, $containerName, $repository, $this->task->branch_name);
+            $recorder->mark('post_agent');
 
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         }

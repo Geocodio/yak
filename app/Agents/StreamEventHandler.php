@@ -2,6 +2,7 @@
 
 namespace App\Agents;
 
+use App\DataTransferObjects\RunStats;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\TaskLogger;
@@ -46,7 +47,17 @@ class StreamEventHandler
 
     public function __construct(
         private readonly YakTask $task,
+        private readonly RunStats $stats = new RunStats,
     ) {}
+
+    /**
+     * Counters accumulated from the stream so far (tool calls, retries,
+     * per-model usage). Shared with the runner that owns the stream.
+     */
+    public function getStats(): RunStats
+    {
+        return $this->stats;
+    }
 
     /**
      * Called from the stream loop when Claude has been silent for a
@@ -97,6 +108,7 @@ class StreamEventHandler
             'tool_use' => $this->handleToolUse($event),
             'tool_result' => $this->handleToolResult($event),
             'result' => $this->handleResult($event),
+            'system' => $this->handleSystem($event),
             default => null,
         };
     }
@@ -197,6 +209,15 @@ class StreamEventHandler
             return;
         }
 
+        // Every assistant message carries its own usage, which is the only
+        // cost signal left when the CLI exits before its `result` event.
+        $usage = $message['usage'] ?? [];
+        $this->stats->assistantMessage(
+            isset($message['id']) ? (string) $message['id'] : null,
+            isset($message['model']) ? (string) $message['model'] : null,
+            is_array($usage) ? $usage : [],
+        );
+
         /** @var array<int, array<string, mixed>> $contentBlocks */
         $contentBlocks = $message['content'] ?? [];
 
@@ -243,6 +264,7 @@ class StreamEventHandler
 
         $message = $this->formatToolCall($toolName, $input);
         $this->pendingToolName = $toolName;
+        $this->stats->toolStarted($toolName);
 
         $this->pendingToolLog = TaskLogger::info($this->task, $message, [
             'type' => 'tool_use',
@@ -293,6 +315,8 @@ class StreamEventHandler
             $metadata['duration_ms'] = (int) round((microtime(true) - $pending['started']) * 1000);
         }
 
+        $this->stats->toolFinished((string) ($toolName ?? 'unknown'), $isError, $metadata['duration_ms'] ?? null);
+
         // Strip any heartbeat duration suffix before appending the exit
         // summary so the final message reads "⚡ cmd → exit 0", not
         // "⚡ cmd (3m) → exit 0".
@@ -327,6 +351,22 @@ class StreamEventHandler
     private function handleResult(array $event): void
     {
         $this->resultEvent = $event;
+    }
+
+    /**
+     * `system` events are mostly the `init` banner, but `api_retry` is the
+     * only place the stream says the API pushed back (rate limit,
+     * overloaded, server error) before the CLI retried.
+     *
+     * @param  array<string, mixed>  $event
+     */
+    private function handleSystem(array $event): void
+    {
+        if (($event['subtype'] ?? '') !== 'api_retry') {
+            return;
+        }
+
+        $this->stats->apiRetry((string) ($event['error'] ?? 'unknown'));
     }
 
     /**

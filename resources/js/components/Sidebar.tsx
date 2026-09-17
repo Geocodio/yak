@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { BrandMarkIcon, Kbd, Menu, Tooltip, cn } from '@geocodio/console-ui';
 import {
+    BarChart3,
     BookOpen,
     ChevronDown,
     ClipboardList,
@@ -22,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { YAK_MARK } from '@/lib/brand';
-import { channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, tasks } from '@/routes';
+import { analytics, channels, costs, deployments, health, logout, mcp, observations, prReviews, prompts, repos, skills, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import type { SharedProps } from '@/types/shared';
 
@@ -40,6 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'PR Reviews', icon: MessageSquare, url: prReviews.url() },
     { label: 'Prompts', icon: Type, url: prompts.url() },
     { label: 'Costs', icon: DollarSign, url: costs.url() },
+    { label: 'Analytics', icon: BarChart3, url: analytics.url() },
     { label: 'Skills', icon: Puzzle, url: skills.url() },
     { label: 'MCP servers', icon: Server, url: mcp.url() },
     { label: 'Health', icon: Heart, url: health.url() },

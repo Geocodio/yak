@@ -10,8 +10,10 @@ use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\ParsedPriorFinding;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Facades\Telemetry;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
@@ -31,10 +33,12 @@ use App\Services\PriorFindingsRollup;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Support\GitHubDiffLines;
 use App\Support\PathMatcher;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -70,8 +74,15 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
      */
     private const SUGGESTION_RANGE_TOLERANCE = 5;
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(public YakTask $task)
     {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -142,19 +153,22 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
         $metadata = $this->metadata();
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Review, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up review task', ['pr' => $this->task->pr_url]);
 
         try {
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
 
             $this->checkoutPrHead($sandbox, $containerName, $repository, $metadata);
             $promptContext = $this->buildPromptContext($sandbox, $containerName, $repository, $metadata);
+            $recorder->mark('git_prepare');
 
             $prompt = YakPromptBuilder::taskPrompt($this->task, $promptContext);
 
-            $result = $agent->run(new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: $prompt,
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -165,16 +179,20 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $agent->run($request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
-                TaskMetricsAccumulator::applyFresh($this->task, $result);
+                TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->resultSummary ?: 'Agent returned an error');
 
                 return;
             }
 
-            TaskMetricsAccumulator::applyFresh($this->task, $result);
+            TaskMetricsAccumulator::record($this->task, $result);
             DailyCost::accumulate($result->costUsd);
 
             try {
@@ -185,12 +203,15 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                     'raw_output' => mb_substr($result->resultSummary, 0, 10000),
                 ]);
 
+                $recorder->failed($e, 'review_parse');
+
                 throw $e;
             }
 
             $parsed = $this->filterFindings($parsed, $promptContext['pathExcludes']);
 
             $this->postReview($repository, $parsed, $metadata);
+            $recorder->mark('post_agent');
 
             $this->task->update([
                 'status' => TaskStatus::Success,
@@ -202,14 +223,21 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             TaskLogger::info($this->task, 'Review posted', ['findings' => count($parsed->findings)]);
         } catch (ClaudeAuthException $e) {
             Log::error('RunYakReviewJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
         } catch (\Throwable $e) {
             Log::error('RunYakReviewJob failed', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
+            $recorder->failed($e);
             $this->handleError($e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             if ($containerName !== null) {
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
@@ -637,6 +665,28 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'verdict' => $parsed->verdict,
             'submitted_at' => now(),
         ]);
+
+        $severities = ['must_fix' => 0, 'should_fix' => 0, 'consider' => 0];
+        $suggestions = 0;
+        foreach ($parsed->findings as $finding) {
+            $severities[$finding->severity] = ($severities[$finding->severity] ?? 0) + 1;
+            if ($finding->suggestionLoc !== null) {
+                $suggestions++;
+            }
+        }
+
+        Telemetry::record('review.submitted', [
+            'scope' => (string) ($metadata['review_scope'] ?? 'full'),
+            'verdict' => $parsed->verdict,
+            'findings' => count($parsed->findings),
+            'inline' => count($lineComments),
+            'suggestions' => $suggestions,
+            'severities' => $severities,
+            'prior_findings' => count($priorFindings),
+            'body_only_fallback' => $lineComments === [] && $lineCommentFindings === [] && $parsed->findings !== [],
+            'pr_number' => (int) $metadata['pr_number'],
+            'pr_author' => (string) ($metadata['author'] ?? ''),
+        ], task: $this->task, subject: $review);
 
         if ($priorFindings !== []) {
             PrReviewComment::query()
