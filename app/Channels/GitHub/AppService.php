@@ -712,6 +712,41 @@ class AppService
     }
 
     /**
+     * Every commit on a PR, oldest first. Used to count commits that
+     * someone other than Yak pushed to a Yak branch before it merged.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPullRequestCommits(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        $results = [];
+        $page = 1;
+
+        while (true) {
+            $response = $this->installationClient($installationId)
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/commits", [
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+
+            $batch = $response->json();
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
+
+            $page++;
+        }
+
+        return $results;
+    }
+
+    /**
      * Patch an existing PR. Typically used to edit the body (e.g. to append
      * a walkthrough video link once the render completes asynchronously).
      *

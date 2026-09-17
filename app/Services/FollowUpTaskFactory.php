@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\TaskStatus;
+use App\Facades\Telemetry;
 use App\Jobs\RunFollowUpJob;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +61,14 @@ class FollowUpTaskFactory
         });
 
         TaskLogger::info($child, 'Follow-up task created', ['source' => $source, 'parent_id' => $head->id]);
+
+        // Round N of the conversation: how often people go back and forth
+        // before a PR lands is the Analytics page's one-shot rate.
+        Telemetry::feature('follow_up', [
+            'round' => $chain->count(),
+            'root_task_id' => $root->id,
+            'chars' => mb_strlen($instructions),
+        ], task: $child);
 
         RunFollowUpJob::dispatch($child)->afterCommit();
 

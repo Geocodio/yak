@@ -7,6 +7,8 @@ use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Events\TaskStatusChanged;
+use App\Facades\Telemetry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\RerouteTaskRequest;
 use App\Jobs\RenderVideoJob;
@@ -33,15 +35,14 @@ class TaskActionController extends Controller
             return redirect()->route('tasks.show', $task)->with('error', 'This task cannot be retried right now.');
         }
 
+        // cost_usd, duration_ms and num_turns are lifetime totals and
+        // deliberately survive a retry: the failed attempt still cost money.
         $task->update([
             'status' => TaskStatus::Pending,
             'error_log' => null,
             'result_summary' => null,
             'pr_body_update' => null,
             'review_replies' => null,
-            'cost_usd' => 0,
-            'duration_ms' => 0,
-            'num_turns' => 0,
             'started_at' => null,
             'completed_at' => null,
         ]);
@@ -55,6 +56,8 @@ class TaskActionController extends Controller
             TaskMode::Review => RunYakReviewJob::class,
             default => RunYakJob::class,
         };
+
+        Telemetry::feature('dashboard.retry', ['mode' => $mode->value], task: $task);
 
         app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
 
@@ -76,6 +79,7 @@ class TaskActionController extends Controller
         }
 
         TaskLogger::info($task, 'Task cancelled by user');
+        Telemetry::feature('dashboard.cancel', ['status' => $task->status->value], task: $task);
 
         $containerName = 'task-' . $task->id;
 
@@ -135,15 +139,17 @@ class TaskActionController extends Controller
 
         PrReview::where('yak_task_id', $task->id)->delete();
 
+        /** @var TaskStatus $statusBefore */
+        $statusBefore = $task->status;
+
+        // Raw update because Success is a final state the enum will not
+        // transition out of. Lifetime cost/turn totals are kept on purpose.
         DB::table('tasks')->where('id', $task->id)->update([
             'status' => TaskStatus::Pending->value,
             'error_log' => null,
             'result_summary' => null,
             'pr_body_update' => null,
             'review_replies' => null,
-            'cost_usd' => 0,
-            'duration_ms' => 0,
-            'num_turns' => 0,
             'started_at' => null,
             'completed_at' => null,
             'branch_name' => (string) $prPayload['head']['ref'],
@@ -163,6 +169,9 @@ class TaskActionController extends Controller
         ]);
 
         $task->refresh();
+
+        TaskStatusChanged::dispatch($task, $statusBefore, TaskStatus::Pending);
+        Telemetry::feature('dashboard.rerun_review', [], task: $task);
 
         app(AgentJobDispatcher::class)->dispatch($task, RunYakReviewJob::class);
 
@@ -222,6 +231,11 @@ class TaskActionController extends Controller
             }
         }
 
+        /** @var TaskStatus $statusBefore */
+        $statusBefore = $task->status;
+
+        // Raw update: the enum forbids some of these transitions. Lifetime
+        // cost/turn totals are kept on purpose.
         DB::table('tasks')->where('id', $task->id)->update([
             'repo' => $newRepo->slug,
             'status' => TaskStatus::Pending->value,
@@ -230,15 +244,15 @@ class TaskActionController extends Controller
             'result_summary' => null,
             'pr_body_update' => null,
             'review_replies' => null,
-            'cost_usd' => 0,
-            'duration_ms' => 0,
-            'num_turns' => 0,
             'started_at' => null,
             'completed_at' => null,
             'updated_at' => now(),
         ]);
 
         $task->refresh();
+
+        TaskStatusChanged::dispatch($task, $statusBefore, TaskStatus::Pending);
+        Telemetry::feature('dashboard.reroute', ['from' => $oldRepo, 'to' => $newRepo->slug], task: $task);
 
         TaskLogger::info($task, "Task rerouted from {$oldRepo} to {$newRepo->slug}");
 

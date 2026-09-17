@@ -445,4 +445,35 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Telemetry
+    |--------------------------------------------------------------------------
+    |
+    | Local-only metrics about how Yak is used and how it performs: one row
+    | per agent run (task_runs) and an append-only event stream
+    | (telemetry_events). Nothing leaves this instance; the Analytics page
+    | reads straight from these tables. Set YAK_TELEMETRY_ENABLED=false to
+    | opt out entirely -- every emitter becomes a no-op and the Analytics
+    | page explains that collection is off.
+    |
+    */
+
+    'telemetry' => [
+        'enabled' => (bool) env('YAK_TELEMETRY_ENABLED', true),
+
+        // Raw telemetry_events rows older than this are pruned daily.
+        // task_runs rows are kept indefinitely (one small row per run).
+        'retention_days' => (int) env('YAK_TELEMETRY_RETENTION_DAYS', 90),
+
+        // Sample queue depth and oldest-job age once a minute so the
+        // Analytics page can show worker backlog over time.
+        'queue_sampling' => (bool) env('YAK_TELEMETRY_QUEUE_SAMPLING', true),
+
+        // Poll GitHub hourly for the state of Yak-opened PRs that have not
+        // been reported merged or closed, so a missed webhook cannot leave
+        // a PR looking open forever. Also counts human commits on the PR.
+        'reconcile_pr_state' => (bool) env('YAK_TELEMETRY_RECONCILE_PR_STATE', true),
+    ],
+
 ];

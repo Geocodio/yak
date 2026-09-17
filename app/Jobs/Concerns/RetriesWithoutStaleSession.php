@@ -34,6 +34,6 @@ trait RetriesWithoutStaleSession
             ]);
         }
 
-        return $agent->run($request->withoutResume());
+        return $agent->run($request->withoutResume())->withStaleSessionRetry();
     }
 }

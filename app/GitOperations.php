@@ -106,6 +106,58 @@ class GitOperations
     }
 
     /**
+     * Commits, files and line counts HEAD carries beyond `$baseRef`, for
+     * the run record. Telemetry only, so any git failure yields zeros
+     * rather than an exception.
+     *
+     * @return array{commits: int, files: int, insertions: int, deletions: int}
+     */
+    public static function changeStats(
+        IncusSandboxManager $sandbox,
+        string $containerName,
+        string $workspacePath,
+        string $baseRef,
+    ): array {
+        $stats = ['commits' => 0, 'files' => 0, 'insertions' => 0, 'deletions' => 0];
+
+        try {
+            $count = $sandbox->run(
+                $containerName,
+                "cd {$workspacePath} && git rev-list --count {$baseRef}..HEAD",
+                timeout: 15,
+            );
+
+            if ($count->exitCode() === 0) {
+                $stats['commits'] = (int) trim($count->output());
+            }
+
+            $diff = $sandbox->run(
+                $containerName,
+                "cd {$workspacePath} && git diff --shortstat {$baseRef}...HEAD",
+                timeout: 30,
+            );
+
+            if ($diff->exitCode() === 0) {
+                $summary = trim($diff->output());
+
+                if (preg_match('/(\d+) files? changed/', $summary, $m)) {
+                    $stats['files'] = (int) $m[1];
+                }
+                if (preg_match('/(\d+) insertions?\(\+\)/', $summary, $m)) {
+                    $stats['insertions'] = (int) $m[1];
+                }
+                if (preg_match('/(\d+) deletions?\(-\)/', $summary, $m)) {
+                    $stats['deletions'] = (int) $m[1];
+                }
+            }
+        } catch (\Throwable) {
+            // Stats are best-effort.
+        }
+
+        return $stats;
+    }
+
+    /**
      * Returns true when the sandbox working tree has uncommitted changes.
      *
      * Paired with hasNewCommits to catch the "agent edited files but

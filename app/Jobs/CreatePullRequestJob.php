@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
+use App\Facades\Telemetry;
 use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\VideoMetric;
@@ -63,6 +64,8 @@ class CreatePullRequestJob implements ShouldQueue
                 'pr_number' => $existing['number'],
             ]);
 
+            Telemetry::record('pr.updated', ['pr_number' => (int) $existing['number']], task: $this->task);
+
             $summary = $this->task->result_summary;
             $hasReplies = ! empty($this->task->review_replies);
 
@@ -118,7 +121,17 @@ class CreatePullRequestJob implements ShouldQueue
 
         $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
 
-        $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber]);
+        $openedAt = now();
+        $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
+
+        // Request-to-PR is the headline delivery latency on the Analytics page.
+        Telemetry::record('pr.opened', [
+            'pr_number' => (int) $prNumber,
+            'large_change' => $this->isLargeChange,
+            'attempts' => (int) $this->task->attempts,
+        ], task: $this->task, durationMs: $this->task->created_at !== null
+            ? max(0, $openedAt->getTimestampMs() - $this->task->created_at->getTimestampMs())
+            : null);
     }
 
     private function buildPrTitle(): string

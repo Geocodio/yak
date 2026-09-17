@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Facades\Telemetry;
 use Illuminate\Database\Eloquent\Model;
 
 class PendingSteeringMessage extends Model
@@ -15,6 +16,8 @@ class PendingSteeringMessage extends Model
     public static function queueFor(YakTask $task, string $text, string $source, ?string $reviewerLogin = null): self
     {
         $root = $task->conversation()->first() ?? $task;
+
+        Telemetry::feature('steering', ['status' => $task->status->value], task: $task, source: $source);
 
         return self::create([
             'root_task_id' => $root->id,

@@ -6,8 +6,10 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
@@ -25,9 +27,11 @@ use App\Services\IncusSandboxManager;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
+use App\Services\Telemetry\RunRecorder;
 use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -55,9 +59,16 @@ class RunFollowUpJob implements ShouldQueue
         return now()->addHours(6);
     }
 
+    /**
+     * When this job object was built, which is when it went on the queue.
+     * Serialised with the job so the run record can measure queue wait.
+     */
+    public readonly CarbonImmutable $queuedAt;
+
     public function __construct(
         public readonly YakTask $task,
     ) {
+        $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
     }
 
@@ -112,16 +123,20 @@ class RunFollowUpJob implements ShouldQueue
             return;
         }
 
+        $recorder = RunRecorder::start($this->task, TaskRunKind::FollowUp, self::class, $this->queuedAt);
+
         try {
             $containerName = $sandbox->create($this->task, $repository);
+            $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created for follow-up', ['container' => $containerName]);
 
             $branchName = $this->task->branch_name;
             $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
 
             $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
+            $recorder->mark('git_prepare');
 
-            $result = $this->runAgentWithStaleSessionFallback($agent, new AgentRunRequest(
+            $request = new AgentRunRequest(
                 prompt: YakPromptBuilder::followUpPrompt((string) $this->task->description),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
@@ -132,9 +147,14 @@ class RunFollowUpJob implements ShouldQueue
                 resumeSessionId: $this->task->session_id,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
-            ));
+            );
+
+            $recorder->agentStarted($request);
+            $result = $this->runAgentWithStaleSessionFallback($agent, $request);
+            $recorder->agentFinished($result);
 
             if ($result->isError) {
+                TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->failureMessage());
 
                 return;
@@ -143,25 +163,32 @@ class RunFollowUpJob implements ShouldQueue
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
             ArtifactPersister::persist($this->task);
 
-            $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
         } catch (ClaudeAuthException $e) {
             Log::error('RunFollowUpJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
+            $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
             SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('RunFollowUpJob failed', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
+            $recorder->failed($e);
             $this->handleError($e->getMessage());
         } finally {
+            $recorder->closePostAgent();
+
             if ($containerName !== null) {
                 $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
                 $sandbox->destroy($containerName);
+                $recorder->mark('teardown');
             }
+
+            $recorder->finish();
         }
     }
 
-    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
+    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName, RunRecorder $recorder): void
     {
-        TaskMetricsAccumulator::applyAccumulated($this->task, $result);
+        TaskMetricsAccumulator::record($this->task, $result);
 
         $parsed = app(FollowUpSummaryParser::class)->parse($result->resultSummary);
 
@@ -172,6 +199,8 @@ class RunFollowUpJob implements ShouldQueue
         if ($branchName === null) {
             throw new \RuntimeException('Follow-up reached the push step with no branch name.');
         }
+
+        $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
 
         if (! $this->hasNewCommits($sandbox, $containerName, $branchName)) {
             // The follow-up prompt allows answering a question without
@@ -206,6 +235,7 @@ class RunFollowUpJob implements ShouldQueue
         $this->task->update($update);
 
         $this->pushExistingBranch($sandbox, $containerName, $repository, $branchName);
+        $recorder->mark('post_agent');
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 
         if ($repository->ci_system === 'none') {

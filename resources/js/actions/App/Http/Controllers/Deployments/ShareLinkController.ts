@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Deployments\ShareLinkController::store
-* @see app/Http/Controllers/Deployments/ShareLinkController.php:13
+* @see app/Http/Controllers/Deployments/ShareLinkController.php:14
 * @route '/deployments/{deployment}/share'
 */
 export const store = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\ShareLinkController::store
-* @see app/Http/Controllers/Deployments/ShareLinkController.php:13
+* @see app/Http/Controllers/Deployments/ShareLinkController.php:14
 * @route '/deployments/{deployment}/share'
 */
 store.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { deployment: string | number | { id: string | number } } | [
 
 /**
 * @see \App\Http\Controllers\Deployments\ShareLinkController::store
-* @see app/Http/Controllers/Deployments/ShareLinkController.php:13
+* @see app/Http/Controllers/Deployments/ShareLinkController.php:14
 * @route '/deployments/{deployment}/share'
 */
 store.post = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -59,7 +59,7 @@ store.post = (args: { deployment: string | number | { id: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Deployments\ShareLinkController::destroy
-* @see app/Http/Controllers/Deployments/ShareLinkController.php:26
+* @see app/Http/Controllers/Deployments/ShareLinkController.php:29
 * @route '/deployments/{deployment}/share'
 */
 export const destroy = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -74,7 +74,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\ShareLinkController::destroy
-* @see app/Http/Controllers/Deployments/ShareLinkController.php:26
+* @see app/Http/Controllers/Deployments/ShareLinkController.php:29
 * @route '/deployments/{deployment}/share'
 */
 destroy.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ destroy.url = (args: { deployment: string | number | { id: string | number } } |
 
 /**
 * @see \App\Http\Controllers\Deployments\ShareLinkController::destroy
-* @see app/Http/Controllers/Deployments/ShareLinkController.php:26
+* @see app/Http/Controllers/Deployments/ShareLinkController.php:29
 * @route '/deployments/{deployment}/share'
 */
 destroy.delete = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
