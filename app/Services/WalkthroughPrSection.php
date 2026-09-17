@@ -96,7 +96,7 @@ final class WalkthroughPrSection
         ], array_filter($decoded, is_array(...))));
     }
 
-    /** Replace the marked block wholesale, or append it when absent. */
+    /** Replace the marked block wholesale, or prepend it when absent. */
     public static function replaceIn(string $body, string $section): string
     {
         if (str_contains($body, self::MARKER_START) && str_contains($body, self::MARKER_END)) {
@@ -113,7 +113,10 @@ final class WalkthroughPrSection
 
         $body = preg_replace(self::LEGACY_SECTION_PATTERN, "\n", $body, 1) ?? $body;
 
-        return rtrim($body) . "\n\n" . $section;
+        // The walkthrough opens the body: it is the fastest way for a
+        // reviewer to see what was built, so it sits above the screenshots
+        // and the written description rather than below them.
+        return $section . "\n\n" . ltrim($body);
     }
 
     /** `84.0` => `1:24` */

@@ -151,9 +151,31 @@ class CreatePullRequestJob implements ShouldQueue
     private function buildPrBody(array $signedUrls): string
     {
         $taskUrl = $this->task->external_url ?? '';
-        $parts = [
-            "**Source:** {$this->task->source}",
-        ];
+        $parts = [];
+
+        // The walkthrough opens the body, the screenshots follow it, and the
+        // written description comes last: a reviewer sees what was built
+        // before reading about it.
+        $walkthrough = $this->walkthroughSection();
+
+        if ($walkthrough !== '') {
+            $parts[] = $walkthrough;
+            $parts[] = '';
+        }
+
+        $screenshotArtifacts = $this->task->artifacts()->role('screenshot')->orderBy('id')->get();
+        if ($screenshotArtifacts->isNotEmpty()) {
+            $parts[] = '### Screenshots';
+            $parts[] = '';
+            $parts[] = WalkthroughPrSection::screenshots(
+                $screenshotArtifacts->map(fn (Artifact $artifact): array => [
+                    'caption' => $artifact->caption,
+                    'url' => $artifact->publicUrl() ?? $artifact->signedUrl(),
+                ])->all(),
+            );
+        }
+
+        $parts[] = "**Source:** {$this->task->source}";
 
         if ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
@@ -167,26 +189,6 @@ class CreatePullRequestJob implements ShouldQueue
         $parts[] = '---';
         $parts[] = '';
         $parts[] = $this->task->result_summary ?? '_No summary available._';
-
-        $screenshotArtifacts = $this->task->artifacts()->role('screenshot')->orderBy('id')->get();
-        if ($screenshotArtifacts->isNotEmpty()) {
-            $parts[] = '';
-            $parts[] = '### Screenshots';
-            $parts[] = '';
-            $parts[] = WalkthroughPrSection::screenshots(
-                $screenshotArtifacts->map(fn (Artifact $artifact): array => [
-                    'caption' => $artifact->caption,
-                    'url' => $artifact->publicUrl() ?? $artifact->signedUrl(),
-                ])->all(),
-            );
-        }
-
-        $walkthrough = $this->walkthroughSection();
-
-        if ($walkthrough !== '') {
-            $parts[] = '';
-            $parts[] = $walkthrough;
-        }
 
         return implode("\n", $parts);
     }
