@@ -55,3 +55,16 @@ it('embeds the gif by public url and captions the screenshots', function (): voi
         ->toContain('### Screenshots')
         ->toContain($cut->filename);
 });
+
+it('opens the body with the walkthrough, then the screenshots, then the description', function (): void {
+    $task = YakTask::factory()->create(['result_summary' => 'What changed and why.']);
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'video_cut', 'role' => 'cut', 'filename' => 'walkthrough.mp4', 'disk_path' => "{$task->id}/walkthrough.mp4", 'size_bytes' => 1]);
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'screenshot', 'role' => 'screenshot', 'filename' => 'zip.png', 'disk_path' => "{$task->id}/screenshots/zip.png", 'size_bytes' => 1, 'caption' => 'New ZIP-level section']);
+
+    $body = invokeBuildPrBody($task, []);
+
+    expect($body)->toStartWith(WalkthroughPrSection::MARKER_START)
+        ->and(strpos($body, '### Video walkthrough'))->toBeLessThan(strpos($body, '### Screenshots'))
+        ->and(strpos($body, '### Screenshots'))->toBeLessThan(strpos($body, '**Source:**'))
+        ->and(strpos($body, '**Source:**'))->toBeLessThan(strpos($body, 'What changed and why.'));
+});
