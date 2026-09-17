@@ -172,9 +172,26 @@ class CreatePullRequestJob implements ShouldQueue
     private function buildPrBody(array $signedUrls): string
     {
         $taskUrl = $this->task->external_url ?? '';
-        $parts = [
-            "**Source:** {$this->task->source}",
-        ];
+        $parts = [];
+
+        // The walkthrough opens the body, the screenshots follow it, and the
+        // written description comes last: a reviewer sees what was built
+        // before reading about it.
+        $walkthrough = $this->walkthroughSection();
+
+        if ($walkthrough !== '') {
+            $parts[] = $walkthrough;
+            $parts[] = '';
+        }
+
+        $screenshots = $this->screenshotsSection();
+
+        if ($screenshots !== null) {
+            $parts[] = $screenshots;
+            $parts[] = '';
+        }
+
+        $parts[] = "**Source:** {$this->task->source}";
 
         if ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
@@ -191,20 +208,6 @@ class CreatePullRequestJob implements ShouldQueue
             PullRequestBodySections::DESCRIPTION,
             $this->task->result_summary ?? '_No summary available._',
         );
-
-        $screenshots = $this->screenshotsSection();
-
-        if ($screenshots !== null) {
-            $parts[] = '';
-            $parts[] = $screenshots;
-        }
-
-        $walkthrough = $this->walkthroughSection();
-
-        if ($walkthrough !== '') {
-            $parts[] = '';
-            $parts[] = $walkthrough;
-        }
 
         return implode("\n", $parts);
     }
@@ -299,11 +302,12 @@ class CreatePullRequestJob implements ShouldQueue
 
             // A follow-up that captured screenshots for a PR opened without
             // any has no screenshots markers to swap, so setSections skips
-            // it. Insert the block right after the description instead;
-            // insertSectionAfter leaves a legacy PR with no description
+            // it. Insert the block right before the description instead, so
+            // the order stays walkthrough, screenshots, description;
+            // insertSectionBefore leaves a legacy PR with no description
             // markers untouched.
             if (isset($sections[PullRequestBodySections::SCREENSHOTS]) && in_array(PullRequestBodySections::SCREENSHOTS, $skipped, true)) {
-                $inserted = $updater->insertSectionAfter(
+                $inserted = $updater->insertSectionBefore(
                     $repoFullName,
                     $prNumber,
                     PullRequestBodySections::DESCRIPTION,

@@ -103,17 +103,17 @@ it('rebuilds the screenshots section from the follow-up task screenshots', funct
     (new CreatePullRequestJob($task))->handle($github);
 });
 
-it('inserts the screenshots section after the description when the PR body has no screenshots markers', function () {
+it('inserts the screenshots section before the description when the PR body has no screenshots markers', function () {
     $github = existingPrGitHub();
     $updater = $this->mock(PullRequestBodyUpdater::class);
     $updater->shouldReceive('setSections')
         ->once()
         ->andReturn([]);
-    $updater->shouldReceive('insertSectionAfter')
+    $updater->shouldReceive('insertSectionBefore')
         ->once()
-        ->withArgs(fn (string $repo, int $number, string $afterName, string $name, string $section): bool => $repo === 'acme/web'
+        ->withArgs(fn (string $repo, int $number, string $beforeName, string $name, string $section): bool => $repo === 'acme/web'
             && $number === 9
-            && $afterName === PullRequestBodySections::DESCRIPTION
+            && $beforeName === PullRequestBodySections::DESCRIPTION
             && $name === PullRequestBodySections::SCREENSHOTS
             && str_contains($section, '_After the fix_'))
         ->andReturn(true);

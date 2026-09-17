@@ -215,11 +215,11 @@ test('setWalkthroughUnavailable replaces the raw webm link line with an explanat
     (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('Geocodio/geocodio-website', 42, 'Remotion exited 1');
 });
 
-test('setWalkthroughUnavailable is idempotent and appends a section when none exists', function () {
+test('setWalkthroughUnavailable is idempotent and prepends a section when none exists', function () {
     $github = Mockery::mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "Summary only\n"]);
     $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
-        return str_ends_with($payload['body'], "\n\n" . WalkthroughPrSection::unavailable('boom'));
+        return str_starts_with($payload['body'], WalkthroughPrSection::unavailable('boom') . "\n\n");
     })->andReturn([]);
     (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('o/r', 1, 'boom');
 
@@ -372,7 +372,7 @@ test('setSections blocks on a lock already held for the same PR', function () {
     }
 });
 
-test('insertSectionAfter inserts the section right after the anchor section end marker', function () {
+test('insertSectionBefore inserts the section right before the anchor section start marker', function () {
     $existing = implode("\n\n", [
         '**Source:** github',
         PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
@@ -384,17 +384,16 @@ test('insertSectionAfter inserts the section right after the anchor section end 
     $github->shouldReceive('updatePullRequest')
         ->once()
         ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
-            $descriptionEnd = strpos($data['body'], PullRequestBodySections::endMarker(PullRequestBodySections::DESCRIPTION))
-                + strlen(PullRequestBodySections::endMarker(PullRequestBodySections::DESCRIPTION));
+            $descriptionStart = strpos($data['body'], PullRequestBodySections::startMarker(PullRequestBodySections::DESCRIPTION));
             $screenshotsStart = strpos($data['body'], PullRequestBodySections::startMarker(PullRequestBodySections::SCREENSHOTS));
 
             return str_contains($data['body'], 'new shots')
-                && $screenshotsStart > $descriptionEnd
+                && $screenshotsStart < $descriptionStart
                 && str_contains($data['body'], '### Files changed');
         })
         ->andReturn(['body' => 'ok']);
 
-    $inserted = (new PullRequestBodyUpdater($github))->insertSectionAfter(
+    $inserted = (new PullRequestBodyUpdater($github))->insertSectionBefore(
         'owner/repo',
         42,
         PullRequestBodySections::DESCRIPTION,
@@ -405,12 +404,12 @@ test('insertSectionAfter inserts the section right after the anchor section end 
     expect($inserted)->toBeTrue();
 });
 
-test('insertSectionAfter leaves a legacy PR with no anchor markers untouched', function () {
+test('insertSectionBefore leaves a legacy PR with no anchor markers untouched', function () {
     $github = $this->mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "## Summary\n\nlegacy body, no markers"]);
     $github->shouldNotReceive('updatePullRequest');
 
-    $inserted = (new PullRequestBodyUpdater($github))->insertSectionAfter(
+    $inserted = (new PullRequestBodyUpdater($github))->insertSectionBefore(
         'owner/repo',
         42,
         PullRequestBodySections::DESCRIPTION,
@@ -421,7 +420,7 @@ test('insertSectionAfter leaves a legacy PR with no anchor markers untouched', f
     expect($inserted)->toBeFalse();
 });
 
-test('insertSectionAfter leaves the body untouched when the section already has markers', function () {
+test('insertSectionBefore leaves the body untouched when the section already has markers', function () {
     $existing = implode("\n\n", [
         PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
         PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'existing shots'),
@@ -431,7 +430,7 @@ test('insertSectionAfter leaves the body untouched when the section already has 
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $existing]);
     $github->shouldNotReceive('updatePullRequest');
 
-    $inserted = (new PullRequestBodyUpdater($github))->insertSectionAfter(
+    $inserted = (new PullRequestBodyUpdater($github))->insertSectionBefore(
         'owner/repo',
         42,
         PullRequestBodySections::DESCRIPTION,

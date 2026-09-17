@@ -79,30 +79,36 @@ class PullRequestBodyUpdater
     }
 
     /**
-     * Insert a section that has no markers of its own yet, right after
-     * another owned section's end marker. Used when a follow-up captures
+     * Insert a section that has no markers of its own yet, right before
+     * another owned section's start marker. Used when a follow-up captures
      * screenshots for a PR that was originally opened without any: the
      * screenshots markers don't exist, so `setSections` would skip it, but
-     * the PR does have a description block to anchor the insert to.
+     * the PR does have a description block to anchor the insert to, and the
+     * body order keeps the screenshots ahead of the description.
      *
-     * A legacy PR with no `$afterName` markers, and a PR that already has
+     * A legacy PR with no `$beforeName` markers, and a PR that already has
      * `$name` markers, are both left untouched.
      */
-    public function insertSectionAfter(string $repoFullName, int $prNumber, string $afterName, string $name, string $section): bool
+    public function insertSectionBefore(string $repoFullName, int $prNumber, string $beforeName, string $name, string $section): bool
     {
-        return $this->withBodyLock($repoFullName, $prNumber, function () use ($repoFullName, $prNumber, $afterName, $name, $section): bool {
+        return $this->withBodyLock($repoFullName, $prNumber, function () use ($repoFullName, $prNumber, $beforeName, $name, $section): bool {
             $installationId = (int) config('yak.channels.github.installation_id');
 
             $pr = $this->github->getPullRequest($installationId, $repoFullName, $prNumber);
             $body = (string) ($pr['body'] ?? '');
 
-            if (PullRequestBodySections::has($body, $name) || ! PullRequestBodySections::has($body, $afterName)) {
+            if (PullRequestBodySections::has($body, $name) || ! PullRequestBodySections::has($body, $beforeName)) {
                 return false;
             }
 
-            $marker = PullRequestBodySections::endMarker($afterName);
-            $insertAt = strpos($body, $marker) + strlen($marker);
-            $updated = substr($body, 0, $insertAt) . "\n\n{$section}" . substr($body, $insertAt);
+            $marker = PullRequestBodySections::startMarker($beforeName);
+            $insertAt = strpos($body, $marker);
+
+            if ($insertAt === false) {
+                return false;
+            }
+
+            $updated = substr($body, 0, $insertAt) . "{$section}\n\n" . substr($body, $insertAt);
 
             $this->github->updatePullRequest($installationId, $repoFullName, $prNumber, ['body' => $updated]);
 

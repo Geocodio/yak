@@ -89,10 +89,10 @@ it('replaces a legacy unmarked section', function (): void {
         ->and(substr_count($updated, '### Video walkthrough'))->toBe(1);
 });
 
-it('appends when there is no section at all', function (): void {
+it('prepends when there is no section at all', function (): void {
     $updated = WalkthroughPrSection::replaceIn('Just a body', WalkthroughPrSection::pending());
 
-    expect($updated)->toStartWith('Just a body')->toContain(WalkthroughPrSection::MARKER_START);
+    expect($updated)->toStartWith(WalkthroughPrSection::MARKER_START)->toContain('Just a body');
 });
 
 it('renders captioned screenshots', function (): void {
