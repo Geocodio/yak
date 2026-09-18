@@ -151,6 +151,14 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-review-feedback-triage' => [
+                'view' => 'prompts.agents.review-feedback-triage',
+                'label' => 'Review Feedback Triage',
+                'description' => 'Instructions for the ReviewFeedbackTriage agent, which decides whether a submitted GitHub review on a Yak PR needs a follow-up run (`act`) or is praise and acknowledgement only (`none`).',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'agents-description-summary' => [
                 'view' => 'prompts.agents.description-summary',
                 'label' => 'Description Summarizer',

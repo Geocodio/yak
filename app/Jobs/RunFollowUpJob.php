@@ -189,6 +189,33 @@ class RunFollowUpJob implements ShouldQueue
     {
         TaskMetricsAccumulator::record($this->task, $result);
 
+        DailyCost::accumulate($result->costUsd);
+
+        $branchName = $this->task->branch_name;
+
+        if ($branchName === null) {
+            throw new \RuntimeException('Follow-up reached the push step with no branch name.');
+        }
+
+        $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
+
+        if (! $this->hasNewCommits($sandbox, $containerName, $branchName)) {
+            // The follow-up prompt allows answering a question without
+            // changing code. No commits means there's nothing to push or
+            // wait on CI for — resolve the task right away instead of
+            // parking it in AwaitingCi for a check_suite that never comes.
+            $this->task->update([
+                'result_summary' => $result->resultSummary,
+                'model_used' => config('yak.default_model'),
+            ]);
+
+            TaskLogger::info($this->task, 'Follow-up produced no commits; skipping push');
+
+            ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
+
+            return;
+        }
+
         $update = [
             'result_summary' => $result->resultSummary,
             'model_used' => config('yak.default_model'),
@@ -200,16 +227,6 @@ class RunFollowUpJob implements ShouldQueue
 
         $this->task->update($update);
 
-        DailyCost::accumulate($result->costUsd);
-
-        $branchName = $this->task->branch_name;
-
-        if ($branchName === null) {
-            throw new \RuntimeException('Follow-up reached the push step with no branch name.');
-        }
-
-        $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
-
         $this->pushExistingBranch($sandbox, $containerName, $repository, $branchName);
         $recorder->mark('post_agent');
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
@@ -220,6 +237,35 @@ class RunFollowUpJob implements ShouldQueue
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed your changes on branch {$branchName} — waiting for CI before updating the PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
+    }
+
+    /**
+     * Whether the sandbox's HEAD has commits the follow-up branch's remote
+     * doesn't have yet. A non-numeric result (an unexpected command output)
+     * is treated as unknown and defaults to true, so the safer, existing
+     * push-and-wait path runs rather than silently dropping work.
+     */
+    private function hasNewCommits(IncusSandboxManager $sandbox, string $containerName, string $branchName): bool
+    {
+        $workspacePath = IncusSandboxManager::workspacePath();
+
+        $result = $sandbox->run(
+            $containerName,
+            "cd {$workspacePath} && git rev-list --count origin/{$branchName}..HEAD",
+            timeout: 15,
+        );
+
+        $output = trim($result->output());
+
+        // An empty result and a clean integer both parse safely with
+        // (int) casting; anything else (a git error, unexpected text) is
+        // treated as unknown and defaults to the existing push-and-wait
+        // path rather than silently dropping work.
+        if ($output !== '' && ! ctype_digit($output)) {
+            return true;
+        }
+
+        return (int) $output > 0;
     }
 
     private function handleError(string $errorMessage): void

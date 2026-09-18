@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskMode;
 use App\Jobs\FlushFollowUpBatchJob;
 use App\Models\FollowUpPendingComment;
 use App\Models\GitHubInstallationToken;
@@ -18,6 +19,7 @@ beforeEach(function () {
     ]);
     config()->set('yak.followup.github_prefixes', '/yak,@yak-bot[bot],yak:');
     config()->set('yak.followup.github_batch_window_seconds', 60);
+    config()->set('yak.followup.github_review_triage_enabled', false);
 
     GitHubInstallationToken::create([
         'installation_id' => 99,
@@ -147,6 +149,40 @@ it('skips a bot-authored issue_comment', function () {
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
 });
 
+it('skips an issue_comment from any bot account, regardless of login', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'issue' => [
+            'number' => 9,
+            'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/9'],
+        ],
+        'comment' => [
+            'id' => 47,
+            'user' => ['login' => 'some-other-bot[bot]', 'type' => 'Bot'],
+            'body' => '/yak do something',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'issue_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk()->assertJsonPath('skipped', 'yak authored comment');
+
+    expect(FollowUpPendingComment::count())->toBe(0);
+    Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
+});
+
 it('skips an issue_comment on a PR with no matching YakTask', function () {
     Bus::fake();
     Http::fake(['api.github.com/*' => Http::response([], 201)]);
@@ -170,6 +206,41 @@ it('skips an issue_comment on a PR with no matching YakTask', function () {
         'X-GitHub-Event' => 'issue_comment',
         'X-Hub-Signature-256' => signGhFollowUpPayload($body),
     ])->assertOk();
+
+    expect(FollowUpPendingComment::count())->toBe(0);
+    Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
+});
+
+it('skips an issue_comment on a PR that only a Review-mode task owns', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+
+    YakTask::factory()->success()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'issue' => [
+            'number' => 9,
+            'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/9'],
+        ],
+        'comment' => [
+            'id' => 46,
+            'user' => ['login' => 'mathias'],
+            'body' => '/yak please do this',
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'issue_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk()->assertJsonPath('skipped', 'no yak task for pr');
 
     expect(FollowUpPendingComment::count())->toBe(0);
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
@@ -249,6 +320,42 @@ it('buffers a /yak pull_request_review_comment capturing file, line, and diff_hu
         ->and($comment->github_comment_id)->toBe(77);
 
     Bus::assertDispatched(FlushFollowUpBatchJob::class, fn ($job) => $job->prUrl === 'https://github.com/acme/web/pull/9');
+});
+
+it('hands inline comments to review triage when the flag is on', function () {
+    Bus::fake();
+    Http::fake(['api.github.com/*' => Http::response([], 201)]);
+    config()->set('yak.followup.github_review_triage_enabled', true);
+
+    YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'repo' => 'acme/web',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $payload = [
+        'action' => 'created',
+        'pull_request' => ['html_url' => 'https://github.com/acme/web/pull/9', 'number' => 9],
+        'comment' => [
+            'id' => 77,
+            'user' => ['login' => 'mathias'],
+            'body' => '/yak rename this',
+            'path' => 'app/Report.php',
+            'line' => 42,
+            'diff_hunk' => '@@ -1 +1 @@',
+            'pull_request_review_id' => 500,
+        ],
+        'repository' => ['full_name' => 'acme/web'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request_review_comment',
+        'X-Hub-Signature-256' => signGhFollowUpPayload($body),
+    ])->assertOk()->assertJsonPath('skipped', 'handled by review triage');
+
+    expect(FollowUpPendingComment::count())->toBe(0);
+    Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
 });
 
 // ─── merged PR ───────────────────────────────────────────────────────────────
