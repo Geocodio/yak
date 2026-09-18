@@ -160,9 +160,10 @@ class WebhookController extends Controller
                 if ($sessionId !== '') {
                     app(NotificationDriver::class)->postAgentActivity(
                         $sessionId,
-                        type: 'thought',
+                        type: 'response',
                         body: 'Stopped — I was unassigned from this issue.',
                     );
+                    app(NotificationDriver::class)->syncSessionPlan($task);
                 }
             }
 
@@ -229,6 +230,7 @@ class WebhookController extends Controller
         );
         app(NotificationDriver::class)
             ->send($task, NotificationType::Acknowledgment, $ackMessage);
+        app(NotificationDriver::class)->setSessionDashboardUrl($task);
 
         $this->moveIssueToStartedState($task, (string) ($description->metadata['linear_issue_id'] ?? ''));
 
@@ -301,6 +303,18 @@ class WebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        $task = YakTask::where('linear_agent_session_id', $sessionId)->latest()->first();
+
+        if ($task === null) {
+            app(NotificationDriver::class)->postAgentActivity(
+                $sessionId,
+                type: 'response',
+                body: "I can't find the task behind this session. Delegate the issue to me again and I'll start fresh.",
+            );
+
+            return response()->json(['ok' => true]);
+        }
+
         // Immediate ack within the 10-second SLA — use same personality
         // call as handleCreated (2-second timeout, falls back to template).
         $ackMessage = YakPersonality::generateWithTimeout(
@@ -309,12 +323,6 @@ class WebhookController extends Controller
             timeoutSeconds: 2,
         );
         app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'thought', body: $ackMessage);
-
-        $task = YakTask::where('linear_agent_session_id', $sessionId)->latest()->first();
-
-        if ($task === null) {
-            return response()->json(['ok' => true]);
-        }
 
         /** @var TaskStatus $status */
         $status = $task->status;
@@ -340,6 +348,7 @@ class WebhookController extends Controller
             }
 
             app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'response', body: 'Stopped.');
+            app(NotificationDriver::class)->syncSessionPlan($task);
             Telemetry::feature('linear.stop', ['was_active' => in_array($status, $cancellable, strict: true)], task: $task);
 
             return response()->json(['ok' => true, 'handled' => 'stop']);
