@@ -115,7 +115,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * @return array<int, array{id: int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>
+     * @return array<int, array{id: ?int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>
      */
     private function inlineComments(AppService $github, int $installationId, string $repoSlug): array
     {
@@ -127,7 +127,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
         $raw = array_filter($raw, 'is_array');
 
         return array_values(array_map(fn (array $comment): array => [
-            'id' => (int) ($comment['id'] ?? 0),
+            'id' => isset($comment['id']) && (int) $comment['id'] > 0 ? (int) $comment['id'] : null,
             'body' => (string) ($comment['body'] ?? ''),
             'author' => isset($comment['user']['login']) ? (string) $comment['user']['login'] : null,
             'file' => isset($comment['path']) ? (string) $comment['path'] : null,
@@ -137,7 +137,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * @param  array<int, array{id: int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
+     * @param  array<int, array{id: ?int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
      * @return array<int, int|null> comment id => reaction id
      */
     private function reactWithEyes(AppService $github, int $installationId, string $repoSlug, array $comments): array
@@ -145,7 +145,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
         $reactions = [];
 
         foreach ($comments as $comment) {
-            if ($comment['id'] > 0) {
+            if ($comment['id'] !== null) {
                 $reactions[$comment['id']] = $github->addReaction($installationId, $repoSlug, $comment['id'], 'eyes', isReviewComment: true);
             }
         }
@@ -154,7 +154,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * @param  array<int, array{id: int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
+     * @param  array<int, array{id: ?int, body: string, author: ?string, file: ?string, line: ?int, diff_hunk: ?string}>  $comments
      */
     private function decide(YakTask $task, array $comments, string $instructions): string
     {

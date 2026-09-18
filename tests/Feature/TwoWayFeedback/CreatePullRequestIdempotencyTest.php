@@ -16,7 +16,8 @@ test('skips PR creation and comments when an open PR already exists for the bran
         ->andReturn(['number' => 9, 'html_url' => 'https://github.com/acme/web/pull/9']);
     $github->shouldNotReceive('createPullRequest');
     $github->shouldReceive('commentOnPullRequest')->once()
-        ->withArgs(fn ($inst, $slug, $num, $body) => $num === 9 && str_contains($body, 'feedback'));
+        ->withArgs(fn ($inst, $slug, $num, $body) => $num === 9 && str_contains($body, 'feedback'))
+        ->andReturn(true);
 
     Repository::factory()->create(['slug' => 'acme/web', 'path' => '/home/yak/repos/web']);
     $task = YakTask::factory()->success()->create([

@@ -270,6 +270,7 @@ class RetryYakJob implements ShouldQueue
                     'status' => TaskStatus::Success,
                     'completed_at' => now(),
                     'result_summary' => $result->resultSummary,
+                    'pr_body_update' => null,
                     'model_used' => config('yak.default_model'),
                 ]);
 
@@ -321,6 +322,14 @@ class RetryYakJob implements ShouldQueue
     {
         $update = [
             'result_summary' => $result->resultSummary,
+            // A retry replaces the failed attempt's rewritten description
+            // wholesale, so any pr_body_update it left behind must not
+            // survive to be published by
+            // CreatePullRequestJob::refreshOwnedSections() on this retry's
+            // green CI. review_replies survives: the retry keeps the
+            // follow-up's commits and only rebases, so the replies still
+            // answer the reviewer's comments correctly.
+            'pr_body_update' => null,
             'model_used' => config('yak.default_model'),
         ];
 

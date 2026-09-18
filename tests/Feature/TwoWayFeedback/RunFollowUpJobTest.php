@@ -15,11 +15,11 @@ use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
 
-function fakeFollowUpResult(string $sessionId = 'sess_followup'): AgentRunResult
+function fakeFollowUpResult(string $sessionId = 'sess_followup', string $resultSummary = 'Addressed the feedback'): AgentRunResult
 {
     return new AgentRunResult(
         sessionId: $sessionId,
-        resultSummary: 'Addressed the feedback',
+        resultSummary: $resultSummary,
         costUsd: 0.50,
         numTurns: 4,
         durationMs: 20000,
@@ -79,6 +79,176 @@ test('RunFollowUpJob resumes the session, force-pushes the existing branch, and 
         ->and($pushed)->toBeTrue()
         ->and($fake->lastCall()->resumeSessionId)->toBe('sess_parent')
         ->and($fake->lastCall()->prompt)->toContain('Also handle the empty-state');
+});
+
+test('RunFollowUpJob stores the change summary and the rewritten description separately', function () {
+    $output = "## What changed in this run\n\n- Added backoff\n\n## Replies\n\n- [c:42] Fixed in a1b2c3d.\n\n## PR description\n\n## Summary\n\nWhole PR, rewritten.";
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_followup',
+        resultSummary: $output,
+        costUsd: 0.50,
+        numTurns: 4,
+        durationMs: 20000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $pushed = false;
+    $recorder = new class($pushed) extends FakeSandboxManager
+    {
+        public function __construct(public bool &$pushed) {}
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse --abbrev-ref HEAD')) {
+                return Process::result('yak/CSV-1');
+            }
+
+            if (str_contains($command, 'git push --force-with-lease')) {
+                $this->pushed = true;
+
+                return Process::result('');
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'fu-repo', 'path' => '/home/yak/repos/fu-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'fu-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/CSV-1',
+        'pr_url' => 'https://github.com/acme/fu-repo/pull/9',
+        'pr_number' => 9,
+        'description' => 'Also handle the empty-state',
+    ]);
+
+    Queue::fake([ProcessCIResultJob::class, SendNotificationJob::class]);
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->result_summary)->toBe('- Added backoff')
+        ->and($task->pr_body_update)->toBe("## Summary\n\nWhole PR, rewritten.")
+        ->and($task->review_replies)->toBe([42 => 'Fixed in a1b2c3d.']);
+});
+
+test('RunFollowUpJob leaves pr_body_update null when the description is unchanged', function () {
+    $output = "## What changed in this run\n\n- Fixed typo\n\n## PR description\n\nUnchanged.";
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_followup',
+        resultSummary: $output,
+        costUsd: 0.50,
+        numTurns: 4,
+        durationMs: 20000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $pushed = false;
+    $recorder = new class($pushed) extends FakeSandboxManager
+    {
+        public function __construct(public bool &$pushed) {}
+
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse --abbrev-ref HEAD')) {
+                return Process::result('yak/CSV-1');
+            }
+
+            if (str_contains($command, 'git push --force-with-lease')) {
+                $this->pushed = true;
+
+                return Process::result('');
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'fu-repo', 'path' => '/home/yak/repos/fu-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'fu-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/CSV-1',
+        'pr_url' => 'https://github.com/acme/fu-repo/pull/9',
+        'pr_number' => 9,
+        'description' => 'Also handle the empty-state',
+    ]);
+
+    Queue::fake([ProcessCIResultJob::class, SendNotificationJob::class]);
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->result_summary)->toBe('- Fixed typo')
+        ->and($task->pr_body_update)->toBeNull()
+        ->and($task->review_replies)->toBeNull();
+});
+
+test('RunFollowUpJob stores a null result_summary instead of an empty string when the changes section is blank', function () {
+    $output = "## What changed in this run\n\n   \n\n## PR description\n\nUnchanged.";
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_followup',
+        resultSummary: $output,
+        costUsd: 0.50,
+        numTurns: 4,
+        durationMs: 20000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $recorder = new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse --abbrev-ref HEAD')) {
+                return Process::result('yak/CSV-1');
+            }
+
+            if (str_contains($command, 'git push --force-with-lease')) {
+                return Process::result('');
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $recorder);
+
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'fu-repo', 'path' => '/home/yak/repos/fu-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'fu-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/CSV-1',
+        'pr_url' => 'https://github.com/acme/fu-repo/pull/9',
+        'pr_number' => 9,
+        'description' => 'Also handle the empty-state',
+    ]);
+
+    Queue::fake([ProcessCIResultJob::class, SendNotificationJob::class]);
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->result_summary)->toBeNull();
 });
 
 test('RunFollowUpJob never creates a new branch', function () {
@@ -188,7 +358,8 @@ test('RunFollowUpJob retries without --resume when the session transcript is gon
 test('RunFollowUpJob skips the push and resolves immediately when there are no new commits', function () {
     Queue::fake();
 
-    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $output = "## What changed in this run\n\n- Nothing to commit\n\n## Replies\n\n- [c:7] Answered without changing code.\n\n## PR description\n\nUnchanged.";
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult(resultSummary: $output));
     $this->app->instance(AgentRunner::class, $fake);
 
     $sandbox = (new FakeSandboxManager)->setCommitCount(0);
@@ -210,9 +381,40 @@ test('RunFollowUpJob skips the push and resolves immediately when there are no n
     $pushCommands = array_filter($sandbox->commands, fn (string $c) => str_contains($c, 'git push'));
 
     expect($pushCommands)->toBeEmpty()
-        ->and($task->fresh()->status)->not->toBe(TaskStatus::AwaitingCi);
+        ->and($task->fresh()->status)->not->toBe(TaskStatus::AwaitingCi)
+        ->and($task->fresh()->review_replies)->toBe([7 => 'Answered without changing code.']);
 
     Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $task->id && $job->passed === true);
+});
+
+test('RunFollowUpJob pushes and awaits CI when the commit count check fails', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(fakeFollowUpResult());
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $sandbox = (new FakeSandboxManager)->failCommand('git rev-list --count', 'fatal: bad revision', 128);
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'revlistfail-repo', 'path' => '/home/yak/repos/revlistfail-repo']);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Pending,
+        'repo' => 'revlistfail-repo',
+        'session_id' => 'sess_parent',
+        'branch_name' => 'yak/REVLISTFAIL-1',
+        'pr_url' => 'https://github.com/acme/revlistfail-repo/pull/14',
+        'description' => 'add the missing test',
+    ]);
+
+    (new RunFollowUpJob($task))->handle($fake);
+
+    $pushCommands = array_filter($sandbox->commands, fn (string $c) => str_contains($c, 'git push'));
+
+    expect($pushCommands)->not->toBeEmpty()
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
 });
 
 test('RunFollowUpJob pushes and awaits CI when there are new commits', function () {

@@ -3,6 +3,7 @@
 use App\Jobs\CreatePullRequestJob;
 use App\Models\Artifact;
 use App\Models\YakTask;
+use App\Services\PullRequestBodySections;
 use App\Services\WalkthroughPrSection;
 
 /**
@@ -54,6 +55,34 @@ it('embeds the gif by public url and captions the screenshots', function (): voi
         ->toContain('_New ZIP-level section_')
         ->toContain('### Screenshots')
         ->toContain($cut->filename);
+});
+
+it('wraps the description and screenshots in owned markers on a new PR, screenshots ahead of the description', function (): void {
+    $task = YakTask::factory()->create(['result_summary' => "## Summary\n\nAdds export."]);
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'video_cut', 'role' => 'cut', 'filename' => 'walkthrough.mp4', 'disk_path' => "{$task->id}/walkthrough.mp4", 'size_bytes' => 1]);
+    Artifact::create(['yak_task_id' => $task->id, 'type' => 'screenshot', 'role' => 'screenshot', 'filename' => 'a.png', 'disk_path' => "{$task->id}/screenshots/a.png", 'size_bytes' => 1, 'caption' => 'Export page']);
+
+    $body = invokeBuildPrBody($task, []);
+
+    expect($body)
+        ->toContain(PullRequestBodySections::startMarker(PullRequestBodySections::DESCRIPTION) . "\n## Summary\n\nAdds export.\n" . PullRequestBodySections::endMarker(PullRequestBodySections::DESCRIPTION))
+        ->toContain(PullRequestBodySections::startMarker(PullRequestBodySections::SCREENSHOTS))
+        ->toContain('### Screenshots')
+        ->toContain('_Export page_')
+        ->toContain(PullRequestBodySections::endMarker(PullRequestBodySections::SCREENSHOTS));
+
+    expect(strpos($body, WalkthroughPrSection::MARKER_START))
+        ->toBeLessThan(strpos($body, PullRequestBodySections::startMarker(PullRequestBodySections::SCREENSHOTS)))
+        ->and(strpos($body, PullRequestBodySections::startMarker(PullRequestBodySections::SCREENSHOTS)))
+        ->toBeLessThan(strpos($body, PullRequestBodySections::startMarker(PullRequestBodySections::DESCRIPTION)));
+});
+
+it('omits the screenshots markers when there are no screenshots', function (): void {
+    $task = YakTask::factory()->create();
+
+    $body = invokeBuildPrBody($task, []);
+
+    expect($body)->not->toContain(PullRequestBodySections::startMarker(PullRequestBodySections::SCREENSHOTS));
 });
 
 it('opens the body with the walkthrough, then the screenshots, then the description', function (): void {

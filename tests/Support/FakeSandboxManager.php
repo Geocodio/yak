@@ -46,9 +46,9 @@ class FakeSandboxManager extends IncusSandboxManager
     public array $commands = [];
 
     /**
-     * Substring => error output, for commands that should come back non-zero.
+     * Substring => [error output, exit code], for commands that should come back non-zero.
      *
-     * @var array<string, string>
+     * @var array<string, array{0: string, 1: int}>
      */
     private array $failingCommands = [];
 
@@ -79,9 +79,9 @@ class FakeSandboxManager extends IncusSandboxManager
     /**
      * Make any run() whose command contains $substring exit non-zero.
      */
-    public function failCommand(string $substring, string $errorOutput = 'command failed'): self
+    public function failCommand(string $substring, string $errorOutput = 'command failed', int $exitCode = 1): self
     {
-        $this->failingCommands[$substring] = $errorOutput;
+        $this->failingCommands[$substring] = [$errorOutput, $exitCode];
 
         return $this;
     }
@@ -109,9 +109,9 @@ class FakeSandboxManager extends IncusSandboxManager
     {
         $this->commands[] = $command;
 
-        foreach ($this->failingCommands as $substring => $errorOutput) {
+        foreach ($this->failingCommands as $substring => [$errorOutput, $exitCode]) {
             if (str_contains($command, $substring)) {
-                return Process::result('', $errorOutput, 1);
+                return Process::result('', $errorOutput, $exitCode);
             }
         }
 

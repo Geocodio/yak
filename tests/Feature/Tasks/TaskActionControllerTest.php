@@ -30,6 +30,20 @@ test('retry re-queues a failed task and dispatches RunYakJob', function () {
     expect($task->fresh()->error_log)->toBeNull();
 });
 
+test('retry clears a stale pr body update and review replies', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'pr_body_update' => 'stale description',
+        'review_replies' => ['abc' => 'stale reply'],
+    ]);
+
+    $this->post(route('tasks.retry', $task));
+
+    expect($task->fresh()->pr_body_update)->toBeNull();
+    expect($task->fresh()->review_replies)->toBeNull();
+});
+
 test('retry does nothing for a task that cannot be retried', function () {
     Queue::fake();
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
@@ -97,6 +111,8 @@ test('rerun review dispatches RunYakReviewJob for a review task', function () {
         'status' => TaskStatus::Success,
         'repo' => 'geocodio/api',
         'context' => json_encode(['pr_number' => 7]),
+        'pr_body_update' => 'stale description',
+        'review_replies' => ['abc' => 'stale reply'],
     ]);
 
     Http::fake([
@@ -117,6 +133,8 @@ test('rerun review dispatches RunYakReviewJob for a review task', function () {
 
     Queue::assertPushed(RunYakReviewJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+    expect($task->fresh()->pr_body_update)->toBeNull();
+    expect($task->fresh()->review_replies)->toBeNull();
 });
 
 test('rerun review does nothing for a non-review task', function () {
@@ -152,7 +170,13 @@ test('reroute moves the task to a new repo and restarts it', function () {
     Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
     Repository::factory()->create(['slug' => 'api', 'is_active' => true]);
 
-    $task = YakTask::factory()->create(['mode' => TaskMode::Fix, 'repo' => 'web', 'pr_url' => null]);
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Fix,
+        'repo' => 'web',
+        'pr_url' => null,
+        'pr_body_update' => 'stale description',
+        'review_replies' => ['abc' => 'stale reply'],
+    ]);
 
     $this->post(route('tasks.reroute', $task), ['repo' => 'api'])
         ->assertRedirect(route('tasks.show', $task));
@@ -160,6 +184,8 @@ test('reroute moves the task to a new repo and restarts it', function () {
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->repo)->toBe('api');
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+    expect($task->fresh()->pr_body_update)->toBeNull();
+    expect($task->fresh()->review_replies)->toBeNull();
 });
 
 test('reroute restamps dispatched_at through AgentJobDispatcher', function () {

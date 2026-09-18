@@ -37,6 +37,7 @@ use Illuminate\Support\Collection;
  * @property string|null $claimed_job_class
  * @property CarbonImmutable|null $pr_merged_at
  * @property CarbonImmutable|null $pr_closed_at
+ * @property array<int, string>|null $review_replies
  * @property CarbonImmutable|null $pr_opened_at
  * @property int|null $human_commits
  * @property CarbonImmutable|null $pr_state_checked_at
@@ -76,6 +77,7 @@ class YakTask extends Model
             'mode' => TaskMode::class,
             'clarification_options' => 'json',
             're_request_review_from' => 'array',
+            'review_replies' => 'array',
             'clarification_expires_at' => 'datetime',
             'screenshots' => 'json',
             'cost_usd' => 'decimal:4',

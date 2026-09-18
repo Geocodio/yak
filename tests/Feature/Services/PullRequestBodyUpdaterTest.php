@@ -1,8 +1,11 @@
 <?php
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\WalkthroughPrSection;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 77);
@@ -212,11 +215,11 @@ test('setWalkthroughUnavailable replaces the raw webm link line with an explanat
     (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('Geocodio/geocodio-website', 42, 'Remotion exited 1');
 });
 
-test('setWalkthroughUnavailable is idempotent and appends a section when none exists', function () {
+test('setWalkthroughUnavailable is idempotent and prepends a section when none exists', function () {
     $github = Mockery::mock(GitHubAppService::class);
     $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "Summary only\n"]);
     $github->shouldReceive('updatePullRequest')->once()->withArgs(function (int $inst, string $repo, int $pr, array $payload): bool {
-        return str_ends_with($payload['body'], "\n\n" . WalkthroughPrSection::unavailable('boom'));
+        return str_starts_with($payload['body'], WalkthroughPrSection::unavailable('boom') . "\n\n");
     })->andReturn([]);
     (new PullRequestBodyUpdater($github))->setWalkthroughUnavailable('o/r', 1, 'boom');
 
@@ -292,4 +295,148 @@ it('replaces the marked section with the unavailable line on failure', function 
     app(PullRequestBodyUpdater::class)->setWalkthroughUnavailable('acme/site', 7, 'QA: caption too long');
 
     expect($captured())->toContain('_Video walkthrough unavailable (render failed: QA: caption too long)._');
+});
+
+test('setSections replaces several named sections with one read and one write', function () {
+    $existing = implode("\n\n", [
+        '**Source:** github',
+        PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
+        PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'old shots'),
+        WalkthroughPrSection::pending(),
+    ]);
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->with(77, 'owner/repo', 42)->andReturn(['body' => $existing]);
+    $github->shouldReceive('updatePullRequest')
+        ->once()
+        ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
+            return str_contains($data['body'], 'new description')
+                && str_contains($data['body'], 'new shots')
+                && ! str_contains($data['body'], 'old description')
+                && ! str_contains($data['body'], 'old shots')
+                && str_contains($data['body'], '_Rendering, this section will update automatically._')
+                && str_contains($data['body'], '**Source:** github');
+        })
+        ->andReturn(['body' => 'ok']);
+
+    (new PullRequestBodyUpdater($github))->setSections('owner/repo', 42, [
+        PullRequestBodySections::DESCRIPTION => PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'new description'),
+        PullRequestBodySections::SCREENSHOTS => PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'new shots'),
+    ]);
+});
+
+test('setSections writes nothing when no named section exists in the body', function () {
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "## Summary\n\nlegacy body"]);
+    $github->shouldNotReceive('updatePullRequest');
+
+    (new PullRequestBodyUpdater($github))->setSections('owner/repo', 42, [
+        PullRequestBodySections::DESCRIPTION => PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'new description'),
+    ]);
+});
+
+test('setSections returns only the names of the sections it actually replaced', function () {
+    $existing = implode("\n\n", [
+        '**Source:** github',
+        PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
+    ]);
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $existing]);
+    $github->shouldReceive('updatePullRequest')->once()->andReturn(['body' => 'ok']);
+
+    $applied = (new PullRequestBodyUpdater($github))->setSections('owner/repo', 42, [
+        PullRequestBodySections::DESCRIPTION => PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'new description'),
+        PullRequestBodySections::SCREENSHOTS => PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'new shots'),
+    ]);
+
+    expect($applied)->toBe([PullRequestBodySections::DESCRIPTION]);
+});
+
+test('setSections blocks on a lock already held for the same PR', function () {
+    config()->set('yak.channels.github.installation_id', 77);
+
+    $held = Cache::lock('pr-body:owner/repo#42', 10);
+    expect($held->get())->toBeTrue();
+
+    try {
+        $github = $this->mock(GitHubAppService::class);
+        $github->shouldNotReceive('getPullRequest');
+        $github->shouldNotReceive('updatePullRequest');
+
+        expect(fn () => (new PullRequestBodyUpdater($github))->setSections('owner/repo', 42, [
+            PullRequestBodySections::DESCRIPTION => PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'new description'),
+        ]))->toThrow(LockTimeoutException::class);
+    } finally {
+        $held->release();
+    }
+});
+
+test('insertSectionBefore inserts the section right before the anchor section start marker', function () {
+    $existing = implode("\n\n", [
+        '**Source:** github',
+        PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
+        '### Files changed',
+    ]);
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->with(77, 'owner/repo', 42)->andReturn(['body' => $existing]);
+    $github->shouldReceive('updatePullRequest')
+        ->once()
+        ->withArgs(function (int $installationId, string $repo, int $num, array $data): bool {
+            $descriptionStart = strpos($data['body'], PullRequestBodySections::startMarker(PullRequestBodySections::DESCRIPTION));
+            $screenshotsStart = strpos($data['body'], PullRequestBodySections::startMarker(PullRequestBodySections::SCREENSHOTS));
+
+            return str_contains($data['body'], 'new shots')
+                && $screenshotsStart < $descriptionStart
+                && str_contains($data['body'], '### Files changed');
+        })
+        ->andReturn(['body' => 'ok']);
+
+    $inserted = (new PullRequestBodyUpdater($github))->insertSectionBefore(
+        'owner/repo',
+        42,
+        PullRequestBodySections::DESCRIPTION,
+        PullRequestBodySections::SCREENSHOTS,
+        PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'new shots'),
+    );
+
+    expect($inserted)->toBeTrue();
+});
+
+test('insertSectionBefore leaves a legacy PR with no anchor markers untouched', function () {
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => "## Summary\n\nlegacy body, no markers"]);
+    $github->shouldNotReceive('updatePullRequest');
+
+    $inserted = (new PullRequestBodyUpdater($github))->insertSectionBefore(
+        'owner/repo',
+        42,
+        PullRequestBodySections::DESCRIPTION,
+        PullRequestBodySections::SCREENSHOTS,
+        PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'new shots'),
+    );
+
+    expect($inserted)->toBeFalse();
+});
+
+test('insertSectionBefore leaves the body untouched when the section already has markers', function () {
+    $existing = implode("\n\n", [
+        PullRequestBodySections::wrap(PullRequestBodySections::DESCRIPTION, 'old description'),
+        PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'existing shots'),
+    ]);
+
+    $github = $this->mock(GitHubAppService::class);
+    $github->shouldReceive('getPullRequest')->once()->andReturn(['body' => $existing]);
+    $github->shouldNotReceive('updatePullRequest');
+
+    $inserted = (new PullRequestBodyUpdater($github))->insertSectionBefore(
+        'owner/repo',
+        42,
+        PullRequestBodySections::DESCRIPTION,
+        PullRequestBodySections::SCREENSHOTS,
+        PullRequestBodySections::wrap(PullRequestBodySections::SCREENSHOTS, 'new shots'),
+    );
+
+    expect($inserted)->toBeFalse();
 });

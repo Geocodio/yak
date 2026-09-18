@@ -267,15 +267,21 @@ class AppService
         return $prs[0] ?? null;
     }
 
-    public function commentOnPullRequest(int $installationId, string $repoSlug, int $prNumber, string $body): void
+    /**
+     * Returns whether GitHub accepted the comment; callers that care whether
+     * it landed check the result, other callers may ignore it.
+     */
+    public function commentOnPullRequest(int $installationId, string $repoSlug, int $prNumber, string $body): bool
     {
         $token = $this->getInstallationToken($installationId);
 
-        Http::withToken($token)
+        $response = Http::withToken($token)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->post("https://api.github.com/repos/{$repoSlug}/issues/{$prNumber}/comments", [
                 'body' => $body,
             ]);
+
+        return $response->successful();
     }
 
     /**
