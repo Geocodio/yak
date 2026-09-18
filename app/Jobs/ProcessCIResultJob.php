@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
+use App\Channels\Linear\SessionPlanStage;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
@@ -77,7 +78,7 @@ class ProcessCIResultJob implements ShouldQueue
             $this->postToSource(YakPersonality::generate(
                 NotificationType::Error,
                 "Task failed while finalizing: {$errorMessage}",
-            ));
+            ), NotificationType::Error, $fresh);
         } catch (\Throwable $notifyError) {
             Log::channel('yak')->warning(self::class . ' failed() notification errored', [
                 'task_id' => $this->task->id,
@@ -178,37 +179,51 @@ class ProcessCIResultJob implements ShouldQueue
         $prUrl = $this->task->pr_url ?? '';
 
         TaskLogger::info($this->task, 'PR created', ['pr_url' => $prUrl]);
-        $message = YakPersonality::generate(NotificationType::Result, "PR created: {$prUrl}");
-        $this->postToSource($message);
-
-        if ($this->task->source === 'linear') {
-            if ($prUrl !== '') {
-                $sessionId = (string) $this->task->linear_agent_session_id;
-                $actionLabel = $this->task->parent_task_id !== null ? 'Pushed changes' : 'Opened pull request';
-                app(LinearNotificationDriver::class)
-                    ->postAction($sessionId, $actionLabel, $prUrl);
-            }
-
-            $this->moveLinearToInReview();
-        }
 
         $this->task->update([
             'status' => TaskStatus::Success,
             'completed_at' => now(),
         ]);
 
+        if ($this->task->source === 'linear') {
+            $this->reportPullRequestToLinear($prUrl);
+            $this->moveLinearToInReview();
+        }
+
+        // Linear marks the session complete only when the last activity
+        // is a `response`, so the result message goes out after the action.
+        $message = YakPersonality::generate(NotificationType::Result, "PR created: {$prUrl}");
+        $this->postToSource($message, NotificationType::Result);
+
         TaskLogger::info($this->task, 'Task completed');
+    }
+
+    private function reportPullRequestToLinear(string $prUrl): void
+    {
+        $linear = app(LinearNotificationDriver::class);
+        $sessionId = (string) $this->task->linear_agent_session_id;
+
+        if ($prUrl !== '') {
+            $isFollowUp = $this->task->parent_task_id !== null;
+            $linear->postAction($sessionId, $isFollowUp ? 'Pushed changes' : 'Opened pull request', $prUrl);
+
+            if (! $isFollowUp) {
+                $linear->addSessionExternalUrl($sessionId, 'Pull request', $prUrl);
+            }
+        }
+
+        $linear->syncSessionPlan($this->task, SessionPlanStage::PullRequestOpened);
     }
 
     private function handleRetry(): void
     {
-        $message = YakPersonality::generate(NotificationType::Retry, 'CI failed, retrying');
-        $this->postToSource($message);
-
         $this->task->update([
             'status' => TaskStatus::Retrying,
             'attempts' => $this->task->attempts + 1,
         ]);
+
+        $message = YakPersonality::generate(NotificationType::Retry, 'CI failed, retrying');
+        $this->postToSource($message, NotificationType::Retry);
 
         RetryYakJob::dispatch($this->task, $this->output);
     }
@@ -218,14 +233,14 @@ class ProcessCIResultJob implements ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
         $failureSummary = $this->output ?? 'CI failed after maximum attempts';
-        $message = YakPersonality::generate(NotificationType::Error, "CI failed: {$failureSummary}");
-        $this->postToSource($message);
-
         $this->task->update([
             'status' => TaskStatus::Failed,
             'completed_at' => now(),
             'error_log' => $failureSummary,
         ]);
+
+        $message = YakPersonality::generate(NotificationType::Error, "CI failed: {$failureSummary}");
+        $this->postToSource($message, NotificationType::Error);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $failureSummary]);
     }
@@ -261,11 +276,11 @@ class ProcessCIResultJob implements ShouldQueue
         }
     }
 
-    private function postToSource(string $message): void
+    private function postToSource(string $message, NotificationType $type, ?YakTask $task = null): void
     {
         match ($this->task->source) {
             'slack' => $this->postToSlack($message),
-            'linear' => $this->postToLinear($message),
+            'linear' => $this->postToLinear($message, $type, $task ?? $this->task),
             default => null,
         };
     }
@@ -286,16 +301,20 @@ class ProcessCIResultJob implements ShouldQueue
             ]);
     }
 
-    private function postToLinear(string $message): void
+    private function postToLinear(string $message, NotificationType $type, YakTask $task): void
     {
-        $sessionId = (string) $this->task->linear_agent_session_id;
+        $sessionId = (string) $task->linear_agent_session_id;
 
         if ($sessionId === '') {
             return;
         }
 
-        app(LinearNotificationDriver::class)
-            ->postAgentActivity($sessionId, type: 'thought', body: $message);
+        $linear = app(LinearNotificationDriver::class);
+        $linear->postAgentActivity($sessionId, type: $linear->activityTypeFor($type), body: $message);
+
+        if ($type !== NotificationType::Result) {
+            $linear->syncSessionPlan($task);
+        }
     }
 
     private function moveLinearToInReview(): void

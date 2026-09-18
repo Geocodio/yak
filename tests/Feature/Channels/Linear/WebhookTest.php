@@ -371,12 +371,11 @@ it('ignores unrelated webhook event headers', function () {
 
 // --- AgentSessionEvent.prompted posts an immediate thought ack ---
 
-it('responds to prompted events with an immediate thought acknowledgment', function () {
+it('closes prompted sessions it has no task for with a response', function () {
     $secret = enableLinearChannel();
     linearConnection();
     Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
 
-    // No matching task — unknown session gets a thought ack only.
     postLinearWebhook(agentSessionPromptedPayload(['sessionId' => 'session-xyz']), $secret)
         ->assertSuccessful();
 
@@ -387,8 +386,9 @@ it('responds to prompted events with an immediate thought acknowledgment', funct
         $vars = $request->data()['variables'] ?? [];
 
         return ($vars['input']['agentSessionId'] ?? null) === 'session-xyz'
-            && ($vars['input']['content']['type'] ?? null) === 'thought';
+            && ($vars['input']['content']['type'] ?? null) === 'response';
     });
+    Http::assertNotSent(fn ($request): bool => ($request->data()['variables']['input']['content']['type'] ?? null) === 'thought');
 });
 
 it('posts a thought activity to Linear within the webhook response (fast ack)', function () {
@@ -410,6 +410,27 @@ it('posts a thought activity to Linear within the webhook response (fast ack)', 
 
         return ($vars['input']['agentSessionId'] ?? null) === 'session-xyz'
             && ($vars['input']['content']['type'] ?? null) === 'thought';
+    });
+});
+
+it('links the agent session to the task dashboard when a session is created', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['data' => ['agentSessionUpdate' => ['success' => true]]])]);
+    Repository::factory()->default()->create();
+
+    postLinearWebhook(agentSessionCreatedPayload(['sessionId' => 'session-xyz']), $secret)
+        ->assertSuccessful();
+
+    $task = YakTask::where('linear_agent_session_id', 'session-xyz')->firstOrFail();
+
+    Http::assertSent(function ($request) use ($task): bool {
+        $body = $request->data();
+
+        return str_contains($body['query'] ?? '', 'agentSessionUpdate')
+            && ($body['variables']['id'] ?? null) === 'session-xyz'
+            && str_ends_with($body['variables']['input']['externalUrls'][0]['url'] ?? '', "/tasks/{$task->id}");
     });
 });
 

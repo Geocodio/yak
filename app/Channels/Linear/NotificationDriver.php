@@ -4,6 +4,7 @@ namespace App\Channels\Linear;
 
 use App\Channels\Contracts\NotificationDriver as NotificationDriverContract;
 use App\Enums\NotificationType;
+use App\Enums\TaskStatus;
 use App\Exceptions\LinearOAuthRefreshFailedException;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
@@ -25,7 +26,12 @@ class NotificationDriver implements NotificationDriverContract
         if ($sessionId !== '') {
             $dashboardLink = $this->taskDashboardLink($task);
             $body = "{$message}\n\n[View on Dashboard]({$dashboardLink})";
-            $this->sendAgentActivity($accessToken, $sessionId, $this->mapActivityType($type), $body);
+            $this->sendAgentActivity($accessToken, $sessionId, $this->activityTypeForTask($task, $type), $body);
+
+            $stage = SessionPlanStage::forTask($task, $type);
+            if ($stage !== null) {
+                $this->sendSessionPlan($accessToken, $task, $stage);
+            }
         }
 
         if ($type === NotificationType::Result || $type === NotificationType::Expiry) {
@@ -65,6 +71,75 @@ class NotificationDriver implements NotificationDriverContract
             'action' => $action,
             'result' => $result,
         ]);
+    }
+
+    /**
+     * Point the agent session at the task's dashboard page. Linear shows
+     * external URLs as links on the session, and setting one also counts
+     * as a response to a freshly created session.
+     */
+    public function setSessionDashboardUrl(YakTask $task): void
+    {
+        $sessionId = (string) $task->linear_agent_session_id;
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $sessionId === '') {
+            return;
+        }
+
+        $this->sendSessionUpdate($accessToken, $sessionId, [
+            'externalUrls' => [
+                ['label' => 'Yak dashboard', 'url' => $this->taskDashboardLink($task)],
+            ],
+        ]);
+    }
+
+    /**
+     * Add a link to the agent session without replacing the links it
+     * already has.
+     */
+    public function addSessionExternalUrl(string $sessionId, string $label, string $url): void
+    {
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $sessionId === '' || $url === '') {
+            return;
+        }
+
+        $this->sendSessionUpdate($accessToken, $sessionId, [
+            'addedExternalUrls' => [
+                ['label' => $label, 'url' => $url],
+            ],
+        ]);
+    }
+
+    /**
+     * Replace the agent session plan with the checklist for the given
+     * stage, derived from the task's status when no stage is given.
+     */
+    public function syncSessionPlan(YakTask $task, ?SessionPlanStage $stage = null): void
+    {
+        $stage ??= SessionPlanStage::forTask($task);
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $stage === null) {
+            return;
+        }
+
+        $this->sendSessionPlan($accessToken, $task, $stage);
+    }
+
+    /**
+     * Map Yak's NotificationType to one of Linear's agent activity
+     * content types. Linear derives the session state from the last
+     * activity: `thought` and `action` keep it active, `elicitation`
+     * awaits input, `response` completes it and `error` fails it.
+     */
+    public function activityTypeFor(NotificationType $type): string
+    {
+        return match ($type) {
+            NotificationType::Result => 'response',
+            NotificationType::Error, NotificationType::Expiry => 'error',
+            NotificationType::Clarification => 'elicitation',
+            default => 'thought',
+        };
     }
 
     /**
@@ -122,19 +197,43 @@ class NotificationDriver implements NotificationDriverContract
     }
 
     /**
-     * Map Yak's NotificationType to one of Linear's agent activity
-     * content types: `thought` (progress, retries), `response` (final
-     * result), `error` (failures / expiry), `elicitation` (clarification
-     * prompt — unreachable on Linear today but mapped for completeness).
+     * A task that already succeeded keeps its session complete: later
+     * notices, such as a failed walkthrough render, go out as `response`
+     * so they do not flip a finished session to active or error.
      */
-    private function mapActivityType(NotificationType $type): string
+    private function activityTypeForTask(YakTask $task, NotificationType $type): string
     {
-        return match ($type) {
-            NotificationType::Result => 'response',
-            NotificationType::Error, NotificationType::Expiry => 'error',
-            NotificationType::Clarification => 'elicitation',
-            default => 'thought',
-        };
+        if ($task->status === TaskStatus::Success) {
+            return 'response';
+        }
+
+        return $this->activityTypeFor($type);
+    }
+
+    private function sendSessionPlan(string $accessToken, YakTask $task, SessionPlanStage $stage): void
+    {
+        $sessionId = (string) $task->linear_agent_session_id;
+        $plan = SessionPlan::build($task, $stage);
+        if ($sessionId === '' || $plan === null) {
+            return;
+        }
+
+        $this->sendSessionUpdate($accessToken, $sessionId, ['plan' => $plan]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function sendSessionUpdate(string $accessToken, string $sessionId, array $input): void
+    {
+        Http::withToken($accessToken)
+            ->post(self::GRAPHQL_ENDPOINT, [
+                'query' => 'mutation($id: String!, $input: AgentSessionUpdateInput!) { agentSessionUpdate(id: $id, input: $input) { success } }',
+                'variables' => [
+                    'id' => $sessionId,
+                    'input' => $input,
+                ],
+            ]);
     }
 
     private function sendAgentActivity(string $accessToken, string $sessionId, string $type, string $body): void

@@ -432,7 +432,7 @@ it('Linear: does not update state when state ID is not configured', function () 
     (new LinearNotificationDriver)->send($task, NotificationType::Result, 'Done!');
 
     assertLinearActivity('Done!');
-    Http::assertSentCount(1);
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'issueUpdate'));
 });
 
 it('Linear: posts failure summary', function () {

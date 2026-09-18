@@ -45,6 +45,9 @@ it('cancels a running linear task when unassigned from the issue', function () {
     postLinearWebhook($body, $secret, 'InboxNotificationEvent')->assertSuccessful();
 
     expect($task->fresh()->status)->toBe(TaskStatus::Cancelled);
+
+    Http::assertSent(fn ($request): bool => ($request->data()['variables']['input']['agentSessionId'] ?? null) === 'session-unassign-001'
+        && ($request->data()['variables']['input']['content']['type'] ?? null) === 'response');
 });
 
 it('does not cancel a terminal (success) task on unassignment', function () {
