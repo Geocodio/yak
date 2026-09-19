@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_default
  * @property bool $is_active
  * @property bool $pr_review_enabled
+ * @property array<string, mixed>|null $pr_review_policy
  * @property bool $deployments_enabled
  * @property string|null $public_site_url
  */
@@ -57,11 +58,23 @@ class Repository extends Model
             'sandbox_base_version' => 'integer',
             'pr_review_enabled' => 'boolean',
             'pr_review_path_excludes' => 'array',
+            'pr_review_policy' => 'array',
             'deployments_enabled' => 'boolean',
             'preview_manifest' => 'array',
             'preview_env_overrides' => 'array',
             'current_template_version' => 'integer',
         ];
+    }
+
+    /** @return array<string, mixed> */
+    public function reviewPolicy(): array
+    {
+        return array_replace([
+            'mode' => 'off', 'allowed_paths' => [], 'blocked_paths' => [],
+            'required_checks' => [], 'required_statuses' => [],
+            'max_files' => 5, 'max_lines' => 150, 'max_risk_score' => 30,
+            'min_confidence' => 80, 'profile_max_age_days' => 90,
+        ], $this->pr_review_policy ?? []);
     }
 
     public function getRouteKeyName(): string

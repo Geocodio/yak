@@ -87,6 +87,14 @@ it('throws when the agent output is empty', function () {
     $parser->parse('   ');
 })->throws(RuntimeException::class, 'no review output');
 
+it('never infers low risk from a clean verdict', function (?string $risk, string $expected) {
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 'Small fix.', 'verdict' => 'Approve', 'verdict_detail' => 'Clean.',
+        'findings' => [], 'risk' => $risk,
+    ]));
+    expect($parser->parse('Review prose')->risk)->toBe($expected);
+})->with([[null, 'unknown'], ['invalid', 'unknown'], ['low', 'low'], ['high', 'high']]);
+
 it('throws when the structurer returns missing keys', function () {
     $parser = new ReviewOutputParser(fakeStructurer([
         'summary' => 'x',
@@ -127,4 +135,14 @@ it('defaults priorFindings to empty when missing from structured output', functi
     $parsed = $parser->parse('text');
 
     expect($parsed->priorFindings)->toBe([]);
+});
+
+it('preserves structured risk signals without manufacturing missing evidence', function () {
+    $signals = ['model_confidence' => 91, 'uncertainties' => ['Caller context unavailable']];
+    $parser = new ReviewOutputParser(fakeStructurer([
+        'summary' => 's', 'verdict' => 'Approve', 'verdict_detail' => 'd',
+        'findings' => [], 'signals' => $signals,
+    ]));
+
+    expect($parser->parse('text')->signals)->toBe($signals);
 });

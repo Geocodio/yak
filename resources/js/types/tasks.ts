@@ -187,6 +187,19 @@ export type FindingComment = {
 
 export type FindingsData = {
     verdict: string;
+    riskAssessment?: {
+        event: string;
+        candidate: string;
+        mode: string;
+        risk_score: number | null;
+        model_confidence: number | null;
+        profile_version: string | null;
+        scoring_version: number;
+        reasons: string[];
+        score_components: Record<string, number>;
+        signals: Record<string, unknown>;
+        observed: Record<string, unknown>;
+    } | null;
     counts: { mustFix: number; shouldFix: number; consider: number };
     summaryHtml: string;
     comments: FindingComment[];

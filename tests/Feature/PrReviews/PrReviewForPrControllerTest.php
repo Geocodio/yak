@@ -52,6 +52,24 @@ test('show renders an empty state when no reviews exist for the pr', function ()
             ->has('reviews', 0));
 });
 
+test('show exposes the posted event separately from the model verdict and shadow recommendation', function () {
+    PrReview::factory()->create([
+        'repo' => 'geocodio/api', 'pr_number' => 50, 'verdict' => 'Approve',
+        'risk_assessment' => [
+            'event' => 'COMMENT', 'candidate' => 'APPROVE', 'mode' => 'shadow',
+            'risk_score' => 25, 'model_confidence' => 90,
+        ],
+    ]);
+
+    $this->get(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('reviews.0.findings.verdict', 'Approve')
+            ->where('reviews.0.findings.riskAssessment.event', 'COMMENT')
+            ->where('reviews.0.findings.riskAssessment.candidate', 'APPROVE')
+            ->where('reviews.0.findings.riskAssessment.risk_score', 25));
+});
+
 test('rerun enqueues a review task', function () {
     Repository::factory()->create(['slug' => 'geocodio/api']);
 

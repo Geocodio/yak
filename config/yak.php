@@ -433,6 +433,29 @@ return [
     */
 
     'pr_review' => [
+        // Repository approval settings live in the dashboard/database.
+        // These non-overridable exclusions are the minimum security boundary.
+        'approval_blocked_paths' => [
+            '.github/**', '.claude/**', '.drone*', 'AGENTS.md', 'CLAUDE.md',
+            'database/**', 'routes/**', 'config/**', 'bootstrap/**', 'ansible/**',
+            'docker/**', 'Dockerfile*', '*lock*', 'composer.json', 'package.json',
+            '*.tf', '*.tfvars', '.env*', '*Auth*', '*Policy*', '*Policies*',
+            'app/Auth/**', 'app/Policies/**', 'app/Actions/Fortify/**',
+            'app/Billing/**', 'app/Payments/**',
+            '*Billing*', '*Payment*', '*Review*', '*Approval*', '*Permission*', '*Risk*', '*Prompt*',
+            'app/Channels/GitHub/**', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
+            'resources/views/prompts/**',
+        ],
+        // What counts as a test file for the approval gate. Not repository
+        // editable: widening this makes approval easier, so it stays with the
+        // host. Covers the layouts Yak's supported repositories actually use.
+        'approval_test_paths' => [
+            'tests/**', 'test/**', 'spec/**',
+            '__tests__/**', '**/__tests__/**', 'testdata/**', '**/testdata/**',
+            '*Test.php', '*Spec.php', '*_test.go', '*_test.py', 'test_*.py', '*_spec.rb',
+            '*.test.js', '*.test.jsx', '*.test.ts', '*.test.tsx',
+            '*.spec.js', '*.spec.jsx', '*.spec.ts', '*.spec.tsx',
+        ],
         'reaction_poll_window_days' => (int) env('YAK_PR_REVIEW_POLL_DAYS', 30),
         'max_findings_per_review' => (int) env('YAK_PR_REVIEW_MAX_FINDINGS', 10),
         'enabled_globally' => (bool) env('YAK_PR_REVIEW_ENABLED_GLOBALLY', true),

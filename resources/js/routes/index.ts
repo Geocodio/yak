@@ -291,7 +291,7 @@ analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 export const repos = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -306,7 +306,7 @@ repos.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 repos.url = (options?: RouteQueryOptions) => {
@@ -315,7 +315,7 @@ repos.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -325,7 +325,7 @@ repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

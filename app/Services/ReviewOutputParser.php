@@ -56,6 +56,9 @@ class ReviewOutputParser
             verdictDetail: (string) $decoded['verdict_detail'],
             findings: $findings,
             priorFindings: $priorFindings,
+            risk: in_array($decoded['risk'] ?? null, ['low', 'high', 'unknown'], true)
+                ? $decoded['risk'] : 'unknown',
+            signals: is_array($decoded['signals'] ?? null) ? $decoded['signals'] : [],
         );
     }
 }

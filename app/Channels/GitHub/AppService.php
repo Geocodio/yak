@@ -461,6 +461,59 @@ class AppService
         return ['files' => $names, 'loc_changed' => $loc];
     }
 
+    /**
+     * Bounded evidence reads: large or incomplete responses prevent approval.
+     * Branch protection is read, never changed by Yak.
+     *
+     * @return array<string, mixed>
+     */
+    public function approvalEvidence(int $installationId, string $repoSlug, int $prNumber, string $sha, string $baseRef): array
+    {
+        $client = $this->installationClient($installationId)->timeout(20);
+        $protection = $client->get('https://api.github.com/repos/' . $repoSlug . '/branches/' . rawurlencode($baseRef) . '/protection')
+            ->throw()->json();
+        $checks = $client->get("https://api.github.com/repos/{$repoSlug}/commits/{$sha}/check-runs", [
+            'per_page' => 100, 'filter' => 'latest',
+        ])->throw()->json();
+        $statuses = $client->get("https://api.github.com/repos/{$repoSlug}/commits/{$sha}/status", [
+            'per_page' => 100,
+        ])->throw()->json();
+
+        [$owner, $name] = explode('/', $repoSlug, 2);
+        $query = <<<'GRAPHQL'
+query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes { isResolved }
+        pageInfo { hasNextPage }
+      }
+    }
+  }
+}
+GRAPHQL;
+        $threads = $client->post('https://api.github.com/graphql', [
+            'query' => $query,
+            'variables' => ['owner' => $owner, 'name' => $name, 'number' => $prNumber],
+        ])->throw()->json();
+        $connection = data_get($threads, 'data.repository.pullRequest.reviewThreads');
+        $clear = empty($threads['errors']) && is_array($connection)
+            && ($connection['pageInfo']['hasNextPage'] ?? true) === false
+            && isset($connection['nodes']) && is_array($connection['nodes']);
+        foreach (($connection['nodes'] ?? []) as $thread) {
+            $clear = $clear && ($thread['isResolved'] ?? false) === true;
+        }
+
+        return [
+            'dismiss_stale_reviews' => data_get($protection, 'required_pull_request_reviews.dismiss_stale_reviews', false),
+            'check_runs' => $checks['check_runs'] ?? [],
+            'total_count' => $checks['total_count'] ?? -1,
+            'statuses' => $statuses['statuses'] ?? [],
+            'status_count' => $statuses['total_count'] ?? -1,
+            'threads_clear' => $clear,
+        ];
+    }
+
     public function generateJwt(): string
     {
         $appId = (string) config('yak.channels.github.app_id');
@@ -529,16 +582,18 @@ class AppService
         string $body,
         string $event,
         array $comments,
+        ?string $commitSha = null,
     ): array {
         $token = $this->getInstallationToken($installationId);
 
         $response = Http::withToken($token)
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
-            ->post("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews", [
+            ->post("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews", array_filter([
                 'body' => $body,
                 'event' => $event,
                 'comments' => $comments,
-            ]);
+                'commit_id' => $commitSha,
+            ], fn (mixed $value): bool => $value !== null));
 
         if (! $response->successful()) {
             throw new \RuntimeException(sprintf(

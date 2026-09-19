@@ -1,8 +1,29 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Models\PrReview;
 use App\Models\User;
 use App\Models\YakTask;
+
+test('shadow approval is displayed as a comment with its risk assessment', function () {
+    $this->actingAs(User::factory()->create());
+    PrReview::factory()->create([
+        'repo' => 'geocodio/api', 'pr_number' => 50, 'verdict' => 'Approve',
+        'risk_assessment' => [
+            'event' => 'COMMENT', 'candidate' => 'APPROVE', 'mode' => 'shadow',
+            'risk_score' => 25, 'model_confidence' => 90, 'profile_version' => null,
+            'scoring_version' => 1, 'reasons' => [], 'signals' => [],
+            'observed' => ['ci_verified' => true], 'score_components' => [],
+        ],
+    ]);
+
+    visit(route('pr-reviews.for-pr', ['repoSlug' => 'geocodio/api', 'prNumber' => 50]))
+        ->assertSee('Model verdict: Approve')
+        ->assertSee('GitHub review: Comment only')
+        ->assertSee('Shadow mode. Policy recommendation: approve.')
+        ->assertSee('Risk: 25/100')
+        ->assertDontSee('GitHub review: Approved');
+});
 
 test('task detail page reflects status update without manual refresh', function () {
     $user = User::factory()->create();

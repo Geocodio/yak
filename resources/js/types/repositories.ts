@@ -14,6 +14,9 @@ export type RepositorySummary = {
 };
 
 export type RepositoryDetail = {
+    reviewPolicy: ReviewPolicy;
+    riskProfiles: { active: RiskProfile | null; drafts: RiskProfile[] };
+    riskProfileActionUrl: string;
     slug: string;
     name: string;
     description: string | null;
@@ -35,9 +38,32 @@ export type RepositoryDetail = {
 };
 
 export type RepositoryOptions = {
+    defaultReviewPolicy: ReviewPolicy;
     ciSystems: { value: string; label: string }[];
     sentryProjects: { value: string; label: string }[];
     defaultPathExcludes: string[];
+};
+
+export type ReviewPolicy = {
+    mode: 'off' | 'shadow' | 'enforce';
+    allowed_paths: string[];
+    blocked_paths: string[];
+    required_checks: { name: string; app_id: number }[];
+    required_statuses: { name: string; creator_id: number }[];
+    max_files: number;
+    max_lines: number;
+    max_risk_score: number;
+    min_confidence: number;
+    profile_max_age_days: number;
+};
+
+export type RiskProfile = {
+    version: string;
+    source_sha: string;
+    approved_by?: string;
+    approved_at?: string;
+    areas: { name: string; paths: string[]; symbols: string[]; risk: string; rationale: string; evidence: string[] }[];
+    unknowns: string[];
 };
 
 export type ManifestData = {

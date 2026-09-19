@@ -378,7 +378,7 @@ Claude can do anything it wants inside that sandbox. The walls are real — Incu
 
 ### No Merge Authority
 
-Yak creates PRs. Humans merge them. Always. The GitHub App should NOT be in your branch protection bypass list and should NOT have permission to approve reviews.
+Yak creates PRs. Humans merge them. Always. The GitHub App must NOT be in your branch protection bypass list. Repository owners may opt into risk-based review approval (see [PR Review](pr-review.md)); this grants no merge authority.
 
 This is non-negotiable by design. If you want to automate merging, don't use Yak.
 

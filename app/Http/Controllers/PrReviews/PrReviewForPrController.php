@@ -120,6 +120,7 @@ class PrReviewForPrController extends Controller
 
         return [
             'verdict' => (string) $review->verdict,
+            'riskAssessment' => $review->risk_assessment,
             'counts' => [
                 'mustFix' => $comments->where('severity', 'must_fix')->count(),
                 'shouldFix' => $comments->where('severity', 'should_fix')->count(),
