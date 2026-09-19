@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::index
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 export const index = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ index.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::index
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 index.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ index.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::index
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ index.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::index
-* @see app/Http/Controllers/Repositories/RepositoryController.php:23
+* @see app/Http/Controllers/Repositories/RepositoryController.php:24
 * @route '/repos'
 */
 index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -45,7 +45,7 @@ index.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::create
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:31
 * @route '/repos/create'
 */
 export const create = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -60,7 +60,7 @@ create.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::create
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:31
 * @route '/repos/create'
 */
 create.url = (options?: RouteQueryOptions) => {
@@ -69,7 +69,7 @@ create.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::create
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:31
 * @route '/repos/create'
 */
 create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -79,7 +79,7 @@ create.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::create
-* @see app/Http/Controllers/Repositories/RepositoryController.php:30
+* @see app/Http/Controllers/Repositories/RepositoryController.php:31
 * @route '/repos/create'
 */
 create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -89,7 +89,7 @@ create.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::store
-* @see app/Http/Controllers/Repositories/RepositoryController.php:45
+* @see app/Http/Controllers/Repositories/RepositoryController.php:46
 * @route '/repos'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -104,7 +104,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::store
-* @see app/Http/Controllers/Repositories/RepositoryController.php:45
+* @see app/Http/Controllers/Repositories/RepositoryController.php:46
 * @route '/repos'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -113,7 +113,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::store
-* @see app/Http/Controllers/Repositories/RepositoryController.php:45
+* @see app/Http/Controllers/Repositories/RepositoryController.php:46
 * @route '/repos'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -123,7 +123,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::edit
-* @see app/Http/Controllers/Repositories/RepositoryController.php:76
+* @see app/Http/Controllers/Repositories/RepositoryController.php:77
 * @route '/repos/{repository}/edit'
 */
 export const edit = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -138,7 +138,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::edit
-* @see app/Http/Controllers/Repositories/RepositoryController.php:76
+* @see app/Http/Controllers/Repositories/RepositoryController.php:77
 * @route '/repos/{repository}/edit'
 */
 edit.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -171,7 +171,7 @@ edit.url = (args: { repository: string | number | { slug: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::edit
-* @see app/Http/Controllers/Repositories/RepositoryController.php:76
+* @see app/Http/Controllers/Repositories/RepositoryController.php:77
 * @route '/repos/{repository}/edit'
 */
 edit.get = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -181,7 +181,7 @@ edit.get = (args: { repository: string | number | { slug: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::edit
-* @see app/Http/Controllers/Repositories/RepositoryController.php:76
+* @see app/Http/Controllers/Repositories/RepositoryController.php:77
 * @route '/repos/{repository}/edit'
 */
 edit.head = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -191,7 +191,7 @@ edit.head = (args: { repository: string | number | { slug: string | number } } |
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::update
-* @see app/Http/Controllers/Repositories/RepositoryController.php:110
+* @see app/Http/Controllers/Repositories/RepositoryController.php:111
 * @route '/repos/{repository}'
 */
 export const update = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -206,7 +206,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::update
-* @see app/Http/Controllers/Repositories/RepositoryController.php:110
+* @see app/Http/Controllers/Repositories/RepositoryController.php:111
 * @route '/repos/{repository}'
 */
 update.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -239,7 +239,7 @@ update.url = (args: { repository: string | number | { slug: string | number } } 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::update
-* @see app/Http/Controllers/Repositories/RepositoryController.php:110
+* @see app/Http/Controllers/Repositories/RepositoryController.php:111
 * @route '/repos/{repository}'
 */
 update.patch = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -249,7 +249,7 @@ update.patch = (args: { repository: string | number | { slug: string | number } 
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::destroy
-* @see app/Http/Controllers/Repositories/RepositoryController.php:141
+* @see app/Http/Controllers/Repositories/RepositoryController.php:142
 * @route '/repos/{repository}'
 */
 export const destroy = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -264,7 +264,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::destroy
-* @see app/Http/Controllers/Repositories/RepositoryController.php:141
+* @see app/Http/Controllers/Repositories/RepositoryController.php:142
 * @route '/repos/{repository}'
 */
 destroy.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -297,7 +297,7 @@ destroy.url = (args: { repository: string | number | { slug: string | number } }
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::destroy
-* @see app/Http/Controllers/Repositories/RepositoryController.php:141
+* @see app/Http/Controllers/Repositories/RepositoryController.php:142
 * @route '/repos/{repository}'
 */
 destroy.delete = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

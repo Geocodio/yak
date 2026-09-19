@@ -257,6 +257,8 @@ class YakPromptBuilder
     private static function reviewPrompt(array $metadata): string
     {
         return Prompts::render('tasks-review', [
+            'approvedRiskProfile' => $metadata['approvedRiskProfile'] ?? null,
+            'reviewBase' => $metadata['reviewBase'] ?? null,
             'prNumber' => (int) ($metadata['prNumber'] ?? 0),
             'prTitle' => (string) ($metadata['prTitle'] ?? ''),
             'prBody' => (string) ($metadata['prBody'] ?? ''),

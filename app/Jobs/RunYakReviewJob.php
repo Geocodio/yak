@@ -30,6 +30,8 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\PriorFindingsHydrator;
 use App\Services\PriorFindingsRollup;
+use App\Services\RepositoryRiskProfiles;
+use App\Services\ReviewApprovalPolicy;
 use App\Services\ReviewOutputParser;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -164,6 +166,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
             $this->checkoutPrHead($sandbox, $containerName, $repository, $metadata);
             $promptContext = $this->buildPromptContext($sandbox, $containerName, $repository, $metadata);
+            $metadata['risk_profile_version'] = $promptContext['approvedRiskProfile']['version'] ?? null;
             $recorder->mark('git_prepare');
 
             $prompt = YakPromptBuilder::taskPrompt($this->task, $promptContext);
@@ -207,8 +210,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
                 throw $e;
             }
-
-            $parsed = $this->filterFindings($parsed, $promptContext['pathExcludes']);
 
             $this->postReview($repository, $parsed, $metadata);
             $recorder->mark('post_agent');
@@ -268,28 +269,33 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
         $sandbox->injectGitCredentials($containerName);
 
-        // Refresh origin/{default} so the review agent's context queries
-        // against master (e.g. "is this file already changed elsewhere?")
-        // see commits merged since the sandbox snapshot was built.
-        $sandbox->run(
+        // Fetch the exact base recorded at intake, not a moving branch or
+        // the potentially stale base branch inside the sandbox snapshot.
+        $fetchBase = $sandbox->run(
             $containerName,
-            "cd {$workspace} && git fetch origin {$repository->default_branch}",
+            "cd {$workspace} && git fetch origin " . escapeshellarg((string) $metadata['base_sha']),
             timeout: 60,
         );
+        if ($fetchBase->exitCode() !== 0) {
+            throw new \RuntimeException('Could not fetch the review base commit.');
+        }
 
         // Fetch the PR's head commit and check it out at the exact SHA
         // stored on the task. Pinning to the SHA guards against races with
         // new pushes that arrive between enqueue and execution.
-        $sandbox->run(
+        $fetchHead = $sandbox->run(
             $containerName,
             "cd {$workspace} && git fetch origin pull/{$prNumber}/head:" . escapeshellarg($localBranch),
             timeout: 60,
         );
-        $sandbox->run(
+        $checkout = $sandbox->run(
             $containerName,
             "cd {$workspace} && git checkout " . escapeshellarg($headSha),
             timeout: 30,
         );
+        if ($fetchHead->exitCode() !== 0 || $checkout->exitCode() !== 0) {
+            throw new \RuntimeException('Could not check out the review head commit.');
+        }
     }
 
     /**
@@ -368,12 +374,18 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             )
             : [];
 
+        $riskProfile = app(RepositoryRiskProfiles::class)->active($repository->slug);
+        $metadata['risk_profile_version'] = $riskProfile['version'] ?? null;
+        $this->task->update(['context' => json_encode($metadata)]);
+
         return [
+            'approvedRiskProfile' => $riskProfile,
             'prNumber' => (int) $metadata['pr_number'],
             'prTitle' => (string) $metadata['title'],
             'prBody' => (string) $metadata['body'],
             'prAuthor' => (string) $metadata['author'],
             'baseBranch' => (string) ($metadata['base_ref'] ?? $repository->default_branch),
+            'reviewBase' => $effectiveBase,
             'headBranch' => (string) ($metadata['head_ref'] ?? ''),
             'diffSummary' => trim($diffStat),
             'reviewScope' => $scope,
@@ -441,6 +453,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             verdictDetail: $parsed->verdictDetail,
             findings: $allowed,
             priorFindings: $parsed->priorFindings,
+            risk: $parsed->risk,
+            signals: $parsed->signals,
         );
     }
 
@@ -449,6 +463,9 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
      */
     private function postReview(Repository $repository, ParsedReview $parsed, array $metadata): void
     {
+        $unfiltered = $parsed;
+        $parsed = $this->filterFindings($parsed, $repository->pr_review_path_excludes
+            ?? (array) config('yak.pr_review.default_path_excludes', []));
         $installationId = (int) config('yak.channels.github.installation_id');
         $maxFindings = (int) config('yak.pr_review.max_findings_per_review', 20);
         $github = app(GitHubAppService::class);
@@ -613,14 +630,35 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             $body = $rollupLine . "\n\n" . $body;
         }
 
+        $metadata['pr_url'] = $this->task->pr_url;
+        $decision = app(ReviewApprovalPolicy::class)->evaluate($repository, $unfiltered, $metadata, $prFiles);
+        $policyNote = '';
+        if ($decision['mode'] !== 'off') {
+            $policyNote = "\n\n<details><summary>Yak review policy</summary>\n\n"
+                . "Mode: {$decision['mode']}. Decision: {$decision['candidate']}.\n\n"
+                . 'Risk score: ' . ($decision['risk_score'] ?? 'unknown') . '/100. '
+                . 'Model confidence (subjective): ' . ($decision['model_confidence'] ?? 'unknown') . '/100. '
+                . 'Profile: ' . ($decision['profile_version'] ?? 'missing') . ".\n\n"
+                . implode("\n", array_map(fn (string $reason): string => '- ' . $reason, $decision['reasons']))
+                . "\n\nSignals and observed evidence:\n```json\n"
+                . json_encode(['signals' => $unfiltered->signals, 'components' => $decision['score_components'], 'observed' => $decision['observed']], JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE)
+                . "\n```"
+                . "\n\nApproval is not merge authorization. A human still merges.\n</details>";
+            $body .= $policyNote;
+            TaskLogger::info($this->task, 'Review approval policy evaluated', $decision + [
+                'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha'],
+            ]);
+        }
+
         try {
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->github_full_name,
                 $prNumber,
                 $body,
-                'COMMENT',
+                $decision['event'],
                 $lineComments,
+                (string) $metadata['head_sha'],
             );
         } catch (\RuntimeException $e) {
             // GitHub rejects line comments whose line number isn't inside a
@@ -640,6 +678,9 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             if ($rollupLine !== '') {
                 $body = $rollupLine . "\n\n" . $body;
             }
+            // A rejected submission is never retried as an approval.
+            $decision['event'] = 'COMMENT';
+            $body .= $policyNote . "\n\nGitHub rejected the original review; posted as a comment only.";
             $response = $github->createPullRequestReview(
                 $installationId,
                 $repository->github_full_name,
@@ -647,6 +688,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 $body,
                 'COMMENT',
                 [],
+                (string) $metadata['head_sha'],
             );
             $lineComments = [];
             $lineCommentFindings = [];
@@ -663,6 +705,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'incremental_base_sha' => $metadata['incremental_base_sha'] ?? null,
             'summary' => $parsed->summary,
             'verdict' => $parsed->verdict,
+            'risk_assessment' => $decision + ['signals' => $unfiltered->signals,
+                'head_sha' => $metadata['head_sha'], 'base_sha' => $metadata['base_sha']],
             'submitted_at' => now(),
         ]);
 
@@ -676,6 +720,15 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         }
 
         Telemetry::record('review.submitted', [
+            'github_event' => $decision['event'],
+            'approval_candidate' => $decision['candidate'],
+            'approval_mode' => $decision['mode'],
+            'approval_reasons' => $decision['reasons'],
+            'risk' => $unfiltered->risk,
+            'risk_score' => $decision['risk_score'],
+            'model_confidence' => $decision['model_confidence'],
+            'risk_profile_version' => $decision['profile_version'],
+            'risk_signals' => $unfiltered->signals,
             'scope' => (string) ($metadata['review_scope'] ?? 'full'),
             'verdict' => $parsed->verdict,
             'findings' => count($parsed->findings),

@@ -9,11 +9,60 @@ use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\RepositoryRiskProfiles;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
+
+test('risk profile research saves a draft tied to the checked out revision without activating it', function () {
+    Storage::fake('local');
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_profile',
+        resultSummary: json_encode([
+            'areas' => [[
+                'name' => 'Documentation', 'paths' => ['docs/*'], 'symbols' => [],
+                'risk' => 'low', 'rationale' => 'Prose only.', 'evidence' => ['docs/readme.md:1'],
+            ]],
+            'unknowns' => [],
+        ]),
+        costUsd: 0.25, numTurns: 1, durationMs: 1000,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse HEAD')) {
+                return Process::result(str_repeat('a', 40));
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
+        }
+    });
+    Repository::factory()->create(['slug' => 'profile-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'profile-repo', 'source' => 'cli', 'mode' => 'research',
+        'context' => json_encode(['risk_profile_draft' => true]),
+    ]);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    $profiles = app(RepositoryRiskProfiles::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Success)
+        ->and(json_decode($task->fresh()->context, true)['risk_profile_source_sha'])->toBe(str_repeat('a', 40))
+        ->and($profiles->active('profile-repo'))->toBeNull();
+    $files = Storage::disk('local')->allFiles($profiles->directory('profile-repo'));
+    expect($files)->toHaveCount(1);
+    $draft = json_decode(Storage::disk('local')->get($files[0]), true);
+    expect($draft['source_sha'])->toBe(str_repeat('a', 40))
+        ->and($draft)->not->toHaveKey('approved_by');
+});
 
 /*
 |--------------------------------------------------------------------------

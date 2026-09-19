@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $dismissed_at
  * @property CarbonImmutable|null $pr_closed_at
  * @property CarbonImmutable|null $pr_merged_at
+ * @property array<string, mixed>|null $risk_assessment
  */
 class PrReview extends Model
 {
@@ -32,6 +33,7 @@ class PrReview extends Model
     protected function casts(): array
     {
         return [
+            'risk_assessment' => 'array',
             'submitted_at' => 'datetime',
             'dismissed_at' => 'datetime',
             'pr_closed_at' => 'datetime',

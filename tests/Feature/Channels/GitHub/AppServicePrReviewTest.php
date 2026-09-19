@@ -64,6 +64,41 @@ it('lists open PRs with pagination', function () {
     expect($prs)->toHaveCount(2);
 });
 
+it('pins approval and change requests to the reviewed commit', function (string $event) {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/geocodio/api/pulls/42/reviews' => Http::response(['id' => 1]),
+    ]);
+
+    app(GitHubAppService::class)->createPullRequestReview(12345, 'geocodio/api', 42, 'Review', $event, [], 'reviewed-sha');
+
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/pulls/42/reviews')
+        && $request['event'] === $event && $request['commit_id'] === 'reviewed-sha');
+})->with(['APPROVE', 'REQUEST_CHANGES', 'COMMENT']);
+
+it('collects approval evidence without accepting missing or truncated review threads', function (string $case) {
+    $threads = ['nodes' => [], 'pageInfo' => ['hasNextPage' => false]];
+    if ($case === 'truncated') {
+        $threads['pageInfo']['hasNextPage'] = true;
+    }
+    if ($case === 'unresolved') {
+        $threads['nodes'] = [['isResolved' => false]];
+    }
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'tok', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/geocodio/api/branches/main/protection' => Http::response(['required_pull_request_reviews' => ['dismiss_stale_reviews' => true]]),
+        'api.github.com/repos/geocodio/api/commits/sha/check-runs*' => Http::response(['total_count' => 0, 'check_runs' => []]),
+        'api.github.com/repos/geocodio/api/commits/sha/status*' => Http::response(['total_count' => 0, 'statuses' => []]),
+        'api.github.com/graphql' => Http::response($case === 'missing' ? [] : [
+            'data' => ['repository' => ['pullRequest' => ['reviewThreads' => $threads]]],
+        ]),
+    ]);
+
+    $evidence = app(GitHubAppService::class)->approvalEvidence(12345, 'geocodio/api', 42, 'sha', 'main');
+    expect($evidence['threads_clear'])->toBe($case === 'complete')
+        ->and($evidence['dismiss_stale_reviews'])->toBeTrue();
+})->with(['complete', 'truncated', 'unresolved', 'missing']);
+
 it('lists the inline comments of a submitted review', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'x', 'expires_at' => now()->addHour()->toIso8601String()]),

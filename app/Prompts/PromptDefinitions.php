@@ -82,6 +82,14 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['repoName'],
             ],
+            'tasks-risk-profile' => [
+                'view' => 'prompts.tasks.risk-profile',
+                'label' => 'Repository Risk Profile',
+                'description' => 'Researches repository risk areas and produces a draft for human review. Does not activate the profile or grant approval permissions.',
+                'category' => 'high_touch',
+                'type' => 'task',
+                'variables' => [],
+            ],
             'tasks-research' => [
                 'view' => 'prompts.tasks.research',
                 'label' => 'Research',
@@ -123,7 +131,7 @@ class PromptDefinitions
                 'variables' => [
                     'prNumber', 'prTitle', 'prBody', 'prAuthor',
                     'baseBranch', 'headBranch', 'diffSummary',
-                    'reviewScope', 'changedFiles',
+                    'reviewScope', 'changedFiles', 'reviewBase', 'approvedRiskProfile',
                     'repoAgentInstructions', 'pathExcludes', 'linearTicket',
                 ],
             ],

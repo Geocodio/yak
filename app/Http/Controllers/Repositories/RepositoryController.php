@@ -12,6 +12,7 @@ use App\Http\Resources\RepositorySummaryData;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
@@ -197,6 +198,7 @@ class RepositoryController extends Controller
             'ci_system' => $validated['ci_system'],
             'sentry_project' => ($validated['sentry_project'] ?? '') !== '' ? $validated['sentry_project'] : null,
             'pr_review_enabled' => $validated['pr_review_enabled'] ?? false,
+            ...(isset($validated['pr_review_policy']) ? ['pr_review_policy' => $validated['pr_review_policy']] : []),
             'pr_review_path_excludes' => $validated['path_excludes'] ?? null,
             'deployments_enabled' => $validated['deployments_enabled'] ?? false,
         ];
@@ -221,6 +223,9 @@ class RepositoryController extends Controller
             'ciSystem' => $repository->ci_system,
             'sentryProject' => $repository->sentry_project,
             'prReviewEnabled' => (bool) $repository->pr_review_enabled,
+            'reviewPolicy' => $repository->reviewPolicy(),
+            'riskProfiles' => app(RepositoryRiskProfiles::class)->forSettings($repository->slug),
+            'riskProfileActionUrl' => route('repos.risk-profile', $repository),
             'deploymentsEnabled' => (bool) $repository->deployments_enabled,
             'pathExcludes' => $repository->pr_review_path_excludes,
             'githubFullName' => $repository->github_full_name,
@@ -245,6 +250,7 @@ class RepositoryController extends Controller
                 ->values()
                 ->all(),
             'defaultPathExcludes' => config('yak.pr_review.default_path_excludes'),
+            'defaultReviewPolicy' => (new Repository)->reviewPolicy(),
         ];
     }
 

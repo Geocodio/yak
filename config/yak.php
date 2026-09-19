@@ -433,6 +433,19 @@ return [
     */
 
     'pr_review' => [
+        // Repository approval settings live in the dashboard/database.
+        // These non-overridable exclusions are the minimum security boundary.
+        'approval_blocked_paths' => [
+            '.github/**', '.claude/**', '.drone*', 'AGENTS.md', 'CLAUDE.md',
+            'database/**', 'routes/**', 'config/**', 'bootstrap/**', 'ansible/**',
+            'docker/**', 'Dockerfile*', '*lock*', 'composer.json', 'package.json',
+            '*.tf', '*.tfvars', '.env*', '*Auth*', '*Policy*', '*Policies*',
+            'app/Auth/**', 'app/Policies/**', 'app/Actions/Fortify/**',
+            'app/Billing/**', 'app/Payments/**',
+            '*Billing*', '*Payment*', '*Review*', '*Approval*', '*Permission*', '*Risk*', '*Prompt*',
+            'app/Channels/GitHub/**', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
+            'resources/views/prompts/**',
+        ],
         'reaction_poll_window_days' => (int) env('YAK_PR_REVIEW_POLL_DAYS', 30),
         'max_findings_per_review' => (int) env('YAK_PR_REVIEW_MAX_FINDINGS', 10),
         'enabled_globally' => (bool) env('YAK_PR_REVIEW_ENABLED_GLOBALLY', true),

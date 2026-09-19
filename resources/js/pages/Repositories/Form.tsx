@@ -12,6 +12,8 @@ import { GitHubRepoPicker } from '@/components/repositories/GitHubRepoPicker';
 import { PathExcludes } from '@/components/repositories/PathExcludes';
 import { SetupHistory } from '@/components/repositories/SetupHistory';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
+import { ReviewApprovalSettings } from '@/components/repositories/ReviewApprovalSettings';
+import type { ReviewPolicy } from '@/types/repositories';
 import repos from '@/routes/repos';
 import { tasks } from '@/routes';
 import type { PageProps } from '@/types/shared';
@@ -50,6 +52,7 @@ type FormData = {
     ci_system: string;
     sentry_project: string;
     pr_review_enabled: boolean;
+    pr_review_policy: ReviewPolicy;
     apply_to_open_prs: boolean;
     deployments_enabled: boolean;
     path_excludes: string[] | null;
@@ -206,6 +209,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         ci_system: repository?.ciSystem ?? 'github_actions',
         sentry_project: repository?.sentryProject ?? '',
         pr_review_enabled: repository?.prReviewEnabled ?? false,
+        pr_review_policy: repository?.reviewPolicy ?? options.defaultReviewPolicy,
         apply_to_open_prs: true,
         deployments_enabled: repository?.deploymentsEnabled ?? false,
         path_excludes: repository?.pathExcludes ?? null,
@@ -222,6 +226,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         if (isEditing && repository) {
             form.transform((data) => ({
                 ...data,
+                pr_review_policy: { ...data.pr_review_policy, allowed_paths: data.pr_review_policy.allowed_paths.map((path) => path.trim()).filter(Boolean), blocked_paths: data.pr_review_policy.blocked_paths.map((path) => path.trim()).filter(Boolean) },
                 manifest: showManifest && data.manifest
                     ? {
                           port: data.manifest.port,
@@ -544,6 +549,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         {form.data.pr_review_enabled && (
                             <PathExcludes value={form.data.path_excludes} defaults={options.defaultPathExcludes} onChange={(v) => form.setData('path_excludes', v)} />
                         )}
+                        {form.data.pr_review_enabled && <ReviewApprovalSettings value={form.data.pr_review_policy} onChange={(policy) => form.setData('pr_review_policy', policy)} errors={form.errors} repository={repository} />}
                         {isEditing && (
                             <ToggleRow
                                 label="Branch deployments"

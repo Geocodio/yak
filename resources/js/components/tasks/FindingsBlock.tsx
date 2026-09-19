@@ -39,13 +39,34 @@ export function FindingsBlock({ findings }: { findings: FindingsData }) {
     return (
         <div className="mt-3 rounded-card border border-hair bg-panel shadow-card" data-testid="findings-block">
             <div className="flex items-center gap-2 border-b border-hair px-3 py-2">
-                <span className="text-[12px] font-medium text-body capitalize">{findings.verdict.replace(/_/g, ' ')}</span>
+                <span className="text-[12px] font-medium text-body">Model verdict: {findings.verdict.replace(/_/g, ' ')}</span>
                 <span className="ml-auto flex items-center gap-2 text-[11px] text-faint">
                     {findings.counts.mustFix > 0 && <span className="text-fail">{findings.counts.mustFix} must-fix</span>}
                     {findings.counts.shouldFix > 0 && <span className="text-warn">{findings.counts.shouldFix} should-fix</span>}
                     {findings.counts.consider > 0 && <span>{findings.counts.consider} consider</span>}
                 </span>
             </div>
+            {findings.riskAssessment && (
+                <div className="border-b border-hair px-3 py-2 text-[12px]" data-testid="review-risk-assessment">
+                    <p className="font-medium text-body">GitHub review: {findings.riskAssessment.event === 'APPROVE' ? 'Approved' : findings.riskAssessment.event === 'REQUEST_CHANGES' ? 'Changes requested' : 'Comment only'}</p>
+                    {findings.riskAssessment.mode === 'shadow' && (
+                        <p className="text-muted">Shadow mode. Policy recommendation: {findings.riskAssessment.candidate.replace(/_/g, ' ').toLowerCase()}.</p>
+                    )}
+                    {findings.riskAssessment.mode === 'off' && <p className="text-muted">Automatic approval is disabled.</p>}
+                    <p className="text-muted">Risk: {findings.riskAssessment.risk_score === null ? 'Unknown' : `${findings.riskAssessment.risk_score}/100 (higher means more risk)`}</p>
+                    <p className="text-muted">Model confidence: {findings.riskAssessment.model_confidence === null ? 'Unknown' : `${findings.riskAssessment.model_confidence}/100`}. Self-reported, not a measured probability.</p>
+                    {findings.riskAssessment.reasons.length > 0 && (
+                        <ul className="mt-2 list-disc space-y-1 pl-4 text-muted">
+                            {findings.riskAssessment.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
+                        </ul>
+                    )}
+                    <details className="mt-2 text-muted">
+                        <summary className="cursor-pointer">Signals and evidence</summary>
+                        <p className="mt-2 break-all">Profile: {findings.riskAssessment.profile_version ?? 'No approved profile'}</p>
+                        <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap break-words text-[11px]">{JSON.stringify({ signals: findings.riskAssessment.signals, observed: findings.riskAssessment.observed, score_components: findings.riskAssessment.score_components }, null, 2)}</pre>
+                    </details>
+                </div>
+            )}
             <div className="px-3 py-2">
                 <Prose html={findings.summaryHtml} className="text-[12px]" />
             </div>

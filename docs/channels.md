@@ -88,7 +88,7 @@ GitHub redirects requests for a repository's old path, so the stale name Yak hol
 
 If your repos use GitHub Actions for CI, set `ci_system: github_actions` in the repo definition. Nothing else is required — the GitHub App receives check suite events automatically.
 
-**Important:** the GitHub App must NOT be in your branch protection bypass list and must not have permission to approve reviews. Yak has no merge authority by design.
+**Important:** the GitHub App must NOT be in your branch protection bypass list. Risk-based review approval is an explicit per-repository opt-in; Yak still has no merge authority.
 
 ### Follow-ups
 
