@@ -291,3 +291,32 @@ it('requires human review for the approval machinery itself', function (string $
     'app/Services/RepositoryRiskProfiles.php', 'app/YakPromptBuilder.php',
     'app/Channels/GitHub/AppService.php', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
 ]);
+
+it('does not request changes for a must_fix the author never sees', function () {
+    $this->repo->update(['pr_review_path_excludes' => ['docs/**']]);
+    $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'must_fix', 'Correctness', 'Broken example.')]);
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, $review, $this->metadata, $this->files);
+    expect($decision['event'])->toBe('COMMENT')
+        ->and($decision['reasons'])->toContain('Review contains findings.');
+});
+
+it('recognises test coverage outside the Laravel tests directory', function (string $testFile) {
+    $profiles = app(RepositoryRiskProfiles::class);
+    $draft = $profiles->draft('acme/api', str_repeat('c', 40), json_encode([
+        'areas' => [['name' => 'Library', 'paths' => ['src/**', 'spec/**', '__tests__/**'], 'symbols' => [],
+            'risk' => 'low', 'rationale' => 'Isolated helper.', 'evidence' => ['src/slug.js:1']]], 'unknowns' => [],
+    ]));
+    $profiles->approve('acme/api', $draft['version'], 'reviewer');
+    $this->metadata['risk_profile_version'] = $draft['version'];
+    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), [
+        'allowed_paths' => ['src/**', 'spec/**', '__tests__/**'],
+    ])]);
+    $this->pr['changed_files'] = 2;
+    $this->files = [
+        ['filename' => 'src/slug.js', 'status' => 'modified', 'additions' => 1, 'deletions' => 1, 'patch' => "@@ -1 +1 @@\n-old\n+new"],
+        ['filename' => $testFile, 'status' => 'added', 'additions' => 2, 'deletions' => 0, 'patch' => "@@ -0,0 +1,2 @@\n+describe\n+expect"],
+    ];
+
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+    expect($decision['reasons'])->toBe([])->and($decision['event'])->toBe('APPROVE');
+})->with(['spec/slug_spec.rb', '__tests__/slug.test.js']);

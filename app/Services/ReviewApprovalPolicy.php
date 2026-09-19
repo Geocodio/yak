@@ -43,9 +43,14 @@ class ReviewApprovalPolicy
         if (($profile['unknowns'] ?? []) !== []) {
             $reasons[] = 'Repository risk profile has unresolved context gaps.';
         }
+        $excludes = $repository->pr_review_path_excludes ?? (array) config('yak.pr_review.default_path_excludes', []);
         $mustFix = false;
         foreach ($review->findings as $finding) {
-            $mustFix = $mustFix || $finding->severity === 'must_fix';
+            // Every finding blocks approval, but only a finding the author can
+            // actually see is allowed to turn the review into a change request
+            // — an excluded path is never shown in the review body.
+            $mustFix = $mustFix || ($finding->severity === 'must_fix'
+                && ! PathMatcher::matches($finding->file, $excludes));
             $reasons[] = 'Review contains findings.';
         }
 
@@ -64,7 +69,6 @@ class ReviewApprovalPolicy
 
         $allowed = (array) ($policy['allowed_paths'] ?? []);
         $blocked = array_merge((array) config('yak.pr_review.approval_blocked_paths', []), $policy['blocked_paths']);
-        $excludes = $repository->pr_review_path_excludes ?? (array) config('yak.pr_review.default_path_excludes', []);
         $lines = 0;
         $hasCode = false;
         $hasTests = false;
@@ -112,7 +116,7 @@ class ReviewApprovalPolicy
                 $reasons[] = 'Diff is empty, malformed or truncated.';
             }
             $lines += $file['additions'] + $file['deletions'];
-            $test = str_starts_with($path, 'tests/');
+            $test = PathMatcher::matches($path, (array) config('yak.pr_review.approval_test_paths', []));
             $hasTests = $hasTests || ($test && $file['additions'] > 0);
             $hasCode = $hasCode || (! $test && ! str_ends_with($path, '.md'));
             if ($test && $file['deletions'] > 0) {

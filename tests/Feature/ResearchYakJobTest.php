@@ -64,6 +64,44 @@ test('risk profile research saves a draft tied to the checked out revision witho
         ->and($draft)->not->toHaveKey('approved_by');
 });
 
+test('a rejected risk profile draft keeps the research output for a human to correct', function () {
+    Storage::fake('local');
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_profile_bad',
+        resultSummary: "Here is the profile:\n```json\n{\"areas\": []}\n```",
+        costUsd: 0.25, numTurns: 1, durationMs: 1000,
+        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse HEAD')) {
+                return Process::result(str_repeat('a', 40));
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
+        }
+    });
+    Repository::factory()->create(['slug' => 'profile-repo']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'profile-repo', 'source' => 'cli', 'mode' => 'research',
+        'context' => json_encode(['risk_profile_draft' => true]),
+    ]);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    $profiles = app(RepositoryRiskProfiles::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Success)
+        ->and($task->fresh()->result_summary)->toContain('"areas": []')
+        ->and($task->fresh()->result_summary)->toContain('No draft risk profile was saved')
+        ->and(Storage::disk('local')->allFiles($profiles->directory('profile-repo')))->toBe([])
+        ->and($profiles->active('profile-repo'))->toBeNull();
+});
+
 /*
 |--------------------------------------------------------------------------
 | Successful Research

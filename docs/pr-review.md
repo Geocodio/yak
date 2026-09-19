@@ -91,6 +91,9 @@ normal sandbox, budget and queue controls. The generic prompt maps critical
 flows, shared symbols, callers, contracts and test gaps. It returns areas with
 paths, symbols, severity, rationale and code evidence. A successful task shows
 the JSON draft and its SHA-256 version; source revision is captured by the host.
+Output that fails validation stores no draft, but the task still completes and
+keeps the agent's response, so the JSON can be corrected and imported instead of
+paying for another research run.
 
 Drafts live under the private local disk at `risk-profiles/<sha256-of-slug>/drafts/`.
 Review the draft, then explicitly activate it using
@@ -142,7 +145,7 @@ Settings come from the database, never the PR branch. The UI can tighten score,
 confidence and profile-age limits; it cannot disable the built-in security
 exclusions or the human-review requirement for high-risk areas.
 
-The policy approves only full, clean, explicitly low-risk reviews within the file and line limits. All PR files count, including excluded paths. Unknown paths, blocked paths, removed/renamed files, missing patches, modified existing tests and untested code changes require human review. Added test lines are only a structural signal, not proof of coverage; the reviewer must also verify the relevant behavior. Findings are evaluated before display filtering or truncation. A concrete `must_fix` finding produces `REQUEST_CHANGES` on an otherwise current, eligible PR; other concerns produce `COMMENT`.
+The policy approves only full, clean, explicitly low-risk reviews within the file and line limits. All PR files count, including excluded paths. Unknown paths, blocked paths, removed/renamed files, missing patches, modified existing tests and untested code changes require human review. Test files are recognized through `pr_review.approval_test_paths` in `config/yak.php`, which covers the common per-language layouts; a repository whose tests live elsewhere needs that list extended before any code change can clear the coverage gate. Added test lines are only a structural signal, not proof of coverage; the reviewer must also verify the relevant behavior. Findings are evaluated before display filtering or truncation. A concrete `must_fix` finding produces `REQUEST_CHANGES` on an otherwise current, eligible PR, unless the only `must_fix` sits in an excluded path the author never sees — that still blocks approval but stays a `COMMENT`. Other concerns produce `COMMENT`.
 
 Before approval Yak verifies the live head/base SHAs, base ref, PR state, same-repository head, complete file count, resolved review threads, and all configured checks/statuses from their trusted apps or creators. Pending, skipped, failed or incomplete CI evidence prevents approval. If CI finishes after the review, request another review; no background approval is scheduled. Opted-in re-reviews always run full scope.
 

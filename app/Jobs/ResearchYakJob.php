@@ -237,13 +237,27 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
         $context = json_decode((string) $this->task->context, true) ?: [];
         if (($context['risk_profile_draft'] ?? false) === true) {
-            $profile = app(RepositoryRiskProfiles::class)->draft(
-                $repository->slug, (string) ($context['risk_profile_source_sha'] ?? ''), $summary,
-            );
-            $summary .= "\n\nDraft risk profile: " . $profile['version'] . "\nHuman review and explicit activation required.";
-            TaskLogger::info($this->task, 'Risk profile draft saved', [
-                'version' => $profile['version'], 'source_sha' => $profile['source_sha'],
-            ]);
+            // A rejected draft must not discard the run: the agent output is
+            // the only copy of the work, and a human needs it to correct the
+            // JSON and re-import it. No draft is stored, so nothing can be
+            // approved from a malformed profile either way.
+            try {
+                $profile = app(RepositoryRiskProfiles::class)->draft(
+                    $repository->slug, (string) ($context['risk_profile_source_sha'] ?? ''), $summary,
+                );
+                $summary .= "\n\nDraft risk profile: " . $profile['version'] . "\nHuman review and explicit activation required.";
+                TaskLogger::info($this->task, 'Risk profile draft saved', [
+                    'version' => $profile['version'], 'source_sha' => $profile['source_sha'],
+                ]);
+            } catch (\Throwable $e) {
+                $summary .= "\n\nNo draft risk profile was saved: " . $e->getMessage()
+                    . "\nCorrect the JSON above and import it with `php artisan yak:risk-profile "
+                    . $repository->slug . ' --import=<file.json>`.';
+                TaskLogger::error($this->task, 'Risk profile draft rejected', [
+                    'error' => $e->getMessage(),
+                    'raw_output' => mb_substr($result->resultSummary, 0, 10000),
+                ]);
+            }
         }
 
         $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
