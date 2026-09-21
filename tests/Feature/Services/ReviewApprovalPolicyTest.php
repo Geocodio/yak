@@ -7,15 +7,14 @@ use App\DataTransferObjects\ReviewFinding;
 use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewApprovalPolicy;
-use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->repo = Repository::factory()->create(['slug' => 'acme/api', 'github_full_name' => 'acme/api', 'pr_review_enabled' => true, 'is_active' => true]);
     $this->metadata = ['pr_number' => 42, 'head_sha' => 'head', 'base_sha' => 'base', 'base_ref' => 'main', 'review_scope' => 'full'];
-    Storage::fake('local');
     $profiles = app(RepositoryRiskProfiles::class);
     $draft = $profiles->draft('acme/api', str_repeat('a', 40), json_encode([
         'areas' => [['name' => 'Docs', 'paths' => ['docs/**'], 'symbols' => [], 'risk' => 'low',
@@ -72,7 +71,7 @@ it('requires a matching approved profile and refuses expired profiles', function
     } elseif ($case === 'expired') {
         $this->travel(91)->days();
     } else {
-        Storage::disk('local')->delete(app(RepositoryRiskProfiles::class)->directory('acme/api') . '/active.json');
+        RiskProfile::where('repo', 'acme/api')->update(['approved_by' => null, 'approved_at' => null]);
     }
     $result = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
     expect($result['event'])->toBe('COMMENT');
@@ -281,6 +280,24 @@ it('does not approve when the PR changes while CI evidence is fetched', function
     expect($decision['event'])->toBe('COMMENT')
         ->and($decision['reasons'])->toContain('PR changed while verifying CI; request a fresh review.');
 })->with(['head', 'base', 'auto_merge']);
+
+it('still approves when only volatile repository metadata changes between fetches', function () {
+    $github = mock(AppService::class);
+    $github->shouldReceive('getPullRequest')->andReturnUsing(fn () => $this->pr);
+    $github->shouldReceive('appBotLogin')->andReturn('yak[bot]');
+    $github->shouldReceive('approvalEvidence')->once()->andReturnUsing(function () {
+        // An unrelated push to the repository, or a new issue being filed, bumps
+        // these fields on the refetched PR's nested repo objects without the PR
+        // itself changing; that must not block approval.
+        $this->pr['head']['repo']['pushed_at'] = now()->addMinute()->toIso8601String();
+        $this->pr['base']['repo']['open_issues_count'] = 7;
+
+        return $this->evidence;
+    });
+    app()->instance(AppService::class, $github);
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+    expect($decision['event'])->toBe('APPROVE')->and($decision['reasons'])->toBe([]);
+});
 
 it('requires human review for the approval machinery itself', function (string $path) {
     $this->files[0]['filename'] = $path;

@@ -68,8 +68,8 @@ approvals; this does not revoke existing GitHub reviews.
 
 The same section lets you generate, inspect, edit and approve risk profiles.
 Approval requires confirmation of the displayed version and records the signed-in
-user. All web and queue workers must share the private local storage containing
-profiles. Back up that directory with deployment data.
+user. Profiles are stored in the database, so all web and queue workers share
+them automatically; back up the database as usual.
 
 PRs with GitHub auto-merge enabled are ineligible. Yak never invokes merge APIs.
 External automation and branch settings must also preserve the intended human
@@ -95,7 +95,7 @@ Output that fails validation stores no draft, but the task still completes and
 keeps the agent's response, so the JSON can be corrected and imported instead of
 paying for another research run.
 
-Drafts live under the private local disk at `risk-profiles/<sha256-of-slug>/drafts/`.
+Drafts are stored in the `risk_profiles` database table, keyed by repository slug.
 Review the draft, then explicitly activate it using
 `php artisan yak:risk-profile <slug> --approve=<draft-hash> --reviewer=<human-name>`.
 This CLI operation requires host access and is not exposed to the agent. The

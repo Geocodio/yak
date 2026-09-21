@@ -11,12 +11,12 @@ use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewOutputParser;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 12345);
@@ -753,7 +753,6 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
 });
 
 it('carries the reviewed profile through a full approval and fails closed if it changes', function (bool $changeProfile) {
-    Storage::fake('local');
     $repo = Repository::factory()->create([
         'slug' => 'acme/api', 'github_full_name' => 'acme/api',
         'pr_review_enabled' => true, 'is_active' => true,
@@ -777,10 +776,11 @@ it('carries the reviewed profile through a full approval and fails closed if it 
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "docs/guide.md\n", exitCode: 0));
     app()->instance(IncusSandboxManager::class, $sandbox);
     $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->once()->andReturnUsing(function ($request) use ($draft, $profiles, $repo, $changeProfile) {
+    $agent->shouldReceive('run')->once()->andReturnUsing(function ($request) use ($draft, $repo, $changeProfile) {
         expect($request->prompt)->toContain($draft['version']);
         if ($changeProfile) {
-            Storage::disk('local')->delete($profiles->directory($repo->slug) . '/active.json');
+            RiskProfile::where('repo', $repo->slug)->where('version', $draft['version'])
+                ->update(['approved_by' => null, 'approved_at' => null]);
         }
 
         return new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,

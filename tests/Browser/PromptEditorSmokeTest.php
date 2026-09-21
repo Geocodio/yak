@@ -4,7 +4,6 @@ use App\Models\Repository;
 use App\Models\User;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Storage;
 
 test('repository risk prompt uses the existing prompt editor', function () {
     $this->actingAs(User::factory()->create());
@@ -67,7 +66,6 @@ test('toggling the diff view renders the merge editor', function () {
 });
 
 test('a human can activate an exact profile and save shadow mode from repository settings', function () {
-    Storage::fake('local');
     Queue::fake();
     $user = User::factory()->create();
     $this->actingAs($user);

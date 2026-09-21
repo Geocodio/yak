@@ -179,11 +179,14 @@ class ReviewApprovalPolicy
                 );
                 if ($reasons === []) {
                     $latest = $github->getPullRequest($installationId, $repository->github_full_name, (int) $metadata['pr_number']);
-                    foreach (['state', 'draft', 'auto_merge', 'head', 'base', 'changed_files', 'user'] as $key) {
-                        if (($latest[$key] ?? null) !== ($pr[$key] ?? null)) {
-                            $reasons[] = 'PR changed while verifying CI; request a fresh review.';
-                            break;
-                        }
+                    $identity = fn (array $pr): array => [
+                        $pr['state'] ?? null, $pr['draft'] ?? null, $pr['auto_merge'] ?? null,
+                        $pr['changed_files'] ?? null, $pr['head']['sha'] ?? null,
+                        $pr['head']['repo']['full_name'] ?? null, $pr['base']['sha'] ?? null,
+                        $pr['base']['ref'] ?? null, $pr['user']['login'] ?? null,
+                    ];
+                    if ($identity($latest) !== $identity($pr)) {
+                        $reasons[] = 'PR changed while verifying CI; request a fresh review.';
                     }
                 }
                 if ($reasons === []) {

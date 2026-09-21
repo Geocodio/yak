@@ -6,11 +6,9 @@ use App\Models\User;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
-    Storage::fake('local');
     Queue::fake();
     Http::fake();
     $this->user = User::factory()->create();

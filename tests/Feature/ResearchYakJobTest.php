@@ -7,6 +7,7 @@ use App\Jobs\ResearchYakJob;
 use App\Models\Artifact;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\RepositoryRiskProfiles;
@@ -57,9 +58,9 @@ test('risk profile research saves a draft tied to the checked out revision witho
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
         ->and(json_decode($task->fresh()->context, true)['risk_profile_source_sha'])->toBe(str_repeat('a', 40))
         ->and($profiles->active('profile-repo'))->toBeNull();
-    $files = Storage::disk('local')->allFiles($profiles->directory('profile-repo'));
-    expect($files)->toHaveCount(1);
-    $draft = json_decode(Storage::disk('local')->get($files[0]), true);
+    $rows = RiskProfile::where('repo', 'profile-repo')->get();
+    expect($rows)->toHaveCount(1);
+    $draft = $rows[0]->profile;
     expect($draft['source_sha'])->toBe(str_repeat('a', 40))
         ->and($draft)->not->toHaveKey('approved_by');
 });
@@ -98,7 +99,7 @@ test('a rejected risk profile draft keeps the research output for a human to cor
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
         ->and($task->fresh()->result_summary)->toContain('"areas": []')
         ->and($task->fresh()->result_summary)->toContain('No draft risk profile was saved')
-        ->and(Storage::disk('local')->allFiles($profiles->directory('profile-repo')))->toBe([])
+        ->and(RiskProfile::where('repo', 'profile-repo')->count())->toBe(0)
         ->and($profiles->active('profile-repo'))->toBeNull();
 });
 

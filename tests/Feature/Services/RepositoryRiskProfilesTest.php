@@ -2,13 +2,12 @@
 
 use App\Jobs\ResearchYakJob;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
-    Storage::fake('local');
     $this->profiles = app(RepositoryRiskProfiles::class);
     $this->content = ['areas' => [[
         'name' => 'Billing', 'paths' => ['app/Billing/**'], 'symbols' => ['Invoice::charge'],
@@ -27,7 +26,7 @@ it('keeps AI drafts inactive until a human approves the exact hash', function ()
 it('rejects approval of a modified draft', function () {
     $draft = $this->profiles->draft('acme/api', str_repeat('a', 40), json_encode($this->content));
     $draft['areas'][0]['risk'] = 'low';
-    Storage::disk('local')->put($this->profiles->directory('acme/api') . '/drafts/' . $draft['version'] . '.json', json_encode($draft));
+    RiskProfile::where('repo', 'acme/api')->where('version', $draft['version'])->update(['profile' => $draft]);
     $this->profiles->approve('acme/api', $draft['version'], 'Sylvester');
 })->throws(RuntimeException::class, 'mismatch');
 
@@ -42,7 +41,8 @@ it('expires old profiles and preserves approved versions', function () {
     $this->profiles->approve('acme/api', $draft['version'], 'Sylvester');
     $this->travel(91)->days();
     expect($this->profiles->active('acme/api'))->toBeNull();
-    Storage::disk('local')->assertExists($this->profiles->directory('acme/api') . '/approved/' . $draft['version'] . '.json');
+    $row = RiskProfile::where('repo', 'acme/api')->where('version', $draft['version'])->first();
+    expect($row)->not->toBeNull()->and($row->approved_by)->toBe('Sylvester');
 });
 
 it('dispatches profile generation through the research queue', function () {

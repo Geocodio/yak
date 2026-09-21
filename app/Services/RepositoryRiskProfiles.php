@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Enums\TaskMode;
 use App\Jobs\ResearchYakJob;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\YakTask;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -29,27 +29,16 @@ class RepositoryRiskProfiles
     /** @return array{active: array<string, mixed>|null, drafts: array<int, array<string, mixed>>} */
     public function forSettings(string $repo): array
     {
-        $disk = Storage::disk('local');
-        $files = $disk->files($this->directory($repo) . '/drafts');
-        usort($files, fn (string $a, string $b): int => $disk->lastModified($b) <=> $disk->lastModified($a));
+        $rows = RiskProfile::where('repo', $repo)->orderByDesc('created_at')->limit(20)->get();
         $drafts = [];
-        foreach (array_slice($files, 0, 20) as $file) {
-            try {
-                $draft = json_decode($disk->get($file) ?? '', true, 64, JSON_THROW_ON_ERROR);
-                if (($draft['repo'] ?? null) === $repo && ($draft['version'] ?? '') === $this->version($draft)) {
-                    $drafts[] = $draft;
-                }
-            } catch (\Throwable) {
-                continue;
+        foreach ($rows as $row) {
+            $profile = $row->profile;
+            if (($profile['repo'] ?? null) === $repo && ($profile['version'] ?? '') === $this->version($profile)) {
+                $drafts[] = $profile;
             }
         }
 
         return ['active' => $this->active($repo), 'drafts' => $drafts];
-    }
-
-    public function directory(string $repo): string
-    {
-        return 'risk-profiles/' . hash('sha256', $repo);
     }
 
     /** @return array<string, mixed> */
@@ -87,7 +76,10 @@ class RepositoryRiskProfiles
         $profile = ['schema_version' => 1, 'repo' => $repo, 'source_sha' => $sha,
             'areas' => $validated['areas'], 'unknowns' => $validated['unknowns']];
         $profile['version'] = $this->version($profile);
-        $this->write($this->directory($repo) . '/drafts/' . $profile['version'] . '.json', $profile);
+        RiskProfile::updateOrCreate(
+            ['repo' => $repo, 'version' => $profile['version']],
+            ['profile' => $profile],
+        );
 
         return $profile;
     }
@@ -107,23 +99,33 @@ class RepositoryRiskProfiles
         if (preg_match('/^[a-f0-9]{64}$/', $version) !== 1 || trim($reviewer) === '') {
             throw new \RuntimeException('An exact draft hash and human reviewer are required.');
         }
-        $profile = json_decode(Storage::disk('local')->get($this->directory($repo) . '/drafts/' . $version . '.json') ?? '', true, 64, JSON_THROW_ON_ERROR);
+        $row = RiskProfile::where('repo', $repo)->where('version', $version)->first();
+        if ($row === null) {
+            throw new \RuntimeException('Draft hash or repository mismatch.');
+        }
+        $profile = $row->profile;
         if (($profile['repo'] ?? null) !== $repo || $this->version($profile) !== $version) {
             throw new \RuntimeException('Draft hash or repository mismatch.');
         }
-        $profile['approved_by'] = trim($reviewer);
-        $profile['approved_at'] = now()->toIso8601String();
-        $this->write($this->directory($repo) . '/approved/' . $version . '.json', $profile);
-        $this->write($this->directory($repo) . '/active.json', $profile);
+        $row->approved_by = trim($reviewer);
+        $row->approved_at = now();
+        $row->save();
 
-        return $profile;
+        return $profile + ['approved_by' => $row->approved_by, 'approved_at' => $row->approved_at->toIso8601String()];
     }
 
     /** @return array<string, mixed>|null */
     public function active(string $repo): ?array
     {
         try {
-            $profile = json_decode(Storage::disk('local')->get($this->directory($repo) . '/active.json') ?? '', true, 64, JSON_THROW_ON_ERROR);
+            $row = RiskProfile::where('repo', $repo)->whereNotNull('approved_at')
+                ->orderByDesc('approved_at')->orderByDesc('id')->first();
+            if ($row === null) {
+                return null;
+            }
+            $profile = $row->profile;
+            $profile['approved_by'] = $row->approved_by;
+            $profile['approved_at'] = $row->approved_at?->toIso8601String();
             if (($profile['repo'] ?? null) !== $repo || empty($profile['approved_by'])
                 || empty($profile['approved_at']) || ($profile['version'] ?? '') !== $this->version($profile)
                 || now()->parse($profile['approved_at'])->lt(now()->subDays((int) (Repository::where('slug', $repo)->first()?->reviewPolicy()['profile_max_age_days'] ?? 90)))) {
@@ -133,14 +135,6 @@ class RepositoryRiskProfiles
             return $profile;
         } catch (\Throwable) {
             return null;
-        }
-    }
-
-    /** @param array<string, mixed> $profile */
-    private function write(string $path, array $profile): void
-    {
-        if (! Storage::disk('local')->put($path, json_encode($profile, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR))) {
-            throw new \RuntimeException('Could not save risk profile.');
         }
     }
 }
