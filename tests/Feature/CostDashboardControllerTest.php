@@ -195,6 +195,9 @@ test('chart returns daily costs', function () {
 });
 
 test('weekly period groups chart data into weekly buckets', function () {
+    // Midweek, so the day after the week's start is not in the future.
+    $this->travelTo(now()->startOfWeek()->addDays(2)->setTime(12, 0));
+
     DailyCost::create([
         'date' => now()->startOfWeek()->toDateString(),
         'total_usd' => 1.0000,
