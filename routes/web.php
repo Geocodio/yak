@@ -101,6 +101,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('repos/{repository}/review-open-prs', [RepositoryActionController::class, 'reviewOpenPrs'])
         ->name('repos.review-open-prs')
         ->where('repository', '.+');
+    Route::post('repos/{repository}/risk-profile', [RepositoryActionController::class, 'riskProfile'])
+        ->name('repos.risk-profile')
+        ->where('repository', '.+');
     Route::post('repos/{repository}/rebuild-deployments', [RepositoryActionController::class, 'rebuildDeployments'])
         ->name('repos.rebuild-deployments')
         ->where('repository', '.+');

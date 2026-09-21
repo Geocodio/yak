@@ -13,6 +13,23 @@ class SaveRepositoryRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $policy = $this->input('pr_review_policy');
+        if (! is_array($policy)) {
+            return;
+        }
+        foreach (['allowed_paths', 'blocked_paths'] as $key) {
+            if (isset($policy[$key]) && is_array($policy[$key])) {
+                $policy[$key] = array_values(array_filter(array_map(
+                    fn (mixed $path): mixed => is_string($path) ? trim($path) : $path,
+                    $policy[$key],
+                ), fn (mixed $path): bool => $path !== '' && $path !== null));
+            }
+        }
+        $this->merge(['pr_review_policy' => $policy]);
+    }
+
     /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
@@ -31,6 +48,25 @@ class SaveRepositoryRequest extends FormRequest
             'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone', 'none'])],
             'sentry_project' => ['nullable', 'string', 'max:255'],
             'pr_review_enabled' => ['boolean'],
+            'pr_review_policy' => ['sometimes', 'array:mode,allowed_paths,blocked_paths,required_checks,required_statuses,max_files,max_lines,max_risk_score,min_confidence,profile_max_age_days'],
+            'pr_review_policy.mode' => ['required_with:pr_review_policy', Rule::in(['off', 'shadow', 'enforce'])],
+            'pr_review_policy.allowed_paths' => ['present_with:pr_review_policy', 'array', 'max:100'],
+            'pr_review_policy.allowed_paths.*' => ['required', 'string', 'max:500', 'regex:#^[A-Za-z0-9_./*?\-]+$#'],
+            'pr_review_policy.blocked_paths' => ['present_with:pr_review_policy', 'array', 'max:100'],
+            'pr_review_policy.blocked_paths.*' => ['required', 'string', 'max:500', 'regex:#^[A-Za-z0-9_./*?\-]+$#'],
+            'pr_review_policy.required_checks' => ['present_with:pr_review_policy', 'array', 'max:50'],
+            'pr_review_policy.required_checks.*' => ['array:name,app_id'],
+            'pr_review_policy.required_checks.*.name' => ['required', 'string', 'max:255', 'distinct'],
+            'pr_review_policy.required_checks.*.app_id' => ['required', 'integer', 'min:1'],
+            'pr_review_policy.required_statuses' => ['present_with:pr_review_policy', 'array', 'max:50'],
+            'pr_review_policy.required_statuses.*' => ['array:name,creator_id'],
+            'pr_review_policy.required_statuses.*.name' => ['required', 'string', 'max:255', 'distinct'],
+            'pr_review_policy.required_statuses.*.creator_id' => ['required', 'integer', 'min:1'],
+            'pr_review_policy.max_files' => ['required_with:pr_review_policy', 'integer', 'between:1,100'],
+            'pr_review_policy.max_lines' => ['required_with:pr_review_policy', 'integer', 'between:1,5000'],
+            'pr_review_policy.max_risk_score' => ['required_with:pr_review_policy', 'integer', 'between:0,30'],
+            'pr_review_policy.min_confidence' => ['required_with:pr_review_policy', 'integer', 'between:80,100'],
+            'pr_review_policy.profile_max_age_days' => ['required_with:pr_review_policy', 'integer', 'between:1,90'],
             'apply_to_open_prs' => ['boolean'],
             'deployments_enabled' => ['boolean'],
             'path_excludes' => ['nullable', 'array'],

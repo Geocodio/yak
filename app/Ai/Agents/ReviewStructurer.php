@@ -35,6 +35,13 @@ below. Do NOT introduce new findings, soften existing ones, or editorialize
 — extract only what's in the source review, verbatim where possible.
 
 Rules:
+- Extract the explicit Risk signals into signals. Each dimension has value
+  (integer 0..4), explanation, references (file/symbol/command citations).
+  Copy model_confidence (integer 0..100), uncertainties and human_review_reasons.
+  Do not infer missing measurements. Use -1 for missing numeric values and
+  empty references for absent evidence. Never turn silence into certainty.
+- Copy the explicit Risk assessment (low/high/unknown). Missing or ambiguous
+  assessments are unknown. Never infer low risk from an approval or no findings.
 - Copy each finding's file path, line number, severity, category, and body
   from the source review. The body is the comment text after the
   `**[Category]** path:LINE —` prefix; do not repeat the category or the
@@ -110,6 +117,17 @@ PROMPT;
         ]);
 
         return [
+            'signals' => $schema->object([
+                'impact' => $this->signalSchema($schema),
+                'blast_radius' => $this->signalSchema($schema),
+                'behavior_change' => $this->signalSchema($schema),
+                'verification_strength' => $this->signalSchema($schema),
+                'context_completeness' => $this->signalSchema($schema),
+                'model_confidence' => $schema->integer()->required(),
+                'uncertainties' => $schema->array()->items($schema->string())->required(),
+                'human_review_reasons' => $schema->array()->items($schema->string())->required(),
+            ])->required(),
+            'risk' => $schema->string()->enum(['low', 'high', 'unknown'])->required(),
             'summary' => $schema->string()->required()
                 ->description('Reviewer-facing notes: the `## For the reviewer` section as markdown (what the PR does, ticket coverage, risk areas with suggested questions, what was and was not verified).'),
             'verdict' => $schema->string()
@@ -121,5 +139,14 @@ PROMPT;
             'prior_findings' => $schema->array()->items($priorFinding)
                 ->description('Resolution decisions for prior unresolved findings, when this is an incremental review.'),
         ];
+    }
+
+    private function signalSchema(JsonSchema $schema): Type
+    {
+        return $schema->object([
+            'value' => $schema->integer()->required(),
+            'explanation' => $schema->string()->required(),
+            'references' => $schema->array()->items($schema->string())->required(),
+        ])->required();
     }
 }

@@ -23,6 +23,8 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\PromptResolver;
+use App\Services\RepositoryRiskProfiles;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
@@ -153,13 +155,26 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             // since then — otherwise the agent reads stale source.
             $workspacePath = IncusSandboxManager::workspacePath();
             $sandbox->injectGitCredentials($containerName);
-            $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
-            $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
-            $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard origin/{$repository->default_branch}", timeout: 30);
+            $fetch = $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
+            $checkout = $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
+            $reset = $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard origin/{$repository->default_branch}", timeout: 30);
+            $context = json_decode((string) $this->task->context, true) ?: [];
+            $riskProfile = ($context['risk_profile_draft'] ?? false) === true;
+            if ($riskProfile) {
+                $sha = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse HEAD", timeout: 30);
+                if ($fetch->exitCode() !== 0 || $checkout->exitCode() !== 0 || $reset->exitCode() !== 0 || $sha->exitCode() !== 0) {
+                    throw new \RuntimeException('Could not establish the risk profile source revision.');
+                }
+                $context['risk_profile_source_sha'] = trim($sha->output());
+                if (preg_match('/^[a-f0-9]{40,64}$/', $context['risk_profile_source_sha']) !== 1) {
+                    throw new \RuntimeException('Risk profile source revision is not a commit SHA.');
+                }
+                $this->task->update(['context' => json_encode($context)]);
+            }
             $recorder->mark('git_prepare');
 
             $request = new AgentRunRequest(
-                prompt: YakPromptBuilder::taskPrompt($this->task),
+                prompt: $riskProfile ? app(PromptResolver::class)->render('tasks-risk-profile') : YakPromptBuilder::taskPrompt($this->task),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
@@ -217,10 +232,36 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
     {
         $summary = $result->resultSummary;
 
+        TaskMetricsAccumulator::record($this->task, $result);
+        DailyCost::accumulate($result->costUsd);
+
+        $context = json_decode((string) $this->task->context, true) ?: [];
+        if (($context['risk_profile_draft'] ?? false) === true) {
+            // A rejected draft must not discard the run: the agent output is
+            // the only copy of the work, and a human needs it to correct the
+            // JSON and re-import it. No draft is stored, so nothing can be
+            // approved from a malformed profile either way.
+            try {
+                $profile = app(RepositoryRiskProfiles::class)->draft(
+                    $repository->slug, (string) ($context['risk_profile_source_sha'] ?? ''), $summary,
+                );
+                $summary .= "\n\nDraft risk profile: " . $profile['version'] . "\nHuman review and explicit activation required.";
+                TaskLogger::info($this->task, 'Risk profile draft saved', [
+                    'version' => $profile['version'], 'source_sha' => $profile['source_sha'],
+                ]);
+            } catch (\Throwable $e) {
+                $summary .= "\n\nNo draft risk profile was saved: " . $e->getMessage()
+                    . "\nCorrect the JSON above and import it with `php artisan yak:risk-profile "
+                    . $repository->slug . ' --import=<file.json>`.';
+                TaskLogger::error($this->task, 'Risk profile draft rejected', [
+                    'error' => $e->getMessage(),
+                    'raw_output' => mb_substr($result->resultSummary, 0, 10000),
+                ]);
+            }
+        }
+
         $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
         $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
-
-        TaskMetricsAccumulator::record($this->task, $result);
 
         $this->task->update([
             'status' => TaskStatus::Success,
@@ -228,8 +269,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             'model_used' => config('yak.default_model'),
             'completed_at' => now(),
         ]);
-
-        DailyCost::accumulate($result->costUsd);
 
         TaskLogger::info($this->task, 'Task completed');
 

@@ -202,6 +202,8 @@ class PromptFixtures
                         'headBranch' => 'geo-1234-retry-timeout',
                         'diffSummary' => " app/Services/GeocodeClient.php | 18 +++++++++++++++---\n tests/Unit/GeocodeClientTest.php | 24 ++++++++++++++++++++++\n 2 files changed, 39 insertions(+), 3 deletions(-)",
                         'reviewScope' => 'full',
+                        'reviewBase' => 'abc123',
+                        'approvedRiskProfile' => null,
                         'changedFiles' => ['app/Services/GeocodeClient.php', 'tests/Unit/GeocodeClientTest.php'],
                         'repoAgentInstructions' => 'Use Laravel 13 conventions. Pest for tests.',
                         'pathExcludes' => ['vendor/**', 'node_modules/**'],
