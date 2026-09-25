@@ -120,6 +120,13 @@ export function ActivityLog({
                 // offset is accurate before the older rows are prepended.
                 const offsetFromTop = anchorElement ? anchorElement.getBoundingClientRect().top - element.getBoundingClientRect().top : 0;
                 pendingPrependRef.current = { anchorId, offsetFromTop };
+                // A short list can have scrollTop 0 and distanceFromBottom < 48
+                // at once; without this, the follow effect below would yank
+                // the reader back to the bottom right after this anchors them.
+                if (followingRef.current) {
+                    followingRef.current = false;
+                    setFollowing(false);
+                }
                 onLoadOlder();
             }
         };
@@ -141,20 +148,27 @@ export function ActivityLog({
         }
         let cancelled = false;
         let frame = 0;
+        let unchangedFrames = 0;
         const settle = () => {
             if (cancelled) {
                 return;
             }
             const pending = pendingPrependRef.current;
             const anchorElement = pending ? element.querySelector<HTMLElement>(`[data-log-id="${pending.anchorId}"]`) : null;
+            let moved = false;
             if (pending && anchorElement) {
                 const currentOffsetFromTop = anchorElement.getBoundingClientRect().top - element.getBoundingClientRect().top;
                 if (currentOffsetFromTop !== pending.offsetFromTop) {
                     element.scrollTop += currentOffsetFromTop - pending.offsetFromTop;
+                    moved = true;
                 }
             }
+            unchangedFrames = moved ? 0 : unchangedFrames + 1;
             frame += 1;
-            if (frame < 8) {
+            // Stop once the anchor holds still for two frames in a row, or
+            // after 8 frames regardless, so a settle that never converges
+            // can't loop forever.
+            if (frame < 8 && unchangedFrames < 2) {
                 requestAnimationFrame(settle);
             } else {
                 pendingPrependRef.current = null;
