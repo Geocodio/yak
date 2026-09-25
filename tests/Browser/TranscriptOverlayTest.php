@@ -161,3 +161,79 @@ test('stepping back to an entry already seen does not fetch it again', function 
 
     expect($requestsAfterThree)->toBe($requestsAfterTwo);
 });
+
+test('a running tool entry without output is refetched each time it is reopened', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
+
+    $runningLog = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Run the deploy script',
+        'created_at' => now()->subMinutes(2),
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'bin/deploy.sh']],
+    ]);
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Check deploy status',
+        'created_at' => now()->subMinute(),
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'bin/status.sh'], 'output' => 'ok'],
+    ]);
+
+    $page = visit(route('tasks.show', $task))
+        ->click('[data-testid="open-transcript"]:visible')
+        ->assertVisible('[data-testid="transcript-overlay"]:visible')
+        ->assertSee('Step 1 of 2')
+        ->assertDontSee('deploy finished successfully');
+
+    $page->click('[data-testid="log-next"]')->assertSee('Step 2 of 2');
+
+    $runningLog->update([
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'bin/deploy.sh'], 'output' => 'deploy finished successfully'],
+    ]);
+
+    $page->click('[data-testid="log-prev"]')
+        ->assertSee('Step 1 of 2')
+        ->assertSee('deploy finished successfully')
+        ->assertNoJavascriptErrors();
+});
+
+/**
+ * @return array<int, int>
+ */
+function seedTranscriptWindowLogs(YakTask $task, int $count): array
+{
+    $rows = [];
+    foreach (range(1, $count) as $index) {
+        $rows[] = [
+            'yak_task_id' => $task->id,
+            'attempt_number' => 1,
+            'level' => 'info',
+            'message' => "Step {$index}",
+            'metadata' => json_encode(['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => "echo step-{$index}"], 'output' => (string) $index]),
+            'created_at' => now()->subSeconds($count - $index),
+        ];
+    }
+    foreach (array_chunk($rows, 200) as $chunk) {
+        TaskLog::insert($chunk);
+    }
+
+    /** @var array<int, int> $ids */
+    $ids = TaskLog::where('yak_task_id', $task->id)->orderBy('created_at')->pluck('id')->all();
+
+    return $ids;
+}
+
+test('a deep link to a row older than the loaded window keeps it open with a caption', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $ids = seedTranscriptWindowLogs($task, 250);
+    $oldLogId = $ids[4]; // log 5, well outside the newest-200 window
+
+    visit(route('tasks.show', $task) . '?log=' . $oldLogId)
+        ->assertVisible('[data-testid="transcript-overlay"]:visible')
+        ->assertSee('echo step-5')
+        ->assertSee('This entry is older than the loaded activity')
+        ->assertNoJavascriptErrors();
+});

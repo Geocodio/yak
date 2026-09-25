@@ -48,25 +48,42 @@ export function TranscriptOverlay({
     const listRef = useRef<HTMLOListElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
     const cacheRef = useRef(new Map<number, TranscriptEntry>());
+    const runAttemptKeyRef = useRef(`${currentRunId}:${currentAttempt}`);
 
     const idx = rows.findIndex((row) => row.id === selectedLogId);
+    // A deep link to a row older than the loaded window has no match here;
+    // `sel` still gives Previous/Next a base to step from (the first loaded
+    // row), but the rail must not highlight a row that isn't the open one.
     const sel = idx >= 0 ? idx : 0;
-    const selectedId = rows[sel]?.id ?? null;
+    const selectedId = idx >= 0 ? rows[idx].id : null;
+    const outOfWindow = selectedLogId !== null && idx < 0;
 
-    // The rail lands with no entry selected (a cold open from the header
-    // button) or with a selected id no longer in the rail (a run/attempt
-    // switch): pick the first row once so a fetch has something to ask for.
+    // A cold open (the header button, no `?log=`) has nothing selected yet:
+    // pick the first row once so a fetch has something to ask for. A deep
+    // link to a row outside the loaded window already has a selected id and
+    // must keep it rather than being redirected to row 0.
     useEffect(() => {
-        if (open && rows.length > 0 && idx < 0) {
+        if (open && rows.length > 0 && selectedLogId === null) {
             onSelectLog(rows[0].id);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, rows, idx]);
+    }, [open, rows, selectedLogId]);
+
+    // A run or attempt switch invalidates every cached entry -- they belong
+    // to a different transcript.
+    useEffect(() => {
+        const key = `${currentRunId}:${currentAttempt}`;
+        if (runAttemptKeyRef.current !== key) {
+            runAttemptKeyRef.current = key;
+            cacheRef.current.clear();
+        }
+    }, [currentRunId, currentAttempt]);
 
     // Cache every entry the server sends so stepping back to it never
-    // re-fetches.
+    // re-fetches, except a tool call still running: its output arrives after
+    // the row does, so it is refetched on every visit until output exists.
     useEffect(() => {
-        if (entry?.id != null) {
+        if (entry?.id != null && !(entry.kind === 'tool' && entry.output === null)) {
             cacheRef.current.set(entry.id, entry);
         }
     }, [entry]);
@@ -275,6 +292,7 @@ export function TranscriptOverlay({
                         <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-5">
                             {current ? (
                                 <>
+                                    {outOfWindow && <p className="mb-2 text-[11px] text-faint">This entry is older than the loaded activity</p>}
                                     <h3 className={cn('text-[14px] font-semibold', current.error && 'text-fail')}>{current.text}</h3>
                                     <div className="mt-1 flex items-center gap-2 text-[11px] text-faint">
                                         <span>{current.at}</span>
