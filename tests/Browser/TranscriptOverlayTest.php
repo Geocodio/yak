@@ -237,3 +237,38 @@ test('a deep link to a row older than the loaded window keeps it open with a cap
         ->assertSee('This entry is older than the loaded activity')
         ->assertNoJavascriptErrors();
 });
+
+test('switching attempts while the overlay is open on the same log refetches instead of getting stuck', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now(), 'attempts' => 2]);
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Attempt one step',
+        'created_at' => now()->subMinutes(10),
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'echo attempt-one'], 'output' => 'one'],
+    ]);
+    $attemptTwoLog = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 2,
+        'message' => 'Attempt two step',
+        'created_at' => now()->subMinutes(1),
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'echo attempt-two'], 'output' => 'two'],
+    ]);
+
+    // Attempt defaults to the latest (2) with no `attempt` query param.
+    $page = visit(route('tasks.show', $task) . '?log=' . $attemptTwoLog->id)
+        ->assertVisible('[data-testid="transcript-overlay"]:visible')
+        ->assertSee('echo attempt-two');
+
+    $page->click('[data-testid="transcript-overlay"] [data-testid="attempt-1"]');
+
+    // The deep-linked log id doesn't change on an attempt switch -- it isn't
+    // in attempt 1's rows, so the pane keeps showing it with the
+    // older-than-loaded caption rather than getting stuck loading.
+    $page->assertDontSee('Loading entry…')
+        ->assertSee('echo attempt-two')
+        ->assertSee('This entry is older than the loaded activity')
+        ->assertNoJavascriptErrors();
+});

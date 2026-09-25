@@ -48,7 +48,8 @@ export function TranscriptOverlay({
     const listRef = useRef<HTMLOListElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
     const cacheRef = useRef(new Map<number, TranscriptEntry>());
-    const runAttemptKeyRef = useRef(`${currentRunId}:${currentAttempt}`);
+    const runKey = `${currentRunId}:${currentAttempt}`;
+    const runAttemptKeyRef = useRef(runKey);
 
     const idx = rows.findIndex((row) => row.id === selectedLogId);
     // A deep link to a row older than the loaded window has no match here;
@@ -70,14 +71,15 @@ export function TranscriptOverlay({
     }, [open, rows, selectedLogId]);
 
     // A run or attempt switch invalidates every cached entry -- they belong
-    // to a different transcript.
+    // to a different transcript. Declared before the fetch effect below so
+    // the clear always lands in the same commit before the fetch effect
+    // checks the cache for `selectedLogId`.
     useEffect(() => {
-        const key = `${currentRunId}:${currentAttempt}`;
-        if (runAttemptKeyRef.current !== key) {
-            runAttemptKeyRef.current = key;
+        if (runAttemptKeyRef.current !== runKey) {
+            runAttemptKeyRef.current = runKey;
             cacheRef.current.clear();
         }
-    }, [currentRunId, currentAttempt]);
+    }, [runKey]);
 
     // Cache every entry the server sends so stepping back to it never
     // re-fetches, except a tool call still running: its output arrives after
@@ -88,12 +90,16 @@ export function TranscriptOverlay({
         }
     }, [entry]);
 
+    // Also depends on `runKey` -- a run/attempt switch while the same log id
+    // stays selected clears the cache above but wouldn't otherwise re-run
+    // this effect, leaving the pane stuck showing the stale entry (or
+    // "Loading entry…" forever if nothing was cached for it before).
     useEffect(() => {
         if (!open || selectedLogId === null || cacheRef.current.has(selectedLogId)) {
             return;
         }
         router.reload({ only: ['transcriptEntry'], data: { log: selectedLogId }, preserveUrl: true });
-    }, [open, selectedLogId]);
+    }, [open, selectedLogId, runKey]);
 
     const visible = rows.filter(
         (row) =>
@@ -202,6 +208,7 @@ export function TranscriptOverlay({
                                         type="button"
                                         onClick={() => navigateTaskQuery({ attempt })}
                                         className={cn('h-5 rounded-chip px-1.5 text-[11px] text-muted', attempt === currentAttempt && 'bg-panel text-body shadow-card')}
+                                        data-testid={`attempt-${attempt}`}
                                     >
                                         #{attempt}
                                     </button>
