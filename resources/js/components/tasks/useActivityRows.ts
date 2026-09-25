@@ -42,9 +42,12 @@ function mergeRows(existing: ActivityRow[], incoming: ActivityRow[], position: '
 /**
  * Owns the activity rows the page holds in memory: the initial window,
  * older pages prepended on request, and the poll's tail appended as it
- * arrives. Rows are capped so a long run cannot grow the DOM without bound;
- * when older rows are loaded past the cap, the newest rows are dropped and
- * `latestId` keeps tracking the true newest id so the tail still works.
+ * arrives. The tail is what grows on a long run, so the cap applies there:
+ * once the rows pass ACTIVITY_ROW_CAP the oldest are dropped and `hasOlder`
+ * turns back on, so the live tail is always intact and the dropped rows can
+ * be paged back in. Loading older rows never drops anything; the list only
+ * stops loading them automatically once the cap is reached (`capped`), and
+ * the caller decides whether to offer a manual load beyond it.
  */
 export function useActivityRows({
     runKey,
@@ -60,7 +63,6 @@ export function useActivityRows({
     const [rows, setRows] = useState<ActivityRow[]>(activity.rows);
     const [hasOlder, setHasOlder] = useState(activity.hasOlder);
     const [loadingOlder, setLoadingOlder] = useState(false);
-    const [capped, setCapped] = useState(false);
     const latestIdRef = useRef<number | null>(activity.rows.length > 0 ? activity.rows[activity.rows.length - 1].id : null);
     const seenRunKey = useRef(runKey);
 
@@ -73,7 +75,6 @@ export function useActivityRows({
         seenRunKey.current = runKey;
         setRows(activity.rows);
         setHasOlder(activity.hasOlder);
-        setCapped(false);
         latestIdRef.current = activity.rows.length > 0 ? activity.rows[activity.rows.length - 1].id : null;
     }, [runKey, activity]);
 
@@ -81,7 +82,14 @@ export function useActivityRows({
         if (!activityTail || activityTail.length === 0) {
             return;
         }
-        setRows((current) => mergeRows(current, activityTail, 'after'));
+        setRows((current) => {
+            const next = mergeRows(current, activityTail, 'after');
+            if (next.length > ACTIVITY_ROW_CAP) {
+                setHasOlder(true);
+                return next.slice(next.length - ACTIVITY_ROW_CAP);
+            }
+            return next;
+        });
         latestIdRef.current = activityTail[activityTail.length - 1].id;
         // A full window means the server had more; ask again right away.
         if (activityTail.length >= ACTIVITY_WINDOW) {
@@ -98,14 +106,7 @@ export function useActivityRows({
             setHasOlder(false);
             return;
         }
-        setRows((current) => {
-            let next = mergeRows(current, activityOlder, 'before');
-            if (next.length > ACTIVITY_ROW_CAP) {
-                next = next.slice(0, ACTIVITY_ROW_CAP);
-                setCapped(true);
-            }
-            return next;
-        });
+        setRows((current) => mergeRows(current, activityOlder, 'before'));
         if (activityOlder.length < ACTIVITY_WINDOW) {
             setHasOlder(false);
         }
@@ -116,8 +117,15 @@ export function useActivityRows({
             return;
         }
         setLoadingOlder(true);
-        router.reload({ only: ['activityOlder'], data: { before: rows[0].id }, preserveUrl: true });
+        router.reload({
+            only: ['activityOlder'],
+            data: { before: rows[0].id },
+            preserveUrl: true,
+            onFinish: () => setLoadingOlder(false),
+        });
     }, [loadingOlder, hasOlder, rows]);
+
+    const capped = rows.length >= ACTIVITY_ROW_CAP;
 
     return { rows, hasOlder, loadingOlder, loadOlder, latestId: latestIdRef.current, capped };
 }
