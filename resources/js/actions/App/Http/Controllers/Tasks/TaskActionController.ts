@@ -59,7 +59,7 @@ retry.post = (args: { task: string | number | { id: string | number } } | [task:
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:65
+* @see app/Http/Controllers/Tasks/TaskActionController.php:67
 * @route '/tasks/{task}/cancel'
 */
 export const cancel = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -74,7 +74,7 @@ cancel.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:65
+* @see app/Http/Controllers/Tasks/TaskActionController.php:67
 * @route '/tasks/{task}/cancel'
 */
 cancel.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -107,7 +107,7 @@ cancel.url = (args: { task: string | number | { id: string | number } } | [task:
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::cancel
-* @see app/Http/Controllers/Tasks/TaskActionController.php:65
+* @see app/Http/Controllers/Tasks/TaskActionController.php:67
 * @route '/tasks/{task}/cancel'
 */
 cancel.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -117,7 +117,7 @@ cancel.post = (args: { task: string | number | { id: string | number } } | [task
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:114
+* @see app/Http/Controllers/Tasks/TaskActionController.php:116
 * @route '/tasks/{task}/rerun-review'
 */
 export const rerunReview = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -132,7 +132,7 @@ rerunReview.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:114
+* @see app/Http/Controllers/Tasks/TaskActionController.php:116
 * @route '/tasks/{task}/rerun-review'
 */
 rerunReview.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ rerunReview.url = (args: { task: string | number | { id: string | number } } | [
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::rerunReview
-* @see app/Http/Controllers/Tasks/TaskActionController.php:114
+* @see app/Http/Controllers/Tasks/TaskActionController.php:116
 * @route '/tasks/{task}/rerun-review'
 */
 rerunReview.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -175,7 +175,7 @@ rerunReview.post = (args: { task: string | number | { id: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:177
+* @see app/Http/Controllers/Tasks/TaskActionController.php:181
 * @route '/tasks/{task}/retry-render'
 */
 export const retryRender = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -190,7 +190,7 @@ retryRender.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:177
+* @see app/Http/Controllers/Tasks/TaskActionController.php:181
 * @route '/tasks/{task}/retry-render'
 */
 retryRender.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -223,7 +223,7 @@ retryRender.url = (args: { task: string | number | { id: string | number } } | [
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::retryRender
-* @see app/Http/Controllers/Tasks/TaskActionController.php:177
+* @see app/Http/Controllers/Tasks/TaskActionController.php:181
 * @route '/tasks/{task}/retry-render'
 */
 retryRender.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -233,7 +233,7 @@ retryRender.post = (args: { task: string | number | { id: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:190
+* @see app/Http/Controllers/Tasks/TaskActionController.php:194
 * @route '/tasks/{task}/reroute'
 */
 export const reroute = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -248,7 +248,7 @@ reroute.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:190
+* @see app/Http/Controllers/Tasks/TaskActionController.php:194
 * @route '/tasks/{task}/reroute'
 */
 reroute.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -281,7 +281,7 @@ reroute.url = (args: { task: string | number | { id: string | number } } | [task
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskActionController::reroute
-* @see app/Http/Controllers/Tasks/TaskActionController.php:190
+* @see app/Http/Controllers/Tasks/TaskActionController.php:194
 * @route '/tasks/{task}/reroute'
 */
 reroute.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
