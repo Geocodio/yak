@@ -28,7 +28,6 @@ class TaskController extends Controller
 
         $data = TaskDetailData::build($task, $request);
         $attempt = $data['task']['attempt'];
-        $isActive = TaskDetailData::isActive($focusedRun->status);
 
         $entryFor = function () use ($request, $conversation): ?array {
             $logId = TaskDetailData::resolveTranscriptLogId($request, $conversation);
@@ -40,12 +39,16 @@ class TaskController extends Controller
         return Inertia::render('Tasks/Show', [
             ...$data,
             'activityOlder' => Inertia::optional(fn () => $request->integer('before')
-                ? ActivityLogData::before($focusedRun, $attempt, $request->integer('before'), $isActive)
+                ? ActivityLogData::before($focusedRun, $attempt, $request->integer('before'))
                 : []),
-            'activityTail' => Inertia::optional(fn () => $request->integer('after')
-                ? ActivityLogData::after($focusedRun, $attempt, $request->integer('after'), $isActive)
+            // `after=0` is a valid cursor: a run whose window started empty
+            // asks for its first rows that way.
+            'activityTail' => Inertia::optional(fn () => $request->has('after')
+                ? ActivityLogData::after($focusedRun, $attempt, (int) $request->input('after'))
                 : []),
-            'transcriptEntry' => $request->has('log') ? $entryFor() : Inertia::optional($entryFor),
+            'transcriptEntry' => $request->has('log') && ! $request->header('X-Inertia-Partial-Component')
+                ? $entryFor()
+                : Inertia::optional($entryFor),
         ]);
     }
 }

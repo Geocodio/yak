@@ -103,6 +103,8 @@ export type TaskDetail = {
     researchArtifactUrl: string | null;
     attemptCount: number;
     attempt: number;
+    /** The run the page is focused on (`?run=`, else the live or latest run). */
+    runId: number;
 };
 
 export type MediaItem = {
@@ -145,7 +147,10 @@ export type ActivityRow = {
     id: number;
     badge: string | null;
     text: string;
+    /** Absolute time, `g:i:s A`. */
     at: string;
+    /** ISO 8601; relative ages are computed from this on render. */
+    createdAt: string;
     kind: 'tool' | 'prompt' | 'assistant' | 'level';
     error: boolean;
     milestone: boolean;

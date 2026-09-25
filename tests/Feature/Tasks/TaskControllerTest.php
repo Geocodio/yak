@@ -326,6 +326,31 @@ test('activityTail returns only rows after a cursor, capped at the window, and t
         ->assertJsonPath('props.activityTail.49.text', 'Step 260');
 });
 
+test('activityTail with after=0 returns the first rows of a run whose window started empty', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
+    seedLogs($task, 5);
+
+    $this->get(route('tasks.show', [$task, 'after' => 0]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => inertiaVersion($task),
+        'X-Inertia-Partial-Component' => 'Tasks/Show',
+        'X-Inertia-Partial-Data' => 'activityTail',
+    ])->assertJsonCount(5, 'props.activityTail')
+        ->assertJsonPath('props.activityTail.0.text', 'Step 1');
+});
+
+test('activity rows on an active run carry an absolute time and an ISO createdAt', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
+    seedLogs($task, 1);
+    $log = TaskLog::where('yak_task_id', $task->id)->firstOrFail();
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activity.rows.0.at', $log->created_at->format('g:i:s A'))
+            ->where('activity.rows.0.createdAt', $log->created_at->toIso8601String())
+            ->where('task.runId', $task->id));
+});
+
 test('activity cursors respect the selected attempt', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now(), 'attempts' => 2]);
     seedLogs($task, 5, attempt: 1);

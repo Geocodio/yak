@@ -71,7 +71,7 @@ final class TaskDetailData
             'runs' => self::runs($conversation),
             'attempts' => range(1, $attemptCount),
             'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
-            'activity' => ActivityLogData::window($focusedRun, $attempt, self::isActive($focusedRun->status)),
+            'activity' => ActivityLogData::window($focusedRun, $attempt),
             'progress' => ['steps' => self::progressSteps($task)],
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
@@ -171,6 +171,7 @@ final class TaskDetailData
             'researchArtifactUrl' => self::researchArtifactUrl($task),
             'attemptCount' => $attemptCount,
             'attempt' => $attempt,
+            'runId' => $focusedRun->id,
         ];
     }
 

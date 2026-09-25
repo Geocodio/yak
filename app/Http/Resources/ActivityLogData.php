@@ -37,7 +37,7 @@ final class ActivityLogData
      *
      * @return array{rows: array<int, array<string, mixed>>, oldestId: int|null, hasOlder: bool}
      */
-    public static function window(YakTask $run, int $attempt, bool $isActiveStatus): array
+    public static function window(YakTask $run, int $attempt): array
     {
         /** @var Collection<int, TaskLog> $logs */
         $logs = self::attemptLogs($run, $attempt)->orderByDesc('id')->limit(self::WINDOW + 1)->get();
@@ -45,7 +45,7 @@ final class ActivityLogData
         $logs = $logs->take(self::WINDOW)->reverse()->values();
 
         return [
-            'rows' => $logs->map(fn (TaskLog $log): array => self::row($log, $isActiveStatus))->all(),
+            'rows' => $logs->map(fn (TaskLog $log): array => self::row($log))->all(),
             'oldestId' => $logs->first()?->id,
             'hasOlder' => $hasOlder,
         ];
@@ -54,23 +54,23 @@ final class ActivityLogData
     /**
      * @return array<int, array<string, mixed>>
      */
-    public static function before(YakTask $run, int $attempt, int $beforeId, bool $isActiveStatus): array
+    public static function before(YakTask $run, int $attempt, int $beforeId): array
     {
         /** @var Collection<int, TaskLog> $logs */
         $logs = self::attemptLogs($run, $attempt)->where('id', '<', $beforeId)->orderByDesc('id')->limit(self::WINDOW)->get();
 
-        return $logs->reverse()->values()->map(fn (TaskLog $log): array => self::row($log, $isActiveStatus))->all();
+        return $logs->reverse()->values()->map(fn (TaskLog $log): array => self::row($log))->all();
     }
 
     /**
      * @return array<int, array<string, mixed>>
      */
-    public static function after(YakTask $run, int $attempt, int $afterId, bool $isActiveStatus): array
+    public static function after(YakTask $run, int $attempt, int $afterId): array
     {
         /** @var Collection<int, TaskLog> $logs */
         $logs = self::attemptLogs($run, $attempt)->where('id', '>', $afterId)->orderBy('id')->limit(self::WINDOW)->get();
 
-        return $logs->map(fn (TaskLog $log): array => self::row($log, $isActiveStatus))->all();
+        return $logs->map(fn (TaskLog $log): array => self::row($log))->all();
     }
 
     /**
@@ -82,9 +82,12 @@ final class ActivityLogData
     }
 
     /**
-     * @return array<string, mixed>
+     * `at` is always the absolute time; the client derives relative ages
+     * from `createdAt`, since rows stay in its memory while time moves on.
+     *
+     * @return array{id: int, badge: string|null, text: string, at: string, createdAt: string, kind: string, error: bool, milestone: bool}
      */
-    private static function row(TaskLog $log, bool $isActiveStatus): array
+    private static function row(TaskLog $log): array
     {
         /** @var array<string, mixed> $metadata */
         $metadata = (array) $log->metadata;
@@ -101,9 +104,8 @@ final class ActivityLogData
             'id' => $log->id,
             'badge' => $badge,
             'text' => Markdown::toPlainText($log->message),
-            'at' => $isActiveStatus
-                ? $log->created_at->diffForHumans()
-                : $log->created_at->format('g:i:s A'),
+            'at' => $log->created_at->format('g:i:s A'),
+            'createdAt' => $log->created_at->toIso8601String(),
             'kind' => $kind,
             'error' => (bool) ($metadata['is_error'] ?? false),
             'milestone' => self::isMilestone($log),
