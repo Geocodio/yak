@@ -142,3 +142,22 @@ test('clicking a row deep in the sidebar list opens the rail scrolled to it', fu
 
     expect($selectedIsInView)->toBeTrue();
 });
+
+test('stepping back to an entry already seen does not fetch it again', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    overlayTranscript($task);
+
+    $page = visit(route('tasks.show', $task))
+        ->click('[data-testid="open-transcript"]:visible')
+        ->assertVisible('[data-testid="transcript-overlay"]:visible')
+        ->assertSee('grep -n calculateDistance');
+
+    $page->click('[data-testid="log-next"]')->assertSee('vendor/bin/phpstan analyse');
+    $requestsAfterTwo = $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("log=")).length');
+
+    $page->click('[data-testid="log-prev"]')->assertSee('grep -n calculateDistance');
+    $requestsAfterThree = $page->script('performance.getEntriesByType("resource").filter((entry) => entry.name.includes("log=")).length');
+
+    expect($requestsAfterThree)->toBe($requestsAfterTwo);
+});

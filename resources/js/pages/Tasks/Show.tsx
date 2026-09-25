@@ -104,7 +104,7 @@ export default function Show({
         setOpenLogId(logId);
         setTranscriptOpen(true);
         // Updates the deep link without a round trip; TranscriptOverlay fetches
-        // the transcript itself (`only: ['transcript']`) if it isn't loaded yet.
+        // the entry itself (`only: ['transcriptEntry']`) if it isn't cached yet.
         replaceTaskQuery({ log: logId });
     };
 
@@ -241,13 +241,18 @@ export default function Show({
             <TranscriptOverlay
                 open={transcriptOpen}
                 onOpenChange={closeTranscript}
-                transcriptEntry={transcriptEntry}
+                rows={activityRows.rows}
+                entry={transcriptEntry}
                 headline={task.headline}
                 runs={runs}
                 currentRunId={currentRunId}
                 attempts={attempts}
                 currentAttempt={task.attempt}
                 selectedLogId={openLogId}
+                onSelectLog={(logId) => {
+                    setOpenLogId(logId);
+                    replaceTaskQuery({ log: logId });
+                }}
             />
 
             <MediaLightbox
