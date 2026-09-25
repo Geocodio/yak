@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { AppCommandPalette } from '@/components/AppCommandPalette';
 import { FlashToasts } from '@/components/FlashToasts';
 import { MobileNavSheet } from '@/components/MobileNavSheet';
+import { MobileTabBar } from '@/components/MobileTabBar';
 import { MobileTopBar } from '@/components/MobileTopBar';
 import { Sidebar } from '@/components/Sidebar';
 import { YAK_ACTIVITY_PIP, YAK_BRAND_COLOR, YAK_MARK } from '@/lib/brand';
@@ -20,7 +21,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
         <div className="flex h-dvh w-full flex-col lg:flex-row" data-testid="app-shell">
             <MobileTopBar />
             <Sidebar />
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app max-lg:pb-[env(safe-area-inset-bottom)]">{children}</div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app">{children}</div>
+            <MobileTabBar />
             <MobileNavSheet />
             <FlashToasts />
             <AppCommandPalette />

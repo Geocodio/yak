@@ -50,21 +50,39 @@ test('the sidebar shows the Yak brand lockup', function () {
         ->assertNoJavaScriptErrors();
 });
 
-test('on a phone the sidebar folds into a top bar and a navigation drawer', function () {
+test('on a phone the sidebar folds into a top bar, a floating tab bar and a navigation drawer', function () {
     $this->actingAs(User::factory()->create());
 
     $page = visit('/tasks')->on()->mobile();
 
-    // The desktop sidebar stays in the DOM but is hidden below `lg`; the top
-    // bar carries the brand and the menu button instead.
+    // The desktop sidebar is hidden below `lg`; the top bar carries the
+    // brand and search, and the floating bar carries the daily pages plus
+    // the More slot that opens the drawer.
     $page->assertMissing('[data-testid="sidebar"]')
         ->assertVisible('[data-testid="mobile-top-bar"]')
+        ->assertVisible('[data-testid="mobile-tab-bar"]')
+        ->assertVisible('[data-testid="tab-tasks"][aria-current="page"]')
+        ->assertVisible('[data-testid="mobile-tab-bar"] [data-testid="tab-reviews"]')
+        ->assertVisible('[data-testid="tab-repos"]')
         ->assertMissing('[data-testid="mobile-nav"]')
         ->click('[data-testid="mobile-nav-trigger"]')
         ->assertVisible('[data-testid="mobile-nav"]')
         ->assertVisible('[data-testid="mobile-nav"] a[href="/repos"]')
+        ->assertVisible('[data-testid="mobile-nav"] a[href="/health"]')
         ->click('[data-testid="mobile-nav"] a[href="/repos"]')
         ->assertPathIs('/repos')
         ->assertMissing('[data-testid="mobile-nav"]')
+        ->assertVisible('[data-testid="tab-repos"][aria-current="page"]')
+        ->assertNoJavaScriptErrors();
+});
+
+test('on a phone the round button opens the new task sheet from any page', function () {
+    $this->actingAs(User::factory()->create());
+
+    $page = visit('/repos')->on()->mobile();
+
+    $page->click('[data-testid="tab-new-task"]')
+        ->assertPathIs('/tasks')
+        ->assertVisible('[data-testid="new-task-sheet"]')
         ->assertNoJavaScriptErrors();
 });
