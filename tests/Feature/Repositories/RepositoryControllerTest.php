@@ -94,6 +94,18 @@ test('create repo with valid data auto-generates slug and path', function () {
     expect($repo->git_url)->toBe('https://github.com/acme/my-new-repo.git');
 });
 
+test('create repo accepts the null manifest the form submits', function () {
+    $this->post(route('repos.store'), [
+        'name' => 'Null Manifest Repo',
+        'git_url' => 'https://github.com/acme/null-manifest-repo.git',
+        'default_branch' => 'main',
+        'ci_system' => 'github_actions',
+        'manifest' => null,
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    expect(Repository::where('name', 'Null Manifest Repo')->exists())->toBeTrue();
+});
+
 test('create repo generates unique slug when duplicate exists', function () {
     Repository::factory()->create(['slug' => 'my-project']);
 

@@ -120,7 +120,7 @@ class RepositoryController extends Controller
 
         $data = $this->repositoryDataFromRequest($validated, $validated['slug'], $validated['path']);
 
-        if (array_key_exists('manifest', $validated)) {
+        if (! empty($validated['manifest'])) {
             $data['preview_manifest'] = [
                 'port' => $validated['manifest']['port'],
                 'health_probe_path' => $validated['manifest']['health_probe_path'],

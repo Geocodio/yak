@@ -77,7 +77,7 @@ class SaveRepositoryRequest extends FormRequest
             // Preview manifest, submitted alongside the repository fields
             // from the same "Save repository" button. Present only when the
             // edit page rendered the branch-deployments section.
-            'manifest' => ['sometimes', 'array'],
+            'manifest' => ['sometimes', 'nullable', 'array'],
             'manifest.port' => ['required_with:manifest', 'integer', 'min:1', 'max:65535'],
             'manifest.health_probe_path' => ['required_with:manifest', 'string', 'starts_with:/'],
             'manifest.cold_start' => ['nullable', 'string'],
