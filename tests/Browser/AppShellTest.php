@@ -61,9 +61,9 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
     $page->assertMissing('[data-testid="sidebar"]')
         ->assertVisible('[data-testid="mobile-top-bar"]')
         ->assertVisible('[data-testid="mobile-tab-bar"]')
-        ->assertVisible('[data-testid="tab-tasks"][aria-current="page"]')
-        ->assertVisible('[data-testid="mobile-tab-bar"] [data-testid="tab-reviews"]')
-        ->assertVisible('[data-testid="tab-repos"]')
+        ->assertVisible('[data-testid="mobile-tab-tasks"][aria-current="page"]')
+        ->assertVisible('[data-testid="mobile-tab-reviews"]')
+        ->assertVisible('[data-testid="mobile-tab-repos"]')
         ->assertMissing('[data-testid="mobile-nav"]')
         ->click('[data-testid="mobile-nav-trigger"]')
         ->assertVisible('[data-testid="mobile-nav"]')
@@ -72,7 +72,7 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
         ->click('[data-testid="mobile-nav"] a[href="/repos"]')
         ->assertPathIs('/repos')
         ->assertMissing('[data-testid="mobile-nav"]')
-        ->assertVisible('[data-testid="tab-repos"][aria-current="page"]')
+        ->assertVisible('[data-testid="mobile-tab-repos"][aria-current="page"]')
         ->assertNoJavaScriptErrors();
 });
 

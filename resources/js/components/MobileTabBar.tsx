@@ -33,7 +33,7 @@ export function MobileTabBar() {
             href: item.url,
             active: isActive(url, item.url),
             badge: label === 'Tasks' ? props.nav.activeTaskCount : null,
-            testId: `tab-${SHORT_LABELS[label].toLowerCase()}`,
+            testId: `mobile-tab-${SHORT_LABELS[label].toLowerCase()}`,
         };
     });
 
