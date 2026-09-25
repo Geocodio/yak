@@ -86,7 +86,8 @@ export default function Show({
     const latestIdRef = useRef<number | null>(null);
     usePoll(pollInterval, () => ({
         only: [...POLLED_PROPS],
-        data: latestIdRef.current !== null ? { after: latestIdRef.current } : {},
+        // `after: 0` asks for the first rows of a run whose window started empty.
+        data: { after: latestIdRef.current ?? 0 },
         preserveUrl: true,
     }));
 
@@ -134,7 +135,7 @@ export default function Show({
         }
     };
 
-    const currentRunId = runs.find((run) => run.live)?.id ?? runs[runs.length - 1]?.id ?? task.id;
+    const currentRunId = task.runId;
     const runKey = `${currentRunId}:${task.attempt}`;
     const activityRows = useActivityRows({ runKey, activity, activityOlder, activityTail });
     latestIdRef.current = activityRows.latestId;
@@ -166,6 +167,7 @@ export default function Show({
             onOpenTranscript={openTranscriptAt}
             onOpenTranscriptCold={openTranscriptCold}
             fill={!isDesktop}
+            active={isDesktop || tab === 'activity'}
         />
     );
 

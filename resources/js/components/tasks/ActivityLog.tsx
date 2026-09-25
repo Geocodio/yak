@@ -39,6 +39,18 @@ function buildDisplayItems(rows: ActivityRow[], grouped: boolean): DisplayItem[]
     return items;
 }
 
+/**
+ * Where `anchorId`'s row sits relative to the scroller's top edge, taken
+ * before older rows are prepended so the correction below can restore it.
+ * getBoundingClientRect forces layout of this one row even though
+ * content-visibility would otherwise skip it, so the offset is accurate.
+ */
+function captureAnchor(element: HTMLElement, anchorId: number): { anchorId: number; offsetFromTop: number } {
+    const anchorElement = element.querySelector<HTMLElement>(`[data-log-id="${anchorId}"]`);
+    const offsetFromTop = anchorElement ? anchorElement.getBoundingClientRect().top - element.getBoundingClientRect().top : 0;
+    return { anchorId, offsetFromTop };
+}
+
 export function ActivityLog({
     taskId,
     rows,
@@ -56,6 +68,7 @@ export function ActivityLog({
     onOpenTranscript,
     onOpenTranscriptCold,
     fill = false,
+    active = true,
 }: {
     taskId: number;
     rows: ActivityRow[];
@@ -73,6 +86,8 @@ export function ActivityLog({
     onOpenTranscript: (logId: number) => void;
     onOpenTranscriptCold: () => void;
     fill?: boolean;
+    /** False while the list is mounted but hidden (the phone Activity tab is not selected). */
+    active?: boolean;
 }) {
     const [filter, setFilter] = useState<Filter>('all');
     const [search, setSearch] = useState('');
@@ -113,13 +128,7 @@ export function ActivityLog({
                 setFollowing(nowFollowing);
             }
             if (element.scrollTop < 400 && hasOlder && !loadingOlder && !capped && rows.length > 0) {
-                const anchorId = rows[0].id;
-                const anchorElement = element.querySelector<HTMLElement>(`[data-log-id="${anchorId}"]`);
-                // getBoundingClientRect forces layout of this one row even
-                // though content-visibility would otherwise skip it, so the
-                // offset is accurate before the older rows are prepended.
-                const offsetFromTop = anchorElement ? anchorElement.getBoundingClientRect().top - element.getBoundingClientRect().top : 0;
-                pendingPrependRef.current = { anchorId, offsetFromTop };
+                pendingPrependRef.current = captureAnchor(element, rows[0].id);
                 // A short list can have scrollTop 0 and distanceFromBottom < 48
                 // at once; without this, the follow effect below would yank
                 // the reader back to the bottom right after this anchors them.
@@ -140,7 +149,11 @@ export function ActivityLog({
     // rows above it use content-visibility, whose skipped elements only
     // settle on their real size a few frames after insertion, so the
     // correction is re-applied across a handful of frames until it stops
-    // moving rather than once synchronously.
+    // moving rather than once synchronously. Keyed on the first row's id: a
+    // prepend changes it and a tail append does not, so a tail landing
+    // between the scroll-up and the older page leaves the pending anchor in
+    // place for the prepend.
+    const firstRowId = rows[0]?.id;
     useLayoutEffect(() => {
         const element = scrollRef.current;
         if (!element || !pendingPrependRef.current) {
@@ -178,7 +191,16 @@ export function ActivityLog({
         return () => {
             cancelled = true;
         };
-    }, [rows]);
+    }, [firstRowId]);
+
+    // An older page that prepends nothing leaves the first row in place;
+    // drop the anchor once loading ends so a later prepend can't reuse it.
+    useEffect(() => {
+        if (!loadingOlder && pendingPrependRef.current && pendingPrependRef.current.anchorId === firstRowId) {
+            pendingPrependRef.current = null;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadingOlder]);
 
     useEffect(() => {
         const element = scrollRef.current;
@@ -187,6 +209,25 @@ export function ActivityLog({
         }
         element.scrollTop = element.scrollHeight;
     }, [rows]);
+
+    // A hidden scroller ignores scrollTop, so the follow above is lost while
+    // the phone Activity tab is not selected; catch up when it shows.
+    useLayoutEffect(() => {
+        const element = scrollRef.current;
+        if (active && element && followingRef.current) {
+            element.scrollTop = element.scrollHeight;
+        }
+    }, [active]);
+
+    const loadOlderManually = () => {
+        const element = scrollRef.current;
+        if (element && rows.length > 0) {
+            pendingPrependRef.current = captureAnchor(element, rows[0].id);
+        }
+        followingRef.current = false;
+        setFollowing(false);
+        onLoadOlder();
+    };
 
     const jumpToLatest = () => {
         const element = scrollRef.current;
@@ -300,7 +341,7 @@ export function ActivityLog({
                         <div className="flex justify-center border-b border-hair px-2.5 py-1.5">
                             <button
                                 type="button"
-                                onClick={onLoadOlder}
+                                onClick={loadOlderManually}
                                 disabled={loadingOlder}
                                 className="rounded-control bg-panel-2 px-2 py-1 text-[11px] text-muted hover:bg-panel-2/70 disabled:opacity-60"
                             >
@@ -316,7 +357,7 @@ export function ActivityLog({
                                 <button
                                     type="button"
                                     onClick={() => toggleGroup(item.groupIndex)}
-                                    className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-panel-2"
+                                    className="flex min-h-11 w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-panel-2 lg:min-h-0"
                                 >
                                     <ChevronDown size={11} className={cn('shrink-0 text-faint transition-transform', !expandedGroups.has(item.groupIndex) && '-rotate-90')} />
                                     <span className="shrink-0 rounded-chip bg-panel-2 px-1 font-mono text-[10px] text-muted">

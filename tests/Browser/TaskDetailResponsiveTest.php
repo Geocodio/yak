@@ -91,3 +91,28 @@ test('the activity log does not overlap the cards below it on a short viewport',
 
     expect($rects['activityBottom'])->toBeLessThanOrEqual($rects['walkthroughTop']);
 });
+
+test('opening the Activity tab on a phone lands on the newest row', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $rows = [];
+    foreach (range(1, 250) as $index) {
+        $rows[] = [
+            'yak_task_id' => $task->id,
+            'attempt_number' => 1,
+            'level' => 'info',
+            'message' => "Step {$index}",
+            'metadata' => json_encode(['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => "echo {$index}"], 'output' => (string) $index]),
+            'created_at' => now()->subSeconds(250 - $index),
+        ];
+    }
+    foreach (array_chunk($rows, 200) as $chunk) {
+        TaskLog::insert($chunk);
+    }
+
+    $page = visit(route('tasks.show', $task))->on()->mobile()
+        ->click('[data-testid="task-tab-activity"]')
+        ->wait(0.5);
+
+    expect($page->script('(() => { const scroller = document.querySelector(\'[data-testid="activity-log"] [data-scroller]\'); const row = scroller.querySelector(\'[data-log-text="Step 250"]\'); const r = row.getBoundingClientRect(); const s = scroller.getBoundingClientRect(); return r.bottom > s.top && r.top < s.bottom; })()'))->toBeTrue();
+});

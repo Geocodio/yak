@@ -7,7 +7,8 @@ export const ACTIVITY_ROW_CAP = 2000;
 
 /**
  * The page props the poll refreshes. Everything except the initial activity
- * window and the on-demand props (`activityOlder`, `transcriptEntry`), plus
+ * window, the on-demand props (`activityOlder`, `transcriptEntry`) and
+ * `transcriptLogId` (the client owns `?log=` after mount), plus
  * `activityTail`, which the server fills from the `after` cursor the poll
  * sends.
  */
@@ -26,7 +27,6 @@ export const POLLED_PROPS = [
     'debug',
     'actions',
     'pollInterval',
-    'transcriptLogId',
     'activityTail',
 ] as const;
 
@@ -65,18 +65,39 @@ export function useActivityRows({
     const [loadingOlder, setLoadingOlder] = useState(false);
     const latestIdRef = useRef<number | null>(activity.rows.length > 0 ? activity.rows[activity.rows.length - 1].id : null);
     const seenRunKey = useRef(runKey);
+    const consumedActivityRef = useRef(activity);
 
     // A run or attempt switch replaces everything; the old rows belong to
-    // another log.
+    // another log. A full visit brings a fresh `activity` window with it,
+    // which the effect below loads. A switch the poll reports (a new
+    // attempt starting) keeps the `activity` already consumed, so the rows
+    // are cleared and the new window is fetched. Declared before the
+    // identity effect so it sees `activity` before that effect consumes it.
     useEffect(() => {
         if (seenRunKey.current === runKey) {
             return;
         }
         seenRunKey.current = runKey;
+        if (consumedActivityRef.current !== activity) {
+            return;
+        }
+        setRows([]);
+        setHasOlder(false);
+        latestIdRef.current = null;
+        router.reload({ only: ['activity', 'activitySummary'], preserveUrl: true });
+    }, [runKey, activity]);
+
+    // Every full visit sends a fresh `activity` object and polls never
+    // include it, so a new identity always means a new window to show.
+    useEffect(() => {
+        if (consumedActivityRef.current === activity) {
+            return;
+        }
+        consumedActivityRef.current = activity;
         setRows(activity.rows);
         setHasOlder(activity.hasOlder);
         latestIdRef.current = activity.rows.length > 0 ? activity.rows[activity.rows.length - 1].id : null;
-    }, [runKey, activity]);
+    }, [activity]);
 
     useEffect(() => {
         if (!activityTail || activityTail.length === 0) {
