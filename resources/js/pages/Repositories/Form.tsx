@@ -1,10 +1,9 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Badge, Button, Field, Select, StatusPill, Textarea, TextInput, Tooltip } from '@geocodio/console-ui';
+import { Badge, Button, Field, PageHeader, Select, StatusPill, Textarea, TextInput, Tooltip } from '@geocodio/console-ui';
 import { BookOpen, ExternalLink, Info, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { DangerZone } from '@/components/repositories/DangerZone';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { shellLanguage } from '@/components/editor/shellLanguage';
@@ -277,36 +276,30 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
             <PageHeader
                 crumbs={['Repositories', isEditing ? repository.slug : 'Add new']}
                 actions={
-                    <>
-                        {isEditing && repository.githubUrl && (
-                            <a href={repository.githubUrl} target="_blank" rel="noopener noreferrer">
-                                <Button icon={<ExternalLink size={13} />}>Open on GitHub</Button>
-                            </a>
-                        )}
-                        {isEditing && repository && (
-                            <div className="flex items-center gap-2">
-                                <Tooltip label="Tears down the sandbox's dev environment and rebuilds it from scratch -- README, CLAUDE.md, dependencies, migrations, and a fresh sandbox snapshot.">
-                                    <Button
-                                        icon={<RefreshCw size={13} />}
-                                        pending={action.isPending('rerun-setup')}
-                                        pendingLabel="Dispatching…"
-                                        onClick={() => action.run('rerun-setup', 'post', repos.rerunSetup.url(repository.slug))}
-                                    >
-                                        Re-run setup
-                                    </Button>
-                                </Tooltip>
-                                <a
-                                    href={docsLinks.rerunSetup}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-faint hover:text-muted"
-                                    aria-label="Re-run setup docs"
-                                >
-                                    <BookOpen size={13} />
-                                </a>
-                            </div>
-                        )}
-                    </>
+                    isEditing && repository.githubUrl && (
+                        <a href={repository.githubUrl} target="_blank" rel="noopener noreferrer">
+                            <Button icon={<ExternalLink size={13} />}>Open on GitHub</Button>
+                        </a>
+                    )
+                }
+                overflow={
+                    isEditing && repository
+                        ? [
+                              {
+                                  key: 'rerun-setup',
+                                  label: action.isPending('rerun-setup') ? 'Dispatching…' : 'Re-run setup',
+                                  icon: <RefreshCw size={13} />,
+                                  disabled: action.isPending('rerun-setup'),
+                                  onSelect: () => action.run('rerun-setup', 'post', repos.rerunSetup.url(repository.slug)),
+                              },
+                              {
+                                  key: 'rerun-setup-docs',
+                                  label: 'What re-run setup does',
+                                  icon: <BookOpen size={13} />,
+                                  onSelect: () => window.open(docsLinks.rerunSetup, '_blank', 'noopener'),
+                              },
+                          ]
+                        : []
                 }
             />
 

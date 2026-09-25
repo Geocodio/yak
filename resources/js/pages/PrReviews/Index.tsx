@@ -1,9 +1,8 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Badge, Button, Menu, Table, Tbody, Td, Th, Thead, Toggle, Tr, cn } from '@geocodio/console-ui';
+import { Badge, Button, cn, Menu, PageHeader, Table, Tbody, Td, Th, Thead, Toggle, Tr } from '@geocodio/console-ui';
 import { ChevronDown, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { StatTile } from '@/components/costs/StatTile';
 import { forPr } from '@/routes/pr-reviews';
 import { repos, prReviews as prReviewsIndex } from '@/routes';

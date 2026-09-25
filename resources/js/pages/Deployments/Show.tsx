@@ -1,9 +1,8 @@
 import { Head, router, usePoll } from '@inertiajs/react';
-import { Badge, Button, ConfirmDialog, StatusPill } from '@geocodio/console-ui';
+import { Badge, Button, ConfirmDialog, PageHeader, StatusPill } from '@geocodio/console-ui';
 import { AlertTriangle, ExternalLink, RotateCw, Trash2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { ActivityLog } from '@/components/deployments/ActivityLog';
 import { HibernationCard } from '@/components/deployments/HibernationCard';
 import { ManifestCard } from '@/components/deployments/ManifestCard';
@@ -51,18 +50,14 @@ export default function Show({ deployment, hibernation, manifest, shareLink, min
             <PageHeader
                 crumbs={['Deployments', `${deployment.repoSlug} / ${deployment.branch}`]}
                 actions={
-                    <>
-                        <Button icon={<RotateCw size={13} />} onClick={() => setConfirm('rebuild')} data-testid="rebuild-deployment">
-                            Rebuild from latest template
-                        </Button>
-                        <Button variant="destructive" icon={<Trash2 size={13} />} onClick={() => setConfirm('destroy')} data-testid="destroy-deployment">
-                            Destroy
-                        </Button>
-                        <Button variant="primary" icon={<ExternalLink size={13} />} onClick={() => window.open(deployment.url, '_blank', 'noopener')}>
-                            Open preview
-                        </Button>
-                    </>
+                    <Button variant="primary" icon={<ExternalLink size={13} />} onClick={() => window.open(deployment.url, '_blank', 'noopener')}>
+                        Open preview
+                    </Button>
                 }
+                overflow={[
+                    { key: 'rebuild', label: 'Rebuild from latest template', icon: <RotateCw size={13} />, onSelect: () => setConfirm('rebuild'), testId: 'rebuild-deployment' },
+                    { key: 'destroy', label: 'Destroy', icon: <Trash2 size={13} />, danger: true, dividerAbove: true, onSelect: () => setConfirm('destroy'), testId: 'destroy-deployment' },
+                ]}
             />
 
             <div className="min-h-0 flex-1 overflow-auto">

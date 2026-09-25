@@ -1,9 +1,8 @@
 import { Deferred, Head, router, usePoll } from '@inertiajs/react';
-import { Button, ConfirmDialog, EmptyState, Skeleton } from '@geocodio/console-ui';
+import { Button, ConfirmDialog, EmptyState, PageHeader, Skeleton } from '@geocodio/console-ui';
 import { Plus, RotateCw, Server as ServerIcon, TriangleAlert } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { McpServerTable } from '@/components/mcp/McpServerTable';
 import { AddMcpServerDialog } from '@/components/mcp/AddMcpServerDialog';
 import { SshFallback } from '@/components/mcp/SshFallback';

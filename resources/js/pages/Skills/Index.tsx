@@ -1,9 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Button, ConfirmDialog, Menu, TextInput, cn } from '@geocodio/console-ui';
+import { Button, ConfirmDialog, Menu, PageHeader, TextInput, cn } from '@geocodio/console-ui';
 import { ChevronDown, Loader2, Plus, RotateCw } from 'lucide-react';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { SkillCard } from '@/components/skills/SkillCard';
 import { InstallFromUrlDialog } from '@/components/skills/InstallFromUrlDialog';
 import { MarketplaceList } from '@/components/skills/MarketplaceList';
@@ -156,17 +155,22 @@ export default function Index({ installed, bundled, available, categories, recom
             <PageHeader
                 crumbs={['Skills']}
                 actions={
-                    <>
-                        <Button variant="secondary" icon={<RotateCw size={13} />} pending={refreshing} pendingLabel="Refreshing…" onClick={refreshMarketplaces} data-testid="refresh-marketplaces">
-                            Refresh marketplaces
-                        </Button>
-                        <Button variant="primary" icon={<Plus size={13} />} onClick={() => setShowInstallFromUrl(true)} data-testid="open-install-from-url">
-                            Install from URL
-                        </Button>
-                    </>
+                    <Button variant="primary" icon={<Plus size={13} />} onClick={() => setShowInstallFromUrl(true)} data-testid="open-install-from-url">
+                        Install from URL
+                    </Button>
                 }
+                overflow={[
+                    {
+                        key: 'refresh',
+                        label: refreshing ? 'Refreshing…' : 'Refresh marketplaces',
+                        icon: <RotateCw size={13} />,
+                        disabled: refreshing,
+                        onSelect: refreshMarketplaces,
+                        testId: 'refresh-marketplaces',
+                    },
+                ]}
             >
-                <div className="ml-4 flex items-center gap-2">
+                <div className="flex items-center gap-2">
                     <div className="relative">
                         <TextInput
                             type="search"

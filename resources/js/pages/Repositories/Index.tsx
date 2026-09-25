@@ -1,9 +1,8 @@
 import { Head, router } from '@inertiajs/react';
-import { Badge, Button, StatusPill, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { Badge, Button, PageHeader, StatusPill, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
 import { Plus, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import repos from '@/routes/repos';
 import type { RepositorySummary } from '@/types/repositories';
 import type { PageProps } from '@/types/shared';

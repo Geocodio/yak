@@ -1,9 +1,8 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Badge, Button } from '@geocodio/console-ui';
+import { Badge, Button, PageHeader } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { FindingsBlock } from '@/components/tasks/FindingsBlock';
 import { rerun } from '@/routes/pr-reviews/for-pr';
 import type { PageProps } from '@/types/shared';

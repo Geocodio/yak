@@ -1,8 +1,7 @@
 import { Head, Link, router, usePoll } from '@inertiajs/react';
-import { Badge, Button, Menu, Table, Tbody, Td, Th, Thead, Tr, cn } from '@geocodio/console-ui';
+import { Badge, Button, cn, Menu, PageHeader, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { observations as observationsIndex } from '@/routes';
 import type { PageProps } from '@/types/shared';
 import type { ObservationFilters, ObservationPage } from '@/types/observations';

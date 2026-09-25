@@ -1,10 +1,9 @@
 import { Deferred, Head, router } from '@inertiajs/react';
-import { Button } from '@geocodio/console-ui';
+import { Button, PageHeader } from '@geocodio/console-ui';
 import { Loader2, RotateCw } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { HealthRow } from '@/components/health/HealthRow';
 import { refresh } from '@/routes/health';
 import type { HealthCheckMeta, HealthResultData } from '@/types/health';

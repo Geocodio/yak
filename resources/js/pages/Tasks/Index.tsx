@@ -1,9 +1,8 @@
 import { Head, router, usePoll } from '@inertiajs/react';
-import { Button, Menu, cn } from '@geocodio/console-ui';
+import { Button, cn, Menu, PageHeader } from '@geocodio/console-ui';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
 import { NewTaskSheet } from '@/components/tasks/NewTaskSheet';
 import { SetupCard } from '@/components/tasks/SetupCard';

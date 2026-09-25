@@ -1,9 +1,8 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Badge, Button, ConfirmDialog, toast } from '@geocodio/console-ui';
+import { Badge, Button, ConfirmDialog, PageHeader, toast } from '@geocodio/console-ui';
 import { AlertTriangle, Clock, GitCompare, RotateCcw, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { CodeEditor } from '@/components/editor/CodeEditor';
 import { DiffEditor } from '@/components/editor/DiffEditor';
 import { HistoryDialog } from '@/components/prompts/HistoryDialog';
@@ -179,23 +178,17 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
             <PageHeader
                 crumbs={['Prompts', prompt.label]}
                 actions={
-                    <>
-                        <Button variant="tertiary" icon={<Clock size={13} />} onClick={() => setShowHistory(true)}>
-                            History
-                        </Button>
-                        <Button icon={<GitCompare size={13} />} onClick={() => setShowDiff((v) => !v)} data-testid="toggle-diff">
-                            {showDiff ? 'Hide diff' : 'Diff'}
-                        </Button>
-                        {prompt.customized && (
-                            <Button variant="tertiary" className="text-fail" onClick={() => setShowReset(true)} data-testid="reset-button">
-                                Reset
-                            </Button>
-                        )}
-                        <Button variant="primary" icon={<Save size={13} />} pending={form.processing} onClick={save} data-testid="save-button">
-                            Save <span className="ml-1.5 text-[10px] opacity-70">⌘S</span>
-                        </Button>
-                    </>
+                    <Button variant="primary" icon={<Save size={13} />} pending={form.processing} onClick={save} data-testid="save-button">
+                        Save <span className="ml-1.5 text-[10px] opacity-70">⌘S</span>
+                    </Button>
                 }
+                overflow={[
+                    { key: 'history', label: 'History', icon: <Clock size={13} />, onSelect: () => setShowHistory(true) },
+                    { key: 'diff', label: showDiff ? 'Hide diff' : 'Diff', icon: <GitCompare size={13} />, onSelect: () => setShowDiff((value) => !value), testId: 'toggle-diff' },
+                    ...(prompt.customized
+                        ? [{ key: 'reset', label: 'Reset', danger: true, dividerAbove: true, onSelect: () => setShowReset(true), testId: 'reset-button' }]
+                        : []),
+                ]}
             />
 
             <div className="flex min-h-0 flex-1 flex-col lg:flex-row" data-testid="prompt-editor">

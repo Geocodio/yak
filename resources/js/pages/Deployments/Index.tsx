@@ -1,9 +1,8 @@
 import { Head, Link, router, usePoll } from '@inertiajs/react';
-import { Badge, Menu, StatusPill, Table, Tbody, Td, Th, Thead, Tooltip, Tr, cn } from '@geocodio/console-ui';
+import { Badge, cn, Menu, PageHeader, StatusPill, Table, Tbody, Td, Th, Thead, Tooltip, Tr } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { deployments as deploymentsIndex } from '@/routes';
 import { show } from '@/routes/deployments';
 import type { DeploymentFilters, DeploymentRow } from '@/types/deployments';

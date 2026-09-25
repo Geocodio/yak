@@ -1,9 +1,8 @@
 import { Head, router } from '@inertiajs/react';
-import { Menu, cn } from '@geocodio/console-ui';
+import { cn, Menu, PageHeader } from '@geocodio/console-ui';
 import { ChevronDown, Info } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
-import { PageHeader } from '@/components/PageHeader';
 import { EventExplorer } from '@/components/analytics/EventExplorer';
 import { FailuresChart } from '@/components/analytics/FailuresChart';
 import { FeaturesTable } from '@/components/analytics/FeaturesTable';
