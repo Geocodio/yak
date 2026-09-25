@@ -3,36 +3,19 @@
 namespace App\Http\Resources;
 
 use App\Models\TaskLog;
-use App\Models\YakTask;
 use App\Support\Markdown;
-use Illuminate\Support\Collection;
 
 /**
- * Full transcript entries (input/output/prompt) for the run+attempt shown
- * in the sidebar, sent as an `Inertia::optional` prop -- the activity log
- * only needs the flattened summary row, the transcript overlay needs the
- * full tool input/output and prompt text behind it.
+ * One transcript entry (input, output, prompt) for the `?log=` the client
+ * asks for. The activity log carries only the flattened row; this is the
+ * payload behind a single opened entry.
  */
 final class TranscriptData
 {
     /**
-     * @return array<int, array<string, mixed>>
-     */
-    public static function for(YakTask $run, int $attempt): array
-    {
-        /** @var Collection<int, TaskLog> $logs */
-        $logs = $run->logs()
-            ->where('attempt_number', $attempt)
-            ->orderBy('created_at')
-            ->get();
-
-        return $logs->map(fn (TaskLog $log): array => self::entry($log))->values()->all();
-    }
-
-    /**
      * @return array<string, mixed>
      */
-    private static function entry(TaskLog $log): array
+    public static function entry(TaskLog $log): array
     {
         /** @var array<string, mixed> $metadata */
         $metadata = (array) $log->metadata;

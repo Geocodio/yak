@@ -5,65 +5,86 @@ namespace App\Http\Resources;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Support\Markdown;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
 /**
- * Flattens a run's {@see TaskLog} rows into the Activity card's row shape.
- * Consecutive info-level assistant "thinking" entries are tagged with a
- * shared `group` index instead of being collapsed server-side, so the
- * React page can toggle grouped/ungrouped (the old "Detailed" view) without
- * a round trip.
+ * Flattens a run's {@see TaskLog} rows into the Activity card's row shape,
+ * windowed by cursor rather than loading a whole run at once. Grouping
+ * consecutive "thinking" entries is a client concern; rows carry no group.
  */
 final class ActivityLogData
 {
+    public const WINDOW = 200;
+
     /**
-     * @param  Collection<int, TaskLog>  $logs
-     * @return array{entries: int, duration: string, rows: array<int, array<string, mixed>>}
+     * @return array{entries: int, duration: string, latestId: int|null}
      */
-    public static function build(Collection $logs, YakTask $run, bool $isActiveStatus): array
+    public static function summary(YakTask $run, int $attempt): array
     {
+        $query = self::attemptLogs($run, $attempt);
+
         return [
-            'entries' => $logs->count(),
+            'entries' => (clone $query)->count(),
             'duration' => self::formatDuration($run->duration_ms),
-            'rows' => self::rows($logs, $isActiveStatus),
+            'latestId' => (clone $query)->max('id'),
         ];
     }
 
     /**
-     * @param  Collection<int, TaskLog>  $logs
+     * The newest WINDOW rows, oldest first, with the cursor the client uses to
+     * ask for the rows before them.
+     *
+     * @return array{rows: array<int, array<string, mixed>>, oldestId: int|null, hasOlder: bool}
+     */
+    public static function window(YakTask $run, int $attempt, bool $isActiveStatus): array
+    {
+        /** @var Collection<int, TaskLog> $logs */
+        $logs = self::attemptLogs($run, $attempt)->orderByDesc('id')->limit(self::WINDOW + 1)->get();
+        $hasOlder = $logs->count() > self::WINDOW;
+        $logs = $logs->take(self::WINDOW)->reverse()->values();
+
+        return [
+            'rows' => $logs->map(fn (TaskLog $log): array => self::row($log, $isActiveStatus))->all(),
+            'oldestId' => $logs->first()?->id,
+            'hasOlder' => $hasOlder,
+        ];
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
-    private static function rows(Collection $logs, bool $isActiveStatus): array
+    public static function before(YakTask $run, int $attempt, int $beforeId, bool $isActiveStatus): array
     {
-        $rows = [];
-        $groupIndex = -1;
-        $inGroup = false;
+        /** @var Collection<int, TaskLog> $logs */
+        $logs = self::attemptLogs($run, $attempt)->where('id', '<', $beforeId)->orderByDesc('id')->limit(self::WINDOW)->get();
 
-        foreach ($logs as $log) {
-            /** @var array<string, mixed>|null $metadata */
-            $metadata = $log->metadata;
-            $type = $metadata['type'] ?? null;
-            $isGroupable = $type === 'assistant' && $log->level === 'info';
+        return $logs->reverse()->values()->map(fn (TaskLog $log): array => self::row($log, $isActiveStatus))->all();
+    }
 
-            if ($isGroupable) {
-                if (! $inGroup) {
-                    $groupIndex++;
-                    $inGroup = true;
-                }
-            } else {
-                $inGroup = false;
-            }
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function after(YakTask $run, int $attempt, int $afterId, bool $isActiveStatus): array
+    {
+        /** @var Collection<int, TaskLog> $logs */
+        $logs = self::attemptLogs($run, $attempt)->where('id', '>', $afterId)->orderBy('id')->limit(self::WINDOW)->get();
 
-            $rows[] = self::row($log, $isGroupable ? $groupIndex : null, $isActiveStatus);
-        }
+        return $logs->map(fn (TaskLog $log): array => self::row($log, $isActiveStatus))->all();
+    }
 
-        return $rows;
+    /**
+     * @return HasMany<TaskLog, YakTask>
+     */
+    private static function attemptLogs(YakTask $run, int $attempt): HasMany
+    {
+        return $run->logs()->where('attempt_number', $attempt);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private static function row(TaskLog $log, ?int $group, bool $isActiveStatus): array
+    private static function row(TaskLog $log, bool $isActiveStatus): array
     {
         /** @var array<string, mixed> $metadata */
         $metadata = (array) $log->metadata;
@@ -86,7 +107,6 @@ final class ActivityLogData
             'kind' => $kind,
             'error' => (bool) ($metadata['is_error'] ?? false),
             'milestone' => self::isMilestone($log),
-            'group' => $group,
         ];
     }
 

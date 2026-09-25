@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Tasks;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ActivityLogData;
 use App\Http\Resources\TaskDetailData;
 use App\Http\Resources\TranscriptData;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,12 +28,24 @@ class TaskController extends Controller
 
         $data = TaskDetailData::build($task, $request);
         $attempt = $data['task']['attempt'];
+        $isActive = TaskDetailData::isActive($focusedRun->status);
 
-        $transcriptFor = fn () => TranscriptData::for($focusedRun, $attempt);
+        $entryFor = function () use ($request, $conversation): ?array {
+            $logId = TaskDetailData::resolveTranscriptLogId($request, $conversation);
+            $log = $logId !== null ? TaskLog::find($logId) : null;
+
+            return $log !== null ? TranscriptData::entry($log) : null;
+        };
 
         return Inertia::render('Tasks/Show', [
             ...$data,
-            'transcript' => $request->has('log') ? $transcriptFor() : Inertia::optional($transcriptFor),
+            'activityOlder' => Inertia::optional(fn () => $request->integer('before')
+                ? ActivityLogData::before($focusedRun, $attempt, $request->integer('before'), $isActive)
+                : []),
+            'activityTail' => Inertia::optional(fn () => $request->integer('after')
+                ? ActivityLogData::after($focusedRun, $attempt, $request->integer('after'), $isActive)
+                : []),
+            'transcriptEntry' => $request->has('log') ? $entryFor() : Inertia::optional($entryFor),
         ]);
     }
 }

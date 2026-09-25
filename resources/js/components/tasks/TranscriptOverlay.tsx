@@ -21,7 +21,7 @@ function Block({ title, children, error }: { title: string; children?: React.Rea
 export function TranscriptOverlay({
     open,
     onOpenChange,
-    entries,
+    transcriptEntry,
     headline,
     runs,
     currentRunId,
@@ -31,7 +31,7 @@ export function TranscriptOverlay({
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    entries: TranscriptEntry[] | undefined;
+    transcriptEntry: TranscriptEntry | null | undefined;
     headline: string;
     runs: RunSummary[];
     currentRunId: number;
@@ -45,7 +45,8 @@ export function TranscriptOverlay({
     const dialogRef = useRef<HTMLDivElement>(null);
     const requestedRef = useRef(false);
 
-    const list = entries ?? [];
+    // The overlay reads one entry at a time.
+    const list = transcriptEntry ? [transcriptEntry] : [];
 
     const initialIndex = useMemo(() => {
         if (selectedLogId === null) {
@@ -62,14 +63,14 @@ export function TranscriptOverlay({
     }, [initialIndex]);
 
     useEffect(() => {
-        if (open && entries === undefined && !requestedRef.current) {
+        if (open && transcriptEntry === undefined && !requestedRef.current) {
             requestedRef.current = true;
-            router.reload({ only: ['transcript'] });
+            router.reload({ only: ['transcriptEntry'] });
         }
         if (!open) {
             requestedRef.current = false;
         }
-    }, [open, entries]);
+    }, [open, transcriptEntry]);
 
     const visible = list.filter(
         (entry) =>

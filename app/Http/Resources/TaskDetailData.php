@@ -61,11 +61,6 @@ final class TaskDetailData
         $attemptCount = max(1, (int) $focusedRun->attempts);
         $attempt = min(max(1, $request->integer('attempt') ?: $attemptCount), $attemptCount);
 
-        $logs = $focusedRun->logs()
-            ->where('attempt_number', $attempt)
-            ->orderBy('created_at')
-            ->get();
-
         $review = $task->mode === TaskMode::Review
             ? PrReview::where('yak_task_id', $task->id)->with('comments')->first()
             : null;
@@ -75,7 +70,8 @@ final class TaskDetailData
             'thread' => self::thread($task, $conversation),
             'runs' => self::runs($conversation),
             'attempts' => range(1, $attemptCount),
-            'activity' => ActivityLogData::build($logs, $focusedRun, self::isActive($focusedRun->status)),
+            'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
+            'activity' => ActivityLogData::window($focusedRun, $attempt, self::isActive($focusedRun->status)),
             'progress' => ['steps' => self::progressSteps($task)],
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
@@ -113,7 +109,7 @@ final class TaskDetailData
     /**
      * @param  Collection<int, YakTask>  $conversation
      */
-    private static function resolveTranscriptLogId(Request $request, Collection $conversation): ?int
+    public static function resolveTranscriptLogId(Request $request, Collection $conversation): ?int
     {
         $logId = $request->integer('log') ?: null;
 
@@ -701,7 +697,7 @@ final class TaskDetailData
         ];
     }
 
-    private static function isActive(TaskStatus $status): bool
+    public static function isActive(TaskStatus $status): bool
     {
         return in_array($status, self::ACTIVE_STATUSES, true);
     }

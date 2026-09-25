@@ -158,7 +158,7 @@ test('composer state is disabled_closed for a success task with no pr', function
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'disabled_closed'));
 });
 
-test('transcript is omitted from a normal load and present with a log query param', function () {
+test('transcriptEntry is omitted from a normal load and present with a log query param', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
     $log = TaskLog::factory()->create([
         'yak_task_id' => $task->id,
@@ -168,12 +168,39 @@ test('transcript is omitted from a normal load and present with a log query para
     ]);
 
     $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page->missing('transcript'));
+        ->assertInertia(fn (Assert $page) => $page->missing('transcriptEntry')->missing('transcript'));
 
     $this->get(route('tasks.show', [$task, 'log' => $log->id]))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('transcript')
+            ->where('transcriptEntry.id', $log->id)
+            ->where('transcriptEntry.input', 'ls -la')
+            ->where('transcriptEntry.output', 'total 0')
             ->where('transcriptLogId', $log->id));
+});
+
+test('transcriptEntry resolves a log from another run in the same conversation', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $followUp = YakTask::factory()->create(['parent_task_id' => $root->id, 'status' => TaskStatus::Success, 'started_at' => now()]);
+    $log = TaskLog::factory()->create(['yak_task_id' => $followUp->id, 'attempt_number' => 1, 'message' => 'In the follow-up']);
+
+    $this->get(route('tasks.show', [$root, 'log' => $log->id]))
+        ->assertInertia(fn (Assert $page) => $page->where('transcriptEntry.text', 'In the follow-up'));
+});
+
+test('transcriptEntry can be requested as a partial reload without a log in the url', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $log = TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'Fetched on demand']);
+
+    // A partial reload's response is bare JSON, not the full page view, so
+    // it is asserted with assertJsonPath rather than assertInertia (which
+    // requires the `page` view data a full-page visit renders).
+    $this->get(route('tasks.show', [$task, 'log' => $log->id]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => inertiaVersion($task),
+        'X-Inertia-Partial-Component' => 'Tasks/Show',
+        'X-Inertia-Partial-Data' => 'transcriptEntry',
+    ])->assertJsonPath('props.transcriptEntry.text', 'Fetched on demand')
+        ->assertJsonMissingPath('props.thread');
 });
 
 test('attempt query param selects the requested attempt', function () {
@@ -194,25 +221,123 @@ test('attempt query param selects the requested attempt', function () {
             ->where('activity.rows.0.text', 'attempt two log'));
 });
 
-test('activity rows tag consecutive assistant entries with a shared group', function () {
+test('activity rows carry no server-side group; grouping is a client concern', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
-
-    foreach (['thinking one', 'thinking two', 'thinking three'] as $message) {
-        TaskLog::factory()->create([
-            'yak_task_id' => $task->id,
-            'attempt_number' => 1,
-            'message' => $message,
-            'level' => 'info',
-            'metadata' => ['type' => 'assistant'],
-        ]);
-    }
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'thinking', 'level' => 'info', 'metadata' => ['type' => 'assistant']]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
-            ->has('activity.rows', 3)
-            ->where('activity.rows.0.group', 0)
-            ->where('activity.rows.1.group', 0)
-            ->where('activity.rows.2.group', 0));
+            ->has('activity.rows', 1)
+            ->where('activity.rows.0.kind', 'assistant')
+            ->where('activity.rows.0.milestone', false)
+            ->missing('activity.rows.0.group'));
+});
+
+/**
+ * The build's actual Inertia asset version, needed to make a partial
+ * reload request -- an empty or stale version gets a 409 conflict instead
+ * of a page response.
+ */
+function inertiaVersion(YakTask $task): string
+{
+    return (string) test()->get(route('tasks.show', $task), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+}
+
+function seedLogs(YakTask $task, int $count, int $attempt = 1): void
+{
+    $rows = [];
+    foreach (range(1, $count) as $index) {
+        $rows[] = [
+            'yak_task_id' => $task->id,
+            'attempt_number' => $attempt,
+            'level' => 'info',
+            'message' => "Step {$index}",
+            'metadata' => json_encode(['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => "echo {$index}"], 'output' => (string) $index]),
+            'created_at' => now()->subSeconds($count - $index),
+        ];
+    }
+    foreach (array_chunk($rows, 200) as $chunk) {
+        TaskLog::insert($chunk);
+    }
+}
+
+test('activity sends the newest 200 rows oldest first, with a cursor and a summary', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    seedLogs($task, 250);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('activity.rows', 200)
+            ->where('activity.rows.0.text', 'Step 51')
+            ->where('activity.rows.199.text', 'Step 250')
+            ->where('activity.hasOlder', true)
+            ->where('activity.oldestId', fn ($id) => TaskLog::find($id)?->message === 'Step 51')
+            ->where('activitySummary.entries', 250)
+            ->where('activitySummary.latestId', fn ($id) => TaskLog::find($id)?->message === 'Step 250')
+            ->has('activitySummary.duration')
+            ->missing('activityOlder')
+            ->missing('activityTail'));
+});
+
+test('activity has no older rows when the run fits the window', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    seedLogs($task, 3);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->has('activity.rows', 3)->where('activity.hasOlder', false));
+});
+
+test('activityOlder returns the rows before a cursor as a partial reload', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    seedLogs($task, 250);
+    $cursor = TaskLog::where('yak_task_id', $task->id)->where('message', 'Step 51')->value('id');
+
+    $this->get(route('tasks.show', [$task, 'before' => $cursor]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => inertiaVersion($task),
+        'X-Inertia-Partial-Component' => 'Tasks/Show',
+        'X-Inertia-Partial-Data' => 'activityOlder',
+    ])->assertJsonCount(50, 'props.activityOlder')
+        ->assertJsonPath('props.activityOlder.0.text', 'Step 1')
+        ->assertJsonPath('props.activityOlder.49.text', 'Step 50')
+        ->assertJsonMissingPath('props.activity');
+});
+
+test('activityTail returns only rows after a cursor, capped at the window, and the next cursor drains the rest', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
+    seedLogs($task, 260);
+    $cursor = TaskLog::where('yak_task_id', $task->id)->where('message', 'Step 10')->value('id');
+    $headers = [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => inertiaVersion($task),
+        'X-Inertia-Partial-Component' => 'Tasks/Show',
+        'X-Inertia-Partial-Data' => 'activityTail,activitySummary',
+    ];
+
+    $this->get(route('tasks.show', [$task, 'after' => $cursor]), $headers)
+        ->assertJsonCount(200, 'props.activityTail')
+        ->assertJsonPath('props.activityTail.0.text', 'Step 11')
+        ->assertJsonPath('props.activityTail.199.text', 'Step 210')
+        ->assertJsonPath('props.activitySummary.entries', 260);
+
+    $nextCursor = TaskLog::where('yak_task_id', $task->id)->where('message', 'Step 210')->value('id');
+    $this->get(route('tasks.show', [$task, 'after' => $nextCursor]), $headers)
+        ->assertJsonCount(50, 'props.activityTail')
+        ->assertJsonPath('props.activityTail.49.text', 'Step 260');
+});
+
+test('activity cursors respect the selected attempt', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now(), 'attempts' => 2]);
+    seedLogs($task, 5, attempt: 1);
+    seedLogs($task, 3, attempt: 2);
+    $cursor = TaskLog::where('yak_task_id', $task->id)->where('attempt_number', 2)->orderBy('id')->value('id');
+
+    $this->get(route('tasks.show', [$task, 'attempt' => 2, 'after' => $cursor]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => inertiaVersion($task),
+        'X-Inertia-Partial-Component' => 'Tasks/Show',
+        'X-Inertia-Partial-Data' => 'activityTail',
+    ])->assertJsonCount(2, 'props.activityTail');
 });
 
 test('actions reflect what the task can do right now', function () {

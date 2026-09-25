@@ -19,6 +19,7 @@ import type { PageProps } from '@/types/shared';
 import type {
     ActionsData,
     ActivityData,
+    ActivitySummary,
     ComposerData,
     DebugData,
     DeploymentData,
@@ -37,6 +38,7 @@ type Props = PageProps<{
     thread: ThreadEntryData[];
     runs: RunSummary[];
     attempts: number[];
+    activitySummary: ActivitySummary;
     activity: ActivityData;
     progress: { steps: ProgressStep[] };
     media: MediaItem[];
@@ -48,7 +50,7 @@ type Props = PageProps<{
     actions: ActionsData;
     pollInterval: number;
     transcriptLogId: number | null;
-    transcript?: TranscriptEntry[];
+    transcriptEntry?: TranscriptEntry | null;
 }>;
 
 export default function Show({
@@ -56,6 +58,7 @@ export default function Show({
     thread,
     runs,
     attempts,
+    activitySummary,
     activity,
     progress,
     media,
@@ -67,7 +70,7 @@ export default function Show({
     actions,
     pollInterval,
     transcriptLogId,
-    transcript,
+    transcriptEntry,
 }: Props) {
     usePoll(pollInterval);
 
@@ -123,10 +126,12 @@ export default function Show({
                 task.status === 'awaiting_ci' ||
                 task.status === 'retrying') && <ProgressList steps={progress.steps} />}
 
-            {activity.entries > 0 && (
+            {activitySummary.entries > 0 && (
                 <ActivityLog
                     taskId={task.id}
                     activity={activity}
+                    entries={activitySummary.entries}
+                    duration={activitySummary.duration}
                     runs={runs}
                     currentRunId={currentRunId}
                     attempts={attempts}
@@ -219,7 +224,7 @@ export default function Show({
             <TranscriptOverlay
                 open={transcriptOpen}
                 onOpenChange={closeTranscript}
-                entries={transcript}
+                transcriptEntry={transcriptEntry}
                 headline={task.headline}
                 runs={runs}
                 currentRunId={currentRunId}

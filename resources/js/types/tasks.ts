@@ -149,13 +149,18 @@ export type ActivityRow = {
     kind: 'tool' | 'prompt' | 'assistant' | 'level';
     error: boolean;
     milestone: boolean;
-    group: number | null;
+};
+
+export type ActivitySummary = {
+    entries: number;
+    duration: string;
+    latestId: number | null;
 };
 
 export type ActivityData = {
-    entries: number;
-    duration: string;
     rows: ActivityRow[];
+    oldestId: number | null;
+    hasOlder: boolean;
 };
 
 export type Chapter = {

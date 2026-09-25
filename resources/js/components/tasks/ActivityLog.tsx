@@ -8,6 +8,10 @@ type Filter = 'all' | 'actions' | 'milestones';
 
 type DisplayItem = { type: 'row'; row: ActivityRow } | { type: 'group'; groupIndex: number; rows: ActivityRow[] };
 
+function isGroupable(row: ActivityRow): boolean {
+    return row.kind === 'assistant' && !row.milestone;
+}
+
 function buildDisplayItems(rows: ActivityRow[], grouped: boolean): DisplayItem[] {
     if (!grouped) {
         return rows.map((row) => ({ type: 'row', row }));
@@ -15,16 +19,17 @@ function buildDisplayItems(rows: ActivityRow[], grouped: boolean): DisplayItem[]
 
     const items: DisplayItem[] = [];
     let i = 0;
+    let groupIndex = 0;
     while (i < rows.length) {
         const row = rows[i];
-        if (row.group !== null) {
+        if (isGroupable(row)) {
             const groupRows = [row];
             let j = i + 1;
-            while (j < rows.length && rows[j].group === row.group) {
+            while (j < rows.length && isGroupable(rows[j])) {
                 groupRows.push(rows[j]);
                 j++;
             }
-            items.push({ type: 'group', groupIndex: row.group, rows: groupRows });
+            items.push({ type: 'group', groupIndex: groupIndex++, rows: groupRows });
             i = j;
         } else {
             items.push({ type: 'row', row });
@@ -37,6 +42,8 @@ function buildDisplayItems(rows: ActivityRow[], grouped: boolean): DisplayItem[]
 export function ActivityLog({
     taskId,
     activity,
+    entries,
+    duration,
     runs,
     currentRunId,
     attempts,
@@ -47,6 +54,8 @@ export function ActivityLog({
 }: {
     taskId: number;
     activity: ActivityData;
+    entries: number;
+    duration: string;
     runs: RunSummary[];
     currentRunId: number;
     attempts: number[];
@@ -129,7 +138,7 @@ export function ActivityLog({
                         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-faint">Activity</h2>
                         <div className="flex items-center gap-1">
                             <span className="tnum text-[11px] text-faint">
-                                {activity.entries} entries · {activity.duration}
+                                {entries} entries · {duration}
                             </span>
                             <Tooltip label="Open the full transcript">
                                 <IconButton label="Open the full transcript" onClick={onOpenTranscriptCold} className="h-6 w-6 border-0 bg-transparent shadow-none" data-testid="open-transcript">
