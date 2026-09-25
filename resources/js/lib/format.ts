@@ -86,3 +86,32 @@ export function formatHour(iso: string): string {
 
     return `${day} ${time}`;
 }
+
+/** ISO timestamp → age relative to now: `just now`, `42s ago`, `5m ago`, `3h ago`, `2d ago`. */
+export function formatAgo(iso: string, now: number = Date.now()): string {
+    const time = new Date(iso).getTime();
+
+    if (Number.isNaN(time)) {
+        return iso;
+    }
+
+    const seconds = Math.max(0, Math.floor((now - time) / 1000));
+
+    if (seconds < 5) {
+        return 'just now';
+    }
+
+    if (seconds < 60) {
+        return `${seconds}s ago`;
+    }
+
+    if (seconds < 3600) {
+        return `${Math.floor(seconds / 60)}m ago`;
+    }
+
+    if (seconds < 86_400) {
+        return `${Math.floor(seconds / 3600)}h ago`;
+    }
+
+    return `${Math.floor(seconds / 86_400)}d ago`;
+}

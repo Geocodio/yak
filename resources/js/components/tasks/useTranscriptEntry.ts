@@ -2,14 +2,17 @@ import { router } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
 import type { TranscriptEntry } from '@/types/tasks';
 
+const TRANSCRIPT_CACHE_LIMIT = 50;
+
 /**
- * Fetches the transcript entry for `selectedLogId` on demand and caches every
- * entry the server sends, so stepping back to one already seen never
- * re-fetches it. A tool call still running is the one exception: its output
- * arrives after the row does, so it is refetched on every visit until output
- * exists. A run/attempt switch (`runKey` changing) invalidates every cached
- * entry -- they belong to a different transcript. Shared by the desktop
- * transcript overlay and the phone log entry sheet.
+ * Fetches the transcript entry for `selectedLogId` on demand and caches the
+ * last TRANSCRIPT_CACHE_LIMIT entries the server sends, so stepping back to
+ * one recently seen never re-fetches it. A tool call still running is the
+ * one exception: its output arrives after the row does, so it is refetched
+ * on every visit until output exists. A run/attempt switch (`runKey`
+ * changing) invalidates every cached entry -- they belong to a different
+ * transcript. Shared by the desktop transcript overlay and the phone log
+ * entry sheet.
  */
 export function useTranscriptEntry({
     open,
@@ -36,7 +39,12 @@ export function useTranscriptEntry({
 
     useEffect(() => {
         if (entry?.id != null && !(entry.kind === 'tool' && entry.output === null)) {
-            cacheRef.current.set(entry.id, entry);
+            const cache = cacheRef.current;
+            cache.set(entry.id, entry);
+            if (cache.size > TRANSCRIPT_CACHE_LIMIT) {
+                // A Map iterates in insertion order, so the first key is the oldest.
+                cache.delete(cache.keys().next().value as number);
+            }
         }
     }, [entry]);
 
