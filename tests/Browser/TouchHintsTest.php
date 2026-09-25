@@ -9,6 +9,7 @@ test('on a phone a stat tile shows its hint as a caption', function () {
 
     $page = visit('/costs')->on()->mobile();
 
+    // Five tiles on /costs share this test id; strict-mode locators reject multiple matches, so pick the first.
     $page->assertVisible(':nth-match([data-testid="stat-tile-hint"], 1)')
         ->assertNoJavaScriptErrors();
 });

@@ -3,12 +3,12 @@ import { useEffect, useState } from 'react';
 import { SidebarNav } from '@/components/Sidebar';
 
 /**
- * The navigation drawer below `lg`, opened by the top bar's menu button via
- * the `yak:open-nav` event so pages never hold drawer state themselves.
+ * The navigation drawer is opened by the tab bar's More slot through the
+ * `yak:open-nav` event so pages never hold drawer state themselves.
  *
- * It enters from the right, the edge the menu button sits on, so the panel
- * comes from where the thumb pressed. The top padding clears the status bar
- * when Yak runs from the home screen under `viewport-fit=cover`.
+ * It enters from the right because a "More" page conventionally slides in from
+ * that edge. The top padding clears the status bar when Yak runs from the home
+ * screen under `viewport-fit=cover`.
  */
 export function MobileNavSheet() {
     const [open, setOpen] = useState(false);

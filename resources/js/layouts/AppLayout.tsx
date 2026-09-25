@@ -26,7 +26,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <MobileNavSheet />
             <FlashToasts />
             <AppCommandPalette />
-            <ToastHost />
+            <ToastHost className="max-lg:bottom-[calc(5.75rem+env(safe-area-inset-bottom))]" />
         </div>
     );
 }

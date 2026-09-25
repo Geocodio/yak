@@ -119,7 +119,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                     </Button>
                 }
             >
-                <div className="ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
+                <div className="sm:ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
                     {TABS.map((tab) => (
                         <button
                             key={tab.key}
