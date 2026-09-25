@@ -1,6 +1,6 @@
 import { Badge, IconButton, Tooltip, cn } from '@geocodio/console-ui';
 import { ChevronDown, Expand } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { navigateTaskQuery } from '@/lib/taskQuery';
 import type { ActivityRow, RunSummary } from '@/types/tasks';
 
@@ -55,15 +55,16 @@ export function ActivityLog({
     openLogId,
     onOpenTranscript,
     onOpenTranscriptCold,
+    fill = false,
 }: {
     taskId: number;
     rows: ActivityRow[];
+    entries: number;
+    duration: string;
     hasOlder: boolean;
     loadingOlder: boolean;
     capped: boolean;
     onLoadOlder: () => void;
-    entries: number;
-    duration: string;
     runs: RunSummary[];
     currentRunId: number;
     attempts: number[];
@@ -71,12 +72,15 @@ export function ActivityLog({
     openLogId: number | null;
     onOpenTranscript: (logId: number) => void;
     onOpenTranscriptCold: () => void;
+    fill?: boolean;
 }) {
     const [filter, setFilter] = useState<Filter>('all');
     const [search, setSearch] = useState('');
     const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
     const scrollRef = useRef<HTMLDivElement>(null);
+    const followingRef = useRef(true);
     const [following, setFollowing] = useState(true);
+    const pendingPrependRef = useRef<{ anchorId: number; offsetFromTop: number } | null>(null);
 
     const filteredRows = useMemo(() => {
         return rows.filter((row) => {
@@ -97,32 +101,86 @@ export function ActivityLog({
     const displayItems = useMemo(() => buildDisplayItems(filteredRows, grouped), [filteredRows, grouped]);
 
     useEffect(() => {
-        const el = scrollRef.current;
-        if (!el) {
+        const element = scrollRef.current;
+        if (!element) {
             return;
         }
         const onScroll = () => {
-            const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-            setFollowing(distanceFromBottom < 48);
+            const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+            const nowFollowing = distanceFromBottom < 48;
+            if (nowFollowing !== followingRef.current) {
+                followingRef.current = nowFollowing;
+                setFollowing(nowFollowing);
+            }
+            if (element.scrollTop < 400 && hasOlder && !loadingOlder && !capped && rows.length > 0) {
+                const anchorId = rows[0].id;
+                const anchorElement = element.querySelector<HTMLElement>(`[data-log-id="${anchorId}"]`);
+                // getBoundingClientRect forces layout of this one row even
+                // though content-visibility would otherwise skip it, so the
+                // offset is accurate before the older rows are prepended.
+                const offsetFromTop = anchorElement ? anchorElement.getBoundingClientRect().top - element.getBoundingClientRect().top : 0;
+                pendingPrependRef.current = { anchorId, offsetFromTop };
+                onLoadOlder();
+            }
         };
-        el.addEventListener('scroll', onScroll, { passive: true });
-        return () => el.removeEventListener('scroll', onScroll);
-    }, []);
+        element.addEventListener('scroll', onScroll, { passive: true });
+        return () => element.removeEventListener('scroll', onScroll);
+    }, [hasOlder, loadingOlder, capped, onLoadOlder, rows]);
+
+    // After older rows are prepended, keep the row the reader was looking at
+    // where it was: find that same row by id and shift scrollTop so it sits
+    // at the same offset from the scroller's top edge it had before. The
+    // rows above it use content-visibility, whose skipped elements only
+    // settle on their real size a few frames after insertion, so the
+    // correction is re-applied across a handful of frames until it stops
+    // moving rather than once synchronously.
+    useLayoutEffect(() => {
+        const element = scrollRef.current;
+        if (!element || !pendingPrependRef.current) {
+            return;
+        }
+        let cancelled = false;
+        let frame = 0;
+        const settle = () => {
+            if (cancelled) {
+                return;
+            }
+            const pending = pendingPrependRef.current;
+            const anchorElement = pending ? element.querySelector<HTMLElement>(`[data-log-id="${pending.anchorId}"]`) : null;
+            if (pending && anchorElement) {
+                const currentOffsetFromTop = anchorElement.getBoundingClientRect().top - element.getBoundingClientRect().top;
+                if (currentOffsetFromTop !== pending.offsetFromTop) {
+                    element.scrollTop += currentOffsetFromTop - pending.offsetFromTop;
+                }
+            }
+            frame += 1;
+            if (frame < 8) {
+                requestAnimationFrame(settle);
+            } else {
+                pendingPrependRef.current = null;
+            }
+        };
+        settle();
+        return () => {
+            cancelled = true;
+        };
+    }, [rows]);
 
     useEffect(() => {
-        const el = scrollRef.current;
-        if (!el || !following) {
+        const element = scrollRef.current;
+        if (!element || !followingRef.current) {
             return;
         }
-        el.scrollTop = el.scrollHeight;
-    }, [rows, following]);
+        element.scrollTop = element.scrollHeight;
+    }, [rows]);
 
     const jumpToLatest = () => {
-        const el = scrollRef.current;
-        if (!el) {
+        const element = scrollRef.current;
+        if (!element) {
             return;
         }
-        el.scrollTop = el.scrollHeight;
+        element.scrollTop = element.scrollHeight;
+        followingRef.current = true;
         setFollowing(true);
     };
 
@@ -139,8 +197,8 @@ export function ActivityLog({
     };
 
     return (
-        <section className="flex shrink-0 flex-col" data-testid="activity-log">
-            <div className="relative overflow-hidden rounded-card border border-hair bg-panel shadow-card">
+        <section className={cn('flex flex-col', fill ? 'min-h-0 flex-1' : 'shrink-0')} data-testid="activity-log">
+            <div className={cn('relative overflow-hidden rounded-card border border-hair bg-panel shadow-card', fill && 'flex min-h-0 flex-1 flex-col')}>
                 <div className="flex flex-col gap-2 border-b border-hair bg-panel-2/40 px-2 py-2">
                     <div className="flex items-center justify-between pl-0.5">
                         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-faint">Activity</h2>
@@ -218,13 +276,29 @@ export function ActivityLog({
                             data-testid="log-search"
                         />
                     </div>
+                    {search.trim() !== '' && rows.length < entries && (
+                        <p className="text-[10px] text-faint">Searching the {rows.length} loaded entries</p>
+                    )}
                 </div>
 
-                <div ref={scrollRef} data-scroller className="max-h-[420px] overflow-y-auto">
+                <div ref={scrollRef} data-scroller className={cn('overflow-y-auto', fill ? 'min-h-0 flex-1' : 'max-h-[420px]')}>
+                    {capped && hasOlder && (
+                        <div className="flex justify-center border-b border-hair px-2.5 py-1.5">
+                            <button
+                                type="button"
+                                onClick={onLoadOlder}
+                                disabled={loadingOlder}
+                                className="rounded-control bg-panel-2 px-2 py-1 text-[11px] text-muted hover:bg-panel-2/70 disabled:opacity-60"
+                            >
+                                Load 200 older
+                            </button>
+                        </div>
+                    )}
+                    {loadingOlder && <p className="px-2.5 py-1 text-center text-[10px] text-faint">Loading older…</p>}
                     {displayItems.length === 0 && <p className="px-3 py-6 text-center text-[12px] text-faint">No entries match &ldquo;{search}&rdquo;.</p>}
                     {displayItems.map((item) =>
                         item.type === 'group' ? (
-                            <div key={`group-${item.groupIndex}`} className="border-b border-hair last:border-0">
+                            <div key={`group-${item.groupIndex}`} className="border-b border-hair last:border-0 [content-visibility:auto] [contain-intrinsic-size:auto_44px]">
                                 <button
                                     type="button"
                                     onClick={() => toggleGroup(item.groupIndex)}
@@ -252,10 +326,12 @@ export function ActivityLog({
                                 type="button"
                                 onClick={() => onOpenTranscript(item.row.id)}
                                 className={cn(
-                                    'flex w-full items-start gap-2 border-b border-hair px-2.5 py-1.5 text-left last:border-0 hover:bg-panel-2',
+                                    'flex w-full items-start gap-2 border-b border-hair px-2.5 py-1.5 text-left last:border-0 hover:bg-panel-2 min-h-11 lg:min-h-0 [content-visibility:auto] [contain-intrinsic-size:auto_44px]',
                                     item.row.milestone && 'bg-accent-soft/40',
                                 )}
                                 data-testid={item.row.id === openLogId ? 'log-entry-open' : item.row.milestone ? 'milestone-log' : 'log-entry'}
+                                data-log-id={item.row.id}
+                                data-log-text={item.row.text}
                             >
                                 {item.row.badge && (
                                     <span
