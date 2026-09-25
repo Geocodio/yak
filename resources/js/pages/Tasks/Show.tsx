@@ -1,14 +1,17 @@
 import { Head, usePoll } from '@inertiajs/react';
 import { cn, Dialog } from '@geocodio/console-ui';
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
 import { Composer } from '@/components/tasks/Composer';
 import { DebugDetails } from '@/components/tasks/DebugDetails';
 import { DeploymentCard } from '@/components/tasks/DeploymentCard';
 import { HeaderBand } from '@/components/tasks/HeaderBand';
+import { LiveLine } from '@/components/tasks/LiveLine';
+import { LogEntrySheet } from '@/components/tasks/LogEntrySheet';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { ProgressList } from '@/components/tasks/ProgressList';
+import { ProgressStrip } from '@/components/tasks/ProgressStrip';
 import { TaskSummary } from '@/components/tasks/TaskSummary';
 import { TaskTabs, type TaskTab } from '@/components/tasks/TaskTabs';
 import { ThreadEntry } from '@/components/tasks/ThreadEntry';
@@ -17,6 +20,7 @@ import { VideoPlayer } from '@/components/tasks/VideoPlayer';
 import { WalkthroughCard } from '@/components/tasks/WalkthroughCard';
 import { POLLED_PROPS, useActivityRows } from '@/components/tasks/useActivityRows';
 import { replaceTaskQuery } from '@/lib/taskQuery';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { PageProps } from '@/types/shared';
 import type {
     ActionsData,
@@ -57,18 +61,6 @@ type Props = PageProps<{
     transcriptLogId: number | null;
     transcriptEntry?: TranscriptEntry | null;
 }>;
-
-/** Tracks a media query client-side, used to mount the desktop aside only from `lg` up. */
-function useMediaQuery(query: string): boolean {
-    return useSyncExternalStore(
-        (onChange) => {
-            const mediaQueryList = window.matchMedia(query);
-            mediaQueryList.addEventListener('change', onChange);
-            return () => mediaQueryList.removeEventListener('change', onChange);
-        },
-        () => window.matchMedia(query).matches,
-    );
-}
 
 export default function Show({
     task,
@@ -143,14 +135,18 @@ export default function Show({
     };
 
     const currentRunId = runs.find((run) => run.live)?.id ?? runs[runs.length - 1]?.id ?? task.id;
-    const activityRows = useActivityRows({ runKey: `${currentRunId}:${task.attempt}`, activity, activityOlder, activityTail });
+    const runKey = `${currentRunId}:${task.attempt}`;
+    const activityRows = useActivityRows({ runKey, activity, activityOlder, activityTail });
     latestIdRef.current = activityRows.latestId;
 
-    const progressPanel = (task.status === 'running' ||
+    const isActiveStatus =
+        task.status === 'running' ||
         task.status === 'pending' ||
         task.status === 'awaiting_clarification' ||
         task.status === 'awaiting_ci' ||
-        task.status === 'retrying') && <ProgressList steps={progress.steps} />;
+        task.status === 'retrying';
+    const progressPanel = isActiveStatus && <ProgressList steps={progress.steps} />;
+    const progressStrip = isActiveStatus && <ProgressStrip steps={progress.steps} />;
 
     const activityLog = activitySummary.entries > 0 && (
         <ActivityLog
@@ -221,6 +217,17 @@ export default function Show({
                         <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-8">
                             <TaskSummary task={task} />
 
+                            {!isDesktop && (
+                                <div className="mt-4 flex flex-col gap-3">
+                                    {progressStrip}
+                                    <LiveLine
+                                        row={activityRows.rows[activityRows.rows.length - 1] ?? null}
+                                        entries={activitySummary.entries}
+                                        onOpen={() => changeTab('activity')}
+                                    />
+                                </div>
+                            )}
+
                             <div className="mt-6 flex flex-col gap-6">
                                 {thread.map((entry, index) => (
                                     <ThreadEntry
@@ -241,6 +248,7 @@ export default function Show({
                     <Composer taskId={task.id} composer={composer} fillValue={composerFill} />
                 </div>
 
+                {/* Mounted on every tab and hidden by class, not conditionally rendered, so the scroll position and the row store stay alive across tab switches. */}
                 {!isDesktop && <div className={cn('flex min-h-0 flex-1 flex-col', tab !== 'activity' && 'hidden')}>{activityLog}</div>}
 
                 {!isDesktop && tab === 'details' && (
@@ -285,6 +293,21 @@ export default function Show({
                         setOpenLogId(logId);
                         replaceTaskQuery({ log: logId });
                     }}
+                />
+            )}
+
+            {!isDesktop && (
+                <LogEntrySheet
+                    open={transcriptOpen}
+                    onOpenChange={closeTranscript}
+                    rows={activityRows.rows}
+                    selectedLogId={openLogId}
+                    entry={transcriptEntry}
+                    onSelectLog={(logId) => {
+                        setOpenLogId(logId);
+                        replaceTaskQuery({ log: logId });
+                    }}
+                    runKey={runKey}
                 />
             )}
 

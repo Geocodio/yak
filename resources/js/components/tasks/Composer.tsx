@@ -1,12 +1,15 @@
 import { useForm } from '@inertiajs/react';
-import { Button, Textarea } from '@geocodio/console-ui';
-import { useEffect, type KeyboardEvent } from 'react';
+import { Button, Textarea, cn } from '@geocodio/console-ui';
+import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { store as storeMessage } from '@/routes/tasks/messages';
 import type { ComposerData } from '@/types/tasks';
 
 export function Composer({ taskId, composer, fillValue }: { taskId: number; composer: ComposerData; fillValue: string | null }) {
     const form = useForm({ message: '' });
     const disabled = composer.state === 'disabled_failed' || composer.state === 'disabled_closed';
+    const [expanded, setExpanded] = useState(false);
+    const isDesktop = useMediaQuery('(min-width: 1024px)');
 
     useEffect(() => {
         if (fillValue !== null) {
@@ -33,20 +36,25 @@ export function Composer({ taskId, composer, fillValue }: { taskId: number; comp
     };
 
     return (
-        <div className="shrink-0 border-t border-hair bg-app px-4 py-4 sm:px-8">
+        <div className="shrink-0 border-t border-hair bg-app px-4 py-4 sm:px-8" data-testid="composer">
             <div className="mx-auto max-w-[820px]">
                 <div className="rounded-card border border-hair bg-panel shadow-card focus-within:border-accent">
                     <Textarea
-                        rows={2}
+                        rows={isDesktop ? 2 : expanded || form.data.message !== '' ? 3 : 1}
                         placeholder={composer.placeholder}
                         value={form.data.message}
                         onChange={(event) => form.setData('message', event.target.value)}
                         onKeyDown={onKeyDown}
+                        onFocus={() => setExpanded(true)}
+                        onBlur={() => form.data.message.trim() === '' && setExpanded(false)}
                         disabled={disabled}
-                        className="w-full resize-none border-0 bg-transparent shadow-none focus:ring-0"
+                        className={cn(
+                            'w-full resize-none border-0 bg-transparent shadow-none focus:ring-0',
+                            !isDesktop && !expanded && form.data.message === '' && 'min-h-0',
+                        )}
                         data-testid="composer-input"
                     />
-                    <div className="flex items-center justify-between border-t border-hair px-3 py-2">
+                    <div className={cn('flex items-center justify-between border-t border-hair px-3 py-2', !expanded && 'max-lg:hidden')}>
                         <span className="text-[11px] text-faint">{composer.note}</span>
                         {composer.buttonLabel && (
                             <Button

@@ -26,10 +26,9 @@ test('on a phone the task page is three tabs and the desktop aside is not mounte
         ->click('[data-testid="task-tab-details"]')
         ->assertVisible('[data-testid="walkthrough-card"]')
         ->assertNoJavaScriptErrors()
-        // `$page->script()` doesn't see the live DOM under `->on()->device()`
-        // emulation in this plugin version (confirmed independently on an
-        // unrelated route), so the "exactly one" check uses the Playwright
-        // locator count assertions instead, which do.
+        // The "exactly one" check uses the Playwright locator count
+        // assertion, the plugin's idiomatic form for this, rather than
+        // `$page->script()`.
         ->assertCount('[data-testid="activity-log"]', 1)
         ->assertNotPresent('[data-testid="task-sidebar"]');
 });
@@ -37,6 +36,9 @@ test('on a phone the task page is three tabs and the desktop aside is not mounte
 test('a tab deep link and a log deep link open the right tab on a phone', function () {
     $this->actingAs(User::factory()->create());
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    // The walkthrough card only renders once a render is owed or done; a
+    // cut artifact gives the Details tab something to show.
+    Artifact::factory()->for($task, 'task')->videoCut()->create();
     $log = TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'Deep linked', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'true'], 'output' => 'ok']]);
 
     visit(route('tasks.show', [$task, 'tab' => 'details']))->on()->mobile()
@@ -46,7 +48,7 @@ test('a tab deep link and a log deep link open the right tab on a phone', functi
         ->assertVisible('[data-testid="activity-log"]')
         ->assertVisible('[data-testid="log-entry-sheet"]')
         ->assertSee('Deep linked');
-})->skip('log entry sheet lands with the next task');
+});
 
 test('desktop shows sidebar without trigger', function () {
     $this->actingAs(User::factory()->create());

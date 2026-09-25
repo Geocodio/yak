@@ -1,7 +1,7 @@
-import { router } from '@inertiajs/react';
 import { Badge, Dialog, Kbd, cn } from '@geocodio/console-ui';
 import { ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranscriptEntry } from '@/components/tasks/useTranscriptEntry';
 import { navigateTaskQuery } from '@/lib/taskQuery';
 import type { ActivityRow, RunSummary, TranscriptEntry } from '@/types/tasks';
 
@@ -47,9 +47,7 @@ export function TranscriptOverlay({
     const [query, setQuery] = useState('');
     const listRef = useRef<HTMLOListElement>(null);
     const dialogRef = useRef<HTMLDivElement>(null);
-    const cacheRef = useRef(new Map<number, TranscriptEntry>());
     const runKey = `${currentRunId}:${currentAttempt}`;
-    const runAttemptKeyRef = useRef(runKey);
 
     const idx = rows.findIndex((row) => row.id === selectedLogId);
     // A deep link to a row older than the loaded window has no match here;
@@ -70,44 +68,13 @@ export function TranscriptOverlay({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, rows, selectedLogId]);
 
-    // A run or attempt switch invalidates every cached entry -- they belong
-    // to a different transcript. Declared before the fetch effect below so
-    // the clear always lands in the same commit before the fetch effect
-    // checks the cache for `selectedLogId`.
-    useEffect(() => {
-        if (runAttemptKeyRef.current !== runKey) {
-            runAttemptKeyRef.current = runKey;
-            cacheRef.current.clear();
-        }
-    }, [runKey]);
-
-    // Cache every entry the server sends so stepping back to it never
-    // re-fetches, except a tool call still running: its output arrives after
-    // the row does, so it is refetched on every visit until output exists.
-    useEffect(() => {
-        if (entry?.id != null && !(entry.kind === 'tool' && entry.output === null)) {
-            cacheRef.current.set(entry.id, entry);
-        }
-    }, [entry]);
-
-    // Also depends on `runKey` -- a run/attempt switch while the same log id
-    // stays selected clears the cache above but wouldn't otherwise re-run
-    // this effect, leaving the pane stuck showing the stale entry (or
-    // "Loading entry…" forever if nothing was cached for it before).
-    useEffect(() => {
-        if (!open || selectedLogId === null || cacheRef.current.has(selectedLogId)) {
-            return;
-        }
-        router.reload({ only: ['transcriptEntry'], data: { log: selectedLogId }, preserveUrl: true });
-    }, [open, selectedLogId, runKey]);
+    const current = useTranscriptEntry({ open, selectedLogId, entry, runKey });
 
     const visible = rows.filter(
         (row) =>
             (filter === 'All' || (filter === 'Actions' ? row.kind === 'tool' : row.milestone)) &&
             (!query || row.text.toLowerCase().includes(query.toLowerCase())),
     );
-
-    const current = selectedLogId === null ? undefined : (cacheRef.current.get(selectedLogId) ?? (entry?.id === selectedLogId ? entry : undefined));
 
     const select = (logId: number) => {
         onSelectLog(logId);
