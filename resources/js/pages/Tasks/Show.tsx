@@ -1,6 +1,6 @@
 import { Head, usePoll } from '@inertiajs/react';
-import { Dialog, Sheet } from '@geocodio/console-ui';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { cn, Dialog } from '@geocodio/console-ui';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
 import { Composer } from '@/components/tasks/Composer';
@@ -10,6 +10,7 @@ import { HeaderBand } from '@/components/tasks/HeaderBand';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { ProgressList } from '@/components/tasks/ProgressList';
 import { TaskSummary } from '@/components/tasks/TaskSummary';
+import { TaskTabs, type TaskTab } from '@/components/tasks/TaskTabs';
 import { ThreadEntry } from '@/components/tasks/ThreadEntry';
 import { TranscriptOverlay } from '@/components/tasks/TranscriptOverlay';
 import { VideoPlayer } from '@/components/tasks/VideoPlayer';
@@ -57,6 +58,18 @@ type Props = PageProps<{
     transcriptEntry?: TranscriptEntry | null;
 }>;
 
+/** Tracks a media query client-side, used to mount the desktop aside only from `lg` up. */
+function useMediaQuery(query: string): boolean {
+    return useSyncExternalStore(
+        (onChange) => {
+            const mediaQueryList = window.matchMedia(query);
+            mediaQueryList.addEventListener('change', onChange);
+            return () => mediaQueryList.removeEventListener('change', onChange);
+        },
+        () => window.matchMedia(query).matches,
+    );
+}
+
 export default function Show({
     task,
     thread,
@@ -87,11 +100,20 @@ export default function Show({
 
     const [transcriptOpen, setTranscriptOpen] = useState(transcriptLogId !== null);
     const [openLogId, setOpenLogId] = useState<number | null>(transcriptLogId);
-    const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [composerFill, setComposerFill] = useState<string | null>(null);
     const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+    const [tab, setTab] = useState<TaskTab>(() => {
+        const value = new URLSearchParams(window.location.search).get('tab');
+        return value === 'activity' || value === 'details' ? value : transcriptLogId !== null ? 'activity' : 'overview';
+    });
+    const isDesktop = useMediaQuery('(min-width: 1024px)');
+
+    const changeTab = (next: TaskTab) => {
+        setTab(next);
+        replaceTaskQuery({ tab: next === 'overview' ? undefined : next });
+    };
 
     const lastYakIndex = thread.reduce((acc, entry, index) => (entry.kind === 'yak' ? index : acc), -1);
 
@@ -124,89 +146,77 @@ export default function Show({
     const activityRows = useActivityRows({ runKey: `${currentRunId}:${task.attempt}`, activity, activityOlder, activityTail });
     latestIdRef.current = activityRows.latestId;
 
-    const sidebar = (hiddenBelowLg: boolean) => (
-        <aside
-            className={
-                hiddenBelowLg
-                    ? 'hidden w-[320px] shrink-0 flex-col gap-5 overflow-auto border-l border-hair bg-sidebar px-4 py-5 lg:flex [&>*]:shrink-0'
-                    : 'flex flex-col gap-5 [&>*]:shrink-0'
-            }
-            data-testid="task-sidebar"
-        >
-            {(task.status === 'running' ||
-                task.status === 'pending' ||
-                task.status === 'awaiting_clarification' ||
-                task.status === 'awaiting_ci' ||
-                task.status === 'retrying') && <ProgressList steps={progress.steps} />}
+    const progressPanel = (task.status === 'running' ||
+        task.status === 'pending' ||
+        task.status === 'awaiting_clarification' ||
+        task.status === 'awaiting_ci' ||
+        task.status === 'retrying') && <ProgressList steps={progress.steps} />;
 
-            {activitySummary.entries > 0 && (
-                <ActivityLog
-                    taskId={task.id}
-                    rows={activityRows.rows}
-                    hasOlder={activityRows.hasOlder}
-                    loadingOlder={activityRows.loadingOlder}
-                    capped={activityRows.capped}
-                    onLoadOlder={activityRows.loadOlder}
-                    entries={activitySummary.entries}
-                    duration={activitySummary.duration}
-                    runs={runs}
-                    currentRunId={currentRunId}
-                    attempts={attempts}
-                    currentAttempt={task.attempt}
-                    openLogId={openLogId}
-                    onOpenTranscript={openTranscriptAt}
-                    onOpenTranscriptCold={openTranscriptCold}
-                />
-            )}
-
-            <WalkthroughCard taskId={task.id} walkthrough={walkthrough} canRetryRender={actions.canRetryRender} onOpen={() => setWalkthroughOpen(true)} />
-
-            {media.length > 0 && (
-                <section data-testid="latest-media">
-                    <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Latest media</h2>
-                    <div className="flex flex-wrap gap-2">
-                        {media.map((item, i) => (
-                            <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => {
-                                    setLightboxMedia(media);
-                                    setLightboxIndex(i);
-                                }}
-                                className="block w-[110px] shrink-0 overflow-hidden rounded-control border border-hair text-left"
-                                data-testid={`latest-media-thumb-${item.id}`}
-                            >
-                                {item.kind === 'video' ? (
-                                    <video muted preload="metadata" className="h-[70px] w-full bg-panel-2 object-cover" src={item.url} />
-                                ) : (
-                                    <img src={item.thumbUrl ?? item.url} alt={item.caption ?? ''} loading="lazy" className="h-[70px] w-full object-cover" />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            <DeploymentCard deployment={deployment} />
-
-            <DebugDetails debug={debug} />
-        </aside>
+    const activityLog = activitySummary.entries > 0 && (
+        <ActivityLog
+            taskId={task.id}
+            rows={activityRows.rows}
+            hasOlder={activityRows.hasOlder}
+            loadingOlder={activityRows.loadingOlder}
+            capped={activityRows.capped}
+            onLoadOlder={activityRows.loadOlder}
+            entries={activitySummary.entries}
+            duration={activitySummary.duration}
+            runs={runs}
+            currentRunId={currentRunId}
+            attempts={attempts}
+            currentAttempt={task.attempt}
+            openLogId={openLogId}
+            onOpenTranscript={openTranscriptAt}
+            onOpenTranscriptCold={openTranscriptCold}
+            fill={!isDesktop}
+        />
     );
+
+    const walkthroughCard = (
+        <WalkthroughCard taskId={task.id} walkthrough={walkthrough} canRetryRender={actions.canRetryRender} onOpen={() => setWalkthroughOpen(true)} />
+    );
+
+    const mediaSection = media.length > 0 && (
+        <section data-testid="latest-media">
+            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-faint">Latest media</h2>
+            <div className="flex flex-wrap gap-2">
+                {media.map((item, i) => (
+                    <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                            setLightboxMedia(media);
+                            setLightboxIndex(i);
+                        }}
+                        className="block w-[110px] shrink-0 overflow-hidden rounded-control border border-hair text-left"
+                        data-testid={`latest-media-thumb-${item.id}`}
+                    >
+                        {item.kind === 'video' ? (
+                            <video muted preload="metadata" className="h-[70px] w-full bg-panel-2 object-cover" src={item.url} />
+                        ) : (
+                            <img src={item.thumbUrl ?? item.url} alt={item.caption ?? ''} loading="lazy" className="h-[70px] w-full object-cover" />
+                        )}
+                    </button>
+                ))}
+            </div>
+        </section>
+    );
+
+    const deploymentCard = <DeploymentCard deployment={deployment} />;
+
+    const debugDetailsCard = <DebugDetails debug={debug} />;
 
     return (
         <>
             <Head title={task.headline} />
 
-            <HeaderBand
-                task={task}
-                actions={actions}
-                deployment={deployment}
-                onOpenTranscript={openTranscriptCold}
-                onOpenDetailsDrawer={() => setDetailsDrawerOpen(true)}
-            />
+            <HeaderBand task={task} actions={actions} deployment={deployment} onOpenTranscript={openTranscriptCold} />
+
+            <TaskTabs value={tab} onChange={changeTab} activityCount={activitySummary.entries} />
 
             <div className="flex min-h-0 flex-1">
-                <div className="flex min-w-0 flex-1 flex-col">
+                <div className={cn('flex min-w-0 flex-1 flex-col', tab !== 'overview' && 'max-lg:hidden')}>
                     <div className="min-h-0 flex-1 overflow-auto">
                         <div className="mx-auto max-w-[820px] px-4 py-6 sm:px-8">
                             <TaskSummary task={task} />
@@ -231,29 +241,52 @@ export default function Show({
                     <Composer taskId={task.id} composer={composer} fillValue={composerFill} />
                 </div>
 
-                {sidebar(true)}
+                {!isDesktop && <div className={cn('flex min-h-0 flex-1 flex-col', tab !== 'activity' && 'hidden')}>{activityLog}</div>}
+
+                {!isDesktop && tab === 'details' && (
+                    <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
+                        <div className="flex flex-col gap-5">
+                            {walkthroughCard}
+                            {mediaSection}
+                            {deploymentCard}
+                            {debugDetailsCard}
+                        </div>
+                    </div>
+                )}
+
+                {isDesktop && (
+                    <aside
+                        className="hidden w-[320px] shrink-0 flex-col gap-5 overflow-auto border-l border-hair bg-sidebar px-4 py-5 lg:flex [&>*]:shrink-0"
+                        data-testid="task-sidebar"
+                    >
+                        {progressPanel}
+                        {activityLog}
+                        {walkthroughCard}
+                        {mediaSection}
+                        {deploymentCard}
+                        {debugDetailsCard}
+                    </aside>
+                )}
             </div>
 
-            <Sheet open={detailsDrawerOpen} onOpenChange={setDetailsDrawerOpen} title="Details" side="bottom">
-                {sidebar(false)}
-            </Sheet>
-
-            <TranscriptOverlay
-                open={transcriptOpen}
-                onOpenChange={closeTranscript}
-                rows={activityRows.rows}
-                entry={transcriptEntry}
-                headline={task.headline}
-                runs={runs}
-                currentRunId={currentRunId}
-                attempts={attempts}
-                currentAttempt={task.attempt}
-                selectedLogId={openLogId}
-                onSelectLog={(logId) => {
-                    setOpenLogId(logId);
-                    replaceTaskQuery({ log: logId });
-                }}
-            />
+            {isDesktop && (
+                <TranscriptOverlay
+                    open={transcriptOpen}
+                    onOpenChange={closeTranscript}
+                    rows={activityRows.rows}
+                    entry={transcriptEntry}
+                    headline={task.headline}
+                    runs={runs}
+                    currentRunId={currentRunId}
+                    attempts={attempts}
+                    currentAttempt={task.attempt}
+                    selectedLogId={openLogId}
+                    onSelectLog={(logId) => {
+                        setOpenLogId(logId);
+                        replaceTaskQuery({ log: logId });
+                    }}
+                />
+            )}
 
             <MediaLightbox
                 media={lightboxMedia}

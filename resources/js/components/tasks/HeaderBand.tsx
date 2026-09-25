@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Button, ConfirmDialog, Menu, toast } from '@geocodio/console-ui';
-import { ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MessageSquareCode, MoreHorizontal, PanelBottom, Wrench } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MessageSquareCode, MoreHorizontal, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { cancel, reRequestReview, rerunReview, reroute, retry, show } from '@/routes/tasks';
 import { tasks as tasksIndex } from '@/routes';
@@ -13,13 +13,11 @@ export function HeaderBand({
     actions,
     deployment,
     onOpenTranscript,
-    onOpenDetailsDrawer,
 }: {
     task: TaskDetail;
     actions: ActionsData;
     deployment: DeploymentData;
     onOpenTranscript: () => void;
-    onOpenDetailsDrawer: () => void;
 }) {
     const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
     const [busy, setBusy] = useState(false);
@@ -63,24 +61,17 @@ export function HeaderBand({
         <>
             <header className="flex h-12 shrink-0 items-center gap-3 border-b border-hair bg-app px-4 sm:px-5">
                 <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
-                    <a href={tasksIndex.url()} className="text-muted hover:text-body">
+                    <a href={tasksIndex.url()} className="lg:hidden -ml-1 flex h-9 w-9 items-center justify-center rounded-control text-muted" aria-label="Back to tasks">
+                        <ChevronLeft size={18} />
+                    </a>
+                    <a href={tasksIndex.url()} className="max-lg:hidden text-muted hover:text-body">
                         Tasks
                     </a>
-                    <ChevronRight size={12} className="text-faint" />
+                    <ChevronRight size={12} className="max-lg:hidden text-faint" />
                     <span className="truncate font-medium text-body">{task.externalId ?? `#${task.id}`}</span>
                 </div>
 
                 <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <Button
-                        variant="tertiary"
-                        icon={<PanelBottom size={13} />}
-                        className="lg:hidden"
-                        data-testid="details-drawer-trigger"
-                        onClick={onOpenDetailsDrawer}
-                    >
-                        <span className="max-sm:sr-only">Details</span>
-                    </Button>
-
                     {actions.canRequestReview && (
                         <Button
                             variant="secondary"
@@ -112,9 +103,10 @@ export function HeaderBand({
                             variant="secondary"
                             icon={<Globe size={13} />}
                             onClick={() => window.open(deployment.url, '_blank', 'noopener,noreferrer')}
+                            className="max-sm:hidden"
                             data-testid="preview-button"
                         >
-                            <span className="max-sm:sr-only">Preview</span>
+                            Preview
                         </Button>
                     )}
 
@@ -123,6 +115,7 @@ export function HeaderBand({
                             variant="primary"
                             icon={<GitPullRequest size={13} />}
                             onClick={() => window.open(task.pr!.url ?? undefined, '_blank', 'noopener,noreferrer')}
+                            className="max-sm:hidden"
                             data-testid="outcome-button"
                         >
                             PR #{task.pr.number} <ExternalLink size={11} className="ml-1 text-faint" />
@@ -144,6 +137,19 @@ export function HeaderBand({
                         align="end"
                         items={[
                             { key: 'transcript', label: 'Open full transcript', icon: <ListTree size={13} />, onSelect: onOpenTranscript },
+                            ...(deployment
+                                ? [{ key: 'preview', label: 'Open preview', icon: <Globe size={13} />, onSelect: () => window.open(deployment.url, '_blank', 'noopener,noreferrer') }]
+                                : []),
+                            ...(task.pr
+                                ? [
+                                      {
+                                          key: 'pr',
+                                          label: `Open PR #${task.pr.number}`,
+                                          icon: <GitPullRequest size={13} />,
+                                          onSelect: () => window.open(task.pr!.url ?? undefined, '_blank', 'noopener,noreferrer'),
+                                      },
+                                  ]
+                                : []),
                             ...actions.rerouteTargets.map((repo) => ({
                                 key: `move-${repo}`,
                                 label: `Move to ${repo}`,

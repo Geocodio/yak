@@ -6,22 +6,47 @@ use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
 
-test('mobile shows details drawer trigger and opens sidebar', function () {
+test('on a phone the task page is three tabs and the desktop aside is not mounted', function () {
     $this->actingAs(User::factory()->create());
-    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'started_at' => now()]);
+    TaskLog::factory()->count(3)->for($task, 'task')->create();
+    // The walkthrough card only renders once a render is owed or done; a
+    // cut artifact gives the Details tab something to show.
+    Artifact::factory()->for($task, 'task')->videoCut()->create();
 
     $page = visit(route('tasks.show', $task))->on()->mobile();
 
-    $page->assertVisible('[data-testid="details-drawer-trigger"]')
-        ->click('[data-testid="details-drawer-trigger"]')
-        // The desktop copy of the sidebar (data-testid="task-sidebar") stays
-        // in the DOM but hidden below `lg`; the mobile drawer renders the
-        // same partial a second time. :visible scopes the assertion to
-        // whichever instance is actually shown, since two elements share
-        // this testid and the bracket selector uses strict-mode locators.
-        ->assertVisible('[data-testid="task-sidebar"]:visible')
-        ->assertNoJavascriptErrors();
+    $page->assertMissing('[data-testid="details-drawer-trigger"]')
+        ->assertVisible('[data-testid="task-tabs-mobile"]')
+        ->assertVisible('[data-testid="task-summary"]')
+        ->assertMissing('[data-testid="activity-log"]:visible')
+        ->click('[data-testid="task-tab-activity"]')
+        ->assertVisible('[data-testid="activity-log"]')
+        ->assertQueryStringHas('tab', 'activity')
+        ->click('[data-testid="task-tab-details"]')
+        ->assertVisible('[data-testid="walkthrough-card"]')
+        ->assertNoJavaScriptErrors()
+        // `$page->script()` doesn't see the live DOM under `->on()->device()`
+        // emulation in this plugin version (confirmed independently on an
+        // unrelated route), so the "exactly one" check uses the Playwright
+        // locator count assertions instead, which do.
+        ->assertCount('[data-testid="activity-log"]', 1)
+        ->assertNotPresent('[data-testid="task-sidebar"]');
 });
+
+test('a tab deep link and a log deep link open the right tab on a phone', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $log = TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'Deep linked', 'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => 'true'], 'output' => 'ok']]);
+
+    visit(route('tasks.show', [$task, 'tab' => 'details']))->on()->mobile()
+        ->assertVisible('[data-testid="walkthrough-card"]');
+
+    visit(route('tasks.show', [$task, 'log' => $log->id]))->on()->mobile()
+        ->assertVisible('[data-testid="activity-log"]')
+        ->assertVisible('[data-testid="log-entry-sheet"]')
+        ->assertSee('Deep linked');
+})->skip('log entry sheet lands with the next task');
 
 test('desktop shows sidebar without trigger', function () {
     $this->actingAs(User::factory()->create());
