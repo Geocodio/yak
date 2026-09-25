@@ -1,6 +1,6 @@
 import { Head, usePoll } from '@inertiajs/react';
 import { Dialog, Sheet } from '@geocodio/console-ui';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
 import { Composer } from '@/components/tasks/Composer';
@@ -14,11 +14,13 @@ import { ThreadEntry } from '@/components/tasks/ThreadEntry';
 import { TranscriptOverlay } from '@/components/tasks/TranscriptOverlay';
 import { VideoPlayer } from '@/components/tasks/VideoPlayer';
 import { WalkthroughCard } from '@/components/tasks/WalkthroughCard';
+import { POLLED_PROPS, useActivityRows } from '@/components/tasks/useActivityRows';
 import { replaceTaskQuery } from '@/lib/taskQuery';
 import type { PageProps } from '@/types/shared';
 import type {
     ActionsData,
     ActivityData,
+    ActivityRow,
     ActivitySummary,
     ComposerData,
     DebugData,
@@ -40,6 +42,8 @@ type Props = PageProps<{
     attempts: number[];
     activitySummary: ActivitySummary;
     activity: ActivityData;
+    activityOlder?: ActivityRow[];
+    activityTail?: ActivityRow[];
     progress: { steps: ProgressStep[] };
     media: MediaItem[];
     walkthrough: WalkthroughData;
@@ -60,6 +64,8 @@ export default function Show({
     attempts,
     activitySummary,
     activity,
+    activityOlder,
+    activityTail,
     progress,
     media,
     walkthrough,
@@ -72,7 +78,12 @@ export default function Show({
     transcriptLogId,
     transcriptEntry,
 }: Props) {
-    usePoll(pollInterval);
+    const latestIdRef = useRef<number | null>(null);
+    usePoll(pollInterval, () => ({
+        only: [...POLLED_PROPS],
+        data: latestIdRef.current !== null ? { after: latestIdRef.current } : {},
+        preserveUrl: true,
+    }));
 
     const [transcriptOpen, setTranscriptOpen] = useState(transcriptLogId !== null);
     const [openLogId, setOpenLogId] = useState<number | null>(transcriptLogId);
@@ -110,6 +121,8 @@ export default function Show({
     };
 
     const currentRunId = runs.find((run) => run.live)?.id ?? runs[runs.length - 1]?.id ?? task.id;
+    const activityRows = useActivityRows({ runKey: `${currentRunId}:${task.attempt}`, activity, activityOlder, activityTail });
+    latestIdRef.current = activityRows.latestId;
 
     const sidebar = (hiddenBelowLg: boolean) => (
         <aside
@@ -129,7 +142,11 @@ export default function Show({
             {activitySummary.entries > 0 && (
                 <ActivityLog
                     taskId={task.id}
-                    activity={activity}
+                    rows={activityRows.rows}
+                    hasOlder={activityRows.hasOlder}
+                    loadingOlder={activityRows.loadingOlder}
+                    capped={activityRows.capped}
+                    onLoadOlder={activityRows.loadOlder}
                     entries={activitySummary.entries}
                     duration={activitySummary.duration}
                     runs={runs}

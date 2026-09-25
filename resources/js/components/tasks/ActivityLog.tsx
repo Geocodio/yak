@@ -2,7 +2,7 @@ import { Badge, IconButton, Tooltip, cn } from '@geocodio/console-ui';
 import { ChevronDown, Expand } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { navigateTaskQuery } from '@/lib/taskQuery';
-import type { ActivityData, ActivityRow, RunSummary } from '@/types/tasks';
+import type { ActivityRow, RunSummary } from '@/types/tasks';
 
 type Filter = 'all' | 'actions' | 'milestones';
 
@@ -41,7 +41,11 @@ function buildDisplayItems(rows: ActivityRow[], grouped: boolean): DisplayItem[]
 
 export function ActivityLog({
     taskId,
-    activity,
+    rows,
+    hasOlder,
+    loadingOlder,
+    capped,
+    onLoadOlder,
     entries,
     duration,
     runs,
@@ -53,7 +57,11 @@ export function ActivityLog({
     onOpenTranscriptCold,
 }: {
     taskId: number;
-    activity: ActivityData;
+    rows: ActivityRow[];
+    hasOlder: boolean;
+    loadingOlder: boolean;
+    capped: boolean;
+    onLoadOlder: () => void;
     entries: number;
     duration: string;
     runs: RunSummary[];
@@ -71,7 +79,7 @@ export function ActivityLog({
     const [following, setFollowing] = useState(true);
 
     const filteredRows = useMemo(() => {
-        return activity.rows.filter((row) => {
+        return rows.filter((row) => {
             if (filter === 'actions' && row.kind !== 'tool') {
                 return false;
             }
@@ -83,7 +91,7 @@ export function ActivityLog({
             }
             return true;
         });
-    }, [activity.rows, filter, search]);
+    }, [rows, filter, search]);
 
     const grouped = filter === 'all' && search.trim() === '';
     const displayItems = useMemo(() => buildDisplayItems(filteredRows, grouped), [filteredRows, grouped]);
@@ -107,7 +115,7 @@ export function ActivityLog({
             return;
         }
         el.scrollTop = el.scrollHeight;
-    }, [activity.rows, following]);
+    }, [rows, following]);
 
     const jumpToLatest = () => {
         const el = scrollRef.current;
