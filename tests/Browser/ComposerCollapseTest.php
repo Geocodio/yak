@@ -22,3 +22,19 @@ test('on a phone the composer is one line until it is focused', function () {
     expect($expandedHeight)->toBeGreaterThan($collapsedHeight + 40);
     $page->assertVisible('[data-testid="composer-submit"]');
 });
+
+test('on a phone picking a clarification option expands the composer without focusing it', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'clarification_options' => ['Convert in place', 'Keep both'],
+        'clarification_expires_at' => now()->addHours(3),
+    ]);
+
+    $page = visit(route('tasks.show', $task));
+    $page->resize(375, 812);
+
+    $page->assertMissing('[data-testid="composer-submit"]:visible')
+        ->click('[data-testid="clarification-option"] >> nth=0')
+        ->assertVisible('[data-testid="composer-submit"]');
+});

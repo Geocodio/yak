@@ -44,10 +44,19 @@ test('a tab deep link and a log deep link open the right tab on a phone', functi
     visit(route('tasks.show', [$task, 'tab' => 'details']))->on()->mobile()
         ->assertVisible('[data-testid="walkthrough-card"]');
 
-    visit(route('tasks.show', [$task, 'log' => $log->id]))->on()->mobile()
+    $page = visit(route('tasks.show', [$task, 'log' => $log->id]))->on()->mobile()
         ->assertVisible('[data-testid="activity-log"]')
         ->assertVisible('[data-testid="log-entry-sheet"]')
         ->assertSee('Deep linked');
+
+    $heights = $page->script(
+        '(() => ({'
+        . 'sheet: document.querySelector(\'[data-testid="log-entry-sheet"]\').getBoundingClientRect().height,'
+        . 'viewport: window.innerHeight,'
+        . '}))()'
+    );
+
+    expect(abs($heights['sheet'] - $heights['viewport']))->toBeLessThan(4);
 });
 
 test('desktop shows sidebar without trigger', function () {

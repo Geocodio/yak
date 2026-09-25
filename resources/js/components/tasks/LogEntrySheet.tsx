@@ -82,7 +82,15 @@ export function LogEntrySheet({
     };
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange} title="Log entry" hideTitle side="bottom" className="h-dvh rounded-none p-0" data-testid="log-entry-sheet">
+        <Sheet
+            open={open}
+            onOpenChange={onOpenChange}
+            title="Log entry"
+            hideTitle
+            side="bottom"
+            className="h-dvh max-h-dvh rounded-none p-0"
+            data-testid="log-entry-sheet"
+        >
             <div className="flex h-full flex-col">
                 <div className="flex h-12 shrink-0 items-center gap-2 border-b border-hair px-3">
                     <IconButton label="Back to activity" onClick={() => onOpenChange(false)}>
@@ -133,7 +141,7 @@ export function LogEntrySheet({
                             ) : (
                                 <>
                                     <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.input}</Block>
-                                    <OutputBlock output={current.output} error={current.error} />
+                                    <OutputBlock key={current.id} output={current.output} error={current.error} />
                                 </>
                             )}
                         </>

@@ -14,6 +14,10 @@ export function Composer({ taskId, composer, fillValue }: { taskId: number; comp
     useEffect(() => {
         if (fillValue !== null) {
             form.setData('message', fillValue);
+            // A clarification option fills the message without the textarea
+            // ever being focused, so the note-and-button row must expand on
+            // its own or the phone Send button stays hidden.
+            setExpanded(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fillValue]);
