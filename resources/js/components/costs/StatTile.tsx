@@ -8,7 +8,7 @@ export function StatTile({ label, value, sub, hint }: { label: string; value: st
                 {label}
                 {hint && (
                     <Tooltip label={hint}>
-                        <span className="text-faint">
+                        <span className="text-faint max-md:hidden">
                             <HelpCircle size={11} />
                         </span>
                     </Tooltip>
@@ -16,6 +16,11 @@ export function StatTile({ label, value, sub, hint }: { label: string; value: st
             </div>
             <div className="tnum mt-1 text-[20px] font-semibold tracking-tight">{value}</div>
             <div className="text-[11px] text-muted">{sub}</div>
+            {hint && (
+                <p className="mt-1 text-[11px] leading-snug text-faint md:hidden" data-testid="stat-tile-hint">
+                    {hint}
+                </p>
+            )}
         </div>
     );
 }

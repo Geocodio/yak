@@ -79,6 +79,7 @@ export default function Index({ deployments, filters }: Props) {
                                             <Tooltip label={`Hibernates after ${deployment.hibernatesAfter}`}>
                                                 <Badge tone="info" className="ml-2">
                                                     Long-lived
+                                                    <span className="md:hidden"> · Hibernates after {deployment.hibernatesAfter}</span>
                                                 </Badge>
                                             </Tooltip>
                                         )}

@@ -99,12 +99,19 @@ function Section({
     );
 }
 
-/** Small hover hint for compact fields that have no room for a full description. */
+/**
+ * Field help for compact fields: an icon with a tooltip from `md` up, and
+ * the same text as a caption under the field below it, where there is no
+ * hover.
+ */
 function InfoTip({ label }: { label: string }) {
     return (
-        <Tooltip label={label}>
-            <Info size={12} className="shrink-0 text-faint hover:text-muted" aria-label={label} />
-        </Tooltip>
+        <>
+            <Tooltip label={label}>
+                <Info size={12} className="shrink-0 text-faint hover:text-muted max-md:hidden" aria-label={label} />
+            </Tooltip>
+            <p className="basis-full text-[11px] leading-snug text-faint md:hidden">{label}</p>
+        </>
     );
 }
 
@@ -380,7 +387,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </Field>
                             )}
                             <Field label="Display name" error={form.errors.name}>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <TextInput className="flex-1" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} />
                                     <InfoTip label="Shown in the dashboard and in task lists. Defaults to the GitHub repo name." />
                                 </div>
@@ -394,7 +401,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 />
                             </Field>
                             <Field label="Default branch" error={form.errors.default_branch}>
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     <TextInput
                                         className="flex-1 font-mono text-[12px]"
                                         value={form.data.default_branch}
@@ -462,7 +469,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                     />
                                 </Field>
                                 <Field label="CI system" error={form.errors.ci_system}>
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
                                         <Select
                                             className="flex-1"
                                             options={options.ciSystems}
@@ -474,7 +481,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </Field>
                                 {options.sentryProjects.length > 0 ? (
                                     <Field label="Sentry project">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <Select
                                                 className="flex-1"
                                                 options={[{ value: '', label: 'None' }, ...options.sentryProjects]}
