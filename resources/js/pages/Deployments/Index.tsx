@@ -1,5 +1,5 @@
 import { Head, Link, router, usePoll } from '@inertiajs/react';
-import { Badge, cn, Menu, PageHeader, StatusPill, Table, Tbody, Td, Th, Thead, Tooltip, Tr } from '@geocodio/console-ui';
+import { Badge, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tooltip, Tr } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -57,8 +57,8 @@ export default function Index({ deployments, filters }: Props) {
 
             <div className="min-h-0 flex-1 overflow-auto">
                 {deployments.data.length > 0 ? (
-                    <Table className="w-full">
-                        <Thead>
+                    <StackedTable className="w-full">
+                        <StackedThead>
                             <Tr>
                                 <Th>Repository</Th>
                                 <Th>Branch</Th>
@@ -66,12 +66,14 @@ export default function Index({ deployments, filters }: Props) {
                                 <Th>Last accessed</Th>
                                 <Th>Preview URL</Th>
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {deployments.data.map((deployment) => (
-                                <Tr key={deployment.id} data-testid={`deployment-row-${deployment.id}`} className={deployment.longLived ? 'bg-accent-soft/40' : undefined}>
-                                    <Td className="text-muted">{deployment.repoSlug}</Td>
-                                    <Td>
+                                <StackedTr key={deployment.id} data-testid={`deployment-row-${deployment.id}`} className={deployment.longLived ? 'bg-accent-soft/40' : undefined}>
+                                    <StackedTd label="Repository" className="text-muted">
+                                        {deployment.repoSlug}
+                                    </StackedTd>
+                                    <StackedTd label="Branch">
                                         <Link href={show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
                                             {deployment.branch}
                                         </Link>
@@ -83,20 +85,22 @@ export default function Index({ deployments, filters }: Props) {
                                                 </Badge>
                                             </Tooltip>
                                         )}
-                                    </Td>
-                                    <Td>
+                                    </StackedTd>
+                                    <StackedTd label="Status">
                                         <StatusPill tone={deployment.tone} label={deployment.statusLabel} />
-                                    </Td>
-                                    <Td className="text-muted">{deployment.lastAccessedAgo ?? '—'}</Td>
-                                    <Td>
+                                    </StackedTd>
+                                    <StackedTd label="Last accessed" className="text-muted">
+                                        {deployment.lastAccessedAgo ?? '—'}
+                                    </StackedTd>
+                                    <StackedTd label="Preview URL" className="break-all">
                                         <a href={`https://${deployment.hostname}`} target="_blank" rel="noopener" className={cn('text-accent-text hover:underline')}>
                                             {deployment.hostname}
                                         </a>
-                                    </Td>
-                                </Tr>
+                                    </StackedTd>
+                                </StackedTr>
                             ))}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 ) : (
                     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-[13px] text-muted sm:px-5">
                         <p>No deployments found.</p>

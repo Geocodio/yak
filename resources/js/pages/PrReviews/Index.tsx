@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Badge, Button, cn, Menu, PageHeader, Table, Tbody, Td, Th, Thead, Toggle, Tr } from '@geocodio/console-ui';
+import { Badge, Button, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Td, Th, Toggle, Tr } from '@geocodio/console-ui';
 import { ChevronDown, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -199,8 +199,8 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
             <div className="min-h-0 flex-1 overflow-auto">
                 {filters.tab === 'all' ? (
                     comments.data.length > 0 ? (
-                        <Table className="w-full">
-                            <Thead>
+                        <StackedTable className="w-full">
+                            <StackedThead>
                                 <Tr>
                                     <Th>PR</Th>
                                     <SortHeader column="file_path" label="File" />
@@ -208,11 +208,11 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                     <SortHeader column="category" label="Category" />
                                     <Th>Reactions</Th>
                                 </Tr>
-                            </Thead>
-                            <Tbody>
+                            </StackedThead>
+                            <StackedTbody>
                                 {comments.data.map((comment) => (
-                                    <Tr key={comment.id} data-testid={`pr-review-comment-${comment.id}`}>
-                                        <Td>
+                                    <StackedTr key={comment.id} data-testid={`pr-review-comment-${comment.id}`}>
+                                        <StackedTd label="PR">
                                             {comment.repoSlug && comment.prNumber ? (
                                                 <Link
                                                     href={forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
@@ -223,46 +223,54 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                             ) : (
                                                 '—'
                                             )}
-                                        </Td>
-                                        <Td className="font-mono text-[12px] text-muted">
+                                        </StackedTd>
+                                        <StackedTd label="File" className="break-all font-mono text-[12px] text-muted">
                                             {comment.filePath}:{comment.lineNumber}
-                                        </Td>
-                                        <Td>
+                                        </StackedTd>
+                                        <StackedTd label="Severity">
                                             <Badge tone={SEVERITY_TONE[comment.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>{comment.severity}</Badge>
-                                        </Td>
-                                        <Td className="text-muted">{comment.category}</Td>
-                                        <Td className="text-muted">
+                                        </StackedTd>
+                                        <StackedTd label="Category" className="text-muted">
+                                            {comment.category}
+                                        </StackedTd>
+                                        <StackedTd label="Reactions" className="text-muted">
                                             {comment.thumbsUp > 0 && <span className="mr-2">👍 {comment.thumbsUp}</span>}
                                             {comment.thumbsDown > 0 && <span>👎 {comment.thumbsDown}</span>}
-                                        </Td>
-                                    </Tr>
+                                        </StackedTd>
+                                    </StackedTr>
                                 ))}
-                            </Tbody>
-                        </Table>
+                            </StackedTbody>
+                        </StackedTable>
                     ) : (
                         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
                             <p>No matching comments.</p>
                         </div>
                     )
                 ) : (
-                    <Table className="w-full">
-                        <Thead>
+                    <StackedTable className="w-full">
+                        <StackedThead>
                             <Tr>
                                 <Th>Reviewer</Th>
                                 <Th>Reactions</Th>
                                 <Th>👍</Th>
                                 <Th>👎</Th>
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {reviewerStats.length > 0 ? (
                                 reviewerStats.map((r) => (
-                                    <Tr key={r.login}>
-                                        <Td>{r.login}</Td>
-                                        <Td className="tnum">{r.total}</Td>
-                                        <Td className="tnum">{r.up}</Td>
-                                        <Td className="tnum">{r.down}</Td>
-                                    </Tr>
+                                    <StackedTr key={r.login}>
+                                        <StackedTd label="Reviewer">{r.login}</StackedTd>
+                                        <StackedTd label="Reactions" className="tnum">
+                                            {r.total}
+                                        </StackedTd>
+                                        <StackedTd label="👍" className="tnum">
+                                            {r.up}
+                                        </StackedTd>
+                                        <StackedTd label="👎" className="tnum">
+                                            {r.down}
+                                        </StackedTd>
+                                    </StackedTr>
                                 ))
                             ) : (
                                 <Tr>
@@ -271,8 +279,8 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                     </Td>
                                 </Tr>
                             )}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 )}
             </div>
 

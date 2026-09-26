@@ -1,5 +1,5 @@
 import { Head, Link, router, usePoll } from '@inertiajs/react';
-import { Badge, Button, cn, Menu, PageHeader, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { Badge, Button, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { observations as observationsIndex } from '@/routes';
@@ -97,8 +97,8 @@ export default function Index({ observations, filters }: Props) {
                         Nothing recorded yet. Yak writes here whenever a scan reaches a decision.
                     </div>
                 ) : (
-                    <Table>
-                        <Thead>
+                    <StackedTable>
+                        <StackedThead>
                             <Tr>
                                 <Th className="w-24">When</Th>
                                 <Th className="w-36">Outcome</Th>
@@ -106,23 +106,25 @@ export default function Index({ observations, filters }: Props) {
                                 <Th>What happened</Th>
                                 <Th className="w-24" />
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {observations.data.map((observation) => (
-                                <Tr key={observation.id} data-testid="observation-row">
-                                    <Td className="whitespace-nowrap text-muted" title={observation.createdTooltip}>
+                                <StackedTr key={observation.id} data-testid="observation-row">
+                                    <StackedTd label="When" className="md:whitespace-nowrap text-muted" title={observation.createdTooltip}>
                                         {observation.createdAgo}
-                                    </Td>
-                                    <Td>
+                                    </StackedTd>
+                                    <StackedTd label="Outcome">
                                         <Badge tone={observation.outcome === 'acted' ? 'ok' : 'neutral'}>
                                             {observation.kindLabel}
                                         </Badge>
-                                    </Td>
-                                    <Td className="truncate text-muted">{observation.repo ?? '—'}</Td>
-                                    <Td>
+                                    </StackedTd>
+                                    <StackedTd label="Repository" className="truncate text-muted">
+                                        {observation.repo ?? '—'}
+                                    </StackedTd>
+                                    <StackedTd label="What happened">
                                         <span className="text-body">{observation.summary}</span>
-                                    </Td>
-                                    <Td className="whitespace-nowrap text-right">
+                                    </StackedTd>
+                                    <StackedTd className="md:whitespace-nowrap md:text-right">
                                         {observation.taskUrl ? (
                                             <Link href={observation.taskUrl} className="text-[12px] text-accent">
                                                 Task #{observation.taskId}
@@ -137,11 +139,11 @@ export default function Index({ observations, filters }: Props) {
                                                 Open <ExternalLink size={11} />
                                             </a>
                                         ) : null}
-                                    </Td>
-                                </Tr>
+                                    </StackedTd>
+                                </StackedTr>
                             ))}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 )}
 
                 {observations.last_page > 1 && (

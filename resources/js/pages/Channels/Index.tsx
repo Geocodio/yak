@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Badge, StatusPill, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { Badge, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
@@ -21,47 +21,49 @@ export default function Index({ channels }: Props) {
                     channel stays inactive until its credentials are set.
                 </p>
 
-                <div className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
-                    <Table className="w-full table-auto">
-                        <Thead>
+                <div className="md:overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
+                    <StackedTable className="w-full table-auto">
+                        <StackedThead>
                             <Tr>
-                                <Th className="w-[180px] pl-4">Channel</Th>
-                                <Th className="w-[220px]">Status</Th>
+                                <Th className="md:w-[180px] pl-4">Channel</Th>
+                                <Th className="md:w-[220px]">Status</Th>
                                 <Th>Description</Th>
-                                <Th className="w-[140px] pr-4">Docs</Th>
+                                <Th className="md:w-[140px] pr-4">Docs</Th>
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {channels.map((channel) => (
-                                <Tr key={channel.slug} data-testid={`channel-row-${channel.slug}`}>
-                                    <Td className="pl-4 align-top">
-                                        <div className="flex items-center gap-2 whitespace-nowrap">
+                                <StackedTr key={channel.slug} data-testid={`channel-row-${channel.slug}`}>
+                                    <StackedTd label="Channel" className="pl-4 align-top">
+                                        <div className="flex items-center gap-2 md:whitespace-nowrap">
                                             <span className="font-medium text-body">{channel.name}</span>
                                             {channel.required && <Badge tone="info">Required</Badge>}
                                         </div>
-                                    </Td>
-                                    <Td className="align-top">
+                                    </StackedTd>
+                                    <StackedTd label="Status" className="align-top">
                                         <div className="flex flex-col items-start gap-1">
                                             <StatusPill tone={channel.status} label={channel.statusLabel} />
                                             {channel.message && <span className="text-[12px] leading-relaxed text-muted">{channel.message}</span>}
                                         </div>
-                                    </Td>
-                                    <Td className="align-top text-[12.5px] leading-relaxed text-muted">{channel.description}</Td>
-                                    <Td className="pr-4 align-top">
+                                    </StackedTd>
+                                    <StackedTd label="Description" className="align-top text-[12.5px] leading-relaxed text-muted">
+                                        {channel.description}
+                                    </StackedTd>
+                                    <StackedTd label="Docs" className="pr-4 align-top">
                                         <a
                                             href={channel.docsUrl}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1 whitespace-nowrap text-accent-text hover:underline"
+                                            className="inline-flex items-center gap-1 md:whitespace-nowrap text-accent-text hover:underline"
                                         >
                                             Setup guide
                                             <ExternalLink size={12} />
                                         </a>
-                                    </Td>
-                                </Tr>
+                                    </StackedTd>
+                                </StackedTr>
                             ))}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 </div>
             </div>
         </>

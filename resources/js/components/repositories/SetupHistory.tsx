@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Button, StatusPill, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { Button, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr } from '@geocodio/console-ui';
 import { STATUS, type TaskStatus } from '@/lib/status';
 import type { SetupHistoryRow } from '@/types/repositories';
 
@@ -17,32 +17,38 @@ export function SetupHistory({ rows, viewAllHref }: { rows: SetupHistoryRow[]; v
                     </Button>
                 </div>
             )}
-            <div className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
-                <Table className="w-full">
-                    <Thead>
+            <div className="md:overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
+                <StackedTable className="w-full">
+                    <StackedThead>
                         <Tr>
                             <Th>Status</Th>
                             <Th>ID</Th>
                             <Th>Started</Th>
                             <Th className="text-right">Duration</Th>
                         </Tr>
-                    </Thead>
-                    <Tbody>
+                    </StackedThead>
+                    <StackedTbody>
                         {rows.map((row) => {
                             const status = STATUS[row.status as TaskStatus];
                             return (
-                                <Tr key={row.id}>
-                                    <Td>
+                                <StackedTr key={row.id}>
+                                    <StackedTd label="Status">
                                         <StatusPill tone={status?.tone ?? 'idle'} label={status?.label ?? row.status} pulse={status?.live} />
-                                    </Td>
-                                    <Td className="font-mono text-[12px]">{row.id}</Td>
-                                    <Td className="text-muted">{row.startedAgo}</Td>
-                                    <Td className="tnum text-right text-muted">{row.duration}</Td>
-                                </Tr>
+                                    </StackedTd>
+                                    <StackedTd label="ID" className="font-mono text-[12px]">
+                                        {row.id}
+                                    </StackedTd>
+                                    <StackedTd label="Started" className="text-muted">
+                                        {row.startedAgo}
+                                    </StackedTd>
+                                    <StackedTd label="Duration" className="tnum md:text-right text-muted">
+                                        {row.duration}
+                                    </StackedTd>
+                                </StackedTr>
                             );
                         })}
-                    </Tbody>
-                </Table>
+                    </StackedTbody>
+                </StackedTable>
             </div>
         </div>
     );
