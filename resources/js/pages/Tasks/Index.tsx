@@ -6,8 +6,10 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
 import { NewTaskSheet } from '@/components/tasks/NewTaskSheet';
 import { SetupCard } from '@/components/tasks/SetupCard';
+import { TaskCardList } from '@/components/tasks/TaskCardList';
 import { TaskTable } from '@/components/tasks/TaskTable';
 import { STATUS, type TaskStatus } from '@/lib/status';
+import { useMediaQuery } from '@/lib/useMediaQuery';
 import { tasks as tasksIndex } from '@/routes';
 import type { PageProps } from '@/types/shared';
 import type { SetupCard as SetupCardData, TaskCounts, TaskFilters, TaskPage, TaskTab } from '@/types/tasks';
@@ -60,6 +62,7 @@ function FilterMenu({
 
 export default function Index({ tasks, counts, filters, setupCard, activeRepos, openNew }: Props) {
     usePoll(15000);
+    const isDesktop = useMediaQuery('(min-width: 1024px)');
     const [sheetOpen, setSheetOpen] = useState(openNew);
     const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
@@ -195,13 +198,17 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <div className="min-h-0 flex-1 overflow-auto">
                 {tasks.data.length > 0 ? (
-                    <TaskTable
-                        tasks={tasks.data}
-                        sort={filters.sort}
-                        direction={filters.direction}
-                        onSort={onSort}
-                        onPreview={setPreviewSrc}
-                    />
+                    isDesktop ? (
+                        <TaskTable
+                            tasks={tasks.data}
+                            sort={filters.sort}
+                            direction={filters.direction}
+                            onSort={onSort}
+                            onPreview={setPreviewSrc}
+                        />
+                    ) : (
+                        <TaskCardList tasks={tasks.data} />
+                    )
                 ) : (
                     <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
                         <p>No tasks yet. Yak picks up work from your configured channels.</p>

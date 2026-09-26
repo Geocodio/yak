@@ -6,13 +6,13 @@ import { show as showTask } from '@/routes/tasks';
 import { StatusDot } from '@/components/StatusDot';
 import type { TaskRow } from '@/types/tasks';
 
-const SOURCE_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+export const SOURCE_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
     slack: MessageSquare,
     sentry: ShieldAlert,
     linear: Zap,
 };
 
-const PR_TONE = { open: 'ok', merged: 'accent', closed: 'fail' } as const;
+export const PR_TONE = { open: 'ok', merged: 'accent', closed: 'fail' } as const;
 
 function NestedFollowUps({ items }: { items: TaskRow['followUps'] }) {
     return (
