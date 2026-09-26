@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { EChart, type EChartsOption } from '@/components/analytics/EChart';
 import { seriesColor, useChartTheme } from '@/components/analytics/chartTheme';
 import { Empty, Section } from '@/components/analytics/Section';
@@ -54,28 +54,36 @@ export function WebhooksSection({ webhooks }: { webhooks: WebhookSummary }) {
             {hasData ? (
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <EChart option={option} height={Math.max(160, 36 * channels.length + 48)} />
-                    <div className="overflow-x-auto">
+                    <div className="md:overflow-x-auto">
                         {webhooks.reasons.length > 0 ? (
-                            <Table className="w-full">
-                                <Thead>
+                            <StackedTable className="w-full">
+                                <StackedThead>
                                     <Tr>
                                         <Th>Channel</Th>
                                         <Th>Outcome</Th>
                                         <Th>Reason</Th>
-                                        <Th className="text-right">Count</Th>
+                                        <Th className="md:text-right">Count</Th>
                                     </Tr>
-                                </Thead>
-                                <Tbody>
+                                </StackedThead>
+                                <StackedTbody>
                                     {webhooks.reasons.map((row) => (
-                                        <Tr key={`${row.channel}:${row.outcome}:${row.reason}`}>
-                                            <Td className="text-muted">{row.channel}</Td>
-                                            <Td className="text-muted">{row.outcome}</Td>
-                                            <Td className="font-mono text-[12px]">{row.reason}</Td>
-                                            <Td className="tnum text-right font-medium">{formatCount(row.count)}</Td>
-                                        </Tr>
+                                        <StackedTr key={`${row.channel}:${row.outcome}:${row.reason}`}>
+                                            <StackedTd label="Channel" className="text-muted">
+                                                {row.channel}
+                                            </StackedTd>
+                                            <StackedTd label="Outcome" className="text-muted">
+                                                {row.outcome}
+                                            </StackedTd>
+                                            <StackedTd label="Reason" className="font-mono text-[12px]">
+                                                {row.reason}
+                                            </StackedTd>
+                                            <StackedTd label="Count" className="tnum md:text-right font-medium">
+                                                {formatCount(row.count)}
+                                            </StackedTd>
+                                        </StackedTr>
                                     ))}
-                                </Tbody>
-                            </Table>
+                                </StackedTbody>
+                            </StackedTable>
                         ) : (
                             <p className="py-6 text-center text-[12px] text-muted">Every delivery was accepted; no reasons to show.</p>
                         )}

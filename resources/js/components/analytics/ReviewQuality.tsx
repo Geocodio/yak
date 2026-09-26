@@ -1,4 +1,4 @@
-import { Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { Empty, MiniStat, Section } from '@/components/analytics/Section';
 import { formatCount, formatMs, formatPct } from '@/lib/format';
 import type { ReviewSummary } from '@/types/analytics';
@@ -24,24 +24,26 @@ function labelFor(key: string, labels: Record<string, string>): string {
 
 function KeyedTable({ title, rows }: { title: string; rows: { key: string; label: string; count: number }[] }) {
     return (
-        <div className="overflow-x-auto">
+        <div className="md:overflow-x-auto">
             <h3 className="mb-1 text-[12px] font-medium text-muted">{title}</h3>
-            <Table className="w-full">
-                <Thead>
+            <StackedTable className="w-full">
+                <StackedThead>
                     <Tr>
                         <Th>{title}</Th>
-                        <Th className="text-right">Findings</Th>
+                        <Th className="md:text-right">Findings</Th>
                     </Tr>
-                </Thead>
-                <Tbody>
+                </StackedThead>
+                <StackedTbody>
                     {rows.map((row) => (
-                        <Tr key={row.key}>
-                            <Td>{row.label}</Td>
-                            <Td className="tnum text-right font-medium">{formatCount(row.count)}</Td>
-                        </Tr>
+                        <StackedTr key={row.key}>
+                            <StackedTd label={title}>{row.label}</StackedTd>
+                            <StackedTd label="Findings" className="tnum md:text-right font-medium">
+                                {formatCount(row.count)}
+                            </StackedTd>
+                        </StackedTr>
                     ))}
-                </Tbody>
-            </Table>
+                </StackedTbody>
+            </StackedTable>
         </div>
     );
 }
@@ -74,29 +76,35 @@ export function ReviewQuality({ reviews }: { reviews: ReviewSummary }) {
                         <KeyedTable title="Resolution" rows={resolutionRows} />
                     </div>
 
-                    <div className="mt-5 overflow-x-auto">
+                    <div className="mt-5 md:overflow-x-auto">
                         <h3 className="mb-1 text-[12px] font-medium text-muted">By category</h3>
                         {reviews.byCategory.length > 0 ? (
-                            <Table className="w-full">
-                                <Thead>
+                            <StackedTable className="w-full">
+                                <StackedThead>
                                     <Tr>
                                         <Th>Category</Th>
-                                        <Th className="text-right">Findings</Th>
-                                        <Th className="text-right">Thumbs up</Th>
-                                        <Th className="text-right">Thumbs down</Th>
+                                        <Th className="md:text-right">Findings</Th>
+                                        <Th className="md:text-right">Thumbs up</Th>
+                                        <Th className="md:text-right">Thumbs down</Th>
                                     </Tr>
-                                </Thead>
-                                <Tbody>
+                                </StackedThead>
+                                <StackedTbody>
                                     {reviews.byCategory.map((row) => (
-                                        <Tr key={row.category}>
-                                            <Td>{row.category}</Td>
-                                            <Td className="tnum text-right font-medium">{formatCount(row.findings)}</Td>
-                                            <Td className="tnum text-right text-muted">{formatCount(row.thumbsUp)}</Td>
-                                            <Td className="tnum text-right text-muted">{formatCount(row.thumbsDown)}</Td>
-                                        </Tr>
+                                        <StackedTr key={row.category}>
+                                            <StackedTd label="Category">{row.category}</StackedTd>
+                                            <StackedTd label="Findings" className="tnum md:text-right font-medium">
+                                                {formatCount(row.findings)}
+                                            </StackedTd>
+                                            <StackedTd label="Thumbs up" className="tnum md:text-right text-muted">
+                                                {formatCount(row.thumbsUp)}
+                                            </StackedTd>
+                                            <StackedTd label="Thumbs down" className="tnum md:text-right text-muted">
+                                                {formatCount(row.thumbsDown)}
+                                            </StackedTd>
+                                        </StackedTr>
                                     ))}
-                                </Tbody>
-                            </Table>
+                                </StackedTbody>
+                            </StackedTable>
                         ) : (
                             <p className="py-6 text-center text-[12px] text-muted">No findings to categorise.</p>
                         )}

@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Badge, Button, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Td, Th, Toggle, Tr } from '@geocodio/console-ui';
+import { Badge, Button, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Toggle, Tr } from '@geocodio/console-ui';
 import { ChevronDown, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -273,11 +273,11 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                     </StackedTr>
                                 ))
                             ) : (
-                                <Tr>
-                                    <Td colSpan={4} className="py-8 text-center text-muted">
+                                <StackedTr>
+                                    <StackedTd colSpan={4} className="py-8 text-center text-muted">
                                         No reactions yet.
-                                    </Td>
-                                </Tr>
+                                    </StackedTd>
+                                </StackedTr>
                             )}
                         </StackedTbody>
                     </StackedTable>

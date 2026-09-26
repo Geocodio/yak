@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Badge, Menu, Table, Tbody, Td, Th, Thead, Tr, cn } from '@geocodio/console-ui';
+import { Badge, cn, Menu, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import { Empty, Section, TableScroll } from '@/components/analytics/Section';
 import { formatCount, formatMs } from '@/lib/format';
@@ -62,29 +62,35 @@ export function EventExplorer({ explorer, selected, onSelect }: { explorer: Even
         >
             {explorer.rows.length > 0 ? (
                 <TableScroll>
-                    <Table className="w-full">
-                        <Thead>
+                    <StackedTable className="w-full">
+                        <StackedThead>
                             <Tr>
                                 <Th className="pl-4">When</Th>
                                 <Th>Name</Th>
                                 <Th>Repo</Th>
                                 <Th>Source</Th>
                                 <Th>Task</Th>
-                                <Th className="text-right">Duration</Th>
-                                <Th className="text-right">Value</Th>
+                                <Th className="md:text-right">Duration</Th>
+                                <Th className="md:text-right">Value</Th>
                                 <Th className="pr-4">Properties</Th>
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {explorer.rows.map((row) => (
-                                <Tr key={row.id}>
-                                    <Td className="tnum pl-4 whitespace-nowrap text-muted">{new Date(row.occurredAt).toLocaleString()}</Td>
-                                    <Td>
+                                <StackedTr key={row.id}>
+                                    <StackedTd label="When" className="tnum pl-4 md:whitespace-nowrap text-muted">
+                                        {new Date(row.occurredAt).toLocaleString()}
+                                    </StackedTd>
+                                    <StackedTd label="Name">
                                         <Badge tone="neutral">{row.name}</Badge>
-                                    </Td>
-                                    <Td className="font-mono text-[12px] text-muted">{row.repo ?? '–'}</Td>
-                                    <Td className="text-muted">{row.source ?? '–'}</Td>
-                                    <Td className="whitespace-nowrap">
+                                    </StackedTd>
+                                    <StackedTd label="Repo" className="font-mono text-[12px] text-muted">
+                                        {row.repo ?? '–'}
+                                    </StackedTd>
+                                    <StackedTd label="Source" className="text-muted">
+                                        {row.source ?? '–'}
+                                    </StackedTd>
+                                    <StackedTd label="Task" className="md:whitespace-nowrap">
                                         {row.taskUrl && row.taskId !== null ? (
                                             <Link href={row.taskUrl} className="text-[12px] text-accent">
                                                 #{row.taskId}
@@ -92,16 +98,20 @@ export function EventExplorer({ explorer, selected, onSelect }: { explorer: Even
                                         ) : (
                                             <span className="text-faint">–</span>
                                         )}
-                                    </Td>
-                                    <Td className="tnum text-right text-muted">{formatMs(row.durationMs)}</Td>
-                                    <Td className="tnum text-right text-muted">{row.value === null ? '–' : formatCount(row.value)}</Td>
-                                    <Td className="pr-4">
+                                    </StackedTd>
+                                    <StackedTd label="Duration" className="tnum md:text-right text-muted">
+                                        {formatMs(row.durationMs)}
+                                    </StackedTd>
+                                    <StackedTd label="Value" className="tnum md:text-right text-muted">
+                                        {row.value === null ? '–' : formatCount(row.value)}
+                                    </StackedTd>
+                                    <StackedTd label="Properties" className="pr-4">
                                         <Properties properties={row.properties} />
-                                    </Td>
-                                </Tr>
+                                    </StackedTd>
+                                </StackedTr>
                             ))}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 </TableScroll>
             ) : (
                 <Empty>{selected ? `No ${selected} events in this period.` : 'No events in this period.'}</Empty>

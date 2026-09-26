@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { cn, Menu, PageHeader, Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -182,68 +182,86 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                     </section>
 
                     <div className={cn('mt-6 grid gap-6', mergeRate.length > 0 ? 'grid-cols-1 lg:grid-cols-[3fr_2fr]' : 'grid-cols-1')}>
-                        <section className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
+                        <section className="rounded-card border border-hair bg-panel shadow-card md:overflow-x-auto">
                             <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                                 <h2 className="text-[13px] font-semibold">Claude Code · {filters.period} breakdown</h2>
                                 <span className="text-[11px] text-faint">est. list price, not billed</span>
                             </div>
                             {breakdown.length > 0 ? (
-                                <Table className="w-full">
-                                    <Thead>
+                                <StackedTable className="w-full">
+                                    <StackedThead>
                                         <Tr>
                                             <Th className="pl-4">Date</Th>
-                                            <Th className="text-right">Tasks</Th>
+                                            <Th className="md:text-right">Tasks</Th>
                                             {SOURCE_COLUMNS.map((source) => (
-                                                <Th key={source} className="text-right capitalize">
+                                                <Th key={source} className="md:text-right capitalize">
                                                     {source}
                                                 </Th>
                                             ))}
-                                            <Th className="pr-4 text-right">Total</Th>
+                                            <Th className="pr-4 md:text-right">Total</Th>
                                         </Tr>
-                                    </Thead>
-                                    <Tbody>
+                                    </StackedThead>
+                                    <StackedTbody>
                                         {breakdown.map((row) => (
-                                            <Tr key={row.date}>
-                                                <Td className="pl-4">{row.date}</Td>
-                                                <Td className="tnum text-right text-muted">{row.tasks}</Td>
+                                            <StackedTr key={row.date}>
+                                                <StackedTd label="Date" className="pl-4">
+                                                    {row.date}
+                                                </StackedTd>
+                                                <StackedTd label="Tasks" className="tnum md:text-right text-muted">
+                                                    {row.tasks}
+                                                </StackedTd>
                                                 {SOURCE_COLUMNS.map((source) => (
-                                                    <Td key={source} className="tnum text-right text-muted">
+                                                    <StackedTd
+                                                        key={source}
+                                                        label={source.charAt(0).toUpperCase() + source.slice(1)}
+                                                        className="tnum md:text-right text-muted"
+                                                    >
                                                         {row.sources[source] !== undefined ? `$${row.sources[source].toFixed(2)}` : '—'}
-                                                    </Td>
+                                                    </StackedTd>
                                                 ))}
-                                                <Td className="tnum pr-4 text-right font-medium">${row.total.toFixed(2)}</Td>
-                                            </Tr>
+                                                <StackedTd label="Total" className="tnum pr-4 md:text-right font-medium">
+                                                    ${row.total.toFixed(2)}
+                                                </StackedTd>
+                                            </StackedTr>
                                         ))}
-                                    </Tbody>
-                                </Table>
+                                    </StackedTbody>
+                                </StackedTable>
                             ) : (
                                 <p className="px-4 py-12 text-center text-[13px] text-muted">No cost data for this period.</p>
                             )}
                         </section>
 
                         {mergeRate.length > 0 && (
-                            <section className="overflow-x-auto rounded-card border border-hair bg-panel shadow-card">
+                            <section className="rounded-card border border-hair bg-panel shadow-card md:overflow-x-auto">
                                 <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                                     <h2 className="text-[13px] font-semibold">PR merge rate</h2>
                                 </div>
-                                <Table className="w-full">
-                                    <Thead>
+                                <StackedTable className="w-full">
+                                    <StackedThead>
                                         <Tr>
                                             <Th className="pl-4">Repo</Th>
-                                            <Th className="text-right">PRs</Th>
-                                            <Th className="text-right">Merged</Th>
-                                            <Th className="text-right">Closed</Th>
-                                            <Th className="pr-4 text-right">Rate</Th>
+                                            <Th className="md:text-right">PRs</Th>
+                                            <Th className="md:text-right">Merged</Th>
+                                            <Th className="md:text-right">Closed</Th>
+                                            <Th className="pr-4 md:text-right">Rate</Th>
                                         </Tr>
-                                    </Thead>
-                                    <Tbody>
+                                    </StackedThead>
+                                    <StackedTbody>
                                         {mergeRate.map((row) => (
-                                            <Tr key={row.repo}>
-                                                <Td className="pl-4 font-mono text-[12px]">{row.repo}</Td>
-                                                <Td className="tnum text-right text-muted">{row.totalPrs}</Td>
-                                                <Td className="tnum text-right text-muted">{row.merged}</Td>
-                                                <Td className="tnum text-right text-muted">{row.closed}</Td>
-                                                <Td className="tnum pr-4 text-right">
+                                            <StackedTr key={row.repo}>
+                                                <StackedTd label="Repo" className="pl-4 font-mono text-[12px]">
+                                                    {row.repo}
+                                                </StackedTd>
+                                                <StackedTd label="PRs" className="tnum md:text-right text-muted">
+                                                    {row.totalPrs}
+                                                </StackedTd>
+                                                <StackedTd label="Merged" className="tnum md:text-right text-muted">
+                                                    {row.merged}
+                                                </StackedTd>
+                                                <StackedTd label="Closed" className="tnum md:text-right text-muted">
+                                                    {row.closed}
+                                                </StackedTd>
+                                                <StackedTd label="Rate" className="tnum pr-4 md:text-right">
                                                     <span
                                                         className={cn(
                                                             'rounded-chip px-1.5 py-0.5 text-[11px]',
@@ -252,39 +270,45 @@ export default function Index({ summary, videoSummary, chart, breakdown, apiSpen
                                                     >
                                                         {row.rate}%
                                                     </span>
-                                                </Td>
-                                            </Tr>
+                                                </StackedTd>
+                                            </StackedTr>
                                         ))}
-                                    </Tbody>
-                                </Table>
+                                    </StackedTbody>
+                                </StackedTable>
                             </section>
                         )}
                     </div>
 
-                    <section className="mt-6 overflow-x-auto rounded-card border border-hair bg-panel shadow-card" data-testid="api-spend-breakdown">
+                    <section className="mt-6 rounded-card border border-hair bg-panel shadow-card md:overflow-x-auto" data-testid="api-spend-breakdown">
                         <div className="flex items-baseline justify-between border-b border-hair px-4 py-2.5">
                             <h2 className="text-[13px] font-semibold">API Spend -- {PERIOD_TITLE[filters.period]} Breakdown</h2>
                             <span className="text-[11px] text-faint">actual Anthropic billing</span>
                         </div>
                         {apiSpend.length > 0 ? (
-                            <Table className="w-full">
-                                <Thead>
+                            <StackedTable className="w-full">
+                                <StackedThead>
                                     <Tr>
                                         <Th className="pl-4">Date</Th>
-                                        <Th className="text-right">Calls</Th>
-                                        <Th className="pr-4 text-right">Total</Th>
+                                        <Th className="md:text-right">Calls</Th>
+                                        <Th className="pr-4 md:text-right">Total</Th>
                                     </Tr>
-                                </Thead>
-                                <Tbody>
+                                </StackedThead>
+                                <StackedTbody>
                                     {apiSpend.map((row) => (
-                                        <Tr key={row.date}>
-                                            <Td className="pl-4">{row.date}</Td>
-                                            <Td className="tnum text-right text-muted">{row.calls}</Td>
-                                            <Td className="tnum pr-4 text-right font-medium">${row.total.toFixed(4)}</Td>
-                                        </Tr>
+                                        <StackedTr key={row.date}>
+                                            <StackedTd label="Date" className="pl-4">
+                                                {row.date}
+                                            </StackedTd>
+                                            <StackedTd label="Calls" className="tnum md:text-right text-muted">
+                                                {row.calls}
+                                            </StackedTd>
+                                            <StackedTd label="Total" className="tnum pr-4 md:text-right font-medium">
+                                                ${row.total.toFixed(4)}
+                                            </StackedTd>
+                                        </StackedTr>
                                     ))}
-                                </Tbody>
-                            </Table>
+                                </StackedTbody>
+                            </StackedTable>
                         ) : (
                             <p className="px-4 py-12 text-center text-[13px] text-muted">No API calls recorded for this period.</p>
                         )}

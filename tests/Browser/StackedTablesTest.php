@@ -1,10 +1,13 @@
 <?php
 
 use App\Models\BranchDeployment;
+use App\Models\DailyCost;
 use App\Models\Observation;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
+use App\Models\TaskRun;
+use App\Models\TelemetryEvent;
 use App\Models\User;
 use App\Models\YakTask;
 
@@ -50,5 +53,27 @@ test('deployments, observations, pr reviews and channels never scroll sideways o
         $page = visit($path)->on()->mobile();
         $page->assertNoJavaScriptErrors();
         expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue("{$path} scrolls sideways");
+    }
+});
+
+test('costs and analytics tables stack on a phone', function () {
+    DailyCost::factory()->create();
+    $task = YakTask::factory()->success()->create();
+    TelemetryEvent::factory()->count(3)->create(['yak_task_id' => $task->id]);
+    // The outliers table only gets a row from a `TaskRun` with `total_ms`
+    // set, not from the task itself.
+    TaskRun::factory()->create(['yak_task_id' => $task->id]);
+
+    foreach (['/costs', '/analytics'] as $path) {
+        $page = visit($path)->on()->mobile();
+        $page->assertNoJavaScriptErrors();
+        expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue("{$path} scrolls sideways");
+        // These pages lazy-load a heavier chunk (charts, the merge-rate
+        // table) than the other stacked pages, so give React a moment to
+        // hydrate before counting labelled cells instead of racing it.
+        expect($page->script(
+            'new Promise((resolve) => { const start = Date.now(); (function poll() { const n = document.querySelectorAll("tbody td[data-label]").length; if (n > 0 || Date.now() - start > 5000) { resolve(n); } else { setTimeout(poll, 100); } })(); })'
+        ))->toBeGreaterThan(0);
+        expect($page->script('[...document.querySelectorAll("*")].some((el) => { const s = getComputedStyle(el); return (s.overflowX === "auto" || s.overflowX === "scroll") && el.scrollWidth > el.clientWidth + 2 && !el.closest("pre"); })'))->toBeFalse("{$path} has a sideways scroller");
     }
 });

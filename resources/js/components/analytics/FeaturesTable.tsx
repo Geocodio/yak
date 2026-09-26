@@ -1,4 +1,4 @@
-import { Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { Empty, Section, TableScroll } from '@/components/analytics/Section';
 import { formatCount } from '@/lib/format';
 import type { FeatureRow } from '@/types/analytics';
@@ -15,24 +15,30 @@ export function FeaturesTable({ features }: { features: FeatureRow[] }) {
         <Section title="Feature usage" hint="How often each feature was used, and which channel it came from.">
             {features.length > 0 ? (
                 <TableScroll>
-                    <Table className="w-full">
-                        <Thead>
+                    <StackedTable className="w-full">
+                        <StackedThead>
                             <Tr>
                                 <Th className="pl-4">Feature</Th>
-                                <Th className="text-right">Uses</Th>
+                                <Th className="md:text-right">Uses</Th>
                                 <Th className="pr-4">By source</Th>
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {features.map((row) => (
-                                <Tr key={row.feature}>
-                                    <Td className="pl-4 font-mono text-[12px]">{row.feature}</Td>
-                                    <Td className="tnum text-right font-medium">{formatCount(row.count)}</Td>
-                                    <Td className="tnum pr-4 text-muted">{bySource(row.sources) || '–'}</Td>
-                                </Tr>
+                                <StackedTr key={row.feature}>
+                                    <StackedTd label="Feature" className="pl-4 font-mono text-[12px]">
+                                        {row.feature}
+                                    </StackedTd>
+                                    <StackedTd label="Uses" className="tnum md:text-right font-medium">
+                                        {formatCount(row.count)}
+                                    </StackedTd>
+                                    <StackedTd label="By source" className="tnum pr-4 text-muted">
+                                        {bySource(row.sources) || '–'}
+                                    </StackedTd>
+                                </StackedTr>
                             ))}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 </TableScroll>
             ) : (
                 <Empty>No feature usage recorded in this period.</Empty>

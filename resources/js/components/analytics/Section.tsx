@@ -37,7 +37,7 @@ export function Empty({ children }: { children: ReactNode }) {
 
 /** Bleeds a table to the card edge so its rows run the full width. */
 export function TableScroll({ children, className }: { children: ReactNode; className?: string }) {
-    return <div className={cn('-mx-4 -mb-4 overflow-x-auto', className)}>{children}</div>;
+    return <div className={cn('md:-mx-4 md:-mb-4 md:overflow-x-auto', className)}>{children}</div>;
 }
 
 /** A compact label/value pair for secondary figures (tokens, review counts). */
