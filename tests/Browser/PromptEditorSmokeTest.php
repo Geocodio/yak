@@ -68,15 +68,15 @@ test('toggling the diff view renders the merge editor', function () {
 test('on a phone the prompt editor is an edit or preview toggle and never scrolls sideways', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/prompts')->on()->mobile();
-
-    $page->assertVisible('[data-testid="prompt-pane-toggle"]')
+    $page = visit('/prompts')->on()->mobile()
+        ->assertVisible('[data-testid="prompt-pane-toggle"]')
         ->assertVisible('[data-testid="prompt-editor"]')
         ->assertMissing('[data-testid="prompt-preview"]:visible')
         ->click('[data-testid="prompt-pane-preview"]')
         ->assertVisible('[data-testid="prompt-preview"]')
         ->assertMissing('[data-testid="prompt-editor"]:visible')
         ->assertNoJavaScriptErrors();
+
     expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
 });
 

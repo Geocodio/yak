@@ -18,11 +18,10 @@ beforeEach(function () {
 test('repositories stack into labelled rows on a phone and stay a table on a desktop', function () {
     $repository = Repository::factory()->create(['slug' => 'geocodio-dashboard']);
 
-    // `->on()->mobile()` returns an `On` instance that opens a brand-new page
-    // on every call, so the resolved `Webpage` from this first call is kept
-    // and every further interaction chains from it.
-    $phone = visit('/repos')->on()->mobile();
-    $phone->assertSee('geocodio-dashboard')->assertNoJavaScriptErrors();
+    // `->on()->mobile()` returns an unresolved wrapper; every later separate
+    // statement would re-visit the page, so the first statement resolves it
+    // with a chained call and every further interaction reuses that value.
+    $phone = visit('/repos')->on()->mobile()->assertSee('geocodio-dashboard')->assertNoJavaScriptErrors();
     expect($phone->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
     expect($phone->script('getComputedStyle(document.querySelector("tbody tr")).display'))->toBe('block');
     // The label is drawn by a `content: attr(data-label)` rule, which
@@ -50,8 +49,7 @@ test('deployments, observations, pr reviews and channels never scroll sideways o
     PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'file_path' => 'resources/js/components/a/very/long/path/to/some/component/File.tsx']);
 
     foreach (['/deployments', '/observations', '/pr-reviews', '/channels'] as $path) {
-        $page = visit($path)->on()->mobile();
-        $page->assertNoJavaScriptErrors();
+        $page = visit($path)->on()->mobile()->assertNoJavaScriptErrors();
         expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue("{$path} scrolls sideways");
     }
 });
@@ -65,8 +63,7 @@ test('costs and analytics tables stack on a phone', function () {
     TaskRun::factory()->create(['yak_task_id' => $task->id]);
 
     foreach (['/costs', '/analytics'] as $path) {
-        $page = visit($path)->on()->mobile();
-        $page->assertNoJavaScriptErrors();
+        $page = visit($path)->on()->mobile()->assertNoJavaScriptErrors();
         expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue("{$path} scrolls sideways");
         // These pages lazy-load a heavier chunk (charts, the merge-rate
         // table) than the other stacked pages, so give React a moment to
@@ -81,8 +78,7 @@ test('costs and analytics tables stack on a phone', function () {
 test('the repository settings form never scrolls sideways on a phone', function () {
     $repository = Repository::factory()->create(['pr_review_enabled' => true]);
 
-    $page = visit(route('repos.edit', $repository))->on()->mobile();
+    $page = visit(route('repos.edit', $repository))->on()->mobile()->assertNoJavaScriptErrors();
 
-    $page->assertNoJavaScriptErrors();
     expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
 });
