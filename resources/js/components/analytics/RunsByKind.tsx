@@ -1,4 +1,4 @@
-import { Table, Tbody, Td, Th, Thead, Tr } from '@geocodio/console-ui';
+import { StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { Empty, MiniStat, Section, TableScroll } from '@/components/analytics/Section';
 import { formatCount, formatMs, formatPct, formatUsd } from '@/lib/format';
 import type { RunKindRow, TokenSummary } from '@/types/analytics';
@@ -8,34 +8,50 @@ export function RunsByKind({ runsByKind, tokens }: { runsByKind: RunKindRow[]; t
         <Section title="Runs by kind" hint="Outcomes, cost and effort per agent run, grouped by what kind of run it was.">
             {runsByKind.length > 0 ? (
                 <TableScroll className="mb-0">
-                    <Table className="w-full">
-                        <Thead>
+                    <StackedTable className="w-full">
+                        <StackedThead>
                             <Tr>
                                 <Th className="pl-4">Kind</Th>
-                                <Th className="text-right">Runs</Th>
-                                <Th className="text-right">Success</Th>
-                                <Th className="text-right">Error</Th>
-                                <Th className="text-right">Cost</Th>
-                                <Th className="text-right">Avg cost</Th>
-                                <Th className="text-right">Avg turns</Th>
-                                <Th className="pr-4 text-right">Avg agent time</Th>
+                                <Th className="md:text-right">Runs</Th>
+                                <Th className="md:text-right">Success</Th>
+                                <Th className="md:text-right">Error</Th>
+                                <Th className="md:text-right">Cost</Th>
+                                <Th className="md:text-right">Avg cost</Th>
+                                <Th className="md:text-right">Avg turns</Th>
+                                <Th className="pr-4 md:text-right">Avg agent time</Th>
                             </Tr>
-                        </Thead>
-                        <Tbody>
+                        </StackedThead>
+                        <StackedTbody>
                             {runsByKind.map((row) => (
-                                <Tr key={row.kind}>
-                                    <Td className="pl-4">{row.kind}</Td>
-                                    <Td className="tnum text-right font-medium">{formatCount(row.runs)}</Td>
-                                    <Td className="tnum text-right text-muted">{formatCount(row.success)}</Td>
-                                    <Td className="tnum text-right text-muted">{formatCount(row.error)}</Td>
-                                    <Td className="tnum text-right text-muted">{formatUsd(row.costUsd)}</Td>
-                                    <Td className="tnum text-right text-muted">{formatUsd(row.avgCostUsd)}</Td>
-                                    <Td className="tnum text-right text-muted">{formatCount(row.avgTurns)}</Td>
-                                    <Td className="tnum pr-4 text-right text-muted">{formatMs(row.avgAgentMs)}</Td>
-                                </Tr>
+                                <StackedTr key={row.kind}>
+                                    <StackedTd label="Kind" className="pl-4">
+                                        {row.kind}
+                                    </StackedTd>
+                                    <StackedTd label="Runs" className="tnum md:text-right font-medium">
+                                        {formatCount(row.runs)}
+                                    </StackedTd>
+                                    <StackedTd label="Success" className="tnum md:text-right text-muted">
+                                        {formatCount(row.success)}
+                                    </StackedTd>
+                                    <StackedTd label="Error" className="tnum md:text-right text-muted">
+                                        {formatCount(row.error)}
+                                    </StackedTd>
+                                    <StackedTd label="Cost" className="tnum md:text-right text-muted">
+                                        {formatUsd(row.costUsd)}
+                                    </StackedTd>
+                                    <StackedTd label="Avg cost" className="tnum md:text-right text-muted">
+                                        {formatUsd(row.avgCostUsd)}
+                                    </StackedTd>
+                                    <StackedTd label="Avg turns" className="tnum md:text-right text-muted">
+                                        {formatCount(row.avgTurns)}
+                                    </StackedTd>
+                                    <StackedTd label="Avg agent time" className="tnum pr-4 md:text-right text-muted">
+                                        {formatMs(row.avgAgentMs)}
+                                    </StackedTd>
+                                </StackedTr>
                             ))}
-                        </Tbody>
-                    </Table>
+                        </StackedTbody>
+                    </StackedTable>
                 </TableScroll>
             ) : (
                 <Empty>No runs in this period.</Empty>

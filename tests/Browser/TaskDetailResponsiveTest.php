@@ -76,9 +76,7 @@ test('the activity log does not overlap the cards below it on a short viewport',
     Artifact::factory()->for($task, 'task')->videoThumbnail()->create();
     Artifact::factory()->for($task, 'task')->videoCut()->create();
 
-    $page = visit(route('tasks.show', $task))->on()->macbookAir();
-
-    $page->assertVisible('[data-testid="activity-log"]');
+    $page = visit(route('tasks.show', $task))->on()->macbookAir()->assertVisible('[data-testid="activity-log"]');
 
     /** @var array{activityBottom: float, walkthroughTop: float} $rects */
     $rects = $page->script(

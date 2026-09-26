@@ -15,7 +15,7 @@ test('on a desktop the skills header shows its secondary action as a button', fu
 test('on a phone the skills header folds its secondary action into a menu and keeps search visible', function () {
     $this->actingAs(User::factory()->create());
 
-    $page = visit('/skills')->on()->mobile();
+    $page = visit('/skills')->on()->mobile()->assertVisible('[data-testid="open-install-from-url"]');
 
     $page->assertVisible('[data-testid="open-install-from-url"]')
         ->assertVisible('[data-testid="skills-search"]')
