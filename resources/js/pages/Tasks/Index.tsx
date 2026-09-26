@@ -39,6 +39,55 @@ const SORT_OPTIONS = [
     { label: 'Repo', sort: 'repo', direction: 'asc' },
 ] as const;
 
+/**
+ * The tab strip rendered both compact (inside the desktop `PageHeader`) and
+ * full width (below the header on phones) -- `fullWidth` only changes the
+ * container and button sizing classes, everything else (labels, counts,
+ * test ids, active styling) is identical between the two.
+ */
+function TabStrip({
+    fullWidth,
+    activeTab,
+    counts,
+    onSelect,
+}: {
+    fullWidth: boolean;
+    activeTab: TaskTab;
+    counts: TaskCounts;
+    onSelect: (tab: TaskTab) => void;
+}) {
+    return (
+        <div
+            className={
+                fullWidth
+                    ? 'mx-4 mt-3 flex gap-0.5 rounded-control bg-panel-2 p-0.5'
+                    : 'flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5 sm:ml-4'
+            }
+            data-testid="task-tabs"
+        >
+            {TABS.map((tab) => (
+                <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.key}
+                    data-testid={`tab-${tab.key}`}
+                    onClick={() => onSelect(tab.key)}
+                    className={cn(
+                        fullWidth
+                            ? 'flex h-7 flex-1 items-center justify-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body'
+                            : 'flex h-6 items-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body',
+                        activeTab === tab.key && 'bg-panel text-body shadow-card',
+                    )}
+                >
+                    {tab.label}
+                    <span className="tnum text-[11px] text-faint">{counts[tab.key]}</span>
+                </button>
+            ))}
+        </div>
+    );
+}
+
 export default function Index({ tasks, counts, filters, setupCard, activeRepos, openNew }: Props) {
     usePoll(15000);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -92,27 +141,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
     const hasActiveFilters = filters.status !== '' || filters.source !== '' || filters.repo !== '' || filters.pr !== '';
     const activeFilterCount = [filters.status, filters.source, filters.repo, filters.pr].filter((value) => value !== '').length;
 
-    const tabStrip = (
-        <div className="flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5 sm:ml-4" data-testid="task-tabs">
-            {TABS.map((tab) => (
-                <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={filters.tab === tab.key}
-                    data-testid={`tab-${tab.key}`}
-                    onClick={() => navigate({ tab: tab.key, status: '', source: '', repo: '', pr: '' })}
-                    className={cn(
-                        'flex h-6 items-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body',
-                        filters.tab === tab.key && 'bg-panel text-body shadow-card',
-                    )}
-                >
-                    {tab.label}
-                    <span className="tnum text-[11px] text-faint">{counts[tab.key]}</span>
-                </button>
-            ))}
-        </div>
-    );
+    const onSelectTab = (tab: TaskTab) => navigate({ tab, status: '', source: '', repo: '', pr: '' });
 
     return (
         <>
@@ -125,30 +154,10 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                     </Button>
                 }
             >
-                {isDesktop && tabStrip}
+                {isDesktop && <TabStrip fullWidth={false} activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />}
             </PageHeader>
 
-            {!isDesktop && (
-                <div className="mx-4 mt-3 flex gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.key}
-                            type="button"
-                            role="tab"
-                            aria-selected={filters.tab === tab.key}
-                            data-testid={`tab-${tab.key}`}
-                            onClick={() => navigate({ tab: tab.key, status: '', source: '', repo: '', pr: '' })}
-                            className={cn(
-                                'flex h-7 flex-1 items-center justify-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body',
-                                filters.tab === tab.key && 'bg-panel text-body shadow-card',
-                            )}
-                        >
-                            {tab.label}
-                            <span className="tnum text-[11px] text-faint">{counts[tab.key]}</span>
-                        </button>
-                    ))}
-                </div>
-            )}
+            {!isDesktop && <TabStrip fullWidth activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />}
 
             <SetupCard card={setupCard} />
 
