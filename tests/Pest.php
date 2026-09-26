@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
 
 /*
@@ -54,3 +55,18 @@ expect()->extend('toBeOne', function () {
 
 require_once __DIR__ . '/Helpers/ClaudeHelpers.php';
 require_once __DIR__ . '/Helpers/AssertionHelpers.php';
+
+/**
+ * The card's description is a stretched link (its `::after` pseudo-element
+ * covers the whole card) so tapping anywhere non-interactive on the card
+ * opens the task -- exactly what a real click does, since the browser hit
+ * -tests to the topmost element at the click point. This plugin's `click()`
+ * refuses that on purpose (it verifies the target itself, not something
+ * covering it, receives the event), so this forces a real click at the
+ * selector's coordinates to prove the overlay behaves the way a user's tap
+ * would.
+ */
+function forceClick(AwaitableWebpage $page, string $selector): void
+{
+    $page->page()->locator($selector)->click(['force' => true]);
+}

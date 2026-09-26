@@ -11,8 +11,9 @@ import type { TaskRow } from '@/types/tasks';
  * author, age), the description takes two lines, and the last line holds
  * the repo, PR, cost, preview and follow-up count. The description is a
  * stretched link (its `::after` covers the card) so the whole card is
- * clickable without nesting an anchor inside an anchor; the PR badge and
- * the preview globe sit above it (`relative z-10`) to stay their own links.
+ * clickable without nesting an anchor inside an anchor; the PR badge, the
+ * preview globe, and the age tooltip sit above it (`relative z-10`) to stay
+ * their own links or keep receiving pointer hover.
  */
 function TaskCard({ task }: { task: TaskRow }) {
     const SourceIcon = SOURCE_ICON[task.source] ?? Terminal;
@@ -25,12 +26,12 @@ function TaskCard({ task }: { task: TaskRow }) {
         >
             <div className="flex items-center gap-2 text-[12px] text-faint">
                 <StatusDot status={task.status} />
-                {task.externalId && <span className="font-mono">{task.externalId}</span>}
-                <span className="flex min-w-0 items-center gap-1 truncate">
+                <span className="font-mono">{task.externalId ? task.externalId : `#${task.id}`}</span>
+                <span className="flex min-w-0 items-center gap-1">
                     <SourceIcon size={12} className="shrink-0" />
-                    {identity.join(' · ')}
+                    <span className="truncate">{identity.join(' · ')}</span>
                 </span>
-                <span className="tnum ml-auto shrink-0" title={task.createdTooltip}>
+                <span className="relative z-10 tnum ml-auto shrink-0" title={task.createdTooltip}>
                     {task.createdAgo}
                 </span>
             </div>

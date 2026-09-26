@@ -2,22 +2,6 @@
 
 use App\Models\User;
 use App\Models\YakTask;
-use Pest\Browser\Api\AwaitableWebpage;
-
-/**
- * The card's description is a stretched link (its `::after` pseudo-element
- * covers the whole card) so tapping anywhere non-interactive on the card
- * opens the task -- exactly what a real click does, since the browser hit
- * -tests to the topmost element at the click point. This plugin's `click()`
- * refuses that on purpose (it verifies the target itself, not something
- * covering it, receives the event), so this forces a real click at the
- * selector's coordinates to prove the overlay behaves the way a user's tap
- * would.
- */
-function forceClick(AwaitableWebpage $page, string $selector): void
-{
-    $page->page()->locator($selector)->click(['force' => true]);
-}
 
 test('on a phone tasks render as cards, on a desktop as a table', function () {
     $this->actingAs(User::factory()->create());
@@ -83,6 +67,7 @@ test('tapping a card opens the task and tapping its PR badge does not', function
     $page = visit('/tasks')->on()->mobile()->assertVisible('[data-testid="task-card-pr"]');
 
     $page->click('[data-testid="task-row-' . $task->id . '"] [data-testid="task-card-pr"]')
+        ->wait(1)
         ->assertPathIs('/tasks');
 
     $page->click('[data-testid="task-row-' . $task->id . '"] [data-testid="task-card-description"]')

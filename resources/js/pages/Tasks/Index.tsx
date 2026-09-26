@@ -149,12 +149,14 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
             <PageHeader
                 crumbs={['Tasks']}
                 actions={
-                    <Button variant="primary" icon={<Plus size={13} />} onClick={() => setSheetOpen(true)} data-testid="new-task-trigger">
-                        New task
-                    </Button>
+                    isDesktop ? (
+                        <Button variant="primary" icon={<Plus size={13} />} onClick={() => setSheetOpen(true)} data-testid="new-task-trigger">
+                            New task
+                        </Button>
+                    ) : undefined
                 }
             >
-                {isDesktop && <TabStrip fullWidth={false} activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />}
+                {isDesktop ? <TabStrip fullWidth={false} activeTab={filters.tab} counts={counts} onSelect={onSelectTab} /> : undefined}
             </PageHeader>
 
             {!isDesktop && <TabStrip fullWidth activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />}
