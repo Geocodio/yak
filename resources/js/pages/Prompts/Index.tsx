@@ -185,7 +185,16 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                 }
                 overflow={[
                     { key: 'history', label: 'History', icon: <Clock size={13} />, onSelect: () => setShowHistory(true) },
-                    { key: 'diff', label: showDiff ? 'Hide diff' : 'Diff', icon: <GitCompare size={13} />, onSelect: () => setShowDiff((value) => !value), testId: 'toggle-diff' },
+                    {
+                        key: 'diff',
+                        label: showDiff ? 'Hide diff' : 'Diff',
+                        icon: <GitCompare size={13} />,
+                        onSelect: () => {
+                            setShowDiff((value) => !value);
+                            setPane('edit');
+                        },
+                        testId: 'toggle-diff',
+                    },
                     ...(prompt.customized
                         ? [{ key: 'reset', label: 'Reset', danger: true, dividerAbove: true, onSelect: () => setShowReset(true), testId: 'reset-button' }]
                         : []),

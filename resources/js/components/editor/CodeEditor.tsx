@@ -13,7 +13,7 @@ export function CodeEditor({
     ariaLabel = 'Prompt editor',
     'data-testid': dataTestId,
     languageExtensions,
-    wrapLines = false,
+    wrapLines = true,
 }: {
     value: string;
     onChange: (value: string) => void;
@@ -29,7 +29,7 @@ export function CodeEditor({
      * Pass an empty array for freeform prose with no highlighting.
      */
     languageExtensions?: Extension[];
-    /** Wraps long lines instead of letting them widen the editor and the page. */
+    /** Wraps long lines instead of letting them widen the editor and the page. On by default; pass `false` to opt out. */
     wrapLines?: boolean;
 }) {
     const host = useRef<HTMLDivElement>(null);

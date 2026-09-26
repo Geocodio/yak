@@ -224,7 +224,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                                 '—'
                                             )}
                                         </StackedTd>
-                                        <StackedTd label="File" className="break-all font-mono text-[12px] text-muted">
+                                        <StackedTd label="File" className="max-md:break-all font-mono text-[12px] text-muted">
                                             {comment.filePath}:{comment.lineNumber}
                                         </StackedTd>
                                         <StackedTd label="Severity">
@@ -234,8 +234,14 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                             {comment.category}
                                         </StackedTd>
                                         <StackedTd label="Reactions" className="text-muted">
-                                            {comment.thumbsUp > 0 && <span className="mr-2">👍 {comment.thumbsUp}</span>}
-                                            {comment.thumbsDown > 0 && <span>👎 {comment.thumbsDown}</span>}
+                                            {comment.thumbsUp > 0 || comment.thumbsDown > 0 ? (
+                                                <>
+                                                    {comment.thumbsUp > 0 && <span className="mr-2">👍 {comment.thumbsUp}</span>}
+                                                    {comment.thumbsDown > 0 && <span>👎 {comment.thumbsDown}</span>}
+                                                </>
+                                            ) : (
+                                                '—'
+                                            )}
                                         </StackedTd>
                                     </StackedTr>
                                 ))}

@@ -74,17 +74,19 @@ export default function Index({ deployments, filters }: Props) {
                                         {deployment.repoSlug}
                                     </StackedTd>
                                     <StackedTd label="Branch">
-                                        <Link href={show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
-                                            {deployment.branch}
-                                        </Link>
-                                        {deployment.longLived && (
-                                            <Tooltip label={`Hibernates after ${deployment.hibernatesAfter}`}>
-                                                <Badge tone="info" className="ml-2">
-                                                    Long-lived
-                                                    <span className="md:hidden"> · Hibernates after {deployment.hibernatesAfter}</span>
-                                                </Badge>
-                                            </Tooltip>
-                                        )}
+                                        <div className="flex items-center max-md:flex-wrap">
+                                            <Link href={show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
+                                                {deployment.branch}
+                                            </Link>
+                                            {deployment.longLived && (
+                                                <Tooltip label={`Hibernates after ${deployment.hibernatesAfter}`}>
+                                                    <Badge tone="info" className="ml-2">
+                                                        Long-lived
+                                                        <span className="md:hidden"> · Hibernates after {deployment.hibernatesAfter}</span>
+                                                    </Badge>
+                                                </Tooltip>
+                                            )}
+                                        </div>
                                     </StackedTd>
                                     <StackedTd label="Status">
                                         <StatusPill tone={deployment.tone} label={deployment.statusLabel} />
@@ -92,7 +94,7 @@ export default function Index({ deployments, filters }: Props) {
                                     <StackedTd label="Last accessed" className="text-muted">
                                         {deployment.lastAccessedAgo ?? '—'}
                                     </StackedTd>
-                                    <StackedTd label="Preview URL" className="break-all">
+                                    <StackedTd label="Preview URL" className="max-md:break-all">
                                         <a href={`https://${deployment.hostname}`} target="_blank" rel="noopener" className={cn('text-accent-text hover:underline')}>
                                             {deployment.hostname}
                                         </a>

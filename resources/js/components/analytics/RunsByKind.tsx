@@ -7,7 +7,7 @@ export function RunsByKind({ runsByKind, tokens }: { runsByKind: RunKindRow[]; t
     return (
         <Section title="Runs by kind" hint="Outcomes, cost and effort per agent run, grouped by what kind of run it was.">
             {runsByKind.length > 0 ? (
-                <TableScroll className="mb-0">
+                <TableScroll className="md:mb-0">
                     <StackedTable className="w-full">
                         <StackedThead>
                             <Tr>
