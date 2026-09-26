@@ -38,13 +38,17 @@ function TaskCard({ task }: { task: TaskRow }) {
             <Link
                 href={showTask.url(task.id)}
                 data-testid="task-card-description"
-                className="mt-1.5 block line-clamp-2 text-[15px] leading-snug text-body after:absolute after:inset-0 after:content-['']"
+                className="mt-1.5 block text-[15px] leading-snug text-body after:absolute after:inset-0 after:content-['']"
             >
-                {task.description}
+                <span className="line-clamp-2 block">{task.description}</span>
             </Link>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-muted">
-                {task.repo && <span className="font-mono text-[11.5px]">{task.repo}</span>}
+                {task.repo && (
+                    <span data-testid="task-card-repo" className="font-mono text-[11.5px]">
+                        {task.repo}
+                    </span>
+                )}
                 {task.pr && (
                     <a
                         href={task.pr.url ?? undefined}
