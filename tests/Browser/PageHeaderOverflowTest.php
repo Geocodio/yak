@@ -17,8 +17,7 @@ test('on a phone the skills header folds its secondary action into a menu and ke
 
     $page = visit('/skills')->on()->mobile()->assertVisible('[data-testid="open-install-from-url"]');
 
-    $page->assertVisible('[data-testid="open-install-from-url"]')
-        ->assertVisible('[data-testid="skills-search"]')
+    $page->assertVisible('[data-testid="skills-search"]')
         ->assertMissing('[data-testid="refresh-marketplaces"]:visible')
         ->click('[data-testid="page-header-overflow-menu"]')
         ->assertSee('Refresh marketplaces')

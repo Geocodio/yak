@@ -5,6 +5,7 @@ use App\Models\DailyCost;
 use App\Models\Observation;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
+use App\Models\PrReviewCommentReaction;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
@@ -12,7 +13,7 @@ use App\Models\TelemetryEvent;
 use App\Models\User;
 use App\Models\YakTask;
 
-const PHONE_PAGES = ['/tasks', '/tasks?tab=reviews', '/observations', '/repos', '/deployments', '/pr-reviews', '/prompts', '/costs', '/analytics', '/skills', '/mcp', '/health', '/channels', '/settings/profile'];
+const PHONE_PAGES = ['/tasks', '/tasks?tab=reviews', '/observations', '/repos', '/deployments', '/pr-reviews', '/pr-reviews?tab=by_reviewer', '/prompts', '/costs', '/analytics', '/skills', '/mcp', '/health', '/channels', '/settings/profile'];
 
 test('no page is wider than a phone, and nothing but code scrolls sideways', function () {
     $this->actingAs(User::factory()->create());
@@ -22,7 +23,8 @@ test('no page is wider than a phone, and nothing but code scrolls sideways', fun
     BranchDeployment::factory()->create(['repository_id' => $repository->id]);
     Observation::factory()->create();
     $review = PrReview::factory()->create(['yak_task_id' => $task->id]);
-    PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'file_path' => 'resources/js/a/very/long/path/that/keeps/going/File.tsx']);
+    $comment = PrReviewComment::factory()->create(['pr_review_id' => $review->id, 'file_path' => 'resources/js/a/very/long/path/that/keeps/going/File.tsx']);
+    PrReviewCommentReaction::factory()->create(['pr_review_comment_id' => $comment->id]);
     DailyCost::factory()->create();
     TelemetryEvent::factory()->count(3)->create(['yak_task_id' => $task->id]);
     TaskRun::factory()->create(['yak_task_id' => $task->id]);
@@ -32,10 +34,15 @@ test('no page is wider than a phone, and nothing but code scrolls sideways', fun
     foreach ($pages as $path) {
         $page = visit($path)->on()->mobile()->assertNoJavaScriptErrors();
 
-        // /costs and /analytics hydrate a heavier chunk (charts, tables)
-        // than the rest, so wait for React to mount before measuring.
+        // Inertia mounts the app shell immediately, so waiting on `#app`
+        // having children is a near no-op. Instead wait for a marker that
+        // only appears once a page's own render has committed -- its
+        // `PageHeader` crumbs (every page has one), or, failing that, a
+        // table row, the task summary, a form, or a heading -- then give
+        // React one more frame to settle before measuring, the way the
+        // costs/analytics tests in StackedTablesTest wait for hydration.
         $page->script(
-            'new Promise((resolve) => { const start = Date.now(); (function poll() { const ready = (document.querySelector("#app")?.children.length ?? 0) > 0; if (ready || Date.now() - start > 5000) { resolve(ready); } else { setTimeout(poll, 100); } })(); })'
+            'new Promise((resolve) => { const start = Date.now(); (function poll() { const ready = document.querySelectorAll(\'[data-testid="page-header-crumbs"], tbody td, [data-testid^="task-row-"], [data-testid="task-summary"], form, h1\').length > 0; if (ready || Date.now() - start > 5000) { requestAnimationFrame(() => resolve(ready)); } else { setTimeout(poll, 100); } })(); })'
         );
 
         $report = $page->script(<<<'JS'
