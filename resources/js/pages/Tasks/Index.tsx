@@ -1,12 +1,14 @@
 import { Head, router, usePoll } from '@inertiajs/react';
 import { Button, cn, Menu, PageHeader } from '@geocodio/console-ui';
-import { ChevronDown, Plus, X } from 'lucide-react';
+import { ChevronDown, Plus, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { FilterMenu } from '@/components/tasks/FilterMenu';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
 import { NewTaskSheet } from '@/components/tasks/NewTaskSheet';
 import { SetupCard } from '@/components/tasks/SetupCard';
 import { TaskCardList } from '@/components/tasks/TaskCardList';
+import { TaskFiltersSheet } from '@/components/tasks/TaskFiltersSheet';
 import { TaskTable } from '@/components/tasks/TaskTable';
 import { STATUS, type TaskStatus } from '@/lib/status';
 import { useMediaQuery } from '@/lib/useMediaQuery';
@@ -29,42 +31,20 @@ const TABS: { key: TaskTab; label: string }[] = [
     { key: 'setup', label: 'Setup' },
 ];
 
-function FilterMenu({
-    label,
-    value,
-    options,
-    onChange,
-}: {
-    label: string;
-    value: string;
-    options: { value: string; label: string }[];
-    onChange: (value: string) => void;
-}) {
-    const selected = options.find((o) => o.value === value);
-    return (
-        <Menu
-            trigger={
-                <span className="flex items-center gap-1.5 text-[12px]">
-                    <span className={value ? 'text-body' : 'text-muted'}>{selected ? selected.label : label}</span>
-                    <ChevronDown size={12} className="text-faint" />
-                </span>
-            }
-            className={cn('h-7 rounded-pill px-2.5', value && 'border-accent/40 bg-accent-soft')}
-            items={options.map((option) => ({
-                key: option.value || '__all__',
-                label: option.label,
-                checked: option.value === value,
-                onSelect: () => onChange(option.value),
-            }))}
-        />
-    );
-}
+const SORT_OPTIONS = [
+    { label: 'Newest', sort: 'created_at', direction: 'desc' },
+    { label: 'Oldest', sort: 'created_at', direction: 'asc' },
+    { label: 'Source', sort: 'source', direction: 'asc' },
+    { label: 'Author', sort: 'author_name', direction: 'asc' },
+    { label: 'Repo', sort: 'repo', direction: 'asc' },
+] as const;
 
 export default function Index({ tasks, counts, filters, setupCard, activeRepos, openNew }: Props) {
     usePoll(15000);
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const [sheetOpen, setSheetOpen] = useState(openNew);
     const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+    const [filtersOpen, setFiltersOpen] = useState(false);
 
     useEffect(() => {
         const onNewTask = () => setSheetOpen(true);
@@ -110,6 +90,29 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
     };
 
     const hasActiveFilters = filters.status !== '' || filters.source !== '' || filters.repo !== '' || filters.pr !== '';
+    const activeFilterCount = [filters.status, filters.source, filters.repo, filters.pr].filter((value) => value !== '').length;
+
+    const tabStrip = (
+        <div className="flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5 sm:ml-4" data-testid="task-tabs">
+            {TABS.map((tab) => (
+                <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={filters.tab === tab.key}
+                    data-testid={`tab-${tab.key}`}
+                    onClick={() => navigate({ tab: tab.key, status: '', source: '', repo: '', pr: '' })}
+                    className={cn(
+                        'flex h-6 items-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body',
+                        filters.tab === tab.key && 'bg-panel text-body shadow-card',
+                    )}
+                >
+                    {tab.label}
+                    <span className="tnum text-[11px] text-faint">{counts[tab.key]}</span>
+                </button>
+            ))}
+        </div>
+    );
 
     return (
         <>
@@ -122,7 +125,11 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                     </Button>
                 }
             >
-                <div className="sm:ml-4 flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
+                {isDesktop && tabStrip}
+            </PageHeader>
+
+            {!isDesktop && (
+                <div className="mx-4 mt-3 flex gap-0.5 rounded-control bg-panel-2 p-0.5" data-testid="task-tabs">
                     {TABS.map((tab) => (
                         <button
                             key={tab.key}
@@ -132,7 +139,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                             data-testid={`tab-${tab.key}`}
                             onClick={() => navigate({ tab: tab.key, status: '', source: '', repo: '', pr: '' })}
                             className={cn(
-                                'flex h-6 items-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body',
+                                'flex h-7 flex-1 items-center justify-center gap-1.5 rounded-chip px-2.5 text-[12px] text-muted hover:text-body',
                                 filters.tab === tab.key && 'bg-panel text-body shadow-card',
                             )}
                         >
@@ -141,60 +148,98 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                         </button>
                     ))}
                 </div>
-            </PageHeader>
+            )}
 
             <SetupCard card={setupCard} />
 
-            <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2 sm:px-5" data-testid="task-filters">
-                <FilterMenu
-                    label="Status"
-                    value={filters.status}
-                    onChange={(status) => navigate({ status })}
-                    options={[
-                        { value: '', label: 'All statuses' },
-                        ...(Object.keys(STATUS) as TaskStatus[]).map((status) => ({ value: status, label: STATUS[status].label })),
-                    ]}
-                />
-                {filters.tab === 'tasks' && (
+            {isDesktop ? (
+                <div className="flex flex-wrap items-center gap-2 border-b border-hair px-4 py-2 sm:px-5" data-testid="task-filters">
                     <FilterMenu
-                        label="Source"
-                        value={filters.source}
-                        onChange={(source) => navigate({ source })}
-                        options={[{ value: '', label: 'All sources' }, ...filters.options.sources.map((s) => ({ value: s, label: s }))]}
-                    />
-                )}
-                <FilterMenu
-                    label="Repo"
-                    value={filters.repo}
-                    onChange={(repo) => navigate({ repo })}
-                    options={[{ value: '', label: 'All repos' }, ...filters.options.repos.map((r) => ({ value: r, label: r }))]}
-                />
-                {filters.tab === 'tasks' && (
-                    <FilterMenu
-                        label="PR"
-                        value={filters.pr}
-                        onChange={(pr) => navigate({ pr })}
+                        label="Status"
+                        value={filters.status}
+                        onChange={(status) => navigate({ status })}
                         options={[
-                            { value: '', label: 'All PRs' },
-                            { value: 'open', label: 'Open' },
-                            { value: 'merged', label: 'Merged' },
-                            { value: 'closed', label: 'Closed' },
-                            { value: 'none', label: 'No PR' },
+                            { value: '', label: 'All statuses' },
+                            ...(Object.keys(STATUS) as TaskStatus[]).map((status) => ({ value: status, label: STATUS[status].label })),
                         ]}
                     />
-                )}
-                {hasActiveFilters && (
-                    <Button
-                        variant="link"
-                        icon={<X size={12} />}
-                        className="ml-1 text-[12px] text-muted"
-                        data-testid="clear-filters"
-                        onClick={() => navigate({ status: '', source: '', repo: '', pr: '' })}
-                    >
-                        Clear
-                    </Button>
-                )}
-            </div>
+                    {filters.tab === 'tasks' && (
+                        <FilterMenu
+                            label="Source"
+                            value={filters.source}
+                            onChange={(source) => navigate({ source })}
+                            options={[{ value: '', label: 'All sources' }, ...filters.options.sources.map((s) => ({ value: s, label: s }))]}
+                        />
+                    )}
+                    <FilterMenu
+                        label="Repo"
+                        value={filters.repo}
+                        onChange={(repo) => navigate({ repo })}
+                        options={[{ value: '', label: 'All repos' }, ...filters.options.repos.map((r) => ({ value: r, label: r }))]}
+                    />
+                    {filters.tab === 'tasks' && (
+                        <FilterMenu
+                            label="PR"
+                            value={filters.pr}
+                            onChange={(pr) => navigate({ pr })}
+                            options={[
+                                { value: '', label: 'All PRs' },
+                                { value: 'open', label: 'Open' },
+                                { value: 'merged', label: 'Merged' },
+                                { value: 'closed', label: 'Closed' },
+                                { value: 'none', label: 'No PR' },
+                            ]}
+                        />
+                    )}
+                    {hasActiveFilters && (
+                        <Button
+                            variant="link"
+                            icon={<X size={12} />}
+                            className="ml-1 text-[12px] text-muted"
+                            data-testid="clear-filters"
+                            onClick={() => navigate({ status: '', source: '', repo: '', pr: '' })}
+                        >
+                            Clear
+                        </Button>
+                    )}
+                </div>
+            ) : (
+                <>
+                    <div className="flex items-center gap-2 px-4 py-2.5" data-testid="task-filters">
+                        <Button
+                            variant={activeFilterCount > 0 ? 'secondary' : 'tertiary'}
+                            icon={<SlidersHorizontal size={13} />}
+                            data-testid="open-filters"
+                            onClick={() => setFiltersOpen(true)}
+                            className="rounded-pill"
+                        >
+                            Filters{activeFilterCount > 0 ? ` ${activeFilterCount}` : ''}
+                        </Button>
+                        <Menu
+                            trigger={
+                                <span className="flex items-center gap-1.5 text-[12px]">
+                                    {SORT_OPTIONS.find((option) => option.sort === filters.sort && option.direction === filters.direction)?.label ?? 'Sort'}
+                                    <ChevronDown size={12} className="text-faint" />
+                                </span>
+                            }
+                            className="h-8 rounded-pill px-3"
+                            data-testid="open-sort"
+                            items={SORT_OPTIONS.map((option) => ({
+                                key: `${option.sort}-${option.direction}`,
+                                label: option.label,
+                                checked: option.sort === filters.sort && option.direction === filters.direction,
+                                onSelect: () => navigate({ sort: option.sort, direction: option.direction }),
+                            }))}
+                        />
+                        {hasActiveFilters && (
+                            <Button variant="link" className="ml-auto text-[12px] text-muted" onClick={() => navigate({ status: '', source: '', repo: '', pr: '' })}>
+                                Clear
+                            </Button>
+                        )}
+                    </div>
+                    <TaskFiltersSheet open={filtersOpen} onOpenChange={setFiltersOpen} filters={filters} onChange={(patch) => navigate(patch)} />
+                </>
+            )}
 
             <div className="min-h-0 flex-1 overflow-auto">
                 {tasks.data.length > 0 ? (
