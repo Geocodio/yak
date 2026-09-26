@@ -73,10 +73,10 @@ export function PathExcludes({
                     </span>
                 ))}
             </div>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
                 <TextInput
                     placeholder="vendor/**"
-                    className="max-w-[260px] font-mono text-[12px]"
+                    className="w-full font-mono text-[12px] sm:max-w-[260px]"
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     onKeyDown={(event) => {

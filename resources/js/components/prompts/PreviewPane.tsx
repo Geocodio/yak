@@ -70,11 +70,11 @@ export function PreviewPane({
             <div className={cn('min-h-0 flex-1 overflow-auto p-4 transition-opacity', loading && 'opacity-60')}>
                 {preview.ok ? (
                     mode === 'rendered' ? (
-                        <div data-testid="prompt-preview">
+                        <div data-testid="prompt-preview-content">
                             <Prose html={preview.bodyHtml ?? ''} className="text-[13px]" />
                         </div>
                     ) : (
-                        <pre className="whitespace-pre-wrap break-words font-mono text-[12.5px] leading-relaxed text-body" data-testid="prompt-preview">
+                        <pre className="whitespace-pre-wrap break-words font-mono text-[12.5px] leading-relaxed text-body" data-testid="prompt-preview-content">
                             {preview.body}
                         </pre>
                     )

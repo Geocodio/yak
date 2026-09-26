@@ -13,6 +13,7 @@ export function CodeEditor({
     ariaLabel = 'Prompt editor',
     'data-testid': dataTestId,
     languageExtensions,
+    wrapLines = false,
 }: {
     value: string;
     onChange: (value: string) => void;
@@ -28,6 +29,8 @@ export function CodeEditor({
      * Pass an empty array for freeform prose with no highlighting.
      */
     languageExtensions?: Extension[];
+    /** Wraps long lines instead of letting them widen the editor and the page. */
+    wrapLines?: boolean;
 }) {
     const host = useRef<HTMLDivElement>(null);
     const viewRef = useRef<EditorView | null>(null);
@@ -68,7 +71,7 @@ export function CodeEditor({
                 keymap.of([...defaultKeymap, ...historyKeymap, ...completionKeymap, indentWithTab]),
                 ...(languageExtensions ?? [bladeOverlay(), variableAutocomplete(variablesRef)]),
                 bladeTheme,
-                EditorView.lineWrapping,
+                ...(wrapLines ? [EditorView.lineWrapping] : []),
                 EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
                 updateListener,
             ],

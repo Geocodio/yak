@@ -25,7 +25,7 @@ export function DangerZone({
 
     return (
         <>
-            <div className="flex items-center justify-between rounded-card border border-fail/30 bg-panel px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-fail/30 bg-panel px-4 py-3">
                 <div>
                     <div className="text-[13px] font-medium">Delete this repository</div>
                     <div className="mt-0.5 text-[12px] text-muted">

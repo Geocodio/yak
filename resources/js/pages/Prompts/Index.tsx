@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Badge, Button, ConfirmDialog, PageHeader, toast } from '@geocodio/console-ui';
+import { Badge, Button, ConfirmDialog, PageHeader, cn, toast } from '@geocodio/console-ui';
 import { AlertTriangle, Clock, GitCompare, RotateCcw, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -46,6 +46,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
     const [fixtureIndex, setFixtureIndex] = useState(initialFixtureIndex);
     const [preview, setPreview] = useState<PromptPreview>(initialPreview);
     const [showDiff, setShowDiff] = useState(false);
+    const [pane, setPane] = useState<'edit' | 'preview'>('edit');
     const [showHistory, setShowHistory] = useState(false);
     const [showReset, setShowReset] = useState(false);
     const [resetBusy, setResetBusy] = useState(false);
@@ -191,7 +192,7 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                 ]}
             />
 
-            <div className="flex min-h-0 flex-1 flex-col lg:flex-row" data-testid="prompt-editor">
+            <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
                 <PromptSidebar groups={groups} activeSlug={prompt.slug} />
 
                 <div className="flex min-w-0 flex-1 flex-col">
@@ -229,8 +230,34 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                         {prompt.description && <p className="text-[11px] text-muted" data-testid="prompt-description">{prompt.description}</p>}
                     </div>
 
-                    <div className="grid min-h-0 flex-1 grid-cols-1 max-lg:grid-rows-2 lg:grid-cols-[1fr_minmax(320px,40%)]">
-                        <div className="min-h-0 border-b border-hair lg:border-r lg:border-b-0">
+                    <div className="flex items-center gap-1 border-b border-hair px-3 py-1.5 lg:hidden" role="tablist" aria-label="Editor or preview" data-testid="prompt-pane-toggle">
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={pane === 'edit'}
+                            onClick={() => setPane('edit')}
+                            data-testid="prompt-pane-edit"
+                            className={cn('rounded-chip px-2 py-0.5 text-[11px]', pane === 'edit' ? 'bg-accent-soft text-accent-text' : 'text-faint hover:text-body')}
+                        >
+                            Edit
+                        </button>
+                        <button
+                            type="button"
+                            role="tab"
+                            aria-selected={pane === 'preview'}
+                            onClick={() => setPane('preview')}
+                            data-testid="prompt-pane-preview"
+                            className={cn('rounded-chip px-2 py-0.5 text-[11px]', pane === 'preview' ? 'bg-accent-soft text-accent-text' : 'text-faint hover:text-body')}
+                        >
+                            Preview
+                        </button>
+                    </div>
+
+                    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_minmax(320px,40%)]">
+                        <div
+                            className={cn('min-h-0 border-b border-hair lg:border-r lg:border-b-0', pane !== 'edit' && 'max-lg:hidden')}
+                            data-testid="prompt-editor"
+                        >
                             {showDiff ? (
                                 <div className="flex h-full min-h-0 flex-col" data-testid="prompt-diff">
                                     <div className="grid grid-cols-2 border-b border-hair bg-sidebar text-[11px] font-semibold uppercase tracking-wide text-faint">
@@ -240,11 +267,13 @@ export default function Index({ prompts: groups, prompt, fixtures, fixtureIndex:
                                     <DiffEditor before={prompt.defaultContent} after={content} />
                                 </div>
                             ) : (
-                                <CodeEditor value={content} onChange={setContent} variables={prompt.variables} onSave={save} data-testid="prompt-editor-surface" />
+                                <CodeEditor value={content} onChange={setContent} variables={prompt.variables} onSave={save} wrapLines data-testid="prompt-editor-surface" />
                             )}
                         </div>
 
-                        <PreviewPane preview={preview} loading={previewLoading} fixtures={fixtures} fixtureIndex={fixtureIndex} onFixtureChange={setFixtureIndex} />
+                        <div className={cn('flex min-h-0 flex-col', pane !== 'preview' && 'max-lg:hidden')} data-testid="prompt-preview">
+                            <PreviewPane preview={preview} loading={previewLoading} fixtures={fixtures} fixtureIndex={fixtureIndex} onFixtureChange={setFixtureIndex} />
+                        </div>
                     </div>
                 </div>
             </div>

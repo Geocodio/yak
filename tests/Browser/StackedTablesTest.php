@@ -77,3 +77,12 @@ test('costs and analytics tables stack on a phone', function () {
         expect($page->script('[...document.querySelectorAll("*")].some((el) => { const s = getComputedStyle(el); return (s.overflowX === "auto" || s.overflowX === "scroll") && el.scrollWidth > el.clientWidth + 2 && !el.closest("pre"); })'))->toBeFalse("{$path} has a sideways scroller");
     }
 });
+
+test('the repository settings form never scrolls sideways on a phone', function () {
+    $repository = Repository::factory()->create(['pr_review_enabled' => true]);
+
+    $page = visit(route('repos.edit', $repository))->on()->mobile();
+
+    $page->assertNoJavaScriptErrors();
+    expect($page->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
+});
