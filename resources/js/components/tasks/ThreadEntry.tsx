@@ -16,7 +16,7 @@ function Entry({ who, meta, avatar, children }: { who: string | null; meta: stri
                         <span className="text-faint">{meta}</span>
                     </div>
                 )}
-                <div className="mt-1 text-[13px] leading-relaxed">{children}</div>
+                <div className="mt-1 text-[13px] leading-relaxed wrap-break-word">{children}</div>
             </div>
         </div>
     );

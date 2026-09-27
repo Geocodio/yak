@@ -4,6 +4,7 @@ import { ChevronDown, GitPullRequest, Globe, MessageSquare, ShieldAlert, Termina
 import type { ComponentType } from 'react';
 import { show as showTask } from '@/routes/tasks';
 import { StatusDot } from '@/components/StatusDot';
+import { useRowEntrance } from '@/lib/useRowEntrance';
 import type { TaskRow } from '@/types/tasks';
 
 export const SOURCE_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
@@ -29,13 +30,14 @@ function NestedFollowUps({ items }: { items: TaskRow['followUps'] }) {
     );
 }
 
-function TaskTableRow({ task, onPreview }: { task: TaskRow; onPreview: (src: string | null) => void }) {
+function TaskTableRow({ task, onPreview, entranceClass }: { task: TaskRow; onPreview: (src: string | null) => void; entranceClass?: string }) {
     const hasFollowUps = task.followUps.length > 0;
     const SourceIcon = SOURCE_ICON[task.source] ?? Terminal;
 
     return (
         <Tr
             interactive
+            className={entranceClass}
             data-testid={`task-row-${task.id}`}
             onClick={() => router.visit(showTask.url(task.id))}
             onMouseEnter={() => {
@@ -193,6 +195,8 @@ export function TaskTable({
     onSort: (column: string) => void;
     onPreview: (src: string | null) => void;
 }) {
+    const entranceClass = useRowEntrance(tasks.map((task) => task.id));
+
     return (
         <Table className="w-full">
             <Thead className="sticky top-0 z-10 bg-app">
@@ -218,7 +222,7 @@ export function TaskTable({
             </Thead>
             <Tbody id="tasks-table-body">
                 {tasks.map((task) => (
-                    <TaskTableRow key={task.id} task={task} onPreview={onPreview} />
+                    <TaskTableRow key={task.id} task={task} onPreview={onPreview} entranceClass={entranceClass(task.id)} />
                 ))}
             </Tbody>
         </Table>

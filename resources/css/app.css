@@ -68,7 +68,81 @@
     --tw-prose-td-borders: var(--border);
 }
 
-/* Long identifiers in inline code (commit hashes, class paths) wrap instead of running past the card edge. */
+/*
+ * Long identifiers (commit hashes, class paths) break instead of running past
+ * the card edge, in running text and in inline code alike.
+ */
+.prose {
+    overflow-wrap: break-word;
+}
+
 .prose :where(code):not(:where(pre code)) {
     overflow-wrap: anywhere;
+}
+
+/*
+ * Motion on touch screens. A tap shrinks the pressed control a little so it
+ * answers before the next page arrives, and rows that join a list fade in
+ * (`useRowEntrance` assigns the classes). Reduce Motion turns all of it off.
+ */
+@keyframes row-enter {
+    from {
+        opacity: 0;
+        translate: 0 6px;
+    }
+}
+
+@keyframes row-arrive-tint {
+    0%,
+    35% {
+        background-color: var(--accent-soft);
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .row-enter {
+        animation: row-enter 220ms var(--ease-out-quart) both;
+    }
+
+    .row-arrive {
+        animation:
+            row-enter 220ms var(--ease-out-quart) both,
+            row-arrive-tint 1600ms ease-out;
+    }
+}
+
+@media (hover: none) and (prefers-reduced-motion: no-preference) {
+    button:not(:disabled),
+    .ui-tab-bar a,
+    .pressable {
+        transition-property: color, background-color, border-color, box-shadow, opacity, scale;
+        transition-duration: 150ms;
+        transition-timing-function: var(--ease-out-quart);
+    }
+
+    button:not(:disabled):active,
+    .pressable:active {
+        scale: 0.97;
+        transition-duration: 90ms;
+    }
+
+    .ui-tab-bar :is(a, button):active {
+        scale: 0.92;
+        transition-duration: 90ms;
+    }
+}
+
+/*
+ * Pending navigation. Inertia's progress bar sits at the very top of the
+ * viewport, which a home-screen app gives to the status bar, so it drops
+ * below the safe area. A tab bar link turns accent while its page loads
+ * (Inertia sets `data-loading` on a link with a visit in flight), so a tap
+ * shows at once that it registered.
+ */
+html #nprogress .bar {
+    top: env(safe-area-inset-top);
+}
+
+.ui-tab-bar a[data-loading] {
+    color: var(--accent-text);
 }

@@ -3,6 +3,7 @@ import { Badge, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, Stack
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { useRowEntrance } from '@/lib/useRowEntrance';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { deployments as deploymentsIndex } from '@/routes';
 import { show } from '@/routes/deployments';
@@ -32,6 +33,7 @@ export default function Index({ deployments, filters }: Props) {
     // the scroll prop's merge-by-id behavior active instead of replacing the
     // whole list and losing any pages the user scrolled into.
     usePoll(15000, pollInfiniteScroll(['deployments']));
+    const entranceClass = useRowEntrance(deployments.data.map((row) => row.id));
 
     const selected = STATUS_OPTIONS.find((o) => o.value === filters.status);
 
@@ -86,7 +88,7 @@ export default function Index({ deployments, filters }: Props) {
                             </StackedThead>
                             <StackedTbody id="deployments-table-body">
                                 {deployments.data.map((deployment) => (
-                                    <StackedTr key={deployment.id} data-testid={`deployment-row-${deployment.id}`} className={deployment.longLived ? 'bg-accent-soft/40' : undefined}>
+                                    <StackedTr key={deployment.id} data-testid={`deployment-row-${deployment.id}`} className={cn(deployment.longLived && 'bg-accent-soft/40', entranceClass(deployment.id))}>
                                         <StackedTd label="Repository" className="text-muted">
                                             {deployment.repoSlug}
                                         </StackedTd>

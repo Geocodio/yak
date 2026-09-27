@@ -1,5 +1,5 @@
 import { Button, Field, Select, Textarea, TextInput } from '@geocodio/console-ui';
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
@@ -68,9 +68,9 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository }: 
                 </Field>
             ))}
             {Object.entries(errors).filter(([key, error]) => key.startsWith('pr_review_policy.') && error).map(([key, error]) => <p key={key} role="alert" className="text-[12px] text-fail">{error}</p>)}
-            <a className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</a>
+            <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
             {' · '}
-            <a className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</a>
+            <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
             {repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
         </div>
     );

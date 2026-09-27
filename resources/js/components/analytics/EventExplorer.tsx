@@ -22,9 +22,9 @@ function Properties({ properties }: { properties: Record<string, unknown> | null
 
     if (entries.length <= CHIP_LIMIT && entries.every(([, value]) => isScalar(value))) {
         return (
-            <span className="flex flex-wrap gap-1" title={json}>
+            <span className="flex min-w-0 flex-wrap gap-1" title={json}>
                 {entries.map(([key, value]) => (
-                    <span key={key} className="rounded-chip bg-panel-2 px-1.5 py-0.5 font-mono text-[11px] text-muted">
+                    <span key={key} className="min-w-0 rounded-chip bg-panel-2 px-1.5 py-0.5 font-mono text-[11px] text-muted wrap-anywhere">
                         {key}=<span className="text-body">{String(value)}</span>
                     </span>
                 ))}
@@ -33,7 +33,7 @@ function Properties({ properties }: { properties: Record<string, unknown> | null
     }
 
     return (
-        <code className="font-mono text-[11px] text-muted" title={json}>
+        <code className="min-w-0 font-mono text-[11px] text-muted wrap-anywhere" title={json}>
             {json.length > JSON_LIMIT ? `${json.slice(0, JSON_LIMIT)}…` : json}
         </code>
     );

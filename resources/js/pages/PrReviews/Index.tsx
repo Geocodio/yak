@@ -3,6 +3,7 @@ import { Badge, Button, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbod
 import { ChevronDown, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { useRowEntrance } from '@/lib/useRowEntrance';
 import { StatTile } from '@/components/costs/StatTile';
 import { forPr } from '@/routes/pr-reviews';
 import { repos, prReviews as prReviewsIndex } from '@/routes';
@@ -50,6 +51,7 @@ function FilterMenu({
 }
 
 export default function Index({ comments, stats, reviewerStats, filters }: Props) {
+    const entranceClass = useRowEntrance(comments.data.map((row) => row.id));
     const navigate = (next: Partial<Pick<PrReviewFilters, 'repo' | 'severity' | 'category' | 'scope' | 'reviewer' | 'reactions' | 'sort' | 'dir' | 'tab'>>) => {
         const reactions = next.reactions !== undefined ? next.reactions : filters.reactions;
 
@@ -223,7 +225,7 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                                 </StackedThead>
                                 <StackedTbody id="pr-review-comments-body">
                                     {comments.data.map((comment) => (
-                                        <StackedTr key={comment.id} data-testid={`pr-review-comment-${comment.id}`}>
+                                        <StackedTr key={comment.id} data-testid={`pr-review-comment-${comment.id}`} className={entranceClass(comment.id)}>
                                             <StackedTd label="PR">
                                                 {comment.repoSlug && comment.prNumber ? (
                                                     <Link

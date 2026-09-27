@@ -2,6 +2,7 @@ import { Head, InfiniteScroll, Link, router, usePoll } from '@inertiajs/react';
 import { Badge, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { useRowEntrance } from '@/lib/useRowEntrance';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { observations as observationsIndex } from '@/routes';
 import type { PageProps } from '@/types/shared';
@@ -56,6 +57,7 @@ export default function Index({ observations, filters }: Props) {
     // the scroll prop's merge-by-id behavior active instead of replacing the
     // whole list and losing any pages the user scrolled into.
     usePoll(30000, pollInfiniteScroll(['observations']));
+    const entranceClass = useRowEntrance(observations.data.map((row) => row.id));
 
     const navigate = (next: { repo?: string; outcome?: string }) => {
         router.get(
@@ -126,7 +128,7 @@ export default function Index({ observations, filters }: Props) {
                             </StackedThead>
                             <StackedTbody id="observations-table-body">
                                 {observations.data.map((observation) => (
-                                    <StackedTr key={observation.id} data-testid="observation-row">
+                                    <StackedTr key={observation.id} data-testid="observation-row" className={entranceClass(observation.id)}>
                                         <StackedTd label="When" className="md:whitespace-nowrap text-muted" title={observation.createdTooltip}>
                                             {observation.createdAgo}
                                         </StackedTd>
@@ -139,7 +141,7 @@ export default function Index({ observations, filters }: Props) {
                                             {observation.repo ?? '—'}
                                         </StackedTd>
                                         <StackedTd label="What happened">
-                                            <span className="text-body">{observation.summary}</span>
+                                            <span className="min-w-0 text-body wrap-anywhere">{observation.summary}</span>
                                         </StackedTd>
                                         <StackedTd className="md:whitespace-nowrap md:text-right">
                                             {observation.taskUrl ? (

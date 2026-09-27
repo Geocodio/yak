@@ -1,8 +1,9 @@
 import { Link } from '@inertiajs/react';
-import { Badge } from '@geocodio/console-ui';
+import { Badge, Spinner, cn } from '@geocodio/console-ui';
 import { GitPullRequest, Globe, Terminal } from 'lucide-react';
 import { StatusDot } from '@/components/StatusDot';
 import { PR_TONE, SOURCE_ICON } from '@/components/tasks/TaskTable';
+import { useRowEntrance } from '@/lib/useRowEntrance';
 import { show as showTask } from '@/routes/tasks';
 import type { TaskRow } from '@/types/tasks';
 
@@ -14,15 +15,22 @@ import type { TaskRow } from '@/types/tasks';
  * clickable without nesting an anchor inside an anchor; the PR badge, the
  * preview globe, and the age tooltip sit above it (`relative z-10`) to stay
  * their own links or keep receiving pointer hover.
+ *
+ * The task starts loading when a finger touches the card (`prefetch="click"`
+ * fetches on press, not release), and while it loads the card stays tinted
+ * with a spinner beside its age, so a tap shows at once that it registered.
  */
-function TaskCard({ task }: { task: TaskRow }) {
+function TaskCard({ task, entranceClass }: { task: TaskRow; entranceClass?: string }) {
     const SourceIcon = SOURCE_ICON[task.source] ?? Terminal;
     const identity = [task.sourceLabel, task.by].filter((part): part is string => part !== null && part !== '');
 
     return (
         <article
             data-testid={`task-row-${task.id}`}
-            className="relative block rounded-card border border-hair bg-panel px-3.5 py-3 shadow-card active:bg-panel-2"
+            className={cn(
+                'pressable group relative block rounded-card border border-hair bg-panel px-3.5 py-3 shadow-card active:bg-panel-2 has-[a[data-loading]]:bg-panel-2',
+                entranceClass,
+            )}
         >
             <div className="flex items-center gap-2 text-[12px] text-faint">
                 <StatusDot status={task.status} />
@@ -31,13 +39,15 @@ function TaskCard({ task }: { task: TaskRow }) {
                     <SourceIcon size={12} className="shrink-0" />
                     <span className="truncate">{identity.join(' · ')}</span>
                 </span>
-                <span className="relative z-10 tnum ml-auto shrink-0" title={task.createdTooltip}>
+                <span className="relative z-10 tnum ml-auto flex shrink-0 items-center gap-1.5" title={task.createdTooltip}>
+                    <Spinner size="sm" className="hidden group-has-[a[data-loading]]:inline-block" />
                     {task.createdAgo}
                 </span>
             </div>
 
             <Link
                 href={showTask.url(task.id)}
+                prefetch="click"
                 data-testid="task-card-description"
                 className="mt-1.5 block text-[15px] leading-snug text-body after:absolute after:inset-0 after:content-['']"
             >
@@ -87,10 +97,12 @@ function TaskCard({ task }: { task: TaskRow }) {
 }
 
 export function TaskCardList({ tasks }: { tasks: TaskRow[] }) {
+    const entranceClass = useRowEntrance(tasks.map((task) => task.id));
+
     return (
         <div data-testid="task-cards" className="flex flex-col gap-2.5 px-4 py-3">
             {tasks.map((task) => (
-                <TaskCard key={task.id} task={task} />
+                <TaskCard key={task.id} task={task} entranceClass={entranceClass(task.id)} />
             ))}
         </div>
     );

@@ -167,3 +167,21 @@ test('on a phone the sort menu changes the order', function () {
     $firstAfter = $sorted->script('document.querySelector(\'[data-testid="task-cards"] [data-testid^="task-row-"] [data-testid="task-card-description"]\').textContent');
     expect($firstAfter)->toBe('Older task');
 });
+
+test('on a phone infinite scroll fades in only the rows it adds, and the other tabs load in the background', function () {
+    $this->actingAs(User::factory()->create());
+    YakTask::factory()->count(60)->create();
+
+    $page = visit('/tasks')->on()->mobile()->assertVisible('[data-testid="task-cards"]');
+
+    $prefetched = $page->script('performance.getEntriesByType("resource").map((entry) => new URL(entry.name).pathname)');
+    expect($prefetched)->toContain('/pr-reviews')->toContain('/repos')->not->toContain('/tasks');
+
+    $page->script('document.querySelector("[data-testid=task-cards] article:last-child").scrollIntoView()');
+    $page->wait(2);
+
+    $entrances = $page->script('[...document.querySelectorAll("[data-testid=task-cards] article")].map((card) => card.classList.contains("row-enter") ? "enter" : "none")');
+    expect($entrances)->toHaveCount(60)
+        ->and(array_slice($entrances, 0, 50))->each->toBe('none')
+        ->and(array_slice($entrances, 50))->each->toBe('enter');
+});

@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { TabBar, type TabBarItem } from '@geocodio/console-ui';
+import { TabBar, type TabBarItem, type TabBarLinkProps } from '@geocodio/console-ui';
 import { Menu as MenuIcon, Plus } from 'lucide-react';
 import { NAV_ITEMS, isActive, openMobileNav, openNewTask } from '@/components/Sidebar';
 import type { SharedProps } from '@/types/shared';
@@ -10,6 +10,16 @@ const SHORT_LABELS: Record<(typeof BAR_LABELS)[number], string> = {
     'PR Reviews': 'Reviews',
     Repositories: 'Repos',
 };
+
+/**
+ * Tab links load their page in the background when the bar mounts and keep
+ * it for 30 seconds, then refresh it in the background for another minute,
+ * so switching tabs does not wait on the server. The current tab is not
+ * prefetched.
+ */
+function PrefetchingTabLink(props: TabBarLinkProps) {
+    return <Link {...props} prefetch={props['aria-current'] === 'page' ? false : ['mount', 'click']} cacheFor={['30s', '1m']} />;
+}
 
 /**
  * The floating bar shown below `lg`: the three pages used every day, a
@@ -48,7 +58,7 @@ export function MobileTabBar() {
     return (
         <TabBar
             className="lg:hidden"
-            LinkComponent={Link}
+            LinkComponent={PrefetchingTabLink}
             items={items}
             action={{ label: 'New task', icon: <Plus size={24} />, onSelect: openNewTask, testId: 'tab-new-task' }}
             data-testid="mobile-tab-bar"

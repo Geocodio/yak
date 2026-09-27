@@ -1,4 +1,4 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import { Button, ConfirmDialog, Menu, toast } from '@geocodio/console-ui';
 import { ChevronLeft, ChevronRight, ExternalLink, FileText, Globe, GitPullRequest, ListTree, MessageSquareCode, MoreHorizontal, Wrench } from 'lucide-react';
 import { useState } from 'react';
@@ -65,12 +65,17 @@ export function HeaderBand({
         <>
             <header className="flex h-12 shrink-0 items-center gap-3 border-b border-hair bg-app px-4 sm:px-5">
                 <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
-                    <a href={tasksIndex.url()} className="lg:hidden -ml-1 flex h-9 w-9 items-center justify-center rounded-control text-muted" aria-label="Back to tasks">
+                    <Link
+                        href={tasksIndex.url()}
+                        prefetch="click"
+                        className="lg:hidden -ml-1 flex h-9 w-9 items-center justify-center rounded-control text-muted data-[loading]:text-accent-text"
+                        aria-label="Back to tasks"
+                    >
                         <ChevronLeft size={18} />
-                    </a>
-                    <a href={tasksIndex.url()} className="max-lg:hidden text-muted hover:text-body">
+                    </Link>
+                    <Link href={tasksIndex.url()} className="max-lg:hidden text-muted hover:text-body">
                         Tasks
-                    </a>
+                    </Link>
                     <ChevronRight size={12} className="max-lg:hidden text-faint" />
                     <span className="truncate font-medium text-body">{heading}</span>
                 </div>
