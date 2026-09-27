@@ -11,7 +11,7 @@ function Entry({ who, meta, avatar, children }: { who: string | null; meta: stri
             <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-panel-2 text-[11px] font-medium">{avatar}</div>
             <div className="min-w-0 flex-1">
                 {who && (
-                    <div className="flex items-baseline gap-2 text-[12px]">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
                         <span className="font-medium text-body">{who}</span>
                         <span className="text-faint">{meta}</span>
                     </div>

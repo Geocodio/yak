@@ -159,7 +159,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -174,7 +174,7 @@ tasks.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -183,7 +183,7 @@ tasks.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -193,7 +193,7 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -335,7 +335,7 @@ repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 export const observations = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -350,7 +350,7 @@ observations.definition = {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.url = (options?: RouteQueryOptions) => {
@@ -359,7 +359,7 @@ observations.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -369,7 +369,7 @@ observations.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -599,7 +599,7 @@ prompts.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 export const prReviews = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -614,7 +614,7 @@ prReviews.definition = {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 prReviews.url = (options?: RouteQueryOptions) => {
@@ -623,7 +623,7 @@ prReviews.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 prReviews.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -633,7 +633,7 @@ prReviews.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\PrReviews\PrReviewFeedbackController::__invoke
-* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:21
+* @see app/Http/Controllers/PrReviews/PrReviewFeedbackController.php:22
 * @route '/pr-reviews'
 */
 prReviews.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -643,7 +643,7 @@ prReviews.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:19
+* @see app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 export const deployments = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -658,7 +658,7 @@ deployments.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:19
+* @see app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 deployments.url = (options?: RouteQueryOptions) => {
@@ -667,7 +667,7 @@ deployments.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:19
+* @see app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 deployments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -677,7 +677,7 @@ deployments.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::deployments
-* @see app/Http/Controllers/Deployments/DeploymentController.php:19
+* @see app/Http/Controllers/Deployments/DeploymentController.php:20
 * @route '/deployments'
 */
 deployments.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

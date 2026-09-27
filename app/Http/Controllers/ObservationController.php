@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
+use Inertia\ScrollProp;
 
 class ObservationController extends Controller
 {
@@ -30,9 +31,9 @@ class ObservationController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array<string, mixed>>
+     * @return ScrollProp<LengthAwarePaginator<int, array<string, mixed>>>
      */
-    private function paginated(string $repo, string $outcome): LengthAwarePaginator
+    private function paginated(string $repo, string $outcome): ScrollProp
     {
         /** @var LengthAwarePaginator<int, Observation> $observations */
         $observations = Observation::query()
@@ -43,13 +44,12 @@ class ObservationController extends Controller
             )
             ->orderByDesc('created_at')
             ->orderByDesc('id')
-            ->paginate(50)
-            ->withQueryString();
+            ->paginate(50);
 
         /** @var LengthAwarePaginator<int, array<string, mixed>> $mapped */
         $mapped = $observations->through(ObservationData::from(...));
 
-        return $mapped;
+        return Inertia::scroll($mapped)->matchOn('data.id');
     }
 
     /**

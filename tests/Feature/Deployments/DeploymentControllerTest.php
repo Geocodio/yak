@@ -156,3 +156,26 @@ test('show reports autoLongLived false for a non-release branch', function () {
     $this->get(route('deployments.show', $deployment))
         ->assertInertia(fn (Assert $page) => $page->where('hibernation.autoLongLived', false));
 });
+
+test('deployments is served as a scroll/merge prop for infinite scroll', function () {
+    BranchDeployment::factory()->running()->count(26)->create();
+
+    $version = $this->get(route('deployments', ['status' => 'all']), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $response = $this->get(route('deployments', ['status' => 'all', 'page' => 2]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => $version,
+        'X-Inertia-Partial-Data' => 'deployments',
+        'X-Inertia-Partial-Component' => 'Deployments/Index',
+    ])->assertOk()->json();
+
+    expect($response['mergeProps'] ?? [])->toContain('deployments.data')
+        ->and($response['matchPropsOn'] ?? [])->toContain('deployments.data.id')
+        ->and($response['scrollProps']['deployments'])->toMatchArray([
+            'pageName' => 'page',
+            'previousPage' => 1,
+            'nextPage' => null,
+            'currentPage' => 2,
+        ])
+        ->and($response['props']['deployments']['data'])->toHaveCount(1);
+});

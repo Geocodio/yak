@@ -55,11 +55,10 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
 
     $page = visit('/tasks')->on()->mobile();
 
-    // The desktop sidebar is hidden below `lg`; the top bar carries the
-    // brand and search, and the floating bar carries the daily pages plus
-    // the More slot that opens the drawer.
+    // The desktop sidebar is hidden below `lg` and there is no app bar; the
+    // floating bar carries the daily pages plus the More slot that opens the
+    // drawer, and the drawer carries search.
     $page->assertMissing('[data-testid="sidebar"]')
-        ->assertVisible('[data-testid="mobile-top-bar"]')
         ->assertVisible('[data-testid="mobile-tab-bar"]')
         ->assertVisible('[data-testid="mobile-tab-tasks"][aria-current="page"]')
         ->assertVisible('[data-testid="mobile-tab-reviews"]')
@@ -67,6 +66,7 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
         ->assertMissing('[data-testid="mobile-nav"]')
         ->click('[data-testid="mobile-nav-trigger"]')
         ->assertVisible('[data-testid="mobile-nav"]')
+        ->assertVisible('[data-testid="mobile-nav-search"]')
         ->assertVisible('[data-testid="mobile-nav"] a[href="/repos"]')
         ->assertVisible('[data-testid="mobile-nav"] a[href="/health"]')
         ->click('[data-testid="mobile-nav"] a[href="/repos"]')

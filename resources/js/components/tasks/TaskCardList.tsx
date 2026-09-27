@@ -26,7 +26,7 @@ function TaskCard({ task }: { task: TaskRow }) {
         >
             <div className="flex items-center gap-2 text-[12px] text-faint">
                 <StatusDot status={task.status} />
-                <span className="font-mono">{task.externalId ? task.externalId : `#${task.id}`}</span>
+                <span className="min-w-0 truncate font-mono">{task.externalId ? task.externalId : `#${task.id}`}</span>
                 <span className="flex min-w-0 items-center gap-1">
                     <SourceIcon size={12} className="shrink-0" />
                     <span className="truncate">{identity.join(' · ')}</span>
@@ -41,7 +41,7 @@ function TaskCard({ task }: { task: TaskRow }) {
                 data-testid="task-card-description"
                 className="mt-1.5 block text-[15px] leading-snug text-body after:absolute after:inset-0 after:content-['']"
             >
-                <span className="line-clamp-2 block">{task.description}</span>
+                <span className="line-clamp-2 block wrap-anywhere">{task.description}</span>
             </Link>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-muted">

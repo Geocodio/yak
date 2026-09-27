@@ -95,8 +95,12 @@ test('on a phone the tab strip is full width under the header and filters live i
 
     $page = visit('/tasks')->on()->mobile();
 
+    // The tab bar names the page on a phone, so there is no "Tasks" header
+    // row: the tab strip is the top row and search sits beside it.
     $page->assertVisible('[data-testid="task-tabs"]')
         ->assertVisible('[data-testid="tab-setup"]')
+        ->assertVisible('[data-testid="tasks-search"]')
+        ->assertMissing('[data-testid="page-header-crumbs"]')
         ->assertMissing('[data-testid="task-filters"] [data-testid="filter-status"]')
         ->assertSee('Filters')
         ->click('[data-testid="open-filters"]')

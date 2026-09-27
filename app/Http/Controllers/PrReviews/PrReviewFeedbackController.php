@@ -12,6 +12,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Inertia\ScrollProp;
 
 class PrReviewFeedbackController extends Controller
 {
@@ -56,7 +57,7 @@ class PrReviewFeedbackController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{
+     * @return ScrollProp<LengthAwarePaginator<int, array{
      *     id: int,
      *     repoSlug: ?string,
      *     prNumber: ?int,
@@ -67,7 +68,7 @@ class PrReviewFeedbackController extends Controller
      *     category: string,
      *     thumbsUp: int,
      *     thumbsDown: int,
-     * }>
+     * }>>
      */
     private function paginatedComments(
         string $repo,
@@ -78,7 +79,7 @@ class PrReviewFeedbackController extends Controller
         bool $reactions,
         string $sort,
         string $dir,
-    ): LengthAwarePaginator {
+    ): ScrollProp {
         $query = PrReviewComment::query()
             ->with(['review', 'reactions'])
             ->when($severity !== '', fn (Builder $q) => $q->where('severity', $severity))
@@ -99,7 +100,7 @@ class PrReviewFeedbackController extends Controller
         /** @var LengthAwarePaginator<int, PrReviewComment> $comments */
         $comments = $query->paginate(50);
 
-        return $comments->through(fn (PrReviewComment $comment): array => [
+        $comments = $comments->through(fn (PrReviewComment $comment): array => [
             'id' => $comment->id,
             'repoSlug' => $comment->review?->repo,
             'prNumber' => $comment->review?->pr_number,
@@ -111,6 +112,8 @@ class PrReviewFeedbackController extends Controller
             'thumbsUp' => $comment->thumbs_up,
             'thumbsDown' => $comment->thumbs_down,
         ]);
+
+        return Inertia::scroll($comments)->matchOn('data.id');
     }
 
     /**

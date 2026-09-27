@@ -164,7 +164,7 @@ final class TaskDetailData
             'error' => $task->status === TaskStatus::Failed ? $task->error_log : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
-                'number' => $task->pr_number,
+                'number' => $task->pullRequestNumber(),
                 'state' => $prState,
                 'url' => $task->pr_url,
             ],
@@ -613,7 +613,7 @@ final class TaskDetailData
         [$placeholder, $note] = match ($state) {
             'clarification' => ['Answer Yak…', null],
             'steering' => ['Steer Yak — this will be picked up when the current run checks in…', 'Queued until the current run finishes.'],
-            'follow_up' => ['Reply to Yak — it will push changes to PR #' . ($head->pr_number ?? '?') . '…', null],
+            'follow_up' => ['Reply to Yak. It will push changes to ' . self::pullRequestLabel($head) . '…', null],
             'disabled_failed' => $task->mode === TaskMode::Research
                 ? ["This research failed — click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
                 : ["This task failed — click {$retryActionLabel} above to try again.", "This task failed. Click {$retryActionLabel} above, or mention Yak again with more context."],
@@ -630,6 +630,13 @@ final class TaskDetailData
             'note' => $note,
             'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
         ];
+    }
+
+    private static function pullRequestLabel(YakTask $task): string
+    {
+        $number = $task->pullRequestNumber();
+
+        return $number !== null ? "PR #{$number}" : 'this PR';
     }
 
     /**

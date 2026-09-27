@@ -88,7 +88,7 @@ export function LogEntrySheet({
             title="Log entry"
             hideTitle
             side="bottom"
-            className="h-dvh max-h-dvh rounded-none px-0 pt-0"
+            className="h-dvh max-h-dvh rounded-none px-0 pt-[env(safe-area-inset-top)]"
             data-testid="log-entry-sheet"
         >
             <div className="flex h-full flex-col">

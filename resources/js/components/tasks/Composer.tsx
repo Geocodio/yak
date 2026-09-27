@@ -69,7 +69,7 @@ export function Composer({ taskId, composer, fillValue }: { taskId: number; comp
                                 disabled={disabled || form.data.message.trim() === ''}
                                 data-testid="composer-submit"
                             >
-                                {composer.buttonLabel} <span className="ml-1.5 text-[10px] opacity-70">⌘↵</span>
+                                {composer.buttonLabel} <span className="ml-1.5 hidden text-[10px] opacity-70 pointer-fine:inline">⌘↵</span>
                             </Button>
                         )}
                     </div>

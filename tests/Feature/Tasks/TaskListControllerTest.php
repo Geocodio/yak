@@ -114,6 +114,48 @@ test('it paginates tasks', function () {
             ->has('tasks.data', 1));
 });
 
+test('tasks is served as a scroll/merge prop for infinite scroll', function () {
+    YakTask::factory()->count(51)->create();
+
+    $version = $this->get(route('tasks'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $response = $this->get(route('tasks', ['page' => 2]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => $version,
+        'X-Inertia-Partial-Data' => 'tasks',
+        'X-Inertia-Partial-Component' => 'Tasks/Index',
+    ])->assertOk()->json();
+
+    expect($response['mergeProps'] ?? [])->toContain('tasks.data')
+        ->and($response['matchPropsOn'] ?? [])->toContain('tasks.data.id')
+        ->and($response['scrollProps']['tasks'])->toMatchArray([
+            'pageName' => 'page',
+            'previousPage' => 1,
+            'nextPage' => null,
+            'currentPage' => 2,
+        ])
+        ->and($response['props']['tasks']['data'])->toHaveCount(1);
+});
+
+test('a poll reload of page 1 is merged ahead of the rows already loaded', function () {
+    YakTask::factory()->count(3)->create();
+
+    $version = $this->get(route('tasks'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $response = $this->get(route('tasks'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => $version,
+        'X-Inertia-Partial-Data' => 'tasks,counts',
+        'X-Inertia-Partial-Component' => 'Tasks/Index',
+        'X-Inertia-Infinite-Scroll-Merge-Intent' => 'prepend',
+    ])->assertOk()->json();
+
+    expect($response['prependProps'] ?? [])->toContain('tasks.data')
+        ->and($response['mergeProps'] ?? [])->not->toContain('tasks.data')
+        ->and($response['matchPropsOn'] ?? [])->toContain('tasks.data.id')
+        ->and($response['scrollProps']['tasks']['currentPage'])->toBe(1);
+});
+
 test('filters by status', function () {
     YakTask::factory()->running()->create(['description' => 'Running task']);
     YakTask::factory()->success()->create(['description' => 'Success task']);

@@ -34,7 +34,10 @@ export function NewTaskSheet({
     };
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange} title="New task" width="w-[min(440px,100vw)]">
+        <Sheet open={open} onOpenChange={onOpenChange} title="New task"
+            width="w-[min(440px,100vw)]"
+            className="pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
             <div className="flex flex-col gap-4 pt-2" data-testid="new-task-sheet" onKeyDown={onKeyDown}>
                 <Field label="Repository" error={form.errors.repo}>
                     <Select
@@ -77,8 +80,8 @@ export function NewTaskSheet({
                     />
                 </Field>
                 <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-faint">⌘↵ to submit</span>
-                    <div className="flex gap-2">
+                    <span className="hidden text-[11px] text-faint pointer-fine:inline">⌘↵ to submit</span>
+                    <div className="ml-auto flex gap-2">
                         <Button onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button variant="primary" pending={form.processing} onClick={submit} data-testid="new-task-submit">
                             Start task

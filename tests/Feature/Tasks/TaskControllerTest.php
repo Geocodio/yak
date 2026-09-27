@@ -144,6 +144,27 @@ test('composer state is follow_up for a success task with an open pr', function 
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'follow_up'));
 });
 
+test('a review task reads its pr number from the pr url', function () {
+    $task = YakTask::factory()->success()->create([
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/Geocodio/geocodio/pull/2846',
+        'pr_number' => null,
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.pr.number', 2846)
+            ->where('composer.state', 'follow_up')
+            ->where('composer.placeholder', 'Reply to Yak. It will push changes to PR #2846…'));
+});
+
+test('the follow-up placeholder names this PR when no number is known', function () {
+    $task = YakTask::factory()->success()->create(['pr_url' => 'https://example.com/change', 'pr_number' => null]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('composer.placeholder', 'Reply to Yak. It will push changes to this PR…'));
+});
+
 test('composer state is disabled_failed for a failed task', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
 

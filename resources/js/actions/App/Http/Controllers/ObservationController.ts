@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 const ObservationController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ ObservationController.definition = {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 ObservationController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ ObservationController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 ObservationController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ ObservationController.get = (options?: RouteQueryOptions): RouteDefinition<'get'
 
 /**
 * @see \App\Http\Controllers\ObservationController::__invoke
-* @see app/Http/Controllers/ObservationController.php:15
+* @see app/Http/Controllers/ObservationController.php:16
 * @route '/observations'
 */
 ObservationController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

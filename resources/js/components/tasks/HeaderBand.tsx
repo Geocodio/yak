@@ -52,6 +52,10 @@ export function HeaderBand({
     const showRetry = !showRerunReview && actions.canRetry;
     const showCancelButton = !showRerunReview && !showRetry && actions.canCancel;
 
+    // A review's external id is the full URL of the PR under review, which
+    // is too long for the header, so it reads as the PR number instead.
+    const heading = task.mode === 'review' && task.pr?.number ? `PR #${task.pr.number}` : (task.externalId ?? `#${task.id}`);
+
     const copyLink = () => {
         void navigator.clipboard.writeText(window.location.origin + show.url(task.id));
         toast.success('Task link copied');
@@ -68,7 +72,7 @@ export function HeaderBand({
                         Tasks
                     </a>
                     <ChevronRight size={12} className="max-lg:hidden text-faint" />
-                    <span className="truncate font-medium text-body">{task.externalId ?? `#${task.id}`}</span>
+                    <span className="truncate font-medium text-body">{heading}</span>
                 </div>
 
                 <div className="ml-auto flex shrink-0 items-center gap-2">

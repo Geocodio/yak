@@ -21,6 +21,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Inertia\ScrollProp;
 
 class TaskListController extends Controller
 {
@@ -68,7 +69,7 @@ class TaskListController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{
+     * @return ScrollProp<LengthAwarePaginator<int, array{
      *     id: int,
      *     status: string,
      *     source: string,
@@ -88,7 +89,7 @@ class TaskListController extends Controller
      *     createdAt: ?string,
      *     createdTooltip: string,
      *     followUps: array<int, array<string, mixed>>,
-     * }>
+     * }>>
      */
     private function paginatedTasks(
         string $tab,
@@ -98,7 +99,7 @@ class TaskListController extends Controller
         string $pr,
         string $sort,
         string $direction,
-    ): LengthAwarePaginator {
+    ): ScrollProp {
         $sortColumn = in_array($sort, self::SORTABLE_COLUMNS, true) ? $sort : 'created_at';
 
         /** @var LengthAwarePaginator<int, YakTask> $tasks */
@@ -117,7 +118,7 @@ class TaskListController extends Controller
         $previewsByTask = $this->previewsByTask($tasks->items());
         $deploymentsByTask = $this->deploymentsByTask($tasks->items());
 
-        return $tasks->through(fn (YakTask $task): array => TaskRowData::from($task, [
+        $tasks = $tasks->through(fn (YakTask $task): array => TaskRowData::from($task, [
             'children' => $task->branch_name !== null
                 ? ($descendantsByBranch->get($task->branch_name) ?? collect())
                 : collect(),
@@ -126,6 +127,8 @@ class TaskListController extends Controller
                 ? $deploymentsByTask->get($task->repo . '/' . $task->branch_name)
                 : null,
         ]));
+
+        return Inertia::scroll($tasks)->matchOn('data.id');
     }
 
     /**

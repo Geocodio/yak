@@ -63,3 +63,26 @@ test('names each kind in a human label', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('observations.data.0.kindLabel', 'PR already out'));
 });
+
+test('observations is served as a scroll/merge prop for infinite scroll', function () {
+    Observation::factory()->count(51)->create();
+
+    $version = $this->get(route('observations'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $response = $this->get(route('observations', ['page' => 2]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => $version,
+        'X-Inertia-Partial-Data' => 'observations',
+        'X-Inertia-Partial-Component' => 'Observations/Index',
+    ])->assertOk()->json();
+
+    expect($response['mergeProps'] ?? [])->toContain('observations.data')
+        ->and($response['matchPropsOn'] ?? [])->toContain('observations.data.id')
+        ->and($response['scrollProps']['observations'])->toMatchArray([
+            'pageName' => 'page',
+            'previousPage' => 1,
+            'nextPage' => null,
+            'currentPage' => 2,
+        ])
+        ->and($response['props']['observations']['data'])->toHaveCount(1);
+});

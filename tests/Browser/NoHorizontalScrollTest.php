@@ -44,7 +44,7 @@ test('no page is wider than a phone, and nothing but code scrolls sideways', fun
         // React one more frame to settle before measuring, the way the
         // costs/analytics tests in StackedTablesTest wait for hydration.
         expect($page->script(
-            'new Promise((resolve) => { const start = Date.now(); (function poll() { const ready = document.querySelectorAll(\'[data-testid="page-header-crumbs"], tbody td, [data-testid^="task-row-"], [data-testid="task-summary"], form, h1\').length > 0; if (ready || Date.now() - start > 5000) { requestAnimationFrame(() => resolve(ready)); } else { setTimeout(poll, 100); } })(); })'
+            'new Promise((resolve) => { const start = Date.now(); (function poll() { const ready = document.querySelectorAll(\'[data-testid="page-header-crumbs"], [data-testid="task-tabs"], tbody td, [data-testid^="task-row-"], [data-testid="task-summary"], form, h1\').length > 0; if (ready || Date.now() - start > 5000) { requestAnimationFrame(() => resolve(ready)); } else { setTimeout(poll, 100); } })(); })'
         ))->toBeTrue("{$path}: page never rendered");
 
         $report = $page->script(<<<'JS'

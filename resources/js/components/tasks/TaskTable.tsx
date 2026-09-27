@@ -216,7 +216,7 @@ export function TaskTable({
                     />
                 </Tr>
             </Thead>
-            <Tbody>
+            <Tbody id="tasks-table-body">
                 {tasks.map((task) => (
                     <TaskTableRow key={task.id} task={task} onPreview={onPreview} />
                 ))}

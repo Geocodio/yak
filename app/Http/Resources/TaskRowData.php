@@ -63,11 +63,11 @@ final class TaskRowData
             'by' => $task->author_name,
             'repo' => $task->repo,
             'repoUrl' => self::repoUrl($task),
-            'description' => Str::limit((string) $task->description, 140),
+            'description' => self::plainPreview((string) $task->description),
             'externalId' => $task->external_id,
             'externalUrl' => $task->external_url,
             'pr' => $prState === null ? null : [
-                'number' => $task->pr_number,
+                'number' => $task->pullRequestNumber(),
                 'state' => $prState,
                 'url' => $task->pr_url,
             ],
@@ -86,7 +86,7 @@ final class TaskRowData
             'followUps' => $children->map(fn (YakTask $child): array => [
                 'id' => $child->id,
                 'status' => $child->status->value,
-                'description' => Str::limit((string) $child->description, 140),
+                'description' => self::plainPreview((string) $child->description),
                 'externalId' => $child->external_id,
                 'createdAgo' => self::formatAge($child->created_at),
             ])->values()->all(),
@@ -104,6 +104,20 @@ final class TaskRowData
             : Repository::query()->where('slug', $task->repo)->first();
 
         return $repository === null ? null : route('repos.edit', $repository);
+    }
+
+    /**
+     * The first 140 characters of a markdown description as plain text, so a
+     * list preview reads as a sentence instead of showing `##` and `**`.
+     * Only the head of the description is rendered, because the preview
+     * never shows more than that.
+     */
+    private static function plainPreview(string $markdown): string
+    {
+        $html = Str::markdown(Str::substr($markdown, 0, 600), ['html_input' => 'strip']);
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5);
+
+        return Str::limit(Str::squish($text), 140);
     }
 
     private static function formatCost(mixed $costUsd): ?string

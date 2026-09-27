@@ -1,8 +1,9 @@
-import { Head, Link, router, usePoll } from '@inertiajs/react';
-import { Badge, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tooltip, Tr } from '@geocodio/console-ui';
+import { Head, InfiniteScroll, Link, router, usePoll } from '@inertiajs/react';
+import { Badge, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tooltip, Tr } from '@geocodio/console-ui';
 import { ChevronDown } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { deployments as deploymentsIndex } from '@/routes';
 import { show } from '@/routes/deployments';
 import type { DeploymentFilters, DeploymentRow } from '@/types/deployments';
@@ -26,7 +27,11 @@ const STATUS_OPTIONS = [
 ];
 
 export default function Index({ deployments, filters }: Props) {
-    usePoll(15000);
+    // Only `deployments` needs a poll -- see the matching comment in
+    // Tasks/Index.tsx for why `only` (a partial reload) is required to keep
+    // the scroll prop's merge-by-id behavior active instead of replacing the
+    // whole list and losing any pages the user scrolled into.
+    usePoll(15000, pollInfiniteScroll(['deployments']));
 
     const selected = STATUS_OPTIONS.find((o) => o.value === filters.status);
 
@@ -57,82 +62,71 @@ export default function Index({ deployments, filters }: Props) {
 
             <div className="min-h-0 flex-1 overflow-auto">
                 {deployments.data.length > 0 ? (
-                    <StackedTable className="w-full">
-                        <StackedThead>
-                            <Tr>
-                                <Th>Repository</Th>
-                                <Th>Branch</Th>
-                                <Th>Status</Th>
-                                <Th>Last accessed</Th>
-                                <Th>Preview URL</Th>
-                            </Tr>
-                        </StackedThead>
-                        <StackedTbody>
-                            {deployments.data.map((deployment) => (
-                                <StackedTr key={deployment.id} data-testid={`deployment-row-${deployment.id}`} className={deployment.longLived ? 'bg-accent-soft/40' : undefined}>
-                                    <StackedTd label="Repository" className="text-muted">
-                                        {deployment.repoSlug}
-                                    </StackedTd>
-                                    <StackedTd label="Branch">
-                                        <div className="flex items-center max-md:flex-wrap">
-                                            <Link href={show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
-                                                {deployment.branch}
-                                            </Link>
-                                            {deployment.longLived && (
-                                                <Tooltip label={`Hibernates after ${deployment.hibernatesAfter}`}>
-                                                    <Badge tone="info" className="ml-2">
-                                                        Long-lived
-                                                        <span className="md:hidden"> · Hibernates after {deployment.hibernatesAfter}</span>
-                                                    </Badge>
-                                                </Tooltip>
-                                            )}
-                                        </div>
-                                    </StackedTd>
-                                    <StackedTd label="Status">
-                                        <StatusPill tone={deployment.tone} label={deployment.statusLabel} />
-                                    </StackedTd>
-                                    <StackedTd label="Last accessed" className="text-muted">
-                                        {deployment.lastAccessedAgo ?? '—'}
-                                    </StackedTd>
-                                    <StackedTd label="Preview URL" className="max-md:break-all">
-                                        <a href={`https://${deployment.hostname}`} target="_blank" rel="noopener" className={cn('text-accent-text hover:underline')}>
-                                            {deployment.hostname}
-                                        </a>
-                                    </StackedTd>
-                                </StackedTr>
-                            ))}
-                        </StackedTbody>
-                    </StackedTable>
+                    <InfiniteScroll
+                        preserveUrl
+                        key={filters.status}
+                        data="deployments"
+                        itemsElement="#deployments-table-body"
+                        loading={() => (
+                            <div className="flex items-center justify-center gap-2 py-4 text-[12px] text-muted">
+                                <Spinner size="sm" />
+                                Loading more deployments…
+                            </div>
+                        )}
+                    >
+                        <StackedTable className="w-full">
+                            <StackedThead>
+                                <Tr>
+                                    <Th>Repository</Th>
+                                    <Th>Branch</Th>
+                                    <Th>Status</Th>
+                                    <Th>Last accessed</Th>
+                                    <Th>Preview URL</Th>
+                                </Tr>
+                            </StackedThead>
+                            <StackedTbody id="deployments-table-body">
+                                {deployments.data.map((deployment) => (
+                                    <StackedTr key={deployment.id} data-testid={`deployment-row-${deployment.id}`} className={deployment.longLived ? 'bg-accent-soft/40' : undefined}>
+                                        <StackedTd label="Repository" className="text-muted">
+                                            {deployment.repoSlug}
+                                        </StackedTd>
+                                        <StackedTd label="Branch">
+                                            <div className="flex items-center max-md:flex-wrap">
+                                                <Link href={show.url(deployment.id)} className="font-medium text-accent-text hover:underline">
+                                                    {deployment.branch}
+                                                </Link>
+                                                {deployment.longLived && (
+                                                    <Tooltip label={`Hibernates after ${deployment.hibernatesAfter}`}>
+                                                        <Badge tone="info" className="ml-2">
+                                                            Long-lived
+                                                            <span className="md:hidden"> · Hibernates after {deployment.hibernatesAfter}</span>
+                                                        </Badge>
+                                                    </Tooltip>
+                                                )}
+                                            </div>
+                                        </StackedTd>
+                                        <StackedTd label="Status">
+                                            <StatusPill tone={deployment.tone} label={deployment.statusLabel} />
+                                        </StackedTd>
+                                        <StackedTd label="Last accessed" className="text-muted">
+                                            {deployment.lastAccessedAgo ?? '—'}
+                                        </StackedTd>
+                                        <StackedTd label="Preview URL" className="max-md:break-all">
+                                            <a href={`https://${deployment.hostname}`} target="_blank" rel="noopener" className={cn('text-accent-text hover:underline')}>
+                                                {deployment.hostname}
+                                            </a>
+                                        </StackedTd>
+                                    </StackedTr>
+                                ))}
+                            </StackedTbody>
+                        </StackedTable>
+                    </InfiniteScroll>
                 ) : (
                     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center text-[13px] text-muted sm:px-5">
                         <p>No deployments found.</p>
                     </div>
                 )}
             </div>
-
-            {deployments.last_page > 1 && (
-                <div className="flex items-center justify-between border-t border-hair px-4 py-2 sm:px-5" data-testid="deployment-pagination">
-                    <button
-                        type="button"
-                        disabled={deployments.current_page <= 1}
-                        className="text-[12px] text-muted disabled:opacity-40"
-                        onClick={() => router.get(deploymentsIndex.url(), { status: filters.status, page: deployments.current_page - 1 }, { preserveState: true, replace: true })}
-                    >
-                        Previous
-                    </button>
-                    <span className="tnum text-[12px] text-muted">
-                        Page {deployments.current_page} of {deployments.last_page}
-                    </span>
-                    <button
-                        type="button"
-                        disabled={deployments.current_page >= deployments.last_page}
-                        className="text-[12px] text-muted disabled:opacity-40"
-                        onClick={() => router.get(deploymentsIndex.url(), { status: filters.status, page: deployments.current_page + 1 }, { preserveState: true, replace: true })}
-                    >
-                        Next
-                    </button>
-                </div>
-            )}
         </>
     );
 }

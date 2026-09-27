@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 const TaskListController = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ TaskListController.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 TaskListController.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ TaskListController.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 TaskListController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -35,7 +35,7 @@ TaskListController.get = (options?: RouteQueryOptions): RouteDefinition<'get'> =
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:30
+* @see app/Http/Controllers/Tasks/TaskListController.php:31
 * @route '/tasks'
 */
 TaskListController.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

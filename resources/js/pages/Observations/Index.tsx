@@ -1,7 +1,8 @@
-import { Head, Link, router, usePoll } from '@inertiajs/react';
-import { Badge, Button, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
+import { Head, InfiniteScroll, Link, router, usePoll } from '@inertiajs/react';
+import { Badge, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
 import { ChevronDown, ExternalLink } from 'lucide-react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { observations as observationsIndex } from '@/routes';
 import type { PageProps } from '@/types/shared';
 import type { ObservationFilters, ObservationPage } from '@/types/observations';
@@ -50,9 +51,13 @@ function FilterMenu({
 }
 
 export default function Index({ observations, filters }: Props) {
-    usePoll(30000);
+    // Only `observations` needs a poll -- see the matching comment in
+    // Tasks/Index.tsx for why `only` (a partial reload) is required to keep
+    // the scroll prop's merge-by-id behavior active instead of replacing the
+    // whole list and losing any pages the user scrolled into.
+    usePoll(30000, pollInfiniteScroll(['observations']));
 
-    const navigate = (next: { repo?: string; outcome?: string; page?: number }) => {
+    const navigate = (next: { repo?: string; outcome?: string }) => {
         router.get(
             observationsIndex.url(),
             { repo: filters.repo, outcome: filters.outcome, ...next },
@@ -75,13 +80,13 @@ export default function Index({ observations, filters }: Props) {
                         label="All repositories"
                         value={filters.repo}
                         options={repoOptions}
-                        onChange={(repo) => navigate({ repo, page: 1 })}
+                        onChange={(repo) => navigate({ repo })}
                     />
                     <FilterMenu
                         label="All outcomes"
                         value={filters.outcome}
                         options={OUTCOME_OPTIONS}
-                        onChange={(outcome) => navigate({ outcome, page: 1 })}
+                        onChange={(outcome) => navigate({ outcome })}
                     />
                 </div>
             </PageHeader>
@@ -97,77 +102,66 @@ export default function Index({ observations, filters }: Props) {
                         Nothing recorded yet. Yak writes here whenever a scan reaches a decision.
                     </div>
                 ) : (
-                    <StackedTable>
-                        <StackedThead>
-                            <Tr>
-                                <Th className="w-24">When</Th>
-                                <Th className="w-36">Outcome</Th>
-                                <Th className="w-44">Repository</Th>
-                                <Th>What happened</Th>
-                                <Th className="w-24" />
-                            </Tr>
-                        </StackedThead>
-                        <StackedTbody>
-                            {observations.data.map((observation) => (
-                                <StackedTr key={observation.id} data-testid="observation-row">
-                                    <StackedTd label="When" className="md:whitespace-nowrap text-muted" title={observation.createdTooltip}>
-                                        {observation.createdAgo}
-                                    </StackedTd>
-                                    <StackedTd label="Outcome">
-                                        <Badge tone={observation.outcome === 'acted' ? 'ok' : 'neutral'}>
-                                            {observation.kindLabel}
-                                        </Badge>
-                                    </StackedTd>
-                                    <StackedTd label="Repository" className="truncate text-muted">
-                                        {observation.repo ?? '—'}
-                                    </StackedTd>
-                                    <StackedTd label="What happened">
-                                        <span className="text-body">{observation.summary}</span>
-                                    </StackedTd>
-                                    <StackedTd className="md:whitespace-nowrap md:text-right">
-                                        {observation.taskUrl ? (
-                                            <Link href={observation.taskUrl} className="text-[12px] text-accent">
-                                                Task #{observation.taskId}
-                                            </Link>
-                                        ) : observation.referenceUrl ? (
-                                            <a
-                                                href={observation.referenceUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-[12px] text-accent"
-                                            >
-                                                Open <ExternalLink size={11} />
-                                            </a>
-                                        ) : null}
-                                    </StackedTd>
-                                </StackedTr>
-                            ))}
-                        </StackedTbody>
-                    </StackedTable>
-                )}
-
-                {observations.last_page > 1 && (
-                    <div className="mt-4 flex items-center justify-between text-[12px] text-muted">
-                        <span>
-                            Page {observations.current_page} of {observations.last_page}
-                        </span>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="secondary"
-                                disabled={observations.current_page <= 1}
-                                onClick={() => navigate({ page: observations.current_page - 1 })}
-                            >
-                                Previous
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                disabled={observations.current_page >= observations.last_page}
-                                onClick={() => navigate({ page: observations.current_page + 1 })}
-                            >
-                                Next
-                            </Button>
-                        </div>
-                    </div>
+                    <InfiniteScroll
+                        preserveUrl
+                        key={`${filters.repo}-${filters.outcome}`}
+                        data="observations"
+                        itemsElement="#observations-table-body"
+                        loading={() => (
+                            <div className="flex items-center justify-center gap-2 py-4 text-[12px] text-muted">
+                                <Spinner size="sm" />
+                                Loading more observations…
+                            </div>
+                        )}
+                    >
+                        <StackedTable>
+                            <StackedThead>
+                                <Tr>
+                                    <Th className="w-24">When</Th>
+                                    <Th className="w-36">Outcome</Th>
+                                    <Th className="w-44">Repository</Th>
+                                    <Th>What happened</Th>
+                                    <Th className="w-24" />
+                                </Tr>
+                            </StackedThead>
+                            <StackedTbody id="observations-table-body">
+                                {observations.data.map((observation) => (
+                                    <StackedTr key={observation.id} data-testid="observation-row">
+                                        <StackedTd label="When" className="md:whitespace-nowrap text-muted" title={observation.createdTooltip}>
+                                            {observation.createdAgo}
+                                        </StackedTd>
+                                        <StackedTd label="Outcome">
+                                            <Badge tone={observation.outcome === 'acted' ? 'ok' : 'neutral'}>
+                                                {observation.kindLabel}
+                                            </Badge>
+                                        </StackedTd>
+                                        <StackedTd label="Repository" className="truncate text-muted">
+                                            {observation.repo ?? '—'}
+                                        </StackedTd>
+                                        <StackedTd label="What happened">
+                                            <span className="text-body">{observation.summary}</span>
+                                        </StackedTd>
+                                        <StackedTd className="md:whitespace-nowrap md:text-right">
+                                            {observation.taskUrl ? (
+                                                <Link href={observation.taskUrl} className="text-[12px] text-accent">
+                                                    Task #{observation.taskId}
+                                                </Link>
+                                            ) : observation.referenceUrl ? (
+                                                <a
+                                                    href={observation.referenceUrl}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 text-[12px] text-accent"
+                                                >
+                                                    Open <ExternalLink size={11} />
+                                                </a>
+                                            ) : null}
+                                        </StackedTd>
+                                    </StackedTr>
+                                ))}
+                            </StackedTbody>
+                        </StackedTable>
+                    </InfiniteScroll>
                 )}
             </div>
         </AppLayout>

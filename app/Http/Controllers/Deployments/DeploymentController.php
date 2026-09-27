@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Inertia\Inertia;
 use Inertia\Response;
+use Inertia\ScrollProp;
 
 class DeploymentController extends Controller
 {
@@ -44,9 +45,9 @@ class DeploymentController extends Controller
     }
 
     /**
-     * @return LengthAwarePaginator<int, array{id: int, repoSlug: string, branch: string, status: string, statusLabel: string, tone: string, hostname: string, lastAccessedAgo: ?string, longLived: bool, hibernatesAfter: string}>
+     * @return ScrollProp<LengthAwarePaginator<int, array{id: int, repoSlug: string, branch: string, status: string, statusLabel: string, tone: string, hostname: string, lastAccessedAgo: ?string, longLived: bool, hibernatesAfter: string}>>
      */
-    private function paginatedDeployments(string $status): LengthAwarePaginator
+    private function paginatedDeployments(string $status): ScrollProp
     {
         $query = BranchDeployment::query()->with('repository');
 
@@ -64,7 +65,7 @@ class DeploymentController extends Controller
 
         $deployments = $query->orderByDesc('last_accessed_at')->paginate(25);
 
-        return $deployments->through(fn (BranchDeployment $deployment): array => [
+        $deployments = $deployments->through(fn (BranchDeployment $deployment): array => [
             'id' => $deployment->id,
             'repoSlug' => $deployment->repository->slug,
             'branch' => $deployment->branch_name,
@@ -76,6 +77,8 @@ class DeploymentController extends Controller
             'longLived' => (bool) $deployment->long_lived,
             'hibernatesAfter' => HibernationDuration::humanize($deployment->effectiveIdleMinutes()),
         ]);
+
+        return Inertia::scroll($deployments)->matchOn('data.id');
     }
 
     /**

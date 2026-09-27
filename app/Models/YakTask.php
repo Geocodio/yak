@@ -185,6 +185,24 @@ class YakTask extends Model
     }
 
     /**
+     * Number of the task's PR: the PR it opened, or for a review the PR under
+     * review. Review tasks record only the URL, so the number falls back to
+     * the one in the URL's `/pull/<number>` segment.
+     */
+    public function pullRequestNumber(): ?int
+    {
+        if ($this->pr_number !== null) {
+            return (int) $this->pr_number;
+        }
+
+        if ($this->pr_url !== null && preg_match('#/pull/(\d+)#', $this->pr_url, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
      * Lifecycle of the task's PR: 'open', 'merged', or 'closed'. Null when
      * the task never opened a PR.
      */

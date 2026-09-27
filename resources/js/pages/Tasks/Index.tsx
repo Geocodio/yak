@@ -1,11 +1,13 @@
-import { Head, router, usePoll } from '@inertiajs/react';
-import { Button, cn, Menu, PageHeader } from '@geocodio/console-ui';
-import { ChevronDown, Plus, SlidersHorizontal, X } from 'lucide-react';
+import { Head, InfiniteScroll, router, usePoll } from '@inertiajs/react';
+import { Button, cn, IconButton, Menu, PageHeader, Spinner } from '@geocodio/console-ui';
+import { ChevronDown, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { FilterMenu } from '@/components/tasks/FilterMenu';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
 import { NewTaskSheet } from '@/components/tasks/NewTaskSheet';
+import { openPalette } from '@/components/Sidebar';
 import { SetupCard } from '@/components/tasks/SetupCard';
 import { TaskCardList } from '@/components/tasks/TaskCardList';
 import { TaskFiltersSheet } from '@/components/tasks/TaskFiltersSheet';
@@ -41,7 +43,7 @@ const SORT_OPTIONS = [
 
 /**
  * The tab strip rendered both compact (inside the desktop `PageHeader`) and
- * full width (below the header on phones) -- `fullWidth` only changes the
+ * full width (the top row on phones, beside search) -- `fullWidth` only changes the
  * container and button sizing classes, everything else (labels, counts,
  * test ids, active styling) is identical between the two.
  */
@@ -60,7 +62,7 @@ function TabStrip({
         <div
             className={
                 fullWidth
-                    ? 'mx-4 mt-3 flex gap-0.5 rounded-control bg-panel-2 p-0.5'
+                    ? 'flex min-w-0 flex-1 gap-0.5 rounded-control bg-panel-2 p-0.5'
                     : 'flex shrink-0 items-center gap-0.5 rounded-control bg-panel-2 p-0.5 sm:ml-4'
             }
             data-testid="task-tabs"
@@ -89,7 +91,15 @@ function TabStrip({
 }
 
 export default function Index({ tasks, counts, filters, setupCard, activeRepos, openNew }: Props) {
-    usePoll(15000);
+    // Poll only `tasks` and `counts` -- a full-page poll (no `only`) would be a
+    // non-partial reload, and non-partial reloads replace merge props outright
+    // instead of merging, which would wipe out any pages the user has already
+    // scrolled into. Restricting to a partial reload keeps the scroll prop's
+    // merge behavior active: incoming rows are matched on `id` (see
+    // `TaskListController::paginatedTasks()`), so a task already on screen gets
+    // its fields refreshed in place and no row is duplicated. Rows beyond the
+    // first page only refresh once the user scrolls back over them.
+    usePoll(15000, pollInfiniteScroll(['tasks', 'counts']));
     const isDesktop = useMediaQuery('(min-width: 1024px)');
     const [sheetOpen, setSheetOpen] = useState(openNew);
     const [previewSrc, setPreviewSrc] = useState<string | null>(null);
@@ -111,12 +121,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
         }
     };
 
-    const navigate = (
-        next: Partial<Pick<TaskFilters, 'status' | 'source' | 'repo' | 'pr' | 'sort' | 'direction' | 'tab'>> & { page?: number },
-    ) => {
-        // `page` is only ever carried through explicitly (by the pager below) --
-        // any filter, tab, or sort change omits it, which resets pagination to
-        // page 1 on the backend.
+    const navigate = (next: Partial<Pick<TaskFilters, 'status' | 'source' | 'repo' | 'pr' | 'sort' | 'direction' | 'tab'>>) => {
         router.get(
             tasksIndex.url(),
             {
@@ -146,20 +151,26 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
     return (
         <>
             <Head title="Tasks" />
-            <PageHeader
-                crumbs={['Tasks']}
-                actions={
-                    isDesktop ? (
+            {/* On phones the tab bar already names the page, so the tab strip is the top row and carries search. */}
+            {isDesktop ? (
+                <PageHeader
+                    crumbs={['Tasks']}
+                    actions={
                         <Button variant="primary" icon={<Plus size={13} />} onClick={() => setSheetOpen(true)} data-testid="new-task-trigger">
                             New task
                         </Button>
-                    ) : undefined
-                }
-            >
-                {isDesktop ? <TabStrip fullWidth={false} activeTab={filters.tab} counts={counts} onSelect={onSelectTab} /> : undefined}
-            </PageHeader>
-
-            {!isDesktop && <TabStrip fullWidth activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />}
+                    }
+                >
+                    <TabStrip fullWidth={false} activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />
+                </PageHeader>
+            ) : (
+                <div className="flex items-center gap-2 px-4 pt-3">
+                    <TabStrip fullWidth activeTab={filters.tab} counts={counts} onSelect={onSelectTab} />
+                    <IconButton label="Search" onClick={openPalette} className="h-9 w-9 shrink-0" data-testid="tasks-search">
+                        <Search size={17} />
+                    </IconButton>
+                </div>
+            )}
 
             <SetupCard card={setupCard} />
 
@@ -254,45 +265,42 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <div className="min-h-0 flex-1 overflow-auto">
                 {tasks.data.length > 0 ? (
-                    isDesktop ? (
-                        <TaskTable
-                            tasks={tasks.data}
-                            sort={filters.sort}
-                            direction={filters.direction}
-                            onSort={onSort}
-                            onPreview={setPreviewSrc}
-                        />
-                    ) : (
-                        <TaskCardList tasks={tasks.data} />
-                    )
+                    <InfiniteScroll
+                        preserveUrl
+                        // Remounts (and re-syncs its pagination cursor from the fresh
+                        // `scrollProps`) whenever a filter, tab, or sort changes -- the
+                        // navigation itself is a full visit, which already replaces
+                        // `tasks` with a fresh page 1, but the component's own next-page
+                        // cursor only resyncs on mount, so it needs a fresh key here to
+                        // avoid fetching a stale page number under the new filters.
+                        key={`${filters.tab}-${filters.status}-${filters.source}-${filters.repo}-${filters.pr}-${filters.sort}-${filters.direction}`}
+                        data="tasks"
+                        itemsElement={isDesktop ? '#tasks-table-body' : '[data-testid="task-cards"]'}
+                        loading={() => (
+                            <div className="flex items-center justify-center gap-2 py-4 text-[12px] text-muted">
+                                <Spinner size="sm" />
+                                Loading more tasks…
+                            </div>
+                        )}
+                    >
+                        {isDesktop ? (
+                            <TaskTable
+                                tasks={tasks.data}
+                                sort={filters.sort}
+                                direction={filters.direction}
+                                onSort={onSort}
+                                onPreview={setPreviewSrc}
+                            />
+                        ) : (
+                            <TaskCardList tasks={tasks.data} />
+                        )}
+                    </InfiniteScroll>
                 ) : (
                     <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
                         <p>No tasks yet. Yak picks up work from your configured channels.</p>
                     </div>
                 )}
             </div>
-
-            {tasks.last_page > 1 && (
-                <div className="flex items-center justify-between border-t border-hair px-4 sm:px-5 py-2" data-testid="task-pagination">
-                    <Button
-                        variant="tertiary"
-                        disabled={tasks.current_page <= 1}
-                        onClick={() => navigate({ page: tasks.current_page - 1 })}
-                    >
-                        Previous
-                    </Button>
-                    <span className="tnum text-[12px] text-muted">
-                        Page {tasks.current_page} of {tasks.last_page}
-                    </span>
-                    <Button
-                        variant="tertiary"
-                        disabled={tasks.current_page >= tasks.last_page}
-                        onClick={() => navigate({ page: tasks.current_page + 1 })}
-                    >
-                        Next
-                    </Button>
-                </div>
-            )}
 
             <HoverPreview src={previewSrc} />
 

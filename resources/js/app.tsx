@@ -2,6 +2,7 @@ import { createInertiaApp, router } from '@inertiajs/react';
 import { toast } from '@geocodio/console-ui';
 import { createRoot } from 'react-dom/client';
 import { ComponentType, StrictMode } from 'react';
+import { healStandaloneViewport } from '@/lib/healStandaloneViewport';
 
 const appName = 'Yak';
 
@@ -59,6 +60,8 @@ router.on('error', (event) => {
         toast.error(message);
     }
 });
+
+healStandaloneViewport();
 
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),

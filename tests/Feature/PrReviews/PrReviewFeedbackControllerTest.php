@@ -144,3 +144,26 @@ test('index shows an empty state with no reviews', function () {
             ->where('stats.reviews', 0)
             ->has('comments.data', 0));
 });
+
+test('comments is served as a scroll/merge prop for infinite scroll', function () {
+    PrReviewComment::factory()->count(51)->create();
+
+    $version = $this->get(route('pr-reviews'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $response = $this->get(route('pr-reviews', ['page' => 2]), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => $version,
+        'X-Inertia-Partial-Data' => 'comments',
+        'X-Inertia-Partial-Component' => 'PrReviews/Index',
+    ])->assertOk()->json();
+
+    expect($response['mergeProps'] ?? [])->toContain('comments.data')
+        ->and($response['matchPropsOn'] ?? [])->toContain('comments.data.id')
+        ->and($response['scrollProps']['comments'])->toMatchArray([
+            'pageName' => 'page',
+            'previousPage' => 1,
+            'nextPage' => null,
+            'currentPage' => 2,
+        ])
+        ->and($response['props']['comments']['data'])->toHaveCount(1);
+});

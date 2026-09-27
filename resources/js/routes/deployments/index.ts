@@ -3,7 +3,7 @@ import hibernation from './hibernation'
 import share from './share'
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:31
+* @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 export const show = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -18,7 +18,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:31
+* @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 show.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -51,7 +51,7 @@ show.url = (args: { deployment: string | number | { id: string | number } } | [d
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:31
+* @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 show.get = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -61,7 +61,7 @@ show.get = (args: { deployment: string | number | { id: string | number } } | [d
 
 /**
 * @see \App\Http\Controllers\Deployments\DeploymentController::show
-* @see app/Http/Controllers/Deployments/DeploymentController.php:31
+* @see app/Http/Controllers/Deployments/DeploymentController.php:32
 * @route '/deployments/{deployment}'
 */
 show.head = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

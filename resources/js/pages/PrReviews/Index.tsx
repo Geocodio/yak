@@ -1,5 +1,5 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { Badge, Button, cn, Menu, PageHeader, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Toggle, Tr } from '@geocodio/console-ui';
+import { Head, InfiniteScroll, Link, router } from '@inertiajs/react';
+import { Badge, Button, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Toggle, Tr } from '@geocodio/console-ui';
 import { ChevronDown, MessageCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -50,7 +50,7 @@ function FilterMenu({
 }
 
 export default function Index({ comments, stats, reviewerStats, filters }: Props) {
-    const navigate = (next: Partial<Pick<PrReviewFilters, 'repo' | 'severity' | 'category' | 'scope' | 'reviewer' | 'reactions' | 'sort' | 'dir' | 'tab'>> & { page?: number }) => {
+    const navigate = (next: Partial<Pick<PrReviewFilters, 'repo' | 'severity' | 'category' | 'scope' | 'reviewer' | 'reactions' | 'sort' | 'dir' | 'tab'>>) => {
         const reactions = next.reactions !== undefined ? next.reactions : filters.reactions;
 
         router.get(
@@ -199,54 +199,67 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
             <div className="min-h-0 flex-1 overflow-auto">
                 {filters.tab === 'all' ? (
                     comments.data.length > 0 ? (
-                        <StackedTable className="w-full">
-                            <StackedThead>
-                                <Tr>
-                                    <Th>PR</Th>
-                                    <SortHeader column="file_path" label="File" />
-                                    <SortHeader column="severity" label="Severity" />
-                                    <SortHeader column="category" label="Category" />
-                                    <Th>Reactions</Th>
-                                </Tr>
-                            </StackedThead>
-                            <StackedTbody>
-                                {comments.data.map((comment) => (
-                                    <StackedTr key={comment.id} data-testid={`pr-review-comment-${comment.id}`}>
-                                        <StackedTd label="PR">
-                                            {comment.repoSlug && comment.prNumber ? (
-                                                <Link
-                                                    href={forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
-                                                    className="text-accent-text hover:underline"
-                                                >
-                                                    {comment.repoSlug}#{comment.prNumber}
-                                                </Link>
-                                            ) : (
-                                                '—'
-                                            )}
-                                        </StackedTd>
-                                        <StackedTd label="File" className="max-md:break-all font-mono text-[12px] text-muted">
-                                            {comment.filePath}:{comment.lineNumber}
-                                        </StackedTd>
-                                        <StackedTd label="Severity">
-                                            <Badge tone={SEVERITY_TONE[comment.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>{comment.severity}</Badge>
-                                        </StackedTd>
-                                        <StackedTd label="Category" className="text-muted">
-                                            {comment.category}
-                                        </StackedTd>
-                                        <StackedTd label="Reactions" className="text-muted">
-                                            {comment.thumbsUp > 0 || comment.thumbsDown > 0 ? (
-                                                <>
-                                                    {comment.thumbsUp > 0 && <span className="mr-2">👍 {comment.thumbsUp}</span>}
-                                                    {comment.thumbsDown > 0 && <span>👎 {comment.thumbsDown}</span>}
-                                                </>
-                                            ) : (
-                                                '—'
-                                            )}
-                                        </StackedTd>
-                                    </StackedTr>
-                                ))}
-                            </StackedTbody>
-                        </StackedTable>
+                        <InfiniteScroll
+                            preserveUrl
+                            key={`${filters.repo}-${filters.severity}-${filters.category}-${filters.scope}-${filters.reviewer}-${filters.reactions}-${filters.sort}-${filters.dir}`}
+                            data="comments"
+                            itemsElement="#pr-review-comments-body"
+                            loading={() => (
+                                <div className="flex items-center justify-center gap-2 py-4 text-[12px] text-muted">
+                                    <Spinner size="sm" />
+                                    Loading more comments…
+                                </div>
+                            )}
+                        >
+                            <StackedTable className="w-full">
+                                <StackedThead>
+                                    <Tr>
+                                        <Th>PR</Th>
+                                        <SortHeader column="file_path" label="File" />
+                                        <SortHeader column="severity" label="Severity" />
+                                        <SortHeader column="category" label="Category" />
+                                        <Th>Reactions</Th>
+                                    </Tr>
+                                </StackedThead>
+                                <StackedTbody id="pr-review-comments-body">
+                                    {comments.data.map((comment) => (
+                                        <StackedTr key={comment.id} data-testid={`pr-review-comment-${comment.id}`}>
+                                            <StackedTd label="PR">
+                                                {comment.repoSlug && comment.prNumber ? (
+                                                    <Link
+                                                        href={forPr.url({ repoSlug: comment.repoSlug, prNumber: comment.prNumber })}
+                                                        className="text-accent-text hover:underline"
+                                                    >
+                                                        {comment.repoSlug}#{comment.prNumber}
+                                                    </Link>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </StackedTd>
+                                            <StackedTd label="File" className="max-md:break-all font-mono text-[12px] text-muted">
+                                                {comment.filePath}:{comment.lineNumber}
+                                            </StackedTd>
+                                            <StackedTd label="Severity">
+                                                <Badge tone={SEVERITY_TONE[comment.severity as keyof typeof SEVERITY_TONE] ?? 'neutral'}>{comment.severity}</Badge>
+                                            </StackedTd>
+                                            <StackedTd label="Category" className="text-muted">
+                                                {comment.category}
+                                            </StackedTd>
+                                            <StackedTd label="Reactions" className="text-muted">
+                                                {comment.thumbsUp > 0 || comment.thumbsDown > 0 ? (
+                                                    <>
+                                                        {comment.thumbsUp > 0 && <span className="mr-2">👍 {comment.thumbsUp}</span>}
+                                                        {comment.thumbsDown > 0 && <span>👎 {comment.thumbsDown}</span>}
+                                                    </>
+                                                ) : (
+                                                    '—'
+                                                )}
+                                            </StackedTd>
+                                        </StackedTr>
+                                    ))}
+                                </StackedTbody>
+                            </StackedTable>
+                        </InfiniteScroll>
                     ) : (
                         <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
                             <p>No matching comments.</p>
@@ -289,20 +302,6 @@ export default function Index({ comments, stats, reviewerStats, filters }: Props
                     </StackedTable>
                 )}
             </div>
-
-            {filters.tab === 'all' && comments.last_page > 1 && (
-                <div className="flex items-center justify-between border-t border-hair px-4 sm:px-5 py-2" data-testid="pr-review-pagination">
-                    <Button variant="tertiary" disabled={comments.current_page <= 1} onClick={() => navigate({ page: comments.current_page - 1 })}>
-                        Previous
-                    </Button>
-                    <span className="tnum text-[12px] text-muted">
-                        Page {comments.current_page} of {comments.last_page}
-                    </span>
-                    <Button variant="tertiary" disabled={comments.current_page >= comments.last_page} onClick={() => navigate({ page: comments.current_page + 1 })}>
-                        Next
-                    </Button>
-                </div>
-            )}
         </>
     );
 }
