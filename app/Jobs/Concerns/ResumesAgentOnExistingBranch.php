@@ -78,7 +78,7 @@ trait ResumesAgentOnExistingBranch
 
         $sandbox->injectGitCredentials($containerName);
 
-        $rebase = $sandbox->run($containerName, "cd {$workspacePath} && git pull --rebase origin {$branchName}", timeout: 120);
+        $rebase = $sandbox->run($containerName, "cd {$workspacePath} && git pull --rebase origin " . escapeshellarg($branchName), timeout: 120);
 
         if ($rebase->exitCode() !== 0) {
             $sandbox->run($containerName, "cd {$workspacePath} && git rebase --abort", timeout: 30);
@@ -86,7 +86,7 @@ trait ResumesAgentOnExistingBranch
             throw new \RuntimeException("The branch {$branchName} changed while I was working, and my commits no longer apply cleanly.");
         }
 
-        $push = $sandbox->run($containerName, "cd {$workspacePath} && git push origin HEAD:{$branchName}", timeout: 60);
+        $push = $sandbox->run($containerName, "cd {$workspacePath} && git push origin " . escapeshellarg("HEAD:{$branchName}"), timeout: 60);
 
         if ($push->exitCode() !== 0) {
             throw new \RuntimeException("GitHub rejected the push to {$branchName}: {$push->errorOutput()}");

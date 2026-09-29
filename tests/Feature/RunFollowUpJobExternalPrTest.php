@@ -55,8 +55,8 @@ it('rebases, pushes without force, replies, and finishes without CI', function (
 
     runExternal($task, $sandbox, "## What changed in this run\n\nScoped `_warnings` to the status schema.\n\n## PR description\n\nRewritten description.");
 
-    expect($sandbox->commandsMatching('git pull --rebase origin feature/warnings'))->toHaveCount(1)
-        ->and($sandbox->commandsMatching('git push origin HEAD:feature/warnings'))->toHaveCount(1)
+    expect($sandbox->commandsMatching("git pull --rebase origin 'feature/warnings'"))->toHaveCount(1)
+        ->and($sandbox->commandsMatching("git push origin 'HEAD:feature/warnings'"))->toHaveCount(1)
         ->and($sandbox->commandsMatching('--force'))->toBe([]);
 
     $task->refresh();
@@ -101,4 +101,26 @@ it('posts thread replies instead of a summary when the agent wrote them', functi
 
     Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls/9/comments/4135/replies'));
     Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls/9/comments/4107/replies'));
+});
+
+it('posts the summary reply when none of the agent replies match the description', function () {
+    $sandbox = new FakeSandboxManager;
+    $task = externalTask();
+
+    runExternal($task, $sandbox, "## What changed in this run\n\nDid it.\n\n## Replies\n\n- [c:9999] Unrelated.");
+
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/comments/9999/replies'));
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls/9/comments/4107/replies')
+        && str_contains((string) $request['body'], 'Did it.'));
+});
+
+it('still succeeds without a second reply when the summary reply cannot be posted', function () {
+    Http::fake(['api.github.com/*' => Http::response([], 500)]);
+    $sandbox = new FakeSandboxManager;
+    $task = externalTask();
+
+    runExternal($task, $sandbox, "## What changed in this run\n\nDid it.");
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Success);
+    Http::assertNotSent(fn (Request $request): bool => str_contains((string) $request['body'], "couldn't finish"));
 });

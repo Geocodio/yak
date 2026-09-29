@@ -16,19 +16,23 @@ class ReviewReplyPoster
 {
     public function __construct(private readonly AppService $github) {}
 
-    public function post(YakTask $task, string $repoSlug, int $prNumber): void
+    /**
+     * @return int how many replies reached GitHub, as a thread reply or as the fallback PR comment
+     */
+    public function post(YakTask $task, string $repoSlug, int $prNumber): int
     {
+        $postedCount = 0;
         $replies = (array) ($task->review_replies ?? []);
         $installationId = (int) config('yak.channels.github.installation_id');
 
         if ($replies === []) {
-            return;
+            return 0;
         }
 
         if ($installationId <= 0) {
             TaskLogger::warning($task, 'Review replies skipped: no GitHub installation id');
 
-            return;
+            return 0;
         }
 
         foreach ($replies as $commentId => $body) {
@@ -48,13 +52,16 @@ class ReviewReplyPoster
             try {
                 $this->github->replyToReviewComment($installationId, $repoSlug, $prNumber, $commentId, $body);
                 TaskLogger::info($task, 'Replied on review comment', ['comment_id' => $commentId]);
+                $postedCount++;
             } catch (Throwable $threadError) {
-                $this->postFallback($task, $installationId, $repoSlug, $prNumber, $commentId, $body, $threadError);
+                $postedCount += $this->postFallback($task, $installationId, $repoSlug, $prNumber, $commentId, $body, $threadError);
             }
         }
+
+        return $postedCount;
     }
 
-    private function postFallback(YakTask $task, int $installationId, string $repoSlug, int $prNumber, int $commentId, string $body, Throwable $threadError): void
+    private function postFallback(YakTask $task, int $installationId, string $repoSlug, int $prNumber, int $commentId, string $body, Throwable $threadError): int
     {
         $quote = $this->originalCommentLine($task, $commentId);
         $intro = $quote !== null
@@ -70,7 +77,7 @@ class ReviewReplyPoster
                 'fallback_error' => $fallbackError->getMessage(),
             ]);
 
-            return;
+            return 0;
         }
 
         if (! $posted) {
@@ -80,13 +87,15 @@ class ReviewReplyPoster
                 'fallback_error' => 'GitHub rejected the PR comment',
             ]);
 
-            return;
+            return 0;
         }
 
         TaskLogger::warning($task, 'Thread reply failed; posted as a PR comment', [
             'comment_id' => $commentId,
             'error' => $threadError->getMessage(),
         ]);
+
+        return 1;
     }
 
     /**

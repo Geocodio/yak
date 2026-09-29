@@ -276,10 +276,14 @@ class RunFollowUpJob implements ShouldQueue
             TaskLogger::info($this->task, 'Pushed onto the PR branch', ['branch' => $branchName]);
         }
 
-        app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $this->task->pr_number);
+        try {
+            $postedReplyCount = app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $this->task->pr_number);
 
-        if ($parsed->replies === []) {
-            app(PullRequestSummonReplier::class)->replyForTask($this->task, $parsed->changes !== '' ? $parsed->changes : 'Done. I made no changes.');
+            if ($postedReplyCount === 0) {
+                app(PullRequestSummonReplier::class)->replyForTask($this->task, $parsed->changes !== '' ? $parsed->changes : 'Done. I made no changes.');
+            }
+        } catch (\Throwable $replyError) {
+            TaskLogger::warning($this->task, 'Summon reply could not be posted', ['error' => $replyError->getMessage()]);
         }
 
         $this->task->update(['status' => TaskStatus::Success, 'completed_at' => now()]);
