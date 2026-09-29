@@ -2,9 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Channels\GitHub\PullRequestSummonReplier;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\ParsedFollowUpSummary;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
@@ -24,6 +26,7 @@ use App\Models\YakTask;
 use App\Services\ArtifactPersister;
 use App\Services\FollowUpSummaryParser;
 use App\Services\IncusSandboxManager;
+use App\Services\ReviewReplyPoster;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -35,6 +38,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class RunFollowUpJob implements ShouldQueue
 {
@@ -200,6 +204,12 @@ class RunFollowUpJob implements ShouldQueue
             throw new \RuntimeException('Follow-up reached the push step with no branch name.');
         }
 
+        if ($this->task->targets_external_pr) {
+            $this->finishExternalPr($repository, $parsed, $sandbox, $containerName, $branchName, $recorder);
+
+            return;
+        }
+
         $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
 
         if (! $this->hasNewCommits($sandbox, $containerName, $branchName)) {
@@ -244,6 +254,35 @@ class RunFollowUpJob implements ShouldQueue
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed your changes on branch {$branchName} — waiting for CI before updating the PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
+    }
+
+    /**
+     * A person owns this branch: push onto it, answer in the summoning thread,
+     * and stop. No CI wait, no retry, and the PR description is theirs.
+     */
+    private function finishExternalPr(Repository $repository, ParsedFollowUpSummary $parsed, IncusSandboxManager $sandbox, string $containerName, string $branchName, RunRecorder $recorder): void
+    {
+        $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
+
+        $this->task->update([
+            'result_summary' => $parsed->changes !== '' ? $parsed->changes : null,
+            'review_replies' => $parsed->replies !== [] ? $parsed->replies : null,
+            'model_used' => config('yak.default_model'),
+        ]);
+
+        if ($this->hasNewCommits($sandbox, $containerName, $branchName)) {
+            $this->pushOntoExternalBranch($sandbox, $containerName, $repository, $branchName);
+            $recorder->mark('post_agent');
+            TaskLogger::info($this->task, 'Pushed onto the PR branch', ['branch' => $branchName]);
+        }
+
+        app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $this->task->pr_number);
+
+        if ($parsed->replies === []) {
+            app(PullRequestSummonReplier::class)->replyForTask($this->task, $parsed->changes !== '' ? $parsed->changes : 'Done. I made no changes.');
+        }
+
+        $this->task->update(['status' => TaskStatus::Success, 'completed_at' => now()]);
     }
 
     /**
@@ -295,5 +334,13 @@ class RunFollowUpJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Follow-up failed', ['error' => $errorMessage]);
+
+        if ($this->task->targets_external_pr) {
+            try {
+                app(PullRequestSummonReplier::class)->replyForTask($this->task, "I couldn't finish this: " . Str::limit($errorMessage, 300));
+            } catch (\Throwable $replyError) {
+                TaskLogger::warning($this->task, 'Failure reply could not be posted', ['error' => $replyError->getMessage()]);
+            }
+        }
     }
 }
