@@ -95,8 +95,8 @@ it('ignores review actions other than submitted', function () {
     Bus::assertNotDispatched(TriageReviewJob::class);
 });
 
-it('skips a PR that Yak did not open', function () {
-    postReview()->assertOk()->assertJsonPath('skipped', 'no yak task for pr');
+it('routes a PR that Yak did not open to the summon job', function () {
+    postReview()->assertOk()->assertJsonPath('summon', true);
 
     Bus::assertNotDispatched(TriageReviewJob::class);
 });
@@ -151,10 +151,10 @@ it('still triages an approval that has a body', function () {
     Bus::assertDispatched(TriageReviewJob::class);
 });
 
-it('skips a Review-mode task with the PR url', function () {
+it('routes a Review-mode task PR to the summon job instead of triage', function () {
     reviewedYakTask(['mode' => TaskMode::Review]);
 
-    postReview()->assertOk()->assertJsonPath('skipped', 'no yak task for pr');
+    postReview()->assertOk()->assertJsonPath('summon', true);
 
     Bus::assertNotDispatched(TriageReviewJob::class);
 });

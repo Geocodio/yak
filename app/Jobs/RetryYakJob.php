@@ -95,6 +95,12 @@ class RetryYakJob implements ShouldQueue
 
     private function runRetry(AgentRunner $agent): void
     {
+        if ($this->task->targets_external_pr) {
+            $this->handleError('Retries are not run on pull requests Yak did not open.');
+
+            return;
+        }
+
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;

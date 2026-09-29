@@ -21,6 +21,10 @@ When you're ready for a fresh pass, click **Re-request review** next to the Yak 
 
 This is the only re-review trigger: there's no slash command and no label. The button is GitHub-native and only appears after Yak has submitted at least one review on the PR.
 
+## Asking Yak To Fix A Finding
+
+Reply to a Yak finding with `/yak` and a request, for example `/yak fix this please`. Yak commits the fix on top of the PR's branch, including on a PR a person opened, and replies in the thread with the commit. It never force-pushes and never edits the PR description. See [Follow-ups on PRs Yak did not open](channels.md#on-prs-yak-did-not-open) for the details.
+
 ## Path Filters
 
 Yak ships with sensible defaults for what to exclude from review — `vendor/**`, `node_modules/**`, build output, minified assets, editor config. The full default list is in `config/yak.php` under `pr_review.default_path_excludes`. Migrations and lockfiles are **not** excluded by default: migrations contain real logic (schema changes, indexes, destructive drops) worth a look, and lockfile diffs can surface dependency version bumps the author didn't highlight.

@@ -646,6 +646,28 @@ GRAPHQL;
     }
 
     /**
+     * The parent of a threaded reply, so a terse summon like "fix this" reaches
+     * the agent together with the comment it answers.
+     *
+     * @return array{author: string, body: string}|null
+     */
+    public function getReviewComment(int $installationId, string $repoSlug, int $commentId): ?array
+    {
+        $response = Http::withToken($this->getInstallationToken($installationId))
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/comments/{$commentId}");
+
+        if (! $response->successful() || ! is_string($response->json('body'))) {
+            return null;
+        }
+
+        return [
+            'author' => (string) $response->json('user.login', ''),
+            'body' => (string) $response->json('body'),
+        ];
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function listOpenPullRequests(int $installationId, string $repoSlug): array

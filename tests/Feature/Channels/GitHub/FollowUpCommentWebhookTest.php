@@ -211,7 +211,7 @@ it('skips an issue_comment on a PR with no matching YakTask', function () {
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);
 });
 
-it('skips an issue_comment on a PR that only a Review-mode task owns', function () {
+it('routes an issue_comment on a PR that only a Review-mode task owns to the summon job', function () {
     Bus::fake();
     Http::fake(['api.github.com/*' => Http::response([], 201)]);
 
@@ -240,7 +240,7 @@ it('skips an issue_comment on a PR that only a Review-mode task owns', function 
     $this->postJson('/webhooks/github', $payload, [
         'X-GitHub-Event' => 'issue_comment',
         'X-Hub-Signature-256' => signGhFollowUpPayload($body),
-    ])->assertOk()->assertJsonPath('skipped', 'no yak task for pr');
+    ])->assertOk()->assertJsonPath('summon', true);
 
     expect(FollowUpPendingComment::count())->toBe(0);
     Bus::assertNotDispatched(FlushFollowUpBatchJob::class);

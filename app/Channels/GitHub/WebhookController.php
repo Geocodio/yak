@@ -11,6 +11,7 @@ use App\Jobs\Deployments\DeployBranchJob;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Jobs\FlushFollowUpBatchJob;
+use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
@@ -323,7 +324,45 @@ class WebhookController extends Controller
 
         $prUrl = (string) data_get($request->all(), 'issue.pull_request.html_url', '');
 
+        $root = $prUrl !== '' ? YakTask::followUpRootForPr($prUrl) : null;
+
+        if ($root === null || $root->targets_external_pr) {
+            return $this->dispatchCommentSummon($request, $github);
+        }
+
         return $this->processFollowUpComment($request, $github, $prUrl, isReviewComment: false);
+    }
+
+    /**
+     * A top-level comment on a PR Yak did not open. Only a prefixed comment from
+     * a person goes on; the job answers it either way.
+     */
+    private function dispatchCommentSummon(Request $request, AppService $github): JsonResponse
+    {
+        $comment = (array) $request->input('comment', []);
+
+        /** @var array<string, mixed> $author */
+        $author = (array) ($comment['user'] ?? []);
+
+        if ($this->isBotAuthor($author, $github)) {
+            return response()->json(['ok' => true, 'skipped' => 'yak authored comment']);
+        }
+
+        $body = (string) ($comment['body'] ?? '');
+
+        if (app(FollowUpCommentParser::class)->parse($body) === null) {
+            return response()->json(['ok' => true, 'skipped' => 'no yak prefix']);
+        }
+
+        HandlePullRequestSummonJob::dispatch(
+            repoFullName: (string) $request->input('repository.full_name', ''),
+            prNumber: (int) $request->input('issue.number'),
+            summonerLogin: (string) ($author['login'] ?? ''),
+            issueCommentId: (int) ($comment['id'] ?? 0),
+            issueCommentBody: $body,
+        );
+
+        return response()->json(['ok' => true, 'summon' => true]);
     }
 
     private function handlePullRequestReviewComment(Request $request, AppService $github): JsonResponse
@@ -366,8 +405,16 @@ class WebhookController extends Controller
         $prUrl = (string) $request->input('pull_request.html_url', '');
         $task = $prUrl !== '' ? YakTask::followUpRootForPr($prUrl) : null;
 
-        if ($task === null) {
-            return response()->json(['ok' => true, 'skipped' => 'no yak task for pr']);
+        if ($task === null || $task->targets_external_pr) {
+            HandlePullRequestSummonJob::dispatch(
+                repoFullName: (string) $request->input('repository.full_name', ''),
+                prNumber: (int) $request->input('pull_request.number'),
+                summonerLogin: $reviewerLogin,
+                reviewId: (int) ($review['id'] ?? 0),
+                reviewBody: (string) ($review['body'] ?? ''),
+            );
+
+            return response()->json(['ok' => true, 'summon' => true]);
         }
 
         if (! $task->prIsOpen()) {

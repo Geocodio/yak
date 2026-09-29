@@ -2,13 +2,16 @@
 
 namespace App\Jobs;
 
+use App\Channels\GitHub\PullRequestSummonReplier;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\ParsedFollowUpSummary;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Exceptions\ExternalBranchPushException;
 use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
@@ -24,6 +27,7 @@ use App\Models\YakTask;
 use App\Services\ArtifactPersister;
 use App\Services\FollowUpSummaryParser;
 use App\Services\IncusSandboxManager;
+use App\Services\ReviewReplyPoster;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -168,11 +172,16 @@ class RunFollowUpJob implements ShouldQueue
             Log::error('RunFollowUpJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
+
+            // The failure reply already went to the summoning thread; a second
+            // error notification would comment on the PR again.
+            if (! $this->task->targets_external_pr) {
+                SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
+            }
         } catch (\Throwable $e) {
             Log::error('RunFollowUpJob failed', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $recorder->failed($e);
-            $this->handleError($e->getMessage());
+            $this->handleError($e->getMessage(), isUserFacing: $e instanceof ExternalBranchPushException);
         } finally {
             $recorder->closePostAgent();
 
@@ -198,6 +207,12 @@ class RunFollowUpJob implements ShouldQueue
 
         if ($branchName === null) {
             throw new \RuntimeException('Follow-up reached the push step with no branch name.');
+        }
+
+        if ($this->task->targets_external_pr) {
+            $this->finishExternalPr($repository, $parsed, $sandbox, $containerName, $branchName, $recorder);
+
+            return;
         }
 
         $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
@@ -247,6 +262,50 @@ class RunFollowUpJob implements ShouldQueue
     }
 
     /**
+     * A person owns this branch: push onto it, answer in the summoning thread,
+     * and stop. No CI wait, no retry, and the PR description is theirs.
+     */
+    private function finishExternalPr(Repository $repository, ParsedFollowUpSummary $parsed, IncusSandboxManager $sandbox, string $containerName, string $branchName, RunRecorder $recorder): void
+    {
+        $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, IncusSandboxManager::workspacePath(), "origin/{$branchName}"));
+
+        $this->task->update([
+            'result_summary' => $parsed->changes !== '' ? $parsed->changes : null,
+            'review_replies' => $parsed->replies !== [] ? $parsed->replies : null,
+            'model_used' => config('yak.default_model'),
+        ]);
+
+        $pushedSha = null;
+
+        if ($this->hasNewCommits($sandbox, $containerName, $branchName)) {
+            $this->pushOntoExternalBranch($sandbox, $containerName, $repository, $branchName);
+            $recorder->mark('post_agent');
+            TaskLogger::info($this->task, 'Pushed onto the PR branch', ['branch' => $branchName]);
+
+            $headSha = trim($sandbox->run($containerName, 'cd ' . IncusSandboxManager::workspacePath() . ' && git rev-parse HEAD', timeout: 10)->output());
+            $pushedSha = preg_match('/^[0-9a-f]{40}$/', $headSha) === 1 ? $headSha : null;
+        }
+
+        try {
+            $postedReplyCount = app(ReviewReplyPoster::class)->post($this->task, $repository->github_full_name, (int) $this->task->pr_number);
+
+            if ($postedReplyCount === 0) {
+                $summary = $parsed->changes !== '' ? $parsed->changes : 'Done. I made no changes.';
+
+                if ($pushedSha !== null) {
+                    $summary .= "\n\nPushed " . substr($pushedSha, 0, 7) . ": https://github.com/{$repository->github_full_name}/commit/{$pushedSha}";
+                }
+
+                app(PullRequestSummonReplier::class)->replyForTask($this->task, $summary);
+            }
+        } catch (\Throwable $replyError) {
+            TaskLogger::warning($this->task, 'Summon reply could not be posted', ['error' => $replyError->getMessage()]);
+        }
+
+        $this->task->update(['status' => TaskStatus::Success, 'completed_at' => now()]);
+    }
+
+    /**
      * Whether the sandbox's HEAD has commits the follow-up branch's remote
      * doesn't have yet. A failed command or a non-numeric result (an
      * unexpected command output) is treated as unknown and defaults to
@@ -280,7 +339,12 @@ class RunFollowUpJob implements ShouldQueue
         return (int) $output > 0;
     }
 
-    private function handleError(string $errorMessage): void
+    /**
+     * $isUserFacing marks a message written for the PR author. Every other
+     * message may carry command lines or credentials, so it stays in the task
+     * log and the PR gets a generic line.
+     */
+    private function handleError(string $errorMessage, bool $isUserFacing = false): void
     {
         // Don't overwrite a task that's already terminal — see
         // RunYakJob::handleError() for the full reasoning.
@@ -295,5 +359,15 @@ class RunFollowUpJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Follow-up failed', ['error' => $errorMessage]);
+
+        if ($this->task->targets_external_pr) {
+            try {
+                $reply = $isUserFacing ? $errorMessage : "I couldn't finish this. The details are on the task page.";
+
+                app(PullRequestSummonReplier::class)->replyForTask($this->task, $reply);
+            } catch (\Throwable $replyError) {
+                TaskLogger::warning($this->task, 'Failure reply could not be posted', ['error' => $replyError->getMessage()]);
+            }
+        }
     }
 }

@@ -61,13 +61,14 @@ The GitHub App subscribes to:
 - `pull_request.opened` / `ready_for_review` / `reopened` — triggers a full PR review when `pr_review_enabled` is on
 - `pull_request.synchronize` — triggers an incremental PR review
 - `issue_comment.created` — `/yak` follow-up comments on an open PR (see [Follow-ups](#follow-ups) below)
+- `pull_request_review.submitted` — review feedback on Yak's PRs, and `/yak` summons in reviews and inline comments on any PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review_comment.created` — `/yak` follow-up replies on an inline review comment (the file, line, and diff hunk are passed to Yak as context)
 - `push` / `delete` — refreshes and tears down branch preview deployments
 - `repository.renamed` / `repository.transferred` — keeps Yak's record of where the repo lives on GitHub current
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
 
-> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments** and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
+> **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
 
 ### Repository renames
 
@@ -105,6 +106,24 @@ Yak reacts 👀 on the comment to acknowledge receipt, resumes the original Clau
 - **Bursts are debounced.** Multiple comments within `YAK_FOLLOWUP_GITHUB_BATCH_WINDOW_SECONDS` (default `60`) are collapsed into a single follow-up run, so a flurry of review notes produces one coherent revision rather than racing pushes.
 - **Inline review comments** carry their file, line, and surrounding diff hunk into the instruction, so "this variable name is confusing" lands with the context Yak needs.
 - **Merged or closed PRs** decline politely and point you at a fresh issue or task — follow-ups only work while the PR is open.
+
+#### On PRs Yak did not open
+
+The same prefix works on a pull request a person opened, in a registered and active repository. A reply under one of Yak's review findings is the common case:
+
+```
+/yak fix this please
+```
+
+Yak reacts 👀 and replies in the same thread with a link to the task. It then commits on top of the PR's own branch. For a reply in a thread, Yak also gets the comment you replied to, so a short request like "fix this" reaches it together with the finding it refers to.
+
+These runs differ from follow-ups on Yak's own PRs:
+
+- **Only a prefixed comment triggers work.** Yak reviews many human PRs; a plain review or comment without the prefix does nothing.
+- **Yak never rewrites your branch.** It adds new commits only. If you pushed while it worked, it rebases its commits onto yours and does a plain push. It never force-pushes, and it never edits the PR description.
+- **Yak replies and stops.** When the push lands it replies with a summary and a link to the commit. It does not wait for CI or retry on a CI failure. From there the branch is yours.
+- **Yak always answers.** If it cannot act, it replies with the reason: the PR comes from a fork, the PR is closed, the repository is not set up in Yak, or the branch name has characters Yak will not use in a shell. A second request while a run is in progress is queued, and Yak says so.
+- **Review triage must be on.** Inline summons arrive through the review event, so they need `YAK_FOLLOWUP_GITHUB_REVIEW_TRIAGE` (on by default).
 
 ---
 

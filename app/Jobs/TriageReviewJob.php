@@ -30,7 +30,7 @@ class TriageReviewJob implements ShouldBeUnique, ShouldQueue
     public int $timeout = 60;
 
     /** Task statuses that mean the PR's branch is already being worked on. */
-    private const array BUSY_STATUSES = [
+    public const array BUSY_STATUSES = [
         TaskStatus::Pending,
         TaskStatus::Running,
         TaskStatus::AwaitingCi,
