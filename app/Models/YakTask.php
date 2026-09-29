@@ -25,6 +25,8 @@ use Illuminate\Support\Collection;
  *
  * @property TaskStatus $status
  * @property TaskMode $mode
+ * @property bool $targets_external_pr
+ * @property int|null $summon_review_comment_id
  * @property array<int, string>|null $clarification_options
  * @property array<int, mixed>|null $screenshots
  * @property CarbonImmutable|null $clarification_expires_at
@@ -75,6 +77,7 @@ class YakTask extends Model
         return [
             'status' => TaskStatus::class,
             'mode' => TaskMode::class,
+            'targets_external_pr' => 'boolean',
             'clarification_options' => 'json',
             're_request_review_from' => 'array',
             'review_replies' => 'array',

@@ -16,8 +16,9 @@ class FollowUpTaskFactory
      * closed -- the caller should post a polite decline.
      *
      * @param  array<int, string>  $reRequestReviewFrom  GitHub logins to re-request review from once this follow-up succeeds
+     * @param  int|null  $summonReviewCommentId  Review comment thread the summary reply goes to, when summoned from an inline comment
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = []): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -30,7 +31,7 @@ class FollowUpTaskFactory
             return null;
         }
 
-        $child = DB::transaction(function () use ($head, $root, $instructions, $source, $authorName, $reRequestReviewFrom): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -49,6 +50,8 @@ class FollowUpTaskFactory
                 'description' => $instructions,
                 'author_name' => $authorName,
                 're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
+                'targets_external_pr' => $head->targets_external_pr,
+                'summon_review_comment_id' => $summonReviewCommentId,
                 'status' => TaskStatus::Pending,
             ]);
 
