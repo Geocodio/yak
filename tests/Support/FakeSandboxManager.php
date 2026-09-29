@@ -69,6 +69,15 @@ class FakeSandboxManager extends IncusSandboxManager
         return $this;
     }
 
+    private ?string $headSha = null;
+
+    public function setHeadSha(string $sha): self
+    {
+        $this->headSha = $sha;
+
+        return $this;
+    }
+
     public function setCommitCount(int $count): self
     {
         $this->commitCount = $count;
@@ -117,6 +126,10 @@ class FakeSandboxManager extends IncusSandboxManager
 
         if (str_contains($command, 'git rev-list --count origin/')) {
             return Process::result((string) $this->commitCount);
+        }
+
+        if ($this->headSha !== null && str_ends_with($command, 'git rev-parse HEAD')) {
+            return Process::result($this->headSha);
         }
 
         return Process::result('');

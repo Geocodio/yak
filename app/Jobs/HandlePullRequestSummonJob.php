@@ -27,9 +27,11 @@ class HandlePullRequestSummonJob implements ShouldQueue
 
     public int $timeout = 60;
 
-    private const string PREAMBLE = 'This pull request was opened by a person, not by Yak, and you have no earlier session on it. Work on top of the current branch. Add new commits only: never amend, rebase, or force-push.';
+    public int $tries = 1;
 
-    /** Branch names are used in sandbox shell commands: only safe characters, no leading dash (git option injection), no `..`, no trailing newline. */
+    private const string PREAMBLE = 'This pull request was opened by a person, not by Yak, and you have no earlier session on it. Work on top of the current branch. Add new commits only: never amend, rebase, or force-push. Under the PR description heading in your summary, write `Unchanged.`; the author owns the description.';
+
+    /** Branch names are used in sandbox shell commands: only safe characters, no leading dash (git option injection), no `..`, no trailing newline. `prepareExistingBranch`, `hasNewCommits`, and `GitOperations::changeStats` interpolate the branch into shell commands unescaped and rely on this pattern. */
     private const string SAFE_BRANCH_PATTERN = '#^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]+\z#';
 
     public function __construct(
@@ -79,6 +81,12 @@ class HandlePullRequestSummonJob implements ShouldQueue
         $prUrl = (string) ($pullRequest['html_url'] ?? '');
         $branch = (string) data_get($pullRequest, 'head.ref', '');
 
+        if ($pullRequest === []) {
+            $refuse("I couldn't read this pull request from GitHub. Please try again in a minute.");
+
+            return;
+        }
+
         if ($prUrl === '' || ($pullRequest['state'] ?? '') !== 'open') {
             $refuse("This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.");
 
@@ -122,7 +130,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             ->first(fn (YakTask $member): bool => in_array($member->status, TriageReviewJob::BUSY_STATUSES, true));
 
         if ($busy !== null) {
-            PendingSteeringMessage::queueFor($busy, $instructions, 'github');
+            PendingSteeringMessage::queueFor($busy, $instructions, 'github_review');
             $refuse("I'm still working on an earlier request on this PR. I've queued this one and will pick it up next.\n\n" . PullRequestSummonReplier::taskLink($busy));
 
             return;
