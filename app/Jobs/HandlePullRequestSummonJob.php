@@ -29,8 +29,8 @@ class HandlePullRequestSummonJob implements ShouldQueue
 
     private const string PREAMBLE = 'This pull request was opened by a person, not by Yak, and you have no earlier session on it. Work on top of the current branch. Add new commits only: never amend, rebase, or force-push.';
 
-    /** Characters a branch name may hold before it is used in sandbox shell commands. */
-    private const string SAFE_BRANCH_PATTERN = '#^[A-Za-z0-9._/-]+$#';
+    /** Branch names are used in sandbox shell commands: only safe characters, no leading dash (git option injection), no `..`, no trailing newline. */
+    private const string SAFE_BRANCH_PATTERN = '#^(?!-)(?!.*\.\.)[A-Za-z0-9._/-]+\z#';
 
     public function __construct(
         public readonly string $repoFullName,
