@@ -50,7 +50,7 @@ class FollowUpTaskFactory
                 'description' => $instructions,
                 'author_name' => $authorName,
                 're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
-                'targets_external_pr' => $head->targets_external_pr,
+                'targets_external_pr' => (bool) $head->targets_external_pr,
                 'summon_review_comment_id' => $summonReviewCommentId,
                 'status' => TaskStatus::Pending,
             ]);
