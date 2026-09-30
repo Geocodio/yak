@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PAGES } from './pages.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,22 +28,6 @@ const TARGET_DIR = resolve(__dirname, '../src/content/docs');
 // the prefix baked in. Kept here as a single source of truth for the sync.
 const SITE_BASE = '/yak';
 
-// Sidebar grouping and order. Every docs/*.md page (except EXCLUDED) must be
-// listed here; the sync fails on an unlisted page.
-const PAGES = [
-  { file: 'overview.md',        title: 'How Yak works',  description: 'The channel map, what a task is, what Yak does and does not do, and a dashboard tour.', group: 'getting-started', order: 0 },
-  { file: 'setup.md',           title: 'Setup Guide',    description: 'Provision a Yak server with Ansible in one command.',                    group: 'getting-started', order: 1 },
-  { file: 'channels.md',        title: 'Channels',       description: 'Configure Slack, Linear, Sentry, GitHub, Drone, and the manual CLI.',    group: 'getting-started', order: 2 },
-  { file: 'repositories.md',    title: 'Repositories',   description: 'Add and manage repositories, setup tasks, and CLAUDE.md conventions.',   group: 'getting-started', order: 3 },
-  { file: 'branch-deployments.md', title: 'Branch Deployments', description: 'A live preview URL for every open PR on an opted-in repo.',        group: 'getting-started', order: 5 },
-  { file: 'video-walkthroughs.md', title: 'Video Walkthroughs', description: 'Recorded walkthroughs on PRs and the installation-wide video theme.', group: 'getting-started', order: 6 },
-  { file: 'pr-review.md',       title: 'PR Review',      description: 'Enable Yak to review pull requests with line-level comments and a feedback dashboard.', group: 'getting-started', order: 4 },
-  { file: 'risk-based-approval.md', title: 'Risk-Based Approval', description: 'Let Yak approve low-risk PRs, with shadow mode and risk profiles.', group: 'getting-started', order: 7 },
-  { file: 'architecture.md',    title: 'Architecture',   description: 'How Yak works under the hood: two-tier AI, drivers, state machine.',    group: 'reference',       order: 1 },
-  { file: 'prompting.md',       title: 'Prompting',      description: 'Three prompt layers, system prompt, task templates, MCP servers.',       group: 'reference',       order: 2 },
-  { file: 'troubleshooting.md', title: 'Troubleshooting',description: 'Common problems and how to diagnose them.',                             group: 'operations',      order: 1 },
-  { file: 'development.md',     title: 'Development',    description: 'Local setup, running tests, code style, and adding new channel drivers.',group: 'contributing',    order: 1 },
-];
 
 // Exclude the GitHub-facing folder index. Starlight has its own homepage.
 const EXCLUDED = new Set(['README.md']);
@@ -103,7 +88,7 @@ function main() {
 
   const unlisted = sourceFiles.filter((name) => !PAGES.some((p) => p.file === name));
   if (unlisted.length > 0) {
-    console.error(`docs/ pages missing from PAGES in sync-docs.mjs (and the sidebar in astro.config.mjs): ${unlisted.join(', ')}`);
+    console.error(`docs/ pages missing from PAGES in sync-docs.mjs : ${unlisted.join(', ')}`);
     process.exit(1);
   }
 

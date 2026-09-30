@@ -17,7 +17,7 @@ On every dev start or build, `scripts/sync-docs.mjs`:
 5. Writes the transformed files to `src/content/docs/` (git-ignored)
 6. Copies Starlight-only pages (homepage, etc.) from `src/content/docs-static/`
 
-Sidebar order and descriptions are configured in the `PAGES` array inside `scripts/sync-docs.mjs`.
+Sidebar order and descriptions are configured in the `PAGES` array in `scripts/pages.mjs`.
 
 ## Working on the site
 
@@ -30,11 +30,11 @@ Edit the markdown files in `../docs/`. Run `npm run dev` here to see changes liv
 ### Editing theme or structure
 
 - **Visual theme**: `src/styles/yak-theme.css` (Yak design tokens, typography, components)
-- **Sidebar and top nav**: `astro.config.mjs`
+- **Sidebar**: `scripts/pages.mjs` (groups and order); top nav in `astro.config.mjs`
 - **Homepage**: `src/content/docs-static/index.mdx` (uses Starlight's splash template)
 - **Favicon and OG image**: `public/favicon.png`, `public/og-image.png`
 - **Logo**: `src/assets/mascot.png`
-- **Sidebar order**: the `PAGES` array in `scripts/sync-docs.mjs`
+- **Sidebar order**: the `PAGES` array in `scripts/pages.mjs`
 
 ## Commands
 

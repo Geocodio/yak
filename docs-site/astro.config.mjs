@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import mermaid from 'astro-mermaid';
+import { GROUPS, PAGES } from './scripts/pages.mjs';
 
 // Deployed to https://geocodio.github.io/yak/
 // If a custom domain is added later, set `site` to the bare domain and
@@ -47,40 +48,12 @@ export default defineConfig({
         // when needed. Keeping overrides minimal for now, the design
         // tokens handle most of the visual identity.
       },
-      sidebar: [
-        {
-          label: 'Getting Started',
-          items: [
-            { slug: 'overview' },
-            { slug: 'setup' },
-            { slug: 'channels' },
-            { slug: 'repositories' },
-            { slug: 'branch-deployments' },
-            { slug: 'video-walkthroughs' },
-            { slug: 'pr-review' },
-            { slug: 'risk-based-approval' },
-          ],
-        },
-        {
-          label: 'Reference',
-          items: [
-            { slug: 'architecture' },
-            { slug: 'prompting' },
-          ],
-        },
-        {
-          label: 'Operations',
-          items: [
-            { slug: 'troubleshooting' },
-          ],
-        },
-        {
-          label: 'Contributing',
-          items: [
-            { slug: 'development' },
-          ],
-        },
-      ],
+      sidebar: GROUPS.map((group) => ({
+        label: group.label,
+        items: PAGES.filter((page) => page.group === group.key)
+          .sort((left, right) => left.order - right.order)
+          .map((page) => ({ slug: page.file.replace(/\.md$/, '') })),
+      })),
     }),
   ],
 });
