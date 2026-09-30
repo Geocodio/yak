@@ -175,7 +175,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
    - `app_mentions:read`
    - `channels:history`
    - `reactions:write` (lets Yak apply status reactions to your @mention)
-7. Install the app to your workspace
+7. Install the app to your workspace and copy the **Bot User OAuth Token** (`xoxb-...`) and the **Signing Secret** (under **Basic Information**). Optionally set the app icon to [`public/slack-icon.png`](https://github.com/geocodio/yak/blob/main/public/slack-icon.png).
 8. Add the following to `ansible/vault/secrets.yml`:
 
    ```yaml
@@ -340,7 +340,7 @@ The picked-up → started transition is automatic: Yak queries the issue's team'
 2. Permissions required: **Organization: Read**, **Project: Read**, **Issue & Event: Read**. Organization+Project read are what lets the Add Repository form populate the Sentry project dropdown — skip them and the form silently falls back to a plain slug text input.
 3. Set the webhook URL: `https://{your-domain}/webhooks/sentry`
 4. Create an issue alert rule whose action notifies this integration. The rule is the opt-in: whichever issues it fires on are the ones Yak considers
-5. Map Sentry projects to repositories via the `sentry_project` field on each repo (see the [Repositories](repositories.md) page)
+5. Copy the integration's **Token** and **Webhook Signing Secret**, then map Sentry projects to repositories via the `sentry_project` field on each repo (see the [Repositories](repositories.md) page)
 6. Add to `ansible/vault/secrets.yml`:
 
    ```yaml
@@ -382,7 +382,7 @@ Issues tagged `yak-priority` bypass both the event count and actionability filte
 
 ### Setup
 
-1. Add to `ansible/vault/secrets.yml`:
+1. Copy your **Personal Token** from `https://{drone-url}/account` and add to `ansible/vault/secrets.yml`:
 
    ```yaml
    drone_url: https://drone.yourcompany.com

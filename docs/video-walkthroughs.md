@@ -58,3 +58,9 @@ Each video's browser-bar chrome shows a URL, and by default that's the sandbox's
 ### Voiceover
 
 Voiceover is read-only on this page: it's a global capability toggle, not a per-theme setting. It's on when `ELEVENLABS_API_KEY` is configured for the installation; otherwise every walkthrough is captions only.
+
+Narration uses ElevenLabs (`eleven_multilingual_v2`). Before each render, Yak turns the script's intro, each shot's `say` line and the outro into audio and mixes it into the cut. Expect roughly 1,000 to 1,300 characters per walkthrough, billed at one credit per character. `ELEVENLABS_VOICE_ID` picks the voice.
+
+To create the key, open **Developers → API Keys** in ElevenLabs and create a restricted key with **Text to Speech: Access** and everything else set to No Access. A per-credit refresh period works as a spend cap. Then set `elevenlabs_api_key` (and optionally `elevenlabs_voice_id`) in the vault.
+
+Voiceover is best-effort. With no key, or when the API errors, the walkthrough still renders with captions and Yak still opens the PR. The **Voiceover** row on the health page shows the state, and the cost dashboard sums the characters sent.

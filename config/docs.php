@@ -36,10 +36,6 @@ return [
 
         // Setup
         'setup' => 'setup/',
-        'setup.slack' => 'setup/#slack-optional',
-        'setup.linear' => 'setup/#linear-optional',
-        'setup.sentry' => 'setup/#sentry-optional',
-        'setup.drone' => 'setup/#drone-ci-optional',
         'setup.updating' => 'setup/#updating-yak',
 
         // Channels

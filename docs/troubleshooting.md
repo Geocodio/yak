@@ -405,7 +405,7 @@ For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.we
 
 ### The walkthrough has no narration
 
-Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled — see [setup](setup.md). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts — a task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
+Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled. See [Video Walkthroughs](video-walkthroughs.md#voiceover). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts — a task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
 
 ### `Visual capture: partial` in the task log
 
