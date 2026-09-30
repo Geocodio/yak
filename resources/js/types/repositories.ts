@@ -100,7 +100,6 @@ export type RepositoryDocsLinks = {
     claudeMd: string;
     routing: string;
     prReview: string;
-    refresh: string;
     rerunSetup: string;
 };
 

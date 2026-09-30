@@ -27,12 +27,14 @@ const TARGET_DIR = resolve(__dirname, '../src/content/docs');
 // the prefix baked in. Kept here as a single source of truth for the sync.
 const SITE_BASE = '/yak';
 
-// Sidebar grouping and order. Files not listed here are synced but excluded
-// from explicit ordering — they'll appear alphabetically if included.
+// Sidebar grouping and order. Every docs/*.md page (except EXCLUDED) must be
+// listed here; the sync fails on an unlisted page.
 const PAGES = [
   { file: 'setup.md',           title: 'Setup Guide',    description: 'Provision a Yak server with Ansible in one command.',                    group: 'getting-started', order: 1 },
   { file: 'channels.md',        title: 'Channels',       description: 'Configure Slack, Linear, Sentry, GitHub, Drone, and the manual CLI.',    group: 'getting-started', order: 2 },
   { file: 'repositories.md',    title: 'Repositories',   description: 'Add and manage repositories, setup tasks, and CLAUDE.md conventions.',   group: 'getting-started', order: 3 },
+  { file: 'branch-deployments.md', title: 'Branch Deployments', description: 'A live preview URL for every open PR on an opted-in repo.',        group: 'getting-started', order: 5 },
+  { file: 'video-walkthroughs.md', title: 'Video Walkthroughs', description: 'Recorded walkthroughs on PRs and the installation-wide video theme.', group: 'getting-started', order: 6 },
   { file: 'pr-review.md',       title: 'PR Review',      description: 'Enable Yak to review pull requests with line-level comments and a feedback dashboard.', group: 'getting-started', order: 4 },
   { file: 'architecture.md',    title: 'Architecture',   description: 'How Yak works under the hood: two-tier AI, drivers, state machine.',    group: 'reference',       order: 1 },
   { file: 'prompting.md',       title: 'Prompting',      description: 'Three prompt layers, system prompt, task templates, MCP servers.',       group: 'reference',       order: 2 },
@@ -97,13 +99,15 @@ function main() {
   );
   const assetFiles = entries.filter((name) => ASSET_EXTENSIONS.has(extname(name).toLowerCase()));
 
+  const unlisted = sourceFiles.filter((name) => !PAGES.some((p) => p.file === name));
+  if (unlisted.length > 0) {
+    console.error(`docs/ pages missing from PAGES in sync-docs.mjs (and the sidebar in astro.config.mjs): ${unlisted.join(', ')}`);
+    process.exit(1);
+  }
+
   let synced = 0;
   for (const filename of sourceFiles) {
     const page = PAGES.find((p) => p.file === filename);
-    if (!page) {
-      console.warn(`  skip: ${filename} (not in PAGES list)`);
-      continue;
-    }
 
     const sourcePath = join(SOURCE_DIR, filename);
     const raw = readFileSync(sourcePath, 'utf8');

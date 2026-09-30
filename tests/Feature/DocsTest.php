@@ -7,7 +7,7 @@ it('resolves known anchors to absolute URLs', function () {
         ->toBe('https://geocodio.github.io/yak/channels/#slack-optional');
 
     expect(Docs::url('architecture.core-loop'))
-        ->toBe('https://geocodio.github.io/yak/architecture/#the-core-loop');
+        ->toBe('https://geocodio.github.io/yak/architecture/#coding-agent-workflow');
 });
 
 it('resolves the home anchor to the docs base URL', function () {

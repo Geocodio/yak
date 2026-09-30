@@ -56,11 +56,10 @@ return [
         'repositories' => 'repositories/',
         'repositories.adding' => 'repositories/#adding-a-repository',
         'repositories.setup' => 'repositories/#the-setup-task',
-        'repositories.claude-md' => 'repositories/#claudemd-the-highest-leverage-config-point',
+        'repositories.claude-md' => 'repositories/#write-a-claudemd',
         'repositories.management' => 'repositories/#repo-management-pages',
         'repositories.multi-repo' => 'repositories/#multi-repo-requests',
         'repositories.pr-review' => 'repositories/#pr-review-toggle',
-        'repositories.refresh' => 'repositories/#repo-refresh',
         'repositories.rerun-setup' => 'repositories/#re-running-setup',
         'repositories.routing' => 'repositories/#routing-tasks-to-repos',
 
@@ -69,8 +68,8 @@ return [
 
         // Architecture
         'architecture' => 'architecture/',
-        'architecture.core-loop' => 'architecture/#the-core-loop',
-        'architecture.state-machine' => 'architecture/#the-state-machine',
+        'architecture.core-loop' => 'architecture/#coding-agent-workflow',
+        'architecture.state-machine' => 'architecture/#task-state-machine',
         'architecture.sandbox' => 'architecture/#sandbox-isolation-incus',
         'architecture.jobs' => 'architecture/#jobs-and-queues',
 

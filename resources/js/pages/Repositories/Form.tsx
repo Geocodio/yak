@@ -409,14 +409,6 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                     />
                                     <InfoTip label="Branch Yak bases task branches on and opens pull requests against." />
                                 </div>
-                                <a
-                                    href={docsLinks.refresh}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-accent-text hover:underline"
-                                >
-                                    <BookOpen size={11} /> How refresh works
-                                </a>
                             </Field>
                         </div>
                         <Field

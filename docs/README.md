@@ -8,6 +8,7 @@ User-facing documentation for running and operating Yak. Source of truth lives h
 - **[Channels](channels.md)** — configuring Slack, Linear, Sentry, GitHub, Drone, and the manual CLI
 - **[Repositories](repositories.md)** — adding repos, the setup task, CLAUDE.md guidance, multi-repo routing
 - **[PR Review](pr-review.md)** — enabling Yak to review pull requests, path filters, dashboard, reactions
+- **[Branch Deployments](branch-deployments.md)** — a live preview URL for every open PR
 - **[Video Walkthroughs](video-walkthroughs.md)** — the walkthrough render pipeline and the installation-wide theme editor
 
 ## Reference
@@ -22,7 +23,3 @@ User-facing documentation for running and operating Yak. Source of truth lives h
 ## Contributing
 
 - **[Development](development.md)** — local dev setup, running tests, code style, adding new channel drivers
-
----
-
-Looking for the internal design specs instead? Those live in [`spec/`](../spec/) at the repo root. The `spec/` files are the source of the user-facing docs here — they describe the target state and design rationale, while these docs describe how to use the running system.

@@ -87,7 +87,7 @@ If a Slack task has no explicit `in {repo}:` mention, no Sentry mapping, and mul
 
 Linear and Sentry tasks never clarify — Linear falls back to the default repo, Sentry requires an explicit mapping.
 
-## CLAUDE.md — The Highest-Leverage Config Point
+## Write a CLAUDE.md
 
 Every repo should have a `CLAUDE.md` at its root. This file is loaded by Claude Code for every task and is the single most important customization point — it's how you teach Yak the conventions, patterns, and landmines specific to your codebase.
 
@@ -170,10 +170,6 @@ Each repository has four deployment-related fields:
 Each repo has a **PR Review** toggle on its edit page. When enabled, Yak reviews every open, non-draft PR on the repo — posting line-level comments with category + severity + (sometimes) `suggestion` blocks. See the [PR Review guide](pr-review.md) for the full flow.
 
 Path filters let you narrow what Yak reviews. The defaults (in `config/yak.php`) exclude `vendor/**`, `node_modules/**`, lockfiles, and minified assets; per-repo overrides are a chip list on the same edit page.
-
-## Repo Refresh
-
-Yak automatically runs `git fetch origin {default_branch}` every 30 minutes via the scheduled `yak:refresh-repos` command. This keeps each repo's default branch tip up to date so that new tasks start from the latest code without a manual pull.
 
 ## What Isn't Stored Per-Repo
 

@@ -101,7 +101,7 @@ docker exec yak php artisan yak:setup-repo {slug}
 
 Or click **Re-run Setup** on the repo's edit page.
 
-If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target repo with the specific commands Yak got wrong. See [Repositories → CLAUDE.md](repositories.md#claudemd--the-highest-leverage-config-point).
+If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target repo with the specific commands Yak got wrong. See [Repositories → CLAUDE.md](repositories.md#write-a-claudemd).
 
 ## Webhooks Not Arriving
 
@@ -160,15 +160,9 @@ If the first command fails, the CLI isn't installed in the container — rebuild
 
 Symptoms: tasks fail with `error_log` mentioning auth, 401, or "token expired". The health check posts an alert to Slack.
 
-Claude Code authenticates via an interactive `claude login` session token stored in `/home/yak/.claude/`. When the token expires, every Claude Code job fails gracefully with an auth error — tasks are marked `failed`, a notification goes to the source, and the health check raises an alert.
+Claude Code authenticates via an interactive Claude Code login session token stored in `/home/yak/.claude/`. When the token expires, every Claude Code job fails gracefully with an auth error — tasks are marked `failed`, a notification goes to the source, and the health check raises an alert.
 
-**Resolution:**
-
-```bash
-docker exec -it yak claude login
-```
-
-Follow the browser-based OAuth flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
+**Resolution:** SSH to the server and run `yak-claude-login`. Type `/login` at the prompt and finish the browser flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
 
 ### MCP Server Connection Issues
 
@@ -237,9 +231,9 @@ The `/health` page (and the scheduled `yak:healthcheck` command) runs these chec
 |---|---|
 | **Queue worker running** | Supervisord crash — `docker restart yak` |
 | **Last task completed within N hours** | No traffic, or workers hung on a stuck task |
-| **All repos fetchable** | Git auth issue — re-run `yak:refresh-repos` manually, check SSH key |
+| **All repos fetchable** | Git auth issue. Check that the GitHub App is installed on the repo. |
 | **Claude CLI responding** | See [Claude CLI errors](#claude-cli-errors) above |
-| **Claude CLI authenticated** | Token expired — run `docker exec -it yak claude login` |
+| **Claude CLI authenticated** | Token expired — SSH to the server and run `yak-claude-login` |
 | **Enabled channel MCP servers reachable** | Network issue or external service down |
 
 Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.

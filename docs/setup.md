@@ -218,7 +218,7 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
    - `channels:history`
    - `reactions:write` — lets Yak react 👀 / 🚧 / ✅ / ❌ on your mention for glanceable status
 4. Click **Install to Workspace** and authorize
-5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon, set the short description to *"AI coding agent — mention me with a task, get a pull request"*, and the background color to `#3d4f5f` (Yak slate — dark enough for Slack's white wordmark)
+5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](https://github.com/geocodio/yak/blob/main/public/slack-icon.png) as the app icon, set the short description to *"AI coding agent — mention me with a task, get a pull request"*, and the background color to `#3d4f5f` (Yak slate — dark enough for Slack's white wordmark)
 6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
 7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
 8. Go to **App Home**, enable the **Home Tab** — this powers the welcome DM Yak sends the first time a user opens Yak in the sidebar
@@ -315,13 +315,13 @@ Total time: about 10 minutes.
 
 ### 6. Log In To Claude Code (on the server)
 
-This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
+This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, SSH into the server and run:
 
 ```bash
-docker exec -it yak claude login
+yak-claude-login
 ```
 
-Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
+Type `/login` at the prompt and finish the browser flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
 
 The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
 
@@ -401,10 +401,6 @@ ansible-playbook ansible/playbook.yml --tags secrets
 ```
 
 ## Updating Repos
-
-### Routine Maintenance
-
-Yak runs `git fetch origin {default_branch}` every 30 minutes via the scheduled `yak:refresh-repos` command. No manual repo updates are needed during normal operation.
 
 ### Infrastructure Changes
 

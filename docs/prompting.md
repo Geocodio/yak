@@ -1,6 +1,6 @@
 # Prompting
 
-This page is for teams who want to customize Yak's behavior — adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#claudemd--the-highest-leverage-config-point).
+This page is for teams who want to customize Yak's behavior — adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#write-a-claudemd).
 
 ## Three Prompt Layers
 
