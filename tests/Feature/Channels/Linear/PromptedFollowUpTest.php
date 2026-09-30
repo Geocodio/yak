@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\NotificationType;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
+use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
@@ -263,4 +265,20 @@ it('still routes a mid-run clarification reply to ClarificationReplyJob', functi
     ], $this->secret)->assertSuccessful();
 
     Bus::assertDispatched(ClarificationReplyJob::class);
+});
+
+it('a Linear prompt on a finished research task creates a research follow-up', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->success()->create(['mode' => TaskMode::Research, 'pr_url' => null, 'repo' => 'research-repo', 'session_id' => 'sess_research', 'source' => 'linear', 'linear_agent_session_id' => 'sess-r1']);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-r1'],
+        'agentActivity' => ['content' => ['body' => 'and the circuit breaker?']],
+    ], $this->secret)->assertSuccessful()->assertJson(['handled' => 'follow_up']);
+
+    Queue::assertPushed(ResearchFollowUpJob::class, fn (ResearchFollowUpJob $job) => $job->task->parent_task_id === $task->id);
 });

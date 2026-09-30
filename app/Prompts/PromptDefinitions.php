@@ -98,6 +98,14 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['description'],
             ],
+            'tasks-research-follow-up' => [
+                'view' => 'prompts.tasks.research-follow-up',
+                'label' => 'Research Follow-up',
+                'description' => 'Sent when the user asks a follow-up question on a finished research task. Carries the previous answer and a pointer to the previous report so a fresh session still has context, and asks Claude to answer the question and revise the report only when needed.',
+                'category' => 'advanced',
+                'type' => 'task',
+                'variables' => ['question', 'previousSummary', 'hasPreviousReport'],
+            ],
             'tasks-retry' => [
                 'view' => 'prompts.tasks.retry',
                 'label' => 'Retry',

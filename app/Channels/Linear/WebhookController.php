@@ -331,7 +331,7 @@ class WebhookController extends Controller
      * - stop signal → cancel the task
      * - AwaitingClarification on a repo choice → resolve the repo and start the agent
      * - AwaitingClarification otherwise → dispatch ClarificationReplyJob
-     * - open PR → create a chained follow-up via FollowUpTaskFactory
+     * - open PR or finished research → create a chained follow-up via FollowUpTaskFactory
      * - merged/closed → post a polite decline
      * - unknown session → no-op (200 OK)
      *
@@ -414,7 +414,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
         }
 
-        if ($task->prIsOpen()) {
+        if ($task->acceptsFollowUp()) {
             app(FollowUpTaskFactory::class)->create($task, $message, 'linear', authorName: $request->input('actor.name'));
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);

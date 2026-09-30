@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
@@ -133,7 +134,7 @@ class ReapLostPendingCommand extends Command
     }
 
     /**
-     * @return class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>
+     * @return class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob>
      */
     private function jobClassFor(YakTask $task): string
     {
@@ -142,7 +143,7 @@ class ReapLostPendingCommand extends Command
 
         return match ($mode) {
             TaskMode::Setup => SetupYakJob::class,
-            TaskMode::Research => ResearchYakJob::class,
+            TaskMode::Research => $task->parent_task_id !== null ? ResearchFollowUpJob::class : ResearchYakJob::class,
             TaskMode::Review => RunYakReviewJob::class,
             default => RunYakJob::class,
         };

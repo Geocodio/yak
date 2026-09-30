@@ -16,7 +16,7 @@ use Symfony\Component\Finder\Finder;
  * `::dispatchSync(` call that bypasses the helper.
  */
 test('the claiming agent jobs are only dispatched through AgentJobDispatcher', function () {
-    $claimingJobs = ['RunYakJob', 'ResearchYakJob', 'RunYakReviewJob', 'SetupYakJob'];
+    $claimingJobs = ['RunYakJob', 'ResearchYakJob', 'ResearchFollowUpJob', 'RunYakReviewJob', 'SetupYakJob'];
 
     $pattern = '/\b(' . implode('|', $claimingJobs) . ')::dispatch(Sync|If|Unless|AfterResponse)?\s*\(/';
 

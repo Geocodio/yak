@@ -203,6 +203,30 @@ class YakTask extends Model
     }
 
     /**
+     * Whether a reply from the user can start a follow-up run: an open PR
+     * still takes commits, and a finished research task takes a follow-up
+     * question.
+     */
+    public function acceptsFollowUp(): bool
+    {
+        return $this->prIsOpen()
+            || ($this->mode === TaskMode::Research && $this->status === TaskStatus::Success);
+    }
+
+    /**
+     * The newest research report produced anywhere in this task's
+     * conversation, or null when no turn produced one.
+     */
+    public function latestResearchArtifact(): ?Artifact
+    {
+        return Artifact::query()
+            ->whereIn('yak_task_id', $this->conversation()->pluck('id'))
+            ->where('type', 'research')
+            ->latest('id')
+            ->first();
+    }
+
+    /**
      * Number of the task's PR: the PR it opened, or for a review the PR under
      * review. Review tasks record only the URL, so the number falls back to
      * the one in the URL's `/pull/<number>` segment.

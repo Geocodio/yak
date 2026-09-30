@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
-use App\Channels\Slack\BlockFormatter as SlackBlockFormatter;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -14,6 +13,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
+use App\Jobs\Concerns\ReportsResearchToSource;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -36,9 +36,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 {
@@ -46,6 +44,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
     use HandlesAgentJobFailure;
     use NotifiesSourceOfFailure;
     use Queueable;
+    use ReportsResearchToSource;
 
     public int $timeout = 3600;
 
@@ -254,6 +253,8 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $recorder->closePostAgent();
 
             if ($containerName !== null) {
+                // Persisted so a follow-up question can resume this session.
+                $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
                 $sandbox->destroy($containerName);
                 $recorder->mark('teardown');
             }
@@ -342,50 +343,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
-    private function collectHtmlArtifact(IncusSandboxManager $sandbox, string $containerName): ?Artifact
-    {
-        $workspacePath = IncusSandboxManager::workspacePath();
-        $remotePath = "{$workspacePath}/.yak-artifacts/research.html";
-
-        if (! $sandbox->fileExists($containerName, $remotePath)) {
-            return null;
-        }
-
-        // Pull the artifact from the sandbox to local storage
-        $storagePath = "{$this->task->id}/research.html";
-        $localPath = Storage::disk('artifacts')->path($storagePath);
-
-        $localDir = dirname($localPath);
-        if (! is_dir($localDir)) {
-            mkdir($localDir, 0755, true);
-        }
-
-        $sandbox->pullFile($containerName, $remotePath, $localPath);
-
-        /** Research artifacts sit outside the video pipeline, so they carry no role. */
-        return Artifact::create([
-            'yak_task_id' => $this->task->id,
-            'type' => 'research',
-            'role' => null,
-            'filename' => 'research.html',
-            'disk_path' => $storagePath,
-            'size_bytes' => filesize($localPath) ?: 0,
-        ]);
-    }
-
-    /**
-     * Auth-gated viewer URL — same one we attach to Linear issues. The
-     * controller redirects unauthenticated visitors through the dashboard
-     * login, so a Slack click works once the user has a session.
-     */
-    private function viewerUrl(Artifact $artifact): string
-    {
-        return route('artifacts.viewer', [
-            'task' => $this->task->id,
-            'filename' => $artifact->filename,
-        ]);
-    }
-
     private function handleError(string $errorMessage): void
     {
         // Don't overwrite a task that's already terminal — see
@@ -403,58 +360,5 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         ]);
 
         $this->notifySourceOfFailure($errorMessage);
-    }
-
-    private function postToSource(string $message): void
-    {
-        match ($this->task->source) {
-            'slack' => $this->postToSlack($message),
-            'linear' => $this->postToLinear($message),
-            default => null,
-        };
-    }
-
-    private function postToSlack(string $message): void
-    {
-        $token = (string) config('yak.channels.slack.bot_token');
-
-        if ($token === '' || ! $this->task->slack_channel) {
-            return;
-        }
-
-        // The message arrives as common Markdown (`**bold**`,
-        // `[label](url)`) so the Linear path renders correctly. Slack
-        // uses mrkdwn (`*bold*`, `<url|label>`); convert before posting
-        // or the link surfaces as raw markdown text in the thread.
-        Http::withToken($token)
-            ->post('https://slack.com/api/chat.postMessage', [
-                'channel' => $this->task->slack_channel,
-                'thread_ts' => $this->task->slack_thread_ts,
-                'text' => SlackBlockFormatter::mrkdwn($message),
-            ]);
-    }
-
-    private function postToLinear(string $message): void
-    {
-        $sessionId = (string) $this->task->linear_agent_session_id;
-
-        if ($sessionId === '') {
-            return;
-        }
-
-        app(LinearNotificationDriver::class)
-            ->postAgentActivity($sessionId, type: 'response', body: $message);
-    }
-
-    private function moveLinearToDone(): void
-    {
-        $stateId = (string) config('yak.channels.linear.done_state_id');
-
-        if ($stateId === '') {
-            return;
-        }
-
-        app(LinearNotificationDriver::class)
-            ->setIssueState($this->task, $stateId);
     }
 }

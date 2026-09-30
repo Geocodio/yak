@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
+use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\DB;
@@ -11,9 +13,11 @@ use Illuminate\Support\Facades\DB;
 class FollowUpTaskFactory
 {
     /**
-     * Create a chained follow-up task for an open PR and dispatch the runner.
-     * Returns null (and dispatches nothing) when the PR is already merged or
-     * closed -- the caller should post a polite decline.
+     * Create a chained follow-up task and dispatch the runner: for an open PR,
+     * or for a finished research task (a follow-up question). Returns null
+     * (and dispatches nothing) when the PR is already merged or closed and the
+     * head is not a finished research task -- the caller should post a polite
+     * decline.
      *
      * @param  array<int, string>  $reRequestReviewFrom  GitHub logins to re-request review from once this follow-up succeeds
      * @param  int|null  $summonReviewCommentId  Review comment thread the summary reply goes to, when summoned from an inline comment
@@ -27,20 +31,22 @@ class FollowUpTaskFactory
         $head = $chain->last() ?? $parent;
         $root = $chain->first() ?? $parent;
 
-        if (! $head->prIsOpen()) {
+        if (! $head->acceptsFollowUp()) {
             return null;
         }
 
-        $child = DB::transaction(function () use ($head, $root, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId): YakTask {
+        $isResearch = $head->mode === TaskMode::Research;
+
+        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
                 'repo' => $head->repo,
                 'mode' => $head->mode,
-                'branch_name' => $head->branch_name,
+                'branch_name' => $isResearch ? null : $head->branch_name,
                 'session_id' => $head->session_id,
-                'pr_url' => $head->pr_url,
-                'pr_number' => $head->pr_number,
+                'pr_url' => $isResearch ? null : $head->pr_url,
+                'pr_number' => $isResearch ? null : $head->pr_number,
                 'linear_agent_session_id' => $head->linear_agent_session_id,
                 'slack_channel' => $head->slack_channel,
                 'slack_thread_ts' => $head->slack_thread_ts,
@@ -50,7 +56,7 @@ class FollowUpTaskFactory
                 'description' => $instructions,
                 'author_name' => $authorName,
                 're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
-                'targets_external_pr' => (bool) $head->targets_external_pr,
+                'targets_external_pr' => ! $isResearch && $head->targets_external_pr,
                 'summon_review_comment_id' => $summonReviewCommentId,
                 'status' => TaskStatus::Pending,
             ]);
@@ -73,7 +79,11 @@ class FollowUpTaskFactory
             'chars' => mb_strlen($instructions),
         ], task: $child);
 
-        RunFollowUpJob::dispatch($child)->afterCommit();
+        if ($isResearch) {
+            app(AgentJobDispatcher::class)->dispatch($child, ResearchFollowUpJob::class);
+        } else {
+            RunFollowUpJob::dispatch($child)->afterCommit();
+        }
 
         return $child;
     }

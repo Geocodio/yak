@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
@@ -13,8 +14,9 @@ use InvalidArgumentException;
 use SplObjectStorage;
 
 /**
- * Single choke point for dispatching the four "claiming" agent jobs —
- * RunYakJob, ResearchYakJob, RunYakReviewJob, SetupYakJob — the only jobs
+ * Single choke point for dispatching the five "claiming" agent jobs —
+ * RunYakJob, ResearchYakJob, ResearchFollowUpJob, RunYakReviewJob,
+ * SetupYakJob — the only jobs
  * that atomically claim a Pending task via App\Jobs\Concerns\ClaimsTask
  * (change 0). That atomicity is what makes it safe for
  * `yak:reap-lost-pending` to re-dispatch one of these against a task that
@@ -55,19 +57,20 @@ class AgentJobDispatcher
     private const ALLOWED_JOBS = [
         RunYakJob::class => true,
         ResearchYakJob::class => true,
+        ResearchFollowUpJob::class => true,
         RunYakReviewJob::class => true,
         SetupYakJob::class => true,
     ];
 
     /**
-     * The four claiming job classes this dispatcher will send, as a plain
+     * The claiming job classes this dispatcher will send, as a plain
      * list. Single source of truth for anything that needs to check
      * whether a `claimed_job_class` value can be faithfully re-dispatched —
      * currently DrainForDeployCommand (deciding what copy to use in its
      * straggler message) and yak:resume-interrupted-tasks (deciding what to
      * resume).
      *
-     * @return array<int, class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>>
+     * @return array<int, class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob>>
      */
     public static function claimableJobClasses(): array
     {
@@ -92,7 +95,7 @@ class AgentJobDispatcher
     private static ?string $lastQueuedUuid = null;
 
     /**
-     * @param  class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>  $jobClass
+     * @param  class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob>  $jobClass
      */
     public function dispatch(YakTask $task, string $jobClass): void
     {
@@ -106,7 +109,7 @@ class AgentJobDispatcher
      * so a stale `dispatched_at`/null `queue_job_uuid` afterwards can't
      * make the sweep re-dispatch it.
      *
-     * @param  class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>  $jobClass
+     * @param  class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob>  $jobClass
      */
     public function dispatchSync(YakTask $task, string $jobClass): void
     {
@@ -114,7 +117,7 @@ class AgentJobDispatcher
     }
 
     /**
-     * @param  class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>  $jobClass
+     * @param  class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob>  $jobClass
      */
     private function send(YakTask $task, string $jobClass, bool $sync): void
     {
