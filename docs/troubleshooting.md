@@ -14,7 +14,7 @@ docker exec yak php artisan yak:healthcheck
 docker logs yak --tail 100
 
 # 3. Queue status
-docker exec yak php artisan queue:monitor yak-claude,default
+docker exec yak php artisan queue:monitor yak-claude,default,yak-render,yak-deployments,yak-poll
 ```
 
 If the health check is green and logs are clean, the problem is usually in the external service (Slack app, Linear webhook, GitHub App installation) rather than Yak itself.
@@ -25,9 +25,9 @@ Symptoms: a PR opened on a repo with `pr_review_enabled = true` but no Yak revie
 
 ### Checklist
 
-1. **GitHub webhook reaching Yak?** Check webhook delivery in GitHub App settings. `pull_request.opened` and `pull_request.synchronize` must be subscribed.
+1. **GitHub webhook reaching Yak?** Check webhook delivery in GitHub App settings. `pull_request.opened` and `pull_request.review_requested` must be subscribed.
 2. **Repo active and enabled?** Go to `/repos/{id}/edit` and confirm **Active** and **PR Review** are both on.
-3. **PR a draft, or authored by yak-bot?** Both are intentionally skipped. Convert the draft to ready-for-review to trigger.
+3. **PR a draft?** Drafts are skipped. Convert the draft to ready-for-review to trigger. Yak's own PRs are reviewed unless `YAK_PR_SELF_REVIEW_ENABLED=false`.
 4. **Task dispatched but failed?** Look in `/tasks?tab=reviews` for a failed row. Common failure modes:
    - Sandbox checkout failure — the PR's head wasn't fetchable (force-pushed, branch deleted). Inspect the task activity log.
    - Claude output didn't contain a valid JSON block — usually means Claude failed the review instead of producing findings. The raw output lives in the task's `result_summary`.
@@ -39,38 +39,19 @@ Manual re-run from the TaskDetail page's **Re-run review** button. If the same t
 
 ## Task Stuck In `running`
 
-Symptoms: a task's status on the dashboard is `running` and hasn't moved for several minutes beyond the expected Claude Code duration (typically 2–10 minutes).
+Symptoms: a task's status is `running` and hasn't moved for a long time. Agent runs often take 30 to 40 minutes, so give it time first. The `yak-claude` queue timeout is one hour.
 
-### Likely Causes
+### What Yak does on its own
 
-1. **Queue worker crashed mid-task.** Supervisord will restart the worker, but the task row remains in `running` until a human resets it.
-2. **Claude CLI hung on network I/O.** MCP server call, docker-compose bringing up a service, or a very long test suite.
-3. **Budget exhausted silently.** The task hit `--max-budget-usd` and the job didn't update status cleanly.
+`yak:reap-orphaned-tasks` runs every 5 minutes. It marks a `running` or `retrying` task as `failed` when it has had no activity for 15 minutes, and cleans up its sandbox.
 
-### Diagnosis
+### What to do
 
-```bash
-# Is the Claude queue worker actually running?
-docker exec yak ps aux | grep "queue:work"
+1. Open the task page at `https://{your-domain}/tasks/{id}`. The timeline, the agent's steps and the Debug section show what it is doing.
+2. If it has really stalled, click **Cancel task** in the task menu.
+3. To try again, click **Retry** on a failed task.
 
-# Any recent errors in the logs?
-docker logs yak --tail 200 | grep -i error
-
-# What does the task's own timeline say? Look at its detail page:
-#   https://{your-domain}/tasks/{id}
-# The Debug section at the bottom has session ID, cost, turns, full Claude output.
-```
-
-### Resolution
-
-If the worker is running but the task is stale, it will eventually time out on the 600s `yak-claude` queue timeout. To manually fail a stuck task:
-
-```bash
-docker exec yak php artisan tinker
-# >>> App\Models\YakTask::find($id)->update(['status' => 'failed', 'error_log' => 'Manual reset']);
-```
-
-Manually resetting a task does not restart it. If you want Yak to try again, create a new task with the same description.
+If many tasks stall at once, check that the worker is running (`docker exec yak ps aux | grep "queue:work"`) and read `docker logs yak --tail 200`.
 
 ## Setup Task Fails For A Repo
 
@@ -158,9 +139,9 @@ If the first command fails, the CLI isn't installed in the container — rebuild
 
 ### Authentication Failures (Token Expired)
 
-Symptoms: tasks fail with `error_log` mentioning auth, 401, or "token expired". The health check posts an alert to Slack.
+Symptoms: the health check reports the Claude session as expired, and agent jobs wait in the queue.
 
-Claude Code authenticates via an interactive Claude Code login session token stored in `/home/yak/.claude/`. When the token expires, every Claude Code job fails gracefully with an auth error — tasks are marked `failed`, a notification goes to the source, and the health check raises an alert.
+Claude Code authenticates with a login session stored in `/home/yak/.claude/`. When it expires, agent jobs wait and retry every 10 minutes for up to 6 hours, and the health check raises an alert. See [Health Check Alerts](channels.md#health-check-alerts).
 
 **Resolution:** SSH to the server and run `yak-claude-login`. Type `/login` at the prompt and finish the browser flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
 
@@ -184,7 +165,7 @@ If a server is configured but Claude can't reach it, check:
 
 Symptoms: a task's status is `awaiting_ci` and never advances even though CI actually ran.
 
-1. **CI result not reaching Yak.** For GitHub Actions, check Caddy/nginx logs for inbound requests to `/webhooks/ci/github`. For Drone, check the scheduler/`default` worker logs — CI results are polled by `yak:poll-drone-ci` every minute, not pushed.
+1. **CI result not reaching Yak.** For GitHub Actions, check Caddy/nginx logs for inbound requests to `/webhooks/github`. For Drone, check the scheduler/`default` worker logs — CI results are polled by `yak:poll-drone-ci` every minute, not pushed.
 2. **Wrong CI system.** The repo's `ci_system` must match which CI is authoritative for that repo. A GitHub Actions webhook for a repo configured as `drone` is silently dropped.
 3. **Branch name mismatch.** The task's `branch_name` must match what was pushed. Look at the task's Debug section for the actual branch name.
 4. **GitHub App permissions.** The App needs `Checks: Read` and `Pull requests: Read & Write` to receive check suite events and create PRs.
@@ -210,18 +191,18 @@ If routing-layer costs are climbing, the cause is almost always one of:
 
 ### Implementation Layer (Claude Code)
 
-Implementation cost is covered by the Claude Max subscription, not billed per token. The cost dashboard shows Claude Code usage for monitoring but it does not affect your bill.
+Implementation cost is covered by the Claude Max subscription, not billed per token. The reported cost of every agent run still counts toward the daily budget below, so a busy day can hit the default $50 even though the number is notional.
 
 ### Budget Enforcement
 
-The `EnsureDailyBudget` job middleware fails new Claude Code jobs gracefully once the daily routing-layer budget is exceeded. Raise the limit via:
+The `EnsureDailyBudget` job middleware fails new Claude Code jobs gracefully once the daily budget is exceeded. Raise the limit in `ansible/vault/secrets.yml`:
 
-```bash
-# In ansible/vault/secrets.yml or the Yak container env:
-YAK_DAILY_BUDGET=100
+```yaml
+yak_extra_env:
+  YAK_DAILY_BUDGET_USD: "100"
 ```
 
-Re-run Ansible or restart the container.
+Then apply it with `ansible-playbook ansible/playbook.yml --tags yak-container`.
 
 ## Health Check Failures
 

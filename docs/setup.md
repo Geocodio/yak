@@ -106,12 +106,12 @@ google_oauth_client_id: "..."
 google_oauth_client_secret: "..."
 google_oauth_allowed_domains: "yourcompany.com"  # required, comma-separated
 
+# MariaDB container passwords. Set strong random values, e.g. `openssl rand -base64 24`
+mariadb_root_password: "..."
+mariadb_password: "..."
+
 # === Auto-generated (leave blank) ===
 yak_app_key: ""
-
-# Database (auto-provisioned MariaDB container)
-mariadb_root_password: ""
-mariadb_password: ""
 
 # GitHub App (filled after guided setup on first run, then re-run)
 github_app_id: ""

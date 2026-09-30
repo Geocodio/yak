@@ -147,11 +147,11 @@ pending → running → success                    (research / setup tasks)
 
 With these branches:
 
-- `running → awaiting_clarification → running` (Slack fix tasks only, 3-day TTL)
+- `running → awaiting_clarification → running` (any fix task, 3-day TTL)
 - `awaiting_ci → retrying → awaiting_ci` (at most one retry, so at most two attempts)
 - `*→ failed` at any point where Claude errors, budget is exceeded, or retries run out
 
-Three terminal states: `success`, `failed`, `expired`.
+`success` and `cancelled` are final. `failed` and `expired` can return to `pending` when you click **Retry**. A task can move to `cancelled` from any active state.
 
 ### Transition Diagram
 
@@ -183,7 +183,7 @@ pending ──→ running ────┼──→ awaiting_ci ──→ success
 |---|---|---|
 | `Pending` | `Running` | Job picked up by queue worker |
 | `Running` | `AwaitingCi` | Claude completed, branch pushed (mode = fix) |
-| `Running` | `AwaitingClarification` | Claude returned clarification JSON (source = slack) |
+| `Running` | `AwaitingClarification` | Claude returned clarification JSON |
 | `Running` | `Success` | Research or setup task completed |
 | `Running` | `Failed` | Claude errored, budget exceeded, scope exceeded |
 | `AwaitingClarification` | `Running` | User replied in Slack thread, session resumed |
@@ -240,12 +240,15 @@ Private registry auth follows the same push-then-start pattern as Claude config 
 
 ## Jobs and Queues
 
-Two queues separate Claude Code work from everything else:
+Five queues keep long agent runs from blocking everything else:
 
-| Queue | Concurrency | Timeout | Jobs |
+| Queue | Workers | Timeout | Jobs |
 |---|---|---|---|
-| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ClarificationReplyJob |
+| `yak-claude` | 4 | 3600s | Agent runs: run, retry, research, setup, review, follow-up, clarification reply |
 | `default` | 3 | 30s | ProcessCIResultJob, webhook handlers, PR creation, notifications, cleanup |
+| `yak-render` | 1 | 900s | Walkthrough video and theme sample renders |
+| `yak-deployments` | 2 | 900s | Branch deployment build, wake, hibernate, destroy |
+| `yak-poll` | 1 | 600s | Polling GitHub review reactions |
 
 The split exists to prevent a common failure mode: Task A's CI passes, but Task A's PR creation blocks for 10 minutes because Task B is mid-Opus on `yak-claude`. Putting coordination work (webhook processing, PR creation) on the `default` queue keeps it responsive even when Claude Code is busy.
 
@@ -268,7 +271,7 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 
 ### Middleware
 
-- **`EnsureDailyBudget`** — checks the `daily_costs` table before Claude Code invocations. If today's routing-layer cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
+- **`EnsureDailyBudget`** — checks the `daily_costs` table before Claude Code invocations. If today's total cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
 
 ## Session Continuity
 
@@ -292,14 +295,14 @@ The primary record. Every incoming event creates a task row. Key columns:
 
 | Column | Purpose |
 |---|---|
-| `source` | `sentry`, `flaky-test`, `linear`, `slack`, `manual` |
+| `source` | `sentry`, `flaky-test`, `linear`, `slack`, `manual`, `dashboard` |
 | `repo` | Slug joining to `repositories.slug` |
 | `external_id` | Source-side ID (GEO-1234, SENTRY-98765). Unique with `repo`. |
-| `mode` | `fix`, `research`, `setup` |
-| `status` | Fat enum: `pending`, `running`, `awaiting_clarification`, `awaiting_ci`, `retrying`, `success`, `failed`, `expired` |
+| `mode` | `fix`, `research`, `setup`, `review` |
+| `status` | Fat enum: `pending`, `running`, `awaiting_clarification`, `awaiting_ci`, `retrying`, `success`, `failed`, `expired`, `cancelled` |
 | `branch_name` | `yak/{external_id}` once created |
 | `session_id` | Claude session ID for `--resume` |
-| `clarification_options` | JSON array of option strings (Slack only) |
+| `clarification_options` | JSON array of option strings |
 | `pr_url`, `pr_merged_at`, `pr_closed_at` | Outcome tracking |
 | `cost_usd`, `duration_ms`, `num_turns` | Metrics |
 
@@ -319,7 +322,7 @@ One row per configured repo. Minimal schema — slug, name, path, default branch
 
 ### `daily_costs`
 
-Primary key is `date`. Tracks routing-layer API costs for budget enforcement. Updated after each task completes. Read by the `EnsureDailyBudget` middleware before any Claude Code invocation.
+Primary key is `date`. Tracks the reported cost of routing calls and every agent run (run, retry, review, setup, research, follow-up) for budget enforcement. Updated as each run finishes. Read by the `EnsureDailyBudget` middleware before any Claude Code invocation.
 
 ### `branch_deployments`
 
@@ -327,7 +330,7 @@ One row per open PR on an opted-in repository. Key columns:
 
 | Column | Purpose |
 |---|---|
-| `status` | State machine: `pending`, `provisioning`, `running`, `hibernated`, `failed`, `destroyed` |
+| `status` | State machine: `pending`, `starting`, `running`, `hibernated`, `destroying`, `destroyed`, `failed` |
 | `template_version` | Pinned to the `current_template_version` of the repo at creation time. The deployment clones from that snapshot version for its whole lifetime. |
 | `last_accessed_at` | Updated on every inbound request. Used as the idle signal for hibernation (15 minutes) and eviction ordering. |
 | `public_share_token_hash` | SHA-256 hash of the raw share token. Raw token is shown once at mint time and never persisted. Null when no share link is active. |
@@ -395,7 +398,7 @@ The full test suite runs on real CI, not on self-reported output from Claude. Cl
 Three layers:
 
 - **Per-task budget** — `--max-budget-usd 5.00` on every Claude CLI invocation, as a runaway guardrail. Implementation cost is covered by the subscription; this limit exists for safety.
-- **Daily budget** — `daily_budget_usd` (default $50) covers routing-layer API costs. Enforced by the `EnsureDailyBudget` middleware before any Claude Code job starts.
+- **Daily budget** — `daily_budget_usd` (default $50, set with `YAK_DAILY_BUDGET_USD`) counts the reported cost of routing calls and every agent run. On a Max subscription that cost is notional, so raise it to match your volume. Enforced by the `EnsureDailyBudget` middleware before any Claude Code job starts.
 - **Deduplication** — `UNIQUE(external_id, repo)` prevents repeat work on the same issue.
 
 ### Scope Flag
@@ -413,6 +416,6 @@ Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed UR
 - **Not a merge bot.** See above — no merge authority, no bypass.
 - **Not horizontally scaled.** Four concurrent workers on one server. The architecture supports future scaling to multiple hosts but doesn't need it.
 - **Not a long-running interactive agent.** Each task is a focused, mostly autonomous pass. You can give feedback on an open PR — in the originating channel, as a `/yak` PR comment, or from the dashboard — and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
-- **Not a frontend framework.** Dashboard is Livewire (server-rendered) with Livewire polling for live updates. No SPA, no websockets.
+- **Not a frontend framework.** Dashboard is Inertia + React on `@geocodio/console-ui`, with polling for live updates. No websockets.
 - **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.
 - **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere; the existing production deploy pipeline remains the source of truth.

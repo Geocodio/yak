@@ -11,7 +11,7 @@ The form has three sections:
 | Section | Fields |
 |---|---|
 | **Basics** | Slug (auto-generated from name, editable), display name, Git URL (HTTPS clone URL), path on disk (auto-filled from slug), default branch, active toggle, default toggle |
-| **Integration** | CI system (`github_actions` or `drone`), Sentry project slug (optional) |
+| **Integration** | CI system (`github_actions`, `drone`, or `none` to open the PR right away), Sentry project slug (optional) |
 | **Notes** | Free-text operational notes. Shown only in the dashboard — never sent to Claude. |
 
 ### Validation Rules
@@ -85,7 +85,7 @@ One repo per task, always. If a request mentions multiple repos — for example,
 
 If a Slack task has no explicit `in {repo}:` mention, no Sentry mapping, and multiple active repos exist, the task enters `awaiting_clarification` with repo options before any Claude Code work begins. This avoids wasting an Opus run on the wrong codebase. If only one active repo exists, it's always the right one and no clarification is needed.
 
-Linear and Sentry tasks never clarify — Linear falls back to the default repo, Sentry requires an explicit mapping.
+Only Slack asks which repo you meant. Linear falls back to the default repo, and Sentry requires an explicit mapping.
 
 ## Write a CLAUDE.md
 

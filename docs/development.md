@@ -99,7 +99,7 @@ Then:
 vendor/bin/pest --testsuite=Browser
 ```
 
-Browser tests cover the auth flow, Livewire live updates on the task detail page, artifact viewer navigation, signed URL access, and accessibility (`assertNoAccessibilityIssues()` plus `assertNoJavaScriptErrors()` on dashboard pages).
+Browser tests cover the auth flow, live polling updates on the task detail page, artifact viewer navigation, signed URL access, and accessibility (`assertNoAccessibilityIssues()` plus `assertNoJavaScriptErrors()` on dashboard pages).
 
 ### Contract Tests
 
@@ -157,7 +157,7 @@ See the [Architecture](architecture.md) page for the full system design. For con
 - **`app/Drivers/`** — channel driver implementations. Each channel has an input driver, a notification driver, or both.
 - **`app/Contracts/`** — the driver interfaces (`InputDriver`, `CIDriver`, `NotificationDriver`) plus `CIBuildScanner` and `AgentRunner`.
 - **`app/Http/Controllers/Webhooks/`** — one invokable controller per webhook endpoint. Uses the `VerifiesWebhookSignature` trait. Note: there is no Drone CI webhook — Drone is polled via `yak:poll-drone-ci` instead.
-- **`app/Livewire/`** — dashboard components. `Tasks/TaskList`, `Tasks/TaskDetail`, `Repos/RepoList`, `Repos/RepoForm`, `CostDashboard`, `Health`, `HealthRow`, `Skills`, `PromptEditor`, plus `Settings/*` and `Actions/*`.
+- **`resources/js/pages/`** — dashboard pages (Inertia + React), one file per page.
 - **`app/Models/`** — `YakTask` (note: `$table = 'tasks'`), `TaskLog`, `Artifact`, `Repository`, `DailyCost`, `AiUsage`, `Prompt`, `PromptVersion`, `GitHubInstallationToken`, `LinearOauthConnection`.
 - **`app/Enums/`** — `TaskStatus` (the state machine), `TaskMode`, `NotificationType`. The state machine uses the `artisan-build/fat-enums` composer package.
 - **`app/Services/`** — external API integrations (GitHub, Linear, Slack, Sentry), detection logic (`RepoDetector`, `RepoRouter`), and the `PromptResolver` that renders prompts with DB overrides.
@@ -276,7 +276,7 @@ interface NotificationDriver
 
 ### Adding A New CI Driver
 
-Same pattern, but implement `CIDriver` (or `CIBuildScanner` for pull-based systems) instead of `InputDriver`. GitHub Actions posts check-run results to `POST /webhooks/ci/github`. Drone has no outbound webhook, so its results are polled by the `yak:poll-drone-ci` scheduled command (see `app/Console/Commands/PollDroneCiCommand.php` and `app/Services/DroneBuildScanner.php`). The repo's `ci_system` column is the authority on which driver to use for a given repo.
+Same pattern, but implement `CIDriver` (or `CIBuildScanner` for pull-based systems) instead of `InputDriver`. GitHub Actions posts check-run results to `POST /webhooks/github`. Drone has no outbound webhook, so its results are polled by the `yak:poll-drone-ci` scheduled command (see `app/Console/Commands/PollDroneCiCommand.php` and `app/Services/DroneBuildScanner.php`). The repo's `ci_system` column is the authority on which driver to use for a given repo.
 
 ## Testing Conventions
 

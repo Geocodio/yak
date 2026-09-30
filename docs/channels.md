@@ -59,14 +59,15 @@ The GitHub App subscribes to:
 - `check_suite.completed` — CI result processing
 - `pull_request.closed` — merge/close tracking (also denormalizes onto `pr_reviews`)
 - `pull_request.opened` / `ready_for_review` / `reopened` — triggers a full PR review when `pr_review_enabled` is on
-- `pull_request.synchronize` — triggers an incremental PR review
+- `pull_request.review_requested` — re-requesting review from the Yak bot triggers an incremental PR review
+- `pull_request.synchronize` — refreshes branch previews only, it does not trigger a review
 - `issue_comment.created` — `/yak` follow-up comments on an open PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review.submitted` — review feedback on Yak's PRs, and `/yak` summons in reviews and inline comments on any PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review_comment.created` — `/yak` follow-up replies on an inline review comment (the file, line, and diff hunk are passed to Yak as context)
 - `push` / `delete` — refreshes and tears down branch preview deployments
 - `repository.renamed` / `repository.transferred` — keeps Yak's record of where the repo lives on GitHub current
 
-Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
+Webhook URL: `https://{your-domain}/webhooks/github` for everything (CI results, PR review and follow-up events).
 
 > **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
 
@@ -216,7 +217,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 
 ### Clarification Flow
 
-Slack is the only channel where Yak will ask for clarification. If a request is ambiguous, Claude Code reads the codebase and posts 2–3 specific options grounded in what it found:
+Any fix task can pause to ask for clarification, and you answer where the task came from. If a request is ambiguous, Claude Code reads the codebase and posts 2–3 specific options grounded in what it found:
 
 ```
 I want to make sure I fix the right thing. Which did you mean?
@@ -229,8 +230,6 @@ Reply with a number and I'll get started.
 ```
 
 The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` — no re-reading, no re-analysis.
-
-Linear and Sentry tasks do not clarify because their inputs are already structured.
 
 ### Follow-ups
 
