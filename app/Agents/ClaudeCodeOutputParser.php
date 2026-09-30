@@ -20,6 +20,8 @@ class ClaudeCodeOutputParser
         // Check for clarification at top level first, then in the result text
         $clarification = self::extractClarification($decoded, $resultText);
 
+        $wrongRepository = self::extractWrongRepository($resultText);
+
         $isError = ($decoded['is_error'] ?? false) === true;
         $subtype = isset($decoded['subtype']) ? (string) $decoded['subtype'] : null;
         $denials = $decoded['permission_denials'] ?? [];
@@ -38,6 +40,9 @@ class ClaudeCodeOutputParser
             usage: RunUsage::fromResultEvent($decoded),
             permissionDenials: is_array($denials) ? count($denials) : 0,
             synthesized: ($decoded['synthesized'] ?? false) === true,
+            wrongRepository: $wrongRepository !== null,
+            wrongRepositoryReason: $wrongRepository['reason'] ?? null,
+            suggestedRepository: $wrongRepository['suggested_repository'] ?? null,
         );
     }
 
@@ -58,6 +63,36 @@ class ClaudeCodeOutputParser
         $decoded = json_decode(trim($m[1]), true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Extract the wrong-repository verdict from a fenced wrong_repository code block.
+     *
+     * The agent emits the block when it concludes the requested change belongs in a
+     * different repository than the checkout it was given. The JSON carries a short
+     * `reason` and an optional `suggested_repository` slug. Returns null when the block
+     * is absent or is not valid JSON.
+     *
+     * @return array{reason: string, suggested_repository: string|null}|null
+     */
+    public static function extractWrongRepository(string $resultText): ?array
+    {
+        if (! preg_match('/```wrong_repository\s*\n(.+?)\n```/s', $resultText, $m)) {
+            return null;
+        }
+
+        $decoded = json_decode(trim($m[1]), true);
+
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $suggested = $decoded['suggested_repository'] ?? null;
+
+        return [
+            'reason' => trim((string) ($decoded['reason'] ?? '')),
+            'suggested_repository' => is_string($suggested) && trim($suggested) !== '' ? trim($suggested) : null,
+        ];
     }
 
     /**

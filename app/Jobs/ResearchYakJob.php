@@ -13,6 +13,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -43,6 +44,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
     use HandlesAgentJobFailure;
+    use NotifiesSourceOfFailure;
     use Queueable;
 
     public int $timeout = 3600;
@@ -207,7 +209,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('ResearchYakJob failed', [
                 'task_id' => $this->task->id,
@@ -367,6 +368,8 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             'error_log' => $errorMessage,
             'completed_at' => now(),
         ]);
+
+        $this->notifySourceOfFailure($errorMessage);
     }
 
     private function postToSource(string $message): void

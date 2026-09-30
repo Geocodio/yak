@@ -11,6 +11,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
@@ -36,6 +37,7 @@ use Illuminate\Support\Facades\Log;
 class RetryYakJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
+    use NotifiesSourceOfFailure;
     use Queueable;
 
     public int $timeout = 3600;
@@ -163,7 +165,6 @@ class RetryYakJob implements ShouldQueue
 
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('RetryYakJob failed', [
                 'task_id' => $this->task->id,
@@ -386,5 +387,7 @@ class RetryYakJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
+
+        $this->notifySourceOfFailure($errorMessage);
     }
 }

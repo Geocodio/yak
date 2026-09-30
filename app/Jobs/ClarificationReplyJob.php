@@ -12,6 +12,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\Facades\Telemetry;
 use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\EnsureDailyBudget;
@@ -39,6 +40,7 @@ use Illuminate\Support\Facades\Log;
 class ClarificationReplyJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
+    use NotifiesSourceOfFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
     use RetriesWithoutStaleSession;
@@ -176,7 +178,6 @@ class ClarificationReplyJob implements ShouldQueue
 
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('ClarificationReplyJob failed', [
                 'task_id' => $this->task->id,
@@ -245,6 +246,12 @@ class ClarificationReplyJob implements ShouldQueue
 
     private function handleError(string $errorMessage): void
     {
+        // Don't overwrite a task that's already terminal -- see
+        // RunYakJob::handleError() for the full reasoning.
+        if ($this->taskIsTerminal($this->task->fresh())) {
+            return;
+        }
+
         $this->task->update([
             'status' => TaskStatus::Failed,
             'error_log' => $errorMessage,
@@ -252,5 +259,7 @@ class ClarificationReplyJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
+
+        $this->notifySourceOfFailure($errorMessage);
     }
 }

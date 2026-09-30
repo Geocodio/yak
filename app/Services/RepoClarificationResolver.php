@@ -54,9 +54,13 @@ class RepoClarificationResolver
             ->lower()
             ->replaceMatches('/[\s\-_]+/', '-');
 
-        $matchedSlug = collect($options)->first(
-            fn (string $slug) => $normalize($slug) === $replyNormalized,
-        );
+        $matchedSlug = self::optionByNumber($options, $replyText);
+
+        if ($matchedSlug === null) {
+            $matchedSlug = collect($options)->first(
+                fn (string $slug) => $normalize($slug) === $replyNormalized,
+            );
+        }
 
         if ($matchedSlug === null) {
             $matchedSlug = collect($options)->first(
@@ -80,7 +84,13 @@ class RepoClarificationResolver
 
         if ($matchedSlug === null) {
             TaskLogger::warning($task, 'Could not match repo from reply', ['reply' => $replyText, 'options' => $options]);
-            SendNotificationJob::dispatch($task, NotificationType::Clarification, "I didn't recognise that repo.");
+            // Slack renders the options as buttons; Linear has none, so the
+            // re-prompt spells them out.
+            $reprompt = $task->source === 'linear'
+                ? "I didn't recognise that repo. Reply with the number or name of one of these:\n" . self::numberedList($options)
+                : "I didn't recognise that repo.";
+
+            SendNotificationJob::dispatch($task, NotificationType::Clarification, $reprompt);
 
             return;
         }
@@ -114,5 +124,34 @@ class RepoClarificationResolver
         }
 
         $dispatcher->dispatch($task, RunYakJob::class);
+    }
+
+    /**
+     * A numbered, one-per-line list of repo slugs. Channels without buttons
+     * (Linear) show this list so the user can reply with a number.
+     *
+     * @param  list<string>  $options
+     */
+    public static function numberedList(array $options): string
+    {
+        return collect($options)
+            ->values()
+            ->map(fn (string $slug, int $index): string => ($index + 1) . '. ' . $slug)
+            ->implode("\n");
+    }
+
+    /**
+     * Resolve a reply that is only a number ("2", "2.", "#2") to the
+     * 1-based option it points at.
+     *
+     * @param  list<string>  $options
+     */
+    private static function optionByNumber(array $options, string $replyText): ?string
+    {
+        if (preg_match('/^\s*#?\s*(\d+)\s*[.)]?\s*$/', $replyText, $matches) !== 1) {
+            return null;
+        }
+
+        return $options[(int) $matches[1] - 1] ?? null;
     }
 }

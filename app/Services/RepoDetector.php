@@ -66,8 +66,8 @@ class RepoDetector
             return RepoDetectionResult::resolved([$routed]);
         }
 
-        // Slack low-confidence: ask the user via a threaded reply
-        if ($description->channel === 'slack') {
+        // Slack and Linear low-confidence: ask the user in the thread or session
+        if (in_array($description->channel, ['slack', 'linear'], true)) {
             return RepoDetectionResult::needsClarification(array_values($activeRepos->all()));
         }
 
