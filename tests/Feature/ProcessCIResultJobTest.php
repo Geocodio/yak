@@ -957,23 +957,22 @@ test('a CI result arriving after yak:timeout-ci gave up is ignored', function ()
 
     Repository::factory()->create(['slug' => 'org/my-repo']);
 
-    // The exact shape that broke task 5479: CI overran the timeout, the task
-    // was parked in Failed, and the real result turned up half an hour later.
-    // Acting on it would start an agent retry on a task that already settled.
+    // A task that failed for a reason other than a CI timeout has settled, so
+    // acting on a result would start an agent retry nobody is waiting for.
     $task = YakTask::factory()->create([
         'status' => TaskStatus::Failed,
         'repo' => 'org/my-repo',
         'branch_name' => 'yak/FIX-LATE',
         'source' => 'manual',
         'attempts' => 1,
-        'error_log' => 'CI timed out after 30 minutes',
+        'error_log' => 'Agent crashed',
     ]);
 
     (new ProcessCIResultJob($task, false, 'Tests failed'))->handle();
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toBe('CI timed out after 30 minutes')
+        ->and($task->error_log)->toBe('Agent crashed')
         ->and($task->attempts)->toBe(1);
 
     Queue::assertNotPushed(RetryYakJob::class);
@@ -1025,4 +1024,128 @@ test('a duplicate check_suite result for an already-succeeded task is ignored', 
 
     expect($task->refresh()->pr_url)->toBe('https://github.com/org/my-repo/pull/7');
     Http::assertNothingSent();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Late CI results after a CI timeout
+|--------------------------------------------------------------------------
+*/
+
+function timedOutTask(array $overrides = []): YakTask
+{
+    Repository::factory()->create(['slug' => 'org/my-repo', 'github_full_name' => 'org/my-repo', 'ci_system' => 'github_actions']);
+
+    return YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-SLOW',
+        'source' => 'manual',
+        'attempts' => 1,
+        'completed_at' => now()->subMinutes(20),
+        'error_log' => 'CI timed out after 30 minutes',
+        ...$overrides,
+    ]);
+}
+
+test('a late red result after a CI timeout goes through the normal retry path', function () {
+    Queue::fake();
+    Http::fake(['api.github.com/repos/org/my-repo/branches/*' => Http::response(['commit' => ['sha' => 'abc123']])]);
+    config()->set('yak.max_attempts', 2);
+
+    $task = timedOutTask();
+
+    (new ProcessCIResultJob($task, false, 'Tests failed', 'abc123'))->handle();
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Retrying)
+        ->and($task->attempts)->toBe(2)
+        ->and($task->error_log)->toBeNull()
+        ->and($task->completed_at)->toBeNull();
+
+    Queue::assertPushed(RetryYakJob::class);
+    expect(TaskLog::where('yak_task_id', $task->id)->where('message', 'Late CI result accepted after CI timeout')->exists())->toBeTrue();
+});
+
+test('a late red result after a CI timeout fails the task when no retry budget is left', function () {
+    Queue::fake();
+    Http::fake(['api.github.com/repos/org/my-repo/branches/*' => Http::response(['commit' => ['sha' => 'abc123']])]);
+    config()->set('yak.max_attempts', 2);
+
+    $task = timedOutTask(['attempts' => 2]);
+
+    (new ProcessCIResultJob($task, false, 'Tests failed', 'abc123'))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toBe('Tests failed');
+    Queue::assertNotPushed(RetryYakJob::class);
+});
+
+test('a late green result after a CI timeout opens the PR', function () {
+    Http::fake([
+        'api.github.com/repos/org/my-repo/branches/*' => Http::response(['commit' => ['sha' => 'abc123']]),
+        'api.github.com/repos/*/pulls' => Http::response(['number' => 9, 'html_url' => 'https://github.com/org/my-repo/pull/9']),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+    ]);
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 3 files changed, 50 insertions(+), 10 deletions(-)'),
+        '*git checkout *' => Process::result(''),
+        '*git branch -D *' => Process::result(''),
+    ]);
+
+    $task = timedOutTask();
+
+    (new ProcessCIResultJob($task, true, null, 'abc123'))->handle();
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($task->pr_url)->toBe('https://github.com/org/my-repo/pull/9');
+});
+
+test('a late result for an older commit after a CI timeout is ignored', function () {
+    Queue::fake();
+    Http::fake(['api.github.com/repos/org/my-repo/branches/*' => Http::response(['commit' => ['sha' => 'newer999']])]);
+
+    $task = timedOutTask();
+
+    (new ProcessCIResultJob($task, true, null, 'older111'))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toBe('CI timed out after 30 minutes');
+    Queue::assertNotPushed(RetryYakJob::class);
+});
+
+test('a late result is ignored when the branch head cannot be confirmed', function () {
+    Queue::fake();
+    Http::fake(['api.github.com/repos/org/my-repo/branches/*' => Http::response([], 500)]);
+
+    $task = timedOutTask();
+
+    (new ProcessCIResultJob($task, true, null, 'abc123'))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+});
+
+test('a late result is ignored once a PR exists for the timed out task', function () {
+    Queue::fake();
+    Http::fake();
+
+    $task = timedOutTask(['pr_url' => 'https://github.com/org/my-repo/pull/3']);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+    Http::assertNothingSent();
+});
+
+test('a late result without a commit after a CI timeout is ignored', function () {
+    Queue::fake();
+
+    $task = timedOutTask();
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+    Queue::assertNotPushed(RetryYakJob::class);
 });

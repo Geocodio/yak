@@ -481,6 +481,85 @@ class AppService
     }
 
     /**
+     * The workflow runs for the newest commit pushed to a branch. Runs are
+     * listed newest first, so the first run's head SHA identifies the
+     * branch's latest push; runs of older commits are left out. Throws when
+     * GitHub cannot be reached or refuses the request, so the caller can
+     * tell "no runs" apart from "could not find out".
+     *
+     * @return list<array{id: int, head_sha: string, status: ?string, conclusion: ?string}>
+     */
+    public function latestCommitWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch): array
+    {
+        /** @var array<int, array{id?: int, head_sha?: string, status?: string|null, conclusion?: string|null}> $runs */
+        $runs = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/actions/runs", [
+                'branch' => $branch,
+                'per_page' => 30,
+            ])
+            ->throw()
+            ->json('workflow_runs', []);
+
+        if ($runs === []) {
+            return [];
+        }
+
+        $latestSha = (string) ($runs[0]['head_sha'] ?? '');
+
+        return array_values(array_map(
+            fn (array $run): array => [
+                'id' => (int) ($run['id'] ?? 0),
+                'head_sha' => $latestSha,
+                'status' => $run['status'] ?? null,
+                'conclusion' => $run['conclusion'] ?? null,
+            ],
+            array_filter($runs, fn (array $run): bool => ($run['head_sha'] ?? '') === $latestSha),
+        ));
+    }
+
+    /**
+     * Whether the newest commit pushed to a branch still has a workflow run
+     * that has not finished (queued, waiting, requested, pending, or running).
+     * Throws when GitHub cannot be reached or refuses the request.
+     */
+    public function hasUnfinishedWorkflowRunsForBranch(int $installationId, string $repoSlug, string $branch): bool
+    {
+        foreach ($this->latestCommitWorkflowRunsForBranch($installationId, $repoSlug, $branch) as $run) {
+            if (self::isUnfinishedWorkflowRun($run)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{status: ?string}  $run
+     */
+    public static function isUnfinishedWorkflowRun(array $run): bool
+    {
+        return in_array($run['status'], ['queued', 'in_progress', 'waiting', 'requested', 'pending'], true);
+    }
+
+    /**
+     * The commit SHA a branch currently points at, or null when the branch
+     * cannot be read.
+     */
+    public function getBranchHeadSha(int $installationId, string $repoSlug, string $branch): ?string
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/branches/" . rawurlencode($branch));
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $sha = $response->json('commit.sha');
+
+        return is_string($sha) ? $sha : null;
+    }
+
+    /**
      * Re-run only the failed jobs of a workflow run, as a new attempt of the same run.
      */
     public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId): bool

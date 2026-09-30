@@ -9,6 +9,7 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Models\Artifact;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\User;
@@ -271,4 +272,88 @@ test('reroute validates the target repo exists', function () {
 
     $this->post(route('tasks.reroute', $task), ['repo' => 'does-not-exist'])
         ->assertSessionHasErrors(['repo']);
+});
+
+function ciTimedOutTask(): YakTask
+{
+    config()->set('yak.channels.github.installation_id', 99999);
+    GitHubInstallationToken::factory()->create([
+        'installation_id' => 99999,
+        'token' => 'ghs_test_token',
+        'expires_at' => now()->addHour(),
+    ]);
+    Repository::factory()->create(['slug' => 'org/slow', 'github_full_name' => 'org/slow', 'ci_system' => 'github_actions']);
+
+    return YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'mode' => TaskMode::Fix,
+        'repo' => 'org/slow',
+        'branch_name' => 'yak/FIX-SLOW',
+        'attempts' => 1,
+        'error_log' => 'CI timed out after 30 minutes',
+        'completed_at' => now(),
+    ]);
+}
+
+/**
+ * @param  list<array{id: int, head_sha: string, status: string, conclusion: ?string}>  $runs
+ */
+function fakeBranchRuns(array $runs): void
+{
+    Http::fake([
+        'api.github.com/repos/org/slow/actions/runs/*/rerun-failed-jobs' => Http::response([], 201),
+        'api.github.com/repos/org/slow/actions/runs*' => Http::response(['workflow_runs' => $runs]),
+    ]);
+}
+
+test('retry after a CI timeout uses a green result without running the agent again', function () {
+    Queue::fake();
+    $task = ciTimedOutTask();
+    fakeBranchRuns([
+        ['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'success'],
+        ['id' => 1, 'head_sha' => 'old111', 'status' => 'completed', 'conclusion' => 'failure'],
+    ]);
+
+    $this->post(route('tasks.retry', $task))->assertRedirect(route('tasks.show', $task));
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertNotPushed(RetryYakJob::class);
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->passed && $job->commitSha === 'new222');
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi)
+        ->and($task->fresh()->error_log)->toBeNull();
+});
+
+test('retry after a CI timeout keeps waiting while the run is still going', function () {
+    Queue::fake();
+    $task = ciTimedOutTask();
+    fakeBranchRuns([['id' => 2, 'head_sha' => 'new222', 'status' => 'queued', 'conclusion' => null]]);
+
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertNothingPushed();
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'rerun-failed-jobs'));
+});
+
+test('retry after a CI timeout re-runs the failed jobs of a red run', function () {
+    Queue::fake();
+    $task = ciTimedOutTask();
+    fakeBranchRuns([['id' => 2, 'head_sha' => 'new222', 'status' => 'completed', 'conclusion' => 'failure']]);
+
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertNothingPushed();
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/actions/runs/2/rerun-failed-jobs'));
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+});
+
+test('retry after a CI timeout falls back to the agent when GitHub cannot say', function () {
+    Queue::fake();
+    $task = ciTimedOutTask();
+    Http::fake(['api.github.com/*' => Http::response(['message' => 'boom'], 500)]);
+
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertPushed(RunYakJob::class);
+    expect($task->fresh()->status)->toBe(TaskStatus::Pending);
 });

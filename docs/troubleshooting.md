@@ -195,6 +195,14 @@ Symptoms: a task's status is `awaiting_ci` and never advances even though CI act
 3. **Branch name mismatch.** The task's `branch_name` must match what was pushed. Look at the task's Debug section for the actual branch name.
 4. **GitHub App permissions.** The App needs `Checks: Read` and `Pull requests: Read & Write` to receive check suite events and create PRs.
 
+### CI Timed Out While Runs Were Queued
+
+A task in `awaiting_ci` is failed by `yak:timeout-ci` once it has waited `YAK_CI_TIMEOUT_MINUTES` (default 30). For GitHub Actions repos Yak first asks GitHub whether the newest commit on the task's branch still has a queued or running workflow. If it does, the task keeps waiting and the task log records "CI still running on GitHub, waiting" once. The wait ends after `YAK_CI_MAX_WAIT_MINUTES` (default 180) counted from the task's last agent push, and the task then fails as a CI timeout. If GitHub cannot be reached, or the repo uses Drone, the check is skipped and the plain timeout applies.
+
+A CI result that arrives after a CI timeout is still processed when it is for the branch's current commit and no PR exists yet: the task goes back to `awaiting_ci`, then a green result opens the PR and a red result follows the normal retry path.
+
+Retrying a task that failed with a CI timeout from the dashboard goes back to CI rather than running the agent again. Yak reads the latest CI result for the branch on GitHub: a green result opens the PR, a red one has its failed jobs re-run, and a run that is still going is waited for, with the maximum wait counted from the retry. When GitHub cannot be reached, Retry falls back to a full agent retry.
+
 ### CI Keeps Failing On The Same Issue
 
 Retries are capped at one. After two failed attempts, the task is marked `failed` and a human has to take over. If you see this pattern repeatedly for a specific repo:
