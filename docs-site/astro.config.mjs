@@ -54,6 +54,7 @@ export default defineConfig({
             { slug: 'branch-deployments' },
             { slug: 'video-walkthroughs' },
             { slug: 'pr-review' },
+            { slug: 'risk-based-approval' },
           ],
         },
         {

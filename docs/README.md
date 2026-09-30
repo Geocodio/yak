@@ -8,6 +8,7 @@ User-facing documentation for running and operating Yak. Source of truth lives h
 - **[Channels](channels.md)** — configuring Slack, Linear, Sentry, GitHub, Drone, and the manual CLI
 - **[Repositories](repositories.md)** — adding repos, the setup task, CLAUDE.md guidance, multi-repo routing
 - **[PR Review](pr-review.md)** — enabling Yak to review pull requests, path filters, dashboard, reactions
+- **[Risk-Based Approval](risk-based-approval.md)** -- letting Yak approve low-risk PRs, shadow mode, risk profiles
 - **[Branch Deployments](branch-deployments.md)** -- a live preview URL for every open PR
 - **[Video Walkthroughs](video-walkthroughs.md)** — the walkthrough render pipeline and the installation-wide theme editor
 

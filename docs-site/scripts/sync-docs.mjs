@@ -36,6 +36,7 @@ const PAGES = [
   { file: 'branch-deployments.md', title: 'Branch Deployments', description: 'A live preview URL for every open PR on an opted-in repo.',        group: 'getting-started', order: 5 },
   { file: 'video-walkthroughs.md', title: 'Video Walkthroughs', description: 'Recorded walkthroughs on PRs and the installation-wide video theme.', group: 'getting-started', order: 6 },
   { file: 'pr-review.md',       title: 'PR Review',      description: 'Enable Yak to review pull requests with line-level comments and a feedback dashboard.', group: 'getting-started', order: 4 },
+  { file: 'risk-based-approval.md', title: 'Risk-Based Approval', description: 'Let Yak approve low-risk PRs, with shadow mode and risk profiles.', group: 'getting-started', order: 7 },
   { file: 'architecture.md',    title: 'Architecture',   description: 'How Yak works under the hood: two-tier AI, drivers, state machine.',    group: 'reference',       order: 1 },
   { file: 'prompting.md',       title: 'Prompting',      description: 'Three prompt layers, system prompt, task templates, MCP servers.',       group: 'reference',       order: 2 },
   { file: 'troubleshooting.md', title: 'Troubleshooting',description: 'Common problems and how to diagnose them.',                             group: 'operations',      order: 1 },
