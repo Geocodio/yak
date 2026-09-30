@@ -345,15 +345,14 @@ The check covers queue workers, repo fetchability, Claude CLI responsiveness, en
 
 The scheduler runs it every 15 minutes. When a check fails, Yak posts to the Slack channel in `YAK_SLACK_ALERT_CHANNEL` (a channel ID; invite the bot first). Each failing check alerts at most once per 24 hours, followed by one recovery message.
 
-### Smoke Test
+### Your First Task
 
-Run a manual task against your default repo:
+1. Open **Repositories** in the dashboard. Add your repo if you have not, and wait until its setup badge reads **Ready**.
+2. Go to **Tasks** and click **New task**. Pick the repo, keep the **Fix** mode, and describe a small change, for example "Add a comment to the README explaining what this repo does".
+3. Click **Start task**. You land on the task page, where the timeline shows Yak working.
+4. When the task reaches `awaiting_ci` and then `success`, open the PR link at the top of the task page. If the task fails, use **Retry** on the task page.
 
-```bash
-docker exec yak php artisan yak:run TEST-001 "Add a comment to the README explaining what this repo does" --sync
-```
-
-The `--sync` flag runs the task in the foreground so you can watch the output. If it creates a branch, pushes, and CI runs, Yak is working.
+If a task does not appear or does not finish, see [Troubleshooting](troubleshooting.md). You can also run a task from the server with `docker exec yak php artisan yak:run TEST-001 "..." --sync`.
 
 ### Webhook Verification
 

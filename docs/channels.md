@@ -410,6 +410,12 @@ Yak supports both Drone and GitHub Actions simultaneously — each repo specifie
 - **Retry race.** After a retry pushes a new commit on the same branch, the poller ignores any Drone build that started before the task re-entered `awaiting_ci` (with a 60s grace period).
 - **Retries use force push** to the same branch — the PR shows only the final attempt.
 
+## Flaky Tests (automatic)
+
+Yak also creates tasks on its own from CI failures. `yak:scan-ci` runs every 2 hours on repos with `github_actions` or `drone` as their CI system. It looks at failures from the last 48 hours (`YAK_MAX_FAILURE_AGE_HOURS`) and treats a test as flaky when it has failed on the repo's default branch. It opens one `flaky-test` task per commit and skips tests that already have a fix PR. On GitHub Actions the GitHub App needs the **Actions: Read** permission.
+
+To stop it for a repo, mark the repo inactive or set its CI system to `none`.
+
 ---
 
 ## Adding A New Channel
