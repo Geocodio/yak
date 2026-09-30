@@ -44,21 +44,37 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 ## Explore the docs
 
 <CardGrid>
+  <Card title="How Yak works" icon="rocket">
+    The channel map, what a task is, and a tour of the dashboard.
+    [Start here](/yak/overview/)
+  </Card>
   <Card title="Setup Guide" icon="setting">
-    Provision a fresh server with one Ansible command. Vault configuration,
-    verification, updates. [Read the setup guide](/yak/setup/)
+    Provision a fresh server with one Ansible command.
+    [Read the setup guide](/yak/setup/)
   </Card>
   <Card title="Channels" icon="puzzle">
-    Slack, Linear, Sentry, GitHub, Drone, and the manual CLI. Per-channel
-    setup and gotchas. [See channel configuration](/yak/channels/)
+    Slack, Linear, Sentry, GitHub, Drone, and the manual CLI.
+    [See channel configuration](/yak/channels/)
+  </Card>
+  <Card title="Branch Deployments" icon="external">
+    A live preview URL for every open PR.
+    [Serve previews](/yak/branch-deployments/)
+  </Card>
+  <Card title="PR Review" icon="approve-check">
+    Line-level review comments and a feedback dashboard.
+    [Enable PR review](/yak/pr-review/)
   </Card>
   <Card title="Architecture" icon="random">
-    Two-tier AI, channel drivers, state machine, queues and jobs, safety
-    model. [Read the architecture guide](/yak/architecture/)
+    Two-tier AI, the task state machine, queues and the safety model.
+    [Read the architecture guide](/yak/architecture/)
   </Card>
   <Card title="Prompting" icon="document">
-    Three prompt layers, the Yak system prompt, task templates per source,
-    MCP servers. [Customize Yak's behavior](/yak/prompting/)
+    Prompt layers, per-source templates and MCP servers.
+    [Customize Yak's behavior](/yak/prompting/)
+  </Card>
+  <Card title="Troubleshooting" icon="warning">
+    Common problems, listed by symptom.
+    [Diagnose a problem](/yak/troubleshooting/)
   </Card>
 </CardGrid>
 

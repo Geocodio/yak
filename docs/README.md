@@ -1,26 +1,3 @@
 # Yak Documentation
 
-User-facing documentation for running and operating Yak. Source of truth lives here as plain markdown — the hosted docs site at [geocodio.github.io/yak](https://geocodio.github.io/yak) renders these same files.
-
-## Getting Started
-
-- **[Setup](setup.md)** — provisioning a fresh server with Ansible, vault configuration, verification
-- **[Channels](channels.md)** — configuring Slack, Linear, Sentry, GitHub, Drone, and the manual CLI
-- **[Repositories](repositories.md)** — adding repos, the setup task, CLAUDE.md guidance, multi-repo routing
-- **[PR Review](pr-review.md)** — enabling Yak to review pull requests, path filters, dashboard, reactions
-- **[Risk-Based Approval](risk-based-approval.md)** -- letting Yak approve low-risk PRs, shadow mode, risk profiles
-- **[Branch Deployments](branch-deployments.md)** -- a live preview URL for every open PR
-- **[Video Walkthroughs](video-walkthroughs.md)** — the walkthrough render pipeline and the installation-wide theme editor
-
-## Reference
-
-- **[Architecture](architecture.md)** — two-tier AI, channel drivers, state machine, jobs and queues, safety model
-- **[Prompting](prompting.md)** — the three prompt layers, system prompt, task templates, MCP servers, customization
-
-## Operations
-
-- **[Troubleshooting](troubleshooting.md)** — common issues and how to diagnose them
-
-## Contributing
-
-- **[Development](development.md)** — local dev setup, running tests, code style, adding new channel drivers
+User-facing documentation for running and operating Yak. The files here are the source for the hosted site at [geocodio.github.io/yak](https://geocodio.github.io/yak). Start with [How Yak works](overview.md), then [Setup](setup.md).

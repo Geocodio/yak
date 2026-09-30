@@ -30,6 +30,7 @@ const SITE_BASE = '/yak';
 // Sidebar grouping and order. Every docs/*.md page (except EXCLUDED) must be
 // listed here; the sync fails on an unlisted page.
 const PAGES = [
+  { file: 'overview.md',        title: 'How Yak works',  description: 'The channel map, what a task is, what Yak does and does not do, and a dashboard tour.', group: 'getting-started', order: 0 },
   { file: 'setup.md',           title: 'Setup Guide',    description: 'Provision a Yak server with Ansible in one command.',                    group: 'getting-started', order: 1 },
   { file: 'channels.md',        title: 'Channels',       description: 'Configure Slack, Linear, Sentry, GitHub, Drone, and the manual CLI.',    group: 'getting-started', order: 2 },
   { file: 'repositories.md',    title: 'Repositories',   description: 'Add and manage repositories, setup tasks, and CLAUDE.md conventions.',   group: 'getting-started', order: 3 },

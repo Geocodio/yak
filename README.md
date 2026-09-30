@@ -51,16 +51,7 @@ See the [Setup Guide](https://geocodio.github.io/yak/setup/) for provisioning a 
 
 ## Documentation
 
-Full documentation is hosted at **[geocodio.github.io/yak](https://geocodio.github.io/yak/)**.
-
-- [Setup](https://geocodio.github.io/yak/setup/)
-- [Channels](https://geocodio.github.io/yak/channels/)
-- [Repositories](https://geocodio.github.io/yak/repositories/)
-- [PR Review](https://geocodio.github.io/yak/pr-review/)
-- [Architecture](https://geocodio.github.io/yak/architecture/)
-- [Prompting](https://geocodio.github.io/yak/prompting/)
-- [Troubleshooting](https://geocodio.github.io/yak/troubleshooting/)
-- [Development](https://geocodio.github.io/yak/development/)
+Docs: **[geocodio.github.io/yak](https://geocodio.github.io/yak/)**. Start with [How Yak works](https://geocodio.github.io/yak/overview/).
 
 ## Contributing
 

@@ -51,6 +51,7 @@ export default defineConfig({
         {
           label: 'Getting Started',
           items: [
+            { slug: 'overview' },
             { slug: 'setup' },
             { slug: 'channels' },
             { slug: 'repositories' },
