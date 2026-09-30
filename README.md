@@ -5,7 +5,7 @@
 <h1 align="center">Yak</h1>
 
 <p align="center">
-  <strong>Yak is an autonomous coding agent for papercuts, a line-by-line PR reviewer, and a per-branch preview server. One shared sandbox fleet powers all three workflows.</strong>
+  <strong>Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything. One shared sandbox fleet powers all three workflows.</strong>
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 
 ## What It Does
 
-- **Opens PRs for papercuts.** Receives tasks from Slack, Linear, Sentry, and GitHub; sends Claude into an isolated sandbox; opens a reviewable PR and verifies CI passes
+- **Opens PRs for papercuts.** Receives tasks from Slack, Linear, Sentry, and GitHub; sends Claude into an isolated sandbox; pushes a branch, waits for CI to pass, then opens a PR for review
 - **Reviews pull requests.** Line-level comments, `suggestion` blocks, and a feedback dashboard
 - **Serves preview deployments.** Every open PR gets a unique URL, OAuth-gated, hibernated when idle, destroyed when the PR closes
 - **Shared sandbox fleet.** One Incus + ZFS substrate, one GitHub App, one Inertia dashboard, one cost model across all three workflows
@@ -26,7 +26,7 @@
 ## How It Works
 
 <p align="center">
-  <img src="docs/what-yak-does.png" alt="Yak picks up tasks from Slack, Linear, and Sentry and delivers pull requests" width="720">
+  <img src="docs/what-yak-does.png" alt="Yak picks up tasks from Slack, Linear, and Sentry and opens a PR" width="720">
 </p>
 
 ## Quick Start

@@ -1,9 +1,9 @@
 ---
 title: Yak
-description: Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.
+description: Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything.
 template: splash
 hero:
-  tagline: Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.
+  tagline: Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything.
   image:
     file: ../../assets/mascot.png
   actions:
@@ -67,5 +67,5 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 - **First pass in one shot, then refine.** A task fits in a paragraph, and Yak resolves it in a single pass. Not quite right? Reply where you already are and Yak pushes follow-up commits to the same PR until it's done.
 - **Meet the user where they are.** Slack in, Slack out. Linear in, Linear out. The whole back-and-forth happens in the channel you started from — no separate dashboard check required.
 - **Clarify, don't guess.** Ambiguous requests get multiple-choice options grounded in actual code, not generic guesses.
-- **Yak never ships.** Output is always a PR requiring human review. No merge authority, no exceptions.
+- **Yak stops at a PR.** A human reviews and merges. Yak has no merge authority.
 - **Channels are optional.** GitHub plus the manual CLI is the minimum. Enable the rest as you need them.

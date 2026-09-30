@@ -4,7 +4,7 @@ How Yak works under the hood. This page exists for the person who wants to under
 
 ## Three workflows, one substrate
 
-Yak is an autonomous coding agent for papercuts, a line-by-line PR reviewer, and a per-branch preview server. One shared sandbox fleet powers all three workflows.
+Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything. One shared sandbox fleet powers all three workflows.
 
 ```
               ┌────────────────────────────────────────────┐
@@ -81,7 +81,7 @@ The routing layer is lightweight — classify the request, detect the repo, form
 
 ### The Implementation Layer
 
-Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs headlessly via `claude -p` with `--dangerously-skip-permissions` — no tool approval prompts, fully autonomous.
+Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs headlessly via `claude -p` with `--dangerously-skip-permissions` — no tool approval prompts inside the sandbox.
 
 Claude Code is always Opus. Opus produces better first-attempt results, which means fewer retries and less total work than starting with Sonnet and escalating.
 
@@ -186,7 +186,7 @@ pending ──→ running ────┼──→ awaiting_ci ──→ success
 | `Running` | `AwaitingClarification` | Claude returned clarification JSON |
 | `Running` | `Success` | Research or setup task completed |
 | `Running` | `Failed` | Claude errored, budget exceeded, scope exceeded |
-| `AwaitingClarification` | `Running` | User replied in Slack thread, session resumed |
+| `AwaitingClarification` | `Running` | User replied in the source channel, session resumed |
 | `AwaitingClarification` | `Expired` | `clarification_expires_at` passed (3-day TTL) |
 | `AwaitingCi` | `Success` | CI green, PR created |
 | `AwaitingCi` | `Retrying` | CI red, `attempts < max_attempts` |
@@ -363,7 +363,7 @@ The safety guarantees are deliberate design choices, not afterthoughts.
 
 ### `--dangerously-skip-permissions` Is Always On
 
-Claude Code runs with `--dangerously-skip-permissions` on every invocation. No tool approval prompts, no human in the loop during execution. This is the only way unattended operation works at scale.
+Claude Code runs with `--dangerously-skip-permissions` on every invocation. No tool approval prompts during execution. A human reviews the resulting PR.
 
 **The safety boundary is the sandbox**, not permission dialogs:
 
@@ -415,7 +415,7 @@ Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed UR
 
 - **Not a merge bot.** See above — no merge authority, no bypass.
 - **Not horizontally scaled.** Four concurrent workers on one server. The architecture supports future scaling to multiple hosts but doesn't need it.
-- **Not a long-running interactive agent.** Each task is a focused, mostly autonomous pass. You can give feedback on an open PR — in the originating channel, as a `/yak` PR comment, or from the dashboard — and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
+- **Not a long-running interactive agent.** Each task is a focused pass. You can give feedback on an open PR — in the originating channel, as a `/yak` PR comment, or from the dashboard — and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
 - **Not a frontend framework.** Dashboard is Inertia + React on `@geocodio/console-ui`, with polling for live updates. No websockets.
 - **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.
 - **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere; the existing production deploy pipeline remains the source of truth.

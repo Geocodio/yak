@@ -15,7 +15,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Yak',
-      description: 'Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.',
+      description: 'Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything.',
       logo: {
         src: './src/assets/mascot.png',
         alt: 'Yak mascot',
