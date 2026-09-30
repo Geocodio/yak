@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Models\Artifact;
 use App\Models\PrReview;
 use App\Models\User;
 use App\Models\YakTask;
@@ -62,4 +63,22 @@ test('task detail shows running status with pulse indicator', function () {
 
     $page->assertSee('running')
         ->assertPresent('.animate-pulse');
+});
+
+test('a poll does not reload the open walkthrough video', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->running()->create();
+    Artifact::factory()->videoCut()->create(['yak_task_id' => $task->id]);
+
+    $page = visit(route('tasks.show', $task))
+        ->click('@walkthrough-poster')
+        ->assertPresent('[data-testid="walkthrough-player"] video');
+
+    $sourceBeforePoll = $page->script('document.querySelector("[data-testid=walkthrough-player] video").getAttribute("src")');
+
+    // A running task polls every 5s, and each poll signs the cut's URL afresh.
+    $page->wait(7);
+
+    expect($page->script('document.querySelector("[data-testid=walkthrough-player] video").getAttribute("src")'))
+        ->toBe($sourceBeforePoll);
 });

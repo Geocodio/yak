@@ -9,13 +9,25 @@ function formatTimestamp(seconds: number): string {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
 }
 
+function withoutQuery(url: string): string {
+    return url.split('?')[0];
+}
+
 /**
  * Ports the Blade `walkthrough-player` partial: a video element plus a
  * chapters rail. The initial seek position comes from the page's `?t=`
  * query param (seconds), matching the old Livewire/Alpine behaviour.
+ *
+ * Every page poll signs the cut's URL afresh, so the query string changes
+ * while the file stays the same. The player keeps the URL it loaded until
+ * the path itself changes, so a poll never restarts playback.
  */
 export function VideoPlayer({ videoUrl, chapters }: { videoUrl: string; chapters: Chapter[] }) {
     const playerRef = useRef<HTMLVideoElement>(null);
+    const [source, setSource] = useState(videoUrl);
+    if (withoutQuery(source) !== withoutQuery(videoUrl)) {
+        setSource(videoUrl);
+    }
     const [current, setCurrent] = useState(0);
     const seekAppliedRef = useRef(false);
 
@@ -73,7 +85,7 @@ export function VideoPlayer({ videoUrl, chapters }: { videoUrl: string; chapters
                     controls
                     preload="metadata"
                     className="max-h-full max-w-full rounded-card border border-hair bg-black"
-                    src={videoUrl}
+                    src={source}
                 />
             </div>
 
