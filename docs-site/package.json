@@ -10,6 +10,7 @@
     "start": "npm run sync && astro dev",
     "prebuild": "npm run sync",
     "build": "astro build",
+    "check-links": "node scripts/check-links.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },
