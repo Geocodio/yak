@@ -4,6 +4,8 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\ClarificationReplyJob;
+use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
@@ -116,4 +118,93 @@ test('an unknown suggested repository is ignored and the others stay alphabetica
     (new RunYakJob($task))->handle($fake);
 
     expect($task->refresh()->clarification_options)->toBe(['acme/api', 'acme/zeta']);
+});
+
+test('a retry that reports the wrong repository asks for a repo and starts over', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(wrongRepositoryResult('acme/billing'));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, dirtySandbox());
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'acme/atlas', 'path' => '/home/yak/repos/atlas']);
+    Repository::factory()->create(['slug' => 'acme/billing']);
+
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'acme/atlas',
+        'source' => 'linear',
+        'session_id' => 'old-session',
+        'branch_name' => 'yak/old-branch',
+    ]);
+
+    (new RetryYakJob($task, 'ci output'))->handle($fake);
+
+    $task->refresh();
+
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->repo)->toBe('unknown')
+        ->and($task->session_id)->toBeNull()
+        ->and($task->branch_name)->toBeNull()
+        ->and($task->error_log)->toBeNull()
+        ->and($task->clarification_options)->toBe(['acme/billing'])
+        ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeTrue();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Clarification);
+    Queue::assertNotPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
+});
+
+test('a clarification reply that reports the wrong repository asks for a repo and starts over', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(wrongRepositoryResult(null));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, dirtySandbox());
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'acme/atlas', 'path' => '/home/yak/repos/atlas']);
+    Repository::factory()->create(['slug' => 'acme/api']);
+
+    $task = YakTask::factory()->awaitingClarification()->create([
+        'repo' => 'acme/atlas',
+        'source' => 'linear',
+        'session_id' => 'old-session',
+        'branch_name' => 'yak/old-branch',
+    ]);
+
+    (new ClarificationReplyJob($task, 'Option A'))->handle($fake);
+
+    $task->refresh();
+
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->repo)->toBe('unknown')
+        ->and($task->session_id)->toBeNull()
+        ->and($task->clarification_options)->toBe(['acme/api'])
+        ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeTrue();
+
+    Queue::assertNotPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
+});
+
+test('a task that already has a pull request ignores the wrong repository verdict', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(wrongRepositoryResult('acme/api'));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'acme/atlas', 'path' => '/home/yak/repos/atlas']);
+    Repository::factory()->create(['slug' => 'acme/api']);
+
+    $task = YakTask::factory()->retrying()->create([
+        'repo' => 'acme/atlas',
+        'source' => 'linear',
+        'branch_name' => 'yak/old-branch',
+        'pr_url' => 'https://github.com/acme/atlas/pull/3',
+    ]);
+
+    (new RetryYakJob($task, 'ci output'))->handle($fake);
+
+    expect($task->refresh()->repo)->toBe('acme/atlas')
+        ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeFalse();
 });

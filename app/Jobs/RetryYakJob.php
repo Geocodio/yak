@@ -11,6 +11,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\HandlesWrongRepository;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -37,6 +38,7 @@ use Illuminate\Support\Facades\Log;
 class RetryYakJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
+    use HandlesWrongRepository;
     use NotifiesSourceOfFailure;
     use Queueable;
 
@@ -144,6 +146,10 @@ class RetryYakJob implements ShouldQueue
                 TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->failureMessage());
 
+                return;
+            }
+
+            if ($result->wrongRepository && $this->handleWrongRepository($repository, $result, countsAsNewTask: false)) {
                 return;
             }
 

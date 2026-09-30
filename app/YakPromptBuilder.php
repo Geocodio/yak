@@ -111,10 +111,11 @@ class YakPromptBuilder
     /**
      * Build a clarification reply prompt.
      */
-    public static function clarificationReplyPrompt(string $chosenOption): string
+    public static function clarificationReplyPrompt(string $chosenOption, ?YakTask $task = null): string
     {
         return Prompts::render('tasks-clarification-reply', [
             'chosenOption' => $chosenOption,
+            'otherRepositories' => $task !== null ? self::otherRepositories($task) : [],
         ]);
     }
 
@@ -145,6 +146,7 @@ class YakPromptBuilder
             'taskDescription' => (string) $task->description,
             'previousSummary' => (string) ($task->result_summary ?? ''),
             'failureOutput' => $failureOutput,
+            'otherRepositories' => self::otherRepositories($task),
         ]);
     }
 

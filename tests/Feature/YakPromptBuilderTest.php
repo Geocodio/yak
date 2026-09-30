@@ -572,11 +572,28 @@ test('task prompts list the other active repositories for the wrong repository s
         ->and($prompt)->not->toContain('acme/retired');
 });
 
-test('retry prompt leaves out the wrong-repository instructions', function () {
+test('retry prompt includes the wrong-repository instructions', function () {
     Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
     $task = YakTask::factory()->make(['repo' => 'acme/app', 'description' => 'Fix it']);
 
     $prompt = YakPromptBuilder::retryPrompt($task, 'failure');
 
-    expect($prompt)->not->toContain('wrong_repository');
+    expect($prompt)->toContain('wrong_repository')
+        ->and($prompt)->toContain('acme/other');
+});
+
+test('retry prompt leaves out the wrong-repository instructions when there is no other repository', function () {
+    $task = YakTask::factory()->make(['repo' => 'acme/app', 'description' => 'Fix it']);
+
+    expect(YakPromptBuilder::retryPrompt($task, 'failure'))->not->toContain('wrong_repository');
+});
+
+test('clarification reply prompt includes the wrong-repository instructions only when given a task', function () {
+    Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
+    $task = YakTask::factory()->make(['repo' => 'acme/app']);
+
+    expect(YakPromptBuilder::clarificationReplyPrompt('Option A', $task))
+        ->toContain('wrong_repository')
+        ->toContain('acme/other')
+        ->and(YakPromptBuilder::clarificationReplyPrompt('Option A'))->not->toContain('wrong_repository');
 });

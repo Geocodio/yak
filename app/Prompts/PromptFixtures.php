@@ -252,6 +252,17 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'partials-wrong-repository' => [
+                [
+                    'label' => 'Two other repositories',
+                    'data' => [
+                        'otherRepositories' => [
+                            ['slug' => 'acme/api', 'description' => 'Public REST API'],
+                            ['slug' => 'acme/billing', 'description' => ''],
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 

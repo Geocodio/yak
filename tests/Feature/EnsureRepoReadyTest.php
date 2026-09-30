@@ -246,3 +246,16 @@ test('all agent-running jobs wire up EnsureRepoReady before the agent runs', fun
         expect($middlewareClasses)->toContain(EnsureRepoReady::class);
     }
 });
+
+test('a refused agent job notifies the source exactly once', function () {
+    Queue::fake([SendNotificationJob::class]);
+    Repository::factory()->pendingSetup()->create(['slug' => 'acme/no-snapshot']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/no-snapshot', 'source' => 'linear']);
+    $job = new RunYakJob($task);
+
+    (new EnsureRepoReady)->handle($job, fn () => null);
+    $job->failed(new RuntimeException('refused'));
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+    Queue::assertPushed(SendNotificationJob::class, 1);
+});

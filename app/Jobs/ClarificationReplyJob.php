@@ -12,6 +12,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\Facades\Telemetry;
 use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\HandlesWrongRepository;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
@@ -40,6 +41,7 @@ use Illuminate\Support\Facades\Log;
 class ClarificationReplyJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
+    use HandlesWrongRepository;
     use NotifiesSourceOfFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
@@ -143,7 +145,7 @@ class ClarificationReplyJob implements ShouldQueue
             $recorder->mark('git_prepare');
 
             $request = new AgentRunRequest(
-                prompt: YakPromptBuilder::clarificationReplyPrompt($this->replyText),
+                prompt: YakPromptBuilder::clarificationReplyPrompt($this->replyText, $this->task),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
@@ -163,6 +165,10 @@ class ClarificationReplyJob implements ShouldQueue
                 TaskMetricsAccumulator::record($this->task, $result);
                 $this->handleError($result->failureMessage());
 
+                return;
+            }
+
+            if ($result->wrongRepository && $this->handleWrongRepository($repository, $result, countsAsNewTask: false)) {
                 return;
             }
 

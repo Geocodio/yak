@@ -12,6 +12,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\HandlesWrongRepository;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
@@ -23,7 +24,6 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
 use App\Services\IncusSandboxManager;
-use App\Services\RepoClarificationResolver;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -41,6 +41,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
     use HandlesAgentJobFailure;
+    use HandlesWrongRepository;
     use NotifiesSourceOfFailure;
     use Queueable;
 
@@ -458,61 +459,6 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         );
 
         TaskLogger::info($this->task, 'Clarification posted');
-    }
-
-    /**
-     * The agent concluded this checkout is not where the request lives.
-     * Puts the task in the same state as an unresolved intake so the next
-     * reply picks the repo. Returns false, leaving the task untouched, when
-     * there is no other active repository to offer.
-     */
-    private function handleWrongRepository(Repository $repository, AgentRunResult $result): bool
-    {
-        /** @var list<string> $options */
-        $options = Repository::where('is_active', true)
-            ->where('slug', '!=', $repository->slug)
-            ->orderBy('slug')
-            ->pluck('slug')
-            ->all();
-
-        if ($options === []) {
-            return false;
-        }
-
-        TaskMetricsAccumulator::record($this->task, $result);
-        DailyCost::accumulate($result->costUsd);
-
-        $suggested = $result->suggestedRepository;
-
-        if ($suggested !== null && in_array($suggested, $options, true)) {
-            $options = [$suggested, ...array_values(array_diff($options, [$suggested]))];
-        }
-
-        $reason = $result->wrongRepositoryReason ?? '';
-
-        TaskLogger::info($this->task, "Agent reported the wrong repository ({$repository->slug})", [
-            'reason' => $reason,
-            'suggested_repository' => $suggested,
-        ]);
-
-        $this->task->update([
-            'repo' => 'unknown',
-            'session_id' => null,
-            'branch_name' => null,
-            'status' => TaskStatus::AwaitingClarification,
-            'clarification_options' => $options,
-            'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days')),
-        ]);
-
-        $explanation = $reason !== '' ? " {$reason}" : '';
-
-        SendNotificationJob::dispatch(
-            $this->task,
-            NotificationType::Clarification,
-            "I looked in {$repository->slug}, but this doesn't seem to belong there.{$explanation} Which repo should I work in? Reply with a number:\n" . RepoClarificationResolver::numberedList($options),
-        );
-
-        return true;
     }
 
     private function handleError(string $errorMessage): void

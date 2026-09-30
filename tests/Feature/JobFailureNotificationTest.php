@@ -3,11 +3,13 @@
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -111,5 +113,39 @@ test('ResearchYakJob tells the source when research fails', function () {
 
     (new ResearchYakJob($task))->handle($fake);
 
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
+});
+
+test('RunYakReviewJob tells the source exactly once when the review fails', function () {
+    $fake = (new FakeAgentRunner)->queueResult(failingAgentResult());
+    $this->app->instance(AgentRunner::class, $fake);
+    Repository::factory()->create(['slug' => 'review-repo', 'path' => '/home/yak/repos/review-repo', 'pr_review_enabled' => true]);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'review-repo',
+        'source' => 'github',
+        'mode' => TaskMode::Review,
+        'pr_url' => 'https://github.com/acme/review-repo/pull/5',
+        'context' => json_encode(['pr_number' => 5, 'head_sha' => 'abc', 'base_sha' => 'def', 'review_scope' => 'full']),
+    ]);
+
+    (new RunYakReviewJob($task))->handle($fake);
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Failed);
+    expect(Queue::pushed(SendNotificationJob::class)->filter(
+        fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error,
+    ))->toHaveCount(1);
+});
+
+test('ResearchYakJob fails cleanly and tells the source when the repo is unresolved', function () {
+    $fake = new FakeAgentRunner;
+    $this->app->instance(AgentRunner::class, $fake);
+    $task = YakTask::factory()->pending()->create(['repo' => 'unknown', 'source' => 'linear', 'mode' => 'research']);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Failed)
+        ->and($task->error_log)->toContain('Could not determine which repo')
+        ->and($task->completed_at)->not->toBeNull();
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
 });

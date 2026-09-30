@@ -16,6 +16,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\Facades\Telemetry;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -50,6 +51,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
     use GuardsTerminalTaskStatus;
+    use NotifiesSourceOfFailure;
     use Queueable;
 
     public int $timeout = 3600;
@@ -970,5 +972,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Review failed', ['error' => $message]);
+
+        $this->notifySourceOfFailure($message);
     }
 }
