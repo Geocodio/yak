@@ -76,7 +76,7 @@ function buildFrontmatter(page) {
 
 function rewriteRelativeLinks(content) {
   // Convert [text](other.md) to [text](/yak/other/) for Starlight's routing.
-  // Only applies to bare .md filenames — leave anchors and full URLs alone.
+  // Only applies to bare .md filenames; leave anchors and full URLs alone.
   return content.replace(
     /\[([^\]]+)\]\(([a-z0-9-]+)\.md(#[a-z0-9-]+)?\)/gi,
     (_, text, slug, anchor) => `[${text}](${SITE_BASE}/${slug}/${anchor ?? ''})`,
@@ -131,7 +131,7 @@ function main() {
   }
 
   // Copy static Starlight-only pages (homepage, 404). These are maintained
-  // in docs-static/ because they aren't part of the /docs folder — they
+  // in docs-static/ because they aren't part of the /docs folder, they
   // only exist on the hosted site.
   const staticDir = resolve(__dirname, '../src/content/docs-static');
   if (existsSync(staticDir)) {

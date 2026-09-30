@@ -28,7 +28,7 @@ Fonts have three roles (`display`, `body`, `mono`), and each must be one of the 
 cd video && npx tsx scripts/timeline.ts --theme-defaults
 ```
 
-> **The saved row always wins over the config default.** `config('yak.video.theme')` supplies the defaults only for keys the `video_themes` row does not set. Once the theme editor has ever been saved, the row holds a complete `colors` and `fonts` map, so changing `config/yak.php` (or a `YAK_VIDEO_*` env var) has no visible effect. To make config defaults take effect again, use **Reset to defaults** on the page — or delete the row.
+> **The saved row always wins over the config default.** `config('yak.video.theme')` supplies the defaults only for keys the `video_themes` row does not set. Once the theme editor has ever been saved, the row holds a complete `colors` and `fonts` map, so changing `config/yak.php` (or a `YAK_VIDEO_*` env var) has no visible effect. To make config defaults take effect again, use **Reset to defaults** on the page, or delete the row.
 
 ### Logo
 

@@ -1,6 +1,6 @@
 # Architecture
 
-How Yak works under the hood. This page exists for the person who wants to understand the system before trusting it — or for someone debugging unexpected behavior who needs a mental model.
+How Yak works under the hood. This page exists for the person who wants to understand the system before trusting it, or for someone debugging unexpected behavior who needs a mental model.
 
 ## Three workflows, one substrate
 
@@ -65,7 +65,7 @@ Yak uses two distinct AI layers with different models, different frameworks, and
 
 ### The Routing Layer
 
-The routing layer is lightweight — classify the request, detect the repo, format the prompt, post results back to the source. It runs on the Anthropic API via Laravel AI using your `ANTHROPIC_API_KEY`.
+The routing layer is lightweight: classify the request, detect the repo, format the prompt, post results back to the source. It runs on the Anthropic API via Laravel AI using your `ANTHROPIC_API_KEY`.
 
 | Task | Model | Why |
 |---|---|---|
@@ -77,11 +77,11 @@ The routing layer is lightweight — classify the request, detect the repo, form
 
 ### The Implementation Layer
 
-Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs headlessly via `claude -p` with `--dangerously-skip-permissions` — no tool approval prompts inside the sandbox.
+Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs headlessly via `claude -p` with `--dangerously-skip-permissions`; no tool approval prompts inside the sandbox.
 
 Claude Code is always Opus. Opus produces better first-attempt results, which means fewer retries and less total work than starting with Sonnet and escalating.
 
-Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms** — see [Setup → Log In To Claude Code](setup.md#6-log-in-to-claude-code-on-the-server) for how each is configured.
+Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms**. See [Setup → Log In To Claude Code](setup.md#6-log-in-to-claude-code-on-the-server) for how each is configured.
 
 ## Channels
 
@@ -91,7 +91,7 @@ PR reviews and branch deployments talk to GitHub directly and do not use the cha
 
 ## Task State Machine
 
-Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition` — the enum enforces the rules, not the job code.
+Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition`. The enum enforces the rules, not the job code.
 
 ```mermaid
 flowchart TB
@@ -132,7 +132,7 @@ flowchart TB
 
 ## Sandbox Isolation (Incus)
 
-Every Claude Code task runs in an isolated **Incus system container**. Each container has its own Docker daemon, network namespace, and filesystem — cloned from a ZFS copy-on-write snapshot in under 3 seconds.
+Every Claude Code task runs in an isolated **Incus system container**. Each container has its own Docker daemon, network namespace, and filesystem, cloned from a ZFS copy-on-write snapshot in under 3 seconds.
 
 ```
 Host (Hetzner Dedicated Server)
@@ -158,15 +158,15 @@ Host (Hetzner Dedicated Server)
 
 Three guarantees make sandboxed execution safe at scale:
 
-- **Network isolation** — sandbox containers are on a separate bridge (`yak-sandbox`) with firewall rules blocking access to the yak app and MariaDB. The agent cannot reach the yak database, period.
-- **Port isolation** — each container has its own network namespace. Port 8000 in container A doesn't conflict with port 8000 in container B.
-- **Filesystem isolation** — ZFS copy-on-write means each container has its own writable filesystem. Changes in one container are invisible to others, so concurrent tasks on the same repo never collide.
+- **Network isolation**: sandbox containers are on a separate bridge (`yak-sandbox`) with firewall rules blocking access to the yak app and MariaDB. The agent cannot reach the yak database, period.
+- **Port isolation**: each container has its own network namespace. Port 8000 in container A doesn't conflict with port 8000 in container B.
+- **Filesystem isolation**: ZFS copy-on-write means each container has its own writable filesystem. Changes in one container are invisible to others, so concurrent tasks on the same repo never collide.
 
 ### The Snapshot Workflow
 
-1. **Setup** — `SetupYakJob` creates a sandbox from the base template (`yak-base`), clones the repo, runs Claude's setup (npm install, composer install, docker-compose up, etc.), then **snapshots the result** as `yak-tpl-{repo}/ready`.
-2. **Task execution** — `RunYakJob` clones from the repo snapshot (instant, ~2s). The agent works in a pristine copy of the fully-prepared environment.
-3. **Cleanup** — after the task completes (success or failure), the sandbox is destroyed. ZFS reclaims the space immediately.
+1. **Setup**: `SetupYakJob` creates a sandbox from the base template (`yak-base`), clones the repo, runs Claude's setup (npm install, composer install, docker-compose up, etc.), then **snapshots the result** as `yak-tpl-{repo}/ready`.
+2. **Task execution**: `RunYakJob` clones from the repo snapshot (instant, ~2s). The agent works in a pristine copy of the fully-prepared environment.
+3. **Cleanup**: after the task completes (success or failure), the sandbox is destroyed. ZFS reclaims the space immediately.
 
 ### Docker-in-Incus
 
@@ -190,7 +190,7 @@ The split exists to prevent a common failure mode: Task A's CI passes, but Task 
 
 ### Concurrent Execution
 
-With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers by default). Each task gets its own isolated container — no shared ports, no shared filesystem, no shared Docker daemon. Throughput scales with available RAM (each sandbox uses ~4-8GB).
+With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers by default). Each task gets its own isolated container: no shared ports, no shared filesystem, no shared Docker daemon. Throughput scales with available RAM (each sandbox uses ~4-8GB).
 
 ### The Main Jobs
 
@@ -198,11 +198,11 @@ Each agent job (`RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `Ru
 
 ### Middleware
 
-- **`EnsureDailyBudget`** — checks the `daily_costs` table before Claude Code invocations. If today's total cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
+- **`EnsureDailyBudget`**: checks the `daily_costs` table before Claude Code invocations. If today's total cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
 
 ## Session Continuity
 
-When a retry or clarification reply is needed, Yak uses `claude -p --resume $session_id` to continue the **original** Claude session. Claude retains its full context — files it read during assessment, approaches it considered, what it already tried.
+When a retry or clarification reply is needed, Yak uses `claude -p --resume $session_id` to continue the **original** Claude session. Claude retains its full context: files it read during assessment, approaches it considered, what it already tried.
 
 This is the single biggest cost optimization in Yak. A fresh session starting from zero would re-read the codebase, re-check Sentry, re-analyze the stacktrace. Resuming skips all of that and jumps directly to the new prompt (the CI failure, or the user's chosen clarification option).
 
@@ -210,7 +210,7 @@ This is the single biggest cost optimization in Yak. A fresh session starting fr
 
 - **Retries** after a first CI failure
 - **Clarification replies** when a Slack user picks an option
-- **Post-hoc debugging** — you can resume a completed task's session manually if needed
+- **Post-hoc debugging**: you can resume a completed task's session manually if needed
 
 ## Deduplication
 
@@ -254,7 +254,7 @@ Claude Code runs with `--dangerously-skip-permissions` on every invocation. No t
 - **Short-lived credentials.** GitHub App tokens are injected per-task and are short-lived. Claude Max auth tokens are copied read-only from the host.
 - **Automatic cleanup.** Sandbox containers are destroyed after each task. A cron job catches any that were missed.
 
-Claude can do anything it wants inside that sandbox. The walls are real — Incus namespace isolation, not just user separation within a shared container.
+Claude can do anything it wants inside that sandbox. The walls are real: Incus namespace isolation, not just user separation within a shared container.
 
 ### No Merge Authority
 
@@ -274,9 +274,9 @@ The full test suite runs on real CI, not on self-reported output from Claude. Cl
 
 Three layers:
 
-- **Per-task budget** — `--max-budget-usd 5.00` on every Claude CLI invocation, as a runaway guardrail. Implementation cost is covered by the subscription; this limit exists for safety.
-- **Daily budget** — `daily_budget_usd` (default $50, set with `YAK_DAILY_BUDGET_USD`) counts the reported cost of routing calls and every agent run. On a Max subscription that cost is notional, so raise it to match your volume. Enforced by the `EnsureDailyBudget` middleware before any Claude Code job starts.
-- **Deduplication** — `UNIQUE(external_id, repo)` prevents repeat work on the same issue.
+- **Per-task budget**: `--max-budget-usd 5.00` on every Claude CLI invocation, as a runaway guardrail. Implementation cost is covered by the subscription; this limit exists for safety.
+- **Daily budget**: `daily_budget_usd` (default $50, set with `YAK_DAILY_BUDGET_USD`) counts the reported cost of routing calls and every agent run. On a Max subscription that cost is notional, so raise it to match your volume. Enforced by the `EnsureDailyBudget` middleware before any Claude Code job starts.
+- **Deduplication**: `UNIQUE(external_id, repo)` prevents repeat work on the same issue.
 
 ### Scope Flag
 
@@ -284,15 +284,15 @@ PRs larger than `large_change_threshold` (default 200 LOC) get the `yak-large-ch
 
 ### Dashboard Auth
 
-Google OAuth with a **required** domain allowlist (`GOOGLE_OAUTH_ALLOWED_DOMAINS`). There is no public dashboard. There are no roles — every team member behind the allowlist sees everything, including debug logs and session IDs, but nothing is reachable without signing in.
+Google OAuth with a **required** domain allowlist (`GOOGLE_OAUTH_ALLOWED_DOMAINS`). There is no public dashboard. There are no roles. Every team member behind the allowlist sees everything, including debug logs and session IDs, but nothing is reachable without signing in.
 
 Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed URLs with a 7-day expiry. After expiry, artifacts are still accessible through the authenticated dashboard.
 
 ## What Yak Is Not
 
-- **Not a merge bot.** See above — no merge authority, no bypass.
+- **Not a merge bot.** See above: no merge authority, no bypass.
 - **Not horizontally scaled.** Four concurrent workers on one server. The architecture supports future scaling to multiple hosts but doesn't need it.
-- **Not a long-running interactive agent.** Each task is a focused pass. You can give feedback on an open PR — in the originating channel, as a `/yak` PR comment, or from the dashboard — and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
+- **Not a long-running interactive agent.** Each task is a focused pass. You can give feedback on an open PR (in the originating channel, as a `/yak` PR comment, or from the dashboard) and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
 - **Not a frontend framework.** Dashboard is Inertia + React on `@geocodio/console-ui`, with polling for live updates. No websockets.
 - **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.
 - **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere; the existing production deploy pipeline remains the source of truth.

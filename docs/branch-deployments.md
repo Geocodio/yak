@@ -28,7 +28,7 @@ GitHub shows a "View deployment" button on the PR. A preview that has been idle 
 
 ## Activity log
 
-Each deployment's detail page shows a timestamped, phase-tagged activity log. Every container command Yak runs (fetch, checkout, refresh, cold start) and every lifecycle transition (cloning template, starting, ready, failed, waking) gets an entry with its captured stdout/stderr and exit code. When a push fails to refresh, the log is the first place to look — the failing command and its output are right there, scoped to that deployment.
+Each deployment's detail page shows a timestamped, phase-tagged activity log. Every container command Yak runs (fetch, checkout, refresh, cold start) and every lifecycle transition (cloning template, starting, ready, failed, waking) gets an entry with its captured stdout/stderr and exit code. When a push fails to refresh, the log is the first place to look. The failing command and its output are right there, scoped to that deployment.
 
 ## First-hit timing
 
@@ -66,7 +66,7 @@ Every repo's manifest describes how to boot the dev environment as a preview:
 
 SetupYakJob authors the manifest automatically based on how it booted the dev env. Edit it later via the repository settings page.
 
-`checkout_refresh` is the **full** post-push rebuild pipeline — not a lightweight post-checkout tweak. It runs on every push to the branch and should do everything the preview needs to reflect the new code: `docker compose build`, `docker compose up -d`, `composer install`, `npm ci && npm run build`, `php artisan migrate --force`, cache clears. There's no path-gating; the Docker layer cache, npm cache, and composer cache all make no-op pushes cheap, so it's safe to run the whole pipeline every time.
+`checkout_refresh` is the **full** post-push rebuild pipeline, not a lightweight post-checkout tweak. It runs on every push to the branch and should do everything the preview needs to reflect the new code: `docker compose build`, `docker compose up -d`, `composer install`, `npm ci && npm run build`, `php artisan migrate --force`, cache clears. There's no path-gating; the Docker layer cache, npm cache, and composer cache all make no-op pushes cheap, so it's safe to run the whole pipeline every time.
 
 Alternative: drop a `.yak/preview.sh` script into your repo. If present, Yak runs `/workspace/.yak/preview.sh $SHA` after checkout instead of the manifest's `checkout_refresh`. This is the escape hatch for repos whose refresh logic is easier to maintain in-tree.
 

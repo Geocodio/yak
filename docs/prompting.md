@@ -1,6 +1,6 @@
 # Prompting
 
-This page is for teams who want to customize Yak's behavior — adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#write-a-claudemd).
+This page is for teams who want to customize Yak's behavior: adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#write-a-claudemd).
 
 ## Three Prompt Layers
 
@@ -9,12 +9,12 @@ Claude Code receives three distinct prompt inputs on every task. Each one lives 
 | Layer | Where it lives | Scope | Who maintains it |
 |---|---|---|---|
 | **`CLAUDE.md`** | Root of the target repo | Per-repo conventions, test patterns, do-not-touch lists | The team that owns that repo |
-| **`--append-system-prompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself — the "Yak persona" |
+| **`--append-system-prompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself (the "Yak persona") |
 | **`-p` prompt** | Assembled from Blade templates (with optional DB overrides) per task | Task description, source-specific context, instructions | Yak assembles at runtime from source + template |
 
 These stack: `CLAUDE.md` is loaded by Claude Code itself from the repo, the system prompt is appended to Claude's built-in prompt via `--append-system-prompt`, and the `-p` prompt is the task-specific instructions.
 
-> **Every prompt — both the system prompt and the task prompts — can be tweaked live from the dashboard at `/prompts` without a redeploy.** See [Editing prompts in the dashboard](#editing-prompts-in-the-dashboard) below.
+> **Every prompt (both the system prompt and the task prompts) can be tweaked live from the dashboard at `/prompts` without a redeploy.** See [Editing prompts in the dashboard](#editing-prompts-in-the-dashboard) below.
 
 ## CLI Invocation
 
@@ -41,7 +41,7 @@ claude -p "$TASK_PROMPT" \
 | `--append-system-prompt` | Yak persona. Appends, doesn't replace Claude's built-in prompt. |
 | `--mcp-config` | Context7 always; Sentry and GitHub when their credentials are set. See [MCP Servers](#mcp-servers). |
 
-Retries and clarification replies add `--resume $session_id` to continue the original session — see [Architecture → Session Continuity](architecture.md#session-continuity).
+Retries and clarification replies add `--resume $session_id` to continue the original session. See [Architecture → Session Continuity](architecture.md#session-continuity).
 
 The command runs inside the sandbox container as the unprivileged `yak` user. App secrets (`DB_PASSWORD`, `APP_KEY`, etc.) live only in the yak app container and are never present in the sandbox's environment.
 

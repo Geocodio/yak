@@ -1,6 +1,6 @@
 # Development
 
-This page is for people working on Yak itself — fixing bugs in the Laravel app, adding new features, or writing new channel drivers. If you just want to run Yak against your repos, see the [Setup](setup.md) page.
+This page is for people working on Yak itself: fixing bugs in the Laravel app, adding new features, or writing new channel drivers. If you just want to run Yak against your repos, see the [Setup](setup.md) page.
 
 ## Local Development Setup
 
@@ -13,7 +13,7 @@ This page is for people working on Yak itself — fixing bugs in the Laravel app
 | **Node** | 20+ | For building frontend assets and running Playwright |
 | **Docker** | 24+ | For MariaDB via docker-compose |
 
-You do NOT need Claude Code CLI, Chromium, or Ansible to develop on Yak. Those are runtime dependencies for a production Yak instance — tests fake all external process calls via Laravel's `Process::fake()` and `Http::fake()`.
+You do NOT need Claude Code CLI, Chromium, or Ansible to develop on Yak. Those are runtime dependencies for a production Yak instance. Tests fake all external process calls via Laravel's `Process::fake()` and `Http::fake()`.
 
 ### Getting Started
 
@@ -56,7 +56,7 @@ php artisan schedule:work
 npm run dev
 ```
 
-Open `http://localhost:8000`. Login is Google OAuth only, so for local development visit `http://localhost:8000/letmein` instead — it signs you in as the first user in the database (creating one if the table is empty) and drops you on the dashboard. The route only exists when `APP_ENV=local` and returns a 404 everywhere else.
+Open `http://localhost:8000`. Login is Google OAuth only, so for local development visit `http://localhost:8000/letmein` instead. It signs you in as the first user in the database (creating one if the table is empty) and drops you on the dashboard. The route only exists when `APP_ENV=local` and returns a 404 everywhere else.
 
 ## Running Tests
 
@@ -103,7 +103,7 @@ Browser tests cover the auth flow, live polling updates on the task detail page,
 
 ### Contract Tests
 
-Contract tests validate that real Claude CLI output matches the schema Yak expects. They run nightly against the real CLI — **not** in the normal test run — because they need Claude CLI installed and an Anthropic API key.
+Contract tests validate that real Claude CLI output matches the schema Yak expects. They run nightly against the real CLI, **not** in the normal test run, because they need Claude CLI installed and an Anthropic API key.
 
 ```bash
 vendor/bin/pest --group=contract
@@ -219,13 +219,13 @@ Steps:
 
 ### What Not To Touch Without Approval
 
-- `phpstan-baseline.neon` — pre-existing errors, do not clear
-- `docker/supervisord.conf` — production config
-- `.chief/` — local working files, never commit
+- `phpstan-baseline.neon`: pre-existing errors, do not clear
+- `docker/supervisord.conf`: production config
+- `.chief/`: local working files, never commit
 
 ## Reporting Bugs And Requesting Features
 
-- **Bug report** — `https://github.com/geocodio/yak/issues/new?template=bug_report.yml`
-- **Feature request** — `https://github.com/geocodio/yak/issues/new?template=feature_request.yml`
+- **Bug report**: `https://github.com/geocodio/yak/issues/new?template=bug_report.yml`
+- **Feature request**: `https://github.com/geocodio/yak/issues/new?template=feature_request.yml`
 
 Include the Yak version (git SHA), the channel involved, steps to reproduce, and relevant logs from `docker logs yak --tail 500` or the task's debug section.

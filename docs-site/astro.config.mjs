@@ -44,7 +44,7 @@ export default defineConfig({
       ],
       components: {
         // Swap Starlight's default components for Yak-themed variants
-        // when needed. Keeping overrides minimal for now — the design
+        // when needed. Keeping overrides minimal for now, the design
         // tokens handle most of the visual identity.
       },
       sidebar: [

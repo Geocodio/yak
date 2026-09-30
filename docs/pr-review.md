@@ -1,23 +1,23 @@
 # PR Review
 
-Yak can review pull requests on every enabled repository. When a PR is opened or marked ready for review, Yak dispatches a `review` task that runs the same Claude Code pipeline used for fixes and research — this time with read-only access and a rubric tuned for code review. The output is posted back to GitHub as a line-level review, complete with `suggestion` blocks where they fit.
+Yak can review pull requests on every enabled repository. When a PR is opened or marked ready for review, Yak dispatches a `review` task that runs the same Claude Code pipeline used for fixes and research, this time with read-only access and a rubric tuned for code review. The output is posted back to GitHub as a line-level review, complete with `suggestion` blocks where they fit.
 
 ## Enabling It
 
-Go to the repo's settings page (`/repos/{id}/edit`) and flip the **PR Review** toggle. When you flip it on, a second switch appears — **Review all currently open PRs on save** — which, when kept on, enqueues a retroactive review for every eligible open PR the moment you save.
+Go to the repo's settings page (`/repos/{id}/edit`) and flip the **PR Review** toggle. When you flip it on, a second switch appears, **Review all currently open PRs on save**, which, when kept on, enqueues a retroactive review for every eligible open PR the moment you save.
 
 After that:
 
 - Opening a new PR triggers a full review.
 - Marking a draft PR ready-for-review triggers a full review.
 - Reopening a closed PR triggers a full review.
-- **Pushing new commits does NOT trigger another review.** Yak intentionally stays quiet while you keep iterating — otherwise a rapid series of commits would produce a wall of overlapping reviews.
+- **Pushing new commits does NOT trigger another review.** Yak intentionally stays quiet while you keep iterating; otherwise a rapid series of commits would produce a wall of overlapping reviews.
 
 PRs authored by the Yak app bot are reviewed when `YAK_PR_SELF_REVIEW_ENABLED` is enabled (the default). They cannot receive approval or a change request from that same app identity.
 
 ## Asking For Another Review
 
-When you're ready for a fresh pass, click **Re-request review** next to the Yak bot in the PR's Reviewers sidebar on GitHub. Yak runs an **incremental** review — only the commits since its last review are considered. If no prior Yak review exists on the PR, it falls back to a full review. Force-pushes between reviews also fall back to a full review automatically.
+When you're ready for a fresh pass, click **Re-request review** next to the Yak bot in the PR's Reviewers sidebar on GitHub. Yak runs an **incremental** review. Only the commits since its last review are considered. If no prior Yak review exists on the PR, it falls back to a full review. Force-pushes between reviews also fall back to a full review automatically.
 
 The button only appears after Yak has submitted at least one review on the PR. For a full re-review, click **Re-run review** on the PR's page in the dashboard (`/pr-reviews/for/{repoSlug}/{prNumber}`).
 
@@ -27,11 +27,11 @@ Reply to a Yak finding with `/yak` and a request, for example `/yak fix this ple
 
 ## Path Filters
 
-Yak ships with sensible defaults for what to exclude from review — `vendor/**`, `node_modules/**`, build output, minified assets, editor config. The full default list is in `config/yak.php` under `pr_review.default_path_excludes`. Migrations and lockfiles are **not** excluded by default: migrations contain real logic (schema changes, indexes, destructive drops) worth a look, and lockfile diffs can surface dependency version bumps the author didn't highlight.
+Yak ships with sensible defaults for what to exclude from review: `vendor/**`, `node_modules/**`, build output, minified assets, editor config. The full default list is in `config/yak.php` under `pr_review.default_path_excludes`. Migrations and lockfiles are **not** excluded by default: migrations contain real logic (schema changes, indexes, destructive drops) worth a look, and lockfile diffs can surface dependency version bumps the author didn't highlight.
 
 If the defaults are wrong for a repo, the repo settings page has a **PR review path filters** section. You can add glob patterns (e.g. `custom/generated/**`), remove specific patterns, or reset back to the global defaults. The patterns support `*`, `**`, and `?` just like `.gitignore`.
 
-When path filters are active, Yak filters the changed file list before building the prompt AND filters findings Claude produces — so a model that still hallucinated a finding in `vendor/` gets silently dropped.
+When path filters are active, Yak filters the changed file list before building the prompt AND filters findings Claude produces, so a model that still hallucinated a finding in `vendor/` gets silently dropped.
 
 ## Interpreting Reviews
 
@@ -67,7 +67,7 @@ The review runs inside the repo's normal Incus sandbox, so Claude can execute te
 - Running type checkers (`phpstan`, `tsc`) and linters (`pint`, `eslint`, `biome`) on changed files
 - Promoting genuine failures to `must_fix` findings
 
-Style-only issues that auto-formatters catch are suppressed — the prompt forbids them.
+Style-only issues that auto-formatters catch are suppressed; the prompt forbids them.
 
 ## Tuning The Prompt
 
@@ -75,23 +75,23 @@ The review prompt lives at `resources/views/prompts/tasks/review.blade.php` and 
 
 ## Dashboard
 
-The **PR Reviews** tab (top-level nav) shows every finding Yak has posted, filterable by severity, category, repo, scope, and reviewer. Reactions (👍 / 👎) posted on GitHub are polled hourly and rolled up — you can see which categories trend helpful vs. noisy at a glance.
+The **PR Reviews** tab (top-level nav) shows every finding Yak has posted, filterable by severity, category, repo, scope, and reviewer. Reactions (👍 / 👎) posted on GitHub are polled hourly and rolled up. You can see which categories trend helpful vs. noisy at a glance.
 
-- `/pr-reviews` — main table
-- `/pr-reviews/for/{repoSlug}/{prNumber}` — all Yak reviews for a specific PR, with a **Re-run review** button
+- `/pr-reviews`: main table
+- `/pr-reviews/for/{repoSlug}/{prNumber}`: all Yak reviews for a specific PR, with a **Re-run review** button
 
 TaskDetail (`/tasks/{id}`) for a `review` task shows three additional panels: review output metadata, a rendered Markdown preview, and the full findings table.
 
 ## Limitations
 
 - Reviews are advisory unless the repository opts into [risk-based approval](risk-based-approval.md). GitHub branch protection and CODEOWNERS requirements still apply; a Yak approval does not necessarily satisfy every required reviewer rule.
-- Review accuracy scales with the prompt; expect some noise on `consider` findings. Use the 👎 reaction to signal false positives — the dashboard surfaces patterns.
+- Review accuracy scales with the prompt; expect some noise on `consider` findings. Use the 👎 reaction to signal false positives; the dashboard surfaces patterns.
 - The `max_findings_per_review` cap (default 10) keeps reviews focused. Tune via `config/yak.php` if needed.
 - Incremental reviews only compute the diff between Yak's last reviewed SHA and the current head. Use **Re-run review** in the dashboard for a full pass.
 
 ## Troubleshooting
 
-- **Review never posted** — Check the TaskDetail page for the failed review task. The sandbox might have failed to check out the PR head, or the JSON output from Claude might be malformed. Both failure modes are logged in the activity log.
-- **Review posted but comments missing** — Path filters may be too aggressive. Check `config/yak.php` `pr_review.default_path_excludes` or the per-repo overrides.
-- **Reactions not showing up** — The polling job runs hourly. Force a manual poll with `php artisan schedule:run` or wait for the next cycle.
-- **Linear ticket context not included** — Confirm a `LinearOauthConnection` exists and the ticket identifier follows the `[A-Z]{2,6}-\d+` pattern.
+- **Review never posted**: Check the TaskDetail page for the failed review task. The sandbox might have failed to check out the PR head, or the JSON output from Claude might be malformed. Both failure modes are logged in the activity log.
+- **Review posted but comments missing**: Path filters may be too aggressive. Check `config/yak.php` `pr_review.default_path_excludes` or the per-repo overrides.
+- **Reactions not showing up**: The polling job runs hourly. Force a manual poll with `php artisan schedule:run` or wait for the next cycle.
+- **Linear ticket context not included**: Confirm a `LinearOauthConnection` exists and the ticket identifier follows the `[A-Z]{2,6}-\d+` pattern.

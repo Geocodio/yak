@@ -1,12 +1,12 @@
 # Setup Guide
 
-One command provisions a fresh server. Everything runs through Ansible — the manual steps in this guide document what Ansible automates, not an alternative path.
+One command provisions a fresh server. Everything runs through Ansible. The manual steps in this guide document what Ansible automates, not an alternative path.
 
 ## What You End Up With
 
 - A dedicated server running the Yak Docker container (Laravel app, queue workers, scheduler, nginx)
 - A MariaDB container with persistent storage for the application database
-- **Incus + ZFS** for sandboxed task execution — each task runs in its own isolated system container with its own Docker daemon, network, and filesystem
+- **Incus + ZFS** for sandboxed task execution: each task runs in its own isolated system container with its own Docker daemon, network, and filesystem
 - Webhook endpoints for whichever channels you have enabled
 - A dashboard at `https://{your-domain}` behind Google OAuth
 - Claude Code CLI configured with MCP servers matching your enabled channels
@@ -18,7 +18,7 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 | **Server** | Dedicated box with 32GB+ RAM, 500GB+ disk. Hetzner AX-series, bare metal, or VM. Ubuntu 24.04 or Debian 12+. Public IP for inbound webhooks. |
 | **Domain** | DNS A record pointing to the server. Used for dashboard and webhook endpoints. |
 | **Claude** | Max subscription (for Claude Code CLI) plus an Anthropic API key (for the routing layer). |
-| **GitHub** | Organization account. The Ansible provisioner creates a GitHub App automatically — repos are cloned via HTTPS using the App's installation token (no SSH keys needed). |
+| **GitHub** | Organization account. The Ansible provisioner creates a GitHub App automatically; repos are cloned via HTTPS using the App's installation token (no SSH keys needed). |
 | **Google OAuth** | Google Cloud project with OAuth credentials. Used for dashboard authentication. |
 | **Ansible** | 2.15+ on your local machine (`pip install ansible`). |
 
@@ -93,13 +93,13 @@ For repos that need private npm tokens or private Docker registries, see [Advanc
 2. Click **Create Key**
 3. Copy the key (`sk-ant-...`) into `anthropic_api_key`
 
-This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI authenticates separately via a Max subscription — see step 6 below.
+This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI authenticates separately via a Max subscription; see step 6 below.
 
-#### Google OAuth (required — dashboard authentication)
+#### Google OAuth (required: dashboard authentication)
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project (or select an existing one)
 2. Go to **APIs & Services → OAuth consent screen**
-3. Set user type to **Internal** (restricts login to your Google Workspace org — no app review needed)
+3. Set user type to **Internal** (restricts login to your Google Workspace org, no app review needed)
 4. Fill in the app name (e.g. "Yak") and your support email, then save
 5. Go to **APIs & Services → Credentials**
 6. Click **Create Credentials → OAuth client ID**
@@ -111,7 +111,7 @@ This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI
 
 #### GitHub
 
-No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow — you fill in the resulting credentials and re-run.
+No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow. You fill in the resulting credentials and re-run.
 
 #### Channels (optional)
 
@@ -144,15 +144,15 @@ ansible-playbook ansible/playbook.yml
 
 This single command runs the following roles in order:
 
-1. **base** — creates the `yak` user, configures UFW, fail2ban, swap, and automatic security updates
-2. **docker** — installs Docker Engine and Compose
-3. **ssl** — provisions a Let's Encrypt certificate via Caddy, configures log rotation
-4. **github-app** — creates and installs the GitHub App on your org (skipped if already provisioned)
-5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
-6. **mariadb** — runs a MariaDB 11 container with persistent storage on a Docker network
-7. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
-8. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
-9. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
+1. **base**: creates the `yak` user, configures UFW, fail2ban, swap, and automatic security updates
+2. **docker**: installs Docker Engine and Compose
+3. **ssl**: provisions a Let's Encrypt certificate via Caddy, configures log rotation
+4. **github-app**: creates and installs the GitHub App on your org (skipped if already provisioned)
+5. **mcp-config**: generates `mcp-config.json` with only the enabled channels' MCP servers
+6. **mariadb**: runs a MariaDB 11 container with persistent storage on a Docker network
+7. **channel-***: conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
+8. **yak-container**: pulls the pre-built Docker image from ghcr.io, starts the container with env vars
+9. **claude-code-config**: installs the Claude CLI, configures slash commands, prints the interactive login prompt
 
 Total time: about 10 minutes.
 
@@ -166,11 +166,11 @@ yak-claude-login
 
 Type `/login` at the prompt and finish the browser flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
 
-The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
+The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls, separate from the CLI subscription auth.
 
 ### 7. Add Your Repositories (in your browser)
 
-Repositories are managed through the dashboard — not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
+Repositories are managed through the dashboard, not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
 
 See the [Repositories](repositories.md) page for the full field reference and how setup tasks work.
 
@@ -201,12 +201,12 @@ If a task does not appear or does not finish, see [Troubleshooting](troubleshoot
 
 For each enabled channel, trigger a test event:
 
-- **Slack** — mention `@yak` in a channel
-- **Linear** — assign a test issue to Yak (the OAuth app appears in the assignee picker)
-- **Sentry** — trigger a test alert rule
-- **GitHub Actions** — push a commit to a `yak/test-*` branch
+- **Slack**: mention `@yak` in a channel
+- **Linear**: assign a test issue to Yak (the OAuth app appears in the assignee picker)
+- **Sentry**: trigger a test alert rule
+- **GitHub Actions**: push a commit to a `yak/test-*` branch
 
-Check `https://{your-domain}/tasks` — each event should create a task row.
+Check `https://{your-domain}/tasks`. Each event should create a task row.
 
 ## Updating Yak
 
@@ -292,7 +292,7 @@ Ansible renders these into `~/.docker/config.json` on the host and Yak copies th
 
 ## Where To Go Next
 
-- [Channels](channels.md) — per-channel configuration and usage
-- [Repositories](repositories.md) — adding and managing repos, CLAUDE.md guidance
-- [Architecture](architecture.md) — how Yak works under the hood
-- [Troubleshooting](troubleshooting.md) — common issues and solutions
+- [Channels](channels.md): per-channel configuration and usage
+- [Repositories](repositories.md): adding and managing repos, CLAUDE.md guidance
+- [Architecture](architecture.md): how Yak works under the hood
+- [Troubleshooting](troubleshooting.md): common issues and solutions

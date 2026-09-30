@@ -24,7 +24,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 <CardGrid>
   <Card title="Receives tasks" icon="rocket">
     From Slack `@mentions`, Linear `yak` labels, Sentry alerts, or the manual CLI.
-    Every integration is a pluggable channel — enable only what you use.
+    Every integration is a pluggable channel; enable only what you use.
   </Card>
   <Card title="Fixes papercuts" icon="approve-check">
     Bug fixes, flaky tests, lint violations, deprecation cleanups. Tasks where
@@ -36,7 +36,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   </Card>
   <Card title="Two-way feedback" icon="comment">
     Reply in the same Slack thread, on the Linear issue, or with `/yak` on the
-    PR, and Yak refines the work — pushing follow-up commits to the same
+    PR, and Yak refines the work, pushing follow-up commits to the same
     branch. No separate UI to check.
   </Card>
 </CardGrid>
@@ -81,7 +81,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 ## Design philosophy
 
 - **First pass in one shot, then refine.** A task fits in a paragraph, and Yak resolves it in a single pass. Not quite right? Reply where you already are and Yak pushes follow-up commits to the same PR until it's done.
-- **Meet the user where they are.** Slack in, Slack out. Linear in, Linear out. The whole back-and-forth happens in the channel you started from — no separate dashboard check required.
+- **Meet the user where they are.** Slack in, Slack out. Linear in, Linear out. The whole back-and-forth happens in the channel you started from; no separate dashboard check required.
 - **Clarify, don't guess.** Ambiguous requests get multiple-choice options grounded in actual code, not generic guesses.
 - **Yak stops at a PR.** A human reviews and merges. Yak has no merge authority.
 - **Channels are optional.** GitHub plus the manual CLI is the minimum. Enable the rest as you need them.

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common problems and how to diagnose them. Start with the health page at `https://{your-domain}/health` — it covers most of what could be wrong in one place.
+Common problems and how to diagnose them. Start with the health page at `https://{your-domain}/health`. It covers most of what could be wrong in one place.
 
 ## First-Line Diagnostics
 
@@ -48,7 +48,7 @@ Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sen
 
 4. **Check signing secrets match.** Slack rejects with 401 if `slack_signing_secret` doesn't match the app's signing secret. Linear and Sentry do the same with their respective webhook secrets.
 
-5. **UFW rules** — port 443 must be open for inbound HTTPS:
+5. **UFW rules**: port 443 must be open for inbound HTTPS:
 
    ```bash
    ssh root@{server} ufw status
@@ -56,10 +56,10 @@ Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sen
 
 ### Per-Channel Gotchas
 
-- **Slack** — channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
-- **Linear** — the webhook must subscribe to **Agent session events** so delegation events come through, and the OAuth connection must be active; if the `linear_oauth_connections.installer_user_id` column is null, re-authorize the app from Yak's settings. The install requires workspace admin approval — a non-admin install will appear to succeed but agent session events will not arrive.
-- **Sentry** — the issue must reach the webhook *and* clear the filters: not a CSP violation, not a transient infra error, Seer actionability at least `medium`, and at least 5 events (a `yak-priority` tag bypasses the last two). Each rejection is logged to the `yak` channel with its reason — check there first. If `YAK_SENTRY_REQUIRED_TAG` is set, the event must also carry that tag key.
-- **GitHub** — the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
+- **Slack**: channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
+- **Linear**: the webhook must subscribe to **Agent session events** so delegation events come through, and the OAuth connection must be active; if the `linear_oauth_connections.installer_user_id` column is null, re-authorize the app from Yak's settings. The install requires workspace admin approval. A non-admin install will appear to succeed but agent session events will not arrive.
+- **Sentry**: the issue must reach the webhook *and* clear the filters: not a CSP violation, not a transient infra error, Seer actionability at least `medium`, and at least 5 events (a `yak-priority` tag bypasses the last two). Each rejection is logged to the `yak` channel with its reason, so check there first. If `YAK_SENTRY_REQUIRED_TAG` is set, the event must also carry that tag key.
+- **GitHub**: the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
 
 ## Task Stuck In `running`
 
@@ -83,16 +83,16 @@ Symptoms: adding a new repo via the dashboard or Ansible, and the repo's `setup_
 
 ### Common Causes
 
-- **Missing system dependencies** — the repo's dev environment needs a tool that isn't in the Yak Docker image (e.g., a specific Node version, or `pg_config`).
-- **Docker-in-Docker issues** — the repo's `docker-compose.yml` references services that need privileged mode or specific network configuration.
-- **Private package registry auth** — the repo uses a private npm/composer registry and the token isn't configured. See [Agent Environment Variables](#agent-environment-variables-not-visible) below.
-- **`CLAUDE.md` missing or misleading** — Claude couldn't figure out the correct setup commands from the README alone.
+- **Missing system dependencies**: the repo's dev environment needs a tool that isn't in the Yak Docker image (e.g., a specific Node version, or `pg_config`).
+- **Docker-in-Docker issues**: the repo's `docker-compose.yml` references services that need privileged mode or specific network configuration.
+- **Private package registry auth**: the repo uses a private npm/composer registry and the token isn't configured. See [Agent Environment Variables](#agent-environment-variables-not-visible) below.
+- **`CLAUDE.md` missing or misleading**: Claude couldn't figure out the correct setup commands from the README alone.
 
 ### Diagnosis
 
 1. Open the setup task's detail page: `https://{your-domain}/tasks/{setup_task_id}`
 2. Expand the **Debug** section at the bottom
-3. Read the full Claude Code output — it reports exactly what command failed and why
+3. Read the full Claude Code output: it reports exactly what command failed and why
 
 The task detail page shows the Claude session as collapsible CI-style steps. Each turn includes the tool type, a description, duration, and the full terminal output.
 
@@ -120,7 +120,7 @@ Sandboxes start with no Docker credentials. Add them under `docker_registries` i
 
 Symptoms: a task's status is `awaiting_ci` and never advances even though CI actually ran.
 
-1. **CI result not reaching Yak.** For GitHub Actions, check Caddy/nginx logs for inbound requests to `/webhooks/github`. For Drone, check the scheduler/`default` worker logs — CI results are polled by `yak:poll-drone-ci` every minute, not pushed.
+1. **CI result not reaching Yak.** For GitHub Actions, check Caddy/nginx logs for inbound requests to `/webhooks/github`. For Drone, check the scheduler/`default` worker logs; CI results are polled by `yak:poll-drone-ci` every minute, not pushed.
 2. **Wrong CI system.** The repo's `ci_system` must match which CI is authoritative for that repo. A GitHub Actions webhook for a repo configured as `drone` is silently dropped.
 3. **Branch name mismatch.** The task's `branch_name` must match what was pushed. Look at the task's Debug section for the actual branch name.
 4. **GitHub App permissions.** The App needs `Checks: Read` and `Pull requests: Read & Write` to receive check suite events and create PRs.
@@ -142,8 +142,8 @@ Symptoms: a PR opened on a repo with `pr_review_enabled = true` but no Yak revie
 2. **Repo active and enabled?** Go to `/repos/{id}/edit` and confirm **Active** and **PR Review** are both on.
 3. **PR a draft?** Drafts are skipped. Convert the draft to ready-for-review to trigger. Yak's own PRs are reviewed unless `YAK_PR_SELF_REVIEW_ENABLED=false`.
 4. **Task dispatched but failed?** Look in `/tasks?tab=reviews` for a failed row. Common failure modes:
-   - Sandbox checkout failure — the PR's head wasn't fetchable (force-pushed, branch deleted). Inspect the task activity log.
-   - Claude output didn't contain a valid JSON block — usually means Claude failed the review instead of producing findings. The raw output lives in the task's `result_summary`.
+   - Sandbox checkout failure: the PR's head wasn't fetchable (force-pushed, branch deleted). Inspect the task activity log.
+   - Claude output didn't contain a valid JSON block. This usually means Claude failed the review instead of producing findings. The raw output lives in the task's `result_summary`.
 5. **Path filters too aggressive?** If the PR only touches excluded paths, the review is filtered out. Check `pr_review_path_excludes` on the repo.
 
 ### Resolution
@@ -183,26 +183,26 @@ For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.we
 
 1. **The health row.** The **Video Render** row surfaces failed renders in the last 24 h. A final failure also notifies the task's channel and rewrites the PR's video line to "Video walkthrough unavailable".
 2. **`failed_jobs`.** `php artisan queue:failed` lists any `RenderWalkthroughJob` (or `RenderVideoJob` for legacy tasks) that exhausted its retries, with the exception that killed it.
-3. **`video_metrics`.** Query rows with `status = 'failed'` for the task and read the `error` column — it names which render step failed.
+3. **`video_metrics`.** Query rows with `status = 'failed'` for the task and read the `error` column. It names which render step failed.
 
 ### Common causes
 
 - **`timeline.ts` failure.** The Node script that turns `manifest.json` + `script.json` into a render timeline threw before any frames were produced. Check the job's log for a `timeline.ts` stack trace.
-- **Caption overflow.** A caption in `script.json` was too long for its slide duration and the `WalkthroughV3` composition refused to render it — the fix is a shorter caption or a longer beat, not a code change.
+- **Caption overflow.** A caption in `script.json` was too long for its slide duration and the `WalkthroughV3` composition refused to render it. The fix is a shorter caption or a longer beat, not a code change.
 - **Duration outside the bounds.** The computed timeline duration fell outside the configured min/max, which usually means a script beat has an unrealistic wait or an empty shot list.
-- **The QA frame test.** `RenderQaCheck` samples frames from the finished cut and fails the render if a frame is blank, garbled, or missing captions — this catches a shoot that silently captured a blank page.
+- **The QA frame test.** `RenderQaCheck` samples frames from the finished cut and fails the render if a frame is blank, garbled, or missing captions. This catches a shoot that silently captured a blank page.
 
 ### Retrying
 
-`php artisan yak:video:rerender --task=<id>` re-dispatches the render for that task without needing a fresh sandbox — it reuses the artifacts already on disk. Add `--dry-run` first to confirm it picks up the right task, or `--failed-since=<date>` to sweep every task that failed after a fix.
+`php artisan yak:video:rerender --task=<id>` re-dispatches the render for that task without needing a fresh sandbox. It reuses the artifacts already on disk. Add `--dry-run` first to confirm it picks up the right task, or `--failed-since=<date>` to sweep every task that failed after a fix.
 
 ### The walkthrough has no narration
 
-Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled. See [Video Walkthroughs](video-walkthroughs.md#voiceover). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts — a task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
+Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled. See [Video Walkthroughs](video-walkthroughs.md#voiceover). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts. A task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
 
 ### `Visual capture: partial` in the task log
 
-This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills — not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.
+This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills, not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.
 
 ## Video theme page (`/settings/video`) preview is blank or sample render never appears
 
@@ -217,7 +217,7 @@ docker exec yak claude --version
 docker exec yak claude -p "Say hello" --output-format json
 ```
 
-If the first command fails, the CLI isn't installed in the container — rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic — check network connectivity.
+If the first command fails, the CLI isn't installed in the container, so rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic, so check network connectivity.
 
 ### Authentication Failures (Token Expired)
 
@@ -233,7 +233,7 @@ Claude Code authenticates with a login session stored in `/home/yak/.claude/`. W
 docker exec yak cat /home/yak/mcp-config.json
 ```
 
-This shows which MCP servers are currently configured. If a server you expect is missing, the corresponding channel isn't enabled — re-run Ansible with the channel's credentials set.
+This shows which MCP servers are currently configured. If a server you expect is missing, the corresponding channel isn't enabled; re-run Ansible with the channel's credentials set.
 
 If a server is configured but Claude can't reach it, check:
 
@@ -260,9 +260,9 @@ Open `https://{your-domain}/costs`. The cost dashboard shows daily totals, per-s
 
 If routing-layer costs are climbing, the cause is almost always one of:
 
-- **Sentry alert storm** — a noisy alert rule is creating many tasks. Check the `/tasks` page filtered by `source: sentry` for a cluster of similar tasks. Tighten the alert rule in Sentry, or raise the `min_events` threshold in `config/yak.php`.
-- **Slack bot being over-mentioned** — a user is pasting long threads that hit `@yak`. Check the task list filtered by `source: slack`.
-- **Failed webhook retries** — some services retry webhook delivery on 5xx responses, creating duplicate routing calls. The `UNIQUE(external_id, repo)` constraint deduplicates tasks, but not routing analysis.
+- **Sentry alert storm**: a noisy alert rule is creating many tasks. Check the `/tasks` page filtered by `source: sentry` for a cluster of similar tasks. Tighten the alert rule in Sentry, or raise the `min_events` threshold in `config/yak.php`.
+- **Slack bot being over-mentioned**: a user is pasting long threads that hit `@yak`. Check the task list filtered by `source: slack`.
+- **Failed webhook retries**: some services retry webhook delivery on 5xx responses, creating duplicate routing calls. The `UNIQUE(external_id, repo)` constraint deduplicates tasks, but not routing analysis.
 
 ### Implementation Layer (Claude Code)
 
@@ -332,7 +332,7 @@ If supervisord itself is wedged, restart the container outright:
 docker restart yak
 ```
 
-This is safe — the queues are MariaDB-backed and any in-flight jobs will be retried on the next worker boot (with the caveat that tasks mid-`claude -p` session may be left in `running` and need attention per [Task stuck in running](#task-stuck-in-running)).
+This is safe. The queues are MariaDB-backed and any in-flight jobs will be retried on the next worker boot (with the caveat that tasks mid-`claude -p` session may be left in `running` and need attention per [Task stuck in running](#task-stuck-in-running)).
 
 ## Collecting Diagnostics For A Bug Report
 
@@ -352,4 +352,4 @@ docker logs yak --tail 500 > yak.log
 # https://{your-domain}/tasks/{id}
 ```
 
-File at `https://github.com/geocodio/yak/issues/new/choose` — include the version, health output, the task ID, and which channel was involved.
+File at `https://github.com/geocodio/yak/issues/new/choose`: include the version, health output, the task ID, and which channel was involved.

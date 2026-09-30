@@ -6,7 +6,7 @@ Published to: https://geocodio.github.io/yak/
 
 ## How it works
 
-The source of truth for documentation content is the `docs/` folder at the repo root — plain markdown, readable on GitHub directly. This site wraps those files with navigation, search, and custom theming.
+The source of truth for documentation content is the `docs/` folder at the repo root, plain markdown, readable on GitHub directly. This site wraps those files with navigation, search, and custom theming.
 
 On every dev start or build, `scripts/sync-docs.mjs`:
 
@@ -25,16 +25,16 @@ Sidebar order and descriptions are configured in the `PAGES` array inside `scrip
 
 Edit the markdown files in `../docs/`. Run `npm run dev` here to see changes live.
 
-**Never** edit files in `src/content/docs/` — they're regenerated on every sync and any changes will be wiped.
+**Never** edit files in `src/content/docs/`. They're regenerated on every sync and any changes will be wiped.
 
 ### Editing theme or structure
 
-- **Visual theme** — `src/styles/yak-theme.css` (Yak design tokens, typography, components)
-- **Sidebar and top nav** — `astro.config.mjs`
-- **Homepage** — `src/content/docs-static/index.mdx` (uses Starlight's splash template)
-- **Favicon and OG image** — `public/favicon.png`, `public/og-image.png`
-- **Logo** — `src/assets/mascot.png`
-- **Sidebar order** — the `PAGES` array in `scripts/sync-docs.mjs`
+- **Visual theme**: `src/styles/yak-theme.css` (Yak design tokens, typography, components)
+- **Sidebar and top nav**: `astro.config.mjs`
+- **Homepage**: `src/content/docs-static/index.mdx` (uses Starlight's splash template)
+- **Favicon and OG image**: `public/favicon.png`, `public/og-image.png`
+- **Logo**: `src/assets/mascot.png`
+- **Sidebar order**: the `PAGES` array in `scripts/sync-docs.mjs`
 
 ## Commands
 
@@ -65,7 +65,7 @@ To enable the first time:
 
 1. Go to the repo's **Settings → Pages**
 2. Set **Source** to **GitHub Actions**
-3. Push a commit that changes `docs/` or `docs-site/` — the workflow runs automatically
+3. Push a commit that changes `docs/` or `docs-site/`: the workflow runs automatically
 
 The default deployed URL is `https://geocodio.github.io/yak/`. To move to a custom domain:
 
