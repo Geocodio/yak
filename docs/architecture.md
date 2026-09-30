@@ -26,7 +26,7 @@ Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line,
               └────────────────────────────────────────────┘
 ```
 
-The substrate is the load-bearing part. Workflows are the user-facing surfaces. New workflows in the future plug into the same substrate without reshaping the base.
+The substrate is what everything shares. Workflows are the user-facing surfaces. New workflows in the future plug into the same substrate without reshaping the base.
 
 ## Coding Agent Workflow
 
@@ -43,18 +43,7 @@ Both streams converge on the same PR — whichever finishes first writes its pie
 
 ### The Walkthrough Video Pipeline (v3)
 
-Instead of narrating over one continuous screen recording, the agent writes a `script.json` describing the walkthrough as a sequence of shots, captions and pauses. Two sandbox-side CLI steps turn that script into footage:
-
-- **`yak-browser script`** lints `script.json` — a headless dry run plus an asset preflight — before anything is captured, so a bad script fails fast instead of burning a shoot.
-- **`yak-browser shoot`** drives a real browser through the script and writes `shots/*.webm` (per-beat clips), `stills/*.png`, `screenshots/*.png`, and a `manifest.json` describing what was captured and in what order.
-
-Back in the app, `ArtifactPersister` walks that output recursively, persists each file as an `Artifact` tagged with its role, and dispatches exactly one `RenderWalkthroughJob` per task — keyed on the task id, not on any single artifact, because one v3 render draws on many clips.
-
-`RenderWalkthroughJob` runs `scripts/timeline.ts` to turn the manifest and script into a render timeline, writes `chapters.json`, renders the `WalkthroughV3` Remotion composition into the final cut, and runs it through `RenderQaCheck` — a frame-sampling gate that catches blank or garbled output before it reaches a reviewer. Once the cut passes QA, the job derives the thumbnail and a preview GIF, writes MP4 chapter metadata, and replaces the `<!-- yak:walkthrough -->` section of the PR body.
-
-Artifact roles form the vocabulary this pipeline is built on: `script` and `manifest` (the two shoot-time descriptors), `shot`, `still`, `screenshot` and `voiceover` (raw capture output), `chapters` (render-time metadata), and `cut`, `thumbnail`, `preview` (the finished, reviewer-facing output). `raw` is the legacy single-webm role.
-
-The legacy single-webm path — one continuous `walkthrough.webm` recording, rendered by `RenderVideoJob` into the `WalkthroughV2` composition under `video/src/legacy/` — stays in place until no v2 artifacts remain in the system; `yak:video:rerender` and `yak:video:prune` both understand the two pipelines side by side.
+The agent writes a `script.json` describing the walkthrough as a sequence of shots and captions. Inside the sandbox, `yak-browser script` lints it and `yak-browser shoot` drives a real browser through it, producing clips, stills and a manifest. Back in the app, one `RenderWalkthroughJob` per task turns those into a rendered cut, checks sampled frames for blank or garbled output, and replaces the walkthrough section of the PR body. See [Video Walkthroughs](video-walkthroughs.md) for the operator view.
 
 The diagram source is [`fix-task-flow.dot`](fix-task-flow.dot) (Graphviz). Regenerate with `dot -Tpng docs/fix-task-flow.dot -o docs/fix-task-flow.png -Gdpi=150`.
 
@@ -87,52 +76,11 @@ Claude Code is always Opus. Opus produces better first-attempt results, which me
 
 Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms** — see [Setup → Log In To Claude Code](setup.md#6-log-in-to-claude-code-on-the-server) for how each is configured.
 
-## Channel Driver Architecture
+## Channels
 
-Channel drivers are task-workflow scoped. PR reviews and branch deployments both operate directly on the GitHub integration rather than going through the channel driver interfaces.
+Every external integration is a pluggable channel, enabled by the presence of its credentials. A channel can fill three roles: input (how tasks arrive), CI (how build results return) and notification (where results are posted). The rule is to respond where you were asked. Every task has a `source`, and notifications route back to it. If that channel has since been disabled, they fall back to a PR comment.
 
-Every external integration is a pluggable channel. Channels are enabled by the presence of credentials — no credentials, no channel. The app detects which channels are active at boot and registers only those routes, webhooks, and MCP servers.
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Channel Drivers                    │
-│                                                      │
-│  Input Drivers (how tasks arrive):                   │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────────┐  │
-│  │ Slack  │ │ Linear │ │ Sentry │ │ Manual CLI   │  │
-│  │  opt.  │ │  opt.  │ │  opt.  │ │ always avail │  │
-│  └────────┘ └────────┘ └────────┘ └──────────────┘  │
-│                                                      │
-│  CI Drivers (how build results return):              │
-│  ┌─────────────────┐ ┌────────┐                      │
-│  │ GitHub Actions  │ │ Drone  │  (per-repo setting)  │
-│  └─────────────────┘ └────────┘                      │
-│                                                      │
-│  Notification Drivers (where results are posted):    │
-│  ┌────────┐ ┌────────┐ ┌────────┐                    │
-│  │ Slack  │ │ Linear │ │ GitHub │  (follows source)  │
-│  │  opt.  │ │  opt.  │ │  PRs   │                    │
-│  └────────┘ └────────┘ └────────┘                    │
-└─────────────────────────────────────────────────────┘
-```
-
-### The Three Driver Interfaces
-
-Each channel implements one or more of these contracts, defined in `app/Contracts/`:
-
-```php
-InputDriver         // Parse incoming webhook/event → normalized task description
-CIDriver            // Parse build result webhook → pass/fail with failure output
-NotificationDriver  // Post status updates and results to the source
-```
-
-A single channel can fill multiple roles. GitHub is both a CI driver (via Actions) and a notification driver (via PR bodies). Slack is both an input driver and a notification driver.
-
-### Routing Back To The Source
-
-The rule is **respond where you were asked**. Every task has a `source` column identifying its origin. Notifications always route back to that source; if the source channel is disabled (for historical tasks after removing a channel), notifications fall back to a PR comment.
-
-See the [Channels](channels.md) page for the full list of channels and their roles.
+PR reviews and branch deployments talk to GitHub directly and do not use the channel interfaces. See [Channels](channels.md) for the roles of each channel and [Development](development.md#adding-a-new-channel) for the code layout.
 
 ## Task State Machine
 
@@ -236,7 +184,7 @@ Three guarantees make sandboxed execution safe at scale:
 
 Repo dev environments using Docker Compose work natively inside Incus containers. `security.nesting=true` gives each container its own Docker daemon. There's no shared Docker socket, no port override files, no DinD hacks.
 
-Private registry auth follows the same push-then-start pattern as Claude config and MCP config: Ansible renders `~/.docker/config.json` on the host from the `docker_registries` vault var, the Yak container bind-mounts it read-only, and `IncusSandboxManager` pushes the file into each fresh sandbox at `/home/yak/.docker/config.json` before `docker pull` ever runs. Repos that only need public images leave the vault var unset and the push is skipped entirely.
+Private registry credentials are pushed into each sandbox before `docker pull` runs. See [Setup → Private Docker Registries](setup.md#private-docker-registries).
 
 ## Jobs and Queues
 
@@ -258,16 +206,7 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 
 ### The Main Jobs
 
-- **`RunYakJob`** — the initial Claude Code session. Yak creates the branch (`yak/{external_id}`), then invokes Claude Code which writes code and commits locally. After Claude finishes, **Yak** pushes the branch and transitions the task to `awaiting_ci`. Claude Code never pushes or creates PRs — the system prompt explicitly forbids remote git operations.
-- **`ClarificationReplyJob`** — runs when a user replies to a Slack clarification. Resumes the original Claude session with `--resume $session_id` and the user's chosen option. Claude already has full codebase context from the assessment phase — no ramp-up.
-- **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure).
-- **`RetryYakJob`** — resumes the original Claude session with CI failure output and runs a second attempt on the existing branch. **Yak** force-pushes the result.
-- **`ResearchYakJob`** — for research mode tasks. Read-only; no branch, no CI. Claude generates a standalone HTML findings page saved to `.yak-artifacts/research.html`.
-- **`SetupYakJob`** — the one-time dev environment setup task for a new repo. See [Repositories → The Setup Task](repositories.md#the-setup-task).
-- **`RunYakReviewJob`** — the PR review path. Runs Claude in the sandbox with a read-only prompt scoped to a PR's diff, then posts the parsed findings as a GitHub review via the installation token. See [PR Review](pr-review.md).
-- **`PollPullRequestReactionsJob`** — scheduled hourly. Polls GitHub for 👍/👎 reactions on Yak-authored review comments within a configurable window and denormalizes counts onto `pr_review_comments`.
-- **`RenderWalkthroughJob`** — the v3 video render, keyed on the task id. Loads a task's `script`, `manifest`, `shot` and `voiceover` artifacts, builds the render timeline, renders `WalkthroughV3`, gates it through `RenderQaCheck`, and patches the PR body. See [The Walkthrough Video Pipeline (v3)](#the-walkthrough-video-pipeline-v3).
-- **`RenderVideoJob`** — the legacy v2 render, keyed on the raw `walkthrough.webm` artifact. Renders the `WalkthroughV2` composition. Stays in place until no v2 artifacts remain.
+Each agent job (`RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `RunYakReviewJob`, `ClarificationReplyJob`) runs Claude Code in its own sandbox. Yak, not Claude, pushes the branch and creates the PR. Claude never runs remote git operations. `ProcessCIResultJob` handles CI results: on green it creates the PR, on the first red it dispatches a retry, and on the second it marks the task failed. `RenderWalkthroughJob` produces the video. See `app/Jobs/` for the full list.
 
 ### Middleware
 
@@ -285,55 +224,9 @@ This is the single biggest cost optimization in Yak. A fresh session starting fr
 - **Clarification replies** when a Slack user picks an option
 - **Post-hoc debugging** — you can resume a completed task's session manually if needed
 
-## The Data Model
+## Deduplication
 
-Five tables, deliberately minimal. MariaDB is the backing store, running as a separate Docker container with its own persistent volume.
-
-### `tasks`
-
-The primary record. Every incoming event creates a task row. Key columns:
-
-| Column | Purpose |
-|---|---|
-| `source` | `sentry`, `flaky-test`, `linear`, `slack`, `manual`, `dashboard` |
-| `repo` | Slug joining to `repositories.slug` |
-| `external_id` | Source-side ID (GEO-1234, SENTRY-98765). Unique with `repo`. |
-| `mode` | `fix`, `research`, `setup`, `review` |
-| `status` | Fat enum: `pending`, `running`, `awaiting_clarification`, `awaiting_ci`, `retrying`, `success`, `failed`, `expired`, `cancelled` |
-| `branch_name` | `yak/{external_id}` once created |
-| `session_id` | Claude session ID for `--resume` |
-| `clarification_options` | JSON array of option strings |
-| `pr_url`, `pr_merged_at`, `pr_closed_at` | Outcome tracking |
-| `cost_usd`, `duration_ms`, `num_turns` | Metrics |
-
-`UNIQUE(external_id, repo)` enforces deduplication — re-opening the same Sentry issue won't create a second task.
-
-### `task_logs`
-
-Append-only event log that powers the task detail page's timeline. Each row is `level` (info/warning/error) + `message` + optional JSON `metadata`. Events are written at key lifecycle points: task created, picked up, assessment complete, fix pushed, CI result, PR created, task completed.
-
-### `artifacts`
-
-Rows reference screenshots, videos, and research HTML pages stored on disk. Served at `/artifacts/{task}/{filename}` via signed URL (for PR embedding) or authenticated request (for dashboard viewing). Each row carries a `role` — `cut`, `thumbnail`, `preview`, `chapters`, `shot`, `still`, `screenshot`, `voiceover`, `manifest`, `script`, `raw` — that both render pipelines and the `yak:video:rerender` / `yak:video:prune` commands query against instead of `type` or filename.
-
-### `repositories`
-
-One row per configured repo. Minimal schema — slug, name, path, default branch, CI system, Sentry mapping, setup status, notes. Everything else is auto-detected at task time from `README.md` and `CLAUDE.md`.
-
-### `daily_costs`
-
-Primary key is `date`. Tracks the reported cost of routing calls and every agent run (run, retry, review, setup, research, follow-up) for budget enforcement. Updated as each run finishes. Read by the `EnsureDailyBudget` middleware before any Claude Code invocation.
-
-### `branch_deployments`
-
-One row per open PR on an opted-in repository. Key columns:
-
-| Column | Purpose |
-|---|---|
-| `status` | State machine: `pending`, `starting`, `running`, `hibernated`, `destroying`, `destroyed`, `failed` |
-| `template_version` | Pinned to the `current_template_version` of the repo at creation time. The deployment clones from that snapshot version for its whole lifetime. |
-| `last_accessed_at` | Updated on every inbound request. Used as the idle signal for hibernation (15 minutes) and eviction ordering. |
-| `public_share_token_hash` | SHA-256 hash of the raw share token. Raw token is shown once at mint time and never persisted. Null when no share link is active. |
+Tasks are unique on `external_id` plus `repo`, so re-opening the same Sentry issue does not create a second task. Each task's `session_id` is stored for `--resume`, and `task_logs` powers the timeline on the task page.
 
 ## PR Review Workflow
 
@@ -341,7 +234,7 @@ Yak reviews pull requests in a dedicated workflow that runs alongside the coding
 
 The review workflow reuses the substrate: same GitHub App, same sandbox infrastructure, same dashboard surface. It has its own state machine separate from the task state machine. Reviewer output is surfaced as native GitHub PR review comments.
 
-For the full flow, see [docs/pr-review.md](pr-review.md).
+For the full flow, see [PR Review](pr-review.md).
 
 ## Branch Deployments Workflow
 
@@ -355,7 +248,7 @@ Each preview runs in its own Incus container cloned from the same per-repo templ
 
 Preview state is mirrored to GitHub's native Deployments API, so the PR UI shows a "View deployment" button automatically.
 
-For the end-to-end user guide, see [docs/branch-deployments.md](branch-deployments.md).
+For the end-to-end user guide, see [Branch Deployments](branch-deployments.md).
 
 ## Safety Model
 
@@ -369,11 +262,7 @@ Claude Code runs with `--dangerously-skip-permissions` on every invocation. No t
 
 - **Dedicated server.** Completely separate from production. No VPN, no Tailscale, no shared network.
 - **No production access.** No production databases, no customer data, no deployment pipelines.
-- **Incus sandbox isolation.** Each task runs in its own Incus system container with:
-  - **Own Docker daemon** — no access to the host's Docker socket.
-  - **Own network namespace** — firewall rules block access to the yak app and MariaDB.
-  - **Own filesystem** — ZFS copy-on-write from a snapshot. Changes are invisible to other tasks.
-  - **Own process tree** — no visibility into host processes.
+- **Incus sandbox isolation.** Each task runs in its own system container with its own Docker daemon, network namespace, filesystem and process tree. See [Sandbox Isolation](#sandbox-isolation-incus).
 - **Short-lived credentials.** GitHub App tokens are injected per-task and are short-lived. Claude Max auth tokens are copied read-only from the host.
 - **Automatic cleanup.** Sandbox containers are destroyed after each task. A cron job catches any that were missed.
 

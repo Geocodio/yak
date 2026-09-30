@@ -98,13 +98,7 @@ The task detail page shows the Claude session as collapsible CI-style steps. Eac
 
 ### Resolution
 
-Fix the underlying issue, then re-run:
-
-```bash
-docker exec yak php artisan yak:setup-repo {slug}
-```
-
-Or click **Re-run Setup** on the repo's edit page.
+Fix the underlying issue, then re-run setup. See [Repositories → Re-running Setup](repositories.md#re-running-setup).
 
 If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target repo with the specific commands Yak got wrong. See [Repositories → CLAUDE.md](repositories.md#write-a-claudemd).
 

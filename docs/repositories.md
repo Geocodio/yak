@@ -36,14 +36,7 @@ When a repo is first added, Yak dispatches a one-time **setup task** — a Claud
 
 ### Sandbox Snapshots
 
-After setup completes successfully, the sandbox container is **snapshotted** using ZFS copy-on-write. This snapshot becomes the base image for all future tasks on this repo.
-
-When a task starts, Incus clones the snapshot in ~2 seconds — the clone includes the fully-prepared dev environment (Docker images pulled, dependencies installed, database migrated). Each task gets its own isolated copy; changes never leak between tasks.
-
-This means:
-- **No cold-start penalty** — every task starts from the prepared snapshot.
-- **No shared state corruption** — each task has its own filesystem, Docker daemon, and network.
-- **Concurrent execution** — multiple tasks for the same repo can run in parallel from the same snapshot.
+After a successful setup, the sandbox is snapshotted. Each task then starts from a copy of that snapshot in about two seconds, so there is no cold start and tasks never share state. See [Architecture → Sandbox Isolation](architecture.md#sandbox-isolation-incus).
 
 ### Setup Status
 

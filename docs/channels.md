@@ -25,6 +25,18 @@ Channels are enabled by the presence of credentials — no credentials, no chann
 
 The minimum viable setup is **GitHub + manual CLI**. Everything else is optional.
 
+## Follow-ups (all channels)
+
+After Yak opens a PR, keep refining it in the place you started. Yak resumes the original Claude session, applies your feedback and pushes new commits to the **same branch**. CI re-runs, and the follow-up shows as a chained task under the original. Follow-ups only work while the PR is open.
+
+| Where the task started | How to follow up |
+|---|---|
+| Slack | Reply in the thread |
+| Linear | Comment in the agent session |
+| GitHub, or any task's PR | Comment `/yak ...` on the PR |
+
+---
+
 ---
 
 ## GitHub (required)
@@ -88,18 +100,18 @@ GitHub redirects requests for a repository's old path, so the stale name Yak hol
 
 If your repos use GitHub Actions for CI, set `ci_system: github_actions` in the repo definition. Nothing else is required — the GitHub App receives check suite events automatically.
 
-**Important:** the GitHub App must NOT be in your branch protection bypass list. Risk-based review approval is an explicit per-repository opt-in; Yak still has no merge authority.
+**Important:** the GitHub App must NOT be in your branch protection bypass list. Yak never merges. See [Architecture → No Merge Authority](architecture.md#no-merge-authority).
 
 ### Follow-ups
 
-Once Yak has opened a PR, you can keep refining it without a local checkout. Comment on the PR (or reply to an inline review comment) with a `/yak` prefix:
+Comment on the PR, or reply to an inline review comment, with a `/yak` prefix:
 
 ```
 /yak also handle the empty-file case
 /yak the error message should mention the row number
 ```
 
-Yak reacts 👀 on the comment to acknowledge receipt, resumes the original Claude session, applies the feedback, and pushes follow-up commits to the **same branch** — then posts a result comment when the push lands. CI re-runs and the existing auto-retry pipeline applies. The follow-up becomes a chained task under the original on the dashboard.
+Yak reacts 👀 to acknowledge, then posts a result comment when the push lands.
 
 - **Trigger prefixes** are configurable via `YAK_FOLLOWUP_GITHUB_PREFIXES` (default `/yak,@yak-bot[bot],yak:`, case-insensitive). A comment without a prefix is ignored.
 - **Bursts are debounced.** Multiple comments within `YAK_FOLLOWUP_GITHUB_BATCH_WINDOW_SECONDS` (default `60`) are collapsed into a single follow-up run, so a flurry of review notes produces one coherent revision rather than racing pushes.
@@ -227,7 +239,7 @@ The task pauses in `awaiting_clarification` for up to 3 days. Reply in the threa
 
 ### Follow-ups
 
-After Yak has opened a PR, replying in the same thread keeps the conversation going. A thread reply on a task with an open PR is treated as feedback: Yak resumes the original session, applies your message, and pushes follow-up commits to the same branch — replying in-thread when the push lands. No new mention required; just reply where the PR was announced. This is the same thread-matching that powers clarification answers, so it relies on the `channels:history` scope.
+Reply in the thread where Yak announced the PR. No new mention is needed. Thread matching relies on the `channels:history` scope.
 
 ### Gotchas
 
@@ -279,8 +291,6 @@ Delegation opens an agent session on the issue. Yak immediately posts an acknowl
 - **Research tasks** — Yak posts the findings and moves the issue to "Done".
 - **Failures** — Yak posts an `error` activity explaining what went wrong; the issue state is left alone.
 
-Follow-up messages inside the agent session are supported. Once a PR is open, commenting in the session is routed as feedback: Yak resumes the original session, applies your message, and pushes follow-up commits to the same branch (see [Follow-ups](#follow-ups-2) below). If the PR has already merged or closed, Yak declines politely and points you at a fresh issue.
-
 #### What you'll see during a run
 
 - **Acknowledgement (sync).** Posted during the webhook response, before the 10-second SLA. Runs through Yak's personality agent with a short timeout, so the voice matches later messages — if the LLM is slow or unreachable, it falls back to a static template but still sounds like Yak.
@@ -291,7 +301,7 @@ Follow-up messages inside the agent session are supported. Once a PR is open, co
 
 #### Follow-ups
 
-Yak generalizes the clarification engine into full two-way feedback. After the PR is open, post a comment in the agent session with your refinement and Yak resumes the original session, applies it, and pushes to the **same branch** — emitting a `thought` ack on receipt and a `response` when the push lands. CI re-runs through the existing auto-retry pipeline, and the follow-up appears as a chained task under the original on the dashboard. Reassigning the issue away from Yak (an unassignment) cancels any in-flight work.
+Comment in the agent session. Yak acknowledges with a `thought` and answers with a `response` when the push lands. Reassigning the issue away from Yak cancels any in-flight work.
 
 ### Repo Detection
 
