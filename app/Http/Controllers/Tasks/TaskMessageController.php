@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tasks;
 
+use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\SendTaskMessageRequest;
@@ -26,7 +27,7 @@ class TaskMessageController extends Controller
         $state = match (true) {
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
-            $head->prIsOpen() => 'follow_up',
+            $head->acceptsFollowUp() => 'follow_up',
             default => null,
         };
 
@@ -67,16 +68,19 @@ class TaskMessageController extends Controller
      */
     private function sendFollowUpMessage(YakTask $head, string $text): array
     {
-        if (! $head->prIsOpen()) {
-            return ['error', 'This PR is no longer open for changes.'];
+        $isResearch = $head->mode === TaskMode::Research;
+        $closedMessage = $isResearch ? 'This conversation is closed.' : 'This PR is no longer open for changes.';
+
+        if (! $head->acceptsFollowUp()) {
+            return ['error', $closedMessage];
         }
 
         $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name);
 
         if ($child === null) {
-            return ['error', 'This PR is no longer open for changes.'];
+            return ['error', $closedMessage];
         }
 
-        return ['success', 'Sent to Yak. It will push changes to this PR.'];
+        return ['success', $isResearch ? 'Sent to Yak. It will answer in this conversation.' : 'Sent to Yak. It will push changes to this PR.'];
     }
 }

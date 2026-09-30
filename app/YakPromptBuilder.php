@@ -132,6 +132,20 @@ class YakPromptBuilder
     }
 
     /**
+     * Build the prompt for a follow-up question on a finished research task.
+     * The previous answer is included so the turn still has context when the
+     * Claude session cannot be resumed.
+     */
+    public static function researchFollowUpPrompt(string $question, ?string $previousSummary, bool $hasPreviousReport): string
+    {
+        return Prompts::render('tasks-research-follow-up', [
+            'question' => $question,
+            'previousSummary' => (string) $previousSummary,
+            'hasPreviousReport' => $hasPreviousReport,
+        ]);
+    }
+
+    /**
      * Build a retry prompt with the original task description, the
      * previous attempt's result summary, and CI failure output.
      *

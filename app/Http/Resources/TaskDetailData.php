@@ -181,13 +181,13 @@ final class TaskDetailData
             return null;
         }
 
-        $artifact = $task->artifacts()->where('type', 'research')->first();
+        $artifact = $task->latestResearchArtifact();
 
         if ($artifact === null) {
             return null;
         }
 
-        return route('artifacts.viewer', ['task' => $task->id, 'filename' => $artifact->filename]);
+        return route('artifacts.viewer', ['task' => $artifact->yak_task_id, 'filename' => $artifact->filename]);
     }
 
     private static function nextSteps(YakTask $task): ?string
@@ -603,7 +603,7 @@ final class TaskDetailData
         $state = match (true) {
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
-            $head->prIsOpen() => 'follow_up',
+            $head->acceptsFollowUp() => 'follow_up',
             in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true) => 'disabled_failed',
             default => 'disabled_closed',
         };
@@ -613,14 +613,19 @@ final class TaskDetailData
         [$placeholder, $note] = match ($state) {
             'clarification' => ['Answer Yak…', null],
             'steering' => ['Steer Yak — this will be picked up when the current run checks in…', 'Queued until the current run finishes.'],
-            'follow_up' => ['Reply to Yak. It will push changes to ' . self::pullRequestLabel($head) . '…', null],
+            'follow_up' => [
+                $head->mode === TaskMode::Research && ! $head->prIsOpen()
+                    ? 'Ask Yak a follow-up question about this research…'
+                    : 'Reply to Yak. It will push changes to ' . self::pullRequestLabel($head) . '…',
+                null,
+            ],
             'disabled_failed' => $task->mode === TaskMode::Research
                 ? ["This research failed — click {$retryActionLabel} above to try again.", "This research failed. Click {$retryActionLabel} above, or adjust the issue and re-assign Yak."]
                 : ["This task failed — click {$retryActionLabel} above to try again.", "This task failed. Click {$retryActionLabel} above, or mention Yak again with more context."],
-            default => ['This conversation is closed — mention Yak again to start a new task.', 'This conversation is closed — mention Yak again to start a new task.'],
+            default => ['This conversation is closed — mention Yak again to start a new task.', null],
         };
 
-        if ($note === null && in_array($task->source, ['slack', 'linear'], true)) {
+        if ($note === null && $state !== 'disabled_closed' && in_array($task->source, ['slack', 'linear'], true)) {
             $note = 'Replies here and in the ' . ucfirst((string) $task->source) . ' thread land in the same conversation.';
         }
 

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
@@ -129,7 +130,7 @@ class ResumeInterruptedTasksCommand extends Command
     }
 
     /**
-     * @return class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob>|null
+     * @return class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob>|null
      */
     private function resumableJobClassFor(YakTask $task): ?string
     {
@@ -139,7 +140,7 @@ class ResumeInterruptedTasksCommand extends Command
             return null;
         }
 
-        /** @var class-string<RunYakJob|ResearchYakJob|RunYakReviewJob|SetupYakJob> $jobClass */
+        /** @var class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob|RunYakReviewJob|SetupYakJob> $jobClass */
         return $jobClass;
     }
 }

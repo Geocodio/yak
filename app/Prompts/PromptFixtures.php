@@ -182,6 +182,16 @@ class PromptFixtures
                     ],
                 ],
             ],
+            'tasks-research-follow-up' => [
+                [
+                    'label' => 'Question with a previous report',
+                    'data' => [
+                        'question' => 'Which of these retry strategies would be cheapest to roll out first?',
+                        'previousSummary' => 'Three retry strategies fit the geocode client: fixed delay, exponential backoff, and a circuit breaker.',
+                        'hasPreviousReport' => true,
+                    ],
+                ],
+            ],
             'tasks-follow-up' => [
                 [
                     'label' => 'Requested change',

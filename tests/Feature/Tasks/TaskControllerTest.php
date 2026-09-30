@@ -173,10 +173,13 @@ test('composer state is disabled_failed for a failed task', function () {
 });
 
 test('composer state is disabled_closed for a success task with no pr', function () {
-    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => null]);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => null, 'source' => 'slack']);
 
     $this->get(route('tasks.show', $task))
-        ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'disabled_closed'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('composer.state', 'disabled_closed')
+            ->where('composer.placeholder', 'This conversation is closed — mention Yak again to start a new task.')
+            ->where('composer.note', null));
 });
 
 test('transcriptEntry is omitted from a normal load and present with a log query param', function () {

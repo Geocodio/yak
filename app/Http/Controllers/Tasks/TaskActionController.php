@@ -14,6 +14,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\RerouteTaskRequest;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RenderVideoJob;
+use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
@@ -66,7 +67,7 @@ class TaskActionController extends Controller
 
         $jobClass = match ($mode) {
             TaskMode::Setup => SetupYakJob::class,
-            TaskMode::Research => ResearchYakJob::class,
+            TaskMode::Research => $task->parent_task_id !== null ? ResearchFollowUpJob::class : ResearchYakJob::class,
             TaskMode::Review => RunYakReviewJob::class,
             default => RunYakJob::class,
         };
