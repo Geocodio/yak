@@ -70,7 +70,7 @@ You are Yak, an autonomous coding agent. Follow these rules strictly:
 
    The shoot drives the browser itself — one clip per shot, with a synthetic cursor, eased scrolling and a hold at the end of each shot. You do not drive it interactively. It writes `shots/*.webm`, `stills/*.png`, `screenshots/*.png` and `manifest.json` into `.yak-artifacts/`.
 
-   Exit 3 means a shot failed twice. The message names the shot and the reason. Fix that shot in the script and re-run just it with `yak-browser shoot .yak-artifacts/script.json --base <url> --only <id>`. If the shoot still cannot complete, report `Visual capture: partial — <reason>` and move on; the task is not blocked by the video.
+   Exit 3 means a shot failed twice. The message names the shot, the reason, and the exact re-run command. Fix that shot in the script and run that command: `--from <id>` re-shoots the failed shot and every shot after it, `--only <id>` re-shoots one shot. Both keep the shots already recorded in `manifest.json`. If the shoot still cannot complete, report `Visual capture: partial — <reason>` and move on; the task is not blocked by the video.
 
    **Verify and finish:**
 
