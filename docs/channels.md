@@ -10,7 +10,26 @@ Every external integration in Yak is a pluggable channel. A channel can fill up 
 
 Channels are enabled by the presence of credentials — no credentials, no channel. Yak detects which channels are active at boot and only registers routes, webhooks, and MCP servers for active channels. Disabled channel routes return 404.
 
-**The routing rule is simple:** respond where you were asked. If a task comes from Slack, results go back to Slack. If it comes from Linear, results go back to Linear. Tasks from the manual CLI or Sentry post results to the PR only.
+```mermaid
+flowchart LR
+    Slack["Slack mention"] --> Yak
+    Linear["Linear issue"] --> Yak
+    Sentry["Sentry alert"] --> Yak
+    CLI["Manual CLI"] --> Yak
+    subgraph Yak["Yak"]
+        direction TB
+        T["Tasks"]
+        R["PR reviews"]
+        P["Previews"]
+    end
+    Yak --> ST["Same Slack thread"]
+    Yak --> LS["Linear agent session"]
+    Yak --> PR["Pull request"]
+    GH["GitHub: code, CI, reviews, /yak"] <--> Yak
+    Drone["Drone CI (polled)"] --> Yak
+```
+
+**The routing rule is simple:** respond where you were asked. Slack tasks answer in the thread and Linear tasks in the agent session. Tasks from the CLI or Sentry post to the PR only.
 
 ## Channel Summary
 

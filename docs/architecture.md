@@ -32,20 +32,27 @@ The substrate is what everything shares. Workflows are the user-facing surfaces.
 
 Every fix task goes through the same pipeline, regardless of where it came from:
 
-![Fix task flow — entry, branch creation, the parallel fork into video rendering and CI, and PR convergence](fix-task-flow.png)
+```mermaid
+flowchart TD
+    A["Slack, Linear, Sentry,<br/>GitHub /yak, dashboard,<br/>CLI, flaky-test scan"] --> B["Task"]
+    B --> C["Sandbox cloned from repo snapshot"]
+    C --> D["Agent works"]
+    D -->|"needs an answer"| Q["Asks in the source channel, resumes on reply"]
+    D -->|"no changes"| E["Answer posted, task done"]
+    D -->|"changes"| F["Push branch"]
+    F --> G{"CI: Actions, Drone or none"}
+    F -.-> W["Render walkthrough"]
+    G -->|"green"| H["Open PR"]
+    W -.->|"patches PR body"| H
+    G -->|"red, first time"| D
+    G -->|"red again"| X["Task failed"]
+```
 
-After the agent finishes, work splits into two parallel streams:
-
-- **Stream B (push → CI → PR)** pushes the branch, waits for CI, and on green creates the PR.
-- **Stream A (video pipeline)** captures and renders the walkthrough, then patches the PR body once the video is ready.
-
-Both streams converge on the same PR — whichever finishes first writes its piece, the other fills in later. Tasks never block the queue while CI runs: the worker finishes a job, CI runs asynchronously, and a webhook triggers the next step.
+The push happens inside `RunYakJob`. The worker never waits for CI: a webhook (or the Drone poller) starts the next step. The walkthrough render runs in parallel and patches the PR body when it is ready.
 
 ### The Walkthrough Video Pipeline (v3)
 
 The agent writes a `script.json` describing the walkthrough as a sequence of shots and captions. Inside the sandbox, `yak-browser script` lints it and `yak-browser shoot` drives a real browser through it, producing clips, stills and a manifest. Back in the app, one `RenderWalkthroughJob` per task turns those into a rendered cut, checks sampled frames for blank or garbled output, and replaces the walkthrough section of the PR body. See [Video Walkthroughs](video-walkthroughs.md) for the operator view.
-
-The diagram source is [`fix-task-flow.dot`](fix-task-flow.dot) (Graphviz). Regenerate with `dot -Tpng docs/fix-task-flow.dot -o docs/fix-task-flow.png -Gdpi=150`.
 
 ## Two-Tier AI
 
@@ -86,44 +93,26 @@ PR reviews and branch deployments talk to GitHub directly and do not use the cha
 
 Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition` — the enum enforces the rules, not the job code.
 
-### States
-
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> pending
+    pending --> running
+    running --> awaiting_ci: fix pushed
+    running --> awaiting_clarification: question asked
+    running --> success: research, setup, no changes
+    awaiting_clarification --> running: reply
+    awaiting_clarification --> expired: 3-day TTL
+    awaiting_ci --> success: CI green, PR opened
+    awaiting_ci --> retrying: CI red, first time
+    retrying --> awaiting_ci: retry pushed
+    awaiting_ci --> failed: CI red again
+    failed --> pending: Retry
+    expired --> pending: Retry
+    success --> [*]
 ```
-pending → running → awaiting_ci → success      (fix tasks)
-pending → running → success                    (research / setup tasks)
-```
 
-With these branches:
-
-- `running → awaiting_clarification → running` (any fix task, 3-day TTL)
-- `awaiting_ci → retrying → awaiting_ci` (at most one retry, so at most two attempts)
-- `*→ failed` at any point where Claude errors, budget is exceeded, or retries run out
-
-`success` and `cancelled` are final. `failed` and `expired` can return to `pending` when you click **Retry**. A task can move to `cancelled` from any active state.
-
-### Transition Diagram
-
-```
-                        ┌─────────────────────────────────────────┐
-                        │           Fix Task (primary path)        │
-                        │                                          │
-pending ──→ running ────┼──→ awaiting_ci ──→ success               │
-                │       │        │                                 │
-                │       │        ├──→ retrying ──→ awaiting_ci     │
-                │       │        │                    │            │
-                │       │        └──→ failed ←────────┘            │
-                │       │                                          │
-                │       ├──→ awaiting_clarification ──→ running    │
-                │       │        │                                 │
-                │       │        └──→ expired                      │
-                │       │                                          │
-                │       └──→ failed                                │
-                │                                                  │
-                ├──→ success  (research / setup — no CI)           │
-                │                                                  │
-                └──→ failed   (error during any mode)              │
-                        └─────────────────────────────────────────┘
-```
+`success` and `cancelled` are final. Any active state can move to `failed` (Claude error, budget, retries out) or `cancelled`. A fix task gets at most one retry, so at most two attempts.
 
 ### Full Transition Table
 
