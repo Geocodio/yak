@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common problems and how to diagnose them. Start with the health page at `https://{your-domain}/health`. It covers most of what could be wrong in one place.
+Common problems and how to diagnose them. Start with the health page at `https://{your-domain}/health`. It covers most of what could be wrong in one place. Every task also has a page at `/tasks/{id}` with a timeline, the agent's steps and the error. Start there.
 
 ## First-Line Diagnostics
 
@@ -179,10 +179,10 @@ Every running deployment was active within the last 5 minutes; eviction was refu
 
 ## Walkthrough video did not appear
 
-For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.webm`), the walkthrough is produced by `RenderWalkthroughJob`, which turns a task's `shot`, `voiceover` and `script`/`manifest` artifacts into a rendered `cut`. If the PR body still shows the placeholder in the `<!-- yak:walkthrough -->` section, or the dashboard shows no video, start with these three places:
+The walkthrough is rendered by `RenderWalkthroughJob`. If the PR still shows the placeholder, start with these three places:
 
 1. **The health row.** The **Video Render** row surfaces failed renders in the last 24 h. A final failure also notifies the task's channel and rewrites the PR's video line to "Video walkthrough unavailable".
-2. **`failed_jobs`.** `php artisan queue:failed` lists any `RenderWalkthroughJob` (or `RenderVideoJob` for legacy tasks) that exhausted its retries, with the exception that killed it.
+2. **`failed_jobs`.** `php artisan queue:failed` lists any `RenderWalkthroughJob` that exhausted its retries, with the exception that killed it.
 3. **`video_metrics`.** Query rows with `status = 'failed'` for the task and read the `error` column. It names which render step failed.
 
 ### Common causes
@@ -233,13 +233,7 @@ Claude Code authenticates with a login session stored in `/home/yak/.claude/`. W
 docker exec yak cat /home/yak/mcp-config.json
 ```
 
-This shows which MCP servers are currently configured. If a server you expect is missing, the corresponding channel isn't enabled; re-run Ansible with the channel's credentials set.
-
-If a server is configured but Claude can't reach it, check:
-
-- Network connectivity from the Yak container
-- Credentials (`GITHUB_PAT`, `LINEAR_API_KEY`, `SENTRY_AUTH_TOKEN`) are set in the container env
-- The MCP server URL is not blocked by any firewall or proxy
+This shows which MCP servers are configured. Context7 is always there; Sentry needs `sentry_auth_token` and GitHub needs `github_personal_access_token` in the vault. Re-run Ansible after setting them. If a server is listed but fails, check that the container can reach npm and the service's API.
 
 ## Health Check Failures
 

@@ -28,7 +28,7 @@ GitHub is the only required channel. Slack, Linear, Sentry and Drone CI are opti
 
 ### Optional: voiceover
 
-Set `ELEVENLABS_API_KEY` in the vault to narrate walkthrough videos. Without it they render with captions only. See [Video Walkthroughs](video-walkthroughs.md#voiceover).
+Set `elevenlabs_api_key` in the vault to narrate walkthrough videos. Without it they render with captions only. See [Video Walkthroughs](video-walkthroughs.md#voiceover).
 
 ## Quick Start
 
@@ -85,9 +85,9 @@ mariadb_password: "..."
 
 For repos that need private npm tokens or private Docker registries, see [Advanced configuration](#advanced-configuration).
 
-### Where to get credentials
+#### Where to get credentials
 
-#### Anthropic API key
+##### Anthropic API key
 
 1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
 2. Click **Create Key**
@@ -95,7 +95,7 @@ For repos that need private npm tokens or private Docker registries, see [Advanc
 
 This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI authenticates separately via a Max subscription; see step 6 below.
 
-#### Google OAuth (required: dashboard authentication)
+##### Google OAuth (required: dashboard authentication)
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project (or select an existing one)
 2. Go to **APIs & Services → OAuth consent screen**
@@ -109,11 +109,11 @@ This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI
 10. Copy the **Client Secret** into `google_oauth_client_secret`
 11. Set `google_oauth_allowed_domains` to your domain (e.g. `yourcompany.com`)
 
-#### GitHub
+##### GitHub
 
 No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow. You fill in the resulting credentials and re-run.
 
-#### Channels (optional)
+##### Channels (optional)
 
 Slack, Linear, Sentry and Drone CI credentials are covered in [Channels](channels.md). You can enable them after your first task works, then re-run Ansible.
 
@@ -142,17 +142,7 @@ This connects to the server over SSH and provisions everything:
 ansible-playbook ansible/playbook.yml
 ```
 
-This single command runs the following roles in order:
-
-1. **base**: creates the `yak` user, configures UFW, fail2ban, swap, and automatic security updates
-2. **docker**: installs Docker Engine and Compose
-3. **ssl**: provisions a Let's Encrypt certificate via Caddy, configures log rotation
-4. **github-app**: creates and installs the GitHub App on your org (skipped if already provisioned)
-5. **mcp-config**: generates `mcp-config.json` with only the enabled channels' MCP servers
-6. **mariadb**: runs a MariaDB 11 container with persistent storage on a Docker network
-7. **channel-***: conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
-8. **yak-container**: pulls the pre-built Docker image from ghcr.io, starts the container with env vars
-9. **claude-code-config**: installs the Claude CLI, configures slash commands, prints the interactive login prompt
+It installs Docker, Caddy, Incus + ZFS, MariaDB and the Yak container, sets up the GitHub App and MCP config, and configures each enabled channel.
 
 Total time: about 10 minutes.
 
@@ -165,8 +155,6 @@ yak-claude-login
 ```
 
 Type `/login` at the prompt and finish the browser flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
-
-The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls, separate from the CLI subscription auth.
 
 ### 7. Add Your Repositories (in your browser)
 
@@ -204,7 +192,7 @@ For each enabled channel, trigger a test event:
 - **Slack**: mention `@yak` in a channel
 - **Linear**: assign a test issue to Yak (the OAuth app appears in the assignee picker)
 - **Sentry**: trigger a test alert rule
-- **GitHub Actions**: push a commit to a `yak/test-*` branch
+- **GitHub**: open a PR on a repo with PR Review on. A review task appears under Tasks.
 
 Check `https://{your-domain}/tasks`. Each event should create a task row.
 
@@ -217,6 +205,8 @@ Push to `main` triggers a GitHub Actions build that pushes a new image to `ghcr.
 ```bash
 ansible-playbook ansible/playbook.yml --tags yak-container
 ```
+
+Before it replaces the container, the playbook runs `yak:drain`. New tasks pause and running ones get up to 45 minutes to finish. Anything still running after that is failed and resumed once the new container is up.
 
 To deploy a specific version:
 
@@ -260,7 +250,7 @@ Wildcard certificates require DNS-01 (HTTP-01 does not issue wildcards). Caddy n
    ```yaml
    caddy_dns_provider_api_token: "<token with zone:edit permission for your yak_domain zone>"
    ```
-3. Re-run the provisioning playbook (`./deploy.sh` or `ansible-playbook ansible/playbook.yml`). The `ssl` role will download a Caddy binary bundled with the chosen plugin and enable the wildcard Caddyfile block.
+3. Re-run the provisioning playbook (`ansible-playbook ansible/playbook.yml`). The `ssl` role will download a Caddy binary bundled with the chosen plugin and enable the wildcard Caddyfile block.
 
 If either value is unset, the Caddyfile falls back to dashboard-only routing. Preview deployments will not work until both are configured.
 

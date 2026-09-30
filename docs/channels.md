@@ -24,7 +24,7 @@ flowchart LR
     GH -->|"code, CI, reviews, /yak"| Yak
 ```
 
-**The routing rule is simple:** respond where you were asked. Slack tasks answer in the thread and Linear tasks in the agent session. Tasks from the CLI or Sentry post to the PR only.
+**The routing rule is simple:** respond where you were asked. Slack tasks answer in the thread and Linear tasks in the agent session. CLI, dashboard and Sentry tasks post results to the PR; if one of them asks a question, answer it on the task page in the dashboard.
 
 ## Channel Summary
 
@@ -47,9 +47,8 @@ After Yak opens a PR, keep refining it in the place you started. Yak resumes the
 |---|---|
 | Slack | Reply in the thread |
 | Linear | Comment in the agent session |
+| Dashboard, CLI or Sentry | Send a message on the task page |
 | GitHub, or any task's PR | Comment `/yak ...` on the PR |
-
----
 
 ---
 
@@ -295,27 +294,13 @@ Yak installs into a Linear workspace as an **Agent**, a first-class workspace pa
 
 Once installed, Yak appears in the Linear assignee picker for every team it belongs to. Team membership is managed inside Linear. An admin adds or removes the Yak agent per team like any other user.
 
-### Usage
+### Using it
 
-Assign any Linear issue to **Yak**. For research-only tasks, either (a) include the word **"research"** anywhere in the issue title (e.g. `Research: audit deprecated field usage` or `[research] memory leak investigation`), or (b) add a **`research`** label to the issue. Label matching is case-insensitive. Use the label when the title naturally reads like a fix ("Replace AWS Inspector…") but the task is actually investigative. It's lower-friction than rewriting the title.
-
-Delegation opens an agent session on the issue. Yak immediately posts an acknowledgement activity, then emits progress updates as it works. When the run finishes:
-
-- **Fix tasks**: Yak posts a `response` activity linking to the pull request and moves the issue to the configured "In review" (CI green, PR opened) or "Done" state.
-- **Research tasks**: Yak posts the findings and moves the issue to "Done".
-- **Failures**: Yak posts an `error` activity explaining what went wrong; the issue state is left alone.
-
-#### What you'll see during a run
-
-- **Acknowledgement (sync).** Posted during the webhook response, before the 10-second SLA. Runs through Yak's personality agent with a short timeout, so the voice matches later messages. If the LLM is slow or unreachable, it falls back to a static template but still sounds like Yak.
-- **Start-of-work progress.** As soon as the worker picks the task up (often seconds later), Yak posts a `thought` activity describing what it's about to do. Closes the silent gap between pickup and first push on longer tasks. Controlled by `YAK_EMIT_START_PROGRESS` (default on).
-- **Push + CI.** Once the agent has changes, Yak pushes to a branch and posts another progress activity noting CI is running.
-- **Final response.** On success, a `response` activity with the PR link; on failure, an `error` activity with the reason.
-- **Multi-turn replies.** Commenting *inside* the agent session is state-aware: while Yak is `awaiting_clarification` your reply answers the question; once a PR is open it becomes a follow-up that pushes more commits; a `stop` signal cancels the in-flight task; and a merged/closed PR gets a polite decline.
-
-#### Follow-ups
-
-Comment in the agent session. Yak acknowledges with a `thought` and answers with a `response` when the push lands. Reassigning the issue away from Yak cancels any in-flight work.
+- **Start a task:** assign the issue to **Yak**. Delegation opens an agent session and Yak posts an acknowledgement right away, then progress updates. Progress on pickup is on by default (`YAK_EMIT_START_PROGRESS`).
+- **Research-only tasks:** put **"research"** in the issue title (for example `Research: audit deprecated field usage`) or add a **`research`** label. Matching is case-insensitive. Use the label when the title reads like a fix but the work is investigative.
+- **When it finishes:** for fixes, Yak posts a `response` activity with the PR link and moves the issue to "In review". For research, it posts the findings and moves the issue to "Done". On failure it posts an `error` activity and leaves the issue state alone.
+- **Reply in the session:** while Yak is `awaiting_clarification` your reply answers the question. Once a PR is open it becomes a follow-up that pushes more commits. A `stop` signal cancels the running task, and a merged or closed PR gets a polite decline.
+- **Cancel:** reassigning the issue away from Yak cancels any running work.
 
 ### Repo Detection
 
@@ -337,7 +322,14 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 | Research completed | → **Done** |
 | Task failed | remains In Progress with a failure activity |
 
-The picked-up → started transition is automatic: Yak queries the issue's team's workflow states and moves the issue to the leftmost `started`-type state (workflow states are per-team in Linear, so there is no single workspace-wide UUID). It can be disabled per connection with the "Move issues to In Progress when Yak picks them up" toggle on the Linear settings page, or overridden with a specific state UUID via `linear_started_state_id` (`YAK_LINEAR_STARTED_STATE_ID`) in `ansible/vault/secrets.yml`. If discovery finds no `started`-type state, the transition is skipped and the issue stays in its current state until the PR is opened. The remaining state UUIDs are configured via `linear_done_state_id`, `linear_cancelled_state_id`, and `linear_in_review_state_id`.
+| Transition | How the state is chosen | Override |
+|---|---|---|
+| Picked up, to started | The leftmost `started`-type state of the issue's team. Skipped if the team has none. | "Move issues to In Progress when Yak picks them up" toggle on the Linear settings page, or `linear_started_state_id` |
+| PR opened, to In Review | Configured state | `linear_in_review_state_id` |
+| Research done, to Done | Configured state | `linear_done_state_id` |
+| Task expires, to Cancelled | Configured state | `linear_cancelled_state_id` |
+
+The overrides are state UUIDs set in `ansible/vault/secrets.yml` (env: `YAK_LINEAR_*_STATE_ID`). Workflow states are per team in Linear, so there is no single workspace-wide UUID.
 
 ### Gotchas
 

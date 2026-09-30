@@ -50,7 +50,7 @@ Share links should be treated as secrets. To invalidate a link early, click "Rev
 
 ## Opting a repo in
 
-In the repository row on the Yak dashboard, toggle "Deployments enabled". The next PR opened on that repo gets a preview.
+Previews need wildcard DNS and a DNS-01 certificate first; see [Setup, Branch deployments](setup.md#branch-deployments). Then open the repository's edit page and turn on **Branch deployments**. The next PR opened on that repo gets a preview.
 
 ### The preview manifest
 

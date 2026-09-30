@@ -100,11 +100,11 @@ Yak picks the task slug from the task's source and mode, then renders it with th
 ### Editing prompts in the dashboard
 
 - Pick a slug, edit, and check the **Preview** tab, which renders against a sample fixture.
-- Saves are validated. The Blade must compile, and directives that pull external state or run PHP (`@include`, `@extends`, `@component`, `@php`) are rejected.
+- Saves are validated. The Blade must compile, and directives that pull external state or run PHP (`@extends`, `@component`, `@php`, and `@include` outside `prompts.partials.*`) are rejected.
 - Each save creates a version, so you can roll back.
 - If a saved prompt fails to render at runtime, Yak logs a warning and falls back to the Blade file on disk. A bad save never breaks the pipeline.
 
-Once a prompt is customized, editing its Blade file has no effect on your deployment. Edit the files only to change the default that ships with Yak. A new slug or a new variable needs a code change: wire it in `app/YakPromptBuilder.php` and declare it in `app/Prompts/PromptDefinitions.php`, plus a sample in `PromptFixtures`.
+Once a prompt is customized, editing its Blade file has no effect on your deployment. Edit the files only to change the default that comes with Yak. A new slug or a new variable needs a code change: wire it in `app/YakPromptBuilder.php` and declare it in `app/Prompts/PromptDefinitions.php`, plus a sample in `PromptFixtures`.
 
 Keep templates short. Claude Code does the heavy lifting, and long templates crowd out context.
 

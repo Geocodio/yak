@@ -22,7 +22,7 @@ Yak answers where you asked. GitHub is required. The CLI and dashboard are alway
 
 ## What a task is
 
-A task is one unit of work for one repo, a paragraph or less: a bug fix, a flaky test, a lint cleanup. Yak clones a sandbox from the repo snapshot, runs the agent, pushes a branch, waits for CI and opens a PR. If the request is unclear, Yak asks a question in the channel it came from. Reply there, or comment `/yak` on the PR, to refine the work. The full pipeline and the task states are in [Architecture](architecture.md#coding-agent-workflow).
+A task is one unit of work for one repo, a paragraph or less: a bug fix, a flaky test, a lint cleanup. Yak clones a sandbox from the repo snapshot, runs the agent, pushes a branch, waits for CI and opens a PR. If the request is unclear, Yak asks a question in the channel it came from. Reply there, on the task page, or with `/yak` on the PR to refine the work. The full pipeline and the task states are in [Architecture](architecture.md#coding-agent-workflow).
 
 ## What Yak does and does not do
 

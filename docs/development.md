@@ -66,7 +66,7 @@ Yak has four test tiers. The first three run in CI on every push; the fourth is 
 |---|---|---|---|
 | **Unit** | `tests/Unit/` | `vendor/bin/pest --testsuite=Unit` | Seconds |
 | **Feature** | `tests/Feature/` | `vendor/bin/pest --testsuite=Feature` | Seconds |
-| **Browser** | `tests/Browser/` | `vendor/bin/pest --testsuite=Browser` | ~30s |
+| **Browser** | `tests/Browser/` | `vendor/bin/pest tests/Browser` | ~30s |
 | **Contract** | `tests/Contract/` | `vendor/bin/pest --group=contract` | ~60s, requires Claude CLI |
 
 ### Day-To-Day Commands
@@ -96,7 +96,7 @@ npx playwright install --with-deps chromium
 Then:
 
 ```bash
-vendor/bin/pest --testsuite=Browser
+vendor/bin/pest tests/Browser
 ```
 
 Browser tests cover the auth flow, live polling updates on the task detail page, artifact viewer navigation, signed URL access, and accessibility (`assertNoAccessibilityIssues()` plus `assertNoJavaScriptErrors()` on dashboard pages).
@@ -139,7 +139,7 @@ PHPStan at level 8 (maximum) with the Larastan extension:
 vendor/bin/phpstan analyse
 ```
 
-Yak ships with a `phpstan-baseline.neon` file containing pre-existing errors (mostly Livewire dynamic property access). **Do not clear the baseline** without approval. New code should not add to it.
+Yak comes with a `phpstan-baseline.neon` file containing pre-existing errors (mostly Livewire dynamic property access). **Do not clear the baseline** without approval. New code should not add to it.
 
 ### Pre-commit
 

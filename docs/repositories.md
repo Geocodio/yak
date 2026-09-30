@@ -151,18 +151,12 @@ Same form pre-filled with current values. Also includes:
 
 ## Branch Deployments
 
-Each repository has four deployment-related fields:
-
-- `deployments_enabled` (bool, default false). Flip to `true` to wire PR events on this repo to the preview deployment pipeline.
-- `preview_manifest` (json). Authored by SetupYakJob; editable in the dashboard. See [branch-deployments.md](branch-deployments.md) for the shape.
-- `preview_env_overrides` (json, optional). Symbolic names of env vars to inject from Ansible vault at container start time. Use this for per-repo API keys that production-like previews need.
-- `current_template_version` (int). Bumped each time SetupYakJob re-seeds the template. New deployments clone from this version; existing deployments stay pinned to their birth version until an operator rebuilds them.
-
+To give a repo previews, turn on **Branch deployments** on its edit page. See [Branch Deployments](branch-deployments.md).
 ## PR Review Toggle
 
 Each repo has a **PR Review** toggle on its edit page. When enabled, Yak reviews every open, non-draft PR on the repo, posting line-level comments with category + severity + (sometimes) `suggestion` blocks. See the [PR Review guide](pr-review.md) for the full flow.
 
-Path filters let you narrow what Yak reviews. The defaults (in `config/yak.php`) exclude `vendor/**`, `node_modules/**`, lockfiles, and minified assets; per-repo overrides are a chip list on the same edit page.
+Path filters let you narrow what Yak reviews. The defaults (in `config/yak.php`) exclude `vendor/**`, `node_modules/**`, build output and minified assets; per-repo overrides are a chip list on the same edit page.
 
 ## What Isn't Stored Per-Repo
 
