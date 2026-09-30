@@ -1,7 +1,5 @@
 # Channels
 
-> **Scope.** The channel driver interfaces in this document (InputDriver, NotificationDriver, CIDriver, CIBuildScanner) are task-workflow scoped. Yak's other two workflows — PR Review and Branch Deployments — integrate with GitHub directly rather than going through a channel driver.
-
 Every external integration in Yak is a pluggable channel. A channel can fill up to three roles:
 
 | Role | What it does | Example |
@@ -420,10 +418,4 @@ To stop it for a repo, mark the repo inactive or set its CI system to `none`.
 
 ## Adding A New Channel
 
-Channels are pluggable. Adding a new input source means implementing three interfaces in `app/Contracts/`:
-
-- `InputDriver` — parse an incoming event, return a normalized task description
-- `CIDriver` — parse a build result webhook, return pass/fail plus failure output
-- `NotificationDriver` — post status updates back to the source
-
-See [Development → Adding A New Channel Driver](development.md#adding-a-new-channel-driver) for the interface reference and a worked example.
+A channel is a folder in `app/Channels/<Name>/` registered in `config/yak.php`. See [Development → Adding A New Channel](development.md#adding-a-new-channel).
