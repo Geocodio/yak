@@ -199,6 +199,11 @@ return [
 
     'ci_timeout_minutes' => (int) env('YAK_CI_TIMEOUT_MINUTES', 30),
 
+    // Hard ceiling for a task in awaiting_ci while GitHub still reports a
+    // queued or running workflow. Past ci_timeout_minutes the task keeps
+    // waiting until this many minutes after its last push.
+    'ci_max_wait_minutes' => (int) env('YAK_CI_MAX_WAIT_MINUTES', 180),
+
     'video' => [
         // Where VideoRenderer stages clips for Remotion. Must be writable by
         // the queue worker user (www-data); /app/video/public is root-owned

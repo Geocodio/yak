@@ -167,7 +167,9 @@ class WebhookController extends Controller
             }
         }
 
-        ProcessCIResultJob::dispatch($task, $passed, $output);
+        $headSha = (string) $request->input('check_suite.head_sha', '');
+
+        ProcessCIResultJob::dispatch($task, $passed, $output, $headSha !== '' ? $headSha : null);
 
         return response()->json(['ok' => true, 'dispatched' => true]);
     }

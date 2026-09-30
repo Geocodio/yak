@@ -6,6 +6,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Channels\Linear\SessionPlanStage;
 use App\Channels\Linear\WorkflowStateResolver;
+use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
@@ -43,6 +44,7 @@ class ProcessCIResultJob implements ShouldQueue
         public readonly YakTask $task,
         public readonly bool $passed,
         public readonly ?string $output = null,
+        public readonly ?string $commitSha = null,
     ) {
         $this->onQueue('default');
     }
@@ -114,6 +116,10 @@ class ProcessCIResultJob implements ShouldQueue
             // the same branch can produce several of these. Acting on a task
             // that has already settled means an agent run nobody is waiting
             // for or a duplicate PR, so drop the result.
+            if ($this->shouldReviveAfterCiTimeout()) {
+                $this->reviveAfterCiTimeout();
+            }
+
             if (! in_array($this->task->status, self::ACTIONABLE_STATUSES, true)) {
                 TaskLogger::info($this->task, 'Late CI result ignored', [
                     'passed' => $this->passed,
@@ -137,6 +143,64 @@ class ProcessCIResultJob implements ShouldQueue
         } finally {
             TaskContext::clear();
         }
+    }
+
+    /**
+     * A result is worth acting on after yak:timeout-ci gave up when the task
+     * failed for exactly that reason, no PR exists yet, and the result belongs
+     * to the commit the branch points at now. Results for older commits, or
+     * whose commit is unknown or cannot be confirmed, stay ignored.
+     */
+    private function shouldReviveAfterCiTimeout(): bool
+    {
+        $task = $this->task;
+
+        if ($task->status !== TaskStatus::Failed
+            || $task->pr_url !== null
+            || ! str_starts_with((string) $task->error_log, TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX)) {
+            return false;
+        }
+
+        if ($this->commitSha === null) {
+            return false;
+        }
+
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        if ($installationId === 0 || $task->branch_name === null) {
+            return false;
+        }
+
+        try {
+            $repository = Repository::where('slug', $task->repo)->first();
+
+            return $repository !== null
+                && app(GitHubAppService::class)->getBranchHeadSha($installationId, $repository->github_full_name, $task->branch_name) === $this->commitSha;
+        } catch (\Throwable $e) {
+            Log::warning('Could not confirm the branch head for a late CI result', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Failed can only move to Retrying, and Retrying can move to AwaitingCi,
+     * so the revival takes both legal steps. The attempt count is untouched,
+     * so a red result spends the normal CI retry budget.
+     */
+    private function reviveAfterCiTimeout(): void
+    {
+        $this->task->update(['status' => TaskStatus::Retrying]);
+        $this->task->update([
+            'status' => TaskStatus::AwaitingCi,
+            'completed_at' => null,
+            'error_log' => null,
+        ]);
+
+        TaskLogger::info($this->task, 'Late CI result accepted after CI timeout', ['passed' => $this->passed]);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tasks;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
+use App\Console\Commands\TimeoutAwaitingCiCommand;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -35,6 +36,10 @@ class TaskActionController extends Controller
     {
         if (! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
             return redirect()->route('tasks.show', $task)->with('error', 'This task cannot be retried right now.');
+        }
+
+        if ($this->resumeCiAfterTimeout($task)) {
+            return redirect()->route('tasks.show', $task)->with('success', "Checking CI on {$task->branch_name} again.");
         }
 
         if ($this->hasPushedBranch($task)) {
@@ -86,6 +91,80 @@ class TaskActionController extends Controller
             && ! $task->targets_external_pr
             && $task->branch_name !== null
             && $task->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->exists();
+    }
+
+    /**
+     * A task that failed only because yak:timeout-ci gave up already has its
+     * work pushed, so retrying it goes back to CI instead of the agent. The
+     * branch's latest CI result on GitHub is used when it is in: green opens
+     * the PR, red re-runs the failed jobs so the result arrives through the
+     * webhook as usual. A run that is still going is simply waited for.
+     * Returns false, leaving the task untouched, when GitHub cannot say.
+     */
+    private function resumeCiAfterTimeout(YakTask $task): bool
+    {
+        $installationId = (int) config('yak.channels.github.installation_id');
+        $repository = Repository::where('slug', $task->repo)->first();
+
+        if ($task->mode !== TaskMode::Fix
+            || $task->targets_external_pr
+            || $task->branch_name === null
+            || $task->pr_url !== null
+            || ! str_starts_with((string) $task->error_log, TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX)
+            || $installationId === 0
+            || $repository === null
+            || $repository->ci_system !== 'github_actions') {
+            return false;
+        }
+
+        $gitHub = app(GitHubAppService::class);
+
+        try {
+            $runs = $gitHub->latestCommitWorkflowRunsForBranch($installationId, $repository->github_full_name, $task->branch_name);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('Could not read CI runs for a dashboard retry', [
+                'task_id' => $task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        if ($runs === []) {
+            return false;
+        }
+
+        $pending = array_filter($runs, fn (array $run): bool => GitHubAppService::isUnfinishedWorkflowRun($run));
+        $failed = array_filter($runs, fn (array $run): bool => ! GitHubAppService::isUnfinishedWorkflowRun($run)
+            && ! in_array($run['conclusion'], ['success', 'skipped', 'neutral'], true));
+
+        if ($pending === [] && $failed !== []) {
+            foreach ($failed as $run) {
+                if (! $gitHub->rerunFailedJobs($installationId, $repository->github_full_name, $run['id'])) {
+                    return false;
+                }
+            }
+        }
+
+        $task->update(['status' => TaskStatus::Retrying]);
+        $task->update([
+            'status' => TaskStatus::AwaitingCi,
+            'error_log' => null,
+            'completed_at' => null,
+        ]);
+
+        TaskLogger::info($task, TimeoutAwaitingCiCommand::CI_RESUMED_LOG_MESSAGE, [
+            'branch' => $task->branch_name,
+            'still_running' => count($pending),
+            'rerun_failed' => $pending === [] ? count($failed) : 0,
+        ]);
+        Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_ci' => true], task: $task);
+
+        if ($pending === [] && $failed === []) {
+            ProcessCIResultJob::dispatch($task, true, null, $runs[0]['head_sha']);
+        }
+
+        return true;
     }
 
     /**
