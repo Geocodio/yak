@@ -13,7 +13,7 @@ class YakPersonality
         'acknowledgment' => 'On it — {context} 🐃',
         'progress' => '{context} ⏳',
         'clarification' => 'Need some input: {context} ❓',
-        'retry' => 'Retrying — {context} 🔄',
+        'retry' => 'Retrying, {context} 🔄',
         'result' => '{context} ✅',
         'error' => '{context} 🚨',
         'expiry' => 'This one timed out. ⏰',

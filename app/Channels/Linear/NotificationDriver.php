@@ -24,9 +24,7 @@ class NotificationDriver implements NotificationDriverContract
 
         $sessionId = (string) $task->linear_agent_session_id;
         if ($sessionId !== '') {
-            $dashboardLink = $this->taskDashboardLink($task);
-            $body = "{$message}\n\n[View on Dashboard]({$dashboardLink})";
-            $this->sendAgentActivity($accessToken, $sessionId, $this->activityTypeForTask($task, $type), $body);
+            $this->sendAgentActivity($accessToken, $sessionId, $this->activityTypeForTask($task, $type), $message);
 
             $stage = SessionPlanStage::forTask($task, $type);
             if ($stage !== null) {
