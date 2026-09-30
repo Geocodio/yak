@@ -1,6 +1,6 @@
 # Development
 
-This page is for people working on Yak itself — fixing bugs in the Laravel app, adding new features, or writing new channel drivers. If you just want to run Yak against your repos, see the [Setup](setup.md) page.
+This page is for people working on Yak itself: fixing bugs in the Laravel app, adding new features, or writing new channel drivers. If you just want to run Yak against your repos, see the [Setup](setup.md) page.
 
 ## Local Development Setup
 
@@ -8,12 +8,12 @@ This page is for people working on Yak itself — fixing bugs in the Laravel app
 
 | Tool | Version | Notes |
 |---|---|---|
-| **PHP** | 8.4+ | With `pdo_mysql` extension |
+| **PHP** | 8.3+ | With `pdo_mysql` extension |
 | **Composer** | 2.x | `composer --version` to verify |
 | **Node** | 20+ | For building frontend assets and running Playwright |
 | **Docker** | 24+ | For MariaDB via docker-compose |
 
-You do NOT need Claude Code CLI, Chromium, or Ansible to develop on Yak. Those are runtime dependencies for a production Yak instance — tests fake all external process calls via Laravel's `Process::fake()` and `Http::fake()`.
+You do NOT need Claude Code CLI, Chromium, or Ansible to develop on Yak. Those are runtime dependencies for a production Yak instance. Tests fake all external process calls via Laravel's `Process::fake()` and `Http::fake()`.
 
 ### Getting Started
 
@@ -56,7 +56,7 @@ php artisan schedule:work
 npm run dev
 ```
 
-Open `http://localhost:8000`. Login is Google OAuth only, so for local development visit `http://localhost:8000/letmein` instead — it signs you in as the first user in the database (creating one if the table is empty) and drops you on the dashboard. The route only exists when `APP_ENV=local` and returns a 404 everywhere else.
+Open `http://localhost:8000`. Login is Google OAuth only, so for local development visit `http://localhost:8000/letmein` instead. It signs you in as the first user in the database (creating one if the table is empty) and drops you on the dashboard. The route only exists when `APP_ENV=local` and returns a 404 everywhere else.
 
 ## Running Tests
 
@@ -66,7 +66,7 @@ Yak has four test tiers. The first three run in CI on every push; the fourth is 
 |---|---|---|---|
 | **Unit** | `tests/Unit/` | `vendor/bin/pest --testsuite=Unit` | Seconds |
 | **Feature** | `tests/Feature/` | `vendor/bin/pest --testsuite=Feature` | Seconds |
-| **Browser** | `tests/Browser/` | `vendor/bin/pest --testsuite=Browser` | ~30s |
+| **Browser** | `tests/Browser/` | `vendor/bin/pest tests/Browser` | ~30s |
 | **Contract** | `tests/Contract/` | `vendor/bin/pest --group=contract` | ~60s, requires Claude CLI |
 
 ### Day-To-Day Commands
@@ -96,14 +96,14 @@ npx playwright install --with-deps chromium
 Then:
 
 ```bash
-vendor/bin/pest --testsuite=Browser
+vendor/bin/pest tests/Browser
 ```
 
-Browser tests cover the auth flow, Livewire live updates on the task detail page, artifact viewer navigation, signed URL access, and accessibility (`assertNoAccessibilityIssues()` plus `assertNoJavaScriptErrors()` on dashboard pages).
+Browser tests cover the auth flow, live polling updates on the task detail page, artifact viewer navigation, signed URL access, and accessibility (`assertNoAccessibilityIssues()` plus `assertNoJavaScriptErrors()` on dashboard pages).
 
 ### Contract Tests
 
-Contract tests validate that real Claude CLI output matches the schema Yak expects. They run nightly against the real CLI — **not** in the normal test run — because they need Claude CLI installed and an Anthropic API key.
+Contract tests validate that real Claude CLI output matches the schema Yak expects. They run nightly against the real CLI, **not** in the normal test run, because they need Claude CLI installed and an Anthropic API key.
 
 ```bash
 vendor/bin/pest --group=contract
@@ -139,213 +139,67 @@ PHPStan at level 8 (maximum) with the Larastan extension:
 vendor/bin/phpstan analyse
 ```
 
-Yak ships with a `phpstan-baseline.neon` file containing pre-existing errors (mostly Livewire dynamic property access). **Do not clear the baseline** without approval. New code should not add to it.
+Yak comes with a `phpstan-baseline.neon` file containing pre-existing errors (mostly Livewire dynamic property access). **Do not clear the baseline** without approval. New code should not add to it.
 
 ### Pre-commit
 
 Not enforced. Developers can run Pint on save or set up a git pre-commit hook. CI is the gate.
 
-## Architecture Overview For Contributors
+## Project Structure
 
-See the [Architecture](architecture.md) page for the full system design. For contributors, the shortest version:
+See [Architecture](architecture.md) for the system design. Where things live:
 
-- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each agent job creates an Incus sandbox at the start and destroys it in a `finally` block.
-- **`app/Jobs/Middleware/`** — `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
-- **`app/Agents/`** — `SandboxedAgentRunner` (the `AgentRunner` implementation), `ClaudeCodeOutputParser`, `StreamEventHandler`. The runner executes Claude Code inside the task's Incus container via `incus exec`.
-- **`app/Services/IncusSandboxManager.php`** — sandbox lifecycle: clone from snapshot, configure resource limits, push Claude/MCP config, snapshot, promote-to-template, destroy.
-- **`app/Services/SandboxArtifactCollector.php`** — pulls `.yak-artifacts/` from the sandbox before destruction.
-- **`app/Drivers/`** — channel driver implementations. Each channel has an input driver, a notification driver, or both.
-- **`app/Contracts/`** — the driver interfaces (`InputDriver`, `CIDriver`, `NotificationDriver`) plus `CIBuildScanner` and `AgentRunner`.
-- **`app/Http/Controllers/Webhooks/`** — one invokable controller per webhook endpoint. Uses the `VerifiesWebhookSignature` trait. Note: there is no Drone CI webhook — Drone is polled via `yak:poll-drone-ci` instead.
-- **`app/Livewire/`** — dashboard components. `Tasks/TaskList`, `Tasks/TaskDetail`, `Repos/RepoList`, `Repos/RepoForm`, `CostDashboard`, `Health`, `HealthRow`, `Skills`, `PromptEditor`, plus `Settings/*` and `Actions/*`.
-- **`app/Models/`** — `YakTask` (note: `$table = 'tasks'`), `TaskLog`, `Artifact`, `Repository`, `DailyCost`, `AiUsage`, `Prompt`, `PromptVersion`, `GitHubInstallationToken`, `LinearOauthConnection`.
-- **`app/Enums/`** — `TaskStatus` (the state machine), `TaskMode`, `NotificationType`. The state machine uses the `artisan-build/fat-enums` composer package.
-- **`app/Services/`** — external API integrations (GitHub, Linear, Slack, Sentry), detection logic (`RepoDetector`, `RepoRouter`), and the `PromptResolver` that renders prompts with DB overrides.
-- **`app/Prompts/`** — `PromptDefinitions` (metadata for every prompt slug) and `PromptFixtures` (sample data used by the in-app editor preview).
-- **`app/YakPromptBuilder.php`** — entry point for task/system prompt assembly. Delegates rendering to the `Prompts` facade → `PromptResolver`, which prefers DB-stored overrides (edited via the `/prompts` page) and falls back to the canonical Blade template.
-- **`app/GitOperations.php`** — centralized git commands via the `Process` facade.
-- **`app/Providers/ChannelServiceProvider.php`** — registers webhook routes conditionally based on which channels have credentials configured.
-- **`resources/views/prompts/`** — Blade templates. These are the **defaults** for every prompt slug; the in-app editor persists overrides to the `prompts` table.
-- **`docker/`** — production Docker configuration. The root `Dockerfile` builds from it.
+- `app/Channels/` -- one folder per integration channel (`GitHub`, `Slack`, `Linear`, `Sentry`, `Drone`). Each holds the channel's entry class, drivers, webhook controllers, support classes and health check.
+- `app/Channels/Contracts/` -- capability interfaces: `InputDriver`, `NotificationDriver`, `CIDriver`, `CIBuildScanner`.
+- `app/Channels/Channel.php` and `ChannelRegistry.php` -- the entry-class interface and the runtime lookup by channel name.
+- `app/Jobs/` -- the queued pipeline. Each agent job creates an Incus sandbox and destroys it in a `finally` block. Middleware is in `app/Jobs/Middleware/`.
+- `app/Agents/` -- `SandboxedAgentRunner`, which runs Claude Code inside the task's sandbox, plus output parsing.
+- `app/Services/` -- external API integrations, sandbox management (`IncusSandboxManager`), repo detection and routing, and health checks.
+- `app/Models/` -- Eloquent models. `YakTask` uses `$table = 'tasks'`.
+- `app/Enums/` -- `TaskStatus` (the state machine), `TaskMode`, `NotificationType`.
+- `app/DataTransferObjects/` -- readonly DTOs with static factory methods.
+- `app/Prompts/`, `app/YakPromptBuilder.php`, `resources/views/prompts/` -- prompt metadata, assembly and the default Blade templates. See [Prompting](prompting.md).
+- `app/GitOperations.php` -- git commands through the `Process` facade.
+- `app/Http/Controllers/` -- grouped by area, each returning `Inertia::render(...)`. Related folders: `Requests/` (form requests), `Resources/` (`*Data` classes that shape page props), `Concerns/` (webhook signature trait).
+- `resources/js/pages/` -- Inertia pages (React), `<Area>/<Name>.tsx`. Shared code is in `components/`, `layouts/` and `types/`.
+- `resources/js/routes` and `resources/js/actions` -- generated by Wayfinder. Run `php artisan wayfinder:generate` after route changes and never edit them by hand.
+- `docker/` -- production Docker config. The root `Dockerfile` builds from it.
 
-## Adding A New Channel Driver
+## Adding A New Channel
 
-Yak's channel architecture is the primary extension point. Adding a new input source (Jira, GitHub Issues, email, etc.), a new CI system, or a new notification target means implementing one or more of the contracts in `app/Contracts/`.
+A channel is a folder in `app/Channels/<Name>/` with an entry class that implements `App\Channels\Channel`. `app/Channels/Sentry/` is the smallest example. Read it first.
 
-### The Interfaces
+The entry class declares what the channel can do:
 
-```php
-// app/Contracts/InputDriver.php
-interface InputDriver
-{
-    public function parseWebhook(Request $request): ?TaskDescription;
-    // Returns null if the webhook should be ignored.
-}
+| Method | Purpose |
+|---|---|
+| `name()` | Key used in `config('yak.channels.<name>')` and for lookup |
+| `requiredConfig()` | Config keys that must be set. The channel is enabled only when all are non-empty. |
+| `registerRoutes(Router)` | Webhook routes, registered under `/webhooks` only when the channel is enabled |
+| `inputDriver()` | `parse(Request): TaskDescription`. Turns an incoming event into a task. |
+| `notificationDriver()` | `send(YakTask, NotificationType, string): void`. Posts status back to the source. |
+| `ciDriver()` / `ciBuildScanner()` | `parse(Request): BuildResult` for webhooks, or `getRecentFailures(...)` for polled CI |
+| `healthChecks()` | Checks shown on `/health` |
 
-// app/Contracts/CIDriver.php
-interface CIDriver
-{
-    public function parseBuildResult(Request $request): ?BuildResult;
-    public function fetchFailureOutput(string $buildId): string;
-}
+Return `null` from the drivers the channel does not provide. The `ChecksRequiredConfig` trait implements `config()` and `enabled()`.
 
-// app/Contracts/NotificationDriver.php
-interface NotificationDriver
-{
-    public function acknowledge(YakTask $task): void;
-    public function progress(YakTask $task, string $message): void;
-    public function result(YakTask $task): void;
-    public function failed(YakTask $task, string $reason): void;
-}
-```
+Steps:
 
-### Worked Example: Adding A Jira Input Driver
-
-1. **Add configuration**
-
-   In `config/yak.php`, add a `jira` entry under `channels`:
-
-   ```php
-   'jira' => [
-       'base_url'       => env('JIRA_BASE_URL'),
-       'api_token'      => env('JIRA_API_TOKEN'),
-       'webhook_secret' => env('JIRA_WEBHOOK_SECRET'),
-   ],
-   ```
-
-   The `Channel` helper class (`app/Channel.php`) auto-detects channels as enabled when their credentials are present.
-
-2. **Create the input driver**
-
-   ```bash
-   php artisan make:class Drivers/JiraInputDriver
-   ```
-
-   Implement `InputDriver`. Parse the incoming Jira webhook payload into a `TaskDescription` (source = `jira`, external_id from issue key, context from issue body).
-
-3. **Create the webhook controller**
-
-   ```bash
-   php artisan make:controller Webhooks/JiraWebhookController --invokable
-   ```
-
-   Use the `VerifiesWebhookSignature` trait for signature checking. Resolve the input driver, parse the request, create a `YakTask`, dispatch `RunYakJob`. Look at `SlackWebhookController` for the canonical pattern.
-
-4. **Register the route conditionally**
-
-   Add the channel to the `CHANNEL_CONTROLLERS` map in `app/Providers/ChannelServiceProvider.php`:
-
-   ```php
-   private const CHANNEL_CONTROLLERS = [
-       'slack'  => SlackWebhookController::class,
-       'linear' => LinearWebhookController::class,
-       'sentry' => SentryWebhookController::class,
-       'jira'   => JiraWebhookController::class,
-   ];
-   ```
-
-   The provider auto-registers `POST /webhooks/{channel}` only when `(new Channel($channel))->enabled()` returns true.
-
-5. **Add a notification driver** (optional but recommended)
-
-   Create `app/Drivers/JiraNotificationDriver.php` implementing `NotificationDriver`. Post issue comments via the Jira REST API (use `Http::withToken()`). If omitted, notifications fall back to PR comments.
-
-6. **Create a prompt template**
-
-   Add `resources/views/prompts/tasks/jira-fix.blade.php` following the pattern of `tasks/linear-fix.blade.php`. Keep it short. This is the **default**; operators can override it at runtime via the in-app Prompts editor (the `prompts` table).
-
-7. **Register the slug and wire up rendering**
-
-   - Add an entry for `tasks-jira-fix` to `app/Prompts/PromptDefinitions.php` (view path, label, category, variables).
-   - Add a sample fixture for the editor preview to `app/Prompts/PromptFixtures.php`.
-   - Add a render helper in `app/YakPromptBuilder.php` and route the `jira` source to it in `taskPrompt()`.
-
-8. **Write tests**
-
-   - `tests/Unit/JiraInputDriverTest.php` — parses sample webhook payloads, returns expected task description, rejects invalid payloads
-   - `tests/Feature/JiraWebhookTest.php` — full controller test: valid payload creates task, invalid signature rejected, duplicate external_id rejected
-   - `tests/Feature/JiraNotificationTest.php` — uses `Http::fake()` to assert correct API payloads
-
-9. **Add Ansible support** (for production deployment)
-
-   Create `ansible/roles/channel-jira/` with tasks for registering the webhook on the Jira side. Add the channel to the conditional includes in `ansible/playbook.yml`. Follow `ansible/roles/channel-linear/` as a template.
-
-10. **Document it**
-
-    Add a Jira section to the [Channels](channels.md) page following the pattern of Linear and Sentry.
-
-### Adding A New CI Driver
-
-Same pattern, but implement `CIDriver` (or `CIBuildScanner` for pull-based systems) instead of `InputDriver`. GitHub Actions posts check-run results to `POST /webhooks/ci/github`. Drone has no outbound webhook, so its results are polled by the `yak:poll-drone-ci` scheduled command (see `app/Console/Commands/PollDroneCiCommand.php` and `app/Services/DroneBuildScanner.php`). The repo's `ci_system` column is the authority on which driver to use for a given repo.
+1. Add the credentials to the `channels` array in `config/yak.php` and read them from env vars.
+2. Create the entry class and drivers in `app/Channels/<Name>/`, plus a webhook controller that uses the `VerifiesWebhookSignature` trait. Copy the shape of `Sentry/WebhookController.php`.
+3. Add the entry class to `channel_classes` in `config/yak.php`.
+4. Add a task prompt: the Blade template, an entry in `app/Prompts/PromptDefinitions.php`, a fixture in `PromptFixtures`, and a render path in `YakPromptBuilder`.
+5. Add tests: webhook feature tests (valid payload creates a task, bad signature is rejected, duplicates are ignored) and driver unit tests. Fake outbound calls with `Http::fake()`.
+6. Add an Ansible role under `ansible/roles/channel-<name>/` and include it in `ansible/playbook.yml`. Follow `channel-linear`.
+7. Document it in [Channels](channels.md).
 
 ## Testing Conventions
 
-### Factories
-
-Every model has a factory with named states. Factories are the **only** way to create test data — no raw DB inserts in tests.
-
-```php
-$task = YakTask::factory()
-    ->awaitingClarification()
-    ->forRepo('my-app')
-    ->create();
-```
-
-Key factory states:
-
-| Model | States |
-|---|---|
-| `YakTask` | `pending`, `running`, `awaitingClarification`, `awaitingCi`, `retrying`, `success`, `failed`, `expired` |
-| `Repository` | `default`, `inactive`, `withAuth`, `withSentry` |
-| `TaskLog` | `info`, `warning`, `error` |
-| `Artifact` | `screenshot`, `video`, `research` |
-
-### Test Helpers
-
-`tests/Helpers/` provides reusable helpers loaded via Pest's `uses()` in `tests/Pest.php`:
-
-| Helper | Purpose |
-|---|---|
-| `fakeClaudeRun()` | Fakes a successful Claude CLI run with configurable `result_summary`, `cost_usd`, `session_id`, `num_turns` |
-| `fakeClaudeClarification()` | Fakes a Claude run that returns clarification JSON |
-| `fakeClaudeError()` | Fakes a failed Claude run |
-| `assertSlackThreadReply()` | Asserts an HTTP call to Slack `chat.postMessage` with correct channel/thread/text |
-| `assertLinearActivity()` | Asserts a Linear agent session activity was posted |
-| `assertLinearStateUpdate()` | Asserts a Linear issue's state was updated |
-
-### Process And HTTP Faking
-
-All external process calls (Claude CLI, git, docker-compose) use `Process::fake()`. Patterns matter — **specific patterns before wildcards**, because Laravel matches in registration order:
-
-```php
-Process::fake([
-    'claude -p *' => Process::result(json: ['result' => '...', 'session_id' => '...']),
-    '*'           => Process::result(),
-]);
-```
-
-External API calls use `Http::fake()` with URL patterns:
-
-```php
-Http::fake([
-    'slack.com/api/chat.postMessage' => Http::response(['ok' => true]),
-    'api.linear.app/graphql'         => Http::response(['data' => ['...']]),
-]);
-```
-
-### Database
-
-All feature tests use SQLite in-memory via `RefreshDatabase` (configured globally in `tests/Pest.php`). The application uses MariaDB in development and production, but tests use SQLite in-memory for speed — no test database container needed.
-
-### Naming
-
-Pest `it()` syntax with descriptive names:
-
-```php
-it('creates a task when a valid Sentry webhook arrives', function () { ... });
-it('rejects Sentry webhooks for CSP violations', function () { ... });
-it('detects clarification JSON and pauses for user reply', function () { ... });
-```
+- Use factories for all test data. Check the factory for named states before building a model by hand.
+- Fake external processes with `Process::fake()`, listing specific patterns before wildcards. Fake outbound HTTP with `Http::fake()`.
+- Helpers such as `fakeClaudeRun()` and `assertSlackThreadReply()` live in `tests/Helpers/`.
+- Feature tests use `RefreshDatabase` (configured in `tests/Pest.php`). Tests run on SQLite in memory.
+- Name tests with Pest `it()` and a descriptive sentence.
 
 ## Pull Request Process
 
@@ -365,13 +219,13 @@ it('detects clarification JSON and pauses for user reply', function () { ... });
 
 ### What Not To Touch Without Approval
 
-- `phpstan-baseline.neon` — pre-existing errors, do not clear
-- `docker/supervisord.conf` — production config
-- `.chief/` — local working files, never commit
+- `phpstan-baseline.neon`: pre-existing errors, do not clear
+- `docker/supervisord.conf`: production config
+- `.chief/`: local working files, never commit
 
 ## Reporting Bugs And Requesting Features
 
-- **Bug report** — `https://github.com/geocodio/yak/issues/new?template=bug_report.yml`
-- **Feature request** — `https://github.com/geocodio/yak/issues/new?template=feature_request.yml`
+- **Bug report**: `https://github.com/geocodio/yak/issues/new?template=bug_report.yml`
+- **Feature request**: `https://github.com/geocodio/yak/issues/new?template=feature_request.yml`
 
 Include the Yak version (git SHA), the channel involved, steps to reproduce, and relevant logs from `docker logs yak --tail 500` or the task's debug section.

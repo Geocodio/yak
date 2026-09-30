@@ -1,418 +1,169 @@
 # Architecture
 
-How Yak works under the hood. This page exists for the person who wants to understand the system before trusting it — or for someone debugging unexpected behavior who needs a mental model.
+How Yak works under the hood, for someone who wants a mental model before trusting it or while debugging.
 
 ## Three workflows, one substrate
 
-Yak is an autonomous coding agent for papercuts, a line-by-line PR reviewer, and a per-branch preview server. One shared sandbox fleet powers all three workflows.
-
-```
-              ┌────────────────────────────────────────────┐
-              │              Workflows (surfaces)          │
-              │                                            │
-              │  Coding Agent    PR Review    Branch       │
-              │  (papercuts)     (line-level  Deployments  │
-              │                   comments)                │
-              └────────────────────────────────────────────┘
-                                 │
-              ┌────────────────────────────────────────────┐
-              │              Substrate (shared)            │
-              │                                            │
-              │  Repos ⟷ GitHub App ⟷ Ingress ⟷ Auth       │
-              │  Sandboxes (Incus + ZFS CoW + per-repo     │
-              │  templates from SetupYakJob)               │
-              │  Jobs / Queues / Scheduler                 │
-              │  Dashboard / Artifacts / Logs / Costs      │
-              └────────────────────────────────────────────┘
-```
-
-The substrate is the load-bearing part. Workflows are the user-facing surfaces. New workflows in the future plug into the same substrate without reshaping the base.
+Yak drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything. The three workflows share one substrate: repos, the GitHub App, ingress and auth, Incus sandboxes with per-repo templates from `SetupYakJob`, jobs and queues, and the dashboard.
 
 ## Coding Agent Workflow
 
 Every fix task goes through the same pipeline, regardless of where it came from:
 
-![Fix task flow — entry, branch creation, the parallel fork into video rendering and CI, and PR convergence](fix-task-flow.png)
+```mermaid
+flowchart TD
+    A["Slack, Linear, Sentry,<br/>GitHub /yak, dashboard,<br/>CLI, flaky-test scan"] --> B["Task"]
+    B --> C["Sandbox cloned from repo snapshot"]
+    C --> D["Agent works"]
+    D -->|"needs an answer"| Q["Asks in the source channel, resumes on reply"]
+    D -->|"no changes"| E["Answer posted, task done"]
+    D -->|"changes"| F["Push branch"]
+    F --> G{"CI: Actions, Drone or none"}
+    F -.-> W["Render walkthrough"]
+    G -->|"green"| H["Open PR"]
+    W -.->|"patches PR body"| H
+    G -->|"red, first time"| D
+    G -->|"red again"| X["Task failed"]
+```
 
-After the agent finishes, work splits into two parallel streams:
+The push happens inside `RunYakJob`. The worker never waits for CI: a webhook (or the Drone poller) starts the next step. The walkthrough render runs in parallel and patches the PR body when it is ready.
 
-- **Stream B (push → CI → PR)** pushes the branch, waits for CI, and on green creates the PR.
-- **Stream A (video pipeline)** captures and renders the walkthrough, then patches the PR body once the video is ready.
+### Walkthrough videos
 
-Both streams converge on the same PR — whichever finishes first writes its piece, the other fills in later. Tasks never block the queue while CI runs: the worker finishes a job, CI runs asynchronously, and a webhook triggers the next step.
-
-### The Walkthrough Video Pipeline (v3)
-
-Instead of narrating over one continuous screen recording, the agent writes a `script.json` describing the walkthrough as a sequence of shots, captions and pauses. Two sandbox-side CLI steps turn that script into footage:
-
-- **`yak-browser script`** lints `script.json` — a headless dry run plus an asset preflight — before anything is captured, so a bad script fails fast instead of burning a shoot.
-- **`yak-browser shoot`** drives a real browser through the script and writes `shots/*.webm` (per-beat clips), `stills/*.png`, `screenshots/*.png`, and a `manifest.json` describing what was captured and in what order.
-
-Back in the app, `ArtifactPersister` walks that output recursively, persists each file as an `Artifact` tagged with its role, and dispatches exactly one `RenderWalkthroughJob` per task — keyed on the task id, not on any single artifact, because one v3 render draws on many clips.
-
-`RenderWalkthroughJob` runs `scripts/timeline.ts` to turn the manifest and script into a render timeline, writes `chapters.json`, renders the `WalkthroughV3` Remotion composition into the final cut, and runs it through `RenderQaCheck` — a frame-sampling gate that catches blank or garbled output before it reaches a reviewer. Once the cut passes QA, the job derives the thumbnail and a preview GIF, writes MP4 chapter metadata, and replaces the `<!-- yak:walkthrough -->` section of the PR body.
-
-Artifact roles form the vocabulary this pipeline is built on: `script` and `manifest` (the two shoot-time descriptors), `shot`, `still`, `screenshot` and `voiceover` (raw capture output), `chapters` (render-time metadata), and `cut`, `thumbnail`, `preview` (the finished, reviewer-facing output). `raw` is the legacy single-webm role.
-
-The legacy single-webm path — one continuous `walkthrough.webm` recording, rendered by `RenderVideoJob` into the `WalkthroughV2` composition under `video/src/legacy/` — stays in place until no v2 artifacts remain in the system; `yak:video:rerender` and `yak:video:prune` both understand the two pipelines side by side.
-
-The diagram source is [`fix-task-flow.dot`](fix-task-flow.dot) (Graphviz). Regenerate with `dot -Tpng docs/fix-task-flow.dot -o docs/fix-task-flow.png -Gdpi=150`.
+The agent writes a `script.json` of shots and captions. In the sandbox, `yak-browser shoot` drives a real browser through it. Back in the app, `RenderWalkthroughJob` renders the cut, checks sampled frames and replaces the walkthrough section of the PR body. See [Video Walkthroughs](video-walkthroughs.md).
 
 ## Two-Tier AI
 
-Yak uses two distinct AI layers with different models, different frameworks, and different responsibilities.
-
-| Layer | Framework | Models | Purpose |
-|---|---|---|---|
-| **Routing & Analysis** | Laravel AI (Anthropic API) | Haiku, Sonnet | Webhook processing, request routing, communication with users in Slack/Linear, Sentry triage, task intake |
-| **Implementation** | Claude Code CLI (`claude -p`) | Opus | Code changes, testing, committing, PR creation, research, ambiguity assessment |
+Yak uses two AI layers with different models and jobs.
 
 ### The Routing Layer
 
-The routing layer is lightweight — classify the request, detect the repo, format the prompt, post results back to the source. It runs on the Anthropic API via Laravel AI using your `ANTHROPIC_API_KEY`.
-
-| Task | Model | Why |
-|---|---|---|
-| Parse Slack message / webhook | Haiku | Fast, cheap, structured extraction |
-| Detect repo from message | Haiku | Pattern matching against known slugs; falls back to natural-language routing using repo descriptions when no explicit mention is found (`RepoRoutingAgent`) |
-| Summarize Sentry stacktrace | Sonnet | Needs actual code comprehension |
-| Assemble task context from Linear/Sentry | Sonnet | Judgment about what context matters |
-| Format and post results back to source | Haiku | Templated output |
+Routing is lightweight: classify the request, detect the repo, format the prompt, post results back to the source, and talk to users in Slack and Linear. It runs on the Anthropic API via Laravel AI using your `ANTHROPIC_API_KEY`. Haiku handles parsing and templated output. Sonnet handles work that needs code comprehension, like summarizing a Sentry stack trace.
 
 ### The Implementation Layer
 
-Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs headlessly via `claude -p` with `--dangerously-skip-permissions` — no tool approval prompts, fully autonomous.
+Claude Code (`claude -p`, always Opus) does the heavy lifting: reading files, assessing ambiguity with full codebase and MCP context, making changes, running tests, committing. Opus gives better first attempts, so fewer retries than starting smaller and escalating.
 
-Claude Code is always Opus. Opus produces better first-attempt results, which means fewer retries and less total work than starting with Sonnet and escalating.
+Implementation runs on a Claude Max subscription, not the API key, which covers only the routing layer. See [Setup](setup.md#6-log-in-to-claude-code-on-the-server).
 
-Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms** — see [Setup → Log In To Claude Code](setup.md#6-log-in-to-claude-code) for how each is configured.
+## Channels
 
-## Channel Driver Architecture
-
-Channel drivers are task-workflow scoped. PR reviews and branch deployments both operate directly on the GitHub integration rather than going through the channel driver interfaces.
-
-Every external integration is a pluggable channel. Channels are enabled by the presence of credentials — no credentials, no channel. The app detects which channels are active at boot and registers only those routes, webhooks, and MCP servers.
-
-```
-┌─────────────────────────────────────────────────────┐
-│                   Channel Drivers                    │
-│                                                      │
-│  Input Drivers (how tasks arrive):                   │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────────┐  │
-│  │ Slack  │ │ Linear │ │ Sentry │ │ Manual CLI   │  │
-│  │  opt.  │ │  opt.  │ │  opt.  │ │ always avail │  │
-│  └────────┘ └────────┘ └────────┘ └──────────────┘  │
-│                                                      │
-│  CI Drivers (how build results return):              │
-│  ┌─────────────────┐ ┌────────┐                      │
-│  │ GitHub Actions  │ │ Drone  │  (per-repo setting)  │
-│  └─────────────────┘ └────────┘                      │
-│                                                      │
-│  Notification Drivers (where results are posted):    │
-│  ┌────────┐ ┌────────┐ ┌────────┐                    │
-│  │ Slack  │ │ Linear │ │ GitHub │  (follows source)  │
-│  │  opt.  │ │  opt.  │ │  PRs   │                    │
-│  └────────┘ └────────┘ └────────┘                    │
-└─────────────────────────────────────────────────────┘
-```
-
-### The Three Driver Interfaces
-
-Each channel implements one or more of these contracts, defined in `app/Contracts/`:
-
-```php
-InputDriver         // Parse incoming webhook/event → normalized task description
-CIDriver            // Parse build result webhook → pass/fail with failure output
-NotificationDriver  // Post status updates and results to the source
-```
-
-A single channel can fill multiple roles. GitHub is both a CI driver (via Actions) and a notification driver (via PR bodies). Slack is both an input driver and a notification driver.
-
-### Routing Back To The Source
-
-The rule is **respond where you were asked**. Every task has a `source` column identifying its origin. Notifications always route back to that source; if the source channel is disabled (for historical tasks after removing a channel), notifications fall back to a PR comment.
-
-See the [Channels](channels.md) page for the full list of channels and their roles.
+Every integration is a pluggable channel, enabled by its credentials, that can take tasks in, report CI, or post notifications. Every task has a `source`, and notifications route back to it, or to a PR comment if that channel is now disabled. PR reviews and branch deployments talk to GitHub directly. See [Channels](channels.md) and [Development](development.md#adding-a-new-channel).
 
 ## Task State Machine
 
-Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition` — the enum enforces the rules, not the job code.
+Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition`. The enum enforces the rules, not the job code.
 
-### States
-
-```
-pending → running → awaiting_ci → success      (fix tasks)
-pending → running → success                    (research / setup tasks)
-```
-
-With these branches:
-
-- `running → awaiting_clarification → running` (Slack fix tasks only, 3-day TTL)
-- `awaiting_ci → retrying → awaiting_ci` (at most one retry, so at most two attempts)
-- `*→ failed` at any point where Claude errors, budget is exceeded, or retries run out
-
-Three terminal states: `success`, `failed`, `expired`.
-
-### Transition Diagram
-
-```
-                        ┌─────────────────────────────────────────┐
-                        │           Fix Task (primary path)        │
-                        │                                          │
-pending ──→ running ────┼──→ awaiting_ci ──→ success               │
-                │       │        │                                 │
-                │       │        ├──→ retrying ──→ awaiting_ci     │
-                │       │        │                    │            │
-                │       │        └──→ failed ←────────┘            │
-                │       │                                          │
-                │       ├──→ awaiting_clarification ──→ running    │
-                │       │        │                                 │
-                │       │        └──→ expired                      │
-                │       │                                          │
-                │       └──→ failed                                │
-                │                                                  │
-                ├──→ success  (research / setup — no CI)           │
-                │                                                  │
-                └──→ failed   (error during any mode)              │
-                        └─────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    pending(["pending"]) --> running(["running"])
+    running -->|"question asked"| clar(["awaiting_clarification"])
+    clar -->|"reply"| running
+    clar -->|"3-day TTL"| expired(["expired"])
+    running -->|"fix pushed"| ci(["awaiting_ci"])
+    running -->|"research, setup, no changes"| success(["success"])
+    ci -->|"CI green, PR opened"| success
+    ci -->|"CI red, first time"| retrying(["retrying"])
+    retrying -->|"retry pushed"| ci
+    ci -->|"CI red again"| failed(["failed"])
+    failed -->|"Retry"| pending
+    expired -->|"Retry"| pending
+    expired ~~~ success
+    retrying ~~~ failed
 ```
 
-### Full Transition Table
-
-| From | To | Trigger |
-|---|---|---|
-| `Pending` | `Running` | Job picked up by queue worker |
-| `Running` | `AwaitingCi` | Claude completed, branch pushed (mode = fix) |
-| `Running` | `AwaitingClarification` | Claude returned clarification JSON (source = slack) |
-| `Running` | `Success` | Research or setup task completed |
-| `Running` | `Failed` | Claude errored, budget exceeded, scope exceeded |
-| `AwaitingClarification` | `Running` | User replied in Slack thread, session resumed |
-| `AwaitingClarification` | `Expired` | `clarification_expires_at` passed (3-day TTL) |
-| `AwaitingCi` | `Success` | CI green, PR created |
-| `AwaitingCi` | `Retrying` | CI red, `attempts < max_attempts` |
-| `AwaitingCi` | `Failed` | CI red, `attempts >= max_attempts` |
-| `Retrying` | `AwaitingCi` | Retry completed, branch force-pushed |
-| `Retrying` | `Failed` | Claude errored on retry |
+`success` and `cancelled` are final. Any active state can move to `failed` (Claude error, budget, retries out) or `cancelled`. A fix task gets at most one retry, so at most two attempts.
 
 ## Sandbox Isolation (Incus)
 
-Every Claude Code task runs in an isolated **Incus system container**. Each container has its own Docker daemon, network namespace, and filesystem — cloned from a ZFS copy-on-write snapshot in under 3 seconds.
+Every Claude Code task runs in an isolated **Incus system container**. Each container has its own Docker daemon, network namespace, and filesystem, cloned from a ZFS copy-on-write snapshot in under 3 seconds.
 
 ```
-Host (Hetzner Dedicated Server)
-│
-├─ Yak App (Docker container)
-│   ├─ Web (nginx + php-fpm)
-│   ├─ Queue workers (4x yak-claude, 3x default)
-│   └─ Scheduler
-│
-├─ MariaDB (Docker container, yak-internal network)
-│
-├─ Incus (system container manager, ZFS-backed)
-│   ├─ yak-tpl-{repo}/ready  ← snapshot per repo (setup result)
-│   │
-│   ├─ task-42  ← clone of snapshot (CoW, isolated)
-│   │   └─ Docker daemon, compose services, Claude Code
-│   │
-│   └─ task-43  ← another clone (fully independent)
-│       └─ Docker daemon, compose services, Claude Code
+Host
+├─ Yak app (Docker): web, queue workers (5 queues, see Jobs and Queues), scheduler
+├─ MariaDB (Docker, yak-internal network)
+└─ Incus (ZFS-backed)
+   ├─ yak-tpl-{repo}/ready   snapshot per repo (setup result)
+   ├─ task-42                CoW clone with its own Docker daemon
+   └─ task-43                another clone, fully independent
 ```
 
 ### Why Incus
 
-Three guarantees make sandboxed execution safe at scale:
-
-- **Network isolation** — sandbox containers are on a separate bridge (`yak-sandbox`) with firewall rules blocking access to the yak app and MariaDB. The agent cannot reach the yak database, period.
-- **Port isolation** — each container has its own network namespace. Port 8000 in container A doesn't conflict with port 8000 in container B.
-- **Filesystem isolation** — ZFS copy-on-write means each container has its own writable filesystem. Changes in one container are invisible to others, so concurrent tasks on the same repo never collide.
+- **Network**: sandboxes sit on a separate bridge (`yak-sandbox`) with firewall rules blocking the Yak app and MariaDB. The agent cannot reach the Yak database.
+- **Ports**: each container has its own network namespace, so port 8000 in two sandboxes never conflicts.
+- **Filesystem**: ZFS copy-on-write gives each container its own writable filesystem, so concurrent tasks on one repo never collide.
 
 ### The Snapshot Workflow
 
-1. **Setup** — `SetupYakJob` creates a sandbox from the base template (`yak-base`), clones the repo, runs Claude's setup (npm install, composer install, docker-compose up, etc.), then **snapshots the result** as `yak-tpl-{repo}/ready`.
-2. **Task execution** — `RunYakJob` clones from the repo snapshot (instant, ~2s). The agent works in a pristine copy of the fully-prepared environment.
-3. **Cleanup** — after the task completes (success or failure), the sandbox is destroyed. ZFS reclaims the space immediately.
+1. **Setup**: `SetupYakJob` creates a sandbox from the base template (`yak-base`), clones the repo, runs Claude's setup (npm install, composer install, docker-compose up, etc.), then **snapshots the result** as `yak-tpl-{repo}/ready`.
+2. **Task execution**: `RunYakJob` clones from the repo snapshot (instant, ~2s). The agent works in a pristine copy of the fully-prepared environment.
+3. **Cleanup**: after the task completes (success or failure), the sandbox is destroyed. ZFS reclaims the space immediately.
 
-### Docker-in-Incus
-
-Repo dev environments using Docker Compose work natively inside Incus containers. `security.nesting=true` gives each container its own Docker daemon. There's no shared Docker socket, no port override files, no DinD hacks.
-
-Private registry auth follows the same push-then-start pattern as Claude config and MCP config: Ansible renders `~/.docker/config.json` on the host from the `docker_registries` vault var, the Yak container bind-mounts it read-only, and `IncusSandboxManager` pushes the file into each fresh sandbox at `/home/yak/.docker/config.json` before `docker pull` ever runs. Repos that only need public images leave the vault var unset and the push is skipped entirely.
+Docker Compose repos work natively inside a sandbox: `security.nesting=true` gives each container its own Docker daemon. Private registry credentials are pushed in before `docker pull`. See [Setup](setup.md#private-docker-registries).
 
 ## Jobs and Queues
 
-Two queues separate Claude Code work from everything else:
+Five queues keep long agent runs from blocking everything else:
 
-| Queue | Concurrency | Timeout | Jobs |
+| Queue | Workers | Timeout | Jobs |
 |---|---|---|---|
-| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ClarificationReplyJob |
+| `yak-claude` | 4 | 3600s | Agent runs: run, retry, research, setup, review, follow-up, clarification reply |
 | `default` | 3 | 30s | ProcessCIResultJob, webhook handlers, PR creation, notifications, cleanup |
+| `yak-render` | 1 | 900s | Walkthrough video and theme sample renders |
+| `yak-deployments` | 2 | 900s | Branch deployment build, wake, hibernate, destroy |
+| `yak-poll` | 1 | 600s | Polling GitHub review reactions |
 
-The split exists to prevent a common failure mode: Task A's CI passes, but Task A's PR creation blocks for 10 minutes because Task B is mid-Opus on `yak-claude`. Putting coordination work (webhook processing, PR creation) on the `default` queue keeps it responsive even when Claude Code is busy.
+Coordination work such as webhooks and PR creation stays on `default`, so it stays responsive while Claude Code is busy on `yak-claude`. Agent tasks run concurrently, each in its own sandbox, and throughput scales with RAM (about 4-8GB per sandbox).
 
-### Concurrent Execution
-
-With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers by default). Each task gets its own isolated container — no shared ports, no shared filesystem, no shared Docker daemon. Throughput scales with available RAM (each sandbox uses ~4-8GB).
-
-### The Main Jobs
-
-- **`RunYakJob`** — the initial Claude Code session. Yak creates the branch (`yak/{external_id}`), then invokes Claude Code which writes code and commits locally. After Claude finishes, **Yak** pushes the branch and transitions the task to `awaiting_ci`. Claude Code never pushes or creates PRs — the system prompt explicitly forbids remote git operations.
-- **`ClarificationReplyJob`** — runs when a user replies to a Slack clarification. Resumes the original Claude session with `--resume $session_id` and the user's chosen option. Claude already has full codebase context from the assessment phase — no ramp-up.
-- **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure).
-- **`RetryYakJob`** — resumes the original Claude session with CI failure output and runs a second attempt on the existing branch. **Yak** force-pushes the result.
-- **`ResearchYakJob`** — for research mode tasks. Read-only; no branch, no CI. Claude generates a standalone HTML findings page saved to `.yak-artifacts/research.html`.
-- **`SetupYakJob`** — the one-time dev environment setup task for a new repo. See [Repositories → The Setup Task](repositories.md#the-setup-task).
-- **`RunYakReviewJob`** — the PR review path. Runs Claude in the sandbox with a read-only prompt scoped to a PR's diff, then posts the parsed findings as a GitHub review via the installation token. See [PR Review](pr-review.md).
-- **`PollPullRequestReactionsJob`** — scheduled hourly. Polls GitHub for 👍/👎 reactions on Yak-authored review comments within a configurable window and denormalizes counts onto `pr_review_comments`.
-- **`RenderWalkthroughJob`** — the v3 video render, keyed on the task id. Loads a task's `script`, `manifest`, `shot` and `voiceover` artifacts, builds the render timeline, renders `WalkthroughV3`, gates it through `RenderQaCheck`, and patches the PR body. See [The Walkthrough Video Pipeline (v3)](#the-walkthrough-video-pipeline-v3).
-- **`RenderVideoJob`** — the legacy v2 render, keyed on the raw `walkthrough.webm` artifact. Renders the `WalkthroughV2` composition. Stays in place until no v2 artifacts remain.
-
-### Middleware
-
-- **`EnsureDailyBudget`** — checks the `daily_costs` table before Claude Code invocations. If today's routing-layer cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
+Each agent job (`RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `RunYakReviewJob`, `ClarificationReplyJob`) runs Claude Code in its own sandbox. Yak, not Claude, pushes the branch and creates the PR. `ProcessCIResultJob` handles CI results: on green it creates the PR, on the first red it dispatches a retry, and on the second it marks the task failed. See `app/Jobs/` for the full list.
 
 ## Session Continuity
 
-When a retry or clarification reply is needed, Yak uses `claude -p --resume $session_id` to continue the **original** Claude session. Claude retains its full context — files it read during assessment, approaches it considered, what it already tried.
+For a retry or clarification reply, Yak runs `claude -p --resume $session_id` to continue the **original** session. Claude keeps the files it read and what it already tried, so it skips re-reading the codebase. This is the biggest cost saving in Yak. `session_id` is stored on the task row and is used for retries after a CI failure and for clarification replies. You can also resume a finished task's session by hand when debugging.
 
-This is the single biggest cost optimization in Yak. A fresh session starting from zero would re-read the codebase, re-check Sentry, re-analyze the stacktrace. Resuming skips all of that and jumps directly to the new prompt (the CI failure, or the user's chosen clarification option).
+## PR Review and Branch Deployments
 
-`session_id` is stored on the task row and used for:
+PR review runs in a sandbox fork of the same per-repo template, with its own state machine, and posts native GitHub review comments. See [PR Review](pr-review.md).
 
-- **Retries** after a first CI failure
-- **Clarification replies** when a Slack user picks an option
-- **Post-hoc debugging** — you can resume a completed task's session manually if needed
-
-## The Data Model
-
-Five tables, deliberately minimal. MariaDB is the backing store, running as a separate Docker container with its own persistent volume.
-
-### `tasks`
-
-The primary record. Every incoming event creates a task row. Key columns:
-
-| Column | Purpose |
-|---|---|
-| `source` | `sentry`, `flaky-test`, `linear`, `slack`, `manual` |
-| `repo` | Slug joining to `repositories.slug` |
-| `external_id` | Source-side ID (GEO-1234, SENTRY-98765). Unique with `repo`. |
-| `mode` | `fix`, `research`, `setup` |
-| `status` | Fat enum: `pending`, `running`, `awaiting_clarification`, `awaiting_ci`, `retrying`, `success`, `failed`, `expired` |
-| `branch_name` | `yak/{external_id}` once created |
-| `session_id` | Claude session ID for `--resume` |
-| `clarification_options` | JSON array of option strings (Slack only) |
-| `pr_url`, `pr_merged_at`, `pr_closed_at` | Outcome tracking |
-| `cost_usd`, `duration_ms`, `num_turns` | Metrics |
-
-`UNIQUE(external_id, repo)` enforces deduplication — re-opening the same Sentry issue won't create a second task.
-
-### `task_logs`
-
-Append-only event log that powers the task detail page's timeline. Each row is `level` (info/warning/error) + `message` + optional JSON `metadata`. Events are written at key lifecycle points: task created, picked up, assessment complete, fix pushed, CI result, PR created, task completed.
-
-### `artifacts`
-
-Rows reference screenshots, videos, and research HTML pages stored on disk. Served at `/artifacts/{task}/{filename}` via signed URL (for PR embedding) or authenticated request (for dashboard viewing). Each row carries a `role` — `cut`, `thumbnail`, `preview`, `chapters`, `shot`, `still`, `screenshot`, `voiceover`, `manifest`, `script`, `raw` — that both render pipelines and the `yak:video:rerender` / `yak:video:prune` commands query against instead of `type` or filename.
-
-### `repositories`
-
-One row per configured repo. Minimal schema — slug, name, path, default branch, CI system, Sentry mapping, setup status, notes. Everything else is auto-detected at task time from `README.md` and `CLAUDE.md`.
-
-### `daily_costs`
-
-Primary key is `date`. Tracks routing-layer API costs for budget enforcement. Updated after each task completes. Read by the `EnsureDailyBudget` middleware before any Claude Code invocation.
-
-### `branch_deployments`
-
-One row per open PR on an opted-in repository. Key columns:
-
-| Column | Purpose |
-|---|---|
-| `status` | State machine: `pending`, `provisioning`, `running`, `hibernated`, `failed`, `destroyed` |
-| `template_version` | Pinned to the `current_template_version` of the repo at creation time. The deployment clones from that snapshot version for its whole lifetime. |
-| `last_accessed_at` | Updated on every inbound request. Used as the idle signal for hibernation (15 minutes) and eviction ordering. |
-| `public_share_token_hash` | SHA-256 hash of the raw share token. Raw token is shown once at mint time and never persisted. Null when no share link is active. |
-
-## PR Review Workflow
-
-Yak reviews pull requests in a dedicated workflow that runs alongside the coding agent. The review agent runs in a sandbox fork of the same per-repo template, reads the PR diff, and leaves line-level comments (`suggestion` blocks where the fix is obvious, prose when it needs explanation).
-
-The review workflow reuses the substrate: same GitHub App, same sandbox infrastructure, same dashboard surface. It has its own state machine separate from the task state machine. Reviewer output is surfaced as native GitHub PR review comments.
-
-For the full flow, see [docs/pr-review.md](pr-review.md).
-
-## Branch Deployments Workflow
-
-Every open PR on an opted-in repo gets a live preview URL at `<repo>-<branch>.<hostname>`, wired up automatically from the `pull_request.opened` webhook. Previews are:
-
-- OAuth-gated by default, with optional time-boxed public-share tokens for external reviewers
-- Hibernated when idle after 15 minutes, resumed on the next request (first-hit latency 5 to 15 seconds)
-- Destroyed when the PR closes, merges, or is deleted, or after 30 days of inactivity
-
-Each preview runs in its own Incus container cloned from the same per-repo template snapshot that powers task sandboxes. A reverse proxy (Caddy in the default install) handles wildcard TLS, OAuth enforcement via forward-auth, and upstream resolution per request.
-
-Preview state is mirrored to GitHub's native Deployments API, so the PR UI shows a "View deployment" button automatically.
-
-For the end-to-end user guide, see [docs/branch-deployments.md](branch-deployments.md).
+Every open PR on an opted-in repo gets a preview in its own Incus container from the same template snapshot. Caddy handles wildcard TLS and OAuth forward-auth. Previews hibernate after 15 idle minutes and are destroyed when the PR closes. See [Branch Deployments](branch-deployments.md).
 
 ## Safety Model
 
-The safety guarantees are deliberate design choices, not afterthoughts.
-
 ### `--dangerously-skip-permissions` Is Always On
 
-Claude Code runs with `--dangerously-skip-permissions` on every invocation. No tool approval prompts, no human in the loop during execution. This is the only way unattended operation works at scale.
+Claude Code runs with `--dangerously-skip-permissions` on every invocation. No tool approval prompts during execution. A human reviews the resulting PR.
 
 **The safety boundary is the sandbox**, not permission dialogs:
 
-- **Dedicated server.** Completely separate from production. No VPN, no Tailscale, no shared network.
-- **No production access.** No production databases, no customer data, no deployment pipelines.
-- **Incus sandbox isolation.** Each task runs in its own Incus system container with:
-  - **Own Docker daemon** — no access to the host's Docker socket.
-  - **Own network namespace** — firewall rules block access to the yak app and MariaDB.
-  - **Own filesystem** — ZFS copy-on-write from a snapshot. Changes are invisible to other tasks.
-  - **Own process tree** — no visibility into host processes.
+- **Dedicated server.** Separate from production, with no VPN and no shared network. No production databases, customer data or deployment pipelines.
+- **Incus sandbox isolation.** See [Sandbox Isolation](#sandbox-isolation-incus).
 - **Short-lived credentials.** GitHub App tokens are injected per-task and are short-lived. Claude Max auth tokens are copied read-only from the host.
 - **Automatic cleanup.** Sandbox containers are destroyed after each task. A cron job catches any that were missed.
 
-Claude can do anything it wants inside that sandbox. The walls are real — Incus namespace isolation, not just user separation within a shared container.
-
 ### No Merge Authority
 
-Yak creates PRs. Humans merge them. Always. The GitHub App must NOT be in your branch protection bypass list. Repository owners may opt into risk-based review approval (see [PR Review](pr-review.md)); this grants no merge authority.
+Yak creates PRs. Humans merge them. Always. The GitHub App must NOT be in your branch protection bypass list. Repository owners may opt into risk-based review approval (see [Risk-Based Approval](risk-based-approval.md)); this grants no merge authority.
 
-This is non-negotiable by design. If you want to automate merging, don't use Yak.
+### Other Guardrails
 
-### Bounded Retries
-
-At most two attempts per task. Retries use Opus (same model as the initial attempt). If two attempts both fail, the task is marked `failed` and a human takes over.
-
-### Independent CI Verification
-
-The full test suite runs on real CI, not on self-reported output from Claude. Claude runs *relevant* tests locally to catch obvious issues before pushing, but the authoritative check is CI.
+- **Bounded retries**: at most two attempts per task, both on Opus. After two failures the task is `failed` and a human takes over.
+- **Independent CI**: the authoritative check is real CI, not Claude's self-reported output. Claude only runs relevant tests locally.
+- **Scope flag**: PRs over `large_change_threshold` (default 200 LOC) get the `yak-large-change` label, so reviewers can route them to more senior eyes.
 
 ### Cost Controls
 
-Three layers:
-
-- **Per-task budget** — `--max-budget-usd 5.00` on every Claude CLI invocation, as a runaway guardrail. Implementation cost is covered by the subscription; this limit exists for safety.
-- **Daily budget** — `daily_budget_usd` (default $50) covers routing-layer API costs. Enforced by the `EnsureDailyBudget` middleware before any Claude Code job starts.
-- **Deduplication** — `UNIQUE(external_id, repo)` prevents repeat work on the same issue.
-
-### Scope Flag
-
-PRs larger than `large_change_threshold` (default 200 LOC) get the `yak-large-change` label. Reviewers can use this to route reviews to more senior eyes or reject outright.
+- **Per-task budget**: `--max-budget-usd 5.00` on every Claude CLI invocation, as a runaway guardrail. Implementation cost is covered by the subscription; this limit exists for safety.
+- **Daily budget**: `daily_budget_usd` (default $50, set with `YAK_DAILY_BUDGET_USD`) counts the reported cost of routing calls and every agent run. On a Max subscription that cost is notional, so raise it to match your volume. The `EnsureDailyBudget` middleware fails a job before it starts once the day's total is over the limit.
+- **Deduplication**: tasks are unique on `external_id` plus `repo`, so re-opening the same Sentry issue does not create a second task.
 
 ### Dashboard Auth
 
-Google OAuth with a **required** domain allowlist (`GOOGLE_OAUTH_ALLOWED_DOMAINS`). There is no public dashboard. There are no roles — every team member behind the allowlist sees everything, including debug logs and session IDs, but nothing is reachable without signing in.
-
-Artifacts embedded in GitHub PRs (screenshots, videos) use HMAC-SHA256 signed URLs with a 7-day expiry. After expiry, artifacts are still accessible through the authenticated dashboard.
+Google OAuth with a **required** domain allowlist (`GOOGLE_OAUTH_ALLOWED_DOMAINS`). There is no public dashboard and there are no roles: everyone behind the allowlist sees everything, including debug logs and session IDs. Artifacts embedded in PRs use HMAC-SHA256 signed URLs with a 7-day expiry, then stay available through the dashboard.
 
 ## What Yak Is Not
 
-- **Not a merge bot.** See above — no merge authority, no bypass.
-- **Not horizontally scaled.** Four concurrent workers on one server. The architecture supports future scaling to multiple hosts but doesn't need it.
-- **Not a long-running interactive agent.** Each task is a focused, mostly autonomous pass. You can give feedback on an open PR — in the originating channel, as a `/yak` PR comment, or from the dashboard — and Yak resumes the session and pushes follow-up commits to the same branch. But it's not a chat session for open-ended discussion or large multi-step features.
-- **Not a frontend framework.** Dashboard is Livewire (server-rendered) with Livewire polling for live updates. No SPA, no websockets.
-- **Not Kubernetes-anything.** Two Docker containers (app + MariaDB) + Incus for sandboxed task execution on a dedicated server. Laravel's database queue driver. Boring stack.
-- **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere; the existing production deploy pipeline remains the source of truth.
+- **Not a merge bot.** No merge authority, no bypass.
+- **Not horizontally scaled.** One server, four concurrent agent workers.
+- **Not an interactive agent.** Each task is a focused pass with follow-ups on the same branch, not a chat session for large multi-step features.
+- **Not a production deploy platform.** Previews are preview environments only. Merging a PR does not deploy it anywhere.

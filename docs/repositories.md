@@ -4,15 +4,15 @@ Every Yak task targets exactly one repository. This guide covers how to add repo
 
 ## Adding A Repository
 
-Go to `https://{your-domain}/repos/create` and fill in the form. Yak clones the repo using the GitHub App's installation token and automatically dispatches a setup task — Claude Code reads the repo's README and `CLAUDE.md`, sets up the dev environment, and verifies everything works.
+Go to `https://{your-domain}/repos/create` and fill in the form. Yak clones the repo using the GitHub App's installation token and automatically dispatches a setup task. Claude Code reads the repo's README and `CLAUDE.md`, sets up the dev environment, and verifies everything works.
 
 The form has three sections:
 
 | Section | Fields |
 |---|---|
 | **Basics** | Slug (auto-generated from name, editable), display name, Git URL (HTTPS clone URL), path on disk (auto-filled from slug), default branch, active toggle, default toggle |
-| **Integration** | CI system (`github_actions` or `drone`), Sentry project slug (optional) |
-| **Notes** | Free-text operational notes. Shown only in the dashboard — never sent to Claude. |
+| **Integration** | CI system (`github_actions`, `drone`, or `none` to open the PR right away), Sentry project slug (optional) |
+| **Notes** | Free-text operational notes. Shown only in the dashboard, never sent to Claude. |
 
 ### Validation Rules
 
@@ -22,7 +22,7 @@ The form has three sections:
 
 ## The Setup Task
 
-When a repo is first added, Yak dispatches a one-time **setup task** — a Claude Code session that bootstraps the dev environment. This task has `mode = setup` and runs on the `yak-claude` queue like any other task.
+When a repo is first added, Yak dispatches a one-time **setup task**, a Claude Code session that bootstraps the dev environment. This task has `mode = setup` and runs on the `yak-claude` queue like any other task.
 
 ### What It Does
 
@@ -36,14 +36,7 @@ When a repo is first added, Yak dispatches a one-time **setup task** — a Claud
 
 ### Sandbox Snapshots
 
-After setup completes successfully, the sandbox container is **snapshotted** using ZFS copy-on-write. This snapshot becomes the base image for all future tasks on this repo.
-
-When a task starts, Incus clones the snapshot in ~2 seconds — the clone includes the fully-prepared dev environment (Docker images pulled, dependencies installed, database migrated). Each task gets its own isolated copy; changes never leak between tasks.
-
-This means:
-- **No cold-start penalty** — every task starts from the prepared snapshot.
-- **No shared state corruption** — each task has its own filesystem, Docker daemon, and network.
-- **Concurrent execution** — multiple tasks for the same repo can run in parallel from the same snapshot.
+After a successful setup, the sandbox is snapshotted. Each task then starts from a copy of that snapshot in about two seconds, so there is no cold start and tasks never share state. See [Architecture → Sandbox Isolation](architecture.md#sandbox-isolation-incus).
 
 ### Setup Status
 
@@ -53,7 +46,7 @@ The repo's `setup_status` column tracks progress:
 |---|---|
 | `pending` | Repo was added but setup has not started yet |
 | `running` | Setup task is currently executing |
-| `ready` | Setup completed successfully — repo is ready for tasks |
+| `ready` | Setup completed successfully, repo is ready for tasks |
 | `failed` | Setup failed. Check the setup task's detail page for logs. |
 
 The repo list in the dashboard shows this as a colored badge.
@@ -71,36 +64,36 @@ Re-running setup tears down the old environment and brings up a fresh one.
 
 Every task targets exactly one repo. When a task arrives, Yak detects the target using this priority chain:
 
-1. **Explicit mention** — `@yak in my-cli: ...`, `--repo=my-cli`, `repo: my-cli`
-2. **Sentry project mapping** — the `sentry_project` column on `repositories` matches the incoming Sentry project slug
-3. **Default repo** — falls back to whichever repo has `is_default = true`
+1. **Explicit mention**: `@yak in my-cli: ...`, `--repo=my-cli`, `repo: my-cli`
+2. **Sentry project mapping**: the `sentry_project` column on `repositories` matches the incoming Sentry project slug
+3. **Default repo**: falls back to whichever repo has `is_default = true`
 
 Only **active repos** (`is_active = true`) are considered. Inactive repos are skipped entirely, including their Sentry mappings.
 
 ### Multi-Repo Requests
 
-One repo per task, always. If a request mentions multiple repos — for example, "audit cron jobs across `app` and `api`" — the routing layer creates separate tasks, one per repo. Each task runs independently and posts its own results.
+One repo per task, always. If a request mentions multiple repos (for example, "audit cron jobs across `app` and `api`"), the routing layer creates separate tasks, one per repo. Each task runs independently and posts its own results.
 
 ### Low-Confidence Detection (Slack only)
 
 If a Slack task has no explicit `in {repo}:` mention, no Sentry mapping, and multiple active repos exist, the task enters `awaiting_clarification` with repo options before any Claude Code work begins. This avoids wasting an Opus run on the wrong codebase. If only one active repo exists, it's always the right one and no clarification is needed.
 
-Linear and Sentry tasks never clarify — Linear falls back to the default repo, Sentry requires an explicit mapping.
+Only Slack asks which repo you meant. Linear falls back to the default repo, and Sentry requires an explicit mapping.
 
-## CLAUDE.md — The Highest-Leverage Config Point
+## Write a CLAUDE.md
 
-Every repo should have a `CLAUDE.md` at its root. This file is loaded by Claude Code for every task and is the single most important customization point — it's how you teach Yak the conventions, patterns, and landmines specific to your codebase.
+Every repo should have a `CLAUDE.md` at its root. This file is loaded by Claude Code for every task and is the single most important customization point. It's how you teach Yak the conventions, patterns, and landmines specific to your codebase.
 
 **A good `CLAUDE.md` reduces rework and bad PRs more than any other change you can make.**
 
 ### What To Put In It
 
-- **Project structure** — where controllers, models, tests live; which directories are off-limits
-- **Code conventions** — naming, type hints, docblock style, preferred patterns
-- **Test patterns** — test framework, factory usage, how to run a single test, what tests to run for a given file
-- **Do-not-touch list** — vendored files, generated code, migration files from past releases, packages you don't own
-- **Known quirks** — environment setup steps, hidden dependencies, services that must be running
-- **Dev environment** — how to start the dev server, default ports, how to seed test data, how to log in with a test user for visual capture
+- **Project structure**: where controllers, models, tests live; which directories are off-limits
+- **Code conventions**: naming, type hints, docblock style, preferred patterns
+- **Test patterns**: test framework, factory usage, how to run a single test, what tests to run for a given file
+- **Do-not-touch list**: vendored files, generated code, migration files from past releases, packages you don't own
+- **Known quirks**: environment setup steps, hidden dependencies, services that must be running
+- **Dev environment**: how to start the dev server, default ports, how to seed test data, how to log in with a test user for visual capture
 
 ### Example Structure
 
@@ -136,48 +129,38 @@ Every repo should have a `CLAUDE.md` at its root. This file is loaded by Claude 
 
 ### Iterating On CLAUDE.md
 
-Treat `CLAUDE.md` as a living document. Every bad Yak PR is a signal that `CLAUDE.md` needs a new rule. When a reviewer rejects a PR for a convention Yak should have known, add that convention to `CLAUDE.md` — the next task won't repeat the mistake.
+Treat `CLAUDE.md` as a living document. Every bad Yak PR is a signal that `CLAUDE.md` needs a new rule. When a reviewer rejects a PR for a convention Yak should have known, add that convention to `CLAUDE.md`. The next task won't repeat the mistake.
 
 ## Repo Management Pages
 
-### `/repos` — List
+### `/repos`: List
 
 Shows all configured repos with slug, name, CI system, setup status badge, active/inactive state, default flag, and task counts (total and last 7 days). Click a row to edit.
 
-### `/repos/create` — Add
+### `/repos/create`: Add
 
 The three-section form described above. After save, the setup task is auto-dispatched and the repo's setup status transitions from `pending` → `running`.
 
-### `/repos/{id}/edit` — Edit
+### `/repos/{id}/edit`: Edit
 
 Same form pre-filled with current values. Also includes:
 
-- **Re-run Setup** button — re-dispatches the setup task
-- **Deactivate** toggle — soft-disables the repo (historical tasks remain; new tasks will not route here)
-- **Delete** (danger zone) — only available if the repo has zero tasks. If the repo has any task history, you must deactivate instead.
+- **Re-run Setup** button: re-dispatches the setup task
+- **Deactivate** toggle: soft-disables the repo (historical tasks remain; new tasks will not route here)
+- **Delete** (danger zone): only available if the repo has zero tasks. If the repo has any task history, you must deactivate instead.
 
 ## Branch Deployments
 
-Each repository has four deployment-related fields:
-
-- `deployments_enabled` (bool, default false). Flip to `true` to wire PR events on this repo to the preview deployment pipeline.
-- `preview_manifest` (json). Authored by SetupYakJob; editable in the dashboard. See [branch-deployments.md](branch-deployments.md) for the shape.
-- `preview_env_overrides` (json, optional). Symbolic names of env vars to inject from Ansible vault at container start time. Use this for per-repo API keys that production-like previews need.
-- `current_template_version` (int). Bumped each time SetupYakJob re-seeds the template. New deployments clone from this version; existing deployments stay pinned to their birth version until an operator rebuilds them.
-
+To give a repo previews, turn on **Branch deployments** on its edit page. See [Branch Deployments](branch-deployments.md).
 ## PR Review Toggle
 
-Each repo has a **PR Review** toggle on its edit page. When enabled, Yak reviews every open, non-draft PR on the repo — posting line-level comments with category + severity + (sometimes) `suggestion` blocks. See the [PR Review guide](pr-review.md) for the full flow.
+Each repo has a **PR Review** toggle on its edit page. When enabled, Yak reviews every open, non-draft PR on the repo, posting line-level comments with category + severity + (sometimes) `suggestion` blocks. See the [PR Review guide](pr-review.md) for the full flow.
 
-Path filters let you narrow what Yak reviews. The defaults (in `config/yak.php`) exclude `vendor/**`, `node_modules/**`, lockfiles, and minified assets; per-repo overrides are a chip list on the same edit page.
-
-## Repo Refresh
-
-Yak automatically runs `git fetch origin {default_branch}` every 30 minutes via the scheduled `yak:refresh-repos` command. This keeps each repo's default branch tip up to date so that new tasks start from the latest code without a manual pull.
+Path filters let you narrow what Yak reviews. The defaults (in `config/yak.php`) exclude `vendor/**`, `node_modules/**`, build output and minified assets; per-repo overrides are a chip list on the same edit page.
 
 ## What Isn't Stored Per-Repo
 
-The `repositories` table is deliberately minimal — just slug, name, path, default branch, CI system, Sentry mapping, and notes. Everything else is auto-detected at task time:
+The `repositories` table is deliberately minimal: just slug, name, path, default branch, CI system, Sentry mapping, and notes. Everything else is auto-detected at task time:
 
 | Thing | Where it comes from |
 |---|---|
@@ -187,4 +170,4 @@ The `repositories` table is deliberately minimal — just slug, name, path, defa
 | Dependency install commands | `CLAUDE.md` and detected package managers |
 | Test credentials for visual capture | `CLAUDE.md`, seeder files, or `.env.example` |
 
-This is intentional: different repos have very different setups, and forcing them all into a single database schema would be brittle. `CLAUDE.md` is the one file you maintain — and because it lives in the target repo, it travels with the code and is version-controlled by the team that owns it.
+This is intentional: different repos have very different setups, and forcing them all into a single database schema would be brittle. `CLAUDE.md` is the one file you maintain, and because it lives in the target repo, it travels with the code and is version-controlled by the team that owns it.

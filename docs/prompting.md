@@ -1,6 +1,6 @@
 # Prompting
 
-This page is for teams who want to customize Yak's behavior — adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#claudemd--the-highest-leverage-config-point).
+This page is for teams who want to customize Yak's behavior: adjust its rules, tune templates for a specific source, or add context that Claude Code receives on every task. If you just want Yak to work against your codebase, the answer is almost always **edit `CLAUDE.md` in the target repo**, which is covered in [Repositories](repositories.md#write-a-claudemd).
 
 ## Three Prompt Layers
 
@@ -9,12 +9,12 @@ Claude Code receives three distinct prompt inputs on every task. Each one lives 
 | Layer | Where it lives | Scope | Who maintains it |
 |---|---|---|---|
 | **`CLAUDE.md`** | Root of the target repo | Per-repo conventions, test patterns, do-not-touch lists | The team that owns that repo |
-| **`--append-system-prompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself — the "Yak persona" |
+| **`--append-system-prompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself (the "Yak persona") |
 | **`-p` prompt** | Assembled from Blade templates (with optional DB overrides) per task | Task description, source-specific context, instructions | Yak assembles at runtime from source + template |
 
 These stack: `CLAUDE.md` is loaded by Claude Code itself from the repo, the system prompt is appended to Claude's built-in prompt via `--append-system-prompt`, and the `-p` prompt is the task-specific instructions.
 
-> **Every prompt — both the system prompt and the task prompts — can be tweaked live from the dashboard at `/prompts` without a redeploy.** See [Editing prompts in the dashboard](#editing-prompts-in-the-dashboard) below.
+> **Every prompt (both the system prompt and the task prompts) can be tweaked live from the dashboard at `/prompts` without a redeploy.** See [Editing prompts in the dashboard](#editing-prompts-in-the-dashboard) below.
 
 ## CLI Invocation
 
@@ -39,9 +39,9 @@ claude -p "$TASK_PROMPT" \
 | `--max-turns 300` | Large enough to cover long read → plan → edit → test → fix → commit loops, including retries. Configurable via `YAK_MAX_TURNS`. |
 | `--max-budget-usd 5.00` | Per-task runaway guardrail. Configurable via `YAK_MAX_BUDGET_PER_TASK`. |
 | `--append-system-prompt` | Yak persona. Appends, doesn't replace Claude's built-in prompt. |
-| `--mcp-config` | Context7 and GitHub always; Linear and Sentry conditionally |
+| `--mcp-config` | Context7 always; Sentry and GitHub when their credentials are set. See [MCP Servers](#mcp-servers). |
 
-Retries and clarification replies add `--resume $session_id` to continue the original session — see [Architecture → Session Continuity](architecture.md#session-continuity).
+Retries and clarification replies add `--resume $session_id` to continue the original session. See [Architecture → Session Continuity](architecture.md#session-continuity).
 
 The command runs inside the sandbox container as the unprivileged `yak` user. App secrets (`DB_PASSWORD`, `APP_KEY`, etc.) live only in the yak app container and are never present in the sandbox's environment.
 
@@ -62,410 +62,82 @@ $model = match (true) {
 
 Always Opus. Both initial runs and retries. Opus produces better first-attempt results, which means fewer retries and less total work.
 
-## The Yak System Prompt
+## Prompts
 
-The system prompt is assembled at runtime by `YakPromptBuilder`. Rules referencing channel-specific MCP servers (Linear, Sentry) are only included when those channels are enabled — this keeps the prompt clean and prevents Claude from seeing instructions for tools it doesn't have access to.
+Yak assembles the system prompt and each task prompt at runtime from Blade templates. Every one can be edited at **Prompts** in the dashboard (`/prompts`), which shows a live preview. The dashboard is the source of truth for the current text, so this page does not copy it.
 
-```
-You are Yak, an autonomous coding agent.
-You work unattended. Your output will be a pull request that a human reviews.
+| Slug | Used when | Worth customizing |
+|---|---|---|
+| `system` | Every task run (system prompt). Scope and safety rules, commit format, visual capture. | Team-wide rules |
+| `personality` | Writing notification messages | Tone |
+| `tasks-sentry-fix` | A Sentry alert creates a task | Extra triage hints |
+| `tasks-linear-fix` | A Linear issue creates a task | Conventions for issue-driven work |
+| `tasks-slack-fix` | A Slack message creates a task | The ambiguity check |
+| `tasks-flaky-test` | The CI scan finds a flaky test | Fix policy (fix vs. quarantine) |
+| `tasks-review` | Yak reviews a pull request | Review focus |
+| `tasks-risk-profile` | Drafting a repository risk profile | Rarely |
+| `tasks-setup` | Repository setup tasks | Rarely |
+| `tasks-research` | Research tasks | Report format |
+| `tasks-retry` | A task re-runs after failing CI | Rarely |
+| `tasks-clarification-reply` | A clarification is answered | Rarely |
+| `tasks-follow-up` | Feedback on an open PR | Rarely |
+| `channels-sentry` | Sentry channel enabled (appended to `system`) | Rarely |
+| `agents-repo-routing`, `agents-task-intent`, `agents-review-feedback-triage`, `agents-description-summary`, `agents-pr-title` | Small internal agents that route and summarize | Rarely |
+| `partials-clarification-contract` | Shared clarification instructions | Rarely |
 
-## Rules
-
-1. SCOPE: Stay focused on the task at hand. Don't expand scope or
-   refactor unrelated code — keep the diff as small as the fix allows.
-
-2. MINIMAL CHANGES: Fix the described issue. Don't refactor surrounding
-   code or improve things that aren't broken.
-
-3. UNDERSTAND FIRST: Read relevant files before writing code. Use grep/glob
-   to find related code. Check git log for recent changes.
-
-4. TEST LOCALLY: After making changes, find and run the tests most relevant
-   to the files you changed. Do not run the entire test suite — just the
-   tests that cover your changes. The full suite runs on CI after you push.
-
-5. COMMIT: Single clean commit:
-   [{TASK_ID}] Short description
-
-   What was wrong and why.
-   What was changed and why.
-
-   Automated fix by Yak
-
-6. VISUAL CAPTURE: When the task involves UI changes (frontend, CSS,
-   forms, pages, layouts), record a video walkthrough AND take
-   screenshots of the affected area.
-   a. Start the dev server (read CLAUDE.md/README for how).
-   b. If authentication is needed, read CLAUDE.md/README or seeder files
-      for test credentials. Log in using agent-browser.
-   c. Navigate to the page affected by your changes.
-   d. For screenshots: agent-browser screenshot --full
-      Save to .yak-artifacts/
-   e. For video (multi-step flows): agent-browser record start
-      .yak-artifacts/walkthrough.webm — walk through, then stop.
-   f. If something blocks a *full* capture (dev server won't start, auth
-      can't be bypassed, an external dependency like a deploy trigger or
-      payment API can't be reached), do a PARTIAL capture — record
-      whatever state you CAN reach. Never skip silently.
-   g. TEMPORARY HELPERS (must be reverted before committing): You MAY
-      add short-lived scaffolding to make a capture possible — seed a
-      test user via `php artisan tinker`, stub out an external call
-      (e.g. comment out a Drone CI dispatch, fake a payment gateway),
-      add a dev-only route, or bypass auth for the test URL. These
-      changes MUST be reverted before `git commit`. Run
-      `git diff --stat` immediately before committing and confirm only
-      the files you intended to change are staged. After committing,
-      run `git show --stat HEAD` and re-read the diff to verify no
-      temporary scaffolding slipped through.
-   h. Stop the dev server when done.
-   i. REQUIRED STATUS LINE: End the result summary with exactly one of
-      these lines — no exceptions:
-      - `Visual capture: done (real flow)`
-      - `Visual capture: done (isolated harness) — <why the real surface was not capturable>`
-      - `Visual capture: partial — <what was captured and what wasn't>`
-      - `Visual capture: skipped — <specific reason>`
-      A missing line is a task violation. Silent skipping is not
-      allowed.
-
-7. SCOPE CHECK: If the task's requirements are ambiguous or unclear,
-   stop. Commit nothing and output what you found and why this needs
-   human judgment.
-
-8. IF STUCK: Don't make random changes. Commit nothing and output:
-   - What you investigated
-   - What the root cause likely is
-   - Why you couldn't fix it
-   - What a human should look at
-
-9. CONTEXT7: Use Context7 MCP for current library docs when unsure.
-
-10. DEV ENVIRONMENT: The dev environment should already be set up (via the
-    setup task when the repo was added). To start it: docker-compose start
-    (or read CLAUDE.md/README for the correct command). Stop it when done:
-    docker-compose stop. If the environment isn't working, note it in the
-    result and proceed without it if possible.
-```
-
-### Channel-Specific Additions
-
-These are appended only when the corresponding channel is enabled:
-
-```
-# Appended when Sentry channel is enabled:
-11. SENTRY: If from Sentry, use Sentry MCP to pull breadcrumbs, tags,
-    and related events for fuller context.
-```
-
-(Linear has no MCP injection into the system prompt — Yak posts agent session activities and updates issue state server-side via the OAuth integration, and the issue title/body are already inlined in the task prompt at creation time.)
+The Blade files live in `resources/views/prompts/`. Slug metadata and variables are declared in `app/Prompts/PromptDefinitions.php`.
 
 ### Customizing The System Prompt
 
-Open **Prompts** in the sidebar and pick **System Rules**. Saved edits go into the `prompts` table and take effect on the next task — no redeploy. This is where team-wide rules ("always use Conventional Commits," "never introduce new npm dependencies," "prefer pure functions") belong.
+Pick **System Rules** in the editor. Saved edits are stored in the `prompts` table and apply to the next task, with no redeploy. This is where team-wide rules belong ("always use Conventional Commits", "never add npm dependencies"). Rules for one repo belong in that repo's `CLAUDE.md`, because the system prompt applies to every task.
 
-Once a prompt is customized in the DB, the Blade file at `resources/views/prompts/system.blade.php` is no longer rendered for that deployment — so there's no reason to edit it on disk unless you're changing the default that ships upstream to all Yak installations. Structural changes (new channel-conditional blocks, new variables) still require a code change: the variable wiring lives in `app/YakPromptBuilder.php` and the slug metadata in `app/Prompts/PromptDefinitions.php`.
-
-Be careful with scope creep: the system prompt applies to every task. Rules that apply to only one repo belong in that repo's `CLAUDE.md`, not the system prompt.
+Linear has no prompt injection into the system prompt. Yak posts agent session activity and updates issue state server-side, and the issue text is already in the task prompt.
 
 ## Task Prompt Templates
 
-Task prompts start as Blade templates in `resources/views/prompts/tasks/`. At render time every prompt flows through `PromptResolver`: if the slug has a customized row in the `prompts` table (set via the in-app editor), that content is rendered; otherwise the Blade file on disk is used. Yak picks the slug based on the task's `source` field and mode, then renders with source-specific variables declared in `app/Prompts/PromptDefinitions.php`.
-
-### Sentry Fix
-
-```
-## Task: {external_id}
-Fix the following Sentry error.
-
-### Error
-{issue_title}
-
-### Culprit
-{culprit}
-
-### Stacktrace
-{top_10_frames}
-
-### Context
-- Occurrences: {event_count}
-- First seen: {first_seen}
-- Users affected: {affected_users}
-
-Use the Sentry MCP to pull breadcrumbs and related events for this issue
-if the stacktrace alone isn't enough to understand the problem.
-
-### Instructions
-1. Read the culprit file and trace the code path
-2. Implement a fix
-3. Add or update a test that would have caught this
-4. Run the relevant tests locally to verify
-5. Commit
-```
-
-### Flaky Test Fix
-
-```
-## Task: {external_id}
-Fix the failing test on the main branch.
-
-### Test
-{test_class}::{test_method}
-
-### Failure Output
-{failure_output}
-
-### CI Build
-{build_url}
-
-### Instructions
-1. Read the failing test and the code it covers
-2. Determine: flaky test or real bug?
-3. Fix accordingly
-4. Run the relevant tests locally
-5. Commit
-```
-
-### Linear Fix
-
-```
-## Task: {external_id}
-{issue_title}
-
-### Description
-{issue_description}
-
-### Instructions
-1. Implement the fix with minimal changes
-2. Write or update tests
-3. Run relevant tests locally
-4. Commit
-```
-
-### Research
-
-```
-## Task: {external_id} (Research — no code changes)
-{issue_title}
-
-### Description
-{issue_description}
-
-### Instructions
-Do NOT make code changes or commits.
-
-1. Investigate using grep, glob, file reading
-2. Read Linear comments for context if from Linear
-3. Use Context7 for library docs if needed
-4. Write your findings as a standalone HTML page:
-   - Self-contained (inline CSS, no external dependencies)
-   - Clean, readable, professional formatting
-   - Structure: summary, detailed findings (with file paths and
-     line numbers), recommendations, effort estimate, risks
-   - Save to .yak-artifacts/research.html
-5. Also output a plain text summary (2-3 sentences) as the result_summary.
-   This summary will be posted to the source with a link to the full
-   findings page.
-```
-
-### PR Review
-
-Slug: `tasks-review`. Dispatched by the GitHub webhook when a PR is opened, made ready for review, reopened, or synchronized on a repo with `pr_review_enabled = true`.
-
-The template is read-only: it explicitly forbids commits or file modifications. It receives the PR title, body, author, head/base branches, scope (`full` or `incremental`), filtered list of changed files, an optional Linear ticket description (when the body mentions an identifier like `GEO-1234`), and the repo's path-exclude globs. Output is a strict JSON block with `summary`, `verdict`, `verdict_detail`, and `findings[]` — each finding carries a file, line, severity (`must_fix` / `should_fix` / `consider`), category, body, and an optional `suggestion_loc` when the body contains a `suggestion` block.
-
-See [pr-review.md](pr-review.md) for the operational guide.
-
-### Slack Fix (with ambiguity check)
-
-```
-## Task: {external_id}
-{description}
-
-### Source
-Requested via Slack by {requester_name}.
-
-### Ambiguity Check
-Before starting work, assess whether this request is clear enough to
-implement confidently. Read relevant code, check Sentry for related recent
-errors, and consider whether the request has multiple valid interpretations.
-
-If the task is CLEAR — proceed to implementation.
-
-If the task is AMBIGUOUS — do NOT implement anything. Instead, output ONLY
-a JSON object with your clarification options:
-{"clarification_needed": true, "options": ["Description of interpretation 1", "Description of interpretation 2", "Description of interpretation 3"]}
-
-Make options specific and grounded in what you found in the code, not
-generic. The user will pick one and you'll resume from here.
-
-### Instructions (if clear)
-1. Implement the fix with minimal changes
-2. Write or update tests
-3. Run relevant tests locally
-4. Commit
-```
-
-### Clarification Reply (via `--resume`)
-
-```
-The user chose option {n}: "{option_text}"
-
-Proceed with this interpretation. Implement the fix, test, and commit.
-```
-
-### Retry (via `--resume`)
-
-```
-CI failed after your previous push. Here's the failure output:
-
-{ci_failure_output}
-
-### Instructions
-1. Read the CI failure carefully
-2. Check your previous changes: git diff HEAD~1
-3. Determine what went wrong
-4. Fix it — different approach if needed
-5. Run the relevant tests locally
-6. Commit (amend or new commit)
-```
-
-### Customizing Templates
-
-Use the in-app editor at `/prompts`. Pick a slug, edit, preview against the stored sample fixture, save. Each save creates a `PromptVersion` row so history is preserved and you can roll back. Edits take effect on the next task with no redeploy.
-
-The Blade files in `resources/views/prompts/tasks/` are the defaults that ship with the code. Editing them on disk only makes sense if you're contributing a default change back to Yak itself — on a running deployment, any prompt you've customized in the editor ignores the file entirely. Adding a **new** slug or a **new** variable does require code: wire it up in `app/YakPromptBuilder.php` and declare it in `app/Prompts/PromptDefinitions.php` (plus a sample fixture in `PromptFixtures`). Everything else belongs in the editor.
-
-Variables are declared per-slug in `PromptDefinitions` and come from the task row plus the source-specific context parser. Keep templates short — Claude Code is the one doing the heavy lifting, and long templates crowd out context.
+Yak picks the task slug from the task's source and mode, then renders it with the variables the slug declares. If the slug has a customized row in the `prompts` table, that content is used. Otherwise the Blade file on disk is used.
 
 ### Editing prompts in the dashboard
 
-The in-app editor at `/prompts` is the primary customization surface. It covers:
+- Pick a slug, edit, and check the **Preview** tab, which renders against a sample fixture.
+- Saves are validated. The Blade must compile, and directives that pull external state or run PHP (`@extends`, `@component`, `@php`, and `@include` outside `prompts.partials.*`) are rejected.
+- Each save creates a version, so you can roll back.
+- If a saved prompt fails to render at runtime, Yak logs a warning and falls back to the Blade file on disk. A bad save never breaks the pipeline.
 
-- **System Rules** (`system`) and **Personality** (`personality`, used for notifications) — the two "high touch" prompts most teams want to tune.
-- Per-source task prompts: **Sentry Fix**, **Linear Fix**, **Slack Fix**, **Flaky Test**.
-- Advanced prompts used by the pipeline itself: **Setup**, **Research**, **Retry**, **Clarification Reply**, **Channel: Sentry** (the channel-conditional block appended to the system prompt), and the internal **Repo Routing** agent prompt used by `RepoRouter`.
+Once a prompt is customized, editing its Blade file has no effect on your deployment. Edit the files only to change the default that comes with Yak. A new slug or a new variable needs a code change: wire it in `app/YakPromptBuilder.php` and declare it in `app/Prompts/PromptDefinitions.php`, plus a sample in `PromptFixtures`.
 
-Each prompt ships with a sample fixture so the **Preview** tab shows the exact string Claude would receive. Saves are validated: Blade must compile against the fixture, and directives that pull external state or execute arbitrary PHP (`@include`, `@extends`, `@component`, `@php`, …) are rejected. If a saved prompt ever fails to render at runtime, `PromptResolver` logs a warning and falls back to the Blade file on disk — a bad save never breaks the task pipeline.
+Keep templates short. Claude Code does the heavy lifting, and long templates crowd out context.
 
 ## Visual Capture
 
-Visual capture is driven by rule 6 in the system prompt. Claude records a video walkthrough AND takes screenshots whenever a task touches UI:
+When a task touches UI, the system prompt tells Claude to record a video walkthrough and take screenshots with `yak-browser`. Research and setup tasks skip capture.
 
-- **Research tasks** — no capture (nothing to show)
-- **Setup tasks** — no capture
-- **Code changes touching UI files** — screenshots + video walkthrough
+Claude reads `CLAUDE.md` and `README.md` to find how to start the dev server, the dev URL and test credentials. Keep those accurate in the target repo's `CLAUDE.md`.
 
-No special prompt block is appended. Claude follows rule 6 and reads `CLAUDE.md`/`README.md` to find:
-
-- How to start the dev server
-- The dev URL
-- Test credentials (from `CLAUDE.md`, `README.md`, or seeder files)
-
-Visual capture is flexible by design — different repos have different setups, and Claude adapts to what it finds rather than relying on stored configuration. The cost of this flexibility is that `CLAUDE.md` needs to be accurate about how to run the dev server.
-
-### Capture plan, partial captures, temporary scaffolding
-
-Before writing code, Claude produces a short **capture plan** — the exact real-feature URL, the user actions that trigger it, and how each blocker (external calls, auth, seed data) will be neutralised on the real page. The goal is always to record the real feature surface.
-
-Scaffolding is ranked: **(1) stub external calls** in the real code path (`Http::fake`, commented-out dispatch, fake service binding, feature flag) is the preferred path; **(2) local data / auth tweaks** are fine; **(3) isolated demo routes** like `/confetti-test` are a last resort and must be called out in the status line because the viewer never sees the real feature. All scaffolding must be reverted between `record stop` and `git commit`. A `git diff --stat` pre-commit and a `git show --stat HEAD` post-commit check are both part of the prompt.
-
-`.yak-artifacts/` is excluded by a global gitignore inside every sandbox (`~/.config/git/ignore`, installed by `IncusSandboxManager::create()`), so capture files never end up in agent commits — Yak collects them out-of-band and attaches them to the PR.
-
-### Required status line
-
-Every task result summary must end with one of:
-
-- `Visual capture: done (real flow)`
-- `Visual capture: done (isolated harness) — <why the real surface was not capturable>`
-- `Visual capture: partial — <what was and wasn't captured>`
-- `Visual capture: skipped — <specific reason>`
-
-This turns silent skips into loud ones — and forces agents to name when they fell back to a fake page.
-
-### agent-browser
-
-Visual capture uses the `agent-browser` CLI, not an MCP server. Claude invokes it as bash commands during the session. This supports video recording, mobile viewports, and authentication state — capabilities that would be awkward in a stateless MCP browser process.
-
-`agent-browser` is installed globally on the Yak server via the Docker image. Headless Chromium is the only system dependency.
+Every task summary ends with a `Visual capture:` status line (`done`, `partial` or `skipped`, with a reason), so a skipped capture is visible in the PR. See [Video Walkthroughs](video-walkthroughs.md) for how the video is produced.
 
 ## MCP Servers
 
-The Ansible provisioner generates `/home/yak/mcp-config.json` from a template, including only the MCP servers for enabled channels. This keeps Claude Code's tool list clean — no phantom tools for disabled integrations.
+Ansible generates `/home/yak/mcp-config.json` from a template. It only includes servers that are configured, so Claude never sees tools for disabled integrations.
 
-### Always Included
+| Server | Included when | Purpose |
+|---|---|---|
+| **Context7** | Always | Current library documentation |
+| **Sentry** | A Sentry auth token is set | Breadcrumbs, tags, related events |
+| **GitHub** | `github_personal_access_token` is set | Reading related PRs and issues |
 
-```json
-{
-  "mcpServers": {
-    "context7": {
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"]
-    },
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_PAT}"
-      }
-    }
-  }
-}
-```
-
-### Conditionally Included
-
-When the corresponding channel is enabled:
-
-```json
-{
-  "linear": {
-    "type": "http",
-    "url": "https://mcp.linear.app/sse",
-    "headers": {
-      "Authorization": "Bearer ${LINEAR_API_KEY}"
-    }
-  },
-  "sentry": {
-    "type": "http",
-    "url": "https://mcp.sentry.dev/sse",
-    "headers": {
-      "Authorization": "Bearer ${SENTRY_AUTH_TOKEN}"
-    }
-  }
-}
-```
-
-### Server Summary
-
-| Server | Condition | Purpose | Access |
-|---|---|---|---|
-| **Context7** | Always | Current library documentation | Read-only, no auth |
-| **GitHub** | Always | PR creation, reading related PRs | Push, PR create, issue read |
-| **Linear** | Linear enabled | Read issues and comments | Read |
-| **Sentry** | Sentry enabled | Breadcrumbs, tags, related events | Read-only |
-
-### What Is NOT Connected
-
-No production databases, no customer data systems, no Intercom, no deployment tools, no Slack write-access beyond its own threads. Yak has no way to reach these even if asked.
+Add more servers at **MCP** (`/mcp`) in the dashboard. Yak has no connection to production databases, customer data systems, or deployment tools.
 
 ## Customization Decision Tree
-
-When you want to change Yak's behavior, pick the right layer:
 
 ```
 Is the change specific to one repo?
 ├─ YES → Edit that repo's CLAUDE.md
-└─ NO → Is it content that fits an existing prompt slug
-        (wording, added rules, different phrasing)?
-        ├─ YES → Edit it at /prompts in the dashboard. No redeploy.
-        └─ NO → Does it need a new variable, new slug, or new
-                channel-conditional block?
-                ├─ YES → Code change: app/YakPromptBuilder.php +
-                │        app/Prompts/PromptDefinitions.php (+
-                │        the Blade template as the default). Then
-                │        fine-tune at /prompts.
-                └─ NO → It's probably a configuration concern — edit
-                        config/yak.php or the vault variables
+└─ NO → Does it fit an existing prompt slug (wording, added rules)?
+        ├─ YES → Edit it at /prompts. No redeploy.
+        └─ NO → Does it need a new variable, slug, or channel block?
+                ├─ YES → Code change (see "Editing prompts in the dashboard")
+                └─ NO → A configuration concern: edit config/yak.php or the vault
 ```
 
-As a rule of thumb: **the closer to the target repo, the better**. `CLAUDE.md` in the repo is version-controlled with the code it describes, reviewed by the team that owns it, and travels with branch merges. Changes to Yak's global config or system prompt need a Yak redeploy and affect every repo.
+The closer to the target repo, the better. `CLAUDE.md` is version-controlled with the code it describes and reviewed by the team that owns it. Changes to the system prompt affect every repo.

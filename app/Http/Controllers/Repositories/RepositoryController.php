@@ -92,7 +92,7 @@ class RepositoryController extends Controller
     }
 
     /**
-     * @return array{guide: string, adding: string, setup: string, claudeMd: string, routing: string, prReview: string, refresh: string, rerunSetup: string}
+     * @return array{guide: string, adding: string, setup: string, claudeMd: string, routing: string, prReview: string, rerunSetup: string}
      */
     private function docsLinks(): array
     {
@@ -103,7 +103,6 @@ class RepositoryController extends Controller
             'claudeMd' => Docs::url('repositories.claude-md'),
             'routing' => Docs::url('repositories.routing'),
             'prReview' => Docs::url('repositories.pr-review'),
-            'refresh' => Docs::url('repositories.refresh'),
             'rerunSetup' => Docs::url('repositories.rerun-setup'),
         ];
     }

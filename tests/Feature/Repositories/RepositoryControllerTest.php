@@ -643,7 +643,6 @@ test('edit exposes docs links for the repositories guide', function () {
                 ->where('claudeMd', Docs::url('repositories.claude-md'))
                 ->where('routing', Docs::url('repositories.routing'))
                 ->where('prReview', Docs::url('repositories.pr-review'))
-                ->where('refresh', Docs::url('repositories.refresh'))
                 ->where('rerunSetup', Docs::url('repositories.rerun-setup'))));
 });
 
@@ -657,7 +656,6 @@ test('create exposes docs links for the repositories guide', function () {
                 ->where('claudeMd', Docs::url('repositories.claude-md'))
                 ->where('routing', Docs::url('repositories.routing'))
                 ->where('prReview', Docs::url('repositories.pr-review'))
-                ->where('refresh', Docs::url('repositories.refresh'))
                 ->where('rerunSetup', Docs::url('repositories.rerun-setup'))));
 });
 

@@ -1,6 +1,8 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import mermaid from 'astro-mermaid';
+import { GROUPS, PAGES } from './scripts/pages.mjs';
 
 // Deployed to https://geocodio.github.io/yak/
 // If a custom domain is added later, set `site` to the bare domain and
@@ -13,9 +15,11 @@ export default defineConfig({
   base,
   trailingSlash: 'always',
   integrations: [
+    // Renders ```mermaid blocks in the browser; must come before Starlight.
+    mermaid({ theme: 'default', autoTheme: true }),
     starlight({
       title: 'Yak',
-      description: 'Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and GitHub and delivers reviewable pull requests while you work on what matters.',
+      description: 'Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything.',
       logo: {
         src: './src/assets/mascot.png',
         alt: 'Yak mascot',
@@ -41,39 +45,15 @@ export default defineConfig({
       ],
       components: {
         // Swap Starlight's default components for Yak-themed variants
-        // when needed. Keeping overrides minimal for now — the design
+        // when needed. Keeping overrides minimal for now, the design
         // tokens handle most of the visual identity.
       },
-      sidebar: [
-        {
-          label: 'Getting Started',
-          items: [
-            { slug: 'setup' },
-            { slug: 'channels' },
-            { slug: 'repositories' },
-            { slug: 'pr-review' },
-          ],
-        },
-        {
-          label: 'Reference',
-          items: [
-            { slug: 'architecture' },
-            { slug: 'prompting' },
-          ],
-        },
-        {
-          label: 'Operations',
-          items: [
-            { slug: 'troubleshooting' },
-          ],
-        },
-        {
-          label: 'Contributing',
-          items: [
-            { slug: 'development' },
-          ],
-        },
-      ],
+      sidebar: GROUPS.map((group) => ({
+        label: group.label,
+        items: PAGES.filter((page) => page.group === group.key)
+          .sort((left, right) => left.order - right.order)
+          .map((page) => ({ slug: page.file.replace(/\.md$/, '') })),
+      })),
     }),
   ],
 });

@@ -1,11 +1,11 @@
 /*
- * Yak docs theme — maps Starlight's tokens onto the same design tokens as
+ * Yak docs theme: maps Starlight's tokens onto the same design tokens as
  * the Yak app (@geocodio/console-ui). IBM Plex Sans / IBM Plex Mono,
  * neutral panel/bg surfaces, a single purple accent, hairline borders,
  * small radii, restrained shadows. No gradients, blur, or hover-lift.
  *
  * console-ui defines its tokens with CSS light-dark(), which Starlight has
- * no equivalent for — Starlight instead stamps `[data-theme="dark"]` on the
+ * no equivalent for: Starlight instead stamps `[data-theme="dark"]` on the
  * root and expects two explicit blocks. Every pair below is split that way.
  * Source of truth: node_modules/@geocodio/console-ui/styles/{tokens,fonts,base}.css
  */
@@ -39,13 +39,13 @@
   --yak-shadow-card: 0 1px 2px rgba(40, 42, 48, 0.05);
   --yak-shadow-overlay: 0 6px 24px rgba(30, 31, 36, 0.13), 0 1px 3px rgba(30, 31, 36, 0.09);
 
-  /* Typography — same families/stacks as the app */
+  /* Typography, same families/stacks as the app */
   --sl-font: 'IBM Plex Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --sl-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --sl-font-system: var(--sl-font);
   --sl-font-system-mono: var(--sl-font-mono);
 
-  /* Content width — comfortable line length */
+  /* Content width, comfortable line length */
   --sl-content-width: 46rem;
   --sl-content-pad-x: 1.5rem;
 }

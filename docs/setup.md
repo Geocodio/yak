@@ -1,12 +1,12 @@
 # Setup Guide
 
-One command provisions a fresh server. Everything runs through Ansible — the manual steps in this guide document what Ansible automates, not an alternative path.
+One command provisions a fresh server. Everything runs through Ansible. The manual steps in this guide document what Ansible automates, not an alternative path.
 
 ## What You End Up With
 
 - A dedicated server running the Yak Docker container (Laravel app, queue workers, scheduler, nginx)
 - A MariaDB container with persistent storage for the application database
-- **Incus + ZFS** for sandboxed task execution — each task runs in its own isolated system container with its own Docker daemon, network, and filesystem
+- **Incus + ZFS** for sandboxed task execution: each task runs in its own isolated system container with its own Docker daemon, network, and filesystem
 - Webhook endpoints for whichever channels you have enabled
 - A dashboard at `https://{your-domain}` behind Google OAuth
 - Claude Code CLI configured with MCP servers matching your enabled channels
@@ -18,42 +18,17 @@ One command provisions a fresh server. Everything runs through Ansible — the m
 | **Server** | Dedicated box with 32GB+ RAM, 500GB+ disk. Hetzner AX-series, bare metal, or VM. Ubuntu 24.04 or Debian 12+. Public IP for inbound webhooks. |
 | **Domain** | DNS A record pointing to the server. Used for dashboard and webhook endpoints. |
 | **Claude** | Max subscription (for Claude Code CLI) plus an Anthropic API key (for the routing layer). |
-| **GitHub** | Organization account. The Ansible provisioner creates a GitHub App automatically — repos are cloned via HTTPS using the App's installation token (no SSH keys needed). |
+| **GitHub** | Organization account. The Ansible provisioner creates a GitHub App automatically; repos are cloned via HTTPS using the App's installation token (no SSH keys needed). |
 | **Google OAuth** | Google Cloud project with OAuth credentials. Used for dashboard authentication. |
 | **Ansible** | 2.15+ on your local machine (`pip install ansible`). |
 
-### Optional Per Channel
+### Optional Channels
 
-Only configure the channels you use. Everything except GitHub (for pushing branches and opening PRs) is optional.
-
-| Channel | What you need |
-|---|---|
-| **Slack** | Slack app with bot token plus signing secret. |
-| **Linear** | OAuth application (client id + secret + webhook signing secret). Authorize at `/settings/linear`. Requires workspace admin approval. |
-| **Sentry** | Auth token plus webhook secret. An issue alert rule that notifies the integration. |
-| **Drone CI** | API token. Yak polls the Drone API — no webhook needed. |
-| **GitHub Actions** | Included with the GitHub App — no additional setup. |
-
-See the [Channels](channels.md) page for the full configuration of each channel.
+GitHub is the only required channel. Slack, Linear, Sentry and Drone CI are optional, and each has its own setup section in [Channels](channels.md). Enable only the ones you use.
 
 ### Optional: voiceover
 
-Walkthrough videos render with captions by default. Set `ELEVENLABS_API_KEY` to add narration: before each render, Yak turns the script's `intro`, each shot's `say` line, and the `outro` into MP3s (ElevenLabs `eleven_multilingual_v2`) and mixes them into the cut. `ELEVENLABS_VOICE_ID` picks the voice and defaults to `UgBBYS2sOqTuMpoF3BR0`.
-
-Expect roughly 1,000–1,300 characters per walkthrough, billed at one credit per character. The health page's **Voiceover** row shows `Off (no ELEVENLABS_API_KEY)`, the number of lines generated in the last 24 hours, or the last failure. The cost dashboard's video panel sums the characters sent.
-
-Voiceover is best-effort: with no key, or when the API errors, the walkthrough still renders captions-only and Yak still opens the PR.
-
-To create the key, go to **Developers → API Keys** in the ElevenLabs dashboard and create a restricted key. Yak calls exactly one endpoint, `POST /v1/text-to-speech/{voice_id}`, so the key needs a single permission:
-
-| Setting | Value |
-|---|---|
-| Text to Speech | **Access** |
-| Everything else | **No Access** |
-
-Leave **Voices** and **Models** at No Access too — the voice id comes from `ELEVENLABS_VOICE_ID` and the model is hardcoded, so neither is ever looked up over the API. Setting a per-credit refresh period is worth doing as a spend cap; at ~1,000–1,300 characters per walkthrough there is plenty of headroom under a modest monthly limit.
-
-Then fill in `elevenlabs_api_key` (and optionally `elevenlabs_voice_id`) in the vault.
+Set `elevenlabs_api_key` in the vault to narrate walkthrough videos. Without it they render with captions only. See [Video Walkthroughs](video-walkthroughs.md#voiceover).
 
 ## Quick Start
 
@@ -93,108 +68,38 @@ echo 'your-vault-password' > ansible/vault/.vault_pass
 
 This file is gitignored and referenced automatically by `ansible.cfg`.
 
-Channels you are not using can be left blank — Ansible skips disabled channels automatically.
+The example file is commented and lists every key. Set the required ones below. Leave channel keys you do not use blank, and Ansible skips those channels. Channel keys are covered in [Channels](channels.md).
 
 ```yaml
-# === Required ===
 yak_domain: yak.yourcompany.com
 anthropic_api_key: sk-ant-...
 github_org: your-org
-
-# Dashboard auth
 google_oauth_client_id: "..."
 google_oauth_client_secret: "..."
-google_oauth_allowed_domains: "yourcompany.com"  # required, comma-separated
-
-# === Auto-generated (leave blank) ===
-yak_app_key: ""
-
-# Database (auto-provisioned MariaDB container)
-mariadb_root_password: ""
-mariadb_password: ""
-
-# GitHub App (filled after guided setup on first run, then re-run)
-github_app_id: ""
-github_app_private_key: ""
-github_installation_id: ""
-github_webhook_secret: ""
-
-# === Channels (leave blank to disable) ===
-
-slack_bot_token: ""
-slack_signing_secret: ""
-slack_workspace_url: ""          # e.g. https://acme.slack.com — for thread deep links
-
-linear_oauth_client_id: ""
-linear_oauth_client_secret: ""
-linear_oauth_redirect_uri: ""   # defaults to https://{yak_domain}/auth/linear/callback
-linear_webhook_secret: ""
-
-sentry_auth_token: ""
-sentry_webhook_secret: ""
-sentry_org_slug: ""
-
-drone_url: ""
-drone_token: ""
-
-# Walkthrough voiceover (optional — captions-only when blank)
-elevenlabs_api_key: ""
-elevenlabs_voice_id: ""          # defaults to UgBBYS2sOqTuMpoF3BR0
-
-# === Extra Agent Environment Variables ===
-# agent_extra_env:
-#   NODE_AUTH_TOKEN: "ghp_..."
-#   NPM_TOKEN: "..."
+google_oauth_allowed_domains: "yourcompany.com"  # required, comma-separated; other domains cannot log in
+mariadb_root_password: "..."   # strong random values, e.g. `openssl rand -base64 24`
+mariadb_password: "..."
 ```
 
-#### Agent Environment Variables
+`yak_app_key` is generated for you. The `github_app_*` keys are filled in after the guided GitHub App setup on the first run.
 
-Repos that need tokens at build time (e.g. private npm registries) can have those tokens forwarded to the agent process. Add them to `agent_extra_env` in your vault:
+For repos that need private npm tokens or private Docker registries, see [Advanced configuration](#advanced-configuration).
 
-```yaml
-agent_extra_env:
-  NODE_AUTH_TOKEN: "ghp_..."
-```
+#### Where to get credentials
 
-This does two things automatically:
-1. Sets `NODE_AUTH_TOKEN=ghp_...` as a container env var (available to `npm install`)
-2. Sets `YAK_AGENT_PASSTHROUGH_ENV=NODE_AUTH_TOKEN` so the sandboxed agent process receives it
-
-Only vars listed here are forwarded — app secrets like `DB_PASSWORD` and `APP_KEY` are never exposed to the agent.
-
-#### Private Docker Registries
-
-Repos that pull private Docker images (e.g. bases shared across services, internal tooling) can authenticate from inside every sandbox without rebuilding locally. Add credentials to `docker_registries` in your vault:
-
-```yaml
-docker_registries:
-  ghcr.io:
-    username: "your-github-username"
-    password: "ghp_..."              # PAT with `read:packages` scope
-  registry.example.com:
-    username: "deploy"
-    password: "..."
-```
-
-Ansible renders these into `~/.docker/config.json` on the host, bind-mounts them into the Yak container, and the sandbox manager pushes the file to `/home/yak/.docker/config.json` in each new sandbox. `docker pull` and `docker-compose up` pick it up automatically.
-
-The `google_oauth_allowed_domains` field is **required**. Login is rejected for any email whose domain is not in the list.
-
-### Where to get credentials
-
-#### Anthropic API key
+##### Anthropic API key
 
 1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
 2. Click **Create Key**
 3. Copy the key (`sk-ant-...`) into `anthropic_api_key`
 
-This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI authenticates separately via a Max subscription — see step 5 below.
+This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI authenticates separately via a Max subscription; see step 6 below.
 
-#### Google OAuth (required — dashboard authentication)
+##### Google OAuth (required: dashboard authentication)
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a new project (or select an existing one)
 2. Go to **APIs & Services → OAuth consent screen**
-3. Set user type to **Internal** (restricts login to your Google Workspace org — no app review needed)
+3. Set user type to **Internal** (restricts login to your Google Workspace org, no app review needed)
 4. Fill in the app name (e.g. "Yak") and your support email, then save
 5. Go to **APIs & Services → Credentials**
 6. Click **Create Credentials → OAuth client ID**
@@ -204,75 +109,13 @@ This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI
 10. Copy the **Client Secret** into `google_oauth_client_secret`
 11. Set `google_oauth_allowed_domains` to your domain (e.g. `yourcompany.com`)
 
-#### GitHub
+##### GitHub
 
-No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow — you fill in the resulting credentials and re-run.
+No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow. You fill in the resulting credentials and re-run.
 
-#### Slack (optional)
+##### Channels (optional)
 
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) and click **Create New App → From scratch**
-2. Name it (e.g. "Yak") and select your workspace
-3. Go to **OAuth & Permissions** and add these bot token scopes:
-   - `chat:write`
-   - `app_mentions:read`
-   - `channels:history`
-   - `reactions:write` — lets Yak react 👀 / 🚧 / ✅ / ❌ on your mention for glanceable status
-4. Click **Install to Workspace** and authorize
-5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon, set the short description to *"AI coding agent — mention me with a task, get a pull request"*, and the background color to `#3d4f5f` (Yak slate — dark enough for Slack's white wordmark)
-6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
-7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
-8. Go to **App Home**, enable the **Home Tab** — this powers the welcome DM Yak sends the first time a user opens Yak in the sidebar
-9. Go to **Interactivity & Shortcuts**, enable interactivity, and set the request URL to `https://{your-domain}/webhooks/slack/interactive` — this powers the click-to-answer buttons on clarification messages
-10. Go to **Event Subscriptions**, enable events, and set the request URL to `https://{your-domain}/webhooks/slack`
-11. Subscribe to bot events: `app_mention`, `message.channels`, and `app_home_opened`
-
-Add `YAK_SLACK_WORKSPACE_URL=https://{your-workspace}.slack.com` to your vault so the dashboard can deep-link tasks back to their originating Slack thread.
-
-See [Channels → Slack](channels.md#slack-optional) for usage and gotchas.
-
-#### Linear (optional)
-
-Yak installs as a Linear **Agent** — a first-class workspace participant that appears in the assignee picker without consuming a seat.
-
-1. Go to [linear.app/settings/api/applications](https://linear.app/settings/api/applications)
-   → **New application**.
-   - Name: `Yak`
-   - Description: `AI coding agent — assign me an issue and I'll open a pull request` (this appears in the assignee picker and the install consent screen, so keep it plain)
-   - Icon: use `docs/mascot.png` or any small square yak image
-   - Callback URL: `https://{your-domain}/auth/linear/callback`
-   - Enable **Webhooks**, set the URL to `https://{your-domain}/webhooks/linear`, and under **App events** tick **Agent session events**.
-   - Copy the app's webhook signing secret into `linear_webhook_secret`.
-2. Copy `Client ID` and `Client secret` into `linear_oauth_client_id` /
-   `linear_oauth_client_secret`.
-3. Re-run Ansible so the env vars land in the container.
-4. Sign in to the Yak dashboard → **Settings → Linear → Connect Linear**
-   and approve the consent screen. A workspace admin must approve — the install requests `app:assignable` and `app:mentionable` scopes.
-
-See [Channels → Linear](channels.md#linear-optional) for usage and gotchas.
-
-#### Sentry (optional)
-
-1. In your Sentry org, go to **Settings → Developer Settings → Custom Integrations**
-2. Click **Create New Integration** → **Internal Integration**
-3. Set permissions: **Organization: Read**, **Project: Read**, **Issue & Event: Read** (the first two are required for the Add Repository form to populate the Sentry project dropdown)
-4. Set the webhook URL to `https://{your-domain}/webhooks/sentry`
-5. Copy the **Token** into `sentry_auth_token`
-6. Copy the **Webhook Signing Secret** (under "Webhook Secret" in the integration's Client Secret section) into `sentry_webhook_secret`
-7. Set `sentry_org_slug` to your Sentry organization slug
-8. Create an issue alert rule whose action notifies this integration, scoped to the issues you want Yak to pick up
-9. Map Sentry projects to repos via the `sentry_project` field on each repo in the dashboard
-
-See [Channels → Sentry](channels.md#sentry-optional) for filtering rules and gotchas.
-
-#### Drone CI (optional)
-
-1. Go to your Drone instance at `https://{drone-url}/account`
-2. Copy the **Personal Token** into `drone_token`
-3. Set `drone_url` to your Drone instance URL (e.g. `https://drone.yourcompany.com`)
-
-Drone has no outbound webhooks — Yak polls the Drone API every minute for CI results, so no webhook config is required on the Drone side.
-
-See [Channels → Drone CI](channels.md#drone-ci-optional) for usage and gotchas.
+Slack, Linear, Sentry and Drone CI credentials are covered in [Channels](channels.md). You can enable them after your first task works, then re-run Ansible.
 
 ### 4. Configure Inventory (on your local machine)
 
@@ -299,35 +142,23 @@ This connects to the server over SSH and provisions everything:
 ansible-playbook ansible/playbook.yml
 ```
 
-This single command runs the following roles in order:
-
-1. **base** — creates the `yak` user, configures UFW, fail2ban, swap, and automatic security updates
-2. **docker** — installs Docker Engine and Compose
-3. **ssl** — provisions a Let's Encrypt certificate via Caddy, configures log rotation
-4. **github-app** — creates and installs the GitHub App on your org (skipped if already provisioned)
-5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
-6. **mariadb** — runs a MariaDB 11 container with persistent storage on a Docker network
-7. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
-8. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
-9. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
+It installs Docker, Caddy, Incus + ZFS, MariaDB and the Yak container, sets up the GitHub App and MCP config, and configures each enabled channel.
 
 Total time: about 10 minutes.
 
 ### 6. Log In To Claude Code (on the server)
 
-This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
+This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, SSH into the server and run:
 
 ```bash
-docker exec -it yak claude login
+yak-claude-login
 ```
 
-Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
-
-The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
+Type `/login` at the prompt and finish the browser flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
 
 ### 7. Add Your Repositories (in your browser)
 
-Repositories are managed through the dashboard — not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
+Repositories are managed through the dashboard, not Ansible. Log in to `https://{your-domain}`, go to **Repositories > Add**, and fill in each repo's HTTPS clone URL. Yak clones the repo using the GitHub App and dispatches a setup task automatically.
 
 See the [Repositories](repositories.md) page for the full field reference and how setup tasks work.
 
@@ -343,28 +174,27 @@ docker exec yak php artisan yak:healthcheck
 
 The check covers queue workers, repo fetchability, Claude CLI responsiveness, enabled channel MCP servers, and setup status for each repo.
 
-The scheduler runs it every 15 minutes. When a check fails, Yak posts to the Slack channel in `YAK_SLACK_ALERT_CHANNEL` (a channel ID; invite the bot first). Each failing check alerts at most once per 24 hours, followed by one recovery message.
+The scheduler runs it every 15 minutes. Failing checks can alert Slack. See [Troubleshooting](troubleshooting.md#health-check-failures).
 
-### Smoke Test
+### Your First Task
 
-Run a manual task against your default repo:
+1. Open **Repositories** in the dashboard. Add your repo if you have not, and wait until its setup badge reads **Ready**.
+2. Go to **Tasks** and click **New task**. Pick the repo, keep the **Fix** mode, and describe a small change, for example "Add a comment to the README explaining what this repo does".
+3. Click **Start task**. You land on the task page, where the timeline shows Yak working.
+4. When the task reaches `awaiting_ci` and then `success`, open the PR link at the top of the task page. If the task fails, use **Retry** on the task page.
 
-```bash
-docker exec yak php artisan yak:run TEST-001 "Add a comment to the README explaining what this repo does" --sync
-```
-
-The `--sync` flag runs the task in the foreground so you can watch the output. If it creates a branch, pushes, and CI runs, Yak is working.
+If a task does not appear or does not finish, see [Troubleshooting](troubleshooting.md). You can also run a task from the server with `docker exec yak php artisan yak:run TEST-001 "..." --sync`.
 
 ### Webhook Verification
 
 For each enabled channel, trigger a test event:
 
-- **Slack** — mention `@yak` in a channel
-- **Linear** — assign a test issue to Yak (the OAuth app appears in the assignee picker)
-- **Sentry** — trigger a test alert rule
-- **GitHub Actions** — push a commit to a `yak/test-*` branch
+- **Slack**: mention `@yak` in a channel
+- **Linear**: assign a test issue to Yak (the OAuth app appears in the assignee picker)
+- **Sentry**: trigger a test alert rule
+- **GitHub**: open a PR on a repo with PR Review on. A review task appears under Tasks.
 
-Check `https://{your-domain}/tasks` — each event should create a task row.
+Check `https://{your-domain}/tasks`. Each event should create a task row.
 
 ## Updating Yak
 
@@ -376,6 +206,8 @@ Push to `main` triggers a GitHub Actions build that pushes a new image to `ghcr.
 ansible-playbook ansible/playbook.yml --tags yak-container
 ```
 
+Before it replaces the container, the playbook runs `yak:drain`. New tasks pause and running ones get up to 45 minutes to finish. Anything still running after that is failed and resumed once the new container is up.
+
 To deploy a specific version:
 
 ```bash
@@ -384,10 +216,7 @@ ansible-playbook ansible/playbook.yml --tags yak-container -e yak_image_tag=abc1
 
 ### Adding a New Channel
 
-1. Add the channel's credentials to `ansible/vault/secrets.yml`
-2. Re-run Ansible: `ansible-playbook ansible/playbook.yml`
-3. Ansible regenerates the MCP config, updates env vars, restarts the container
-4. Configure the external service's webhook URL — see the [Channels](channels.md) page
+Follow the channel's setup section in [Channels](channels.md), then re-run `ansible-playbook ansible/playbook.yml`.
 
 ### Removing a Channel
 
@@ -402,19 +231,7 @@ ansible-playbook ansible/playbook.yml --tags secrets
 
 ## Updating Repos
 
-### Routine Maintenance
-
-Yak runs `git fetch origin {default_branch}` every 30 minutes via the scheduled `yak:refresh-repos` command. No manual repo updates are needed during normal operation.
-
-### Infrastructure Changes
-
-If a repo's dev environment changes (new Docker services, different database, etc.), re-run the setup task:
-
-```bash
-docker exec yak php artisan yak:setup-repo my-app
-```
-
-Or click **Re-run Setup** on the repo's edit page in the dashboard.
+When a repo's dev environment changes, re-run its setup task. See [Repositories](repositories.md#re-running-setup).
 
 ## Branch deployments
 
@@ -433,13 +250,39 @@ Wildcard certificates require DNS-01 (HTTP-01 does not issue wildcards). Caddy n
    ```yaml
    caddy_dns_provider_api_token: "<token with zone:edit permission for your yak_domain zone>"
    ```
-3. Re-run the provisioning playbook (`./deploy.sh` or `ansible-playbook ansible/playbook.yml`). The `ssl` role will download a Caddy binary bundled with the chosen plugin and enable the wildcard Caddyfile block.
+3. Re-run the provisioning playbook (`ansible-playbook ansible/playbook.yml`). The `ssl` role will download a Caddy binary bundled with the chosen plugin and enable the wildcard Caddyfile block.
 
 If either value is unset, the Caddyfile falls back to dashboard-only routing. Preview deployments will not work until both are configured.
 
+## Advanced configuration
+
+### Agent Environment Variables
+
+Repos that need tokens at build time (for example private npm registries) can have them forwarded to the agent. Add them to `agent_extra_env` in your vault:
+
+```yaml
+agent_extra_env:
+  NODE_AUTH_TOKEN: "ghp_..."
+```
+
+Ansible sets the variable on the container and lists it in `YAK_AGENT_PASSTHROUGH_ENV`, so the sandboxed agent receives it. Only variables listed here are forwarded. App secrets like `DB_PASSWORD` and `APP_KEY` never reach the agent. Redeploy and re-run the repo's setup task to bake the variable into the next snapshot.
+
+### Private Docker Registries
+
+Repos that pull private Docker images can authenticate from inside every sandbox. Add credentials to `docker_registries` in your vault:
+
+```yaml
+docker_registries:
+  ghcr.io:
+    username: "your-github-username"
+    password: "ghp_..."              # PAT with `read:packages` scope
+```
+
+Ansible renders these into `~/.docker/config.json` on the host and Yak copies the file into each new sandbox. Re-run the repo's setup task so the snapshot picks up the cached images.
+
 ## Where To Go Next
 
-- [Channels](channels.md) — per-channel configuration and usage
-- [Repositories](repositories.md) — adding and managing repos, CLAUDE.md guidance
-- [Architecture](architecture.md) — how Yak works under the hood
-- [Troubleshooting](troubleshooting.md) — common issues and solutions
+- [Channels](channels.md): per-channel configuration and usage
+- [Repositories](repositories.md): adding and managing repos, CLAUDE.md guidance
+- [Architecture](architecture.md): how Yak works under the hood
+- [Troubleshooting](troubleshooting.md): common issues and solutions
