@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import mermaid from 'astro-mermaid';
 
 // Deployed to https://geocodio.github.io/yak/
 // If a custom domain is added later, set `site` to the bare domain and
@@ -13,6 +14,8 @@ export default defineConfig({
   base,
   trailingSlash: 'always',
   integrations: [
+    // Renders ```mermaid blocks in the browser; must come before Starlight.
+    mermaid({ theme: 'default', autoTheme: true }),
     starlight({
       title: 'Yak',
       description: 'Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line, and serves a preview for every branch. A human reviews and merges everything.',
