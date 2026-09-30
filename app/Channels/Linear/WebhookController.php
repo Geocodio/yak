@@ -297,7 +297,7 @@ class WebhookController extends Controller
                 return;
             }
 
-            $stateId = (string) app(StartedStateResolver::class)->forIssue($issueId);
+            $stateId = (string) app(WorkflowStateResolver::class)->forIssue($issueId);
         }
 
         if ($stateId !== '') {

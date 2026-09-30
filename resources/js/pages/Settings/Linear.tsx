@@ -82,16 +82,17 @@ export default function Linear({ linear }: Props) {
 
                         <Card className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
                             <div>
-                                <div className="text-[13px] font-medium">Move issues to In Progress when Yak picks them up</div>
+                                <div className="text-[13px] font-medium">Move issues to In Progress and In Review</div>
                                 <p className="mt-0.5 text-[12px] text-muted">
-                                    Yak moves the Linear issue to its team&apos;s first &quot;started&quot; workflow state when it begins working. Set{' '}
-                                    <code>YAK_LINEAR_STARTED_STATE_ID</code> to override with a specific state.
+                                    Yak moves the Linear issue to its team&apos;s first &quot;started&quot; workflow state when it begins working, and to the
+                                    team&apos;s &quot;review&quot; state when it opens a pull request. Set <code>YAK_LINEAR_STARTED_STATE_ID</code> or{' '}
+                                    <code>YAK_LINEAR_IN_REVIEW_STATE_ID</code> to override with specific states.
                                 </p>
                             </div>
                             <Toggle
                                 checked={linear.moveIssuesToStartedState}
                                 onCheckedChange={toggleStartedState}
-                                label="Move issues to In Progress when Yak picks them up"
+                                label="Move issues to In Progress and In Review"
                             />
                         </Card>
 
