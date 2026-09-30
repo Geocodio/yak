@@ -272,3 +272,22 @@ test('switching attempts while the overlay is open on the same log refetches ins
         ->assertSee('This entry is older than the loaded activity')
         ->assertNoJavascriptErrors();
 });
+
+test('a long command wraps inside the detail pane instead of widening it', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Bump framework',
+        'metadata' => ['type' => 'tool_use', 'tool' => 'Bash', 'input' => ['command' => str_repeat('docker run --rm -v /workspace:/var/www ', 20)], 'output' => ''],
+    ]);
+
+    $page = visit(route('tasks.show', $task))
+        ->click('[data-testid="log-entry"]:visible >> nth=0')
+        ->assertVisible('[data-testid="transcript-overlay"]:visible');
+
+    $overflows = $page->script('(() => { const overlay = document.querySelector(\'[data-testid="transcript-overlay"]\'); return [...overlay.querySelectorAll("pre")].some(pre => pre.getBoundingClientRect().right > overlay.getBoundingClientRect().right); })()');
+
+    expect($overflows)->toBeFalse();
+});

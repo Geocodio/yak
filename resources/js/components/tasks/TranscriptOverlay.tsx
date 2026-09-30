@@ -11,7 +11,7 @@ function Block({ title, children, error }: { title: string; children?: React.Rea
     return (
         <div className="mt-4">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">{title}</div>
-            <pre className={cn('overflow-auto rounded-card border border-hair bg-panel-2 p-3 font-mono text-[11.5px] leading-relaxed', error && 'border-fail/30 bg-fail-soft/40 text-fail')}>
+            <pre className={cn('overflow-auto whitespace-pre-wrap rounded-card border border-hair bg-panel-2 p-3 font-mono [overflow-wrap:anywhere] text-[11.5px] leading-relaxed', error && 'border-fail/30 bg-fail-soft/40 text-fail')}>
                 {children}
             </pre>
         </div>
@@ -191,7 +191,7 @@ export function TranscriptOverlay({
                         Close <Kbd keys={['esc']} />
                     </button>
                 </div>
-                <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[340px_1fr]">
+                <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] md:grid-cols-[340px_minmax(0,1fr)]">
                     <div className="flex min-h-0 flex-col overflow-y-auto border-b border-hair bg-sidebar max-md:max-h-[40dvh] md:border-r md:border-b-0">
                         <div className="flex flex-wrap items-center gap-2 gap-y-2 border-b border-hair p-2">
                             <div className="flex gap-0.5 rounded-control bg-panel-2 p-0.5">
