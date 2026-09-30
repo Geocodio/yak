@@ -6,15 +6,16 @@ Yak is a coding agent that drafts PRs for small fixes, reviews PRs line by line,
 
 ```mermaid
 flowchart LR
-    Slack["Slack mention"] --> Yak
-    Linear["Linear issue"] --> Yak
-    Sentry["Sentry alert"] --> Yak
-    CLI["CLI or dashboard"] --> Yak
+    Slack["Slack mention"] -->|"creates tasks"| Yak
+    Linear["Linear issue"] -->|"creates tasks"| Yak
+    Sentry["Sentry alert"] -->|"creates tasks"| Yak
+    CLI["CLI or dashboard"] -->|"creates tasks"| Yak
+    Drone["Drone CI (polled)"] -->|"reports CI"| Yak
     Yak["Yak: tasks, PR reviews, previews"]
-    Yak --> ST["Same Slack thread"]
-    Yak --> LS["Linear agent session"]
-    Yak --> PR["Pull request"]
-    GH["GitHub: code, CI, reviews, /yak"] <--> Yak
+    Yak -->|"posts results"| ST["Same Slack thread"]
+    Yak -->|"posts results"| LS["Linear agent session"]
+    Yak -->|"opens PRs, comments"| GH["GitHub"]
+    GH -->|"code, CI, reviews, /yak"| Yak
 ```
 
 Yak answers where you asked. GitHub is required. The CLI and dashboard are always on. Slack, Linear, Sentry and Drone are optional. See [Channels](channels.md).

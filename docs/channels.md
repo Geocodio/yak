@@ -12,21 +12,16 @@ Channels are enabled by the presence of credentials — no credentials, no chann
 
 ```mermaid
 flowchart LR
-    Slack["Slack mention"] --> Yak
-    Linear["Linear issue"] --> Yak
-    Sentry["Sentry alert"] --> Yak
-    CLI["Manual CLI"] --> Yak
-    subgraph Yak["Yak"]
-        direction TB
-        T["Tasks"]
-        R["PR reviews"]
-        P["Previews"]
-    end
-    Yak --> ST["Same Slack thread"]
-    Yak --> LS["Linear agent session"]
-    Yak --> PR["Pull request"]
-    GH["GitHub: code, CI, reviews, /yak"] <--> Yak
-    Drone["Drone CI (polled)"] --> Yak
+    Slack["Slack mention"] -->|"creates tasks"| Yak
+    Linear["Linear issue"] -->|"creates tasks"| Yak
+    Sentry["Sentry alert"] -->|"creates tasks"| Yak
+    CLI["CLI or dashboard"] -->|"creates tasks"| Yak
+    Drone["Drone CI (polled)"] -->|"reports CI"| Yak
+    Yak["Yak: tasks, PR reviews, previews"]
+    Yak -->|"posts results"| ST["Same Slack thread"]
+    Yak -->|"posts results"| LS["Linear agent session"]
+    Yak -->|"opens PRs, comments"| GH["GitHub"]
+    GH -->|"code, CI, reviews, /yak"| Yak
 ```
 
 **The routing rule is simple:** respond where you were asked. Slack tasks answer in the thread and Linear tasks in the agent session. Tasks from the CLI or Sentry post to the PR only.

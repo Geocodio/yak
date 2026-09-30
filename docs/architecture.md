@@ -94,22 +94,21 @@ PR reviews and branch deployments talk to GitHub directly and do not use the cha
 Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced at the model level. Setting `$task->status = TaskStatus::AwaitingCi` on a task that is currently `Pending` throws `InvalidStateTransition` — the enum enforces the rules, not the job code.
 
 ```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> pending
-    pending --> running
-    running --> awaiting_ci: fix pushed
-    running --> awaiting_clarification: question asked
-    running --> success: research, setup, no changes
-    awaiting_clarification --> running: reply
-    awaiting_clarification --> expired: 3-day TTL
-    awaiting_ci --> success: CI green, PR opened
-    awaiting_ci --> retrying: CI red, first time
-    retrying --> awaiting_ci: retry pushed
-    awaiting_ci --> failed: CI red again
-    failed --> pending: Retry
-    expired --> pending: Retry
-    success --> [*]
+flowchart TB
+    pending(["pending"]) --> running(["running"])
+    running -->|"question asked"| clar(["awaiting_clarification"])
+    clar -->|"reply"| running
+    clar -->|"3-day TTL"| expired(["expired"])
+    running -->|"fix pushed"| ci(["awaiting_ci"])
+    running -->|"research, setup, no changes"| success(["success"])
+    ci -->|"CI green, PR opened"| success
+    ci -->|"CI red, first time"| retrying(["retrying"])
+    retrying -->|"retry pushed"| ci
+    ci -->|"CI red again"| failed(["failed"])
+    failed -->|"Retry"| pending
+    expired -->|"Retry"| pending
+    expired ~~~ success
+    retrying ~~~ failed
 ```
 
 `success` and `cancelled` are final. Any active state can move to `failed` (Claude error, budget, retries out) or `cancelled`. A fix task gets at most one retry, so at most two attempts.
