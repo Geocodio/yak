@@ -8,6 +8,12 @@ on:
       - 'docs-site/**'
       - 'config/docs.php'
       - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'docs-site/**'
+      - 'config/docs.php'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -49,11 +55,13 @@ jobs:
         run: npm run check-links
 
       - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs-site/dist
 
   deploy:
+    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
