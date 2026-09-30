@@ -37,6 +37,7 @@ export type ShootOptions = {
   width: number;
   height: number;
   only?: string;
+  from?: string;
   projectRoot?: string;
   skipPreflight?: boolean;
 };
@@ -226,9 +227,30 @@ async function captureStandaloneScreenshots(
 }
 
 /**
- * Spec §5. Shoots every shot (or one, with `only`) into
+ * The shots `shoot` records: every shot, the one named by `only`, or the
+ * one named by `from` and every shot after it.
+ */
+function selectTargets(opts: ShootOptions): Script['shots'] {
+  if (opts.only !== undefined) {
+    const targets = opts.script.shots.filter((s) => s.id === opts.only);
+    if (targets.length === 0) throw new ShotFailedError(opts.only, `no shot named "${opts.only}" in the script`);
+    return targets;
+  }
+  if (opts.from !== undefined) {
+    const index = opts.script.shots.findIndex((s) => s.id === opts.from);
+    if (index === -1) throw new ShotFailedError(opts.from, `no shot named "${opts.from}" in the script`);
+    return opts.script.shots.slice(index);
+  }
+  return opts.script.shots;
+}
+
+/**
+ * Spec §5. Shoots every shot (or a subset, with `only` or `from`) into
  * <artifactsDir>/shots/<id>.webm + stills/<id>.png and writes manifest.json.
- * Each shot is retried once before ShotFailedError is thrown.
+ * Each shot is retried once before ShotFailedError is thrown. The manifest
+ * is written even when a shot fails, holding every shot recorded so far, so
+ * a follow-up `only` or `from` run completes it instead of replacing it.
+ * A partial run merges its shots into the existing manifest in script order.
  */
 export async function shoot(opts: ShootOptions): Promise<Manifest> {
   mkdirSync(opts.artifactsDir, { recursive: true });
@@ -239,14 +261,15 @@ export async function shoot(opts: ShootOptions): Promise<Manifest> {
     if (failures.length > 0) throw new PreflightError(formatPreflightFailures(failures));
   }
 
-  const existing = readManifest(opts.artifactsDir);
-  const targets = opts.only === undefined ? opts.script.shots : opts.script.shots.filter((s) => s.id === opts.only);
-  if (targets.length === 0) throw new ShotFailedError(opts.only ?? '', `no shot named "${opts.only}" in the script`);
+  const isPartialRun = opts.only !== undefined || opts.from !== undefined;
+  const existing = isPartialRun ? readManifest(opts.artifactsDir) : null;
+  const targets = selectTargets(opts);
 
   const browser = await launchChromium();
   const entries: ManifestShot[] = [];
   const capturedScreenshots: ManifestScreenshot[] = [];
   let carry: CarryOver | null = null;
+  let failure: ShotFailedError | null = null;
 
   try {
     for (const shotSpec of targets) {
@@ -262,36 +285,34 @@ export async function shoot(opts: ShootOptions): Promise<Manifest> {
         }
       }
       if (result === null) {
-        throw new ShotFailedError(shotSpec.id, `shot "${shotSpec.id}" failed twice: ${lastError?.message ?? 'unknown error'}`);
+        failure = new ShotFailedError(shotSpec.id, `shot "${shotSpec.id}" failed twice: ${lastError?.message ?? 'unknown error'}`);
+        break;
       }
       entries.push(result.entry);
       capturedScreenshots.push(...result.screenshots);
       carry = result.carry;
     }
 
-    const standalone = opts.script.screenshots.filter((s) => s.after_shot === undefined);
-    const standaloneToRun = opts.only === undefined ? standalone : [];
-    capturedScreenshots.push(...(await captureStandaloneScreenshots(browser, standaloneToRun, opts)));
+    if (failure === null && !isPartialRun) {
+      const standalone = opts.script.screenshots.filter((s) => s.after_shot === undefined);
+      capturedScreenshots.push(...(await captureStandaloneScreenshots(browser, standalone, opts)));
+    }
   } finally {
     await browser.close();
   }
 
-  const shots =
-    opts.only === undefined || existing === null
-      ? entries
-      : existing.shots.map((entry) => entries.find((updated) => updated.id === entry.id) ?? entry);
+  const shots = opts.script.shots
+    .map((spec) => entries.find((entry) => entry.id === spec.id) ?? existing?.shots.find((entry) => entry.id === spec.id))
+    .filter((entry): entry is ManifestShot => entry !== undefined);
 
-  const screenshots =
-    opts.only === undefined || existing === null
-      ? capturedScreenshots
-      : [
-          ...existing.screenshots.filter((s) => !capturedScreenshots.some((c) => c.id === s.id)),
-          ...capturedScreenshots,
-        ].sort(
-          (a, b) =>
-            opts.script.screenshots.findIndex((s) => s.id === a.id) -
-            opts.script.screenshots.findIndex((s) => s.id === b.id),
-        );
+  const screenshots = [
+    ...(existing?.screenshots ?? []).filter((s) => !capturedScreenshots.some((c) => c.id === s.id)),
+    ...capturedScreenshots,
+  ].sort(
+    (a, b) =>
+      opts.script.screenshots.findIndex((s) => s.id === a.id) -
+      opts.script.screenshots.findIndex((s) => s.id === b.id),
+  );
 
   const manifest: Manifest = {
     version: 3,
@@ -302,5 +323,6 @@ export async function shoot(opts: ShootOptions): Promise<Manifest> {
     screenshots,
   };
   writeManifest(opts.artifactsDir, manifest);
+  if (failure !== null) throw failure;
   return manifest;
 }

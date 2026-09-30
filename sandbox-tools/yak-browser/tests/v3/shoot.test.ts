@@ -119,6 +119,47 @@ test('--only re-shoots one shot and updates its manifest entry in place', { skip
   }
 });
 
+test('a failed shot still writes the shots recorded before it, and --only completes the manifest', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  const broken = twoShotScript();
+  broken.shots[1].do = [{ click: '#does-not-exist' }];
+  broken.shots[1].focus = undefined;
+  try {
+    await assert.rejects(
+      () => shoot({ script: broken, base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true }),
+      ShotFailedError,
+    );
+    const partial = JSON.parse(readFileSync(join(artifactsDir, 'manifest.json'), 'utf8'));
+    assert.deepStrictEqual(partial.shots.map((s: { id: string }) => s.id), ['target']);
+
+    const completed = await shoot({
+      script: twoShotScript(), base: server.url, artifactsDir, width: 900, height: 700, only: 'second', skipPreflight: true,
+    });
+    assert.deepStrictEqual(completed.shots.map((s) => s.id), ['target', 'second']);
+  } finally {
+    await server.close();
+  }
+});
+
+test('--from re-shoots a shot and every shot after it, keeping the earlier ones', { skip: skipWithoutChromium }, async () => {
+  const server = await startStaticServer(siteRoot);
+  const artifactsDir = mkdtempSync(join(tmpdir(), 'yak-shoot-'));
+  const script = twoShotScript();
+  script.shots.splice(1, 0, { ...script.shots[0], id: 'middle' });
+  try {
+    const first = await shoot({ script, base: server.url, artifactsDir, width: 900, height: 700, skipPreflight: true });
+    const before = JSON.stringify(first.shots[0]);
+
+    const resumed = await shoot({ script, base: server.url, artifactsDir, width: 900, height: 700, from: 'middle', skipPreflight: true });
+
+    assert.deepStrictEqual(resumed.shots.map((s) => s.id), ['target', 'middle', 'second']);
+    assert.strictEqual(JSON.stringify(resumed.shots[0]), before, 'the shot before --from keeps its entry');
+  } finally {
+    await server.close();
+  }
+});
+
 test('a shot opening with navigate starts its clock after the navigation settles', { skip: skipWithoutChromium }, async () => {
   // Every response is delayed, so a clock started before the navigation would
   // read well under the delay and one started after it cannot.

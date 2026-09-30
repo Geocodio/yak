@@ -9,6 +9,7 @@ export type ShootCommandOptions = {
   width?: number;
   height?: number;
   only?: string;
+  from?: string;
   artifactsDir: string;
   projectRoot?: string;
 };
@@ -16,7 +17,7 @@ export type ShootCommandOptions = {
 /** `yak-browser shoot <file> --base <url>` — 0 ok, 2 bad script, 3 shot failed, 4 preflight. */
 export async function runShoot(opts: ShootCommandOptions): Promise<number> {
   if (!opts.base) {
-    process.stderr.write('yak-browser shoot <file> --base <url> [--width N --height N] [--only <id>]\n');
+    process.stderr.write('yak-browser shoot <file> --base <url> [--width N --height N] [--only <id> | --from <id>]\n');
     return 2;
   }
 
@@ -25,6 +26,11 @@ export async function runShoot(opts: ShootCommandOptions): Promise<number> {
     script = JSON.parse(readFileSync(opts.scriptPath, 'utf8')) as Script;
   } catch (error) {
     process.stderr.write(`cannot read ${opts.scriptPath}: ${(error as Error).message}\n`);
+    return 2;
+  }
+
+  if (opts.only !== undefined && opts.from !== undefined) {
+    process.stderr.write('--only and --from cannot be combined\n');
     return 2;
   }
 
@@ -42,6 +48,7 @@ export async function runShoot(opts: ShootCommandOptions): Promise<number> {
       width: opts.width ?? 1440,
       height: opts.height ?? 900,
       only: opts.only,
+      from: opts.from,
       projectRoot: opts.projectRoot,
     });
     process.stdout.write(`Shot ${manifest.shots.length} shot(s) into ${opts.artifactsDir}.\n`);
@@ -53,7 +60,9 @@ export async function runShoot(opts: ShootCommandOptions): Promise<number> {
     }
     if (error instanceof ShotFailedError) {
       process.stderr.write(`${error.message}\n`);
-      process.stderr.write(`Fix the script and re-run: yak-browser shoot ${opts.scriptPath} --base <url> --only ${error.shotId}\n`);
+      const isLastShot = script.shots.at(-1)?.id === error.shotId;
+      const resumeFlag = opts.only !== undefined || isLastShot ? '--only' : '--from';
+      process.stderr.write(`Fix the script and re-run: yak-browser shoot ${opts.scriptPath} --base <url> ${resumeFlag} ${error.shotId}\n`);
       return 3;
     }
     process.stderr.write(`shoot failed: ${(error as Error).message}\n`);

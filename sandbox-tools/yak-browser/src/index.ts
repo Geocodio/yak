@@ -15,11 +15,14 @@ Video v3 commands:
         with --base the selectors are dry-run in a headless page and the
         frontend assets are preflighted. --review prints the script with the
         editor checklist. Exit 2 on any lint error, 4 on an asset problem.
-  shoot <file> --base <url> [--width 1440] [--height 900] [--only <id>]
+  shoot <file> --base <url> [--width 1440] [--height 900] [--only <id> | --from <id>]
         Record one clip per shot with a synthetic cursor and eased scrolling.
         Writes shots/<id>.webm, stills/<id>.png, screenshots/<id>.png and
-        manifest.json under YAK_ARTIFACTS_DIR. Exit 3 when a shot fails twice
-        (re-run that shot with --only), 4 when the asset preflight fails.
+        manifest.json under YAK_ARTIFACTS_DIR. --only re-shoots one shot;
+        --from re-shoots a shot and every shot after it. Both merge into the
+        existing manifest. Exit 3 when a shot fails twice (the manifest keeps
+        the shots recorded so far; resume with the flag the error names), 4
+        when the asset preflight fails.
   assets check --base <url> [--project-root <dir>]
         Run the asset preflight on its own. Exit 4 when the page is unstyled,
         a stylesheet or script failed, a bundler error is on the page, or the
@@ -65,9 +68,9 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (cmd === 'shoot') {
-    const scriptPath = pickPositional(rest, ['--base', '--width', '--height', '--only', '--project-root']);
+    const scriptPath = pickPositional(rest, ['--base', '--width', '--height', '--only', '--from', '--project-root']);
     if (!scriptPath) {
-      process.stderr.write('yak-browser shoot <file> --base <url> [--width N --height N] [--only <id>]\n');
+      process.stderr.write('yak-browser shoot <file> --base <url> [--width N --height N] [--only <id> | --from <id>]\n');
       return 2;
     }
     const width = getFlag(rest, '--width') ?? process.env.YAK_VIDEO_WIDTH;
@@ -78,6 +81,7 @@ async function main(argv: string[]): Promise<number> {
       width: width ? Number(width) : undefined,
       height: height ? Number(height) : undefined,
       only: getFlag(rest, '--only'),
+      from: getFlag(rest, '--from'),
       artifactsDir: ARTIFACTS_DIR,
       projectRoot: getFlag(rest, '--project-root'),
     });
