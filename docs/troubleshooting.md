@@ -19,23 +19,47 @@ docker exec yak php artisan queue:monitor yak-claude,default,yak-render,yak-depl
 
 If the health check is green and logs are clean, the problem is usually in the external service (Slack app, Linear webhook, GitHub App installation) rather than Yak itself.
 
-## PR Review Not Posting
+## Webhooks Not Arriving
 
-Symptoms: a PR opened on a repo with `pr_review_enabled = true` but no Yak review comment appears.
+Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sentry alert) and nothing happens. No task appears on the dashboard.
 
 ### Checklist
 
-1. **GitHub webhook reaching Yak?** Check webhook delivery in GitHub App settings. `pull_request.opened` and `pull_request.review_requested` must be subscribed.
-2. **Repo active and enabled?** Go to `/repos/{id}/edit` and confirm **Active** and **PR Review** are both on.
-3. **PR a draft?** Drafts are skipped. Convert the draft to ready-for-review to trigger. Yak's own PRs are reviewed unless `YAK_PR_SELF_REVIEW_ENABLED=false`.
-4. **Task dispatched but failed?** Look in `/tasks?tab=reviews` for a failed row. Common failure modes:
-   - Sandbox checkout failure — the PR's head wasn't fetchable (force-pushed, branch deleted). Inspect the task activity log.
-   - Claude output didn't contain a valid JSON block — usually means Claude failed the review instead of producing findings. The raw output lives in the task's `result_summary`.
-5. **Path filters too aggressive?** If the PR only touches excluded paths, the review is filtered out. Check `pr_review_path_excludes` on the repo.
+1. **Is the channel actually enabled?** The webhook endpoint only exists if the channel's credentials are present in the vault and Ansible has been re-run since they were added.
 
-### Resolution
+   ```bash
+   docker exec yak php artisan route:list | grep webhooks
+   ```
 
-Manual re-run from the TaskDetail page's **Re-run review** button. If the same task keeps failing, lower the prompt's `max_findings_per_review` or check the `tasks-review` prompt at `/prompts` for custom edits.
+   Only enabled channels appear. If `/webhooks/slack` is missing, Slack is not enabled.
+
+2. **Can the external service reach your server?** Test from the internet:
+
+   ```bash
+   curl -I https://{your-domain}/webhooks/slack
+   # Expect: 200 (OK) or 401 (signature required), NOT 404 or connection refused
+   ```
+
+3. **Check Caddy / nginx logs** for the incoming request:
+
+   ```bash
+   docker exec yak tail -f /var/log/caddy/access.log
+   ```
+
+4. **Check signing secrets match.** Slack rejects with 401 if `slack_signing_secret` doesn't match the app's signing secret. Linear and Sentry do the same with their respective webhook secrets.
+
+5. **UFW rules** — port 443 must be open for inbound HTTPS:
+
+   ```bash
+   ssh root@{server} ufw status
+   ```
+
+### Per-Channel Gotchas
+
+- **Slack** — channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
+- **Linear** — the webhook must subscribe to **Agent session events** so delegation events come through, and the OAuth connection must be active; if the `linear_oauth_connections.installer_user_id` column is null, re-authorize the app from Yak's settings. The install requires workspace admin approval — a non-admin install will appear to succeed but agent session events will not arrive.
+- **Sentry** — the issue must reach the webhook *and* clear the filters: not a CSP violation, not a transient infra error, Seer actionability at least `medium`, and at least 5 events (a `yak-priority` tag bypasses the last two). Each rejection is logged to the `yak` channel with its reason — check there first. If `YAK_SENTRY_REQUIRED_TAG` is set, the event must also carry that tag key.
+- **GitHub** — the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
 
 ## Task Stuck In `running`
 
@@ -84,80 +108,17 @@ Or click **Re-run Setup** on the repo's edit page.
 
 If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target repo with the specific commands Yak got wrong. See [Repositories → CLAUDE.md](repositories.md#write-a-claudemd).
 
-## Webhooks Not Arriving
+## Agent Environment Variables Not Visible
 
-Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sentry alert) and nothing happens. No task appears on the dashboard.
+Symptoms: the agent can't find a token that the repo needs at build time (for example `npm install` fails with 401 on a private registry).
 
-### Checklist
+Sandboxes have no access to the app's environment. Only variables listed in `agent_extra_env` are forwarded. See [Setup → Agent Environment Variables](setup.md#agent-environment-variables). To check a running sandbox: `incus exec task-<id> -- printenv NODE_AUTH_TOKEN`.
 
-1. **Is the channel actually enabled?** The webhook endpoint only exists if the channel's credentials are present in the vault and Ansible has been re-run since they were added.
+## Private Docker Images Fail to Pull
 
-   ```bash
-   docker exec yak php artisan route:list | grep webhooks
-   ```
+Symptoms: setup or a task fails with `docker pull` errors like `unauthorized` or `denied: requested access to the resource is denied`.
 
-   Only enabled channels appear. If `/webhooks/slack` is missing, Slack is not enabled.
-
-2. **Can the external service reach your server?** Test from the internet:
-
-   ```bash
-   curl -I https://{your-domain}/webhooks/slack
-   # Expect: 200 (OK) or 401 (signature required), NOT 404 or connection refused
-   ```
-
-3. **Check Caddy / nginx logs** for the incoming request:
-
-   ```bash
-   docker exec yak tail -f /var/log/caddy/access.log
-   ```
-
-4. **Check signing secrets match.** Slack rejects with 401 if `slack_signing_secret` doesn't match the app's signing secret. Linear and Sentry do the same with their respective webhook secrets.
-
-5. **UFW rules** — port 443 must be open for inbound HTTPS:
-
-   ```bash
-   ssh root@{server} ufw status
-   ```
-
-### Per-Channel Gotchas
-
-- **Slack** — channel history scope is required for thread reply matching. If clarification replies don't route to the right task, verify `channels:history` is in the bot scopes.
-- **Linear** — the webhook must subscribe to **Agent session events** so delegation events come through, and the OAuth connection must be active; if the `linear_oauth_connections.installer_user_id` column is null, re-authorize the app from Yak's settings. The install requires workspace admin approval — a non-admin install will appear to succeed but agent session events will not arrive.
-- **Sentry** — the issue must reach the webhook *and* clear the filters: not a CSP violation, not a transient infra error, Seer actionability at least `medium`, and at least 5 events (a `yak-priority` tag bypasses the last two). Each rejection is logged to the `yak` channel with its reason — check there first. If `YAK_SENTRY_REQUIRED_TAG` is set, the event must also carry that tag key.
-- **GitHub** — the App must be installed on the target org and must have webhook events for `check_suite.completed` and `pull_request.closed`.
-
-## Claude CLI Errors
-
-### CLI Not Found Or Not Responding
-
-```bash
-docker exec yak claude --version
-docker exec yak claude -p "Say hello" --output-format json
-```
-
-If the first command fails, the CLI isn't installed in the container — rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic — check network connectivity.
-
-### Authentication Failures (Token Expired)
-
-Symptoms: the health check reports the Claude session as expired, and agent jobs wait in the queue.
-
-Claude Code authenticates with a login session stored in `/home/yak/.claude/`. When it expires, agent jobs wait and retry every 10 minutes for up to 6 hours, and the health check raises an alert. See [Health Check Alerts](channels.md#health-check-alerts).
-
-**Resolution:** SSH to the server and run `yak-claude-login`. Type `/login` at the prompt and finish the browser flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
-
-### MCP Server Connection Issues
-
-```bash
-docker exec yak cat /home/yak/mcp-config.json
-```
-
-This shows which MCP servers are currently configured. If a server you expect is missing, the corresponding channel isn't enabled — re-run Ansible with the channel's credentials set.
-
-If a server is configured but Claude can't reach it, check:
-
-- Network connectivity from the Yak container
-- Credentials (`GITHUB_PAT`, `LINEAR_API_KEY`, `SENTRY_AUTH_TOKEN`) are set in the container env
-- The MCP server URL is not blocked by any firewall or proxy
+Sandboxes start with no Docker credentials. Add them under `docker_registries` in the vault. See [Setup → Private Docker Registries](setup.md#private-docker-registries). To check a running sandbox: `incus exec task-<id> -- cat /home/yak/.docker/config.json`.
 
 ## CI Integration Issues
 
@@ -176,6 +137,126 @@ Retries are capped at one. After two failed attempts, the task is marked `failed
 
 - The repo's `CLAUDE.md` likely needs a rule that would have prevented the class of mistake
 - The Yak system prompt may need tuning for your team's conventions (see [Prompting → Customizing the System Prompt](prompting.md#customizing-the-system-prompt))
+
+## PR Review Not Posting
+
+Symptoms: a PR opened on a repo with `pr_review_enabled = true` but no Yak review comment appears.
+
+### Checklist
+
+1. **GitHub webhook reaching Yak?** Check webhook delivery in GitHub App settings. `pull_request.opened` and `pull_request.review_requested` must be subscribed.
+2. **Repo active and enabled?** Go to `/repos/{id}/edit` and confirm **Active** and **PR Review** are both on.
+3. **PR a draft?** Drafts are skipped. Convert the draft to ready-for-review to trigger. Yak's own PRs are reviewed unless `YAK_PR_SELF_REVIEW_ENABLED=false`.
+4. **Task dispatched but failed?** Look in `/tasks?tab=reviews` for a failed row. Common failure modes:
+   - Sandbox checkout failure — the PR's head wasn't fetchable (force-pushed, branch deleted). Inspect the task activity log.
+   - Claude output didn't contain a valid JSON block — usually means Claude failed the review instead of producing findings. The raw output lives in the task's `result_summary`.
+5. **Path filters too aggressive?** If the PR only touches excluded paths, the review is filtered out. Check `pr_review_path_excludes` on the repo.
+
+### Resolution
+
+Manual re-run from the TaskDetail page's **Re-run review** button. If the same task keeps failing, lower the prompt's `max_findings_per_review` or check the `tasks-review` prompt at `/prompts` for custom edits.
+
+## Branch deployments
+
+### A PR didn't get a preview URL
+
+Check, in order:
+
+1. Is `deployments_enabled` true on the repository row? If not, the webhook is a no-op.
+2. Did `DeployBranchJob` fail? Look at the `branch_deployments` row. If `status = failed`, `failure_reason` has the cause.
+3. Is SetupYakJob done for this repo? If `current_template_version = 0`, there is no versioned snapshot to clone from. Run setup first.
+4. Is the `yak-deployments` queue being processed? `supervisorctl status` on the Yak host.
+
+### Preview shows a loading shim that never resolves
+
+- Check the deployment detail page for the failure reason and which phase stalled.
+- Check the Incus host: is `incus list` showing the container? Is it `RUNNING` or `STOPPED`?
+- Look at the sandbox's internal logs: `incus exec deploy-<id> -- journalctl -xe` or run `docker compose logs` inside the sandbox.
+
+### Template snapshots accumulating on disk
+
+Check the hourly `deployments:gc-template-snapshots` schedule: is it running? (`php artisan schedule:list` lists it.) Any recent warnings in `storage/logs/laravel.log`?
+
+Manual cleanup of a specific version: `incus snapshot delete yak-tpl-<repo>/ready-v<n>`, but only if no `branch_deployments` row has `template_version = n`.
+
+### "At capacity" responses on a wake attempt
+
+Every running deployment was active within the last 5 minutes; eviction was refused. Either wait for someone to stop using a preview, bump `YAK_DEPLOYMENTS_RUNNING_CAP`, or `incus stop` one manually.
+
+## Walkthrough video did not appear
+
+For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.webm`), the walkthrough is produced by `RenderWalkthroughJob`, which turns a task's `shot`, `voiceover` and `script`/`manifest` artifacts into a rendered `cut`. If the PR body still shows the placeholder in the `<!-- yak:walkthrough -->` section, or the dashboard shows no video, start with these three places:
+
+1. **The health row.** The **Video Render** row surfaces failed renders in the last 24 h. A final failure also notifies the task's channel and rewrites the PR's video line to "Video walkthrough unavailable".
+2. **`failed_jobs`.** `php artisan queue:failed` lists any `RenderWalkthroughJob` (or `RenderVideoJob` for legacy tasks) that exhausted its retries, with the exception that killed it.
+3. **`video_metrics`.** Query rows with `status = 'failed'` for the task and read the `error` column — it names which render step failed.
+
+### Common causes
+
+- **`timeline.ts` failure.** The Node script that turns `manifest.json` + `script.json` into a render timeline threw before any frames were produced. Check the job's log for a `timeline.ts` stack trace.
+- **Caption overflow.** A caption in `script.json` was too long for its slide duration and the `WalkthroughV3` composition refused to render it — the fix is a shorter caption or a longer beat, not a code change.
+- **Duration outside the bounds.** The computed timeline duration fell outside the configured min/max, which usually means a script beat has an unrealistic wait or an empty shot list.
+- **The QA frame test.** `RenderQaCheck` samples frames from the finished cut and fails the render if a frame is blank, garbled, or missing captions — this catches a shoot that silently captured a blank page.
+
+### Retrying
+
+`php artisan yak:video:rerender --task=<id>` re-dispatches the render for that task without needing a fresh sandbox — it reuses the artifacts already on disk. Add `--dry-run` first to confirm it picks up the right task, or `--failed-since=<date>` to sweep every task that failed after a fix.
+
+### The walkthrough has no narration
+
+Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled. See [Video Walkthroughs](video-walkthroughs.md#voiceover). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts — a task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
+
+### `Visual capture: partial` in the task log
+
+This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills — not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.
+
+## Video theme page (`/settings/video`) preview is blank or sample render never appears
+
+If the live preview player never shows up, the page is missing its build artifact, `public/vendor/video-preview.js`; the page still saves theme changes normally, only the preview is affected. If the **Render sample video** download link never appears, `RenderThemeSampleJob` either failed or hasn't run yet: check `php artisan queue:failed` and confirm the `yak-render` worker is up. See [Video Walkthroughs → Theming](video-walkthroughs.md#theming) for the full setup, including where the built preview bundle comes from.
+
+## Claude CLI Errors
+
+### CLI Not Found Or Not Responding
+
+```bash
+docker exec yak claude --version
+docker exec yak claude -p "Say hello" --output-format json
+```
+
+If the first command fails, the CLI isn't installed in the container — rebuild the Docker image. If the second command hangs or errors, the CLI is installed but can't reach Anthropic — check network connectivity.
+
+### Authentication Failures (Token Expired)
+
+Symptoms: the health check reports the Claude session as expired, and agent jobs wait in the queue.
+
+Claude Code authenticates with a login session stored in `/home/yak/.claude/`. When it expires, agent jobs wait and retry every 10 minutes for up to 6 hours, and the health check raises an alert. See [Health Check Failures](#health-check-failures).
+
+**Resolution:** SSH to the server and run `yak-claude-login`. Type `/login` at the prompt and finish the browser flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
+
+### MCP Server Connection Issues
+
+```bash
+docker exec yak cat /home/yak/mcp-config.json
+```
+
+This shows which MCP servers are currently configured. If a server you expect is missing, the corresponding channel isn't enabled — re-run Ansible with the channel's credentials set.
+
+If a server is configured but Claude can't reach it, check:
+
+- Network connectivity from the Yak container
+- Credentials (`GITHUB_PAT`, `LINEAR_API_KEY`, `SENTRY_AUTH_TOKEN`) are set in the container env
+- The MCP server URL is not blocked by any firewall or proxy
+
+## Health Check Failures
+
+Open `https://{your-domain}/health`. The scheduler runs `yak:healthcheck` every 15 minutes, and each failing row says what to do.
+
+When a check fails, Yak posts to the Slack channel in `slack_alert_channel`. It includes the failure, the number of queued agent jobs and the re-authentication steps, and needs no extra scopes.
+
+- Each failing check alerts at most once per 24 hours, even if it flaps. A check that is still failing a day later alerts again.
+- When every check passes again, Yak posts one recovery message per alert.
+- While the Claude session is unusable, agent jobs wait in the queue and retry every 10 minutes for up to 6 hours. Re-authenticate within that window and they start on their own.
+- If Slack is not enabled, check the health page manually or monitor `/health` externally.
 
 ## High Costs
 
@@ -203,105 +284,6 @@ yak_extra_env:
 ```
 
 Then apply it with `ansible-playbook ansible/playbook.yml --tags yak-container`.
-
-## Health Check Failures
-
-The `/health` page (and the scheduled `yak:healthcheck` command) runs these checks every 15 minutes:
-
-| Check | If failing |
-|---|---|
-| **Queue worker running** | Supervisord crash — `docker restart yak` |
-| **Last task completed within N hours** | No traffic, or workers hung on a stuck task |
-| **All repos fetchable** | Git auth issue. Check that the GitHub App is installed on the repo. |
-| **Claude CLI responding** | See [Claude CLI errors](#claude-cli-errors) above |
-| **Claude CLI authenticated** | Token expired — SSH to the server and run `yak-claude-login` |
-| **Enabled channel MCP servers reachable** | Network issue or external service down |
-
-Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.
-
-## Agent Environment Variables Not Visible
-
-Symptoms: the agent can't find a token that the repo needs at build time (e.g. `npm install` fails with 401 on a private registry).
-
-### Cause
-
-Each task runs in its own Incus sandbox container. Sandboxes start from the base template snapshot and have no access to the yak app's environment. Only variables explicitly listed in `agent_extra_env` are pushed into the sandbox.
-
-### Resolution
-
-Add the token to `agent_extra_env` in your Ansible vault:
-
-```yaml
-agent_extra_env:
-  NODE_AUTH_TOKEN: "ghp_..."
-```
-
-Redeploy and re-run the affected repo's setup task — the new env vars are baked into the next snapshot.
-
-To verify the var is set inside a running sandbox:
-
-```bash
-incus exec task-<id> -- printenv NODE_AUTH_TOKEN
-```
-
-## Private Docker Images Fail to Pull
-
-Symptoms: setup or task execution fails with `docker pull` errors like `unauthorized` or `denied: requested access to the resource is denied` when the repo's `docker-compose.yml` references images from a private registry (ghcr.io, a self-hosted registry, etc.).
-
-### Cause
-
-Sandboxes start with no Docker authentication. Without credentials, the in-container Docker daemon can only pull public images. Base images shared across services typically live in private registries, so the first `docker-compose up` in setup fails and the whole snapshot never materialises.
-
-### Resolution
-
-Add registry credentials to `docker_registries` in your Ansible vault:
-
-```yaml
-docker_registries:
-  ghcr.io:
-    username: "your-github-username"
-    password: "ghp_..."            # PAT with `read:packages` scope
-  registry.example.com:
-    username: "deploy"
-    password: "..."
-```
-
-Redeploy. Ansible renders these into `~/.docker/config.json` on the host, bind-mounts the file into the Yak container, and `IncusSandboxManager` pushes it into every sandbox at `/home/yak/.docker/config.json`. `docker pull`, `docker-compose up`, and BuildKit pick it up automatically — no `docker login` call needed inside the sandbox.
-
-Re-run the affected repo's setup task so the snapshot picks up the newly-cached images.
-
-To verify the file landed inside a running sandbox:
-
-```bash
-incus exec task-<id> -- cat /home/yak/.docker/config.json
-```
-
-Credentials live on the host as `0600` and inside the sandbox as `0600` owned by `yak:yak`, so they aren't readable by other processes the agent spawns.
-
-## Emergency: Kill Everything And Restart
-
-If Yak is in a bad state and you can't figure out what's wrong:
-
-```bash
-# Stop the container gracefully (in-flight tasks finish first)
-docker stop yak
-
-# Start it again
-docker start yak
-
-# Verify
-docker exec yak php artisan yak:healthcheck
-```
-
-MariaDB runs as a separate container (`yak-mariadb`) and is unaffected by Yak container restarts. Repo clones and the Claude session token persist via mounted volumes. Nothing is lost.
-
-If supervisord itself is wedged, restart the container outright:
-
-```bash
-docker restart yak
-```
-
-This is safe — the queues are MariaDB-backed and any in-flight jobs will be retried on the next worker boot (with the caveat that tasks mid-`claude -p` session may be left in `running` and need manual reset per the earlier section).
 
 ## MariaDB Issues
 
@@ -333,32 +315,30 @@ docker start yak-mariadb
 docker exec yak php artisan migrate --force
 ```
 
-## Branch deployments
+## Emergency: Kill Everything And Restart
 
-### A PR didn't get a preview URL
+If Yak is in a bad state and you can't figure out what's wrong:
 
-Check, in order:
+```bash
+# Stop the container gracefully (in-flight tasks finish first)
+docker stop yak
 
-1. Is `deployments_enabled` true on the repository row? If not, the webhook is a no-op.
-2. Did `DeployBranchJob` fail? Look at the `branch_deployments` row. If `status = failed`, `failure_reason` has the cause.
-3. Is SetupYakJob done for this repo? If `current_template_version = 0`, there is no versioned snapshot to clone from. Run setup first.
-4. Is the `yak-deployments` queue being processed? `supervisorctl status` on the Yak host.
+# Start it again
+docker start yak
 
-### Preview shows a loading shim that never resolves
+# Verify
+docker exec yak php artisan yak:healthcheck
+```
 
-- Check the deployment detail page for the failure reason and which phase stalled.
-- Check the Incus host: is `incus list` showing the container? Is it `RUNNING` or `STOPPED`?
-- Look at the sandbox's internal logs: `incus exec deploy-<id> -- journalctl -xe` or run `docker compose logs` inside the sandbox.
+MariaDB runs as a separate container (`yak-mariadb`) and is unaffected by Yak container restarts. Repo clones and the Claude session token persist via mounted volumes. Nothing is lost.
 
-### Template snapshots accumulating on disk
+If supervisord itself is wedged, restart the container outright:
 
-Check the hourly `deployments:gc-template-snapshots` schedule: is it running? (`php artisan schedule:list` lists it.) Any recent warnings in `storage/logs/laravel.log`?
+```bash
+docker restart yak
+```
 
-Manual cleanup of a specific version: `incus snapshot delete yak-tpl-<repo>/ready-v<n>`, but only if no `branch_deployments` row has `template_version = n`.
-
-### "At capacity" responses on a wake attempt
-
-Every running deployment was active within the last 5 minutes; eviction was refused. Either wait for someone to stop using a preview, bump `YAK_DEPLOYMENTS_RUNNING_CAP`, or `incus stop` one manually.
+This is safe — the queues are MariaDB-backed and any in-flight jobs will be retried on the next worker boot (with the caveat that tasks mid-`claude -p` session may be left in `running` and need attention per [Task stuck in running](#task-stuck-in-running)).
 
 ## Collecting Diagnostics For A Bug Report
 
@@ -379,38 +359,3 @@ docker logs yak --tail 500 > yak.log
 ```
 
 File at `https://github.com/geocodio/yak/issues/new/choose` — include the version, health output, the task ID, and which channel was involved.
-
-## Walkthrough videos are raw webm instead of the rendered cut
-
-The health page's **Video Render** row shows failed renders in the last 24 h, and a final failure also notifies the task's channel and rewrites the PR's video line to "_Video walkthrough unavailable_". To inspect: `php artisan queue:failed`, or query `video_metrics` where `status = 'failed'`. The historical cause (Aug 2026) was a root-owned `/app/video` tree with a `www-data` worker; renders now stage under `storage/app/private/render` (`YAK_VIDEO_RENDER_STAGING_PATH`), the image bakes Remotion's browser at build time (`npx remotion browser ensure`), and `node_modules/.remotion` and `node_modules/.cache` under `video/` are chowned to `www-data`. After fixing a cause, re-run the affected renders with `php artisan yak:video:rerender --failed-since=2026-08-12`.
-
-## Walkthrough video did not appear
-
-For a v3 task (one with a `manifest` artifact rather than a bare `walkthrough.webm`), the walkthrough is produced by `RenderWalkthroughJob`, which turns a task's `shot`, `voiceover` and `script`/`manifest` artifacts into a rendered `cut`. If the PR body still shows the placeholder in the `<!-- yak:walkthrough -->` section, or the dashboard shows no video, start with these two places:
-
-1. **The health row.** The dashboard's **Video Render** row surfaces failed renders in the last 24 h.
-2. **`failed_jobs`.** `php artisan queue:failed` lists any `RenderWalkthroughJob` (or `RenderVideoJob` for legacy tasks) that exhausted its retries, with the exception that killed it.
-3. **`video_metrics`.** Query rows with `status = 'failed'` for the task and read the `error` column — it names which render step failed.
-
-### Common causes
-
-- **`timeline.ts` failure.** The Node script that turns `manifest.json` + `script.json` into a render timeline threw before any frames were produced. Check the job's log for a `timeline.ts` stack trace.
-- **Caption overflow.** A caption in `script.json` was too long for its slide duration and the `WalkthroughV3` composition refused to render it — the fix is a shorter caption or a longer beat, not a code change.
-- **Duration outside the bounds.** The computed timeline duration fell outside the configured min/max, which usually means a script beat has an unrealistic wait or an empty shot list.
-- **The QA frame test.** `RenderQaCheck` samples frames from the finished cut and fails the render if a frame is blank, garbled, or missing captions — this catches a shoot that silently captured a blank page.
-
-### Retrying
-
-`php artisan yak:video:rerender --task=<id>` re-dispatches the render for that task without needing a fresh sandbox — it reuses the artifacts already on disk. Add `--dry-run` first to confirm it picks up the right task, or `--failed-since=<date>` to sweep every task that failed after a fix.
-
-### The walkthrough has no narration
-
-Check the health page's **Voiceover** row. `Off (no ELEVENLABS_API_KEY)` means voiceover was never enabled. See [Video Walkthroughs](video-walkthroughs.md#voiceover). An error row shows the last ElevenLabs failure (a 401 is a bad or expired key; a 429 is a quota). Failures are deliberately silent for the render: the cut goes out captions-only rather than not at all. Look for `VoiceoverGenerator` warnings in the `yak` log channel, and check the task's `voiceover` artifacts — a task that already has them is never regenerated, so delete those rows and re-run `yak:video:rerender` to retry.
-
-### `Visual capture: partial` in the task log
-
-This line means the **shoot** step (`yak-browser shoot` running inside the sandbox) failed to capture some shots, screenshots, or stills — not that the render failed. The render can only work with what the shoot produced, so a partial capture either yields a shorter cut or fails the QA gate above. Look at the sandbox's shoot log for the underlying page/navigation error before touching the render pipeline.
-
-## Video theme page (`/settings/video`) preview is blank or sample render never appears
-
-If the live preview player never shows up, the page is missing its build artifact, `public/vendor/video-preview.js`; the page still saves theme changes normally, only the preview is affected. If the **Render sample video** download link never appears, `RenderThemeSampleJob` either failed or hasn't run yet: check `php artisan queue:failed` and confirm the `yak-render` worker is up. See [Video Walkthroughs → Theming](video-walkthroughs.md#theming) for the full setup, including where the built preview bundle comes from.

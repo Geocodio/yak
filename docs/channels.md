@@ -188,11 +188,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 
 ### Health Check Alerts
 
-The scheduler runs `yak:healthcheck` every 15 minutes. When a check fails, such as an expired Claude session, Yak posts the failure, the number of queued agent jobs, and the re-authentication steps to the channel in `slack_alert_channel`. It uses the same bot token, so no extra scopes or credentials are needed.
-
-- Each failing check alerts at most once per 24 hours, even if it flaps. A check that is still failing a day later alerts again as a reminder.
-- When every check passes again, Yak posts one recovery message per alert.
-- While the Claude session is unusable, agent jobs wait in the queue and retry every 10 minutes for up to 6 hours. Re-authenticate within that window and they start on their own.
+With `slack_alert_channel` set, failed health checks post to that channel. See [Troubleshooting → Health Check Failures](troubleshooting.md#health-check-failures).
 
 ### Usage
 
