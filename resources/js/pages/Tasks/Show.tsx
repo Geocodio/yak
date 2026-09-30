@@ -97,6 +97,7 @@ export default function Show({
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [composerFill, setComposerFill] = useState<string | null>(null);
     const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+    const walkthroughCloseRef = useRef<HTMLButtonElement>(null);
     const [tab, setTab] = useState<TaskTab>(() => {
         const value = new URLSearchParams(window.location.search).get('tab');
         return value === 'activity' || value === 'details' ? value : transcriptLogId !== null ? 'activity' : 'overview';
@@ -326,11 +327,18 @@ export default function Show({
                     onOpenChange={setWalkthroughOpen}
                     title="Walkthrough"
                     hideTitle
-                    width="w-[calc(100vw-2rem)]"
-                    className="h-[calc(100dvh-2rem)] max-w-none overflow-hidden p-4"
+                    width="w-[calc(100vw-2rem)] lg:w-auto"
+                    className="max-w-[calc(100vw-2rem)] overflow-hidden p-0"
+                    initialFocus={walkthroughCloseRef}
                     data-testid="walkthrough-dialog"
                 >
-                    <VideoPlayer videoUrl={walkthrough.videoUrl} chapters={walkthrough.chapters ?? []} />
+                    <VideoPlayer
+                        videoUrl={walkthrough.videoUrl}
+                        chapters={walkthrough.chapters ?? []}
+                        title={task.headline}
+                        onClose={() => setWalkthroughOpen(false)}
+                        closeRef={walkthroughCloseRef}
+                    />
                 </Dialog>
             )}
         </>

@@ -5,6 +5,7 @@ use App\Models\Artifact;
 use App\Models\PrReview;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Storage;
 
 test('shadow approval is displayed as a comment with its risk assessment', function () {
     $this->actingAs(User::factory()->create());
@@ -81,4 +82,35 @@ test('a poll does not reload the open walkthrough video', function () {
 
     expect($page->script('document.querySelector("[data-testid=walkthrough-player] video").getAttribute("src")'))
         ->toBe($sourceBeforePoll);
+});
+
+test('the walkthrough dialog wraps the video with the chapters beside it', function () {
+    Storage::fake('artifacts');
+    Storage::disk('artifacts')->put('chapters.json', json_encode([
+        ['title' => 'Overview', 'startSeconds' => 12],
+        ['title' => 'Export', 'startSeconds' => 75],
+    ]));
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->running()->create(['description' => 'Usage page fields count as lookups', 'description_summary' => null]);
+    Artifact::factory()->videoCut()->create(['yak_task_id' => $task->id]);
+    Artifact::factory()->create(['yak_task_id' => $task->id, 'type' => 'video_chapters', 'role' => 'chapters', 'filename' => 'chapters.json', 'disk_path' => 'chapters.json']);
+
+    $page = visit(route('tasks.show', $task))
+        ->click('@walkthrough-poster')
+        ->assertSeeIn('[data-testid="walkthrough-title"]', 'Usage page fields count as lookups')
+        ->assertVisible('[data-testid="walkthrough-chapter-1"]');
+
+    /** @var array{dialogBottom: float, cutTop: float, cutBottom: float, chaptersTop: float} $rects */
+    $rects = $page->script('(() => {'
+        . 'const dialog = document.querySelector(\'[data-testid="walkthrough-dialog"]\').getBoundingClientRect();'
+        . 'const cut = document.querySelector(\'[data-testid="walkthrough-cut"]\').getBoundingClientRect();'
+        . 'const chapters = document.querySelector(\'[data-testid="walkthrough-chapters"]\').closest("aside").getBoundingClientRect();'
+        . 'return { dialogBottom: dialog.bottom, cutTop: cut.top, cutBottom: cut.bottom, chaptersTop: chapters.top };'
+        . '})()');
+
+    expect($rects['dialogBottom'] - $rects['cutBottom'])->toBeLessThan(24)
+        ->and(abs($rects['chaptersTop'] - $rects['cutTop']))->toBeLessThan(2);
+
+    $page->click('[data-testid="walkthrough-close"]')
+        ->assertMissing('[data-testid="walkthrough-dialog"]');
 });
