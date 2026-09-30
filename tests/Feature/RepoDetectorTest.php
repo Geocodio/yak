@@ -87,14 +87,14 @@ test('explicit mention takes priority over sentry mapping', function (): void {
         ->and($result->repositories->first()->slug)->toBe('frontend');
 });
 
-test('default repo fallback for non-slack channels', function (): void {
+test('default repo fallback for channels that cannot ask', function (): void {
     Repository::factory()->create(['slug' => 'app-one']);
     Repository::factory()->default()->create(['slug' => 'app-two']);
 
     $description = new TaskDescription(
         title: 'Fix issue',
         body: 'Fix issue in Linear',
-        channel: 'linear',
+        channel: 'sentry',
         externalId: 'LIN-123',
     );
 
@@ -189,6 +189,24 @@ test('slack low-confidence triggers clarification with multiple active repos', f
         body: 'Fix the thing',
         channel: 'slack',
         externalId: 'SLACK-20260411-1',
+    );
+
+    $result = $this->detector->detect($description);
+
+    expect($result->resolved)->toBeFalse()
+        ->and($result->needsClarification)->toBeTrue()
+        ->and($result->options)->toHaveCount(2);
+});
+
+test('linear low-confidence triggers clarification with multiple active repos', function (): void {
+    Repository::factory()->create(['slug' => 'app']);
+    Repository::factory()->default()->create(['slug' => 'api']);
+
+    $description = new TaskDescription(
+        title: 'Fix something',
+        body: 'Fix the thing',
+        channel: 'linear',
+        externalId: 'LIN-1',
     );
 
     $result = $this->detector->detect($description);

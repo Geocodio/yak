@@ -14,6 +14,7 @@ use App\Exceptions\ClaudeAuthException;
 use App\Exceptions\ExternalBranchPushException;
 use App\GitOperations;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\EnsureDailyBudget;
@@ -43,6 +44,7 @@ use Illuminate\Support\Facades\Log;
 class RunFollowUpJob implements ShouldQueue
 {
     use HandlesAgentJobFailure;
+    use NotifiesSourceOfFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
     use RetriesWithoutStaleSession;
@@ -172,12 +174,6 @@ class RunFollowUpJob implements ShouldQueue
             Log::error('RunFollowUpJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-
-            // The failure reply already went to the summoning thread; a second
-            // error notification would comment on the PR again.
-            if (! $this->task->targets_external_pr) {
-                SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
-            }
         } catch (\Throwable $e) {
             Log::error('RunFollowUpJob failed', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $recorder->failed($e);
@@ -359,6 +355,12 @@ class RunFollowUpJob implements ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Follow-up failed', ['error' => $errorMessage]);
+
+        // The failure reply goes to the summoning thread for an external PR;
+        // a second error notification would comment on the PR again.
+        if (! $this->task->targets_external_pr) {
+            $this->notifySourceOfFailure($errorMessage);
+        }
 
         if ($this->task->targets_external_pr) {
             try {

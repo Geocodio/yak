@@ -32,7 +32,7 @@ it('falls back when the agent throws', function () {
 
     $result = YakPersonality::generate(NotificationType::Retry, 'CI failed');
 
-    expect($result)->toBe('Retrying — CI failed 🔄');
+    expect($result)->toBe('Retrying, CI failed 🔄');
 });
 
 it('falls back when the agent returns empty text', function () {
@@ -83,7 +83,7 @@ it('provides correct fallbacks for all notification types', function () {
         ->toBe('PR created ✅');
 
     expect(YakPersonality::generate(NotificationType::Retry, 'test'))
-        ->toBe('Retrying — test 🔄');
+        ->toBe('Retrying, test 🔄');
 
     expect(YakPersonality::generate(NotificationType::Error, 'Oops'))
         ->toBe('Oops 🚨');

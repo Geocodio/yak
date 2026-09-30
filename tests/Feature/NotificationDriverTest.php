@@ -354,7 +354,7 @@ it('Slack: all notifications include dashboard link', function () {
 |--------------------------------------------------------------------------
 */
 
-it('Linear: posts acknowledgment comment with dashboard link', function () {
+it('Linear: posts acknowledgment comment without a duplicate dashboard link', function () {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
     LinearOauthConnection::factory()->create();
 
@@ -367,7 +367,11 @@ it('Linear: posts acknowledgment comment with dashboard link', function () {
     (new LinearNotificationDriver)->send($task, NotificationType::Acknowledgment, 'Horns down — trotting over to this issue! 🐃');
 
     assertLinearActivity('Horns down');
-    assertLinearActivity("/tasks/{$task->id}");
+
+    Http::assertNotSent(fn ($request): bool => str_contains(
+        (string) ($request['variables']['input']['content']['body'] ?? ''),
+        'View on Dashboard',
+    ));
 });
 
 it('Linear: posts result comment with PR link', function () {

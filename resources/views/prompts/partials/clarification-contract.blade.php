@@ -12,3 +12,4 @@ If you cannot make progress on this task, you MUST emit `clarificationNeeded: tr
 Do NOT commit placeholder or best-guess code when you should be asking. An answered question is a better outcome than a speculative PR.
 
 If the task is a pure question with a short factual answer, answer in prose in your final summary and do not commit code — the pipeline will treat that as a successful answer.
+@include('prompts.partials.wrong-repository')

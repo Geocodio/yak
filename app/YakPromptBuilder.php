@@ -65,14 +65,37 @@ class YakPromptBuilder
             return self::reviewPrompt($metadata);
         }
 
+        $otherRepositories = self::otherRepositories($task);
+
         return match ($task->source) {
-            'sentry' => self::sentryFixPrompt($metadata),
-            'flaky-test' => self::flakyTestPrompt($metadata),
-            'linear' => self::linearFixPrompt($metadata, $task->description ?? ''),
+            'sentry' => self::sentryFixPrompt($metadata, $otherRepositories),
+            'flaky-test' => self::flakyTestPrompt($metadata, $otherRepositories),
+            'linear' => self::linearFixPrompt($metadata, $task->description ?? '', $otherRepositories),
             'research' => self::researchPrompt($task->description ?? ''),
-            'slack' => self::slackFixPrompt($task->description ?? '', $metadata),
-            default => self::slackFixPrompt($task->description ?? '', $metadata),
+            'slack' => self::slackFixPrompt($task->description ?? '', $metadata, $otherRepositories),
+            default => self::slackFixPrompt($task->description ?? '', $metadata, $otherRepositories),
         };
+    }
+
+    /**
+     * The other active repositories, offered to the agent so it can name the
+     * right one when the checkout it was given is not where the change lives.
+     *
+     * @return list<array{slug: string, description: string}>
+     */
+    private static function otherRepositories(YakTask $task): array
+    {
+        return array_values(
+            Repository::where('is_active', true)
+                ->where('slug', '!=', $task->repo)
+                ->orderBy('slug')
+                ->get()
+                ->map(fn (Repository $repository): array => [
+                    'slug' => $repository->slug,
+                    'description' => trim((string) $repository->description),
+                ])
+                ->all(),
+        );
     }
 
     /**
@@ -88,10 +111,11 @@ class YakPromptBuilder
     /**
      * Build a clarification reply prompt.
      */
-    public static function clarificationReplyPrompt(string $chosenOption): string
+    public static function clarificationReplyPrompt(string $chosenOption, ?YakTask $task = null): string
     {
         return Prompts::render('tasks-clarification-reply', [
             'chosenOption' => $chosenOption,
+            'otherRepositories' => $task !== null ? self::otherRepositories($task) : [],
         ]);
     }
 
@@ -122,6 +146,7 @@ class YakPromptBuilder
             'taskDescription' => (string) $task->description,
             'previousSummary' => (string) ($task->result_summary ?? ''),
             'failureOutput' => $failureOutput,
+            'otherRepositories' => self::otherRepositories($task),
         ]);
     }
 
@@ -146,8 +171,9 @@ class YakPromptBuilder
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<array{slug: string, description: string}>  $otherRepositories
      */
-    private static function sentryFixPrompt(array $metadata): string
+    private static function sentryFixPrompt(array $metadata, array $otherRepositories = []): string
     {
         return Prompts::render('tasks-sentry-fix', [
             'error' => (string) ($metadata['error'] ?? ''),
@@ -155,17 +181,20 @@ class YakPromptBuilder
             'stacktrace' => (string) ($metadata['stacktrace'] ?? ''),
             'context' => (string) ($metadata['context'] ?? ''),
             'instructions' => (string) ($metadata['instructions'] ?? 'Investigate the root cause and fix the error.'),
+            'otherRepositories' => $otherRepositories,
         ]);
     }
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<array{slug: string, description: string}>  $otherRepositories
      */
-    private static function flakyTestPrompt(array $metadata): string
+    private static function flakyTestPrompt(array $metadata, array $otherRepositories = []): string
     {
         return Prompts::render('tasks-flaky-test', [
             'tests' => self::flakyTestEntries($metadata),
             'commitSha' => (string) ($metadata['commit_sha'] ?? ''),
+            'otherRepositories' => $otherRepositories,
         ]);
     }
 
@@ -221,8 +250,9 @@ class YakPromptBuilder
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<array{slug: string, description: string}>  $otherRepositories
      */
-    private static function linearFixPrompt(array $metadata, string $fallbackBody = ''): string
+    private static function linearFixPrompt(array $metadata, string $fallbackBody = '', array $otherRepositories = []): string
     {
         $title = (string) ($metadata['title'] ?? '');
         $description = (string) ($metadata['description'] ?? '');
@@ -241,6 +271,7 @@ class YakPromptBuilder
             'identifier' => (string) ($metadata['linear_issue_identifier'] ?? ''),
             'url' => (string) ($metadata['linear_issue_url'] ?? ''),
             'instructions' => (string) ($metadata['instructions'] ?? 'Investigate and fix the issue.'),
+            'otherRepositories' => $otherRepositories,
         ]);
     }
 
@@ -277,12 +308,14 @@ class YakPromptBuilder
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<array{slug: string, description: string}>  $otherRepositories
      */
-    private static function slackFixPrompt(string $description, array $metadata): string
+    private static function slackFixPrompt(string $description, array $metadata, array $otherRepositories = []): string
     {
         return Prompts::render('tasks-slack-fix', [
             'description' => $description,
             'requesterName' => (string) ($metadata['requester_name'] ?? 'a team member'),
+            'otherRepositories' => $otherRepositories,
         ]);
     }
 }

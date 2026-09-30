@@ -1,11 +1,17 @@
 <?php
 
+use App\Enums\NotificationType;
+use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunFollowUpJob;
+use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
+use App\Models\Repository;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 
 // Reuse helpers defined in WebhookTest.php (same test suite, loaded by Pest autoloader)
@@ -170,4 +176,91 @@ it('records the Linear actor name as the follow-up author when present', functio
     ], $this->secret)->assertSuccessful();
 
     expect(YakTask::where('parent_task_id', $task->id)->first()->author_name)->toBe('Mathias');
+});
+
+// --- Reply to a repo question ---
+
+it('resolves the repo from a numeric reply and dispatches RunYakJob', function (): void {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/api']);
+    Repository::factory()->create(['slug' => 'acme/billing']);
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-repo',
+        'repo' => 'unknown',
+        'session_id' => null,
+        'status' => TaskStatus::AwaitingClarification,
+        'clarification_options' => ['acme/api', 'acme/billing'],
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-repo'],
+        'agentActivity' => ['content' => ['body' => '2']],
+    ], $this->secret)->assertSuccessful();
+
+    $task->refresh();
+    expect($task->repo)->toBe('acme/billing')
+        ->and($task->status)->toBe(TaskStatus::Pending);
+
+    Queue::assertPushed(RunYakJob::class);
+    Queue::assertNotPushed(ClarificationReplyJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Progress
+        && $job->message === 'Working in acme/billing now.');
+});
+
+it('lists the options again when the reply does not match a repo', function (): void {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/api']);
+    Repository::factory()->create(['slug' => 'acme/billing']);
+
+    $task = YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-repo2',
+        'repo' => 'unknown',
+        'session_id' => null,
+        'status' => TaskStatus::AwaitingClarification,
+        'clarification_options' => ['acme/api', 'acme/billing'],
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-repo2'],
+        'agentActivity' => ['content' => ['body' => '7']],
+    ], $this->secret)->assertSuccessful();
+
+    expect($task->refresh()->repo)->toBe('unknown');
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Clarification
+        && str_contains($job->message, "1. acme/api\n2. acme/billing"));
+});
+
+it('still routes a mid-run clarification reply to ClarificationReplyJob', function (): void {
+    Bus::fake();
+
+    YakTask::factory()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-mid',
+        'repo' => 'acme/api',
+        'session_id' => 'claude-session',
+        'status' => TaskStatus::AwaitingClarification,
+        'clarification_options' => ['A', 'B'],
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-mid'],
+        'agentActivity' => ['content' => ['body' => '2']],
+    ], $this->secret)->assertSuccessful();
+
+    Bus::assertDispatched(ClarificationReplyJob::class);
 });

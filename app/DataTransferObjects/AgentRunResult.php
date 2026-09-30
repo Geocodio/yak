@@ -24,6 +24,9 @@ final readonly class AgentRunResult
         public int $permissionDenials = 0,
         public bool $synthesized = false,
         public bool $staleSessionRetry = false,
+        public bool $wrongRepository = false,
+        public ?string $wrongRepositoryReason = null,
+        public ?string $suggestedRepository = null,
     ) {}
 
     public function withStderr(string $stderr): self

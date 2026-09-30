@@ -24,9 +24,7 @@ class NotificationDriver implements NotificationDriverContract
 
         $sessionId = (string) $task->linear_agent_session_id;
         if ($sessionId !== '') {
-            $dashboardLink = $this->taskDashboardLink($task);
-            $body = "{$message}\n\n[View on Dashboard]({$dashboardLink})";
-            $this->sendAgentActivity($accessToken, $sessionId, $this->activityTypeForTask($task, $type), $body);
+            $this->sendAgentActivity($accessToken, $sessionId, $this->activityTypeForTask($task, $type), $message);
 
             $stage = SessionPlanStage::forTask($task, $type);
             if ($stage !== null) {
@@ -273,6 +271,12 @@ class NotificationDriver implements NotificationDriverContract
             return;
         }
 
+        // A task with a pull request stays in review until a human merges
+        // it, so a Result notice must not move it to Done.
+        if ($type === NotificationType::Result && $task->pr_url !== null) {
+            return;
+        }
+
         $stateId = (string) config("yak.channels.linear.{$stateConfigKey}");
         if ($stateId === '') {
             return;
@@ -325,7 +329,7 @@ class NotificationDriver implements NotificationDriverContract
      * UUID in context metadata; fall back to external_id if for some
      * reason context is empty.
      */
-    private function resolveLinearIssueId(YakTask $task): string
+    public function resolveLinearIssueId(YakTask $task): string
     {
         $context = json_decode((string) $task->context, true);
         if (is_array($context) && ! empty($context['linear_issue_id'])) {

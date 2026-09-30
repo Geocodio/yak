@@ -284,8 +284,9 @@ Assign any Linear issue to **Yak**. For research-only tasks, either (a) include 
 
 Delegation opens an agent session on the issue. Yak immediately posts an acknowledgement activity, then emits progress updates as it works. When the run finishes:
 
-- **Fix tasks** — Yak posts a `response` activity linking to the pull request and moves the issue to the configured "In review" (CI green, PR opened) or "Done" state.
-- **Research tasks** — Yak posts the findings and moves the issue to "Done".
+- **Fix tasks** — Yak posts a `response` activity linking to the pull request and moves the issue to the team's review state (see [Issue State Management](#issue-state-management)).
+- **Research tasks** — Yak posts the findings and moves the issue to "Done" when a done state is configured.
+- **Wrong repository** — when routing is unsure, or the agent finds the request belongs to another repository, Yak asks in the session which repo to work in and lists the options. Reply with a number or a repo name and Yak restarts the task there.
 - **Failures** — Yak posts an `error` activity explaining what went wrong; the issue state is left alone.
 
 Follow-up messages inside the agent session are supported. Once a PR is open, commenting in the session is routed as feedback: Yak resumes the original session, applies your message, and pushes follow-up commits to the same branch (see [Follow-ups](#follow-ups-2) below). If the PR has already merged or closed, Yak declines politely and points you at a fresh issue.
@@ -317,12 +318,14 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 
 | Event | Issue state |
 |---|---|
-| Task picked up | → **In Progress / Started** |
-| PR created (CI green) | → **In Review** |
-| Research completed | → **Done** |
+| Task picked up | → **In Progress** |
+| PR opened (CI green) | → **In Review** |
+| Research completed, or answered without a PR | → **Done** (only when `linear_done_state_id` is set) |
 | Task failed | remains In Progress with a failure activity |
 
-The picked-up → started transition is automatic: Yak queries the issue's team's workflow states and moves the issue to the leftmost `started`-type state (workflow states are per-team in Linear, so there is no single workspace-wide UUID). It can be disabled per connection with the "Move issues to In Progress when Yak picks them up" toggle on the Linear settings page, or overridden with a specific state UUID via `linear_started_state_id` (`YAK_LINEAR_STARTED_STATE_ID`) in `ansible/vault/secrets.yml`. If discovery finds no `started`-type state, the transition is skipped and the issue stays in its current state until the PR is opened. The remaining state UUIDs are configured via `linear_done_state_id`, `linear_cancelled_state_id`, and `linear_in_review_state_id`.
+**Automatic states.** With the "Move issues to In Progress and In Review" toggle on (Settings, Linear), no configuration is needed. Workflow states are per team in Linear, so Yak looks them up on the issue's team. On pickup it moves the issue to the team's leftmost `started`-type state. When it opens a pull request it moves the issue to the team's leftmost `started`-type state whose name contains "review" (case-insensitive). Linear fixes the state types but not their names, so a team whose review state has no "review" in its name should set an explicit id. If the team has no matching state, the issue is left where it is.
+
+**Explicit states.** `linear_started_state_id` (`YAK_LINEAR_STARTED_STATE_ID`) and `linear_in_review_state_id` (`YAK_LINEAR_IN_REVIEW_STATE_ID`) take precedence over the automatic lookup. `linear_done_state_id` and `linear_cancelled_state_id` have no automatic fallback and only apply when set. A task with a pull request is never moved to Done by Yak, since a person still has to review and merge it. Configure the state UUIDs in `ansible/vault/secrets.yml`.
 
 ### Gotchas
 

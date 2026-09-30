@@ -50,7 +50,9 @@ class SendNotificationJob implements ShouldQueue
                 return;
             }
 
-            $personalizedMessage = YakPersonality::generate($this->type, $this->message);
+            $personalizedMessage = $this->keepNumberedOptions(
+                YakPersonality::generate($this->type, $this->message),
+            );
 
             Telemetry::time('notification.sent', fn () => $driver->send($this->task, $this->type, $personalizedMessage), [
                 'type' => $this->type->value,
@@ -60,6 +62,34 @@ class SendNotificationJob implements ShouldQueue
         } finally {
             TaskContext::clear();
         }
+    }
+
+    /**
+     * Channels without buttons rely on the numbered option lines in a
+     * clarification message. When the personality rewrite dropped or
+     * reworded any of them, the original lines are appended so the user
+     * can still reply with a number.
+     */
+    private function keepNumberedOptions(string $personalizedMessage): string
+    {
+        if ($this->type !== NotificationType::Clarification) {
+            return $personalizedMessage;
+        }
+
+        if (preg_match_all('/^\d+\. .+$/m', $this->message, $matches) < 1) {
+            return $personalizedMessage;
+        }
+
+        $missing = array_filter(
+            $matches[0],
+            fn (string $line): bool => ! str_contains($personalizedMessage, $line),
+        );
+
+        if ($missing === []) {
+            return $personalizedMessage;
+        }
+
+        return rtrim($personalizedMessage) . "\n\n" . implode("\n", $matches[0]);
     }
 
     private function resolveDriver(ChannelRegistry $registry): ?NotificationDriver

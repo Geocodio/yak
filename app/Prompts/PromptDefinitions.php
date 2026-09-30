@@ -191,6 +191,14 @@ class PromptDefinitions
                 'type' => 'utility',
                 'variables' => [],
             ],
+            'partials-wrong-repository' => [
+                'view' => 'prompts.partials.wrong-repository',
+                'label' => 'Partial: Wrong Repository',
+                'description' => 'Shared partial pulled into task prompts via @include. Tells Claude how to report that the checkout it was given is not where the request lives, and lists the other repositories it can suggest. Renders nothing when there is no other repository.',
+                'category' => 'advanced',
+                'type' => 'utility',
+                'variables' => ['otherRepositories'],
+            ],
         ];
     }
 

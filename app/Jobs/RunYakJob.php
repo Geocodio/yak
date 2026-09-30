@@ -12,6 +12,8 @@ use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\HandlesWrongRepository;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -39,6 +41,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
     use HandlesAgentJobFailure;
+    use HandlesWrongRepository;
+    use NotifiesSourceOfFailure;
     use Queueable;
 
     // Agent sessions involving browser capture, docker-compose warmup,
@@ -136,6 +140,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 ]);
 
                 TaskLogger::error($this->task, 'Task failed — repo not resolved', ['repo' => $this->task->repo]);
+
+                $this->notifySourceOfFailure($message);
             }
 
             return;
@@ -215,6 +221,10 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
             TaskLogger::info($this->task, 'Assessment complete');
 
+            if ($result->wrongRepository && $this->handleWrongRepository($repository, $result)) {
+                return;
+            }
+
             if ($result->clarificationNeeded) {
                 $this->handleClarification($result);
 
@@ -241,7 +251,6 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('RunYakJob failed', [
                 'task_id' => $this->task->id,
@@ -471,5 +480,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         ]);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
+
+        $this->notifySourceOfFailure($errorMessage);
     }
 }

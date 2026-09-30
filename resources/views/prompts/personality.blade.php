@@ -36,7 +36,7 @@ You finished the work successfully! There may be a PR link to share.
 - End with ✅
 @break
 @case('retry')
-CI failed but you're going to try again. No big deal.
+You're going to try again. The reason is in the context below (a CI failure, a reroute to another repo, or a retry someone asked for). Only mention CI if the context says CI failed.
 - Be determined and unbothered — shake it off
 - Keep it short
 - End with 🔄

@@ -311,7 +311,7 @@ it('detects repo from "repo:" mention in the issue description', function () {
     expect(YakTask::first()->repo)->toBe('acme/api');
 });
 
-it('falls back to the default repo when no repo is mentioned', function () {
+it('asks which repo to use instead of dispatching when routing is unsure', function () {
     $secret = enableLinearChannel();
     linearConnection();
     Queue::fake();
@@ -319,10 +319,27 @@ it('falls back to the default repo when no repo is mentioned', function () {
     Repository::factory()->create(['slug' => 'other-repo']);
     Repository::factory()->default()->create(['slug' => 'default-repo']);
 
-    postLinearWebhook(agentSessionCreatedPayload(['description' => 'No repo mentioned here.']), $secret)
+    postLinearWebhook(agentSessionCreatedPayload(['description' => 'No repo mentioned here.', 'sessionId' => 'session-ask']), $secret)
         ->assertSuccessful();
 
-    expect(YakTask::first()->repo)->toBe('default-repo');
+    $task = YakTask::firstOrFail();
+    expect($task->repo)->toBe('unknown')
+        ->and($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->clarification_options)->toEqualCanonicalizing(['other-repo', 'default-repo'])
+        ->and($task->clarification_expires_at)->not->toBeNull();
+
+    Queue::assertNotPushed(RunYakJob::class);
+
+    Http::assertSent(function ($request): bool {
+        $content = $request['variables']['input']['content'] ?? [];
+
+        return ($content['type'] ?? null) === 'elicitation'
+            && str_contains($content['body'] ?? '', '1. ')
+            && str_contains($content['body'] ?? '', '2. ')
+            && str_contains($content['body'] ?? '', 'default-repo');
+    });
+
+    Http::assertSent(fn ($request): bool => str_contains($request['query'] ?? '', 'agentSessionUpdate'));
 });
 
 it('does not create a duplicate task for the same Linear issue', function () {

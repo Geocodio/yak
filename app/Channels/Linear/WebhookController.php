@@ -12,10 +12,12 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
+use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
 use App\Services\TaskLogger;
 use App\Services\YakPersonality;
@@ -196,6 +198,11 @@ class WebhookController extends Controller
             ? $detection->firstRepository()->slug
             : ($description->repository ?? 'unknown');
 
+        /** @var list<string> $repoOptions */
+        $repoOptions = $detection->needsClarification
+            ? $detection->options->pluck('slug')->values()->all()
+            : [];
+
         $task = YakTask::create([
             'source' => 'linear',
             'repo' => $repoSlug,
@@ -204,6 +211,11 @@ class WebhookController extends Controller
             'description' => $description->body,
             'mode' => $description->metadata['mode'] ?? 'fix',
             'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? null,
+            ...($detection->needsClarification ? [
+                'status' => TaskStatus::AwaitingClarification,
+                'clarification_options' => $repoOptions,
+                'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
+            ] : []),
             'context' => json_encode([
                 'title' => $description->metadata['title'] ?? '',
                 'description' => $description->metadata['description'] ?? '',
@@ -215,6 +227,10 @@ class WebhookController extends Controller
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'linear', 'repo' => $repoSlug]);
+
+        if ($detection->needsClarification) {
+            return $this->askWhichRepo($task, $repoOptions);
+        }
 
         // Post synchronously so Linear sees an activity well within the
         // 10-second SLA from `created`. Run the personality agent with
@@ -240,6 +256,31 @@ class WebhookController extends Controller
     }
 
     /**
+     * Routing could not pick a repo. Posts the question synchronously
+     * (Linear's 10-second SLA) as an elicitation with a numbered list, since
+     * Linear has no buttons, and leaves the agent undispatched until the
+     * user replies.
+     *
+     * @param  list<string>  $repoOptions
+     */
+    private function askWhichRepo(YakTask $task, array $repoOptions): JsonResponse
+    {
+        TaskLogger::info($task, 'Awaiting repo clarification', ['source' => 'linear', 'options' => $repoOptions]);
+
+        $driver = app(NotificationDriver::class);
+        $driver->send(
+            $task,
+            NotificationType::Clarification,
+            "I couldn't tell which repo this belongs in. Which repo should I work in? Reply with a number:\n" . RepoClarificationResolver::numberedList($repoOptions),
+        );
+        $driver->setSessionDashboardUrl($task);
+
+        Telemetry::feature('repo_clarification', ['options' => count($repoOptions)], task: $task);
+
+        return response()->json(['ok' => true, 'handled' => 'repo_clarification']);
+    }
+
+    /**
      * Move the freshly picked-up issue to a "started" workflow state.
      * `YAK_LINEAR_STARTED_STATE_ID` acts as an explicit override; without
      * it the state is auto-discovered from the issue's team when the
@@ -256,7 +297,7 @@ class WebhookController extends Controller
                 return;
             }
 
-            $stateId = (string) app(StartedStateResolver::class)->forIssue($issueId);
+            $stateId = (string) app(WorkflowStateResolver::class)->forIssue($issueId);
         }
 
         if ($stateId !== '') {
@@ -288,7 +329,8 @@ class WebhookController extends Controller
      * the prompt to the correct handler based on task state:
      *
      * - stop signal → cancel the task
-     * - AwaitingClarification → dispatch ClarificationReplyJob
+     * - AwaitingClarification on a repo choice → resolve the repo and start the agent
+     * - AwaitingClarification otherwise → dispatch ClarificationReplyJob
      * - open PR → create a chained follow-up via FollowUpTaskFactory
      * - merged/closed → post a polite decline
      * - unknown session → no-op (200 OK)
@@ -352,6 +394,18 @@ class WebhookController extends Controller
             Telemetry::feature('linear.stop', ['was_active' => in_array($status, $cancellable, strict: true)], task: $task);
 
             return response()->json(['ok' => true, 'handled' => 'stop']);
+        }
+
+        if ($status === TaskStatus::AwaitingClarification && RepoClarificationResolver::awaitingRepoChoice($task)) {
+            RepoClarificationResolver::resolve($task, $message);
+
+            $task->refresh();
+
+            if ($task->repo !== 'unknown') {
+                SendNotificationJob::dispatch($task, NotificationType::Progress, "Working in {$task->repo} now.");
+            }
+
+            return response()->json(['ok' => true, 'handled' => 'repo_clarification_reply']);
         }
 
         if ($status === TaskStatus::AwaitingClarification) {

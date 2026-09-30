@@ -13,6 +13,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -43,6 +44,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 {
     use ClaimsTask;
     use HandlesAgentJobFailure;
+    use NotifiesSourceOfFailure;
     use Queueable;
 
     public int $timeout = 3600;
@@ -114,9 +116,42 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
+    /**
+     * The task's repo is `unknown` or names a repository that no longer
+     * exists, so there is nothing to explore. Fails the task and tells the
+     * requester instead of throwing out of the queue.
+     */
+    private function failForUnresolvedRepository(): void
+    {
+        $activeSlugs = Repository::where('is_active', true)->pluck('slug')->implode(', ');
+        $message = $this->task->repo === 'unknown'
+            ? "Could not determine which repo to use. Add `repo: <slug>` to the task description, or mark a repo as default. Active repos: {$activeSlugs}."
+            : "Repository '{$this->task->repo}' not found or not configured in Yak. Active repos: {$activeSlugs}.";
+
+        if ($this->taskIsTerminal($this->task->fresh())) {
+            return;
+        }
+
+        $this->task->update([
+            'status' => TaskStatus::Failed,
+            'error_log' => $message,
+            'completed_at' => now(),
+        ]);
+
+        TaskLogger::error($this->task, 'Task failed — repo not resolved', ['repo' => $this->task->repo]);
+
+        $this->notifySourceOfFailure($message);
+    }
+
     private function runResearch(AgentRunner $agent): void
     {
-        $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
+        $repository = Repository::where('slug', $this->task->repo)->first();
+
+        if ($repository === null) {
+            $this->failForUnresolvedRepository();
+
+            return;
+        }
 
         // Normally already claimed by the ClaimsTaskAtomically middleware
         // before this method ran; claimTask() is idempotent per instance,
@@ -207,7 +242,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
             $recorder->failed($e, 'claude_auth');
             $this->handleError($e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('ResearchYakJob failed', [
                 'task_id' => $this->task->id,
@@ -367,6 +401,8 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             'error_log' => $errorMessage,
             'completed_at' => now(),
         ]);
+
+        $this->notifySourceOfFailure($errorMessage);
     }
 
     private function postToSource(string $message): void

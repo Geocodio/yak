@@ -64,7 +64,12 @@ trait HandlesAgentJobFailure
             return;
         }
 
-        if (! $this->taskIsTerminal($task)) {
+        // Only the call that moves the task to Failed reports it. A task that
+        // is already Failed was reported by whoever failed it, such as the
+        // EnsureRepoReady middleware before it fails the job.
+        $wasTerminal = $this->taskIsTerminal($task);
+
+        if (! $wasTerminal) {
             $task->update([
                 'status' => TaskStatus::Failed,
                 'error_log' => $errorMessage,
@@ -74,7 +79,7 @@ trait HandlesAgentJobFailure
 
         /** @var TaskStatus $statusAfter */
         $statusAfter = $task->status;
-        if ($statusAfter === TaskStatus::Failed && $task->source !== 'system') {
+        if (! $wasTerminal && $statusAfter === TaskStatus::Failed && $task->source !== 'system') {
             try {
                 SendNotificationJob::dispatch($task, NotificationType::Error, $errorMessage);
             } catch (Throwable $dispatchError) {
