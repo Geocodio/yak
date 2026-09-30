@@ -26,6 +26,8 @@ use Illuminate\Support\Collection;
  * @property TaskStatus $status
  * @property TaskMode $mode
  * @property bool $targets_external_pr
+ * @property int $attempts
+ * @property int $attempts_at_manual_retry
  * @property int|null $summon_review_comment_id
  * @property array<int, string>|null $clarification_options
  * @property array<int, mixed>|null $screenshots
@@ -59,6 +61,7 @@ class YakTask extends Model
         'mode' => 'fix',
         'visual' => 'none',
         'attempts' => 0,
+        'attempts_at_manual_retry' => 0,
         'cost_usd' => 0,
         'duration_ms' => 0,
         'num_turns' => 0,
@@ -134,6 +137,18 @@ class YakTask extends Model
     public function repository(): BelongsTo
     {
         return $this->belongsTo(Repository::class, 'repo', 'slug');
+    }
+
+    /**
+     * Whether a red CI result still earns an agent retry.
+     *
+     * `attempts` counts every pass over the task's lifetime, and the dashboard
+     * and review approval both read it that way. The CI-retry budget restarts
+     * at each dashboard Retry, so it is measured from the count recorded then.
+     */
+    public function hasCiRetryLeft(): bool
+    {
+        return $this->attempts - $this->attempts_at_manual_retry < (int) config('yak.max_attempts');
     }
 
     /**

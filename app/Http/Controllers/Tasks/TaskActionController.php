@@ -43,8 +43,11 @@ class TaskActionController extends Controller
 
         // cost_usd, duration_ms and num_turns are lifetime totals and
         // deliberately survive a retry: the failed attempt still cost money.
+        // The claim adds one to attempts for this pass, the same way it does
+        // for a new task, so the task gets the full CI-retry budget again.
         $task->update([
             'status' => TaskStatus::Pending,
+            'attempts_at_manual_retry' => $task->attempts,
             'error_log' => null,
             'result_summary' => null,
             'pr_body_update' => null,
@@ -94,9 +97,11 @@ class TaskActionController extends Controller
     {
         $failureOutput = $task->error_log;
 
+        // This pass counts as the first attempt of a fresh CI-retry budget.
         $task->update([
             'status' => TaskStatus::Retrying,
             'attempts' => $task->attempts + 1,
+            'attempts_at_manual_retry' => $task->attempts,
             'error_log' => null,
             'started_at' => null,
             'completed_at' => null,

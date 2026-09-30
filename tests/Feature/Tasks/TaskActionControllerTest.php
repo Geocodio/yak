@@ -55,6 +55,8 @@ test('retry continues a task that failed CI on its existing branch', function ()
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Retrying)
         ->and($task->attempts)->toBe(3)
+        ->and($task->attempts_at_manual_retry)->toBe(2)
+        ->and($task->hasCiRetryLeft())->toBeTrue()
         ->and($task->branch_name)->toBe('yak/SLACK-1')
         ->and($task->result_summary)->toBe('Bumped laravel/framework')
         ->and($task->error_log)->toBeNull();
@@ -66,12 +68,14 @@ test('retry starts over when CI never reported on the branch', function () {
         'status' => TaskStatus::Failed,
         'mode' => TaskMode::Fix,
         'branch_name' => 'yak/SLACK-2',
+        'attempts' => 2,
     ]);
 
     $this->post(route('tasks.retry', $task));
 
     Queue::assertPushed(RunYakJob::class);
     Queue::assertNotPushed(RetryYakJob::class);
+    expect($task->fresh()->attempts_at_manual_retry)->toBe(2);
 });
 
 test('retry clears a stale pr body update and review replies', function () {

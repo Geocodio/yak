@@ -189,8 +189,8 @@ pending ──→ running ────┼──→ awaiting_ci ──→ success
 | `AwaitingClarification` | `Running` | User replied in Slack thread, session resumed |
 | `AwaitingClarification` | `Expired` | `clarification_expires_at` passed (3-day TTL) |
 | `AwaitingCi` | `Success` | CI green, PR created |
-| `AwaitingCi` | `Retrying` | CI red, `attempts < max_attempts` |
-| `AwaitingCi` | `Failed` | CI red, `attempts >= max_attempts` |
+| `AwaitingCi` | `Retrying` | CI red, `attempts - attempts_at_manual_retry < max_attempts` |
+| `AwaitingCi` | `Failed` | CI red, retry budget used up |
 | `Retrying` | `AwaitingCi` | Retry completed, branch force-pushed |
 | `Retrying` | `Failed` | Claude errored on retry |
 | `Failed` | `Retrying` | Dashboard Retry on a task CI already reported on; continues on the existing branch |

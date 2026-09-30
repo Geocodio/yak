@@ -652,6 +652,28 @@ test('second failure marks task as failed', function () {
         ->and($task->error_log)->toBe('Tests still failing after retry');
 });
 
+test('a failure after a dashboard retry gets a fresh CI retry budget', function () {
+    Queue::fake();
+
+    config()->set('yak.max_attempts', 2);
+
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-AGAIN',
+        'source' => 'manual',
+        'attempts' => 4,
+        'attempts_at_manual_retry' => 3,
+    ]);
+
+    (new ProcessCIResultJob($task, false, 'Browser test failed'))->handle();
+
+    expect($task->refresh()->status)->toBe(TaskStatus::Retrying)
+        ->and($task->attempts)->toBe(5);
+    Queue::assertPushed(RetryYakJob::class);
+});
+
 test('second failure posts failure summary to source', function () {
     Http::fake([
         'slack.com/*' => Http::response(['ok' => true]),

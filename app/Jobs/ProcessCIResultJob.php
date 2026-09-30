@@ -127,7 +127,7 @@ class ProcessCIResultJob implements ShouldQueue
 
             if ($this->passed) {
                 $this->handleGreenPath();
-            } elseif ($this->task->attempts < (int) config('yak.max_attempts')) {
+            } elseif ($this->task->hasCiRetryLeft()) {
                 $this->handleRetry();
             } else {
                 $this->handleFinalFailure();
