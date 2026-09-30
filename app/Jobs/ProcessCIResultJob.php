@@ -110,8 +110,8 @@ class ProcessCIResultJob implements ShouldQueue
             // CI can report long after yak:timeout-ci has already given up on
             // the task, and GitHub fires one check_suite event per suite, so
             // the same branch can produce several of these. Acting on a task
-            // that has already settled means an illegal status transition
-            // (failed -> retrying) or a duplicate PR, so drop the result.
+            // that has already settled means an agent run nobody is waiting
+            // for or a duplicate PR, so drop the result.
             if (! in_array($this->task->status, self::ACTIONABLE_STATUSES, true)) {
                 TaskLogger::info($this->task, 'Late CI result ignored', [
                     'passed' => $this->passed,
@@ -239,10 +239,26 @@ class ProcessCIResultJob implements ShouldQueue
             'error_log' => $failureSummary,
         ]);
 
-        $message = YakPersonality::generate(NotificationType::Error, "CI failed: {$failureSummary}");
+        $message = YakPersonality::generate(NotificationType::Error, 'CI failed: ' . $this->failedCheckHeadings($failureSummary));
         $this->postToSource($message, NotificationType::Error);
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $failureSummary]);
+    }
+
+    /**
+     * The `## <check name> (<url>)` headings of the CI output, without the
+     * log excerpts below them, so a chat notification names what failed
+     * without pasting logs into the thread. Output without headings (Drone,
+     * or the default message) passes through unchanged.
+     */
+    private function failedCheckHeadings(string $failureSummary): string
+    {
+        $headings = array_values(array_filter(
+            explode("\n", $failureSummary),
+            fn (string $line): bool => str_starts_with($line, '## '),
+        ));
+
+        return $headings === [] ? $failureSummary : implode("\n", $headings);
     }
 
     private function countLinesOfCode(Repository $repository): int

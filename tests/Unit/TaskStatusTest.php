@@ -93,12 +93,13 @@ test('Success is a final state', function () {
     expect(TaskStatus::Success->isFinal())->toBeTrue();
 });
 
-test('Failed can only transition to Pending for retry', function () {
-    expect(TaskStatus::Failed->canTransitionTo(TaskStatus::Pending))->toBeTrue();
+test('Failed can only transition to Pending or Retrying for retry', function () {
+    expect(TaskStatus::Failed->canTransitionTo(TaskStatus::Pending))->toBeTrue()
+        ->and(TaskStatus::Failed->canTransitionTo(TaskStatus::Retrying))->toBeTrue();
 
     $nonRetryStates = array_filter(
         TaskStatus::cases(),
-        fn (TaskStatus $s) => $s !== TaskStatus::Pending,
+        fn (TaskStatus $s) => ! in_array($s, [TaskStatus::Pending, TaskStatus::Retrying], true),
     );
 
     foreach ($nonRetryStates as $state) {

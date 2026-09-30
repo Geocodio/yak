@@ -2,12 +2,15 @@
 
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RenderVideoJob;
 use App\Jobs\ResearchYakJob;
+use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Models\Artifact;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
@@ -28,6 +31,47 @@ test('retry re-queues a failed task and dispatches RunYakJob', function () {
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
     expect($task->fresh()->error_log)->toBeNull();
+});
+
+test('retry continues a task that failed CI on its existing branch', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'mode' => TaskMode::Fix,
+        'branch_name' => 'yak/SLACK-1',
+        'attempts' => 2,
+        'result_summary' => 'Bumped laravel/framework',
+        'error_log' => '## Test (Browser) (https://github.com/org/repo/runs/1)',
+    ]);
+    TaskLog::factory()->create(['yak_task_id' => $task->id, 'message' => ProcessCIResultJob::RESULT_LOG_MESSAGE]);
+
+    $this->post(route('tasks.retry', $task))
+        ->assertRedirect(route('tasks.show', $task));
+
+    Queue::assertNotPushed(RunYakJob::class);
+    Queue::assertPushed(RetryYakJob::class, fn (RetryYakJob $job) => $job->task->is($task)
+        && $job->failureOutput === '## Test (Browser) (https://github.com/org/repo/runs/1)');
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::Retrying)
+        ->and($task->attempts)->toBe(3)
+        ->and($task->branch_name)->toBe('yak/SLACK-1')
+        ->and($task->result_summary)->toBe('Bumped laravel/framework')
+        ->and($task->error_log)->toBeNull();
+});
+
+test('retry starts over when CI never reported on the branch', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'mode' => TaskMode::Fix,
+        'branch_name' => 'yak/SLACK-2',
+    ]);
+
+    $this->post(route('tasks.retry', $task));
+
+    Queue::assertPushed(RunYakJob::class);
+    Queue::assertNotPushed(RetryYakJob::class);
 });
 
 test('retry clears a stale pr body update and review replies', function () {

@@ -20,8 +20,10 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
+use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
@@ -157,6 +159,10 @@ class WebhookController extends Controller
             $commitSha = (string) $request->input('check_suite.head_sha', '');
 
             if ($installationId > 0 && $commitSha !== '') {
+                if ($this->rerunFailedWorkflowsOnce($github, $task, $installationId, $repository->github_full_name, $commitSha)) {
+                    return response()->json(['ok' => true, 'skipped' => 'rerunning failed jobs']);
+                }
+
                 $output = $github->getFailedCheckRunOutput($installationId, $repository->github_full_name, $commitSha);
             }
         }
@@ -164,6 +170,60 @@ class WebhookController extends Controller
         ProcessCIResultJob::dispatch($task, $passed, $output);
 
         return response()->json(['ok' => true, 'dispatched' => true]);
+    }
+
+    /**
+     * Give each failed workflow run on a commit one re-run of its failed jobs
+     * before the failure counts against the task.
+     *
+     * A flaky test otherwise costs a full agent retry, and when it flakes on
+     * the last attempt the task fails outright. Only first attempts are
+     * re-run, so a job that fails twice on the same commit reaches the agent.
+     * The cache key absorbs duplicate check_suite events for the same run.
+     * Returns true while a re-run is in flight, meaning the result is not
+     * final yet.
+     */
+    private function rerunFailedWorkflowsOnce(AppService $github, YakTask $task, int $installationId, string $repoSlug, string $commitSha): bool
+    {
+        $failedFirstAttempts = array_filter(
+            $github->listWorkflowRunsForCommit($installationId, $repoSlug, $commitSha),
+            fn (array $run): bool => $run['status'] === 'completed'
+                && in_array($run['conclusion'], ['failure', 'timed_out'], true)
+                && (int) $run['run_attempt'] === 1,
+        );
+
+        $isRerunPending = false;
+        $rerunWorkflowNames = [];
+
+        foreach ($failedFirstAttempts as $run) {
+            $cacheKey = "yak:ci-rerun:{$run['id']}";
+
+            if (! Cache::add($cacheKey, true, now()->addDay())) {
+                $isRerunPending = true;
+
+                continue;
+            }
+
+            if ($github->rerunFailedJobs($installationId, $repoSlug, (int) $run['id'])) {
+                $rerunWorkflowNames[] = $run['name'];
+            } else {
+                Cache::forget($cacheKey);
+            }
+        }
+
+        if ($rerunWorkflowNames === []) {
+            return $isRerunPending;
+        }
+
+        TaskLogger::info($task, 'CI failed, re-running the failed jobs once to rule out a flaky test', [
+            'workflows' => $rerunWorkflowNames,
+            'commit' => $commitSha,
+        ]);
+
+        // yak:timeout-ci measures from updated_at, so the re-run gets a full window.
+        $task->touch();
+
+        return true;
     }
 
     private function handleClosed(Request $request): JsonResponse

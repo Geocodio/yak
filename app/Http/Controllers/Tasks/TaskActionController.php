@@ -11,8 +11,10 @@ use App\Events\TaskStatusChanged;
 use App\Facades\Telemetry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\RerouteTaskRequest;
+use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RenderVideoJob;
 use App\Jobs\ResearchYakJob;
+use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
@@ -33,6 +35,10 @@ class TaskActionController extends Controller
     {
         if (! in_array($task->status, [TaskStatus::Failed, TaskStatus::Expired], true)) {
             return redirect()->route('tasks.show', $task)->with('error', 'This task cannot be retried right now.');
+        }
+
+        if ($this->hasPushedBranch($task)) {
+            return $this->retryOnExistingBranch($task);
         }
 
         // cost_usd, duration_ms and num_turns are lifetime totals and
@@ -62,6 +68,48 @@ class TaskActionController extends Controller
         app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
 
         return redirect()->route('tasks.show', $task)->with('success', 'Task re-queued.');
+    }
+
+    /**
+     * Whether the task's branch already carries pushed work worth keeping.
+     *
+     * CI only reports on a branch Yak pushed, so a recorded CI result means
+     * the commits are on the remote. Starting over would discard them and
+     * cut a new `-2` branch, so these tasks resume on the branch instead.
+     */
+    private function hasPushedBranch(YakTask $task): bool
+    {
+        return $task->mode === TaskMode::Fix
+            && ! $task->targets_external_pr
+            && $task->branch_name !== null
+            && $task->logs()->where('message', ProcessCIResultJob::RESULT_LOG_MESSAGE)->exists();
+    }
+
+    /**
+     * Run a CI retry on the existing branch, the same pass Yak takes after a
+     * red build: the agent gets the previous summary and the CI failure, and
+     * pushes on top of the earlier commits.
+     */
+    private function retryOnExistingBranch(YakTask $task): RedirectResponse
+    {
+        $failureOutput = $task->error_log;
+
+        $task->update([
+            'status' => TaskStatus::Retrying,
+            'attempts' => $task->attempts + 1,
+            'error_log' => null,
+            'started_at' => null,
+            'completed_at' => null,
+        ]);
+
+        TaskLogger::info($task, 'Retry requested from the dashboard, continuing on the existing branch', [
+            'branch' => $task->branch_name,
+        ]);
+        Telemetry::feature('dashboard.retry', ['mode' => TaskMode::Fix->value, 'resumed_branch' => true], task: $task);
+
+        RetryYakJob::dispatch($task, $failureOutput);
+
+        return redirect()->route('tasks.show', $task)->with('success', "Retrying on {$task->branch_name}.");
     }
 
     public function cancel(YakTask $task): RedirectResponse

@@ -3,10 +3,12 @@
 use App\Jobs\ProcessCIResultJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
     config()->set('yak.channels.github', array_merge(
@@ -184,6 +186,151 @@ test('GitHub check_suite.completed with failure fetches check_run output from AP
             && str_contains((string) $job->output, 'AuthTest::testLogin failed')
             && ! str_contains((string) $job->output, 'lint'); // passed runs excluded
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| GitHub CI Webhook — failed jobs get one re-run before counting
+|--------------------------------------------------------------------------
+*/
+
+function setUpFailingGitHubActionsTask(): YakTask
+{
+    config()->set('yak.channels.github.webhook_secret', 'github-webhook-secret');
+    config()->set('yak.channels.github.installation_id', 12345);
+    bootGitHubRoutes();
+
+    GitHubInstallationToken::create([
+        'installation_id' => 12345,
+        'token' => 'ghs_fake',
+        'expires_at' => now()->addHour(),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'ci_system' => 'github_actions',
+    ]);
+
+    return YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/fix-flake',
+    ]);
+}
+
+function postFailedCheckSuite(): TestResponse
+{
+    $payload = [
+        'action' => 'completed',
+        'check_suite' => [
+            'head_branch' => 'yak/fix-flake',
+            'conclusion' => 'failure',
+            'head_sha' => 'abc123',
+        ],
+        'repository' => ['full_name' => 'org/my-repo'],
+    ];
+
+    return test()->postJson('/webhooks/ci/github', $payload, [
+        'X-Hub-Signature-256' => signGitHubPayload($payload, 'github-webhook-secret'),
+        'X-GitHub-Event' => 'check_suite',
+    ]);
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function workflowRunsResponse(int $runAttempt): array
+{
+    return ['workflow_runs' => [
+        ['id' => 77, 'name' => 'CI', 'status' => 'completed', 'conclusion' => 'failure', 'run_attempt' => $runAttempt],
+        ['id' => 78, 'name' => 'Lint', 'status' => 'completed', 'conclusion' => 'success', 'run_attempt' => 1],
+    ]];
+}
+
+test('a first failed attempt re-runs the failed jobs instead of reporting the failure', function () {
+    Queue::fake();
+    $task = setUpFailingGitHubActionsTask();
+
+    Http::fake([
+        'https://api.github.com/repos/org/my-repo/actions/runs/77/rerun-failed-jobs' => Http::response([], 201),
+        'https://api.github.com/repos/org/my-repo/actions/runs*' => Http::response(workflowRunsResponse(runAttempt: 1)),
+    ]);
+
+    postFailedCheckSuite()->assertOk()->assertJson(['skipped' => 'rerunning failed jobs']);
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/actions/runs/77/rerun-failed-jobs'));
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/actions/runs/78/'));
+
+    expect(TaskLog::where('yak_task_id', $task->id)->where('message', 'like', 'CI failed, re-running%')->exists())->toBeTrue();
+});
+
+test('a duplicate failure event while the re-run is pending is not reported', function () {
+    Queue::fake();
+    setUpFailingGitHubActionsTask();
+
+    Http::fake([
+        'https://api.github.com/repos/org/my-repo/actions/runs/77/rerun-failed-jobs' => Http::response([], 201),
+        'https://api.github.com/repos/org/my-repo/actions/runs*' => Http::response(workflowRunsResponse(runAttempt: 1)),
+    ]);
+
+    postFailedCheckSuite()->assertOk();
+    postFailedCheckSuite()->assertOk()->assertJson(['skipped' => 'rerunning failed jobs']);
+
+    Queue::assertNotPushed(ProcessCIResultJob::class);
+    Http::assertSentCount(3);
+});
+
+test('a failed re-run reports the failure with the job log excerpt', function () {
+    Queue::fake();
+    $task = setUpFailingGitHubActionsTask();
+
+    $log = implode("\n", [
+        '2026-09-30T08:40:01.0000000Z ##[group]Run php artisan test tests/Browser',
+        '2026-09-30T08:40:59.0000000Z FAILED  Tests\\Browser\\LoginTest > it logs in',
+        '2026-09-30T08:40:59.1000000Z Timed out waiting for [data-testid=dashboard]',
+        '2026-09-30T08:41:00.0000000Z ##[error]Process completed with exit code 1.',
+        '2026-09-30T08:41:01.0000000Z ##[group]Run docker compose down -v',
+        '2026-09-30T08:41:05.0000000Z Container removed',
+    ]);
+
+    Http::fake([
+        'https://api.github.com/repos/org/my-repo/actions/runs*' => Http::response(workflowRunsResponse(runAttempt: 2)),
+        'https://api.github.com/repos/org/my-repo/actions/jobs/555/logs' => Http::response($log),
+        'https://api.github.com/repos/org/my-repo/commits/abc123/check-runs*' => Http::response(['check_runs' => [[
+            'id' => 555,
+            'name' => 'Test (Browser)',
+            'conclusion' => 'failure',
+            'html_url' => 'https://github.com/org/my-repo/actions/runs/77/job/555',
+            'app' => ['slug' => 'github-actions'],
+            'output' => ['title' => null, 'summary' => null, 'text' => null],
+        ]]]),
+    ]);
+
+    postFailedCheckSuite()->assertOk()->assertJson(['dispatched' => true]);
+
+    Http::assertNotSent(fn ($request) => $request->method() === 'POST');
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->is($task)
+        && str_contains((string) $job->output, '## Test (Browser)')
+        && str_contains((string) $job->output, 'Timed out waiting for [data-testid=dashboard]')
+        && str_contains((string) $job->output, '##[error]Process completed with exit code 1.')
+        && ! str_contains((string) $job->output, 'Container removed')
+        && ! str_contains((string) $job->output, '2026-09-30T08:40'));
+});
+
+test('a re-run GitHub refuses falls through to reporting the failure', function () {
+    Queue::fake();
+    setUpFailingGitHubActionsTask();
+
+    Http::fake([
+        'https://api.github.com/repos/org/my-repo/actions/runs/77/rerun-failed-jobs' => Http::response(['message' => 'Forbidden'], 403),
+        'https://api.github.com/repos/org/my-repo/actions/runs*' => Http::response(workflowRunsResponse(runAttempt: 1)),
+        'https://api.github.com/repos/org/my-repo/commits/abc123/check-runs*' => Http::response(['check_runs' => []]),
+    ]);
+
+    postFailedCheckSuite()->assertOk()->assertJson(['dispatched' => true]);
+
+    Queue::assertPushed(ProcessCIResultJob::class);
 });
 
 /*

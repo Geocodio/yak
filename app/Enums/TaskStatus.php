@@ -59,7 +59,7 @@ enum TaskStatus: string implements StateMachine
     #[FinalState]
     case Success = 'success';
 
-    #[CanTransitionTo([self::Pending])]
+    #[CanTransitionTo([self::Pending, self::Retrying])]
     case Failed = 'failed';
 
     #[CanTransitionTo([self::Pending])]

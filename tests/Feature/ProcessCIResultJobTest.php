@@ -689,6 +689,36 @@ test('second failure posts failure summary to source', function () {
     });
 });
 
+test('second failure keeps job log excerpts out of the source notification', function () {
+    Http::fake([
+        'slack.com/*' => Http::response(['ok' => true]),
+    ]);
+
+    config()->set('yak.max_attempts', 2);
+    config()->set('yak.channels.slack.bot_token', 'slack-token');
+
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-LOGS',
+        'source' => 'slack',
+        'slack_channel' => 'C77777',
+        'slack_thread_ts' => '777.888',
+        'attempts' => 2,
+    ]);
+
+    $output = "## Test (Browser) (https://github.com/org/my-repo/runs/9)\n\nJob log excerpt:\n\nFAILED Tests\\Browser\\LoginTest";
+
+    (new ProcessCIResultJob($task, false, $output))->handle();
+
+    expect($task->refresh()->error_log)->toBe($output);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'slack.com/api/chat.postMessage')
+        && str_contains($request['text'], '## Test (Browser)')
+        && ! str_contains($request['text'], 'LoginTest'));
+});
+
 test('second failure does not dispatch RetryYakJob', function () {
     Queue::fake();
 
@@ -907,8 +937,7 @@ test('a CI result arriving after yak:timeout-ci gave up is ignored', function ()
 
     // The exact shape that broke task 5479: CI overran the timeout, the task
     // was parked in Failed, and the real result turned up half an hour later.
-    // Retrying it would have attempted an unregistered failed -> retrying
-    // transition and thrown.
+    // Acting on it would start an agent retry on a task that already settled.
     $task = YakTask::factory()->create([
         'status' => TaskStatus::Failed,
         'repo' => 'org/my-repo',

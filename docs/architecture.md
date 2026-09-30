@@ -193,6 +193,8 @@ pending ──→ running ────┼──→ awaiting_ci ──→ success
 | `AwaitingCi` | `Failed` | CI red, `attempts >= max_attempts` |
 | `Retrying` | `AwaitingCi` | Retry completed, branch force-pushed |
 | `Retrying` | `Failed` | Claude errored on retry |
+| `Failed` | `Retrying` | Dashboard Retry on a task CI already reported on; continues on the existing branch |
+| `Failed` | `Pending` | Dashboard Retry on any other failed task; starts over |
 
 ## Sandbox Isolation (Incus)
 
@@ -257,7 +259,7 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 
 - **`RunYakJob`** — the initial Claude Code session. Yak creates the branch (`yak/{external_id}`), then invokes Claude Code which writes code and commits locally. After Claude finishes, **Yak** pushes the branch and transitions the task to `awaiting_ci`. Claude Code never pushes or creates PRs — the system prompt explicitly forbids remote git operations.
 - **`ClarificationReplyJob`** — runs when a user replies to a Slack clarification. Resumes the original Claude session with `--resume $session_id` and the user's chosen option. Claude already has full codebase context from the assessment phase — no ramp-up.
-- **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure).
+- **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure). For GitHub Actions, a failed workflow run first gets one re-run of its failed jobs, and only a second failure on the same commit reaches this job.
 - **`RetryYakJob`** — resumes the original Claude session with CI failure output and runs a second attempt on the existing branch. **Yak** force-pushes the result.
 - **`ResearchYakJob`** — for research mode tasks. Read-only; no branch, no CI. Claude generates a standalone HTML findings page saved to `.yak-artifacts/research.html`.
 - **`SetupYakJob`** — the one-time dev environment setup task for a new repo. See [Repositories → The Setup Task](repositories.md#the-setup-task).

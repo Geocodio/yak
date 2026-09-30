@@ -49,7 +49,7 @@ If you already have a GitHub App and want to reuse it, fill in `github_app_id`, 
 | Pull requests | Read & Write (create PRs, add labels) |
 | Issues | Read & Write (react to follow-up comments) |
 | Checks | Read (CI results) |
-| Actions | Read (flaky-test scan reads workflow jobs and their logs) |
+| Actions | Read & Write (flaky-test scan and CI failures read job logs; a failed run gets one re-run of its failed jobs) |
 | Metadata | Read (default) |
 
 ### Webhook Events
@@ -88,6 +88,8 @@ GitHub redirects requests for a repository's old path, so the stale name Yak hol
 ### Usage
 
 If your repos use GitHub Actions for CI, set `ci_system: github_actions` in the repo definition. Nothing else is required — the GitHub App receives check suite events automatically.
+
+When a workflow run fails, Yak first re-runs its failed jobs once on the same commit, so a flaky test does not cost an agent retry. Only a job that fails twice counts as a CI failure. The retry prompt then includes the lines of each failed job's log leading up to the error.
 
 **Important:** the GitHub App must NOT be in your branch protection bypass list. Risk-based review approval is an explicit per-repository opt-in; Yak still has no merge authority.
 

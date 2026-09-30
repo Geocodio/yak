@@ -35,6 +35,7 @@
       - "   - Pull requests: Read & write"
       - "   - Issues: Read-only"
       - "   - Checks: Read-only"
+      - "   - Actions: Read & write"
       - "   - Metadata: Read-only"
       - ""
       - "4. Subscribe to events:"

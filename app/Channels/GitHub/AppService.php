@@ -385,7 +385,7 @@ class AppService
             return null;
         }
 
-        /** @var array<int, array{name: string, conclusion: ?string, html_url: string, output?: array{title?: ?string, summary?: ?string, text?: ?string}}> $runs */
+        /** @var array<int, array{id: int, name: string, conclusion: ?string, html_url: string, app?: array{slug?: string}, output?: array{title?: ?string, summary?: ?string, text?: ?string}}> $runs */
         $runs = $response->json('check_runs', []);
 
         $sections = [];
@@ -407,10 +407,87 @@ class AppService
                 $parts[] = $output['text'];
             }
 
+            if (($run['app']['slug'] ?? null) === 'github-actions') {
+                $excerpt = $this->getJobLogExcerpt($installationId, $repoSlug, (int) $run['id']);
+
+                if ($excerpt !== null) {
+                    $parts[] = "Job log excerpt:\n\n{$excerpt}";
+                }
+            }
+
             $sections[] = implode("\n\n", $parts);
         }
 
         return empty($sections) ? null : implode("\n\n---\n\n", $sections);
+    }
+
+    /**
+     * The lines of a GitHub Actions job log leading up to its failure.
+     *
+     * Actions leaves the check run's output empty, so the log is the only
+     * place the actual assertion or error lives. The excerpt ends at the
+     * first `##[error]` line, because cleanup steps that run after a failure
+     * push the useful output away from the end of the log. Each line's
+     * timestamp prefix is dropped to save prompt space.
+     */
+    public function getJobLogExcerpt(int $installationId, string $repoSlug, int $jobId, int $maxLines = 80): ?string
+    {
+        $response = $this->installationClient($installationId)
+            ->timeout(30)
+            ->get("https://api.github.com/repos/{$repoSlug}/actions/jobs/{$jobId}/logs");
+
+        if (! $response->successful() || trim($response->body()) === '') {
+            return null;
+        }
+
+        $lines = array_map(
+            fn (string $line): string => (string) preg_replace('/^\d{4}-\d{2}-\d{2}T[\d:.]+Z /', '', rtrim($line, "\r")),
+            explode("\n", $response->body()),
+        );
+
+        foreach ($lines as $index => $line) {
+            if (str_starts_with($line, '##[error]')) {
+                $lines = array_slice($lines, 0, $index + 1);
+                break;
+            }
+        }
+
+        $excerpt = array_slice($lines, -$maxLines);
+
+        return trim(implode("\n", $excerpt)) === '' ? null : implode("\n", $excerpt);
+    }
+
+    /**
+     * Workflow runs triggered for a commit.
+     *
+     * @return array<int, array{id: int, name: string, status: string, conclusion: ?string, run_attempt: int}>
+     */
+    public function listWorkflowRunsForCommit(int $installationId, string $repoSlug, string $commitSha): array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/actions/runs", [
+                'head_sha' => $commitSha,
+                'per_page' => 100,
+            ]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        /** @var array<int, array{id: int, name: string, status: string, conclusion: ?string, run_attempt: int}> $runs */
+        $runs = $response->json('workflow_runs', []);
+
+        return $runs;
+    }
+
+    /**
+     * Re-run only the failed jobs of a workflow run, as a new attempt of the same run.
+     */
+    public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId): bool
+    {
+        return $this->installationClient($installationId)
+            ->post("https://api.github.com/repos/{$repoSlug}/actions/runs/{$runId}/rerun-failed-jobs")
+            ->successful();
     }
 
     /**
