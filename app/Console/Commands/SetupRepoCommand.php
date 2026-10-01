@@ -7,6 +7,7 @@ use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ResponsiblePersonResolver;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -33,6 +34,7 @@ class SetupRepoCommand extends Command
             'mode' => TaskMode::Setup,
             'description' => "Setup repository: {$repository->name}",
             'source' => 'cli',
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
         ]);
 
         $repository->update([

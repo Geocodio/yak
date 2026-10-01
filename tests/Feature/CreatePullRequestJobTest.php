@@ -1206,3 +1206,67 @@ test('detectCiSystem returns none when no CI config is committed', function () {
     $service = new GitHubAppService;
     expect($service->detectCiSystem(99999, 'org/my-repo'))->toBe('none');
 });
+
+test('PR body names who started the task and who is responsible', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/test-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+    Process::fake(['git diff --name-only *' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'org/test-repo', 'path' => '/home/yak/repos/test-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/test-repo',
+        'branch_name' => 'yak/FIX-OWNERS',
+        'author_name' => 'Jane Doe',
+        'responsible_name' => 'John Smith',
+    ]);
+
+    app()->call([new CreatePullRequestJob($task), 'handle']);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/pulls')
+        && str_contains($request['body'], "**Source:** {$task->source}\n**Started by:** Jane Doe\n**Responsible:** John Smith"));
+});
+
+test('PR body leaves out ownership lines that are unknown', function () {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/test-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+    Process::fake(['git diff --name-only *' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'org/test-repo', 'path' => '/home/yak/repos/test-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/test-repo',
+        'branch_name' => 'yak/FIX-NOOWNER',
+        'source' => 'sentry',
+        'author_name' => null,
+        'responsible_name' => '  ',
+    ]);
+
+    app()->call([new CreatePullRequestJob($task), 'handle']);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/pulls')
+        && ! str_contains($request['body'], '**Started by:**')
+        && ! str_contains($request['body'], '**Responsible:**'));
+});

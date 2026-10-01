@@ -19,6 +19,7 @@ use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
+use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use App\Support\Docs;
 use Illuminate\Http\JsonResponse;
@@ -114,6 +115,7 @@ class WebhookController extends Controller
 
         $detector = new RepoDetector;
         $detection = $detector->detect($description);
+        $authorName = UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null);
 
         // Multi-repo: create one task per repo
         if ($detection->isMultiRepo()) {
@@ -127,7 +129,8 @@ class WebhookController extends Controller
                     'slack_channel' => $description->metadata['slack_channel'],
                     'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                     'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
-                    'author_name' => UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null),
+                    'author_name' => $authorName,
+                    'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repo->slug),
                     'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 ]);
 
@@ -164,7 +167,8 @@ class WebhookController extends Controller
                 'slack_channel' => $description->metadata['slack_channel'],
                 'slack_thread_ts' => $description->metadata['slack_thread_ts'],
                 'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
-                'author_name' => UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null),
+                'author_name' => $authorName,
+                'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, 'unknown'),
                 'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 'clarification_options' => $repoOptions,
                 'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
@@ -192,7 +196,8 @@ class WebhookController extends Controller
             'slack_channel' => $description->metadata['slack_channel'],
             'slack_thread_ts' => $description->metadata['slack_thread_ts'],
             'slack_user_id' => $description->metadata['slack_user_id'] ?? null,
-            'author_name' => UserNameResolver::resolve($description->metadata['slack_user_id'] ?? null),
+            'author_name' => $authorName,
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $repoSlug),
             'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
         ]);
 

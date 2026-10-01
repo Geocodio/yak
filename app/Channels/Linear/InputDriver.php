@@ -29,7 +29,7 @@ class InputDriver implements InputDriverContract
      */
     public function parse(Request $request): TaskDescription
     {
-        /** @var array{id?: string, issue?: array<string, mixed>, promptContext?: string} $session */
+        /** @var array{id?: string, issue?: array<string, mixed>, promptContext?: string, creator?: array{name?: string}} $session */
         $session = (array) $request->input('agentSession', []);
         /** @var array{id?: string, identifier?: string, title?: string, description?: string, url?: string} $issue */
         $issue = (array) ($session['issue'] ?? []);
@@ -47,6 +47,13 @@ class InputDriver implements InputDriverContract
         $repository = $this->detectRepo($description);
         $body = $this->composeBody($title, $description, $promptContextXml);
 
+        $payloadCreator = $session['creator']['name'] ?? null;
+        $people = $this->fetcher()->sessionPeople($sessionId);
+        $actorName = $request->input('actor.name');
+        $creatorName = $people['creator']
+            ?? (is_string($payloadCreator) && trim($payloadCreator) !== '' ? $payloadCreator : null)
+            ?? (is_string($actorName) && trim($actorName) !== '' ? $actorName : null);
+
         return new TaskDescription(
             title: Str::limit($title, 100),
             body: $body,
@@ -61,6 +68,8 @@ class InputDriver implements InputDriverContract
                 'linear_issue_identifier' => $identifier,
                 'linear_issue_url' => $issueUrl,
                 'linear_agent_session_id' => $sessionId,
+                'creator_name' => $creatorName,
+                'assignee_name' => $people['assignee'] ?? null,
             ],
         );
     }

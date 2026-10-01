@@ -8,6 +8,7 @@ use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -49,6 +50,7 @@ class RunCommand extends Command
             'description' => $description,
             'context' => $context,
             'source' => 'cli',
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'cli', 'repo' => $repository->slug]);

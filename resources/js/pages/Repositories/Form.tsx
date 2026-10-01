@@ -48,6 +48,7 @@ type FormData = {
     public_site_url: string;
     is_active: boolean;
     is_default: boolean;
+    default_responsible_user_id: string;
     ci_system: string;
     sentry_project: string;
     pr_review_enabled: boolean;
@@ -212,6 +213,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         public_site_url: repository?.publicSiteUrl ?? '',
         is_active: repository?.isActive ?? true,
         is_default: repository?.isDefault ?? false,
+        default_responsible_user_id: repository?.defaultResponsibleUserId ? String(repository.defaultResponsibleUserId) : '',
         ci_system: repository?.ciSystem ?? 'github_actions',
         sentry_project: repository?.sentryProject ?? '',
         pr_review_enabled: repository?.prReviewEnabled ?? false,
@@ -520,6 +522,17 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                             onChange={(v) => form.setData('is_default', v)}
                             docsHref={docsLinks.routing}
                         />
+                        <Field
+                            label="Default responsible"
+                            description="Owns tasks that no person started, like Sentry alerts and CI scans."
+                            error={form.errors.default_responsible_user_id}
+                        >
+                            <Select
+                                options={[{ value: '', label: 'None' }, ...options.users]}
+                                value={form.data.default_responsible_user_id}
+                                onChange={(v) => form.setData('default_responsible_user_id', v ?? '')}
+                            />
+                        </Field>
                         <ToggleRow
                             label="PR review"
                             description="Have Yak review every open, non-draft pull request on this repo."

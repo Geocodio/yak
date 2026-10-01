@@ -259,6 +259,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             'external_url' => $prUrl,
             'description' => $instructions,
             'author_name' => $this->summonerLogin,
+            'responsible_name' => $this->summonerLogin,
             'targets_external_pr' => true,
             'summon_review_comment_id' => $threadId,
             'status' => TaskStatus::Pending,

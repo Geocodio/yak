@@ -11,6 +11,7 @@ use App\Http\Requests\Repositories\SaveRepositoryRequest;
 use App\Http\Resources\RepositorySummaryData;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
@@ -195,6 +196,7 @@ class RepositoryController extends Controller
             'public_site_url' => ($validated['public_site_url'] ?? '') !== '' ? $validated['public_site_url'] : null,
             'is_active' => $validated['is_active'] ?? true,
             'is_default' => $validated['is_default'] ?? false,
+            'default_responsible_user_id' => $validated['default_responsible_user_id'] ?? null,
             'ci_system' => $validated['ci_system'],
             'sentry_project' => ($validated['sentry_project'] ?? '') !== '' ? $validated['sentry_project'] : null,
             'pr_review_enabled' => $validated['pr_review_enabled'] ?? false,
@@ -220,6 +222,7 @@ class RepositoryController extends Controller
             'publicSiteUrl' => $repository->public_site_url,
             'isActive' => $repository->is_active,
             'isDefault' => $repository->is_default,
+            'defaultResponsibleUserId' => $repository->default_responsible_user_id,
             'ciSystem' => $repository->ci_system,
             'sentryProject' => $repository->sentry_project,
             'prReviewEnabled' => (bool) $repository->pr_review_enabled,
@@ -235,7 +238,7 @@ class RepositoryController extends Controller
     }
 
     /**
-     * @return array{ciSystems: array<int, array{value: string, label: string}>, sentryProjects: array<int, array{value: string, label: string}>, defaultPathExcludes: array<int, string>}
+     * @return array{ciSystems: array<int, array{value: string, label: string}>, sentryProjects: array<int, array{value: string, label: string}>, defaultPathExcludes: array<int, string>, users: array<int, array{value: string, label: string}>}
      */
     private function options(): array
     {
@@ -248,6 +251,9 @@ class RepositoryController extends Controller
             'sentryProjects' => collect($this->loadSentryProjects())
                 ->map(fn (array $project): array => ['value' => $project['slug'], 'label' => $project['name']])
                 ->values()
+                ->all(),
+            'users' => User::query()->orderBy('name')->get(['id', 'name'])
+                ->map(fn (User $user): array => ['value' => (string) $user->id, 'label' => $user->name])
                 ->all(),
             'defaultPathExcludes' => config('yak.pr_review.default_path_excludes'),
             'defaultReviewPolicy' => (new Repository)->reviewPolicy(),

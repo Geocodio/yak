@@ -45,6 +45,7 @@ class SaveRepositoryRequest extends FormRequest
             'public_site_url' => ['nullable', 'url', 'max:255'],
             'is_active' => ['boolean'],
             'is_default' => ['boolean'],
+            'default_responsible_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'ci_system' => ['required', 'string', Rule::in(['github_actions', 'drone', 'none'])],
             'sentry_project' => ['nullable', 'string', 'max:255'],
             'pr_review_enabled' => ['boolean'],

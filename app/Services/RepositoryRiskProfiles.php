@@ -20,6 +20,7 @@ class RepositoryRiskProfiles
             'mode' => TaskMode::Research, 'source' => $source,
             'description' => app(PromptResolver::class)->render('tasks-risk-profile'),
             'context' => json_encode(['risk_profile_draft' => true]),
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
         ]);
         app(AgentJobDispatcher::class)->dispatch($task, ResearchYakJob::class);
 

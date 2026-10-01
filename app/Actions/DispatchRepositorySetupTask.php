@@ -7,6 +7,7 @@ use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ResponsiblePersonResolver;
 use Illuminate\Support\Str;
 
 /**
@@ -26,6 +27,7 @@ class DispatchRepositorySetupTask
             'mode' => TaskMode::Setup,
             'description' => "Setup repository: {$repository->name}",
             'source' => 'dashboard',
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
         ]);
 
         $repository->update([

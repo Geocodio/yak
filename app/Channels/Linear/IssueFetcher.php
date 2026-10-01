@@ -8,10 +8,11 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Small GraphQL client for reading Linear issue metadata that
- * `AgentSessionEvent.created` webhook payloads don't include —
- * currently just labels. Kept separate from `NotificationDriver`
- * (which is write-only) so the concerns don't drift.
+ * Small GraphQL client for reading Linear data that
+ * `AgentSessionEvent.created` webhook payloads don't include: issue
+ * labels, issue metadata, and the people behind an agent session.
+ * Kept separate from `NotificationDriver` (which is write-only) so
+ * the concerns don't drift.
  */
 class IssueFetcher
 {
@@ -70,6 +71,52 @@ class IssueFetcher
         }
 
         return $names;
+    }
+
+    /**
+     * The human who started an agent session and the issue's assignee.
+     * Linear keeps the human assignee when an issue is delegated to an
+     * agent, so the assignee is the person responsible for the outcome.
+     * Returns null when Linear is unreachable.
+     *
+     * @return array{creator: string|null, assignee: string|null}|null
+     */
+    public function sessionPeople(string $sessionId): ?array
+    {
+        $accessToken = $this->resolveAccessToken();
+        if ($accessToken === null || $sessionId === '') {
+            return null;
+        }
+
+        try {
+            $response = Http::withToken($accessToken)
+                ->timeout(self::TIMEOUT_SECONDS)
+                ->post(self::GRAPHQL_ENDPOINT, [
+                    'query' => 'query($id: String!) { agentSession(id: $id) { creator { name } issue { assignee { name app } } } }',
+                    'variables' => ['id' => $sessionId],
+                ]);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('LinearIssueFetcher: session people query failed', [
+                'session_id' => $sessionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! $response->successful() || ! is_array($response->json('data.agentSession'))) {
+            return null;
+        }
+
+        $creator = $response->json('data.agentSession.creator.name');
+        $assignee = $response->json('data.agentSession.issue.assignee.app') === true
+            ? null
+            : $response->json('data.agentSession.issue.assignee.name');
+
+        return [
+            'creator' => is_string($creator) && $creator !== '' ? $creator : null,
+            'assignee' => is_string($assignee) && $assignee !== '' ? $assignee : null,
+        ];
     }
 
     /**

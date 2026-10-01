@@ -754,3 +754,15 @@ test('canRequestReview is false without a PR, on review tasks, or when PR review
             ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', false));
     }
 });
+
+test('show exposes who started the task and who is responsible', function () {
+    $task = YakTask::factory()->success()->create([
+        'author_name' => 'Jane Doe',
+        'responsible_name' => 'John Smith',
+    ]);
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
+        ->component('Tasks/Show')
+        ->where('task.startedBy', 'Jane Doe')
+        ->where('task.responsible', 'John Smith'));
+});

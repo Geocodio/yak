@@ -19,6 +19,7 @@ use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
+use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use App\Services\YakPersonality;
 use Illuminate\Http\JsonResponse;
@@ -211,6 +212,12 @@ class WebhookController extends Controller
             'description' => $description->body,
             'mode' => $description->metadata['mode'] ?? 'fix',
             'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? null,
+            'author_name' => $description->metadata['creator_name'] ?? null,
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(
+                $description->metadata['assignee_name'] ?? null,
+                $description->metadata['creator_name'] ?? null,
+                $repoSlug,
+            ),
             ...($detection->needsClarification ? [
                 'status' => TaskStatus::AwaitingClarification,
                 'clarification_options' => $repoOptions,

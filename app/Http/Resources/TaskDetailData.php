@@ -155,6 +155,8 @@ final class TaskDetailData
             'repoUrl' => $repository !== null ? route('repos.edit', $repository) : null,
             'sourceLabel' => ucfirst($task->source),
             'sourceUrl' => TaskSourceUrl::resolve($task),
+            'startedBy' => $task->author_name,
+            'responsible' => $task->responsible_name,
             'model' => $task->model_used,
             'turns' => $task->num_turns,
             'duration' => self::formatDuration($task->duration_ms),

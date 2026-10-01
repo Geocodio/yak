@@ -3,6 +3,7 @@
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Queue;
@@ -809,4 +810,26 @@ it('accepts the required tag when Sentry sends tags as [key, value] pairs', func
 
     expect(YakTask::count())->toBe(1);
     Queue::assertPushed(RunYakJob::class);
+});
+
+it('makes the repository default responsible user own Sentry tasks', function () {
+    $secret = enableSentryChannel();
+    Queue::fake();
+    $owner = User::factory()->create(['name' => 'Repo Owner']);
+    Repository::factory()->withSentry()->create([
+        'slug' => 'my-app',
+        'sentry_project' => 'my-sentry-project',
+        'default_responsible_user_id' => $owner->id,
+    ]);
+
+    $body = sentryAlertPayload(['issueId' => '99002', 'seerActionability' => 'high', 'projectSlug' => 'my-sentry-project']);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => signSentryPayload($body, $secret),
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertStatus(201);
+
+    $task = YakTask::first();
+    expect($task->author_name)->toBeNull()
+        ->and($task->responsible_name)->toBe('Repo Owner');
 });
