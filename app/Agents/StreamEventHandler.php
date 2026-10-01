@@ -245,12 +245,15 @@ class StreamEventHandler
 
         $this->lastAssistantText = $content;
 
-        // Truncate long assistant messages
-        $display = mb_strlen($content) > 500
-            ? mb_substr($content, 0, 500) . '…'
-            : $content;
+        // The message is a short preview for list rows; the transcript reads
+        // the full text from metadata.
+        $isLong = mb_strlen($content) > 500;
+        $display = $isLong ? mb_substr($content, 0, 500) . '…' : $content;
 
-        TaskLogger::info($this->task, $display, ['type' => 'assistant']);
+        TaskLogger::info($this->task, $display, array_filter([
+            'type' => 'assistant',
+            'text' => $isLong ? $content : null,
+        ]));
     }
 
     /**

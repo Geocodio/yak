@@ -54,6 +54,9 @@ return [
             'driver' => 'anthropic',
             'key' => env('ANTHROPIC_API_KEY'),
             'url' => env('ANTHROPIC_URL', 'https://api.anthropic.com/v1'),
+            // structured-outputs makes schema-bound agents use native constrained
+            // decoding, so required keys are always present in the response.
+            'anthropic_beta' => env('ANTHROPIC_BETA', 'web-fetch-2025-09-10,structured-outputs-2025-11-13'),
         ],
 
         'azure' => [

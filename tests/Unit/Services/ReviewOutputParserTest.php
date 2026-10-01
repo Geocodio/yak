@@ -6,18 +6,22 @@ use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\Usage;
 use Laravel\Ai\Responses\StructuredAgentResponse;
 
-function fakeStructurer(array $structured): ReviewStructurer
+/**
+ * @param  array<string, mixed>  ...$structuredResponses  returned in order, the last one repeating
+ */
+function fakeStructurer(array ...$structuredResponses): ReviewStructurer
 {
     $mock = Mockery::mock(ReviewStructurer::class);
-    $mock->shouldReceive('prompt')->andReturn(
-        new StructuredAgentResponse(
+    $mock->shouldReceive('prompt')->andReturn(...array_map(
+        fn (array $structured): StructuredAgentResponse => new StructuredAgentResponse(
             invocationId: 'inv-test',
             structured: $structured,
             text: '',
             usage: new Usage(0, 0, 0, 0),
             meta: new Meta(model: 'claude-haiku-4-5-20251001', provider: 'anthropic'),
         ),
-    );
+        $structuredResponses,
+    ));
 
     return $mock;
 }
@@ -104,6 +108,43 @@ it('throws when the structurer returns missing keys', function () {
 
     $parser->parse('text');
 })->throws(RuntimeException::class, 'missing required key');
+
+it('asks the structurer again when a required key is missing', function () {
+    $structurer = fakeStructurer(
+        ['summary' => 's', 'verdict_detail' => 'd', 'findings' => []],
+        ['summary' => 's', 'verdict' => 'Request changes', 'verdict_detail' => 'd', 'findings' => []],
+    );
+
+    $parsed = (new ReviewOutputParser($structurer))->parse('text');
+
+    expect($parsed->verdict)->toBe('Request changes');
+    $structurer->shouldHaveReceived('prompt')->twice();
+});
+
+it('infers a missing verdict from finding severities after the retry', function (array $severities, string $expected) {
+    $findings = array_map(fn (string $severity): array => [
+        'file' => 'a.php', 'line' => 1, 'severity' => $severity, 'category' => 'Correctness', 'body' => 'b',
+    ], $severities);
+
+    $parser = new ReviewOutputParser(fakeStructurer(
+        ['summary' => 's', 'verdict_detail' => 'd', 'findings' => $findings],
+    ));
+
+    expect($parser->parse('text')->verdict)->toBe($expected);
+})->with([
+    'must fix present' => [['consider', 'must_fix'], 'Request changes'],
+    'should fix present' => [['should_fix', 'consider'], 'Approve with suggestions'],
+    'only consider' => [['consider'], 'Approve'],
+    'no findings' => [[], 'Approve'],
+]);
+
+it('gives up after the retry when other required keys stay missing', function () {
+    $structurer = fakeStructurer(['verdict' => 'Approve', 'verdict_detail' => 'd', 'findings' => []]);
+
+    expect(fn () => (new ReviewOutputParser($structurer))->parse('text'))
+        ->toThrow(RuntimeException::class, 'missing required key: summary');
+    $structurer->shouldHaveReceived('prompt')->twice();
+});
 
 it('parses prior_findings into ParsedPriorFinding DTOs', function () {
     $parser = new ReviewOutputParser(fakeStructurer([

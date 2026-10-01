@@ -138,7 +138,7 @@ test('handles result event', function () {
     expect($this->handler->getResultEvent())->toBe($resultEvent);
 });
 
-test('truncates long assistant messages', function () {
+test('previews long assistant messages and keeps the full text in metadata', function () {
     $longText = str_repeat('a', 600);
 
     $this->handler->handle([
@@ -153,6 +153,7 @@ test('truncates long assistant messages', function () {
     $log = TaskLog::where('yak_task_id', $this->task->id)->first();
     expect(mb_strlen($log->message))->toBeLessThan(510);
     expect($log->message)->toEndWith('…');
+    expect($log->metadata['text'])->toBe($longText);
 });
 
 test('truncates long bash output', function () {

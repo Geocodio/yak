@@ -234,6 +234,12 @@ export type ActionsData = {
     rerouteTargets: string[];
 };
 
+export type TranscriptDetail = {
+    label: string;
+    value: string;
+    error: boolean;
+};
+
 export type TranscriptEntry = {
     id: number;
     badge: string | null;
@@ -245,6 +251,8 @@ export type TranscriptEntry = {
     tool?: string;
     input?: string | null;
     output?: string | null;
+    html?: string;
+    details?: TranscriptDetail[];
     prompt?: {
         user: string;
         system: string;

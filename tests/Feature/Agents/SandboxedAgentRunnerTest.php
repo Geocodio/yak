@@ -871,3 +871,44 @@ it('records stream lines that are not valid JSON on the task log instead of drop
     expect($log)->not->toBeNull();
     expect($log->metadata['line'] ?? null)->toBe('not json at all {');
 });
+
+it('reassembles a stream line that arrives across several pipe reads', function () {
+    $task = YakTask::factory()->running()->create();
+
+    $sandbox = new class extends RecordingSandboxManager
+    {
+        public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+        {
+            $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+            $resultEvent = json_encode([
+                'type' => 'result',
+                'is_error' => false,
+                'result' => str_repeat('long review text ', 500),
+                'num_turns' => 1,
+                'total_cost_usd' => 0.0,
+                'duration_ms' => 1,
+                'session_id' => 'sess_split',
+            ]);
+
+            $splitAt = intdiv(strlen($resultEvent), 2);
+
+            $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            $shell = sprintf(
+                'cat > /dev/null; printf %%s %s; sleep 0.3; printf "%%s\n" %s',
+                escapeshellarg(substr($resultEvent, 0, $splitAt)),
+                escapeshellarg(substr($resultEvent, $splitAt)),
+            );
+            $process = proc_open(['bash', '-c', $shell], $descriptors, $pipes);
+
+            return [$process, $pipes];
+        }
+    };
+
+    $runner = new SandboxedAgentRunner($sandbox, postResultGraceSeconds: 0.1, streamPollIntervalSeconds: 0);
+    $result = $runner->run(buildAgentRunRequest($task));
+
+    expect($result->isError)->toBeFalse()
+        ->and($result->resultSummary)->toBe(str_repeat('long review text ', 500))
+        ->and(TaskLog::where('yak_task_id', $task->id)->where('message', 'like', '%not valid JSON%')->exists())->toBeFalse();
+});
