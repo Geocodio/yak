@@ -206,6 +206,12 @@ class CreatePullRequestJob implements ShouldQueue
 
         $parts[] = "**Source:** {$this->task->source}";
 
+        foreach (['Started by' => $this->task->author_name, 'Responsible' => $this->task->responsible_name] as $label => $name) {
+            if ($name !== null && trim($name) !== '') {
+                $parts[] = "**{$label}:** " . trim($name);
+            }
+        }
+
         if ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }
