@@ -64,6 +64,8 @@ export function TaskSummary({ task }: { task: TaskDetail }) {
                         task.sourceLabel
                     )}
                 </Meta>
+                {task.startedBy && <Meta label="Started by">{task.startedBy}</Meta>}
+                {task.responsible && <Meta label="Responsible">{task.responsible}</Meta>}
                 {task.model && <Meta label="Model">{task.model}</Meta>}
                 {task.turns !== null && <Meta label="Turns">{task.turns}</Meta>}
                 <Meta label="Duration">{task.duration}</Meta>

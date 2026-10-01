@@ -91,6 +91,8 @@ export type TaskDetail = {
     repoUrl: string | null;
     sourceLabel: string;
     sourceUrl: string | null;
+    startedBy: string | null;
+    responsible: string | null;
     model: string | null;
     turns: number | null;
     duration: string;
