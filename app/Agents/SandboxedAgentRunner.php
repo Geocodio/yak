@@ -475,7 +475,10 @@ class SandboxedAgentRunner implements AgentRunner
         $stdout = $pipes[1];
         $stderr = $pipes[2];
 
+        // Non-blocking fgets() returns whatever has arrived, which can be part
+        // of a line. Partial reads collect here until the newline lands.
         stream_set_blocking($stdout, false);
+        $pendingLine = '';
 
         $lastLineAt = microtime(true);
         $resultReceivedAt = null;
@@ -518,14 +521,21 @@ class SandboxedAgentRunner implements AgentRunner
             }
 
             if ($ready > 0) {
-                $line = fgets($stdout);
-                if ($line === false) {
+                $chunk = fgets($stdout);
+                if ($chunk === false) {
                     break;
                 }
-                $lineCount++;
                 $lastLineAt = microtime(true);
                 $lastHeartbeatAt = $lastLineAt;
-                $this->processLine($line, $handler, $request->task);
+
+                $pendingLine .= $chunk;
+                if (! str_ends_with($pendingLine, "\n")) {
+                    continue;
+                }
+
+                $lineCount++;
+                $this->processLine($pendingLine, $handler, $request->task);
+                $pendingLine = '';
 
                 if ($resultReceivedAt === null && $handler->getResultEvent() !== null) {
                     $resultReceivedAt = microtime(true);
@@ -533,9 +543,13 @@ class SandboxedAgentRunner implements AgentRunner
             } else {
                 $status = proc_get_status($process);
                 if (! $status['running']) {
-                    while (($line = fgets($stdout)) !== false) {
-                        $lineCount++;
-                        $this->processLine($line, $handler, $request->task);
+                    while (($chunk = fgets($stdout)) !== false) {
+                        $pendingLine .= $chunk;
+                        if (str_ends_with($pendingLine, "\n")) {
+                            $lineCount++;
+                            $this->processLine($pendingLine, $handler, $request->task);
+                            $pendingLine = '';
+                        }
                     }
                     break;
                 }
@@ -604,6 +618,11 @@ class SandboxedAgentRunner implements AgentRunner
                     continue;
                 }
             }
+        }
+
+        if ($pendingLine !== '') {
+            $lineCount++;
+            $this->processLine($pendingLine, $handler, $request->task);
         }
 
         $stderrOutput = stream_get_contents($stderr) ?: '';
