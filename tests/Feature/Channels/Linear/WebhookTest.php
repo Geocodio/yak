@@ -72,12 +72,13 @@ function agentSessionCreatedPayload(array $overrides = []): string
         $agentSession['creator'] = ['id' => 'user-uuid-001', 'name' => $overrides['creatorName']];
     }
 
-    return (string) json_encode([
+    return (string) json_encode(array_filter([
         'type' => 'AgentSessionEvent',
         'action' => 'created',
         'organizationId' => $overrides['workspaceId'] ?? TEST_WORKSPACE_ID,
+        'actor' => $overrides['actor'] ?? null,
         'agentSession' => $agentSession,
-    ]);
+    ]));
 }
 
 function agentSessionPromptedPayload(array $overrides = []): string
@@ -642,4 +643,35 @@ it('falls back to the payload creator when the Linear people lookup fails', func
     expect($task)->not->toBeNull()
         ->and($task->author_name)->toBe('Payload Creator')
         ->and($task->responsible_name)->toBe('Payload Creator');
+});
+
+it('never makes an agent assignee the responsible person', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['api.linear.app/graphql' => Http::response(['data' => [
+        'issue' => ['labels' => ['nodes' => []]],
+        'agentSession' => [
+            'creator' => ['name' => 'Linear Delegator'],
+            'issue' => ['assignee' => ['name' => 'Yak Agent', 'app' => true]],
+        ],
+        'agentActivityCreate' => ['success' => true],
+    ]])]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->responsible_name)->toBe('Linear Delegator');
+});
+
+it('falls back to the webhook actor when no creator is available', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['api.linear.app/graphql' => Http::response([], 500)]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(['actor' => ['name' => 'Webhook Actor']]), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->author_name)->toBe('Webhook Actor');
 });

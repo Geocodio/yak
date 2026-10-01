@@ -11,6 +11,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
+use App\Services\ResponsiblePersonResolver;
 use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -131,6 +132,7 @@ class EnsureRepoReady
             'mode' => TaskMode::Setup,
             'description' => "Re-provision sandbox for {$repository->name} (yak-base updated)",
             'source' => 'system',
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
         ]);
 
         $repository->update([

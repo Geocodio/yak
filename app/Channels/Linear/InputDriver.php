@@ -49,7 +49,10 @@ class InputDriver implements InputDriverContract
 
         $payloadCreator = $session['creator']['name'] ?? null;
         $people = $this->fetcher()->sessionPeople($sessionId);
-        $creatorName = $people['creator'] ?? (is_string($payloadCreator) && $payloadCreator !== '' ? $payloadCreator : null);
+        $actorName = $request->input('actor.name');
+        $creatorName = $people['creator']
+            ?? (is_string($payloadCreator) && trim($payloadCreator) !== '' ? $payloadCreator : null)
+            ?? (is_string($actorName) && trim($actorName) !== '' ? $actorName : null);
 
         return new TaskDescription(
             title: Str::limit($title, 100),

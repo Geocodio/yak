@@ -26,6 +26,6 @@ class ResponsiblePersonResolver
             ?->defaultResponsibleUser
             ?->name;
 
-        return $defaultName !== null && trim($defaultName) !== '' ? $defaultName : null;
+        return $defaultName !== null && trim($defaultName) !== '' ? trim($defaultName) : null;
     }
 }

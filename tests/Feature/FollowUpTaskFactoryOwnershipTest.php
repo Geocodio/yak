@@ -18,3 +18,17 @@ test('a follow-up keeps the responsible person and records its own starter', fun
         ->and($child->author_name)->toBe('Follow Upper')
         ->and($child->responsible_name)->toBe('Owner Person');
 });
+
+test('a follow-up on a chain with no responsible person makes its starter responsible', function () {
+    $parent = YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/org/repo/pull/8',
+        'pr_number' => 8,
+        'branch_name' => 'yak/fix-8',
+        'author_name' => null,
+        'responsible_name' => null,
+    ]);
+
+    $child = app(FollowUpTaskFactory::class)->create($parent, 'Handle the empty state', 'slack', authorName: 'Follow Upper');
+
+    expect($child->responsible_name)->toBe('Follow Upper');
+});

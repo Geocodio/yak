@@ -46,3 +46,10 @@ test('a deleted default responsible user clears the repository default', functio
     expect($repository->fresh()->default_responsible_user_id)->toBeNull()
         ->and(app(ResponsiblePersonResolver::class)->resolve(null, null, 'my-app'))->toBeNull();
 });
+
+test('trims the repository default responsible user name', function () {
+    $owner = User::factory()->create(['name' => ' Jane ']);
+    Repository::factory()->create(['slug' => 'my-app', 'default_responsible_user_id' => $owner->id]);
+
+    expect(app(ResponsiblePersonResolver::class)->resolve(null, null, 'my-app'))->toBe('Jane');
+});

@@ -8,10 +8,11 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Small GraphQL client for reading Linear issue metadata that
- * `AgentSessionEvent.created` webhook payloads don't include —
- * currently just labels. Kept separate from `NotificationDriver`
- * (which is write-only) so the concerns don't drift.
+ * Small GraphQL client for reading Linear data that
+ * `AgentSessionEvent.created` webhook payloads don't include: issue
+ * labels, issue metadata, and the people behind an agent session.
+ * Kept separate from `NotificationDriver` (which is write-only) so
+ * the concerns don't drift.
  */
 class IssueFetcher
 {
@@ -91,7 +92,7 @@ class IssueFetcher
             $response = Http::withToken($accessToken)
                 ->timeout(self::TIMEOUT_SECONDS)
                 ->post(self::GRAPHQL_ENDPOINT, [
-                    'query' => 'query($id: String!) { agentSession(id: $id) { creator { name } issue { assignee { name } } } }',
+                    'query' => 'query($id: String!) { agentSession(id: $id) { creator { name } issue { assignee { name app } } } }',
                     'variables' => ['id' => $sessionId],
                 ]);
         } catch (\Throwable $e) {
@@ -108,7 +109,9 @@ class IssueFetcher
         }
 
         $creator = $response->json('data.agentSession.creator.name');
-        $assignee = $response->json('data.agentSession.issue.assignee.name');
+        $assignee = $response->json('data.agentSession.issue.assignee.app') === true
+            ? null
+            : $response->json('data.agentSession.issue.assignee.name');
 
         return [
             'creator' => is_string($creator) && $creator !== '' ? $creator : null,

@@ -111,6 +111,8 @@ class RepoClarificationResolver
             'status' => TaskStatus::Pending,
             'clarification_options' => null,
             'clarification_expires_at' => null,
+            'responsible_name' => $task->responsible_name
+                ?? app(ResponsiblePersonResolver::class)->resolve(null, $task->author_name, $repository->slug),
         ]);
 
         TaskLogger::info($task, "Repo resolved to {$repository->slug}");
