@@ -45,6 +45,7 @@ use Illuminate\Support\Collection;
  * @property CarbonImmutable|null $pr_opened_at
  * @property int|null $human_commits
  * @property CarbonImmutable|null $pr_state_checked_at
+ * @property string|null $responsible_name
  */
 class YakTask extends Model
 {

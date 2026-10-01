@@ -153,6 +153,17 @@ class Repository extends Model
     }
 
     /**
+     * The person who owns tasks on this repository that no human started
+     * (Sentry alerts, CI scans, setup runs).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function defaultResponsibleUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'default_responsible_user_id');
+    }
+
+    /**
      * @return HasMany<YakTask, $this>
      */
     public function tasks(): HasMany
