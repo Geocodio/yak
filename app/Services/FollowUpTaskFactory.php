@@ -55,6 +55,7 @@ class FollowUpTaskFactory
                 'external_id' => $root->external_id . '-followup',
                 'description' => $instructions,
                 'author_name' => $authorName,
+                'responsible_name' => $head->responsible_name,
                 're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
                 'targets_external_pr' => ! $isResearch && $head->targets_external_pr,
                 'summon_review_comment_id' => $summonReviewCommentId,

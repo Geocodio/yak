@@ -928,3 +928,27 @@ it('does not treat normal task descriptions as help queries', function () {
     // The task should be created — "help" appearing mid-sentence doesn't trigger the help card.
     expect(YakTask::count())->toBe(1);
 });
+
+it('records the Slack requester as starter and responsible', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Cache::flush();
+    Http::fake([
+        'slack.com/api/users.info*' => Http::response(['ok' => true, 'user' => ['profile' => ['display_name' => 'Slack Person']]]),
+        '*' => Http::response(['ok' => true]),
+    ]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackMentionPayload('fix the login bug');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task = YakTask::first();
+    expect($task->author_name)->toBe('Slack Person')
+        ->and($task->responsible_name)->toBe('Slack Person');
+});

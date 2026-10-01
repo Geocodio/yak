@@ -80,3 +80,20 @@ test('save rejects an inactive repo', function () {
     expect(YakTask::where('source', 'dashboard')->count())->toBe(0);
     Queue::assertNothingPushed();
 });
+
+test('save records the signed-in user as starter and responsible', function () {
+    Queue::fake();
+    $user = User::factory()->create(['name' => 'Dash Board']);
+    $this->actingAs($user);
+    Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
+
+    $this->post(route('tasks.store'), [
+        'repo' => 'web',
+        'mode' => 'fix',
+        'description' => 'Tidy the footer',
+    ])->assertRedirect();
+
+    $task = YakTask::where('source', 'dashboard')->first();
+    expect($task->author_name)->toBe('Dash Board')
+        ->and($task->responsible_name)->toBe('Dash Board');
+});

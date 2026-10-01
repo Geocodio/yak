@@ -9,6 +9,7 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
@@ -19,12 +20,16 @@ class StoreTaskController extends Controller
     {
         $validated = $request->validated();
 
+        $authorName = $request->user()?->name;
+
         $task = YakTask::create([
             'source' => 'dashboard',
             'repo' => $validated['repo'],
             'external_id' => 'DASH-' . Str::upper(Str::random(8)),
             'description' => trim((string) $validated['description']),
             'mode' => $validated['mode'],
+            'author_name' => $authorName,
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $validated['repo']),
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'dashboard', 'repo' => $task->repo]);
