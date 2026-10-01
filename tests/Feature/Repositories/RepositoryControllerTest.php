@@ -724,3 +724,37 @@ function baseRepoPayload(Repository $repo): array
         'ci_system' => $repo->ci_system,
     ];
 }
+
+test('editing a repo sets and clears the default responsible user', function () {
+    $owner = User::factory()->create(['name' => 'Repo Owner']);
+    $repo = Repository::factory()->create();
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'default_responsible_user_id' => $owner->id,
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->default_responsible_user_id)->toBe($owner->id);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'default_responsible_user_id' => '',
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->default_responsible_user_id)->toBeNull();
+});
+
+test('default responsible user must exist', function () {
+    $repo = Repository::factory()->create();
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'default_responsible_user_id' => 999999,
+    ]))->assertSessionHasErrors('default_responsible_user_id');
+});
+
+test('edit exposes the default responsible user and the user options', function () {
+    $owner = User::factory()->create(['name' => 'Repo Owner']);
+    $repo = Repository::factory()->create(['default_responsible_user_id' => $owner->id]);
+
+    $this->get(route('repos.edit', $repo))->assertInertia(fn (Assert $page) => $page
+        ->where('repository.defaultResponsibleUserId', $owner->id)
+        ->where('options.users', fn ($users) => collect($users)->contains(fn ($user) => $user['value'] === (string) $owner->id && $user['label'] === 'Repo Owner')));
+});

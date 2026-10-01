@@ -27,6 +27,7 @@ export type RepositoryDetail = {
     publicSiteUrl: string | null;
     isActive: boolean;
     isDefault: boolean;
+    defaultResponsibleUserId: number | null;
     ciSystem: string;
     sentryProject: string | null;
     prReviewEnabled: boolean;
@@ -41,6 +42,7 @@ export type RepositoryOptions = {
     defaultReviewPolicy: ReviewPolicy;
     ciSystems: { value: string; label: string }[];
     sentryProjects: { value: string; label: string }[];
+    users: { value: string; label: string }[];
     defaultPathExcludes: string[];
 };
 
