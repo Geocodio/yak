@@ -62,15 +62,21 @@ function agentSessionCreatedPayload(array $overrides = []): string
         $issue['labels'] = $overrides['labels'];
     }
 
+    $agentSession = [
+        'id' => $overrides['sessionId'] ?? 'session-uuid-001',
+        'issue' => $issue,
+        'promptContext' => $overrides['promptContext'] ?? '',
+    ];
+
+    if (array_key_exists('creatorName', $overrides)) {
+        $agentSession['creator'] = ['id' => 'user-uuid-001', 'name' => $overrides['creatorName']];
+    }
+
     return (string) json_encode([
         'type' => 'AgentSessionEvent',
         'action' => 'created',
         'organizationId' => $overrides['workspaceId'] ?? TEST_WORKSPACE_ID,
-        'agentSession' => [
-            'id' => $overrides['sessionId'] ?? 'session-uuid-001',
-            'issue' => $issue,
-            'promptContext' => $overrides['promptContext'] ?? '',
-        ],
+        'agentSession' => $agentSession,
     ]);
 }
 
@@ -584,4 +590,56 @@ it('postAgentActivity posts a freeform activity without needing a task', functio
             && ($vars['input']['content']['type'] ?? null) === 'error'
             && ($vars['input']['content']['body'] ?? null) === 'Not supported here.';
     });
+});
+
+it('records the session creator as starter and the issue assignee as responsible', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['api.linear.app/graphql' => Http::response(['data' => [
+        'issue' => ['labels' => ['nodes' => []]],
+        'agentSession' => [
+            'creator' => ['name' => 'Linear Delegator'],
+            'issue' => ['assignee' => ['name' => 'Issue Assignee']],
+        ],
+        'agentActivityCreate' => ['success' => true],
+    ]])]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    $task = YakTask::first();
+    expect($task->author_name)->toBe('Linear Delegator')
+        ->and($task->responsible_name)->toBe('Issue Assignee');
+});
+
+it('makes the starter responsible when the issue has no assignee', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['api.linear.app/graphql' => Http::response(['data' => [
+        'issue' => ['labels' => ['nodes' => []]],
+        'agentSession' => ['creator' => ['name' => 'Linear Delegator'], 'issue' => ['assignee' => null]],
+        'agentActivityCreate' => ['success' => true],
+    ]])]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    expect(YakTask::first()->responsible_name)->toBe('Linear Delegator');
+});
+
+it('falls back to the payload creator when the Linear people lookup fails', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['api.linear.app/graphql' => Http::response([], 500)]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(['creatorName' => 'Payload Creator']), $secret)->assertSuccessful();
+
+    $task = YakTask::first();
+    expect($task)->not->toBeNull()
+        ->and($task->author_name)->toBe('Payload Creator')
+        ->and($task->responsible_name)->toBe('Payload Creator');
 });
