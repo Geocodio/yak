@@ -10,6 +10,10 @@ use Laravel\Ai\Responses\StructuredAgentResponse;
 
 class ReviewOutputParser
 {
+    private const REQUIRED_KEYS = ['summary', 'verdict', 'verdict_detail', 'findings'];
+
+    private const MAX_STRUCTURER_ATTEMPTS = 2;
+
     public function __construct(private readonly ReviewStructurer $structurer = new ReviewStructurer) {}
 
     public function parse(string $agentOutput): ParsedReview
@@ -19,17 +23,7 @@ class ReviewOutputParser
             throw new \RuntimeException('Agent produced no review output to structure.');
         }
 
-        /** @var StructuredAgentResponse $response */
-        $response = $this->structurer->prompt($trimmed);
-
-        /** @var array<string, mixed> $decoded */
-        $decoded = $response->structured;
-
-        foreach (['summary', 'verdict', 'verdict_detail', 'findings'] as $required) {
-            if (! array_key_exists($required, $decoded)) {
-                throw new \RuntimeException("Structured review missing required key: {$required}");
-            }
-        }
+        $decoded = $this->structure($trimmed);
 
         if (! is_array($decoded['findings'])) {
             throw new \RuntimeException('`findings` must be an array.');
@@ -60,5 +54,53 @@ class ReviewOutputParser
                 ? $decoded['risk'] : 'unknown',
             signals: is_array($decoded['signals'] ?? null) ? $decoded['signals'] : [],
         );
+    }
+
+    /**
+     * Run the structurer, asking again when a required key is missing. On the
+     * final attempt a missing verdict is inferred from the finding severities,
+     * the same rule the structurer is told to apply.
+     *
+     * @return array<string, mixed>
+     */
+    private function structure(string $agentOutput): array
+    {
+        for ($attempt = 1; ; $attempt++) {
+            /** @var StructuredAgentResponse $response */
+            $response = $this->structurer->prompt($agentOutput);
+
+            /** @var array<string, mixed> $decoded */
+            $decoded = $response->structured;
+
+            $isFinalAttempt = $attempt >= self::MAX_STRUCTURER_ATTEMPTS;
+
+            if ($isFinalAttempt && ! array_key_exists('verdict', $decoded) && is_array($decoded['findings'] ?? null)) {
+                $decoded['verdict'] = $this->inferVerdict($decoded['findings']);
+            }
+
+            $missingKeys = array_values(array_diff(self::REQUIRED_KEYS, array_keys($decoded)));
+
+            if ($missingKeys === []) {
+                return $decoded;
+            }
+
+            if ($isFinalAttempt) {
+                throw new \RuntimeException("Structured review missing required key: {$missingKeys[0]}");
+            }
+        }
+    }
+
+    /**
+     * @param  array<int, mixed>  $findings
+     */
+    private function inferVerdict(array $findings): string
+    {
+        $severities = array_column(array_filter($findings, 'is_array'), 'severity');
+
+        return match (true) {
+            in_array('must_fix', $severities, true) => 'Request changes',
+            in_array('should_fix', $severities, true) => 'Approve with suggestions',
+            default => 'Approve',
+        };
     }
 }
