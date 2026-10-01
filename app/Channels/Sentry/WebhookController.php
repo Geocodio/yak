@@ -9,6 +9,7 @@ use App\Jobs\RunYakJob;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\RepoDetector;
+use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,6 +105,7 @@ class WebhookController extends Controller
             'external_id' => $description->externalId,
             'description' => $description->body,
             'mode' => 'fix',
+            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $resolvedSlug),
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'sentry', 'repo' => $resolvedSlug]);

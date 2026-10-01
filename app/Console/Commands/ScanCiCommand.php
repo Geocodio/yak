@@ -16,6 +16,7 @@ use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ExistingFixPrFinder;
 use App\Services\ObservationRecorder;
+use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -535,6 +536,7 @@ class ScanCiCommand extends Command
                         'build_id' => $canonical->buildId,
                     ]),
                     'source' => self::SOURCE,
+                    'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
                 ]);
 
                 foreach ($remaining as $test) {

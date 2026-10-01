@@ -10,6 +10,7 @@ use App\Jobs\RunYakJob;
 use App\Models\FlakyTestClaim;
 use App\Models\Observation;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Queue;
@@ -85,6 +86,30 @@ test('creates tasks for detected flaky tests with source=flaky-test', function (
     expect($task->external_url)->toBe('https://github.com/org/repo/actions/runs/123');
 
     Queue::assertPushed(RunYakJob::class);
+});
+
+test('makes the repository default responsible user own flaky test tasks', function () {
+    $owner = User::factory()->create(['name' => 'Repo Owner']);
+    Repository::factory()->create([
+        'slug' => 'flaky-repo',
+        'ci_system' => 'github_actions',
+        'default_responsible_user_id' => $owner->id,
+    ]);
+
+    fakeScannerWith(
+        new CIBuildFailure(
+            testName: 'Tests\Feature\LoginTest > it logs in',
+            output: 'Expected status 200, got 500',
+            buildUrl: 'https://github.com/org/repo/actions/runs/123',
+            buildId: '123',
+            branch: 'main',
+            commitSha: 'sha-a',
+        ),
+    );
+
+    $this->artisan('yak:scan-ci', ['--repo' => 'flaky-repo'])->assertSuccessful();
+
+    expect(YakTask::where('repo', 'flaky-repo')->first()->responsible_name)->toBe('Repo Owner');
 });
 
 test('does not create a task while a live claim covers the test', function () {
