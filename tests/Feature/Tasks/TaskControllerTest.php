@@ -227,6 +227,44 @@ test('transcriptEntry can be requested as a partial reload without a log in the 
         ->assertJsonMissingPath('props.thread');
 });
 
+test('transcriptEntry renders the full assistant message as markdown', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now()]);
+    $fullText = "## For the reviewer\n\n" . str_repeat('Long review prose. ', 60) . "\n\n## Verdict\n**Approve**";
+    $log = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => mb_substr($fullText, 0, 500) . '…',
+        'metadata' => ['type' => 'assistant', 'text' => $fullText],
+    ]);
+
+    $this->get(route('tasks.show', [$task, 'log' => $log->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('transcriptEntry.kind', 'assistant')
+            ->where('transcriptEntry.html', fn (string $html) => str_contains($html, '<h2>Verdict</h2>') && str_contains($html, '<strong>Approve</strong>')));
+});
+
+test('transcriptEntry lists a plain log entry\'s metadata as details', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'started_at' => now()]);
+    $withMetadata = TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'level' => 'error',
+        'message' => 'Failed to parse agent review output',
+        'metadata' => ['error' => 'Structured review missing required key: verdict', 'raw_output' => '## For the reviewer'],
+    ]);
+    $bare = TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'Sandbox created', 'metadata' => null]);
+
+    $this->get(route('tasks.show', [$task, 'log' => $withMetadata->id]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('transcriptEntry.details', [
+                ['label' => 'Error', 'value' => 'Structured review missing required key: verdict', 'error' => true],
+                ['label' => 'Raw output', 'value' => '## For the reviewer', 'error' => false],
+            ]));
+
+    $this->get(route('tasks.show', [$task, 'log' => $bare->id]))
+        ->assertInertia(fn (Assert $page) => $page->where('transcriptEntry.details', []));
+});
+
 test('attempt query param selects the requested attempt', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Success, 'started_at' => now(), 'attempts' => 2]);
     TaskLog::factory()->create(['yak_task_id' => $task->id, 'attempt_number' => 1, 'message' => 'attempt one log']);

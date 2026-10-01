@@ -1,6 +1,7 @@
 import { Badge, Dialog, Kbd, cn } from '@geocodio/console-ui';
 import { ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Prose } from '@/components/Prose';
 import { useTranscriptEntry } from '@/components/tasks/useTranscriptEntry';
 import { navigateTaskQuery } from '@/lib/taskQuery';
 import type { ActivityRow, RunSummary, TranscriptEntry } from '@/types/tasks';
@@ -11,9 +12,13 @@ function Block({ title, children, error }: { title: string; children?: React.Rea
     return (
         <div className="mt-4">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">{title}</div>
-            <pre className={cn('overflow-auto whitespace-pre-wrap rounded-card border border-hair bg-panel-2 p-3 font-mono [overflow-wrap:anywhere] text-[11.5px] leading-relaxed', error && 'border-fail/30 bg-fail-soft/40 text-fail')}>
-                {children}
-            </pre>
+            {children === null || children === undefined || children === '' ? (
+                <p className="text-[12px] text-faint">No {title.toLowerCase()} recorded.</p>
+            ) : (
+                <pre className={cn('overflow-auto whitespace-pre-wrap rounded-card border border-hair bg-panel-2 p-3 font-mono [overflow-wrap:anywhere] text-[11.5px] leading-relaxed', error && 'border-fail/30 bg-fail-soft/40 text-fail')}>
+                    {children}
+                </pre>
+            )}
         </div>
     );
 }
@@ -267,7 +272,7 @@ export function TranscriptOverlay({
                             {current ? (
                                 <>
                                     {outOfWindow && <p className="mb-2 text-[11px] text-faint">This entry is older than the loaded activity</p>}
-                                    <h3 className={cn('text-[14px] font-semibold', current.error && 'text-fail')}>{current.text}</h3>
+                                    <h3 className={cn('line-clamp-2 text-[14px] font-semibold', current.error && 'text-fail')}>{current.text}</h3>
                                     <div className="mt-1 flex items-center gap-2 text-[11px] text-faint">
                                         <span>{current.at}</span>
                                         {current.tool && (
@@ -299,7 +304,19 @@ export function TranscriptOverlay({
                                             <Block title="System prompt">{current.prompt.system}</Block>
                                         </>
                                     ) : current.kind === 'assistant' ? (
-                                        <div className="mt-4 rounded-card border border-hair bg-panel p-4 text-[13px] leading-relaxed">{current.text}</div>
+                                        <div className="mt-4 rounded-card border border-hair bg-panel p-4">
+                                            <Prose html={current.html ?? ''} />
+                                        </div>
+                                    ) : current.kind === 'level' ? (
+                                        current.details && current.details.length > 0 ? (
+                                            current.details.map((detail) => (
+                                                <Block key={detail.label} title={detail.label} error={detail.error}>
+                                                    {detail.value}
+                                                </Block>
+                                            ))
+                                        ) : (
+                                            <p className="mt-4 text-[12px] text-faint">No details recorded for this entry.</p>
+                                        )
                                     ) : (
                                         <>
                                             <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.input}</Block>

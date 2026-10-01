@@ -1,6 +1,7 @@
 import { Button, IconButton, Sheet, cn } from '@geocodio/console-ui';
 import { ChevronLeft } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
+import { Prose } from '@/components/Prose';
 import { useTranscriptEntry } from '@/components/tasks/useTranscriptEntry';
 import type { ActivityRow, TranscriptEntry } from '@/types/tasks';
 
@@ -8,14 +9,18 @@ function Block({ title, children, error }: { title: string; children?: ReactNode
     return (
         <div className="mt-4">
             <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-faint">{title}</div>
-            <pre
-                className={cn(
-                    'whitespace-pre-wrap break-all rounded-card border border-hair bg-panel-2 p-3 font-mono text-[11.5px] leading-relaxed',
-                    error && 'border-fail/30 bg-fail-soft/40 text-fail',
-                )}
-            >
-                {children}
-            </pre>
+            {children === null || children === undefined || children === '' ? (
+                <p className="text-[12px] text-faint">No {title.toLowerCase()} recorded.</p>
+            ) : (
+                <pre
+                    className={cn(
+                        'whitespace-pre-wrap break-all rounded-card border border-hair bg-panel-2 p-3 font-mono text-[11.5px] leading-relaxed',
+                        error && 'border-fail/30 bg-fail-soft/40 text-fail',
+                    )}
+                >
+                    {children}
+                </pre>
+            )}
         </div>
     );
 }
@@ -122,7 +127,7 @@ export function LogEntrySheet({
                                     </>
                                 )}
                             </div>
-                            <h3 className={cn('mt-1 text-[14px] font-semibold', current.error && 'text-fail')}>{current.text}</h3>
+                            <h3 className={cn('mt-1 line-clamp-2 text-[14px] font-semibold', current.error && 'text-fail')}>{current.text}</h3>
                             {current.kind === 'prompt' && current.prompt ? (
                                 <>
                                     <dl className="mt-4 grid grid-cols-2 gap-3 text-[11px]">
@@ -137,7 +142,19 @@ export function LogEntrySheet({
                                     <Block title="System prompt">{current.prompt.system}</Block>
                                 </>
                             ) : current.kind === 'assistant' ? (
-                                <div className="mt-4 rounded-card border border-hair bg-panel p-4 text-[13px] leading-relaxed">{current.text}</div>
+                                <div className="mt-4 rounded-card border border-hair bg-panel p-4">
+                                    <Prose html={current.html ?? ''} />
+                                </div>
+                            ) : current.kind === 'level' ? (
+                                current.details && current.details.length > 0 ? (
+                                    current.details.map((detail) => (
+                                        <Block key={detail.label} title={detail.label} error={detail.error}>
+                                            {detail.value}
+                                        </Block>
+                                    ))
+                                ) : (
+                                    <p className="mt-4 text-[12px] text-faint">No details recorded for this entry.</p>
+                                )
                             ) : (
                                 <>
                                     <Block title={current.tool === 'Bash' ? 'Command' : 'Input'}>{current.input}</Block>

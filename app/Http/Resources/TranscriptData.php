@@ -54,6 +54,14 @@ final class TranscriptData
             $entry['output'] = isset($metadata['output']) ? (string) $metadata['output'] : null;
         }
 
+        if ($type === 'assistant') {
+            $entry['html'] = Markdown::toHtml((string) ($metadata['text'] ?? $log->message));
+        }
+
+        if ($kind === 'level') {
+            $entry['details'] = self::details($metadata);
+        }
+
         if ($type === 'prompt') {
             $entry['prompt'] = [
                 'user' => (string) ($metadata['prompt'] ?? ''),
@@ -68,5 +76,33 @@ final class TranscriptData
         }
 
         return $entry;
+    }
+
+    /**
+     * A plain log entry's metadata as labelled blocks, so an error log shows
+     * what it recorded (the exception message, the raw output it choked on).
+     *
+     * @param  array<string, mixed>  $metadata
+     * @return list<array{label: string, value: string, error: bool}>
+     */
+    private static function details(array $metadata): array
+    {
+        $details = [];
+
+        foreach ($metadata as $key => $value) {
+            if ($key === 'type' || $value === null || $value === '' || $value === []) {
+                continue;
+            }
+
+            $details[] = [
+                'label' => ucfirst(str_replace('_', ' ', (string) $key)),
+                'value' => is_scalar($value)
+                    ? (is_bool($value) ? ($value ? 'true' : 'false') : (string) $value)
+                    : (string) json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                'error' => $key === 'error',
+            ];
+        }
+
+        return $details;
     }
 }

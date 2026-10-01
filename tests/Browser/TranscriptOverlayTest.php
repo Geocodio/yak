@@ -291,3 +291,50 @@ test('a long command wraps inside the detail pane instead of widening it', funct
 
     expect($overflows)->toBeFalse();
 });
+
+test('the overlay shows full assistant messages, log details, and empty states', function () {
+    $this->actingAs(User::factory()->create());
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'started_at' => now()]);
+    $fullText = "## For the reviewer\n\n" . str_repeat('The PR replaces the container stage. ', 20) . "\n\n## Verdict\n\n**Approve with suggestions**";
+
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => mb_substr($fullText, 0, 500) . '…',
+        'created_at' => now()->subMinutes(3),
+        'metadata' => ['type' => 'assistant', 'text' => $fullText],
+    ]);
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'level' => 'error',
+        'message' => 'Failed to parse agent review output',
+        'created_at' => now()->subMinutes(2),
+        'metadata' => ['error' => 'Structured review missing required key: verdict', 'raw_output' => '## For the reviewer'],
+    ]);
+    TaskLog::factory()->create([
+        'yak_task_id' => $task->id,
+        'attempt_number' => 1,
+        'message' => 'Sandbox created',
+        'created_at' => now()->subMinute(),
+        'metadata' => null,
+    ]);
+
+    $page = visit(route('tasks.show', $task))
+        ->click('[data-testid="open-transcript"]:visible')
+        ->assertSee('Step 1 of 3')
+        ->assertSee('Approve with suggestions')
+        ->screenshot(filename: 'transcript-assistant');
+
+    $page->click('[data-testid="log-next"]')
+        ->assertSee('Step 2 of 3')
+        ->assertSee('Structured review missing required key: verdict')
+        ->assertSee('Raw output')
+        ->screenshot(filename: 'transcript-log-details');
+
+    $page->click('[data-testid="log-next"]')
+        ->assertSee('Step 3 of 3')
+        ->assertSee('No details recorded for this entry.')
+        ->screenshot(filename: 'transcript-empty')
+        ->assertNoJavascriptErrors();
+});
