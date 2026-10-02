@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
@@ -8,8 +9,10 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
+use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\User;
@@ -356,4 +359,37 @@ test('retry after a CI timeout falls back to the agent when GitHub cannot say', 
 
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+});
+
+test('cancel sends a Cancelled notice naming who cancelled', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    $canceller = User::factory()->create(['name' => 'Other Person']);
+    $this->actingAs($canceller);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'source' => 'dashboard']);
+
+    $this->post(route('tasks.cancel', $task));
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Cancelled
+        && $notification->actingUser?->is($canceller) === true
+        && str_contains($notification->message, 'Other Person'));
+});
+
+test('cancel moves a Linear issue to the cancelled state once', function () {
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    Http::fake(['api.linear.app/*' => Http::response(['data' => ['success' => true]])]);
+    LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
+    config()->set('yak.channels.linear.cancelled_state_id', 'cancelled-state');
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'source' => 'linear',
+        'external_id' => 'LIN-9',
+        'linear_agent_session_id' => 'session-cancel',
+    ]);
+
+    $this->post(route('tasks.cancel', $task));
+
+    $issueUpdates = Http::recorded()->filter(fn (array $pair): bool => str_contains($pair[0]['query'] ?? '', 'issueUpdate'));
+    expect($issueUpdates)->toHaveCount(1);
 });

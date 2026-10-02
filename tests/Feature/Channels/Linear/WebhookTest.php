@@ -9,6 +9,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
@@ -333,7 +334,8 @@ it('asks which repo to use instead of dispatching when routing is unsure', funct
     expect($task->repo)->toBe('unknown')
         ->and($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->clarification_options)->toEqualCanonicalizing(['other-repo', 'default-repo'])
-        ->and($task->clarification_expires_at)->not->toBeNull();
+        ->and($task->clarification_expires_at)->not->toBeNull()
+        ->and($task->clarification_reminder_at)->not->toBeNull();
 
     Queue::assertNotPushed(RunYakJob::class);
 
@@ -347,6 +349,9 @@ it('asks which repo to use instead of dispatching when routing is unsure', funct
     });
 
     Http::assertSent(fn ($request): bool => str_contains($request['query'] ?? '', 'agentSessionUpdate'));
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Clarification
+        && $job->directMessagesOnly === true);
 });
 
 it('does not create a duplicate task for the same Linear issue', function () {
@@ -674,4 +679,69 @@ it('falls back to the webhook actor when no creator is available', function () {
     postLinearWebhook(agentSessionCreatedPayload(['actor' => ['name' => 'Webhook Actor']]), $secret)->assertSuccessful();
 
     expect(YakTask::first()->author_name)->toBe('Webhook Actor');
+});
+
+it('maps the Linear creator and assignee emails to Yak users', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    $starter = User::factory()->create(['email' => 'delegator@example.com']);
+    $assignee = User::factory()->create(['email' => 'assignee@example.com']);
+    Http::fake(['api.linear.app/graphql' => Http::response(['data' => [
+        'issue' => ['labels' => ['nodes' => []]],
+        'agentSession' => [
+            'creator' => ['id' => 'linear-user-1', 'name' => 'Linear Delegator', 'email' => 'Delegator@Example.com'],
+            'issue' => ['assignee' => ['name' => 'Issue Assignee', 'email' => 'assignee@example.com']],
+        ],
+        'agentActivityCreate' => ['success' => true],
+    ]])]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    $task = YakTask::firstOrFail();
+    expect($task->started_by_user_id)->toBe($starter->id)
+        ->and($task->responsible_user_id)->toBe($assignee->id)
+        ->and(json_decode((string) $task->context, true)['linear_creator_id'])->toBe('linear-user-1');
+});
+
+it('leaves the user ids empty when no Yak user matches the Linear emails', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    Http::fake(['api.linear.app/graphql' => Http::response(['data' => [
+        'issue' => ['labels' => ['nodes' => []]],
+        'agentSession' => [
+            'creator' => ['id' => 'linear-user-1', 'name' => 'Linear Delegator', 'email' => 'stranger@example.com'],
+            'issue' => ['assignee' => ['name' => 'Issue Assignee', 'email' => 'other-stranger@example.com']],
+        ],
+        'agentActivityCreate' => ['success' => true],
+    ]])]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    $task = YakTask::firstOrFail();
+    expect($task->started_by_user_id)->toBeNull()
+        ->and($task->responsible_user_id)->toBeNull();
+});
+
+it('leaves the user ids empty when Linear returns no email', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake();
+    User::factory()->create(['email' => 'delegator@example.com']);
+    Http::fake(['api.linear.app/graphql' => Http::response(['data' => [
+        'issue' => ['labels' => ['nodes' => []]],
+        'agentSession' => [
+            'creator' => ['id' => 'linear-user-1', 'name' => 'Linear Delegator', 'email' => null],
+            'issue' => ['assignee' => null],
+        ],
+        'agentActivityCreate' => ['success' => true],
+    ]])]);
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    postLinearWebhook(agentSessionCreatedPayload(), $secret)->assertSuccessful();
+
+    expect(YakTask::firstOrFail()->started_by_user_id)->toBeNull();
 });

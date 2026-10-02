@@ -14,7 +14,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('yak:cleanup')->daily();
+Schedule::command('yak:cleanup')->hourly();
 Schedule::command('yak:video:prune')->daily();
 Schedule::command('yak:cleanup-sandboxes')->hourly();
 Schedule::command('yak:reap-orphaned-tasks')->everyFiveMinutes()->withoutOverlapping();

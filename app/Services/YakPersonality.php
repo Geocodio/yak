@@ -17,6 +17,8 @@ class YakPersonality
         'result' => '{context} ✅',
         'error' => '{context} 🚨',
         'expiry' => 'This one timed out. ⏰',
+        'reminder' => 'Still waiting on you: {context} ⏰',
+        'cancelled' => '{context} 🛑',
     ];
 
     public static function generate(NotificationType $type, string $context): string

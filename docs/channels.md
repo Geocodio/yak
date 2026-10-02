@@ -176,6 +176,8 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
    - `app_mentions:read`
    - `channels:history`
    - `reactions:write` (lets Yak apply status reactions to your @mention)
+   - `users:read` (lets Yak show the Slack requester's name on the task)
+   - `users:read.email` (lets Yak find a person's Slack account by their Yak email, for direct messages)
 7. Install the app to your workspace
 8. Add the following to `ansible/vault/secrets.yml`:
 
@@ -212,7 +214,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 - **`@yak help`.** Sending `@yak`, `@yak help`, or `@yak ?` returns a capabilities card with syntax examples — it does not create a task.
 - **First-time intro.** The first time a given user gets a reply from Yak, the acknowledgment has a small *"First time seeing me?"* footer pointing to this doc. It only appears once per user.
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
-- **Direct ping on status changes.** When Yak needs clarification, completes the task, fails, or expires, it @-mentions the requester so they get a push. Progress ticks don't ping (avoids noise).
+- **Direct ping on status changes.** When Yak needs an answer, still needs one a working day later, opens a PR, fails, or someone else cancels the task, it @-mentions the requester (and, on a follow-up, the person who replied) so they get a push. Progress ticks and expiry don't ping. Tasks started from Linear or the dashboard get the same events as a direct message from the Yak bot; a responsible person who did not start the task hears only when the PR is ready. Add `users:read.email` and reinstall the app for direct messages.
 - **Start-of-work progress.** When the worker picks a task up, Yak posts a short in-thread message ("Starting on `{repo}` — exploring the codebase now."). Closes the silent gap between ack and first push. Disable with `YAK_EMIT_START_PROGRESS=false` if you find it noisy.
 - **Click-to-answer clarification.** When Yak asks a clarification question, each option is rendered as a Block Kit button. Clicking one is equivalent to replying in the thread — it dispatches the same ClarificationReplyJob. Requires Interactivity & Shortcuts to be enabled in the Slack app config (step 5 above).
 
@@ -244,7 +246,7 @@ After Yak has opened a PR, replying in the same thread keeps the conversation go
 - **`reactions:write` must be granted** for status reactions to appear. Without it, reactions silently fail; everything else still works.
 - **`app_home_opened` event must be subscribed** for welcome DMs. Enable the App Home tab in the Slack app config even if you never customize it — the event only fires when the tab is enabled.
 - **Bot token rotation** requires re-running Ansible to update the container env vars.
-- **3-day TTL** — clarifications that aren't answered auto-expire with a "Closing this — mention me again" message.
+- **Three working days to answer.** Yak sends one reminder after a working day and closes an unanswered clarification after three working days. Saturday and Sunday don't count.
 - **Use a channel ID for `slack_alert_channel`**, not a name, and invite the bot first. Without it, or if Slack rejects the post, no alert is sent; the command logs a `Health check Slack notification failed` warning and retries on the next run.
 - **`slack_workspace_url` is optional but recommended.** Without it, the dashboard's "Source: Slack" chip renders as plain text instead of linking back to the originating thread.
 

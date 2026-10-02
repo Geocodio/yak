@@ -8,6 +8,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\DailyCost;
 use App\Models\Repository;
+use App\Models\YakTask;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -69,7 +70,7 @@ trait HandlesWrongRepository
             'branch_name' => null,
             'status' => TaskStatus::AwaitingClarification,
             'clarification_options' => $options,
-            'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days')),
+            ...YakTask::clarificationDeadlines(),
         ]);
 
         $explanation = $reason !== '' ? " {$reason}" : '';

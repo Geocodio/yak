@@ -66,7 +66,7 @@ class RepositoryController extends Controller
 
         $repository = Repository::create($data);
 
-        $dispatchSetup($repository);
+        $dispatchSetup($repository, $request->user());
 
         if (($validated['pr_review_enabled'] ?? false) && ($validated['apply_to_open_prs'] ?? false)) {
             $applyPrReview($repository);

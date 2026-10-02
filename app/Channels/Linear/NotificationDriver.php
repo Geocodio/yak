@@ -133,9 +133,9 @@ class NotificationDriver implements NotificationDriverContract
     public function activityTypeFor(NotificationType $type): string
     {
         return match ($type) {
-            NotificationType::Result => 'response',
+            NotificationType::Result, NotificationType::Cancelled => 'response',
             NotificationType::Error, NotificationType::Expiry => 'error',
-            NotificationType::Clarification => 'elicitation',
+            NotificationType::Clarification, NotificationType::Reminder => 'elicitation',
             default => 'thought',
         };
     }

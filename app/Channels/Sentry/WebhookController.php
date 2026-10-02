@@ -106,6 +106,7 @@ class WebhookController extends Controller
             'description' => $description->body,
             'mode' => 'fix',
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $resolvedSlug),
+            'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser(null, null, $resolvedSlug)?->id,
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'sentry', 'repo' => $resolvedSlug]);

@@ -10,6 +10,7 @@ use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
 use App\Models\Repository;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 
 class RepositoryActionController extends Controller
 {
@@ -48,9 +49,9 @@ class RepositoryActionController extends Controller
             ->with('success', $repository->is_active ? 'Repository activated.' : 'Repository deactivated.');
     }
 
-    public function rerunSetup(Repository $repository, DispatchRepositorySetupTask $dispatchSetup): RedirectResponse
+    public function rerunSetup(Request $request, Repository $repository, DispatchRepositorySetupTask $dispatchSetup): RedirectResponse
     {
-        $task = $dispatchSetup($repository);
+        $task = $dispatchSetup($repository, $request->user());
 
         return redirect()->route('tasks.show', $task)->with('success', 'Setup task dispatched.');
     }

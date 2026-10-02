@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Cast-backed attributes are declared here because Larastan resolves casts
@@ -47,6 +48,10 @@ use Illuminate\Support\Collection;
  * @property int|null $human_commits
  * @property CarbonImmutable|null $pr_state_checked_at
  * @property string|null $responsible_name
+ * @property int|null $started_by_user_id
+ * @property int|null $responsible_user_id
+ * @property string|null $slack_follow_up_user_id
+ * @property CarbonImmutable|null $clarification_reminder_at
  */
 class YakTask extends Model
 {
@@ -87,6 +92,7 @@ class YakTask extends Model
             're_request_review_from' => 'array',
             'review_replies' => 'array',
             'clarification_expires_at' => 'datetime',
+            'clarification_reminder_at' => 'datetime',
             'screenshots' => 'json',
             'cost_usd' => 'decimal:4',
             'started_at' => 'datetime',
@@ -139,6 +145,27 @@ class YakTask extends Model
     public function repository(): BelongsTo
     {
         return $this->belongsTo(Repository::class, 'repo', 'slug');
+    }
+
+    /**
+     * The Yak user who started the task. Null for sources without a Yak
+     * identity (Slack, GitHub, the command line, system tasks).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function startedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'started_by_user_id');
+    }
+
+    /**
+     * The Yak user who owns the outcome and picks up the PR.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function responsibleUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'responsible_user_id');
     }
 
     /**
@@ -268,6 +295,24 @@ class YakTask extends Model
     }
 
     /**
+     * When an open question gets its reminder and when it expires, counted
+     * in working days in the app time zone: Saturday and Sunday are skipped,
+     * public holidays count, and the time of day is kept. Spread into the
+     * create or update that parks a task in AwaitingClarification.
+     *
+     * @return array{clarification_expires_at: CarbonImmutable, clarification_reminder_at: CarbonImmutable}
+     */
+    public static function clarificationDeadlines(): array
+    {
+        $now = now()->toImmutable();
+
+        return [
+            'clarification_expires_at' => $now->addWeekdays((int) config('yak.clarification_ttl_days', 3)),
+            'clarification_reminder_at' => $now->addWeekdays(1),
+        ];
+    }
+
+    /**
      * The root task of the conversation that owns a PR, or null when the PR is
      * not one Yak opened. Review-mode tasks share the PR URL of the human PR
      * they reviewed and must never be treated as the PR's owner.
@@ -315,5 +360,18 @@ class YakTask extends Model
         $gather($root);
 
         return $chain->sortBy('created_at')->values();
+    }
+
+    /**
+     * A one-line title for the task: the description summary when it is
+     * shorter than the description's first line, else that first line.
+     * Linear descriptions start with the issue title.
+     */
+    public function headline(): string
+    {
+        $firstLine = Str::before((string) $this->description, "\n");
+        $summary = (string) $this->description_summary;
+
+        return $summary !== '' && strlen($summary) < strlen($firstLine) ? $summary : $firstLine;
     }
 }

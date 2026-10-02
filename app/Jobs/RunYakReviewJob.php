@@ -135,13 +135,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->first();
 
         if ($repository === null || ! $repository->pr_review_enabled) {
-            if (! $this->taskIsTerminal($this->task->fresh())) {
-                $this->task->update([
-                    'status' => TaskStatus::Failed,
-                    'error_log' => 'Repository missing or PR review not enabled',
-                    'completed_at' => now(),
-                ]);
-            }
+            $this->handleError('Repository missing or PR review not enabled');
 
             return;
         }

@@ -831,5 +831,7 @@ it('makes the repository default responsible user own Sentry tasks', function ()
 
     $task = YakTask::first();
     expect($task->author_name)->toBeNull()
-        ->and($task->responsible_name)->toBe('Repo Owner');
+        ->and($task->responsible_name)->toBe('Repo Owner')
+        ->and($task->started_by_user_id)->toBeNull()
+        ->and($task->responsible_user_id)->toBe($owner->id);
 });

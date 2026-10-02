@@ -19,8 +19,9 @@ enum SessionPlanStage: string
 
     /**
      * Derive the stage from the task's current status. A `Result`
-     * notification on a successful task means the agent answered without
-     * code changes; the pull request path sets its stage explicitly.
+     * notification on a successful task without a pull request means the agent
+     * answered without code changes; the pull request path sets its own stage,
+     * so a `Result` on a task with a pull request leaves the plan as it is.
      * Other notifications on a successful task are post-completion notices
      * that leave the plan as it is.
      */
@@ -29,7 +30,7 @@ enum SessionPlanStage: string
         return match ($task->status) {
             TaskStatus::Pending, TaskStatus::Running, TaskStatus::AwaitingClarification => self::Working,
             TaskStatus::AwaitingCi, TaskStatus::Retrying => self::AwaitingCi,
-            TaskStatus::Success => $type === NotificationType::Result ? self::Answered : null,
+            TaskStatus::Success => $type === NotificationType::Result && $task->pr_url === null ? self::Answered : null,
             TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => self::Stopped,
         };
     }

@@ -171,7 +171,7 @@ class WebhookController extends Controller
                 'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, 'unknown'),
                 'slack_message_ts' => $description->metadata['slack_message_ts'] ?? null,
                 'clarification_options' => $repoOptions,
-                'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
+                ...YakTask::clarificationDeadlines(),
             ]);
 
             TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
@@ -380,7 +380,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($followUpTask, 'Follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')));
+            app(FollowUpTaskFactory::class)->create($followUpTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }
@@ -398,7 +398,7 @@ class WebhookController extends Controller
             }
 
             TaskLogger::info($researchTask, 'Research follow-up received via Slack thread');
-            app(FollowUpTaskFactory::class)->create($researchTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')));
+            app(FollowUpTaskFactory::class)->create($researchTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null);
 
             return response()->json(['ok' => true, 'handled' => 'follow_up']);
         }

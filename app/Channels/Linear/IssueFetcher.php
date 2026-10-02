@@ -77,9 +77,10 @@ class IssueFetcher
      * The human who started an agent session and the issue's assignee.
      * Linear keeps the human assignee when an issue is delegated to an
      * agent, so the assignee is the person responsible for the outcome.
-     * Returns null when Linear is unreachable.
+     * Emails map people to Yak users; a missing email leaves that person
+     * unmatched. Returns null when Linear is unreachable.
      *
-     * @return array{creator: string|null, assignee: string|null}|null
+     * @return array{creator: string|null, assignee: string|null, creator_id: string|null, creator_email: string|null, assignee_email: string|null}|null
      */
     public function sessionPeople(string $sessionId): ?array
     {
@@ -92,7 +93,7 @@ class IssueFetcher
             $response = Http::withToken($accessToken)
                 ->timeout(self::TIMEOUT_SECONDS)
                 ->post(self::GRAPHQL_ENDPOINT, [
-                    'query' => 'query($id: String!) { agentSession(id: $id) { creator { name } issue { assignee { name app } } } }',
+                    'query' => 'query($id: String!) { agentSession(id: $id) { creator { id name email } issue { assignee { name email app } } } }',
                     'variables' => ['id' => $sessionId],
                 ]);
         } catch (\Throwable $e) {
@@ -108,14 +109,17 @@ class IssueFetcher
             return null;
         }
 
-        $creator = $response->json('data.agentSession.creator.name');
-        $assignee = $response->json('data.agentSession.issue.assignee.app') === true
-            ? null
-            : $response->json('data.agentSession.issue.assignee.name');
+        $creator = $response->json('data.agentSession.creator');
+        $assignee = $response->json('data.agentSession.issue.assignee');
+        $assignee = is_array($assignee) && ($assignee['app'] ?? false) !== true ? $assignee : [];
+        $creator = is_array($creator) ? $creator : [];
 
         return [
-            'creator' => is_string($creator) && $creator !== '' ? $creator : null,
-            'assignee' => is_string($assignee) && $assignee !== '' ? $assignee : null,
+            'creator' => self::filledString($creator['name'] ?? null),
+            'assignee' => self::filledString($assignee['name'] ?? null),
+            'creator_id' => self::filledString($creator['id'] ?? null),
+            'creator_email' => self::filledString($creator['email'] ?? null),
+            'assignee_email' => self::filledString($assignee['email'] ?? null),
         ];
     }
 
@@ -174,6 +178,11 @@ class IssueFetcher
         }
 
         return in_array(strtolower($labelName), $names, true);
+    }
+
+    private static function filledString(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? $value : null;
     }
 
     private function resolveAccessToken(): ?string

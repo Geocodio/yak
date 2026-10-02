@@ -7,6 +7,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
+use App\Jobs\RetryYakJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
@@ -51,6 +52,7 @@ function planStatuses(array $plan): array
 }
 
 beforeEach(function (): void {
+    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
     LinearOauthConnection::factory()->create();
     config()->set('yak.channels.github.installation_id', 99999);
     GitHubInstallationToken::factory()->create([
@@ -94,7 +96,7 @@ it('ends a green CI run with a response after the pull request action', function
 
 it('ends a final CI failure with an error and cancels the CI step', function (): void {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    Queue::fake();
+    Queue::fake([RetryYakJob::class]);
     config()->set('yak.max_attempts', 1);
 
     Repository::factory()->create(['slug' => 'org/lin-repo']);
@@ -119,7 +121,7 @@ it('ends a final CI failure with an error and cancels the CI step', function ():
 
 it('posts a CI retry as a thought and shows the retry attempt in the plan', function (): void {
     Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
-    Queue::fake();
+    Queue::fake([RetryYakJob::class]);
     config()->set('yak.max_attempts', 3);
 
     Repository::factory()->create(['slug' => 'org/lin-repo']);
@@ -181,4 +183,15 @@ it('builds no plan for research tasks', function (): void {
     $task = YakTask::factory()->create(['source' => 'linear', 'mode' => TaskMode::Research]);
 
     expect(SessionPlan::build($task, SessionPlanStage::Working))->toBeNull();
+});
+
+it('leaves the pull request plan alone when the result of a PR task is reported', function (): void {
+    $task = YakTask::factory()->success()->create([
+        'source' => 'linear',
+        'pr_url' => 'https://github.com/org/lin-repo/pull/7',
+    ]);
+    $answered = YakTask::factory()->success()->create(['source' => 'linear', 'pr_url' => null]);
+
+    expect(SessionPlanStage::forTask($task, NotificationType::Result))->toBeNull()
+        ->and(SessionPlanStage::forTask($answered, NotificationType::Result))->toBe(SessionPlanStage::Answered);
 });

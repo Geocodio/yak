@@ -97,3 +97,20 @@ test('save records the signed-in user as starter and responsible', function () {
     expect($task->author_name)->toBe('Dash Board')
         ->and($task->responsible_name)->toBe('Dash Board');
 });
+
+test('a dashboard task records the signed-in user as starter and responsible', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Repository::factory()->create(['slug' => 'web', 'is_active' => true]);
+
+    $this->post(route('tasks.store'), [
+        'repo' => 'web',
+        'mode' => 'fix',
+        'description' => 'Add a CSV export to the reports page',
+    ])->assertRedirect();
+
+    $task = YakTask::where('source', 'dashboard')->firstOrFail();
+    expect($task->started_by_user_id)->toBe($user->id)
+        ->and($task->responsible_user_id)->toBe($user->id);
+});
