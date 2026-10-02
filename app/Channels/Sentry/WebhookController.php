@@ -35,7 +35,7 @@ class WebhookController extends Controller
             'sentry',
             $action !== '' ? "issue_alert.{$action}" : 'issue_alert',
             fn (): JsonResponse => $this->route($request),
-            ['project' => (string) $request->input('data.issue.project.slug', '')],
+            ['project' => InputDriver::projectSlug($request)],
         );
     }
 
@@ -45,9 +45,6 @@ class WebhookController extends Controller
         if ($request->input('action') !== 'triggered') {
             return response()->json(['ok' => true, 'skipped' => 'not a triggered alert']);
         }
-
-        /** @var array{id?: string|int, title?: string, culprit?: string, count?: string|int, firstSeen?: string, userCount?: int, seerActionability?: string, project?: array{slug?: string}} $issue */
-        $issue = $request->input('data.issue', []);
 
         $tags = $this->extractTagKeys($request);
 
@@ -59,17 +56,9 @@ class WebhookController extends Controller
             return $this->rejected($request, "missing_tag:{$requiredTag}", $tags);
         }
 
-        $hasPriorityTag = in_array('yak-priority', $tags, true);
-
-        // Apply filtering rules
         $rejection = Filter::rejectionReason(
-            culprit: (string) ($issue['culprit'] ?? ''),
-            title: (string) ($issue['title'] ?? ''),
-            actionability: (string) ($issue['seerActionability'] ?? 'not_actionable'),
-            eventCount: (int) ($issue['count'] ?? 0),
-            hasPriorityTag: $hasPriorityTag,
-            minActionability: (string) config('yak.channels.sentry.min_actionability', 'medium'),
-            minEvents: (int) config('yak.channels.sentry.min_events', 5),
+            culprit: (string) $request->input('data.event.culprit', ''),
+            title: (string) $request->input('data.event.title', ''),
         );
 
         if ($rejection !== null) {
@@ -104,6 +93,7 @@ class WebhookController extends Controller
             'repo' => $resolvedSlug,
             'external_id' => $description->externalId,
             'description' => $description->body,
+            'context' => json_encode($description->metadata),
             'mode' => 'fix',
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $resolvedSlug),
         ]);
@@ -127,8 +117,8 @@ class WebhookController extends Controller
     {
         Log::channel('yak')->debug('Sentry issue filtered', [
             'reason' => $reason,
-            'issue_id' => $request->input('data.issue.id'),
-            'project' => $request->input('data.issue.project.slug'),
+            'issue_id' => $request->input('data.event.issue_id'),
+            'project' => InputDriver::projectSlug($request),
             'tag_keys' => $tags,
         ]);
 

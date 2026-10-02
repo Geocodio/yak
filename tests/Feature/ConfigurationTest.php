@@ -97,12 +97,10 @@ test('sentry channel has required credential fields', function () {
 
     expect($sentry)->toHaveKeys([
         'driver', 'auth_token', 'webhook_secret', 'org_slug',
-        'region_url', 'min_events', 'min_actionability',
+        'region_url',
     ])
         ->and($sentry['driver'])->toBe('sentry')
-        ->and($sentry['region_url'])->toBe('https://us.sentry.io')
-        ->and($sentry['min_events'])->toBe(5)
-        ->and($sentry['min_actionability'])->toBe('medium');
+        ->and($sentry['region_url'])->toBe('https://us.sentry.io');
 });
 
 test('drone channel has required credential fields', function () {

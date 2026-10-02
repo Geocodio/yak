@@ -344,8 +344,8 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 
 1. Create an internal integration at **Settings → Developer Settings → Internal Integrations**
 2. Permissions required: **Organization: Read**, **Project: Read**, **Issue & Event: Read**. Organization+Project read are what lets the Add Repository form populate the Sentry project dropdown — skip them and the form silently falls back to a plain slug text input.
-3. Set the webhook URL: `https://{your-domain}/webhooks/sentry`
-4. Create an issue alert rule whose action notifies this integration. The rule is the opt-in: whichever issues it fires on are the ones Yak considers
+3. Set the webhook URL: `https://{your-domain}/webhooks/sentry` and turn on **Alert Rule Action**. Leave the webhook subscriptions (Issues, Errors, ...) unchecked; Yak only handles alert-rule deliveries
+4. Create an issue alert rule whose action notifies this integration. The rule is the opt-in: whichever issues it fires on are the ones Yak considers. Put frequency, priority, and event-count conditions on the rule itself
 5. Map Sentry projects to repositories via the `sentry_project` field on each repo (see the [Repositories](repositories.md) page)
 6. Add to `ansible/vault/secrets.yml`:
 
@@ -359,19 +359,13 @@ Yak manages the Linear issue's workflow state throughout the task lifecycle:
 
 ### Filtering
 
-Most Sentry issues are infrastructure noise, not code bugs. Yak filters aggressively before creating a task:
+The alert rule decides which issues reach Yak. The alert payload carries a single event, not issue aggregates such as event count, so volume thresholds belong in the rule's conditions. Yak only drops classes of error that never have a code fix:
 
 | Filter | Rejected |
 |---|---|
 | **CSP violations** | Culprit matches `font-src`, `script-src-elem`, `script-src-attr`, `style-src-elem`, `connect-src`, `img-src`, `media-src`, `default-src`. Title starts with "Blocked". |
 | **Transient infra errors** | `RedisException`, `Predis\*Exception`, `php_network_getaddresses`, `context deadline exceeded`, `Connection refused`, `Operation timed out`. |
-| **Seer actionability** | Anything below `medium`. |
-| **Event count** | Fewer than 5 events (one-off user errors). |
 | **Deduplication** | The `UNIQUE(external_id, repo)` constraint on `tasks` rejects repeat issues. |
-
-### Priority Bypass
-
-Issues tagged `yak-priority` bypass both the event count and actionability filters. Use this for critical first-seen regressions that haven't accumulated 5 events yet. The tag is a deliberate human decision — Yak does not apply it automatically.
 
 ### Gotchas
 

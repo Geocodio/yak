@@ -332,8 +332,6 @@ return [
             'webhook_secret' => env('YAK_SENTRY_WEBHOOK_SECRET'),
             'org_slug' => env('YAK_SENTRY_ORG_SLUG'),
             'region_url' => env('YAK_SENTRY_REGION_URL', 'https://us.sentry.io'),
-            'min_events' => (int) env('YAK_SENTRY_MIN_EVENTS', 5),
-            'min_actionability' => env('YAK_SENTRY_MIN_ACTIONABILITY', 'medium'),
 
             // Optional extra opt-in: when set, an issue is only picked up if
             // its event carries a tag with this key. Off by default — the

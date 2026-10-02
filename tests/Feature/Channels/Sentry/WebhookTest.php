@@ -17,23 +17,19 @@ function signSentryPayload(string $body, string $secret): string
 }
 
 /**
- * Build a Sentry issue alert webhook payload.
+ * Build a Sentry issue alert (`event_alert`) webhook payload in the shape
+ * Sentry documents: everything lives under `data.event`, the project is a
+ * numeric ID, and the slug only appears in the event's API URL.
  *
  * @param  array<string, mixed>  $overrides
  */
 function sentryAlertPayload(array $overrides = []): string
 {
     $issueId = $overrides['issueId'] ?? '12345';
-    $title = $overrides['title'] ?? 'TypeError: Cannot read property of undefined';
-    $culprit = $overrides['culprit'] ?? 'app/utils/auth.js';
-    $count = $overrides['count'] ?? 10;
-    $firstSeen = $overrides['firstSeen'] ?? '2026-04-01T12:00:00.000Z';
-    $userCount = $overrides['userCount'] ?? 5;
     $projectSlug = $overrides['projectSlug'] ?? 'my-sentry-project';
-    $actionability = $overrides['seerActionability'] ?? 'high';
 
     $tags = $overrides['tags'] ?? [
-        ['key' => 'yak-eligible', 'value' => 'yes'],
+        ['yak-eligible', 'yes'],
     ];
 
     $frames = $overrides['frames'] ?? [
@@ -41,42 +37,34 @@ function sentryAlertPayload(array $overrides = []): string
         ['filename' => 'app/middleware/auth.js', 'function' => 'checkAuth', 'lineno' => 15],
     ];
 
-    $entries = [];
-    if ($frames !== []) {
-        $entries[] = [
-            'type' => 'exception',
-            'data' => [
-                'values' => [
-                    [
-                        'type' => 'TypeError',
-                        'value' => 'Cannot read property of undefined',
-                        'stacktrace' => ['frames' => $frames],
-                    ],
-                ],
-            ],
-        ];
-    }
-
     $payload = [
         'action' => $overrides['action'] ?? 'triggered',
+        'actor' => ['id' => 'sentry', 'name' => 'Sentry', 'type' => 'application'],
         'data' => [
-            'issue' => [
-                'id' => $issueId,
-                'title' => $title,
-                'culprit' => $culprit,
-                'count' => $count,
-                'firstSeen' => $firstSeen,
-                'userCount' => $userCount,
-                'seerActionability' => $actionability,
-                'project' => [
-                    'slug' => $projectSlug,
-                ],
-            ],
             'event' => [
+                'event_id' => 'e4874d664c3540c1a32eab185f12c5ab',
+                'issue_id' => $issueId,
+                'issue_url' => "https://sentry.io/api/0/issues/{$issueId}/",
+                'project' => 1,
+                'title' => $overrides['title'] ?? 'TypeError: Cannot read property of undefined',
+                'culprit' => $overrides['culprit'] ?? 'app/utils/auth.js',
                 'tags' => $tags,
-                'entries' => $entries,
+                'exception' => [
+                    'values' => [
+                        [
+                            'type' => 'TypeError',
+                            'value' => 'Cannot read property of undefined',
+                            'stacktrace' => ['frames' => $frames],
+                        ],
+                    ],
+                ],
+                'url' => "https://sentry.io/api/0/projects/test-org/{$projectSlug}/events/e4874d664c3540c1a32eab185f12c5ab/",
+                'web_url' => "https://sentry.io/organizations/test-org/issues/{$issueId}/events/e4874d664c3540c1a32eab185f12c5ab/",
             ],
+            'triggered_rule' => 'Send to Yak',
+            'issue_alert' => ['title' => 'Send to Yak', 'settings' => []],
         ],
+        'installation' => ['uuid' => 'a8e5d37a-696c-4c54-adb5-b3f28d64c7de'],
     ];
 
     return (string) json_encode($payload);
@@ -95,8 +83,6 @@ function enableSentryChannel(): string
         'webhook_secret' => $secret,
         'org_slug' => 'test-org',
         'region_url' => 'https://us.sentry.io',
-        'min_events' => 5,
-        'min_actionability' => 'medium',
     ]);
 
     // Re-register routes so the Sentry route is available
@@ -149,10 +135,6 @@ it('creates a task from a valid Sentry alert with yak-eligible tag', function ()
         'issueId' => '99001',
         'title' => 'TypeError: Cannot read property of undefined',
         'culprit' => 'app/utils/auth.js',
-        'count' => 10,
-        'firstSeen' => '2026-04-01T12:00:00.000Z',
-        'userCount' => 5,
-        'seerActionability' => 'high',
         'projectSlug' => 'my-sentry-project',
     ]);
     $signature = signSentryPayload($body, $secret);
@@ -172,9 +154,12 @@ it('creates a task from a valid Sentry alert with yak-eligible tag', function ()
     expect($task->status)->toBe(TaskStatus::Pending);
     expect($task->description)->toContain('TypeError: Cannot read property of undefined');
     expect($task->description)->toContain('app/utils/auth.js');
-    expect($task->description)->toContain('10');
-    expect($task->description)->toContain('2026-04-01T12:00:00.000Z');
-    expect($task->description)->toContain('5');
+    expect($task->description)->toContain('https://sentry.io/organizations/test-org/issues/99001/');
+
+    $context = json_decode($task->context, true);
+    expect($context['error'])->toBe('TypeError: Cannot read property of undefined')
+        ->and($context['culprit'])->toBe('app/utils/auth.js')
+        ->and($context['stacktrace'])->toContain('app/utils/auth.js:42 in validateToken');
 
     Queue::assertPushed(RunYakJob::class, function (RunYakJob $job) use ($task) {
         return $job->task->id === $task->id;
@@ -192,8 +177,6 @@ it('includes stacktrace frames in task description', function () {
 
     $body = sentryAlertPayload([
         'issueId' => '99002',
-        'seerActionability' => 'high',
-        'count' => 10,
         'frames' => [
             ['filename' => 'app/handler.js', 'function' => 'handle', 'lineno' => 10],
             ['filename' => 'app/router.js', 'function' => 'dispatch', 'lineno' => 55],
@@ -229,8 +212,6 @@ it('resolves repo from sentry_project column on repositories table', function ()
     $body = sentryAlertPayload([
         'issueId' => '99003',
         'projectSlug' => 'acme-api-prod',
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -250,8 +231,6 @@ it('rejects payload when sentry_project does not match any repository', function
     $body = sentryAlertPayload([
         'issueId' => '99004',
         'projectSlug' => 'unknown-project',
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -283,8 +262,6 @@ it('ignores inactive repo Sentry project', function () {
     $body = sentryAlertPayload([
         'issueId' => '99005',
         'projectSlug' => 'my-sentry-project',
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -317,8 +294,6 @@ it('rejects CSP violations from culprit', function () {
         'issueId' => '99010',
         'culprit' => 'font-src',
         'title' => 'CSP violation detected',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -343,8 +318,6 @@ it('rejects CSP violations from script-src-elem culprit', function () {
     $body = sentryAlertPayload([
         'issueId' => '99011',
         'culprit' => 'script-src-elem',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -368,8 +341,6 @@ it('rejects issues with title starting with Blocked', function () {
         'issueId' => '99012',
         'title' => 'Blocked inline script execution',
         'culprit' => 'app/main.js',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -399,8 +370,6 @@ it('rejects RedisException errors', function () {
         'issueId' => '99020',
         'title' => 'RedisException: Connection lost',
         'culprit' => 'app/cache/redis.php',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -423,8 +392,6 @@ it('rejects Predis connection errors', function () {
     $body = sentryAlertPayload([
         'issueId' => '99021',
         'culprit' => 'Predis\\Connection\\ConnectionException',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -447,8 +414,6 @@ it('rejects php_network_getaddresses errors', function () {
     $body = sentryAlertPayload([
         'issueId' => '99022',
         'title' => 'php_network_getaddresses: getaddrinfo failed',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -471,8 +436,6 @@ it('rejects context deadline exceeded errors', function () {
     $body = sentryAlertPayload([
         'issueId' => '99023',
         'title' => 'context deadline exceeded',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -495,8 +458,6 @@ it('rejects Connection refused errors', function () {
     $body = sentryAlertPayload([
         'issueId' => '99024',
         'title' => 'Connection refused',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -519,8 +480,6 @@ it('rejects Operation timed out errors', function () {
     $body = sentryAlertPayload([
         'issueId' => '99025',
         'title' => 'Operation timed out',
-        'seerActionability' => 'high',
-        'count' => 100,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -530,127 +489,6 @@ it('rejects Operation timed out errors', function () {
     ])->assertSuccessful();
 
     expect(YakTask::count())->toBe(0);
-});
-
-/*
-|--------------------------------------------------------------------------
-| Seer Actionability Filtering
-|--------------------------------------------------------------------------
-*/
-
-it('rejects issues with actionability below medium', function () {
-    $secret = enableSentryChannel();
-    Queue::fake();
-
-    Repository::factory()->withSentry()->create([
-        'sentry_project' => 'my-sentry-project',
-    ]);
-
-    $body = sentryAlertPayload([
-        'issueId' => '99030',
-        'seerActionability' => 'low',
-        'count' => 10,
-    ]);
-    $signature = signSentryPayload($body, $secret);
-
-    $this->call('POST', '/webhooks/sentry', content: $body, server: [
-        'HTTP_Sentry-Hook-Signature' => $signature,
-        'CONTENT_TYPE' => 'application/json',
-    ])->assertSuccessful();
-
-    expect(YakTask::count())->toBe(0);
-});
-
-/*
-|--------------------------------------------------------------------------
-| Event Count Filtering
-|--------------------------------------------------------------------------
-*/
-
-it('rejects issues with event count below 5', function () {
-    $secret = enableSentryChannel();
-    Queue::fake();
-
-    Repository::factory()->withSentry()->create([
-        'sentry_project' => 'my-sentry-project',
-    ]);
-
-    $body = sentryAlertPayload([
-        'issueId' => '99040',
-        'seerActionability' => 'high',
-        'count' => 3,
-    ]);
-    $signature = signSentryPayload($body, $secret);
-
-    $this->call('POST', '/webhooks/sentry', content: $body, server: [
-        'HTTP_Sentry-Hook-Signature' => $signature,
-        'CONTENT_TYPE' => 'application/json',
-    ])->assertSuccessful();
-
-    expect(YakTask::count())->toBe(0);
-});
-
-/*
-|--------------------------------------------------------------------------
-| Priority Bypass
-|--------------------------------------------------------------------------
-*/
-
-it('yak-priority tag bypasses event count filter', function () {
-    $secret = enableSentryChannel();
-    Queue::fake();
-
-    Repository::factory()->withSentry()->create([
-        'slug' => 'my-app',
-        'sentry_project' => 'my-sentry-project',
-    ]);
-
-    $body = sentryAlertPayload([
-        'issueId' => '99050',
-        'seerActionability' => 'high',
-        'count' => 1,
-        'tags' => [
-            ['key' => 'yak-eligible', 'value' => 'yes'],
-            ['key' => 'yak-priority', 'value' => 'yes'],
-        ],
-    ]);
-    $signature = signSentryPayload($body, $secret);
-
-    $this->call('POST', '/webhooks/sentry', content: $body, server: [
-        'HTTP_Sentry-Hook-Signature' => $signature,
-        'CONTENT_TYPE' => 'application/json',
-    ])->assertStatus(201);
-
-    expect(YakTask::count())->toBe(1);
-    Queue::assertPushed(RunYakJob::class);
-});
-
-it('yak-priority tag bypasses actionability filter', function () {
-    $secret = enableSentryChannel();
-    Queue::fake();
-
-    Repository::factory()->withSentry()->create([
-        'slug' => 'my-app',
-        'sentry_project' => 'my-sentry-project',
-    ]);
-
-    $body = sentryAlertPayload([
-        'issueId' => '99051',
-        'seerActionability' => 'low',
-        'count' => 1,
-        'tags' => [
-            ['key' => 'yak-eligible', 'value' => 'yes'],
-            ['key' => 'yak-priority', 'value' => 'yes'],
-        ],
-    ]);
-    $signature = signSentryPayload($body, $secret);
-
-    $this->call('POST', '/webhooks/sentry', content: $body, server: [
-        'HTTP_Sentry-Hook-Signature' => $signature,
-        'CONTENT_TYPE' => 'application/json',
-    ])->assertStatus(201);
-
-    expect(YakTask::count())->toBe(1);
 });
 
 /*
@@ -676,8 +514,6 @@ it('returns 409 for duplicate external_id and repo', function () {
 
     $body = sentryAlertPayload([
         'issueId' => '99060',
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -738,8 +574,6 @@ it('processes events with no opt-in tag when no required tag is configured', fun
         'tags' => [
             ['key' => 'environment', 'value' => 'production'],
         ],
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -766,8 +600,6 @@ it('ignores events missing the required tag when one is configured', function ()
         'tags' => [
             ['key' => 'environment', 'value' => 'production'],
         ],
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -798,8 +630,6 @@ it('accepts the required tag when Sentry sends tags as [key, value] pairs', func
             ['environment', 'production'],
             ['yak-eligible', 'yes'],
         ],
-        'seerActionability' => 'high',
-        'count' => 10,
     ]);
     $signature = signSentryPayload($body, $secret);
 
@@ -822,7 +652,7 @@ it('makes the repository default responsible user own Sentry tasks', function ()
         'default_responsible_user_id' => $owner->id,
     ]);
 
-    $body = sentryAlertPayload(['issueId' => '99002', 'seerActionability' => 'high', 'projectSlug' => 'my-sentry-project']);
+    $body = sentryAlertPayload(['issueId' => '99002', 'projectSlug' => 'my-sentry-project']);
 
     $this->call('POST', '/webhooks/sentry', content: $body, server: [
         'HTTP_Sentry-Hook-Signature' => signSentryPayload($body, $secret),

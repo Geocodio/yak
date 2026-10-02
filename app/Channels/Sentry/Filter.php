@@ -38,18 +38,6 @@ class Filter
     ];
 
     /**
-     * Seer actionability levels ordered by severity.
-     *
-     * @var array<string, int>
-     */
-    private const ACTIONABILITY_LEVELS = [
-        'not_actionable' => 0,
-        'low' => 1,
-        'medium' => 2,
-        'high' => 3,
-    ];
-
-    /**
      * Determine if the issue is a CSP violation based on culprit or title.
      */
     public static function isCSPViolation(string $culprit, string $title): bool
@@ -80,58 +68,19 @@ class Filter
     }
 
     /**
-     * Determine if the actionability level meets the minimum threshold.
-     */
-    public static function meetsActionability(string $actionability, string $minActionability = 'medium'): bool
-    {
-        $current = self::ACTIONABILITY_LEVELS[$actionability] ?? 0;
-        $required = self::ACTIONABILITY_LEVELS[$minActionability] ?? 2;
-
-        return $current >= $required;
-    }
-
-    /**
-     * Determine if the event count meets the minimum threshold.
-     */
-    public static function meetsEventCount(int $eventCount, int $minEvents = 5): bool
-    {
-        return $eventCount >= $minEvents;
-    }
-
-    /**
      * Returns null if the issue should be processed, or a rejection reason string.
      *
-     * Priority bypass: issues with yak-priority tag skip event count and actionability checks.
-     * CSP violations and transient errors are always rejected regardless of priority.
+     * The alert rule pointed at Yak decides which issues are worth fixing;
+     * this only drops classes of error that never have a code fix.
      */
-    public static function rejectionReason(
-        string $culprit,
-        string $title,
-        string $actionability,
-        int $eventCount,
-        bool $hasPriorityTag,
-        string $minActionability = 'medium',
-        int $minEvents = 5,
-    ): ?string {
+    public static function rejectionReason(string $culprit, string $title): ?string
+    {
         if (self::isCSPViolation($culprit, $title)) {
             return 'csp_violation';
         }
 
         if (self::isTransientError($culprit, $title)) {
             return 'transient_error';
-        }
-
-        // yak-priority bypasses event count and actionability checks
-        if ($hasPriorityTag) {
-            return null;
-        }
-
-        if (! self::meetsActionability($actionability, $minActionability)) {
-            return 'low_actionability';
-        }
-
-        if (! self::meetsEventCount($eventCount, $minEvents)) {
-            return 'low_event_count';
         }
 
         return null;

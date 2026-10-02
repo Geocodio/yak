@@ -187,9 +187,7 @@ Fix the following Sentry error.
 {top_10_frames}
 
 ### Context
-- Occurrences: {event_count}
-- First seen: {first_seen}
-- Users affected: {affected_users}
+Sentry event: {web_url}
 
 Use the Sentry MCP to pull breadcrumbs and related events for this issue
 if the stacktrace alone isn't enough to understand the problem.

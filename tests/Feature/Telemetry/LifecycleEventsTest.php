@@ -55,13 +55,14 @@ test('an unhandled GitHub event is recorded as a skipped webhook with its reason
 test('a filtered Sentry alert is recorded as a rejected webhook with the filter reason', function () {
     config()->set('yak.channels.sentry', [
         'driver' => 'sentry', 'auth_token' => 't', 'webhook_secret' => 'sentry-secret', 'org_slug' => 'org',
-        'region_url' => 'https://us.sentry.io', 'min_events' => 5, 'min_actionability' => 'medium',
+        'region_url' => 'https://us.sentry.io',
     ]);
     (new ChannelServiceProvider(app()))->boot();
 
-    $body = json_encode(['action' => 'triggered', 'data' => ['issue' => [
-        'id' => '1', 'title' => 'Boom', 'culprit' => 'app.js', 'count' => 1, 'seerActionability' => 'high', 'project' => ['slug' => 'proj'],
-    ], 'event' => ['tags' => []]]]);
+    $body = json_encode(['action' => 'triggered', 'data' => ['event' => [
+        'issue_id' => '1', 'title' => 'RedisException: Connection lost', 'culprit' => 'app.js', 'tags' => [],
+        'url' => 'https://sentry.io/api/0/projects/org/proj/events/abc/',
+    ]]]);
 
     $this->call('POST', '/webhooks/sentry', content: $body, server: [
         'HTTP_Sentry-Hook-Signature' => hash_hmac('sha256', $body, 'sentry-secret'),
