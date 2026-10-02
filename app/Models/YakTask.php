@@ -29,6 +29,7 @@ use Illuminate\Support\Collection;
  * @property int $attempts
  * @property int $attempts_at_manual_retry
  * @property int|null $summon_review_comment_id
+ * @property string|null $summon_quote
  * @property array<int, string>|null $clarification_options
  * @property array<int, mixed>|null $screenshots
  * @property CarbonImmutable|null $clarification_expires_at

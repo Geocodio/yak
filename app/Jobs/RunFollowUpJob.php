@@ -294,7 +294,7 @@ class RunFollowUpJob implements ShouldQueue
                     $summary .= "\n\nPushed " . substr($pushedSha, 0, 7) . ": https://github.com/{$repository->github_full_name}/commit/{$pushedSha}";
                 }
 
-                app(PullRequestSummonReplier::class)->replyForTask($this->task, $summary);
+                app(PullRequestSummonReplier::class)->replyForTask($this->task, $summary, quoteSummon: true);
             }
         } catch (\Throwable $replyError) {
             TaskLogger::warning($this->task, 'Summon reply could not be posted', ['error' => $replyError->getMessage()]);

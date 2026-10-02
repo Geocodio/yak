@@ -11,7 +11,7 @@ If your change alters anything the existing screenshots or walkthrough show, cap
 
 ## What changed in this run
 
-A few short bullets or sentences describing only what you changed in response to this feedback. This becomes a comment on the pull request. Do not restate the original PR description, repeat the Summary/Changes structure, or describe work from earlier runs.
+A few short bullets or sentences describing only what you changed in response to this feedback. This becomes a comment on the pull request. Do not restate the original PR description, repeat the Summary/Changes structure, or describe work from earlier runs. When the feedback has no tagged comments, this comment is the only answer the user sees: if you changed nothing, answer the question here directly instead of saying that you made no changes.
 
 ## Replies
 
@@ -19,7 +19,7 @@ Write one entry for every tagged comment you acted on or answered, in this exact
 
 - [c:<id>] Your reply to that comment.
 
-Omit comments that need no reply (praise, acknowledgements). Omit the whole section when there are no tagged comments. Never put replies anywhere else in the summary.
+Omit comments that need no reply (praise, acknowledgements). Use only the ids shown in the feedback; never invent a tag. Omit the whole section when there are no tagged comments. Never put replies anywhere else in the summary.
 
 ## PR description
 

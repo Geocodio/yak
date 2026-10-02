@@ -210,3 +210,12 @@ it('strips a colon separator after the tag', function () {
 
     expect($parsed->replies)->toBe([5 => 'Fixed.']);
 });
+
+it('drops a reply tag with a non-numeric id and keeps its text', function () {
+    $output = "## What changed in this run\n\n- [c:feedback] It adds a few minutes to the build.\n\n## PR description\n\nUnchanged.";
+
+    $parsed = (new FollowUpSummaryParser)->parse($output);
+
+    expect($parsed->changes)->toBe('- It adds a few minutes to the build.')
+        ->and($parsed->replies)->toBe([]);
+});

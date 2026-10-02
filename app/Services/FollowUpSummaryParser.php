@@ -209,11 +209,15 @@ class FollowUpSummaryParser
      * Strips any marker the agent echoed back verbatim from its own output
      * (e.g. copying the wrapped block it was shown as an example). Left in
      * place, a stray end marker would give a section two end markers and
-     * corrupt later replacements.
+     * corrupt later replacements. A reply tag with a non-numeric id (e.g.
+     * `[c:feedback]`) names no thread, so the tag is dropped and its text
+     * stays in place.
      */
     private function stripStrayMarkers(string $text): string
     {
-        return preg_replace('/<!-- \/?yak:[a-z]+ -->/', '', $text) ?? $text;
+        $text = preg_replace('/<!-- \/?yak:[a-z]+ -->/', '', $text) ?? $text;
+
+        return preg_replace('/^(\s*-\s*)\[c:[^\]\d][^\]]*\]\s*[:\-]?\s*/m', '$1', $text) ?? $text;
     }
 
     /**

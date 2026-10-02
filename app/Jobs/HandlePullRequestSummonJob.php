@@ -117,11 +117,15 @@ class HandlePullRequestSummonJob implements ShouldQueue
             $summons,
         ), '');
 
+        // A conversation-tab comment has no thread to reply in, so the answer
+        // quotes it instead.
+        $quote = $threadId === null && $this->issueCommentId !== null ? trim($this->issueCommentBody) : null;
+
         $root = YakTask::followUpRootForPr($prUrl);
 
         if ($root === null) {
-            $task = $this->createRootTask($repository, $prUrl, $branch, $instructions, $threadId);
-            $replier->replyForTask($task, "On it. I'll push to `{$branch}` and reply here when I'm done.");
+            $task = $this->createRootTask($repository, $prUrl, $branch, $instructions, $threadId, $quote);
+            $replier->replyForTask($task, "On it. I'll reply here when I'm done and push any changes to `{$branch}`.");
 
             return;
         }
@@ -136,7 +140,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             return;
         }
 
-        $child = $followUps->create($root, $instructions, 'github', authorName: $this->summonerLogin, summonReviewCommentId: $threadId);
+        $child = $followUps->create($root, $instructions, 'github', authorName: $this->summonerLogin, summonReviewCommentId: $threadId, summonQuote: $quote);
 
         if ($child === null) {
             $refuse("This PR is already merged or closed, so I can't push more changes here. Open a new issue or task and I'll pick it up.");
@@ -144,7 +148,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             return;
         }
 
-        $replier->replyForTask($child, "On it. I'll push to `{$branch}` and reply here when I'm done.");
+        $replier->replyForTask($child, "On it. I'll reply here when I'm done and push any changes to `{$branch}`.");
     }
 
     /**
@@ -246,7 +250,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
         return null;
     }
 
-    private function createRootTask(Repository $repository, string $prUrl, string $branch, string $instructions, ?int $threadId): YakTask
+    private function createRootTask(Repository $repository, string $prUrl, string $branch, string $instructions, ?int $threadId, ?string $quote): YakTask
     {
         $task = YakTask::create([
             'source' => 'github',
@@ -262,6 +266,7 @@ class HandlePullRequestSummonJob implements ShouldQueue
             'responsible_name' => $this->summonerLogin,
             'targets_external_pr' => true,
             'summon_review_comment_id' => $threadId,
+            'summon_quote' => $quote,
             'status' => TaskStatus::Pending,
         ]);
 

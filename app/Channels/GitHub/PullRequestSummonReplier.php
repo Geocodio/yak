@@ -35,8 +35,17 @@ class PullRequestSummonReplier
         $this->github->commentOnPullRequest($installationId, $repoFullName, $prNumber, $body);
     }
 
-    public function replyForTask(YakTask $task, string $body): void
+    /**
+     * With `$quoteSummon`, an answer on the PR conversation opens with the
+     * summoning comment quoted, the way GitHub's "Quote reply" does, since a
+     * conversation comment has no thread to reply in.
+     */
+    public function replyForTask(YakTask $task, string $body, bool $quoteSummon = false): void
     {
+        if ($quoteSummon && $task->summon_review_comment_id === null && $task->summon_quote !== null && $task->summon_quote !== '') {
+            $body = implode("\n", array_map(fn (string $line): string => '> ' . $line, explode("\n", $task->summon_quote))) . "\n\n" . $body;
+        }
+
         $this->reply(
             Repository::githubNameFor((string) $task->repo),
             (int) $task->pr_number,

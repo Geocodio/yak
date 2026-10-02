@@ -158,6 +158,17 @@ it('replies with the answer when the agent made no commits', function () {
     Http::assertSent(fn (Request $request): bool => str_contains((string) $request['body'], 'No change needed'));
 });
 
+it('quotes the conversation comment it answers, since it has no thread', function () {
+    $sandbox = (new FakeSandboxManager)->setCommitCount(0);
+    $task = externalTask();
+    $task->update(['summon_review_comment_id' => null, 'summon_quote' => "/yak How slow is this?\nIt already takes hours."]);
+
+    runExternal($task, $sandbox, "## What changed in this run\n\nIt adds a few minutes.");
+
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/issues/9/comments')
+        && str_starts_with((string) $request['body'], "> /yak How slow is this?\n> It already takes hours.\n\nIt adds a few minutes."));
+});
+
 it('posts thread replies instead of a summary when the agent wrote them', function () {
     $sandbox = new FakeSandboxManager;
     $task = externalTask();
