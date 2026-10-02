@@ -382,6 +382,7 @@ test('RunFollowUpJob skips the push and resolves immediately when there are no n
 
     expect($pushCommands)->toBeEmpty()
         ->and($task->fresh()->status)->not->toBe(TaskStatus::AwaitingCi)
+        ->and($task->fresh()->result_summary)->toBeNull()
         ->and($task->fresh()->review_replies)->toBe([7 => 'Answered without changing code.']);
 
     Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $task->id && $job->passed === true);

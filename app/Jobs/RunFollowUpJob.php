@@ -218,8 +218,10 @@ class RunFollowUpJob implements ShouldQueue
             // changing code. No commits means there's nothing to push or
             // wait on CI for -- resolve the task right away instead of
             // parking it in AwaitingCi for a check_suite that never comes.
+            // When the answers already live on their threads, the summary is
+            // dropped so no "pushed changes" comment follows them.
             $this->task->update([
-                'result_summary' => $parsed->changes !== '' ? $parsed->changes : null,
+                'result_summary' => $parsed->changes !== '' && $parsed->replies === [] ? $parsed->changes : null,
                 'pr_body_update' => $parsed->description,
                 'review_replies' => $parsed->replies !== [] ? $parsed->replies : null,
                 'model_used' => config('yak.default_model'),
