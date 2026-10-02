@@ -2,12 +2,14 @@
 
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
 use App\Models\User;
@@ -600,6 +602,33 @@ test('rerun setup dispatches SetupYakJob', function () {
     });
 });
 
+test('a setup task records the dashboard user who started it', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $repository = Repository::factory()->create(['slug' => 'starter-repo', 'setup_status' => 'failed']);
+
+    $this->post(route('repos.rerun-setup', $repository))->assertRedirect();
+
+    Queue::assertPushed(SetupYakJob::class, fn ($job): bool => $job->task->started_by_user_id === $user->id
+        && $job->task->responsible_user_id === $user->id);
+});
+
+test('a repository created from the dashboard records who started its setup', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $this->post(route('repos.store'), [
+        'name' => 'Owned Repo',
+        'git_url' => 'https://github.com/acme/owned-repo.git',
+        'default_branch' => 'main',
+        'ci_system' => 'github_actions',
+    ])->assertRedirect();
+
+    Queue::assertPushed(SetupYakJob::class, fn ($job): bool => $job->task->started_by_user_id === $user->id);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Artisan Command
@@ -661,4 +690,56 @@ test('taskPrompt routes setup mode to setup template', function () {
     expect($prompt)
         ->toContain('Test Repo')
         ->toContain('Set up the development environment');
+});
+
+test('a finished setup sends a result notice', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_setup_notice',
+        resultSummary: 'Ready',
+        costUsd: 1.00,
+        numTurns: 2,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'notice-repo', 'name' => 'Notice Repo', 'path' => '/home/yak/repos/notice-repo', 'setup_status' => 'pending']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'notice-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result
+        && str_contains($notification->message, 'Notice Repo'));
+});
+
+test('a failed setup sends one error notice', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_setup_fail',
+        resultSummary: 'Docker compose failed to start',
+        costUsd: 0.25,
+        numTurns: 1,
+        durationMs: 5000,
+        isError: true,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'fail-repo', 'path' => '/home/yak/repos/fail-repo', 'setup_status' => 'pending']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'fail-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    expect(Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error))
+        ->toHaveCount(1);
 });

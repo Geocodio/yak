@@ -109,7 +109,9 @@ test('makes the repository default responsible user own flaky test tasks', funct
 
     $this->artisan('yak:scan-ci', ['--repo' => 'flaky-repo'])->assertSuccessful();
 
-    expect(YakTask::where('repo', 'flaky-repo')->first()->responsible_name)->toBe('Repo Owner');
+    $task = YakTask::where('repo', 'flaky-repo')->first();
+    expect($task->responsible_name)->toBe('Repo Owner')
+        ->and($task->responsible_user_id)->toBe($owner->id);
 });
 
 test('does not create a task while a live claim covers the test', function () {

@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Enums\TaskMode;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ResponsiblePersonResolver;
@@ -19,7 +20,7 @@ class DispatchRepositorySetupTask
 {
     public function __construct(private readonly AgentJobDispatcher $dispatcher) {}
 
-    public function __invoke(Repository $repository): YakTask
+    public function __invoke(Repository $repository, ?User $startedBy = null): YakTask
     {
         $task = YakTask::create([
             'repo' => $repository->slug,
@@ -28,6 +29,8 @@ class DispatchRepositorySetupTask
             'description' => "Setup repository: {$repository->name}",
             'source' => 'dashboard',
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
+            'started_by_user_id' => $startedBy?->id,
+            'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser(null, $startedBy, $repository->slug)?->id,
         ]);
 
         $repository->update([

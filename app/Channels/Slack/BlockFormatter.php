@@ -5,6 +5,7 @@ namespace App\Channels\Slack;
 use App\Enums\NotificationType;
 use App\Models\YakTask;
 use App\Support\Docs;
+use Illuminate\Support\Str;
 
 /**
  * Builds Slack Block Kit payloads for outbound notifications. Every
@@ -103,6 +104,78 @@ class BlockFormatter
         }
 
         return $blocks;
+    }
+
+    /**
+     * Build the Block Kit payload for a direct message: the fixed headline,
+     * the body in the Yak voice, a context line naming the repository, the
+     * task and its source, then link buttons. Click-to-answer option buttons
+     * stay in Slack threads, where a reply is matched to the task.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function directMessageBlocks(
+        YakTask $task,
+        NotificationType $type,
+        string $headline,
+        string $personalityMessage,
+        string $dashboardUrl,
+        ?string $previewUrl,
+    ): array {
+        return [
+            ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => "*{$headline}*"]],
+            ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => self::mrkdwn($personalityMessage)]],
+            ['type' => 'context', 'elements' => [['type' => 'mrkdwn', 'text' => self::directMessageContext($task)]]],
+            ['type' => 'actions', 'elements' => self::directMessageButtons($task, $type, $dashboardUrl, $previewUrl)],
+        ];
+    }
+
+    private static function directMessageContext(YakTask $task): string
+    {
+        $source = $task->source === 'linear'
+            ? 'from Linear ' . Str::after((string) $task->external_id, 'LINEAR-')
+            : 'from ' . ucfirst((string) $task->source);
+
+        return implode(' · ', array_filter([(string) $task->repo, "Task #{$task->id}", $source]));
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function directMessageButtons(YakTask $task, NotificationType $type, string $dashboardUrl, ?string $previewUrl): array
+    {
+        $buttons = [];
+
+        if (! empty($task->pr_url)) {
+            $buttons[] = self::linkButton('yak_view_pr', 'View PR', (string) $task->pr_url);
+        }
+
+        if ($previewUrl !== null) {
+            $buttons[] = self::linkButton('yak_open_preview', 'Open preview', $previewUrl);
+        }
+
+        $buttons[] = self::linkButton('yak_view_task', 'View task', $dashboardUrl);
+
+        $isQuestion = in_array($type, [NotificationType::Clarification, NotificationType::Reminder], true);
+
+        if ($isQuestion && $task->source === 'linear' && ! empty($task->external_url)) {
+            $buttons[] = self::linkButton('yak_answer_in_linear', 'Answer in Linear', (string) $task->external_url);
+        }
+
+        return $buttons;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function linkButton(string $actionId, string $label, string $url): array
+    {
+        return [
+            'type' => 'button',
+            'action_id' => $actionId,
+            'text' => ['type' => 'plain_text', 'text' => $label],
+            'url' => $url,
+        ];
     }
 
     /**

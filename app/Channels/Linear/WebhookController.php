@@ -14,6 +14,7 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\FollowUpTaskFactory;
@@ -168,6 +169,8 @@ class WebhookController extends Controller
                     );
                     app(NotificationDriver::class)->syncSessionPlan($task);
                 }
+
+                $this->notifyStarterOfOutsideCancel($task, $request, 'Stopped: I was unassigned from this issue in Linear.');
             }
 
             return response()->json(['ok' => true]);
@@ -204,6 +207,11 @@ class WebhookController extends Controller
             ? $detection->options->pluck('slug')->values()->all()
             : [];
 
+        $starter = User::findByEmail($description->metadata['creator_email'] ?? null);
+        $assignee = ($description->metadata['assignee_email'] ?? null) !== null
+            ? User::findByEmail($description->metadata['assignee_email'])
+            : null;
+
         $task = YakTask::create([
             'source' => 'linear',
             'repo' => $repoSlug,
@@ -218,10 +226,12 @@ class WebhookController extends Controller
                 $description->metadata['creator_name'] ?? null,
                 $repoSlug,
             ),
+            'started_by_user_id' => $starter?->id,
+            'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser($assignee, $starter, $repoSlug)?->id,
             ...($detection->needsClarification ? [
                 'status' => TaskStatus::AwaitingClarification,
                 'clarification_options' => $repoOptions,
-                'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days', 3)),
+                ...YakTask::clarificationDeadlines(),
             ] : []),
             'context' => json_encode([
                 'title' => $description->metadata['title'] ?? '',
@@ -230,6 +240,7 @@ class WebhookController extends Controller
                 'linear_issue_identifier' => $description->metadata['linear_issue_identifier'] ?? '',
                 'linear_issue_url' => $description->metadata['linear_issue_url'] ?? '',
                 'linear_agent_session_id' => $description->metadata['linear_agent_session_id'] ?? '',
+                'linear_creator_id' => $description->metadata['creator_id'] ?? '',
             ]),
         ]);
 
@@ -274,17 +285,42 @@ class WebhookController extends Controller
     {
         TaskLogger::info($task, 'Awaiting repo clarification', ['source' => 'linear', 'options' => $repoOptions]);
 
+        $question = "I couldn't tell which repo this belongs in. Which repo should I work in? Reply with a number:\n" . RepoClarificationResolver::numberedList($repoOptions);
+
         $driver = app(NotificationDriver::class);
-        $driver->send(
-            $task,
-            NotificationType::Clarification,
-            "I couldn't tell which repo this belongs in. Which repo should I work in? Reply with a number:\n" . RepoClarificationResolver::numberedList($repoOptions),
-        );
+        $driver->send($task, NotificationType::Clarification, $question);
         $driver->setSessionDashboardUrl($task);
+
+        SendNotificationJob::dispatch($task, NotificationType::Clarification, $question, directMessagesOnly: true);
 
         Telemetry::feature('repo_clarification', ['options' => count($repoOptions)], task: $task);
 
         return response()->json(['ok' => true, 'handled' => 'repo_clarification']);
+    }
+
+    /**
+     * Tell the person who delegated the issue when someone else stopped the
+     * work. Linear already shows the stop, so only direct messages go out.
+     * An actor Yak cannot identify sends nothing, since it may be the
+     * creator.
+     */
+    private function notifyStarterOfOutsideCancel(YakTask $task, Request $request, string $message): void
+    {
+        $actor = $request->input('actor') ?? $request->input('notification.actor');
+        $actorId = is_array($actor) ? (string) ($actor['id'] ?? '') : '';
+
+        $context = json_decode((string) $task->context, true);
+        $creatorId = is_array($context) ? (string) ($context['linear_creator_id'] ?? '') : '';
+
+        if ($actorId === '' || $creatorId === '' || $actorId === $creatorId) {
+            return;
+        }
+
+        $actingUser = is_array($actor) && is_string($actor['email'] ?? null)
+            ? User::findByEmail($actor['email'])
+            : null;
+
+        SendNotificationJob::dispatch($task, NotificationType::Cancelled, $message, actingUser: $actingUser, directMessagesOnly: true);
     }
 
     /**
@@ -394,6 +430,7 @@ class WebhookController extends Controller
 
             if (in_array($status, $cancellable, strict: true)) {
                 $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+                $this->notifyStarterOfOutsideCancel($task, $request, 'Stopped: someone stopped this session in Linear.');
             }
 
             app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'response', body: 'Stopped.');

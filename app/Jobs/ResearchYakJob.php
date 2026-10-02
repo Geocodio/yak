@@ -324,7 +324,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
         }
 
-        $this->postToSource($notificationMessage);
+        $this->reportResult($notificationMessage);
 
         if ($this->task->source === 'linear') {
             // Mirror the viewer URL onto the Linear issue itself so the
@@ -338,8 +338,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                     subtitle: 'Detailed findings from Yak · HTML',
                 );
             }
-
-            $this->moveLinearToDone();
         }
     }
 

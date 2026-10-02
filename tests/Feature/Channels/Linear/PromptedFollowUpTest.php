@@ -282,3 +282,25 @@ it('a Linear prompt on a finished research task creates a research follow-up', f
 
     Queue::assertPushed(ResearchFollowUpJob::class, fn (ResearchFollowUpJob $job) => $job->task->parent_task_id === $task->id);
 });
+
+it('tells the starter by DM when someone else stops the session', function (): void {
+    Queue::fake([SendNotificationJob::class]);
+
+    YakTask::factory()->running()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-stop',
+        'context' => json_encode(['linear_creator_id' => 'linear-creator']),
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'actor' => ['id' => 'linear-other', 'email' => 'other@example.com'],
+        'agentSession' => ['id' => 'sess-stop'],
+        'agentActivity' => ['signal' => 'stop'],
+    ], $this->secret)->assertSuccessful();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Cancelled
+        && $job->directMessagesOnly === true);
+});

@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 
 // Helpers shared with WebhookTest are loaded via the test file itself;
 // enableLinearChannel(), linearConnection(), signLinearPayload(), and
@@ -184,3 +187,52 @@ it('handles inbox notifications with a missing notification.issue gracefully', f
 
     postLinearWebhook($body, $secret, 'InboxNotificationEvent')->assertSuccessful();
 });
+
+/**
+ * @param  array<string, mixed>  $actor
+ */
+function inboxNotificationPayloadWithActor(array $actor): string
+{
+    return (string) json_encode([
+        ...json_decode(inboxNotificationPayload(['issueId' => 'issue-abc', 'type' => 'issueUnassignedFromYou']), true),
+        'actor' => $actor,
+    ]);
+}
+
+function runningLinearTaskForUnassign(): YakTask
+{
+    return YakTask::factory()->running()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'session-unassign-002',
+        'context' => json_encode(['linear_issue_id' => 'issue-abc', 'linear_creator_id' => 'linear-creator']),
+    ]);
+}
+
+it('tells the starter by DM when someone else unassigns Yak', function () {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake([SendNotificationJob::class]);
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    runningLinearTaskForUnassign();
+
+    postLinearWebhook(inboxNotificationPayloadWithActor(['id' => 'linear-other', 'email' => 'other@example.com']), $secret, 'InboxNotificationEvent')
+        ->assertSuccessful();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Cancelled
+        && $job->directMessagesOnly === true);
+});
+
+it('sends no DM when the creator unassigns Yak or the actor is unknown', function (array $actor) {
+    $secret = enableLinearChannel();
+    linearConnection();
+    Queue::fake([SendNotificationJob::class]);
+    Http::fake(['*' => Http::response(['data' => ['agentActivityCreate' => ['success' => true]]])]);
+    runningLinearTaskForUnassign();
+
+    postLinearWebhook(inboxNotificationPayloadWithActor($actor), $secret, 'InboxNotificationEvent')->assertSuccessful();
+
+    Queue::assertNotPushed(SendNotificationJob::class);
+})->with([
+    'creator' => [['id' => 'linear-creator', 'email' => 'creator@example.com']],
+    'unknown actor' => [[]],
+]);

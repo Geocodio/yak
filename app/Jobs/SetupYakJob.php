@@ -12,6 +12,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
+use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
@@ -38,6 +39,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     use HandlesAgentJobFailure {
         failed as handleAgentJobFailure;
     }
+    use NotifiesSourceOfFailure;
     use Queueable;
 
     // Setup on heavy repos legitimately exceeds an hour: local docker image
@@ -239,7 +241,6 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
             $recorder->failed($e, 'claude_auth');
             $this->handleError($repository, $e->getMessage());
-            SendNotificationJob::dispatch($this->task, NotificationType::Error, $e->getMessage());
         } catch (\Throwable $e) {
             Log::error('SetupYakJob failed', [
                 'task_id' => $this->task->id,
@@ -331,6 +332,8 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
         ]);
+
+        SendNotificationJob::dispatch($this->task, NotificationType::Result, "Repository {$repository->name} is set up. I can work on tasks there now.");
     }
 
     /**
@@ -368,5 +371,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
         TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
         $repository->update(['setup_status' => 'failed']);
+
+        $this->notifySourceOfFailure($errorMessage);
     }
 }

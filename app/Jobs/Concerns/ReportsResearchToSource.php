@@ -2,17 +2,16 @@
 
 namespace App\Jobs\Concerns;
 
-use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
-use App\Channels\Slack\BlockFormatter as SlackBlockFormatter;
+use App\Enums\NotificationType;
+use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
 use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 /**
  * Shared by the jobs that run a read-only research turn: collecting the
- * optional HTML report from the sandbox and posting the answer back to the
- * channel the task came from. Expects a `$task` property on the job.
+ * optional HTML report from the sandbox and sending the answer through
+ * SendNotificationJob. Expects a `$task` property on the job.
  */
 trait ReportsResearchToSource
 {
@@ -60,56 +59,14 @@ trait ReportsResearchToSource
         ]);
     }
 
-    protected function postToSource(string $message): void
+    /**
+     * Send the research answer. The message is already in the Yak voice with
+     * the report link appended, so it skips the personality rewrite that could
+     * paraphrase the link away. For Linear, the notification driver also moves
+     * an issue without a pull request to Done.
+     */
+    protected function reportResult(string $message): void
     {
-        match ($this->task->source) {
-            'slack' => $this->postToSlack($message),
-            'linear' => $this->postToLinear($message),
-            default => null,
-        };
-    }
-
-    protected function postToSlack(string $message): void
-    {
-        $token = (string) config('yak.channels.slack.bot_token');
-
-        if ($token === '' || ! $this->task->slack_channel) {
-            return;
-        }
-
-        // The message arrives as common Markdown (`**bold**`,
-        // `[label](url)`) so the Linear path renders correctly. Slack
-        // uses mrkdwn (`*bold*`, `<url|label>`); convert before posting
-        // or the link surfaces as raw markdown text in the thread.
-        Http::withToken($token)
-            ->post('https://slack.com/api/chat.postMessage', [
-                'channel' => $this->task->slack_channel,
-                'thread_ts' => $this->task->slack_thread_ts,
-                'text' => SlackBlockFormatter::mrkdwn($message),
-            ]);
-    }
-
-    protected function postToLinear(string $message): void
-    {
-        $sessionId = (string) $this->task->linear_agent_session_id;
-
-        if ($sessionId === '') {
-            return;
-        }
-
-        app(LinearNotificationDriver::class)
-            ->postAgentActivity($sessionId, type: 'response', body: $message);
-    }
-
-    protected function moveLinearToDone(): void
-    {
-        $stateId = (string) config('yak.channels.linear.done_state_id');
-
-        if ($stateId === '') {
-            return;
-        }
-
-        app(LinearNotificationDriver::class)
-            ->setIssueState($this->task, $stateId);
+        SendNotificationJob::dispatch($this->task, NotificationType::Result, $message, personalize: false);
     }
 }

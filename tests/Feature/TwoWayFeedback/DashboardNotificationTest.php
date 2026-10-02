@@ -28,7 +28,7 @@ test('dashboard-sourced task with an open PR does not post to GitHub', function 
     Http::assertNothingSent();
 });
 
-test('non-dashboard source with PR still falls back to GitHub', function () {
+test('a non-GitHub source with a PR never posts a PR comment', function () {
     Http::fake(['api.github.com/*' => Http::response(['id' => 1])]);
 
     config()->set('yak.channels.github.installation_id', 4242);
@@ -45,7 +45,7 @@ test('non-dashboard source with PR still falls back to GitHub', function () {
         'pr_url' => 'https://github.com/acme/web/pull/9',
     ]);
 
-    (new SendNotificationJob($task, NotificationType::Progress, 'pushed, waiting for CI'))->handle(app(ChannelRegistry::class));
+    (new SendNotificationJob($task, NotificationType::Error, 'render failed'))->handle(app(ChannelRegistry::class));
 
-    Http::assertSent(fn ($request) => str_contains($request->url(), 'acme/web/issues/9/comments'));
+    Http::assertNothingSent();
 });
