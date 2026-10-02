@@ -1,10 +1,10 @@
-import { router } from '@inertiajs/react';
 import { Badge, Table, Tbody, Td, Th, Thead, Tooltip, Tr, cn } from '@geocodio/console-ui';
 import { ChevronDown, GitPullRequest, Globe, MessageSquare, ShieldAlert, Terminal, Zap } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { show as showTask } from '@/routes/tasks';
 import { StatusDot } from '@/components/StatusDot';
 import { useRowEntrance } from '@/lib/useRowEntrance';
+import { rowLinkHandlers } from '@/lib/visitRow';
 import type { TaskRow } from '@/types/tasks';
 
 export const SOURCE_ICON: Record<string, ComponentType<{ size?: number; className?: string }>> = {
@@ -39,7 +39,7 @@ function TaskTableRow({ task, onPreview, entranceClass }: { task: TaskRow; onPre
             interactive
             className={entranceClass}
             data-testid={`task-row-${task.id}`}
-            onClick={() => router.visit(showTask.url(task.id))}
+            {...rowLinkHandlers(showTask.url(task.id))}
             onMouseEnter={() => {
                 if (task.previewGif && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                     onPreview(task.previewGif);

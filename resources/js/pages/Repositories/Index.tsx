@@ -3,6 +3,7 @@ import { Badge, Button, PageHeader, StackedTable, StackedTbody, StackedTd, Stack
 import { Plus, Star } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { rowLinkHandlers } from '@/lib/visitRow';
 import repos from '@/routes/repos';
 import type { RepositorySummary } from '@/types/repositories';
 import type { PageProps } from '@/types/shared';
@@ -58,7 +59,7 @@ export default function Index({ repositories }: Props) {
                                     key={repo.slug}
                                     interactive
                                     data-testid={`repo-row-${repo.slug}`}
-                                    onClick={() => router.visit(repos.edit.url(repo.slug))}
+                                    {...rowLinkHandlers(repos.edit.url(repo.slug))}
                                     className={repo.isActive ? undefined : 'opacity-60'}
                                 >
                                     <StackedTd label="Slug" className="font-medium text-accent">
