@@ -137,7 +137,9 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'not a yak branch']);
         }
 
-        $task = YakTask::where('branch_name', $branch)->first();
+        // Follow-ups push to their parent's branch, so the newest task on the
+        // branch is the one that pushed the commit CI just reported on.
+        $task = YakTask::where('branch_name', $branch)->latest('id')->first();
 
         if (! $task) {
             return response()->json(['ok' => true, 'skipped' => 'no task found for branch']);
