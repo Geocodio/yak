@@ -15,7 +15,7 @@ const SECTIONS: SettingsNavSection[] = [
                 href: profileEdit.url(),
                 label: 'Profile',
                 icon: <User size={15} />,
-                description: 'Update your name and email address.',
+                description: 'Update your name, email address, and Slack direct messages.',
                 keywords: ['name', 'email'],
             },
         ],

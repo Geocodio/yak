@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\UpdateDirectMessagesRequest;
 use App\Http\Requests\Settings\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -23,6 +24,7 @@ class ProfileController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'hasUnverifiedEmail' => $this->hasUnverifiedEmail($user),
+                'directMessagesEnabled' => $user->direct_messages_enabled,
             ],
         ]);
     }
@@ -40,6 +42,15 @@ class ProfileController extends Controller
         $user->save();
 
         return redirect()->route('profile.edit')->with('success', 'Profile updated.');
+    }
+
+    public function updateDirectMessages(UpdateDirectMessagesRequest $request): RedirectResponse
+    {
+        $isEnabled = $request->boolean('directMessagesEnabled');
+
+        $this->authenticatedUser()->update(['direct_messages_enabled' => $isEnabled]);
+
+        return redirect()->route('profile.edit')->with('success', 'Slack direct messages turned ' . ($isEnabled ? 'on' : 'off') . '.');
     }
 
     public function resendVerification(Request $request): RedirectResponse
