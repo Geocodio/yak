@@ -251,7 +251,7 @@ class IncusSandboxManager
         try {
             $this->installReadOnlyGhToken($containerName, $installationId);
         } catch (\Throwable $e) {
-            Log::warning('Could not give the sandbox a read-only gh token', ['container' => $containerName, 'error' => $e->getMessage()]);
+            Log::channel('yak')->warning('Could not give the sandbox a read-only gh token', ['container' => $containerName, 'error' => $e->getMessage()]);
         }
     }
 

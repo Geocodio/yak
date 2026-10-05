@@ -1203,30 +1203,29 @@ GRAPHQL;
      * A short-lived installation token that can only read, for the agent's
      * `gh` CLI. It covers every repository the installation sees, so the
      * agent can also read linked issues and PRs in sibling repositories.
+     * Each call mints a new token, so every agent run gets the full hour.
      */
     public function getReadOnlyInstallationToken(int $installationId): string
     {
-        return Cache::remember("github.read_only_token.{$installationId}", now()->addMinutes(50), function () use ($installationId): string {
-            $client = Http::withToken($this->generateJwt())
-                ->withHeaders(['Accept' => 'application/vnd.github+json'])
-                ->throw();
+        $client = Http::withToken($this->generateJwt())
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->throw();
 
-            $granted = array_keys((array) $client->get("https://api.github.com/app/installations/{$installationId}")->json('permissions', []));
-            $permissions = array_fill_keys(array_values(array_intersect(self::READ_ONLY_PERMISSIONS, $granted)), 'read');
+        $granted = array_keys((array) $client->get("https://api.github.com/app/installations/{$installationId}")->json('permissions', []));
+        $permissions = array_fill_keys(array_values(array_intersect(self::READ_ONLY_PERMISSIONS, $granted)), 'read');
 
-            // An empty permissions object would mint a token with every permission the app holds.
-            if ($permissions === []) {
-                throw new \RuntimeException("GitHub installation {$installationId} grants none of the read-only permissions");
-            }
+        // An empty permissions object would mint a token with every permission the app holds.
+        if ($permissions === []) {
+            throw new \RuntimeException("GitHub installation {$installationId} grants none of the read-only permissions");
+        }
 
-            $token = $client->post("https://api.github.com/app/installations/{$installationId}/access_tokens", ['permissions' => $permissions])->json('token');
+        $token = $client->post("https://api.github.com/app/installations/{$installationId}/access_tokens", ['permissions' => $permissions])->json('token');
 
-            if (! is_string($token) || $token === '') {
-                throw new \RuntimeException("GitHub returned an empty read-only installation token for installation {$installationId}");
-            }
+        if (! is_string($token) || $token === '') {
+            throw new \RuntimeException("GitHub returned an empty read-only installation token for installation {$installationId}");
+        }
 
-            return $token;
-        });
+        return $token;
     }
 
     private function requestInstallationToken(int $installationId): string

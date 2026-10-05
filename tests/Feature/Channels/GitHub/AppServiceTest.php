@@ -169,4 +169,8 @@ it('mints a read-only token limited to the read permissions the installation hol
 
     Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/access_tokens')
         && $request['permissions'] === ['contents' => 'read', 'metadata' => 'read', 'pull_requests' => 'read']);
+
+    app(GitHubAppService::class)->getReadOnlyInstallationToken(42);
+
+    Http::assertSentCount(4);
 });
