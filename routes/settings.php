@@ -11,6 +11,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('settings/profile/direct-messages', [ProfileController::class, 'updateDirectMessages'])->name('profile.direct-messages.update');
     Route::post('settings/profile/resend-verification', [ProfileController::class, 'resendVerification'])->name('verification.resend');
 
     Route::delete('settings/account', [AccountController::class, 'destroy'])->name('account.destroy');

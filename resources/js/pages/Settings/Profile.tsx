@@ -1,10 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Button, Dialog, Field, TextInput } from '@geocodio/console-ui';
+import { Button, Dialog, Field, TextInput, Toggle } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { destroy } from '@/routes/account';
 import { update } from '@/routes/profile';
+import { update as updateDirectMessages } from '@/routes/profile/direct-messages';
 import { resend } from '@/routes/verification';
 import type { PageProps } from '@/types/shared';
 import type { ProfileData } from '@/types/settings';
@@ -55,6 +56,10 @@ export default function Profile({ profile }: Props) {
         form.patch(update.url(), { preserveScroll: true });
     };
 
+    const toggleDirectMessages = (checked: boolean) => {
+        action.run('direct-messages', 'patch', updateDirectMessages.url(), { directMessagesEnabled: checked });
+    };
+
     return (
         <>
             <Head title="Profile settings" />
@@ -85,6 +90,21 @@ export default function Profile({ profile }: Props) {
                             Save
                         </Button>
                     </div>
+                </Card>
+                <Card className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+                    <div className="max-w-md">
+                        <div className="text-[13px] font-medium">Slack direct messages</div>
+                        <div className="mt-0.5 text-[12px] text-muted">
+                            Yak messages you in Slack when a task you started needs an answer, has a PR ready, or failed. Mentions in Slack threads
+                            are not affected.
+                        </div>
+                    </div>
+                    <Toggle
+                        checked={profile.directMessagesEnabled}
+                        onCheckedChange={toggleDirectMessages}
+                        label="Slack direct messages"
+                        data-testid="direct-messages-toggle"
+                    />
                 </Card>
                 <Card className="flex flex-wrap items-center justify-between gap-y-2 border-fail/30">
                     <div>

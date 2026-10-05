@@ -2,6 +2,7 @@ export type ProfileData = {
     name: string;
     email: string;
     hasUnverifiedEmail: boolean;
+    directMessagesEnabled: boolean;
 };
 
 export type LinearConnectionData = {

@@ -47,3 +47,34 @@ test('profile update validates required fields', function () {
     $this->patch(route('profile.update'), ['name' => '', 'email' => ''])
         ->assertSessionHasErrors(['name', 'email']);
 });
+
+test('profile page exposes the direct messages flag', function () {
+    $this->get(route('profile.edit'))
+        ->assertInertia(fn (Assert $page) => $page->where('profile.directMessagesEnabled', true)->etc());
+});
+
+test('direct messages can be turned off and on', function () {
+    $user = User::query()->first();
+
+    $this->patch(route('profile.direct-messages.update'), ['directMessagesEnabled' => false])
+        ->assertRedirect(route('profile.edit'))
+        ->assertSessionHas('success', 'Slack direct messages turned off.');
+    expect($user->refresh()->direct_messages_enabled)->toBeFalse();
+
+    $this->patch(route('profile.direct-messages.update'), ['directMessagesEnabled' => true])
+        ->assertRedirect(route('profile.edit'))
+        ->assertSessionHas('success', 'Slack direct messages turned on.');
+    expect($user->refresh()->direct_messages_enabled)->toBeTrue();
+});
+
+test('direct messages update validates the value', function (array $payload) {
+    $this->patch(route('profile.direct-messages.update'), $payload)
+        ->assertSessionHasErrors('directMessagesEnabled');
+})->with([[[]], [['directMessagesEnabled' => 'maybe']]]);
+
+test('guests cannot update direct messages', function () {
+    auth()->logout();
+
+    $this->patch(route('profile.direct-messages.update'), ['directMessagesEnabled' => false])
+        ->assertRedirect(route('login'));
+});
