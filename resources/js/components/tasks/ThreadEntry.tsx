@@ -99,7 +99,7 @@ export function ThreadEntry({
 
     if (entry.kind === 'clarification') {
         return (
-            <Entry who="Yak" meta={entry.meta} avatar={<span className="text-accent-text">Y</span>}>
+            <Entry who="Yak" meta={entry.meta} avatar={<img src="/mascot-avatar.png" alt="" className="h-6 w-6 rounded-pill" />}>
                 <div className={cn('rounded-card border border-hair bg-panel p-4 shadow-card', entry.superseded && 'opacity-60')}>
                     <Prose html={entry.bodyHtml} />
                     {!entry.superseded && entry.options && entry.options.length > 0 && (
@@ -124,7 +124,7 @@ export function ThreadEntry({
 
     // kind === 'yak'
     return (
-        <Entry who="Yak" meta={entry.meta} avatar={<span className="text-accent-text">Y</span>}>
+        <Entry who="Yak" meta={entry.meta} avatar={<img src="/mascot-avatar.png" alt="" className="h-6 w-6 rounded-pill" />}>
             <div className={cn('rounded-card border border-hair bg-panel p-4 shadow-card', entry.superseded && 'opacity-60')}>
                 {entry.live ? (
                     <div className="flex items-center gap-2 text-muted">
