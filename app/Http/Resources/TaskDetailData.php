@@ -135,10 +135,7 @@ final class TaskDetailData
             && $task->status === TaskStatus::Success
             && $task->pr_url === null;
 
-        $headlineFirstLine = Str::before((string) $task->description, "\n");
-        $headline = ($task->description_summary && strlen((string) $task->description_summary) < strlen($headlineFirstLine))
-            ? (string) $task->description_summary
-            : $headlineFirstLine;
+        $headline = $task->headline();
 
         $repository = Repository::where('slug', $task->repo)->first();
 

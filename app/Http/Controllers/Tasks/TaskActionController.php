@@ -28,6 +28,7 @@ use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -197,7 +198,7 @@ class TaskActionController extends Controller
         return redirect()->route('tasks.show', $task)->with('success', "Retrying on {$task->branch_name}.");
     }
 
-    public function cancel(YakTask $task): RedirectResponse
+    public function cancel(Request $request, YakTask $task): RedirectResponse
     {
         $cancellable = in_array($task->status, [
             TaskStatus::Pending,
@@ -230,17 +231,24 @@ class TaskActionController extends Controller
             'completed_at' => now(),
         ]);
 
+        $canceller = $request->user();
+
         SendNotificationJob::dispatch(
             $task,
-            NotificationType::Expiry,
-            'Task cancelled from the dashboard.',
+            NotificationType::Cancelled,
+            'Task cancelled from the dashboard by ' . ($canceller->name ?? 'someone') . '.',
+            actingUser: $canceller,
         );
 
         if ($task->source === 'linear') {
+            $linear = app(LinearNotificationDriver::class);
             $cancelledStateId = (string) config('yak.channels.linear.cancelled_state_id');
+
             if ($cancelledStateId !== '') {
-                app(LinearNotificationDriver::class)->setIssueState($task, $cancelledStateId);
+                $linear->setIssueState($task, $cancelledStateId);
             }
+
+            $linear->syncSessionPlan($task);
         }
 
         return redirect()->route('tasks.show', $task)->with('success', 'Task cancelled.');

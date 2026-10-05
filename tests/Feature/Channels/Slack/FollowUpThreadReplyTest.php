@@ -263,3 +263,29 @@ it('a Slack thread reply on a finished research task creates a research follow-u
 
     Queue::assertPushed(ResearchFollowUpJob::class, fn (ResearchFollowUpJob $job) => $job->task->parent_task_id === $task->id);
 });
+
+it('records the Slack user who replied on the follow-up task', function () {
+    Queue::fake();
+
+    $task = YakTask::factory()->success()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C123',
+        'slack_thread_ts' => '111.222',
+        'slack_user_id' => 'U_REQUESTER',
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'branch_name' => 'yak/x',
+    ]);
+
+    $body = slackThreadReplyPayload('Please also add a test', 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $child = YakTask::where('parent_task_id', $task->id)->firstOrFail();
+    expect($child->slack_user_id)->toBe('U_REQUESTER')
+        ->and($child->slack_follow_up_user_id)->toBe('U_REPLY_USER');
+});

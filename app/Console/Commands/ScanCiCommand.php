@@ -537,6 +537,7 @@ class ScanCiCommand extends Command
                     ]),
                     'source' => self::SOURCE,
                     'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
+                    'responsible_user_id' => app(ResponsiblePersonResolver::class)->resolveUser(null, null, $repository->slug)?->id,
                 ]);
 
                 foreach ($remaining as $test) {

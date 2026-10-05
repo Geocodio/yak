@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 
@@ -31,4 +32,24 @@ test('a follow-up on a chain with no responsible person makes its starter respon
     $child = app(FollowUpTaskFactory::class)->create($parent, 'Handle the empty state', 'slack', authorName: 'Follow Upper');
 
     expect($child->responsible_name)->toBe('Follow Upper');
+});
+
+test('a follow-up keeps the starter and responsible user and records who replied in Slack', function () {
+    $starter = User::factory()->create();
+    $owner = User::factory()->create();
+    $parent = YakTask::factory()->success()->create([
+        'pr_url' => 'https://github.com/org/repo/pull/9',
+        'pr_number' => 9,
+        'branch_name' => 'yak/fix-9',
+        'started_by_user_id' => $starter->id,
+        'responsible_user_id' => $owner->id,
+        'slack_user_id' => 'U_REQUESTER',
+    ]);
+
+    $child = app(FollowUpTaskFactory::class)->create($parent, 'Rename the flag', 'slack', authorName: 'Replier', slackFollowUpUserId: 'U_REPLIER');
+
+    expect($child->started_by_user_id)->toBe($starter->id)
+        ->and($child->responsible_user_id)->toBe($owner->id)
+        ->and($child->slack_user_id)->toBe('U_REQUESTER')
+        ->and($child->slack_follow_up_user_id)->toBe('U_REPLIER');
 });

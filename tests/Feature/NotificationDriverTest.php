@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\ChannelRegistry;
 use App\Channels\GitHub\NotificationDriver as GitHubNotificationDriver;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
@@ -7,6 +8,7 @@ use App\Enums\NotificationType;
 use App\Jobs\SendNotificationJob;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
+use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -141,7 +143,9 @@ it('Slack: @-mentions requester on Clarification/Error/Expiry but not on Progres
         'clarification' => true,
         'result' => true,
         'error' => true,
-        'expiry' => true,
+        'expiry' => false,
+        'reminder' => true,
+        'cancelled' => true,
     ];
 
     foreach (NotificationType::cases() as $type) {
@@ -460,7 +464,7 @@ it('Linear: posts failure summary', function () {
 |--------------------------------------------------------------------------
 */
 
-it('GitHub: posts PR comment as fallback', function () {
+it('GitHub: posts a PR comment', function () {
     Http::fake(['*' => Http::response(['id' => 1])]);
 
     config()->set('yak.channels.github.installation_id', 12345);
@@ -472,7 +476,7 @@ it('GitHub: posts PR comment as fallback', function () {
     ]);
 
     $task = YakTask::factory()->create([
-        'source' => 'sentry',
+        'source' => 'github',
         'repo' => 'org/my-repo',
         'pr_url' => 'https://github.com/org/my-repo/pull/42',
     ]);
@@ -576,37 +580,20 @@ it('SendNotificationJob routes to Linear driver for Linear tasks', function () {
     assertLinearActivity('On it — On it.');  // Personality fallback interpolates context
 });
 
-it('SendNotificationJob falls back to GitHub PR comment when source channel is disabled', function () {
+it('SendNotificationJob never posts a PR comment when the Slack channel is disabled', function () {
     Http::fake(['*' => Http::response(['id' => 1])]);
-
-    config()->set('yak.channels.slack', [
-        'driver' => 'slack',
-        'bot_token' => '',
-        'signing_secret' => '',
-    ]);
+    config()->set('yak.channels.slack', ['driver' => 'slack', 'bot_token' => '', 'signing_secret' => '']);
     config()->set('yak.channels.github.installation_id', 12345);
-
-    GitHubInstallationToken::factory()->create([
-        'installation_id' => 12345,
-        'token' => 'ghs_test_token',
-        'expires_at' => now()->addHour(),
-    ]);
 
     $task = YakTask::factory()->create([
         'source' => 'slack',
         'repo' => 'org/repo',
         'pr_url' => 'https://github.com/org/repo/pull/55',
-        'slack_channel' => 'C_DISABLED',
-        'slack_thread_ts' => '1111111111.111111',
     ]);
 
-    $job = new SendNotificationJob($task, NotificationType::Result, 'PR merged');
-    app()->call([$job, 'handle']);
+    app()->call([new SendNotificationJob($task, NotificationType::Result, 'PR merged'), 'handle']);
 
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'repos/org/repo/issues/55/comments')
-            && str_contains($request['body'], 'PR merged');
-    });
+    Http::assertNothingSent();
 });
 
 it('SendNotificationJob sends nothing when source disabled and no PR URL', function () {
@@ -629,7 +616,7 @@ it('SendNotificationJob sends nothing when source disabled and no PR URL', funct
     Http::assertNothingSent();
 });
 
-it('SendNotificationJob falls back for non-Slack/Linear sources with PR', function () {
+it('SendNotificationJob never posts a PR comment for non-Slack/Linear sources with PR', function () {
     Http::fake(['*' => Http::response(['id' => 1])]);
 
     config()->set('yak.channels.github.installation_id', 12345);
@@ -646,10 +633,90 @@ it('SendNotificationJob falls back for non-Slack/Linear sources with PR', functi
         'pr_url' => 'https://github.com/org/sentry-repo/pull/7',
     ]);
 
-    $job = new SendNotificationJob($task, NotificationType::Result, 'Fix applied');
-    app()->call([$job, 'handle']);
+    app()->call([new SendNotificationJob($task, NotificationType::Result, 'Fix applied'), 'handle']);
 
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'repos/org/sentry-repo/issues/7/comments');
-    });
+    Http::assertNothingSent();
+});
+
+it('Slack: mentions the requester and the follow-up replier on a pushing event', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_FOLLOW',
+        'slack_thread_ts' => '7777777777.777777',
+        'slack_user_id' => 'U_REQUESTER',
+        'slack_follow_up_user_id' => 'U_REPLIER',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Result, 'Pushed the rename.');
+
+    assertSlackThreadReply('C_FOLLOW', '7777777777.777777', '<@U_REQUESTER> <@U_REPLIER> Pushed the rename.');
+});
+
+it('Slack: mentions once when the replier is the requester', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_SAME',
+        'slack_thread_ts' => '7777777777.777778',
+        'slack_user_id' => 'U_REQUESTER',
+        'slack_follow_up_user_id' => 'U_REQUESTER',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Reminder, 'Still need your pick.');
+
+    assertSlackThreadReply('C_SAME', '7777777777.777778', '<@U_REQUESTER> Still need your pick.');
+    Http::assertNotSent(fn ($request): bool => str_contains((string) ($request['text'] ?? ''), '<@U_REQUESTER> <@U_REQUESTER>'));
+});
+
+it('Slack: an expired question does not mention anyone', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_EXP',
+        'slack_thread_ts' => '7777777777.777779',
+        'slack_user_id' => 'U_REQUESTER',
+    ]);
+
+    (new SlackNotificationDriver)->send($task, NotificationType::Expiry, 'Closing this one.');
+
+    Http::assertNotSent(fn ($request): bool => str_contains((string) ($request['text'] ?? ''), '<@U_REQUESTER>'));
+});
+
+it('Linear: a reminder keeps the session waiting for input and a cancel posts a response', function () {
+    Http::fake(['*' => Http::response(['data' => ['success' => true]])]);
+    LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.cancelled_state_id', 'cancelled-state');
+
+    $driver = new LinearNotificationDriver;
+
+    expect($driver->activityTypeFor(NotificationType::Reminder))->toBe('elicitation')
+        ->and($driver->activityTypeFor(NotificationType::Cancelled))->toBe('response');
+
+    $task = YakTask::factory()->create(['source' => 'linear', 'status' => 'cancelled', 'linear_agent_session_id' => 'session-cancel']);
+    $driver->send($task, NotificationType::Cancelled, 'Cancelled by someone else.');
+
+    Http::assertNotSent(fn ($request): bool => str_contains($request['query'] ?? '', 'issueUpdate'));
+});
+
+it('SendNotificationJob sends nothing when the starter cancels their own task', function () {
+    Http::fake(['*' => Http::response(['ok' => true])]);
+    config()->set('yak.channels.slack', ['driver' => 'slack', 'bot_token' => 'xoxb-test', 'signing_secret' => 'secret']);
+    $starter = User::factory()->create();
+    $task = YakTask::factory()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_OWN',
+        'slack_thread_ts' => '1.2',
+        'started_by_user_id' => $starter->id,
+    ]);
+
+    (new SendNotificationJob($task, NotificationType::Cancelled, 'Cancelled.', actingUser: $starter))->handle(app(ChannelRegistry::class));
+
+    Http::assertNothingSent();
 });

@@ -22,8 +22,9 @@ class FollowUpTaskFactory
      * @param  array<int, string>  $reRequestReviewFrom  GitHub logins to re-request review from once this follow-up succeeds
      * @param  int|null  $summonReviewCommentId  Review comment thread the summary reply goes to, when summoned from an inline comment
      * @param  string|null  $summonQuote  Conversation-tab comment the summary reply quotes, when summoned from one
+     * @param  string|null  $slackFollowUpUserId  Slack user who replied in the thread, mentioned alongside the original requester
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -38,7 +39,7 @@ class FollowUpTaskFactory
 
         $isResearch = $head->mode === TaskMode::Research;
 
-        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -52,11 +53,14 @@ class FollowUpTaskFactory
                 'slack_channel' => $head->slack_channel,
                 'slack_thread_ts' => $head->slack_thread_ts,
                 'slack_user_id' => $head->slack_user_id,
+                'slack_follow_up_user_id' => $slackFollowUpUserId,
                 'external_url' => $head->external_url,
                 'external_id' => $root->external_id . '-followup',
                 'description' => $instructions,
                 'author_name' => $authorName,
                 'responsible_name' => app(ResponsiblePersonResolver::class)->resolve($head->responsible_name, $authorName, $head->repo),
+                'started_by_user_id' => $head->started_by_user_id,
+                'responsible_user_id' => $head->responsible_user_id,
                 're_request_review_from' => $this->cleanLogins($reRequestReviewFrom),
                 'targets_external_pr' => ! $isResearch && $head->targets_external_pr,
                 'summon_review_comment_id' => $summonReviewCommentId,

@@ -122,7 +122,7 @@ class ClarificationReplyJob implements ShouldQueue
 
         // How long the question sat unanswered: from when the task parked in
         // awaiting_clarification (its updated_at at that point) to the reply.
-        $askedAt = $this->task->clarification_expires_at?->subDays((int) config('yak.clarification_ttl_days', 3));
+        $askedAt = $this->task->clarification_expires_at?->subWeekdays((int) config('yak.clarification_ttl_days', 3));
         Telemetry::record('feature.used', [
             'feature' => 'clarification.answered',
             'options' => count($this->task->clarification_options ?? []),

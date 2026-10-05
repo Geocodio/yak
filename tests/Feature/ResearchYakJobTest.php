@@ -2,8 +2,10 @@
 
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\ResearchYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
@@ -14,6 +16,7 @@ use App\Services\RepositoryRiskProfiles;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakeAgentRunner;
 use Tests\Support\FakeSandboxManager;
@@ -414,6 +417,7 @@ test('posts summary and findings URL as Linear comment', function () {
     Storage::fake('artifacts');
 
     LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create([
@@ -492,6 +496,7 @@ test('moves Linear issue to Done state', function () {
     Http::fake();
 
     LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
     config()->set('yak.channels.linear.done_state_id', 'done-state-uuid');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
@@ -560,7 +565,7 @@ test('posts summary and findings URL as Slack thread reply', function () {
     Http::fake();
     Storage::fake('artifacts');
 
-    config(['yak.channels.slack.bot_token' => 'xoxb-test-token']);
+    config(['yak.channels.slack.bot_token' => 'xoxb-test-token', 'yak.channels.slack.signing_secret' => 'slack-secret']);
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create([
@@ -647,4 +652,34 @@ test('ResearchYakJob dispatches to yak-claude queue', function () {
     $job = new ResearchYakJob($task);
 
     expect($job->queue)->toBe('yak-claude');
+});
+
+test('the research answer is sent once through SendNotificationJob without a second rewrite', function () {
+    Queue::fake([SendNotificationJob::class]);
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_job',
+        resultSummary: 'Three bottlenecks found',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: false,
+        clarificationOptions: [],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+
+    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'dashboard']);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    $results = Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result);
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->personalize)->toBeFalse()
+        ->and($results->first()->message)->toContain('Three bottlenecks found');
 });

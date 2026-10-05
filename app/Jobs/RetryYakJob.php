@@ -360,7 +360,7 @@ class RetryYakJob implements ShouldQueue
         $this->task->update([
             'status' => TaskStatus::AwaitingClarification,
             'clarification_options' => $result->clarificationOptions,
-            'clarification_expires_at' => now()->addDays((int) config('yak.clarification_ttl_days')),
+            ...YakTask::clarificationDeadlines(),
         ]);
 
         DailyCost::accumulate($result->costUsd, newTask: false);

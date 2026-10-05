@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
@@ -68,6 +70,7 @@ test('green path creates PR and marks task as success', function () {
     ]);
 
     config()->set('yak.channels.slack.bot_token', 'test-slack-token');
+    config()->set('yak.channels.slack.signing_secret', 'slack-secret');
 
     $repository = Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -451,6 +454,7 @@ test('green path posts PR link to Slack thread', function () {
     ]);
 
     config()->set('yak.channels.slack.bot_token', 'slack-token');
+    config()->set('yak.channels.slack.signing_secret', 'slack-secret');
 
     Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -494,6 +498,7 @@ test('green path posts PR link as Linear comment and moves issue to In Review', 
     ]);
 
     LinearOauthConnection::factory()->create();
+    config()->set('yak.channels.linear.webhook_secret', 'linear-secret');
     config()->set('yak.channels.linear.in_review_state_id', 'in-review-state-uuid');
 
     Repository::factory()->create([
@@ -587,13 +592,14 @@ test('first failure sets task status to retrying and increments attempts', funct
 });
 
 test('first failure posts CI failed retrying to source', function () {
-    Queue::fake();
+    Queue::fake([RetryYakJob::class]);
     Http::fake([
         'slack.com/*' => Http::response(['ok' => true]),
     ]);
 
     config()->set('yak.max_attempts', 2);
     config()->set('yak.channels.slack.bot_token', 'slack-token');
+    config()->set('yak.channels.slack.signing_secret', 'slack-secret');
 
     Repository::factory()->create(['slug' => 'org/my-repo']);
 
@@ -686,6 +692,7 @@ test('second failure posts failure summary to source', function () {
 
     config()->set('yak.max_attempts', 2);
     config()->set('yak.channels.slack.bot_token', 'slack-token');
+    config()->set('yak.channels.slack.signing_secret', 'slack-secret');
 
     Repository::factory()->create([
         'slug' => 'org/my-repo',
@@ -718,6 +725,7 @@ test('second failure keeps job log excerpts out of the source notification', fun
 
     config()->set('yak.max_attempts', 2);
     config()->set('yak.channels.slack.bot_token', 'slack-token');
+    config()->set('yak.channels.slack.signing_secret', 'slack-secret');
 
     Repository::factory()->create(['slug' => 'org/my-repo']);
 
@@ -778,6 +786,7 @@ test('second failure does not dispatch RetryYakJob', function () {
 test('failed() transitions non-final task to Failed with error_log', function () {
     Http::fake(['slack.com/*' => Http::response(['ok' => true])]);
     config()->set('yak.channels.slack.bot_token', 'slack-token');
+    config()->set('yak.channels.slack.signing_secret', 'slack-secret');
 
     Repository::factory()->create(['slug' => 'org/my-repo']);
 
@@ -1149,3 +1158,64 @@ test('a late result without a commit after a CI timeout is ignored', function ()
     expect($task->refresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertNotPushed(RetryYakJob::class);
 });
+
+test('a final CI failure followed by a job exception reports one error', function () {
+    Queue::fake([SendNotificationJob::class]);
+    config()->set('yak.max_attempts', 2);
+    Repository::factory()->create(['slug' => 'org/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'source' => 'dashboard',
+        'attempts' => 2,
+    ]);
+
+    $job = new ProcessCIResultJob($task, false, 'Auth tests failed');
+    $job->handle();
+    $job->failed(new RuntimeException('late explosion'));
+
+    Queue::assertPushed(SendNotificationJob::class, 1);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error
+        && str_contains($notification->message, 'CI failed'));
+});
+
+test('the green path reports the PR through SendNotificationJob for every source', function () {
+    Queue::fake([SendNotificationJob::class]);
+    Http::fake([
+        'api.github.com/*' => Http::response(['number' => 5, 'html_url' => 'https://github.com/org/my-repo/pull/5']),
+    ]);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'org/my-repo', 'path' => '/home/yak/repos/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/DASH-1',
+        'source' => 'dashboard',
+        'attempts' => 1,
+    ]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result
+        && $notification->message === 'PR created: https://github.com/org/my-repo/pull/5');
+});
+
+test('a GitHub-started task gets no second PR comment for the green path or a retry', function (bool $passed) {
+    Queue::fake([SendNotificationJob::class, RetryYakJob::class]);
+    Http::fake([
+        'api.github.com/*' => Http::response(['number' => 5, 'html_url' => 'https://github.com/org/my-repo/pull/5']),
+    ]);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'org/my-repo', 'path' => '/home/yak/repos/my-repo']);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/GH-1',
+        'source' => 'github',
+        'attempts' => 1,
+    ]);
+
+    (new ProcessCIResultJob($task, $passed, $passed ? null : 'tests failed'))->handle();
+
+    Queue::assertNotPushed(SendNotificationJob::class);
+})->with(['green path' => true, 'first failure' => false]);

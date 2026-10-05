@@ -53,6 +53,18 @@ A clarification request timed out — nobody responded.
 - Mention they can re-request if needed
 - End with ⏰
 @break
+@case('reminder')
+You asked a question a working day ago and nobody has answered yet.
+- Be friendly and brief, not pushy
+- Keep any numbered options from the context exactly as written; do not invent a question that is not in the context
+- End with ⏰
+@break
+@case('cancelled')
+Someone stopped this task before you finished.
+- Say plainly that the work stopped and who stopped it, using the context
+- No puns about the cancellation itself
+- End with 🛑
+@break
 @endswitch
 
 ## Rules

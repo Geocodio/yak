@@ -29,7 +29,7 @@ class InputDriver implements InputDriverContract
      */
     public function parse(Request $request): TaskDescription
     {
-        /** @var array{id?: string, issue?: array<string, mixed>, promptContext?: string, creator?: array{name?: string}} $session */
+        /** @var array{id?: string, issue?: array<string, mixed>, promptContext?: string, creator?: array{id?: string, name?: string, email?: string}} $session */
         $session = (array) $request->input('agentSession', []);
         /** @var array{id?: string, identifier?: string, title?: string, description?: string, url?: string} $issue */
         $issue = (array) ($session['issue'] ?? []);
@@ -48,6 +48,8 @@ class InputDriver implements InputDriverContract
         $body = $this->composeBody($title, $description, $promptContextXml);
 
         $payloadCreator = $session['creator']['name'] ?? null;
+        $payloadCreatorId = $session['creator']['id'] ?? null;
+        $payloadCreatorEmail = $session['creator']['email'] ?? null;
         $people = $this->fetcher()->sessionPeople($sessionId);
         $actorName = $request->input('actor.name');
         $creatorName = $people['creator']
@@ -70,6 +72,9 @@ class InputDriver implements InputDriverContract
                 'linear_agent_session_id' => $sessionId,
                 'creator_name' => $creatorName,
                 'assignee_name' => $people['assignee'] ?? null,
+                'creator_id' => $people['creator_id'] ?? (is_string($payloadCreatorId) && $payloadCreatorId !== '' ? $payloadCreatorId : null),
+                'creator_email' => $people['creator_email'] ?? (is_string($payloadCreatorEmail) && $payloadCreatorEmail !== '' ? $payloadCreatorEmail : null),
+                'assignee_email' => $people['assignee_email'] ?? null,
             ],
         );
     }

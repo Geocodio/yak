@@ -53,3 +53,17 @@ test('trims the repository default responsible user name', function () {
 
     expect(app(ResponsiblePersonResolver::class)->resolve(null, null, 'my-app'))->toBe('Jane');
 });
+
+test('resolveUser prefers the explicit user, then the starter, then the repository default', function () {
+    $assignee = User::factory()->create();
+    $starter = User::factory()->create();
+    $owner = User::factory()->create();
+    Repository::factory()->create(['slug' => 'my-app', 'default_responsible_user_id' => $owner->id]);
+
+    $resolver = app(ResponsiblePersonResolver::class);
+
+    expect($resolver->resolveUser($assignee, $starter, 'my-app')?->is($assignee))->toBeTrue()
+        ->and($resolver->resolveUser(null, $starter, 'my-app')?->is($starter))->toBeTrue()
+        ->and($resolver->resolveUser(null, null, 'my-app')?->is($owner))->toBeTrue()
+        ->and($resolver->resolveUser(null, null, 'unknown'))->toBeNull();
+});

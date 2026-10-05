@@ -268,7 +268,7 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
             $notificationMessage .= "\n\n📑 **[View revised research report]({$artifactUrl})**";
         }
 
-        $this->postToSource($notificationMessage);
+        $this->reportResult($notificationMessage);
 
         if ($this->task->source === 'linear') {
             if ($artifactUrl !== null) {
@@ -279,8 +279,6 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
                     subtitle: 'Detailed findings from Yak · HTML',
                 );
             }
-
-            $this->moveLinearToDone();
         }
     }
 

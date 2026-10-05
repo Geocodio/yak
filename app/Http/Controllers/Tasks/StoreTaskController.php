@@ -20,7 +20,9 @@ class StoreTaskController extends Controller
     {
         $validated = $request->validated();
 
-        $authorName = $request->user()?->name;
+        $user = $request->user();
+        $authorName = $user?->name;
+        $resolver = app(ResponsiblePersonResolver::class);
 
         $task = YakTask::create([
             'source' => 'dashboard',
@@ -29,7 +31,9 @@ class StoreTaskController extends Controller
             'description' => trim((string) $validated['description']),
             'mode' => $validated['mode'],
             'author_name' => $authorName,
-            'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, $authorName, $validated['repo']),
+            'responsible_name' => $resolver->resolve(null, $authorName, $validated['repo']),
+            'started_by_user_id' => $user?->id,
+            'responsible_user_id' => $resolver->resolveUser(null, $user, $validated['repo'])?->id,
         ]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'dashboard', 'repo' => $task->repo]);

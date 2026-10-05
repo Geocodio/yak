@@ -5,9 +5,11 @@ use App\Channels\Linear\IssueFetcher as LinearIssueFetcher;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ParsedReview;
+use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakReviewJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
@@ -17,6 +19,7 @@ use App\Services\IncusSandboxManager;
 use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewOutputParser;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     config()->set('yak.channels.github.installation_id', 12345);
@@ -809,3 +812,22 @@ it('carries the reviewed profile through a full approval and fails closed if it 
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
         ->and(PrReview::where('yak_task_id', $task->id)->firstOrFail()->risk_assessment['event'])->toBe($event);
 })->with([false, true]);
+
+it('reports a review on a repository with review turned off as a failure', function () {
+    Queue::fake([SendNotificationJob::class]);
+    Repository::factory()->create(['slug' => 'geocodio/api', 'pr_review_enabled' => false]);
+
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'source' => 'github',
+        'repo' => 'geocodio/api',
+        'pr_url' => 'https://github.com/geocodio/api/pull/42',
+        'context' => json_encode(['pr_number' => 42]),
+    ]);
+
+    (new RunYakReviewJob($task))->handle(mock(AgentRunner::class));
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Failed);
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error
+        && $notification->message === 'Repository missing or PR review not enabled');
+});
