@@ -1,4 +1,4 @@
-import type { Script } from './types';
+import type { Rect, Script } from './types';
 
 export const CAPTION_MAX_WIDTH = 1040;
 export const CAPTION_PADDING_X = 28;
@@ -61,4 +61,68 @@ export function captionOverflow(script: Script): CaptionOverflow[] {
     }
   }
   return overflow;
+}
+
+/** Gap between the caption pill and the edge of the frame it is anchored to. */
+export const CAPTION_EDGE_MARGIN = 56;
+export const CAPTION_LINE_HEIGHT = 1.35;
+export const CAPTION_PADDING_Y = 18;
+/** How far the spotlight's outline reaches beyond its rect (padding + outline). */
+const SPOTLIGHT_BLEED = 17;
+
+export type CaptionPlacement = 'top' | 'bottom';
+
+export type CaptionLayout = {
+  /** Composition width in pixels. */
+  width: number;
+  /** Composition height in pixels, browser bar included. */
+  height: number;
+  /** Space reserved above the footage (the browser bar). */
+  topInset: number;
+};
+
+/** Estimated rendered height of the caption pill for `text`. */
+export function estimateCaptionHeight(text: string): number {
+  const lines = Math.min(CAPTION_MAX_LINES, Math.max(1, Math.ceil(estimateTextWidth(text) / CAPTION_INNER_WIDTH)));
+  return Math.ceil(lines * CAPTION_FONT_SIZE * CAPTION_LINE_HEIGHT + CAPTION_PADDING_Y * 2);
+}
+
+function overlap(startA: number, endA: number, startB: number, endB: number): number {
+  return Math.max(0, Math.min(endA, endB) - Math.max(startA, startB));
+}
+
+/**
+ * The caption sits in the lower third unless that would cover the spotlit
+ * element, in which case it moves to the top of the footage. When the focus
+ * is tall enough to collide with both, the side that hides less of it wins.
+ *
+ * `rect` is in footage coordinates, so it is shifted down by `topInset`.
+ */
+export function captionPlacement(text: string, rect: Rect | null | undefined, layout: CaptionLayout): CaptionPlacement {
+  if (!rect) {
+    return 'bottom';
+  }
+
+  const captionHeight = estimateCaptionHeight(text);
+  const captionLeft = (layout.width - CAPTION_MAX_WIDTH) / 2;
+  const captionRight = captionLeft + CAPTION_MAX_WIDTH;
+  const focusLeft = rect.x - SPOTLIGHT_BLEED;
+  const focusRight = rect.x + rect.w + SPOTLIGHT_BLEED;
+  if (overlap(captionLeft, captionRight, focusLeft, focusRight) === 0) {
+    return 'bottom';
+  }
+
+  const focusTop = rect.y + layout.topInset - SPOTLIGHT_BLEED;
+  const focusBottom = rect.y + rect.h + layout.topInset + SPOTLIGHT_BLEED;
+
+  const bottomEnd = layout.height - CAPTION_EDGE_MARGIN;
+  const bottomOverlap = overlap(bottomEnd - captionHeight, bottomEnd, focusTop, focusBottom);
+  if (bottomOverlap === 0) {
+    return 'bottom';
+  }
+
+  const topStart = layout.topInset + CAPTION_EDGE_MARGIN;
+  const topOverlap = overlap(topStart, topStart + captionHeight, focusTop, focusBottom);
+
+  return topOverlap < bottomOverlap ? 'top' : 'bottom';
 }

@@ -1,10 +1,14 @@
 import React from 'react';
 import {
+  CAPTION_EDGE_MARGIN,
   CAPTION_FONT_SIZE,
+  CAPTION_LINE_HEIGHT,
   CAPTION_MAX_WIDTH,
   CAPTION_PADDING_X,
+  CAPTION_PADDING_Y,
   CAPTION_RULE_WIDTH,
 } from '../../lib/v3/captions';
+import type { CaptionPlacement } from '../../lib/v3/captions';
 import type { Theme } from '../../lib/v3/types';
 import type { ResolvedFonts } from './useThemeFonts';
 
@@ -13,18 +17,30 @@ export type CaptionProps = {
   theme: Theme;
   fonts: ResolvedFonts;
   opacity: number;
-  /** Pixels the pill is offset downwards; animates 16 -> 0 on entry. */
+  /** Pixels the pill is offset vertically; animates 16 -> 0 (or -16 -> 0 at the top) on entry. */
   translateY: number;
+  /** Lower third by default; `top` keeps the caption clear of a low spotlight. */
+  placement?: CaptionPlacement;
+  /** Space above the footage (the browser bar) that a top caption must clear. */
+  topInset?: number;
 };
 
-/** Lower-third caption: the shot's `say`, in a dark pill with an accent rule. */
-export const Caption: React.FC<CaptionProps> = ({ text, theme, fonts, opacity, translateY }) => (
+/** The shot's `say`, in a dark pill with an accent rule, at the bottom or top of the footage. */
+export const Caption: React.FC<CaptionProps> = ({
+  text,
+  theme,
+  fonts,
+  opacity,
+  translateY,
+  placement = 'bottom',
+  topInset = 0,
+}) => (
   <div
     style={{
       position: 'absolute',
       left: 0,
       right: 0,
-      bottom: 56,
+      ...(placement === 'top' ? { top: topInset + CAPTION_EDGE_MARGIN } : { bottom: CAPTION_EDGE_MARGIN }),
       display: 'flex',
       justifyContent: 'center',
       opacity,
@@ -38,8 +54,8 @@ export const Caption: React.FC<CaptionProps> = ({ text, theme, fonts, opacity, t
         color: theme.colors.background,
         fontFamily: fonts.body,
         fontSize: CAPTION_FONT_SIZE,
-        lineHeight: 1.35,
-        padding: `18px ${CAPTION_PADDING_X}px`,
+        lineHeight: CAPTION_LINE_HEIGHT,
+        padding: `${CAPTION_PADDING_Y}px ${CAPTION_PADDING_X}px`,
         borderRadius: 12,
         borderLeft: `${CAPTION_RULE_WIDTH}px solid ${theme.colors.accent}`,
         boxShadow: '0 8px 30px rgba(0,0,0,0.35)',

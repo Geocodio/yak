@@ -4,6 +4,8 @@ import {
   CAPTION_INNER_WIDTH,
   CAPTION_MAX_LINES,
   captionOverflow,
+  captionPlacement,
+  estimateCaptionHeight,
   estimateTextWidth,
 } from '../captions';
 import type { Script } from '../types';
@@ -71,5 +73,42 @@ describe('captionOverflow', () => {
       ],
     };
     expect(captionOverflow(script).map((o) => o.shotId)).toEqual(['bad']);
+  });
+});
+
+describe('captionPlacement', () => {
+  // 1440 x 900 footage under a 52 px browser bar.
+  const layout = { width: 1440, height: 952, topInset: 52 };
+  const say = 'Daily lookups now show at the bottom of the usage page.';
+
+  it('stays at the bottom without a spotlight', () => {
+    expect(captionPlacement(say, null, layout)).toBe('bottom');
+    expect(captionPlacement(say, undefined, layout)).toBe('bottom');
+  });
+
+  it('stays at the bottom when the spotlight is high on the page', () => {
+    expect(captionPlacement(say, { x: 200, y: 120, w: 1000, h: 200 }, layout)).toBe('bottom');
+  });
+
+  it('moves to the top when the spotlight sits under the lower third', () => {
+    expect(captionPlacement(say, { x: 200, y: 700, w: 1000, h: 160 }, layout)).toBe('top');
+  });
+
+  it('stays at the bottom when the spotlight is beside the caption, not under it', () => {
+    expect(captionPlacement(say, { x: 1300, y: 800, w: 120, h: 60 }, layout)).toBe('bottom');
+  });
+
+  it('picks the side that hides less of a spotlight that fills the page', () => {
+    expect(captionPlacement(say, { x: 200, y: 0, w: 1000, h: 900 }, layout)).toBe('bottom');
+    expect(captionPlacement(say, { x: 200, y: 120, w: 1000, h: 900 }, layout)).toBe('top');
+  });
+
+  it('accounts for taller multi-line captions', () => {
+    const long = 'word '.repeat(80).trim();
+    expect(estimateCaptionHeight(long)).toBeGreaterThan(estimateCaptionHeight(say));
+    // Clear of a one-line caption, but inside a three-line one.
+    const rect = { x: 200, y: 640, w: 1000, h: 40 };
+    expect(captionPlacement(say, rect, layout)).toBe('bottom');
+    expect(captionPlacement(long, rect, layout)).toBe('top');
   });
 });
