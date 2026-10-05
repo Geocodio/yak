@@ -252,7 +252,8 @@
             /* Hover-out: scale back quickly, no delay. Hover-in delay is on :hover. */
             transition: translate 0.9s cubic-bezier(0.22, 1, 0.36, 1),
                         rotate    0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                        scale     0.8s cubic-bezier(0.22, 1, 0.36, 1);
+                        scale     0.8s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity   0.4s ease;
         }
         .hero-mascot::before {
             content: '';
@@ -321,14 +322,17 @@
             translate: 0 -56%;
             rotate: -2deg;
             scale: 0.1;
+            opacity: 0;
             /* Choreography on hover-in:
                1.0s → UFO in place, yak starts shrinking
                2.0s → yak starts drifting up into the beam (while still shrinking)
-               3.8s → yak drawn up behind the saucer
+               3.0s → yak starts fading as it nears the saucer
+               3.6s → yak fully faded, just before it reaches the saucer at 3.8s
                Hover-out uses the default transition (no delay, quick). */
             transition: translate 1.8s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
                         rotate    1.4s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
-                        scale     1.5s cubic-bezier(0.42, 0, 0.58, 1) 1.0s;
+                        scale     1.5s cubic-bezier(0.42, 0, 0.58, 1) 1.0s,
+                        opacity   0.6s ease-in 3.0s;
         }
         /* Wobble only touches transform + rotate so translate stays owned by the
            CSS transition (otherwise the UFO snaps on unhover). The 0%/100% frame
