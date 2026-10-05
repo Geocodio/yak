@@ -212,10 +212,10 @@ def build_fringe(body, lift):
     outer_width, outer_depth = BODY_WIDTH + 2 * FRINGE_MARGIN, BODY_DEPTH + 2 * FRINGE_MARGIN
     edge = lift + FRINGE_BOTTOM
     fringe = head_box("fringe", lift, edge)
-    # Locks sit 0.05 mm inside the outer surface and are trimmed to the rounded footprint,
-    # so they follow the corners instead of sticking out past them. Each lock is sheared so it sinks
+    # Locks start outside the head and are trimmed to its exact rounded footprint, so their faces
+    # are flush with the fringe band and follow the corners. Each lock is sheared so it sinks
     # 45 degrees towards the body: its underside grows out of the face instead of starting in mid-air.
-    face, depth = 0.05, 3.0
+    face, depth = -0.5, 3.0
     sink = depth - face
     locks = []
     for center, length in locks_module.FRONT:
@@ -229,7 +229,7 @@ def build_fringe(body, lift):
                 locks.append(prism("lock", outline, "X", -outer_width / 2 + face, -outer_width / 2 + depth, end_drop=sink))
             else:
                 locks.append(prism("lock", outline, "X", outer_width / 2 - depth, outer_width / 2 - face, start_drop=sink))
-    footprint = rounded_box("footprint", (outer_width - 0.04, outer_depth - 0.04, 60.0), (0, 0, edge), FRINGE_RADIUS - 0.02, vertical_only=True)
+    footprint = rounded_box("footprint", (outer_width, outer_depth, 60.0), (0, 0, edge), FRINGE_RADIUS, vertical_only=True)
     for lock in locks:
         boolean(lock, footprint, "INTERSECT")
         boolean(fringe, lock, "UNION")
