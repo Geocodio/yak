@@ -282,7 +282,7 @@
         }
         .hero-mascot .abduction-beam {
             position: absolute;
-            top: -28%;
+            top: -6%;
             left: 50%;
             width: 30%;
             height: 120%;
@@ -318,13 +318,13 @@
                         opacity   0.5s ease 0.55s;
         }
         .hero-mascot:hover .mascot-img {
-            translate: 0 -72px;
+            translate: 0 -56%;
             rotate: -2deg;
-            scale: 0.28;
+            scale: 0.1;
             /* Choreography on hover-in:
                1.0s → UFO in place, yak starts shrinking
                2.0s → yak starts drifting up into the beam (while still shrinking)
-               3.5s → yak fully receded
+               3.8s → yak drawn up behind the saucer
                Hover-out uses the default transition (no delay, quick). */
             transition: translate 1.8s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
                         rotate    1.4s cubic-bezier(0.42, 0, 0.58, 1) 2.0s,
