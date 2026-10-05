@@ -2,6 +2,7 @@ import React from 'react';
 import { AbsoluteFill, Freeze, Img, OffthreadVideo, interpolate, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { classifySrc, isImageSrc } from '../../lib/v3/assets';
 import { TIMING } from '../../lib/v3/blocks';
+import { captionPlacement } from '../../lib/v3/captions';
 import type { ShotBlock } from '../../lib/v3/blocks';
 import type { Manifest, Theme } from '../../lib/v3/types';
 import { BROWSER_BAR_HEIGHT } from '../../lib/v3/types';
@@ -22,7 +23,7 @@ export type ShotSceneProps = {
 /** One shot: browser bar, footage (or its frozen last frame), spotlight, caption. */
 export const ShotScene: React.FC<ShotSceneProps> = ({ block, manifest, theme, fonts, publicOrigin }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
 
   const source = classifySrc(block.clip);
   const src = source.kind === 'static' ? staticFile(source.value) : source.value;
@@ -48,6 +49,14 @@ export const ShotScene: React.FC<ShotSceneProps> = ({ block, manifest, theme, fo
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   });
+
+  const placement = captionPlacement(block.shot.say, block.manifestShot.rect, {
+    width,
+    height,
+    topInset: BROWSER_BAR_HEIGHT,
+  });
+  // A top caption drops into place from above, mirroring the lower third.
+  const captionTranslate = placement === 'top' ? -captionOffset : captionOffset;
 
   const spotlightFade = Math.round(TIMING.spotlightFadeSeconds * fps);
   const spotlightStart = Math.max(0, Math.min(clipFrames, blockFrames) - spotlightFade);
@@ -99,7 +108,9 @@ export const ShotScene: React.FC<ShotSceneProps> = ({ block, manifest, theme, fo
         theme={theme}
         fonts={fonts}
         opacity={captionOpacity}
-        translateY={captionOffset}
+        translateY={captionTranslate}
+        placement={placement}
+        topInset={BROWSER_BAR_HEIGHT}
       />
     </AbsoluteFill>
   );
