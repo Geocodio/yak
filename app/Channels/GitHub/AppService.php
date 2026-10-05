@@ -12,6 +12,9 @@ class AppService
 {
     private const TOKEN_BUFFER_SECONDS = 300;
 
+    /** Permissions the agent's `gh` token gets at read level, where the app holds them. */
+    private const READ_ONLY_PERMISSIONS = ['actions', 'checks', 'contents', 'issues', 'metadata', 'pull_requests', 'statuses'];
+
     /**
      * Bot login for the configured GitHub App, shaped like `my-app[bot]`.
      *
@@ -1194,6 +1197,35 @@ GRAPHQL;
             ->withHeaders(['Accept' => 'application/vnd.github+json'])
             ->delete("https://api.github.com/repos/{$repoSlug}/deployments/{$deploymentId}")
             ->throw();
+    }
+
+    /**
+     * A short-lived installation token that can only read, for the agent's
+     * `gh` CLI. It covers every repository the installation sees, so the
+     * agent can also read linked issues and PRs in sibling repositories.
+     * Each call mints a new token, so every agent run gets the full hour.
+     */
+    public function getReadOnlyInstallationToken(int $installationId): string
+    {
+        $client = Http::withToken($this->generateJwt())
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->throw();
+
+        $granted = array_keys((array) $client->get("https://api.github.com/app/installations/{$installationId}")->json('permissions', []));
+        $permissions = array_fill_keys(array_values(array_intersect(self::READ_ONLY_PERMISSIONS, $granted)), 'read');
+
+        // An empty permissions object would mint a token with every permission the app holds.
+        if ($permissions === []) {
+            throw new \RuntimeException("GitHub installation {$installationId} grants none of the read-only permissions");
+        }
+
+        $token = $client->post("https://api.github.com/app/installations/{$installationId}/access_tokens", ['permissions' => $permissions])->json('token');
+
+        if (! is_string($token) || $token === '') {
+            throw new \RuntimeException("GitHub returned an empty read-only installation token for installation {$installationId}");
+        }
+
+        return $token;
     }
 
     private function requestInstallationToken(int $installationId): string

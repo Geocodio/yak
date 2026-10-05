@@ -247,6 +247,31 @@ class IncusSandboxManager
             . escapeshellarg("!f() { echo \"protocol=https\nhost=github.com\nusername=x-access-token\npassword={$token}\"; }; f"),
             timeout: 10,
         );
+
+        try {
+            $this->installReadOnlyGhToken($containerName, $installationId);
+        } catch (\Throwable $e) {
+            Log::channel('yak')->warning('Could not give the sandbox a read-only gh token', ['container' => $containerName, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Give the agent's `gh` CLI a read-only installation token. A wrapper on
+     * PATH reads the token file on every call, so a later refresh reaches an
+     * agent that is already running.
+     */
+    private function installReadOnlyGhToken(string $containerName, int $installationId): void
+    {
+        $token = app(GitHubAppService::class)->getReadOnlyInstallationToken($installationId);
+
+        $this->run($containerName, 'mkdir -p /home/yak/.config/yak && umask 077 && cat > /home/yak/.config/yak/gh-token', timeout: 10, input: $token);
+        $this->run(
+            $containerName,
+            'cat > /usr/local/bin/gh && chmod 755 /usr/local/bin/gh',
+            timeout: 10,
+            asRoot: true,
+            input: "#!/bin/sh\nGH_TOKEN=\"$(cat /home/yak/.config/yak/gh-token 2>/dev/null)\" exec /usr/bin/gh \"$@\"\n",
+        );
     }
 
     /**
