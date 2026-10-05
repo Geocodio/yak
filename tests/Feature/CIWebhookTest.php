@@ -113,6 +113,49 @@ test('GitHub check_suite.completed dispatches ProcessCIResultJob', function () {
     });
 });
 
+test('GitHub check_suite.completed reports to the newest task on a branch shared with a follow-up', function () {
+    Queue::fake();
+
+    $secret = 'github-webhook-secret';
+    config()->set('yak.channels.github.webhook_secret', $secret);
+    bootGitHubRoutes();
+
+    Repository::factory()->create([
+        'slug' => 'org/my-repo',
+        'ci_system' => 'github_actions',
+    ]);
+
+    $parent = YakTask::factory()->success()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/fix-login',
+    ]);
+
+    $followUp = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/fix-login',
+        'parent_task_id' => $parent->id,
+    ]);
+
+    $payload = [
+        'action' => 'completed',
+        'check_suite' => [
+            'head_branch' => 'yak/fix-login',
+            'conclusion' => 'success',
+            'head_sha' => 'abc123',
+        ],
+        'repository' => [
+            'full_name' => 'org/my-repo',
+        ],
+    ];
+
+    $this->postJson('/webhooks/ci/github', $payload, [
+        'X-Hub-Signature-256' => signGitHubPayload($payload, $secret),
+        'X-GitHub-Event' => 'check_suite',
+    ])->assertOk()->assertJson(['ok' => true, 'dispatched' => true]);
+
+    Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->task->id === $followUp->id);
+});
+
 test('GitHub check_suite.completed with failure fetches check_run output from API', function () {
     Queue::fake();
 
