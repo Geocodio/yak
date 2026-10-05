@@ -23,12 +23,13 @@
     <link rel="icon" href="{{ config('app.url') }}/favicon.ico" sizes="32x32">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Outfit:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
             --yak-slate:       #3d4f5f;
             --yak-blue:        #6b8fa3;
             --yak-orange:      #c4744a;
+            --yak-green:       #7a8c5e;
             --yak-orange-warm: #d4915e;
             --yak-tan:         #c8b89a;
             --yak-cream:       #f5f0e8;
@@ -41,9 +42,9 @@
             font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
             color: var(--yak-slate);
             background: var(--yak-cream);
-            display: grid;
-            place-items: center;
-            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            padding: 28px 32px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             font-size: 16px;
@@ -57,23 +58,34 @@
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
             z-index: 0;
         }
-        .card {
+        .topbar {
             position: relative; z-index: 1;
-            max-width: 560px;
-            width: 100%;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .mark {
+            font-family: 'Instrument Serif', Georgia, serif;
+            font-size: 28px; letter-spacing: -0.04em; line-height: 1;
+            color: var(--yak-slate);
+        }
+        .mark .a { font-style: italic; color: var(--yak-orange); }
+        .topbar .label {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-size: 12.5px;
+            color: color-mix(in srgb, var(--yak-slate) 60%, transparent);
+        }
+        .center {
+            position: relative; z-index: 1;
+            flex: 1;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             text-align: center;
+            max-width: 560px; width: 100%; margin: 0 auto;
+            padding: 24px 0;
         }
         .mascot-wrap {
             position: relative;
-            width: 260px;
-            margin: 0 auto 28px;
-        }
-        .mascot-wrap::before {
-            content: '';
-            position: absolute; inset: -24px;
-            background: radial-gradient(ellipse at center, color-mix(in srgb, var(--yak-tan) 35%, transparent), transparent 65%);
-            filter: blur(30px);
-            z-index: 0;
+            width: 240px;
+            max-width: 100%;
+            margin: 0 auto 18px;
         }
         .mascot {
             position: relative;
@@ -85,7 +97,7 @@
             animation: breathe 2.8s ease-in-out infinite;
         }
         .mascot.sleeping {
-            animation: snooze 5.2s ease-in-out infinite;
+            animation: none;
         }
         .mascot.failed {
             animation: none;
@@ -95,37 +107,10 @@
             0%, 100% { transform: translateY(0)    scale(1);     }
             50%      { transform: translateY(-4px) scale(1.012); }
         }
-        @keyframes snooze {
-            0%, 100% { transform: translateY(0)    scale(1);     }
-            50%      { transform: translateY(-2px) scale(1.018); }
-        }
-        .dots {
-            display: inline-flex;
-            gap: 5px;
-            vertical-align: middle;
-            margin-left: 4px;
-        }
-        .dots span {
-            width: 5px; height: 5px;
-            border-radius: 50%;
-            background: color-mix(in srgb, var(--yak-slate) 55%, transparent);
-            animation: blink 1.4s ease-in-out infinite both;
-        }
-        .dots span:nth-child(2) { animation-delay: 0.2s; }
-        .dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes blink {
-            0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
-            40%           { opacity: 1;    transform: translateY(-2px); }
-        }
-        .progress-hint {
-            margin-top: 22px;
-            font-size: 13px;
-            color: color-mix(in srgb, var(--yak-slate) 55%, transparent);
-        }
         h1 {
             font-family: 'Instrument Serif', Georgia, serif;
             font-weight: 400;
-            font-size: 42px;
+            font-size: 40px;
             letter-spacing: -0.02em;
             color: var(--yak-slate);
             margin: 0 0 14px;
@@ -143,6 +128,51 @@
             padding: 2px 8px;
             border-radius: 6px;
             color: var(--yak-slate);
+        }
+        .hostchip {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 14px 8px 10px;
+            border-radius: 999px;
+            background: #fff;
+            border: 1px solid color-mix(in srgb, var(--yak-tan) 45%, transparent);
+            box-shadow: 0 1px 0 rgba(61, 79, 95, 0.04);
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 13px;
+            color: var(--yak-slate);
+            margin: 4px 0 26px;
+            max-width: 100%;
+            word-break: break-all;
+        }
+        .hostchip .dot {
+            flex-shrink: 0;
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--yak-orange);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--yak-orange) 18%, transparent);
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--yak-orange) 6%, transparent); }
+        }
+        .meter { width: 280px; max-width: 100%; }
+        .meter .track { height: 6px; border-radius: 6px; background: var(--yak-cream-dark); overflow: hidden; }
+        .meter .track span {
+            display: block; height: 100%; width: 38%; border-radius: 6px;
+            background: linear-gradient(90deg, var(--yak-blue), var(--yak-green));
+            animation: slide 1.8s ease-in-out infinite;
+        }
+        @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(270%); } }
+        .meter .legend {
+            display: flex; justify-content: space-between; margin-top: 9px;
+            font-size: 12.5px;
+            color: color-mix(in srgb, var(--yak-slate) 60%, transparent);
+        }
+        .meter .legend b {
+            font-family: 'JetBrains Mono', ui-monospace, monospace;
+            font-weight: 400; color: var(--yak-slate);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .hostchip .dot, .meter .track span, .mascot { animation: none; }
+            .meter .track span { width: 38%; margin-left: 31%; }
         }
         .reason {
             margin: 18px 0 22px;
@@ -185,12 +215,25 @@
     </style>
 </head>
 <body>
-<div class="card">
+<div class="topbar">
+    <span class="mark">Y<span class="a">a</span>k</span>
+    <span class="label">preview</span>
+</div>
+<div class="center">
     <div class="mascot-wrap">
-        <img class="mascot{{ $failed ? ' failed' : ($sleeping ? ' sleeping' : '') }}"
-             src="{{ config('app.url') }}/{{ $mascot }}"
-             alt=""
-             aria-hidden="true">
+        @if ($sleeping && ! $failed)
+            {{-- The WebP carries the baked snooze animation; the PNG is the static fallback. --}}
+            <picture>
+                <source media="(prefers-reduced-motion: reduce)" srcset="{{ config('app.url') }}/{{ $mascot }}">
+                <source srcset="{{ config('app.url') }}/{{ \Illuminate\Support\Str::replaceLast('.png', '.webp', $mascot) }}" type="image/webp">
+                <img class="mascot sleeping" src="{{ config('app.url') }}/{{ $mascot }}" alt="" aria-hidden="true">
+            </picture>
+        @else
+            <img class="mascot{{ $failed ? ' failed' : '' }}"
+                 src="{{ config('app.url') }}/{{ $mascot }}"
+                 alt=""
+                 aria-hidden="true">
+        @endif
     </div>
     {{ $slot }}
 </div>
