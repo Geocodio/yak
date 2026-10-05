@@ -21,7 +21,7 @@ The wordmark is JetBrains Mono ExtraBold, outlined in every SVG, so no font inst
 - `mark/` is the character in colour, one colour (ink and white), and `mark-face.svg`, a head-only crop for small avatars.
 - `logo/` has horizontal and stacked lockups for light and dark backgrounds.
 - `favicon/` holds the favicon set. The favicon is a separate face-only glyph drawn on a 16 × 16 pixel grid, because the full character is too detailed at that size. It also has app icons (`apple-touch-icon.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`) and `site.webmanifest`.
-- `avatar/` has square avatars: 3D render, 3D render on transparent, and flat.
+- `avatar/` has square avatars: 3D render, 3D render on transparent, flat, and `avatar-face-paper-1024.png`, the zoomed face on paper used as the GitHub App avatar.
 - `social-card-1200x630.png` is the share image.
 - `print/` contains the 3D print files (below).
 - `source/` contains the scripts that generate all of the above.
@@ -110,3 +110,17 @@ python3 source/kit_page.py
 After a model rebuild, copy the STLs from `/tmp/yak-model/cursor-yak-walker/` into `print/stl/` using the numbered names above. Copy the two renders into `print/renders/`.
 
 `source/locks.py` defines the fringe locks. The model and the flat marks both use it, so they always match.
+
+## Animations
+
+`source/mascot_motion.py` renders two animations of the walker: the login video (`public/videos/yak-walker-hair-lift.mp4`, 7.5 s, where the fringe lifts to reveal sunglasses and then drops back, so the last frame matches the first; the login page plays it once on load and again on hover, with frame 0 as the poster) and the sleeping loop for the preview loading page (`public/mascot-sleeping.webp`, with `public/mascot-sleeping.png` as the static fallback). It renders on the CPU, because the Metal kernel compile can crash Blender. Frames go to a scratch folder, then ffmpeg and img2webp encode them.
+
+```sh
+/Applications/Blender.app/Contents/MacOS/Blender -b -P docs/brand/source/mascot_motion.py -- /tmp/motion all
+ffmpeg -framerate 24 -i /tmp/motion/video/%04d.png -c:v libx264 -preset veryslow -crf 17 -pix_fmt yuv420p -movflags +faststart -an public/videos/yak-walker-hair-lift.mp4
+img2webp -loop 0 -lossy -q 75 -m 4 -d 83 /tmp/motion/sleep/*.png -o public/mascot-sleeping.webp
+cp /tmp/motion/sleep/0014.png public/mascot-sleeping.png
+ffmpeg -i /tmp/motion/video/0000.png -q:v 3 public/videos/yak-walker-hair-lift-poster.jpg
+```
+
+Use `video` or `sleep` instead of `all` to render one of them. Frames that already exist are skipped, so delete the folder to start over.

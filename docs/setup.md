@@ -206,7 +206,7 @@ This key is for the routing layer (Haiku/Sonnet API calls), not the CLI. The CLI
 
 #### GitHub
 
-No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow — you fill in the resulting credentials and re-run.
+No manual setup needed before provisioning. Leave the `github_app_id` fields blank and set `github_org` to your GitHub organization name. On first run, the playbook prints step-by-step instructions to create the GitHub App via the manifest flow — you fill in the resulting credentials and re-run. Once the app exists, open its settings and under **Display information** upload [`public/bot-avatar.png`](../public/bot-avatar.png) as the logo, with badge background color `#f3efe6`.
 
 #### Slack (optional)
 
@@ -218,7 +218,7 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
    - `channels:history`
    - `reactions:write` — lets Yak react 👀 / 🚧 / ✅ / ❌ on your mention for glanceable status
 4. Click **Install to Workspace** and authorize
-5. Under **Basic Information → Display Information**, upload [`public/slack-icon.png`](../public/slack-icon.png) as the app icon, set the short description to *"AI coding agent — mention me with a task, get a pull request"*, and the background color to `#3d4f5f` (Yak slate — dark enough for Slack's white wordmark)
+5. Under **Basic Information → Display Information**, upload [`public/bot-avatar.png`](../public/bot-avatar.png) as the app icon, set the short description to *"AI coding agent — mention me with a task, get a pull request"*, and the background color to `#2f3a42` (Yak ink, dark enough for Slack's white wordmark)
 6. Copy the **Bot User OAuth Token** (`xoxb-...`) into `slack_bot_token`
 7. Go to **Basic Information** and copy the **Signing Secret** into `slack_signing_secret`
 8. Go to **App Home**, enable the **Home Tab** — this powers the welcome DM Yak sends the first time a user opens Yak in the sidebar
@@ -238,7 +238,7 @@ Yak installs as a Linear **Agent** — a first-class workspace participant that 
    → **New application**.
    - Name: `Yak`
    - Description: `AI coding agent — assign me an issue and I'll open a pull request` (this appears in the assignee picker and the install consent screen, so keep it plain)
-   - Icon: use `docs/mascot.png` or any small square yak image
+   - Icon: upload [`public/bot-avatar.png`](../public/bot-avatar.png)
    - Callback URL: `https://{your-domain}/auth/linear/callback`
    - Enable **Webhooks**, set the URL to `https://{your-domain}/webhooks/linear`, and under **App events** tick **Agent session events**.
    - Copy the app's webhook signing secret into `linear_webhook_secret`.

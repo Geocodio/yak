@@ -81,7 +81,7 @@ it('returns 425 + shim HTML when the wake is still pending', function () {
 
     $response->assertStatus(425);
     $response->assertHeaderMissing('X-Upstream-Host');
-    $response->assertSee('Waking preview');
+    $response->assertSee('Waking up the preview');
 });
 
 it('returns 502 + failed HTML when wake fails', function () {
@@ -113,4 +113,20 @@ it('updates last_accessed_at on every successful call', function () {
         ->assertOk();
 
     expect($deployment->fresh()->last_accessed_at->diffInSeconds(now()))->toBeLessThan(5);
+});
+
+it('renders the host chip and elapsed timer on the waking page', function () {
+    BranchDeployment::factory()->hibernated()->create(['hostname' => 'foo.yak.example.com']);
+
+    $waker = Mockery::mock(DeploymentWaker::class);
+    $this->app->instance(DeploymentWaker::class, $waker);
+    $waker->shouldReceive('ensureReady')->andReturn(['state' => 'pending']);
+
+    $this->actingAs(User::factory()->create())
+        ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com'])
+        ->assertStatus(425)
+        ->assertSee('Waking up the preview')
+        ->assertSee('class="hostchip"', false)
+        ->assertSee('foo.yak.example.com')
+        ->assertSee('data-testid="elapsed"', false);
 });
