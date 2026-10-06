@@ -86,6 +86,23 @@ Regenerate it (writes into `print/desk-buddy/`), from the repo root:
 python3 docs/brand/source/desk_buddy_sheet.py docs/brand/print/desk-buddy
 ```
 
+## Character set
+
+Square 2048 px renders of the walker, its variants and the desk buddy, all from one camera and one light rig so the yak is the same size in every image. Each shot comes as a transparent PNG (the contact shadow is soft alpha that fades out before the edges) in `renders/transparent/` and the same image on cream #f5f0e8 in `renders/cream/`.
+
+- Shots: `walker`, `sunglasses` (fringe lifted), `sleeping`, `laptop`, `shaving`, `desk-buddy-closed`, `desk-buddy-peek`, `desk-buddy-open`
+- Worn accessories on the walker-socket body: `accessory-sunglasses`, `accessory-vr-goggles`, `accessory-party-hat`, `accessory-santa-hat`, `accessory-hard-hat`, `accessory-headphones`
+- `renders/lineup.png`: six main poses side by side on cream, 3840 x 1600
+- `renders/accessories-grid.png`: the six accessory shots in a 3 x 2 grid on cream
+
+To regenerate everything (CPU only, about 30 minutes at full quality):
+
+```sh
+blender -b -P docs/brand/source/character_set.py -- docs/brand/renders
+```
+
+Add `--size 640 --samples 24` for a quick draft, or `--only walker,laptop` to redo single shots. The script also writes a labelled `contact.png` for review into its scratch folder.
+
 ## Regenerating
 
 Requires Blender 5 and Python 3 with Pillow, fontTools and `rsvg-convert`.
@@ -124,3 +141,15 @@ ffmpeg -i /tmp/motion/video/0000.png -q:v 3 public/videos/yak-walker-hair-lift-p
 ```
 
 Use `video` or `sleep` instead of `all` to render one of them. Frames that already exist are skipped, so delete the folder to start over.
+
+## Presentation clips
+
+`source/mascot_clips.py` renders short clips of the walker with jointed legs and arms: `walk`, `thinking`, `idea`, `shrug`, `wave`, `intake` (Linear, Slack, Sentry and GitHub task cards fly in, a PR card flies out), `typing`, `shaving`, `breakdance`, `robot`, `macarena`, `moonwalk` and `disco`. Each clip is one module in `source/clips/` that poses the rig per frame. Frames are transparent 1920 x 1080 PNGs at 24 fps, rendered on the Metal GPU (about 3.5 s a frame on an M4 Max). `source/encode_clips.sh` turns them into an MP4 on cream #f5f0e8 and a ProRes 4444 `.mov` with alpha for slides. The videos are not committed.
+
+```sh
+cd docs/brand/source
+blender -b -P mascot_clips.py -- /tmp/clips walk --gpu --samples 32
+./encode_clips.sh /tmp/clips ~/Desktop/yak-clips walk
+```
+
+Add `--size 640x360 --samples 12 --step 3` for a quick draft, or `--frames 40,60` to render a range. Frames that already exist are skipped, so a crashed render resumes where it stopped. The intake logos in `source/clips/intake/` come from Simple Icons and lucide-static.
