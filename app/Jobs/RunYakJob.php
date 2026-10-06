@@ -225,7 +225,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            if ($result->clarificationNeeded) {
+            if ($result->needsClarification()) {
                 $this->handleClarification($result);
 
                 return;
@@ -442,20 +442,15 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
         $this->task->update([
             'status' => TaskStatus::AwaitingClarification,
-            'clarification_options' => $result->clarificationOptions,
             ...YakTask::clarificationDeadlines(),
         ]);
 
         DailyCost::accumulate($result->costUsd);
 
-        $numberedOptions = collect($result->clarificationOptions)
-            ->map(fn (string $option, int $i) => ($i + 1) . '. ' . $option)
-            ->implode("\n");
-
         SendNotificationJob::dispatch(
             $this->task,
             NotificationType::Clarification,
-            "I need some direction before I can continue. Reply with your choice:\n{$numberedOptions}",
+            'I have questions before I can continue.',
         );
 
         TaskLogger::info($this->task, 'Clarification posted');

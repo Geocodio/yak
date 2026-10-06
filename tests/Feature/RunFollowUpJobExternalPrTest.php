@@ -44,7 +44,7 @@ function runExternal(YakTask $task, FakeSandboxManager $sandbox, string $summary
 {
     $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess', resultSummary: $summary, costUsd: 0.01, numTurns: 1, durationMs: 1000,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: false, rawOutput: '{}',
     ));
     app()->instance(AgentRunner::class, $agent);
     app()->instance(IncusSandboxManager::class, $sandbox);

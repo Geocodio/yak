@@ -42,8 +42,6 @@ function researchAnswer(string $summary = 'Backoff is cheapest.'): AgentRunResul
         numTurns: 4,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     );
 }
@@ -231,7 +229,7 @@ test('a research follow-up fails the task when the agent errors', function () {
     $child = researchFollowUpFixture();
     $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_research', resultSummary: 'boom', costUsd: 0.0, numTurns: 1, durationMs: 1,
-        isError: true, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: true, rawOutput: '{}',
     ));
 
     runResearchFollowUp($agent, new FakeSandboxManager, $child);

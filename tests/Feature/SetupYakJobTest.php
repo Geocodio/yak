@@ -37,8 +37,6 @@ test('successful setup transitions task to success and repo to ready', function 
         numTurns: 20,
         durationMs: 180000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -84,8 +82,6 @@ test('re-running setup destroys the existing template first so the clone starts 
         numTurns: 5,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -120,8 +116,6 @@ test('first-time setup skips invalidation (no existing template)', function () {
         numTurns: 5,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -151,8 +145,6 @@ test('setup promotes sandbox to repo template on success', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -187,8 +179,6 @@ test('setup transitions repo setup_status through running to ready on success', 
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -230,8 +220,6 @@ test('setup increments attempts', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -272,8 +260,6 @@ test('agent budget is job timeout minus elapsed pre-agent time minus shutdown bu
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -315,8 +301,6 @@ test('sandbox is created and destroyed on setup', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -343,8 +327,6 @@ test('sandbox is destroyed even when setup fails', function () {
         numTurns: 1,
         durationMs: 5000,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -376,8 +358,6 @@ test('claude error marks task failed and repo setup_status failed', function () 
         numTurns: 1,
         durationMs: 5000,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -497,8 +477,6 @@ test('a first attempt runs normally even though tries is 1', function () {
         numTurns: 5,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -529,8 +507,6 @@ test('a retry with no prior agent run proceeds normally (e.g. release from a mid
         numTurns: 5,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -701,8 +677,6 @@ test('a finished setup sends a result notice', function () {
         numTurns: 2,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -727,8 +701,6 @@ test('a failed setup sends one error notice', function () {
         numTurns: 1,
         durationMs: 5000,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

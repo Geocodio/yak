@@ -195,7 +195,7 @@ final class RunRecorder
             $this->outcome = TaskRunOutcome::Error;
             $this->pending['error_subtype'] = $result->failureCategory();
             $this->pending['error_message'] = mb_substr($result->failureMessage(), 0, 2000);
-        } elseif ($result->clarificationNeeded) {
+        } elseif ($result->needsClarification()) {
             $this->outcome = TaskRunOutcome::Clarification;
         } else {
             $this->outcome = TaskRunOutcome::Success;

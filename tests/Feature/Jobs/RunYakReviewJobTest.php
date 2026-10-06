@@ -69,8 +69,6 @@ it('runs a full-scope review end to end', function () {
         numTurns: 3,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
@@ -146,7 +144,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's-nit', resultSummary: "Rename for clarity.\n\n```suggestion\n    public int \$retryCount = 0;\n```", costUsd: 0.01, numTurns: 1, durationMs: 10,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -240,7 +238,7 @@ function postSuggestionReview(array $finding, string $fileAtHead, string $patch)
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: "## Findings\n" . $finding['body'], costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -402,7 +400,7 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -479,7 +477,7 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -547,7 +545,7 @@ it('does not fetch Linear ticket when no identifier is present', function () {
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose review', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -600,7 +598,7 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose review', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -647,7 +645,7 @@ it('carries the reviewed profile through a full approval and fails closed if it 
         }
 
         return new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,
-            numTurns: 1, durationMs: 10, isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '');
+            numTurns: 1, durationMs: 10, isError: false, rawOutput: '');
     });
     $signals = ['model_confidence' => 90, 'uncertainties' => [], 'human_review_reasons' => []];
     foreach (['impact' => 1, 'blast_radius' => 1, 'behavior_change' => 0, 'verification_strength' => 3, 'context_completeness' => 3] as $key => $value) {

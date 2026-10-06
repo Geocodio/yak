@@ -27,8 +27,6 @@ test('a follow-up run stamps started_at when the worker picks it up', function (
         numTurns: 3,
         durationMs: 178438,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

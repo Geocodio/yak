@@ -28,8 +28,6 @@ test('successful clarification reply transitions task to awaiting_ci and force p
         numTurns: 8,
         durationMs: 60000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -91,8 +89,6 @@ test('refreshes git credential helper immediately before push', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -140,8 +136,6 @@ test('transitions from awaiting_clarification to running during execution', func
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -183,8 +177,6 @@ test('invokes claude with --resume flag and session_id', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -215,8 +207,6 @@ test('claude command includes all standard flags', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -253,8 +243,6 @@ test('prompt includes the user chosen option text', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -294,8 +282,6 @@ test('accumulates cost, turns, and duration on task', function () {
         numTurns: 5,
         durationMs: 30000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -339,8 +325,6 @@ test('claude error response marks task as failed and checks out default branch',
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -375,8 +359,6 @@ test('malformed claude output marks task as failed', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: 'not json at all {{',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -449,8 +431,6 @@ test('clarification reply retries without --resume when the session transcript i
             numTurns: 5,
             durationMs: 30000,
             isError: false,
-            clarificationNeeded: false,
-            clarificationOptions: [],
             rawOutput: '{}',
         ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -485,8 +465,6 @@ test('clarification reply restores the original transcript and persists the resu
         numTurns: 3,
         durationMs: 10000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

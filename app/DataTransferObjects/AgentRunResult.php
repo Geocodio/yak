@@ -5,7 +5,7 @@ namespace App\DataTransferObjects;
 final readonly class AgentRunResult
 {
     /**
-     * @param  array<int, string>  $clarificationOptions
+     * @param  list<ClarificationQuestion>  $clarificationQuestions
      */
     public function __construct(
         public string $sessionId,
@@ -14,8 +14,6 @@ final readonly class AgentRunResult
         public int $numTurns,
         public int $durationMs,
         public bool $isError,
-        public bool $clarificationNeeded,
-        public array $clarificationOptions,
         public string $rawOutput,
         public ?string $errorSubtype = null,
         public string $stderr = '',
@@ -27,7 +25,13 @@ final readonly class AgentRunResult
         public bool $wrongRepository = false,
         public ?string $wrongRepositoryReason = null,
         public ?string $suggestedRepository = null,
+        public array $clarificationQuestions = [],
     ) {}
+
+    public function needsClarification(): bool
+    {
+        return $this->clarificationQuestions !== [];
+    }
 
     public function withStderr(string $stderr): self
     {
@@ -80,8 +84,6 @@ final readonly class AgentRunResult
             numTurns: 0,
             durationMs: 0,
             isError: true,
-            clarificationNeeded: false,
-            clarificationOptions: [],
             rawOutput: $rawOutput,
         );
     }

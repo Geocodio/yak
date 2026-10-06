@@ -16,8 +16,6 @@ function makeResult(float $cost, int $turns, int $duration, string $session = 's
         numTurns: $turns,
         durationMs: $duration,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     );
 }

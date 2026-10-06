@@ -160,8 +160,6 @@ test('a losing copy does not destroy the winning copy\'s sandbox', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

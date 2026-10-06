@@ -202,8 +202,6 @@ test('successful run accumulates daily cost', function () {
         numTurns: 10,
         durationMs: 60000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

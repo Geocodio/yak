@@ -27,8 +27,6 @@ function wrongRepositoryResult(?string $suggested): AgentRunResult
         numTurns: 3,
         durationMs: 4000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         wrongRepository: true,
         wrongRepositoryReason: 'The billing code lives elsewhere.',

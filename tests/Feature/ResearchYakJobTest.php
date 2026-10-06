@@ -35,7 +35,7 @@ test('risk profile research saves a draft tied to the checked out revision witho
             'unknowns' => [],
         ]),
         costUsd: 0.25, numTurns: 1, durationMs: 1000,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: false, rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
     $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
@@ -76,7 +76,7 @@ test('a rejected risk profile draft keeps the research output for a human to cor
         sessionId: 'sess_profile_bad',
         resultSummary: "Here is the profile:\n```json\n{\"areas\": []}\n```",
         costUsd: 0.25, numTurns: 1, durationMs: 1000,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: false, rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
     $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
@@ -120,8 +120,6 @@ test('successful research transitions task to success with result_summary and co
         numTurns: 10,
         durationMs: 90000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -162,8 +160,6 @@ test('research creates sandbox and completes successfully', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -200,8 +196,6 @@ test('research does not create any branch', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -237,8 +231,6 @@ test('research fetches and resets default branch to origin before agent runs', f
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -298,8 +290,6 @@ test('collects HTML artifact from sandbox when present', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -349,8 +339,6 @@ test('handles missing HTML artifact gracefully', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -387,8 +375,6 @@ test('posts summary and findings URL as Linear comment', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -482,8 +468,6 @@ test('moves Linear issue to Done state', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -536,8 +520,6 @@ test('posts summary and findings URL as Slack thread reply', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -615,8 +597,6 @@ test('Claude error response marks task as failed', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -663,8 +643,6 @@ test('the research answer is sent once through SendNotificationJob without a sec
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
