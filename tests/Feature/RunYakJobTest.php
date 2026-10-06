@@ -163,7 +163,7 @@ test('a run with answers resumes the session on the existing branch', function (
     expect($request->resumeSessionId)->toBe('sess_first')
         ->and($request->prompt)->toContain("Q: Which scope?\nA: Small")
         ->and($sandbox->pushedTranscripts)->not->toBe([])
-        ->and($sandbox->commandsMatching('ls-remote'))->toBe([])
+        ->and($sandbox->commandsMatching('git checkout -b'))->toBe([])
         ->and($task->fresh()->branch_name)->toBe('yak/eng-1603')
         ->and($task->fresh()->clarificationAnswersAwaitingResume())->toBeNull();
 });
