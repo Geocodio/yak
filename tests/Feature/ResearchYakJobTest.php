@@ -661,3 +661,45 @@ test('the research answer is sent once through SendNotificationJob without a sec
         ->and($results->first()->personalize)->toBeFalse()
         ->and($results->first()->message)->toContain('Three bottlenecks found');
 });
+
+test('research that asks parks the task and collects no artifact', function () {
+    Queue::fake();
+    Storage::fake('artifacts');
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_rq', resultSummary: 'Need a call', costUsd: 0.1, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Repository::factory()->create(['slug' => 'rq-repo', 'path' => '/home/yak/repos/rq-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'rq-repo', 'source' => 'slack', 'mode' => 'research']);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
+});
+
+test('research resumed with answers resumes the session with the answers prompt', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_rr', resultSummary: 'Done', costUsd: 0.1, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Repository::factory()->create(['slug' => 'rr-repo', 'path' => '/home/yak/repos/rr-repo']);
+    $task = YakTask::factory()->withClarificationQuestions()->create(['repo' => 'rr-repo', 'source' => 'slack', 'mode' => 'research', 'session_id' => 'sess_first']);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new ResearchYakJob($task->fresh()))->handle($fake);
+
+    expect($fake->lastCall()->resumeSessionId)->toBe('sess_first')
+        ->and($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
+        ->and($sandbox->pushedTranscripts)->toBe(['sess_first']);
+});

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
@@ -10,6 +11,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
@@ -44,6 +46,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
 {
+    use AsksClarifyingQuestions;
     use ClaimsTask;
     use HandlesAgentJobFailure;
     use NotifiesSourceOfFailure;
@@ -157,11 +160,11 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
             $recorder->mark('git_prepare');
 
             $request = new AgentRunRequest(
-                prompt: YakPromptBuilder::researchFollowUpPrompt(
+                prompt: $this->promptFor(fn (): string => YakPromptBuilder::researchFollowUpPrompt(
                     (string) $this->task->description,
                     $this->previousSummary(),
                     $hasPreviousReport,
-                ),
+                )),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
@@ -176,6 +179,7 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
             $recorder->agentStarted($request);
             $result = $this->runAgentWithStaleSessionFallback($agent, $request);
             $recorder->agentFinished($result);
+            $this->consumeAnswers();
 
             if ($result->isError) {
                 TaskMetricsAccumulator::record($this->task, $result);
@@ -183,6 +187,13 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
 
                 return;
             }
+
+            if ($this->askIfNeeded($result)) {
+                return;
+            }
+
+            // Questions ignored at the round limit must not reach the output.
+            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
 
             $this->handleSuccess($result, $sandbox, $containerName);
             $recorder->mark('post_agent');

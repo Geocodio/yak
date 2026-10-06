@@ -201,3 +201,20 @@ it('still succeeds without a second reply when the summary reply cannot be poste
     expect($task->fresh()->status)->toBe(TaskStatus::Success);
     Http::assertNotSent(fn (Request $request): bool => str_contains((string) $request['body'], "couldn't finish"));
 });
+
+it('parks instead of replying when the agent asks a question', function () {
+    $sandbox = new FakeSandboxManager;
+    $task = externalTask();
+    $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess', resultSummary: 'Need a call', costUsd: 0.01, numTurns: 1, durationMs: 1000,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    app()->instance(AgentRunner::class, $agent);
+    app()->instance(IncusSandboxManager::class, $sandbox);
+
+    (new RunFollowUpJob($task))->handle($agent);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($sandbox->commandsMatching('git push'))->toBe([]);
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), '/replies'));
+});
