@@ -24,12 +24,18 @@ trait ResumesAgentOnExistingBranch
         $sandbox->injectGitCredentials($containerName);
 
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
-        $fetch = $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
+        $escapedBranch = escapeshellarg($branchName);
+        $lookup = $sandbox->run($containerName, "cd {$workspacePath} && git ls-remote --exit-code --heads origin {$escapedBranch}", timeout: 30);
 
-        // A run that stopped to ask questions never pushed its branch.
-        $checkout = $fetch->exitCode() === 0
-            ? "git checkout {$branchName}"
-            : "git checkout -b {$branchName} origin/{$repository->default_branch}";
+        // Exit 2 means the remote has no such branch: a run that stopped to ask questions never pushed it.
+        if ($lookup->exitCode() === 2) {
+            $checkout = "git checkout -b {$branchName} origin/{$repository->default_branch}";
+        } elseif ($lookup->exitCode() === 0) {
+            $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
+            $checkout = "git checkout {$branchName}";
+        } else {
+            throw new \RuntimeException("Could not check whether branch '{$branchName}' exists on the remote: {$lookup->errorOutput()}");
+        }
 
         $sandbox->run($containerName, "cd {$workspacePath} && {$checkout}", timeout: 30);
     }
