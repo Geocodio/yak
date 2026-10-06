@@ -1,6 +1,6 @@
 import { cn } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/tasks/FindingsBlock';
 import type { FindingsData, MediaItem, ThreadEntryData } from '@/types/tasks';
@@ -94,6 +94,40 @@ export function ThreadEntry({
                     <Prose html={entry.bodyHtml} />
                 )}
             </Entry>
+        );
+    }
+
+    if (entry.kind === 'clarification-answers') {
+        return (
+            <div className="rounded-card border border-hair bg-panel shadow-card" data-testid="clarification-answers">
+                <div className="flex items-center gap-2 border-b border-hair px-6 py-3 text-[12px] text-muted">
+                    <span className="font-semibold text-body">{entry.who}</span>
+                    <span>{entry.meta}</span>
+                </div>
+                <dl className="grid grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-5 px-6 py-2">
+                    {entry.answers?.map((item, index) => (
+                        <Fragment key={item.header}>
+                            <dt className={cn('py-2 text-[12px] text-muted', index > 0 && 'border-t border-hair')}>{item.header}</dt>
+                            <dd className={cn('py-2 text-[13px]', index > 0 && 'border-t border-hair')}>
+                                {item.skipped && <span className="text-muted">Skipped</span>}
+                                {item.answer}
+                                {item.other !== null && (
+                                    <span className={cn(item.answer !== null && 'block')}>
+                                        <span className="text-muted">Other: </span>
+                                        {item.other}
+                                    </span>
+                                )}
+                            </dd>
+                        </Fragment>
+                    ))}
+                </dl>
+                {entry.note && (
+                    <p className="border-t border-hair px-6 py-3 text-[13px]">
+                        <span className="text-muted">Note: </span>
+                        {entry.note}
+                    </p>
+                )}
+            </div>
         );
     }
 

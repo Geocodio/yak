@@ -3,6 +3,7 @@ import { cn, Dialog } from '@geocodio/console-ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
+import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { Composer } from '@/components/tasks/Composer';
 import { DebugDetails } from '@/components/tasks/DebugDetails';
 import { DeploymentCard } from '@/components/tasks/DeploymentCard';
@@ -28,6 +29,7 @@ import type {
     ActivityRow,
     ActivitySummary,
     ComposerData,
+    QuestionData,
     DebugData,
     DeploymentData,
     FindingsData,
@@ -55,6 +57,7 @@ type Props = PageProps<{
     deployment: DeploymentData;
     findings: FindingsData;
     composer: ComposerData;
+    questions: QuestionData[] | null;
     debug: DebugData;
     actions: ActionsData;
     pollInterval: number;
@@ -77,6 +80,7 @@ export default function Show({
     deployment,
     findings,
     composer,
+    questions,
     debug,
     actions,
     pollInterval,
@@ -248,7 +252,15 @@ export default function Show({
                         </div>
                     </div>
 
-                    <Composer taskId={task.id} composer={composer} fillValue={composerFill} />
+                    {composer.state === 'questions' && questions !== null ? (
+                        <div className="max-h-[70vh] shrink-0 overflow-y-auto border-t border-hair bg-app px-4 py-4 sm:px-8">
+                            <div className="mx-auto max-w-[820px]">
+                                <QuestionsForm key={questions.map((question) => question.id).join(',')} taskId={task.id} questions={questions} />
+                            </div>
+                        </div>
+                    ) : (
+                        <Composer taskId={task.id} composer={composer} fillValue={composerFill} />
+                    )}
                 </div>
 
                 {/* Mounted on every tab and hidden by class, not conditionally rendered, so the scroll position and the row store stay alive across tab switches. */}
