@@ -99,6 +99,7 @@ export default function Show({
     const [openLogId, setOpenLogId] = useState<number | null>(transcriptLogId);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    const hasQuestions = composer.state === 'questions' && questions !== null;
     const [composerFill, setComposerFill] = useState<string | null>(null);
     const [walkthroughOpen, setWalkthroughOpen] = useState(false);
     const walkthroughCloseRef = useRef<HTMLButtonElement>(null);
@@ -249,18 +250,16 @@ export default function Show({
                                     />
                                 ))}
                             </div>
+
+                            {hasQuestions && questions !== null && (
+                                <div className="mt-6 max-lg:pb-[calc(6rem+env(safe-area-inset-bottom))]">
+                                    <QuestionsForm key={questions.map((question) => question.id).join(',')} taskId={task.id} questions={questions} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {composer.state === 'questions' && questions !== null ? (
-                        <div className="max-h-[70vh] shrink-0 overflow-y-auto border-t border-hair bg-app px-4 py-4 sm:px-8">
-                            <div className="mx-auto max-w-[820px]">
-                                <QuestionsForm key={questions.map((question) => question.id).join(',')} taskId={task.id} questions={questions} />
-                            </div>
-                        </div>
-                    ) : (
-                        <Composer taskId={task.id} composer={composer} fillValue={composerFill} />
-                    )}
+                    {!hasQuestions && <Composer taskId={task.id} composer={composer} fillValue={composerFill} />}
                 </div>
 
                 {/* Mounted on every tab and hidden by class, not conditionally rendered, so the scroll position and the row store stay alive across tab switches. */}

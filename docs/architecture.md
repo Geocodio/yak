@@ -246,7 +246,7 @@ Two queues separate Claude Code work from everything else:
 
 | Queue | Concurrency | Timeout | Jobs |
 |---|---|---|---|
-| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ClarificationReplyJob |
+| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ResearchFollowUpJob |
 | `default` | 3 | 30s | ProcessCIResultJob, webhook handlers, PR creation, notifications, cleanup |
 
 The split exists to prevent a common failure mode: Task A's CI passes, but Task A's PR creation blocks for 10 minutes because Task B is mid-Opus on `yak-claude`. Putting coordination work (webhook processing, PR creation) on the `default` queue keeps it responsive even when Claude Code is busy.
@@ -258,7 +258,7 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 ### The Main Jobs
 
 - **`RunYakJob`** — the initial Claude Code session. Yak creates the branch (`yak/{external_id}`), then invokes Claude Code which writes code and commits locally. After Claude finishes, **Yak** pushes the branch and transitions the task to `awaiting_ci`. Claude Code never pushes or creates PRs — the system prompt explicitly forbids remote git operations.
-- **`ClarificationReplyJob`** — runs when a user replies to a Slack clarification. Resumes the original Claude session with `--resume $session_id` and the user's chosen option. Claude already has full codebase context from the assessment phase — no ramp-up.
+- **Clarification resume** — an agent run that needs input ends with a ```clarification block of structured questions, and the task waits in `awaiting_clarification`. Answers arrive through the dashboard form (any number of questions) or inline in Slack or Linear (a single question). `ClarificationAnswerSubmitter` stores them and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`), which resumes the Claude session with `--resume $session_id` and the answers. Claude already has full codebase context from the assessment phase — no ramp-up.
 - **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure). For GitHub Actions, a failed workflow run first gets one re-run of its failed jobs, and only a second failure on the same commit reaches this job.
 - **`RetryYakJob`** — resumes the original Claude session with CI failure output and runs a second attempt on the existing branch. **Yak** force-pushes the result.
 - **`ResearchYakJob`** — for research mode tasks. Read-only; no branch, no CI. Claude generates a standalone HTML findings page saved to `.yak-artifacts/research.html`.

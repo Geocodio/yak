@@ -35,6 +35,10 @@ class StoreClarificationAnswersRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
             $questions = collect($this->head()->pendingClarificationQuestions())->keyBy(fn (ClarificationQuestion $question): string => $question->id);
 
             if ($questions->isEmpty()) {

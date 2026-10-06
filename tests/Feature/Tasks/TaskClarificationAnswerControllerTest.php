@@ -36,6 +36,7 @@ it('rejects invalid answers', function (array $payload, string $errorKey) {
     'unknown question' => [['answers' => ['nope' => ['choices' => ['Small'], 'other' => null]]], 'answers'],
     'unknown label' => [['answers' => ['scope' => ['choices' => ['Huge'], 'other' => null]]], 'answers.scope'],
     'two on single select' => [['answers' => ['scope' => ['choices' => ['Small', 'Large'], 'other' => null]]], 'answers.scope'],
+    'nested choice' => [['answers' => ['scope' => ['choices' => [['x']], 'other' => null]]], 'answers.scope.choices.0'],
     'long other' => [['answers' => ['scope' => ['choices' => [], 'other' => str_repeat('a', 2001)]]], 'answers.scope.other'],
     'long note' => [['answers' => ['scope' => ['choices' => ['Small'], 'other' => null]], 'note' => str_repeat('a', 2001)], 'note'],
 ]);

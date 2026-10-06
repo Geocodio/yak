@@ -55,17 +55,17 @@ export function QuestionsForm({ taskId, questions }: { taskId: number; questions
                 <span className="whitespace-nowrap text-[12px] text-muted">{answeredCount} of {questions.length} answered</span>
             </div>
 
-            {errors.answers && <p className="border-b border-hair px-6 py-3 text-[12px] text-fail" data-testid="questions-error">{errors.answers}</p>}
+            {errors.answers && <p role="alert" className="border-b border-hair px-6 py-3 text-[12px] text-fail" data-testid="questions-error">{errors.answers}</p>}
 
             {questions.map((question, index) => (
-                <fieldset key={question.id} className="min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
-                    <legend className="mb-3 flex w-full flex-col gap-1.5">
+                <fieldset key={question.id} aria-labelledby={`question-${question.id}-label`} className="min-w-0 border-b border-hair px-6 py-5" data-testid={`question-${question.id}`}>
+                    <div id={`question-${question.id}-label`} className="mb-3 flex flex-col gap-1.5">
                         <span className="flex items-center gap-2">
                             <span className="rounded-chip bg-accent-soft px-1.5 py-0.5 text-[11px] font-semibold text-accent-text">{question.header}</span>
                             <span className="text-[11px] text-muted">Question {index + 1} of {questions.length}</span>
                         </span>
                         <span className="text-[14px] font-semibold leading-snug">{question.question}</span>
-                    </legend>
+                    </div>
                     <div className="flex flex-col gap-2">
                         {question.options.map((option) => (
                             <OptionRow
@@ -92,7 +92,7 @@ export function QuestionsForm({ taskId, questions }: { taskId: number; questions
                             </label>
                         )}
                         {(errors[`answers.${question.id}`] || errors[`answers.${question.id}.other`]) && (
-                            <p className="text-[12px] text-fail">{errors[`answers.${question.id}`] ?? errors[`answers.${question.id}.other`]}</p>
+                            <p role="alert" className="text-[12px] text-fail">{errors[`answers.${question.id}`] ?? errors[`answers.${question.id}.other`]}</p>
                         )}
                     </div>
                 </fieldset>
@@ -101,7 +101,7 @@ export function QuestionsForm({ taskId, questions }: { taskId: number; questions
             <div className="flex flex-col gap-1.5 border-b border-hair px-6 py-5">
                 <label htmlFor="questions-note" className="text-[13px] font-semibold">Anything else? <span className="font-normal text-muted">(optional)</span></label>
                 <Textarea id="questions-note" rows={2} maxLength={2000} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} data-testid="questions-note" />
-                {errors.note && <p className="text-[12px] text-fail">{errors.note}</p>}
+                {errors.note && <p role="alert" className="text-[12px] text-fail">{errors.note}</p>}
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4 rounded-b-card bg-app px-6 py-3.5">
