@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskStatus;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
 
@@ -11,7 +12,7 @@ it('asks a single question inline with numbered options in Slack and Linear', fu
 
     expect(ClarificationMessage::answersInline($task->fresh()))->toBeTrue()
         ->and($message)->toContain('Which scope should I use?')
-        ->and($message)->toContain("1. Small\n2. Large")
+        ->and($message)->toContain("1. Small: Use Small.\n2. Large: Use Large.")
         ->and($message)->toContain('or write your own answer');
 })->with(['slack', 'linear']);
 
@@ -48,3 +49,25 @@ it('has no em dashes in any message', function () {
         expect($message)->not->toContain('—');
     }
 });
+
+it('leaves out an empty option description in the inline question', function () {
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Small', 'Large'])->toArray()])->create(['source' => 'slack']);
+    $rounds = $task->clarificationRounds();
+    $rounds[0]['questions'][0]['options'][1]['description'] = '';
+    $task->update(['clarification_rounds' => $rounds]);
+
+    expect(ClarificationMessage::asked($task->fresh()))->toContain("1. Small: Use Small.\n2. Large\n");
+});
+
+it('points to the form with wording that fits the question count', function (int $questionCount, string $expected) {
+    $task = YakTask::factory()->create(['source' => 'slack', 'status' => TaskStatus::AwaitingClarification]);
+    if ($questionCount > 0) {
+        $task->recordClarificationRound(array_map(fn (int $index) => sampleQuestion("q{$index}"), range(1, $questionCount)), 'Summary');
+    }
+
+    expect(ClarificationMessage::pointToForm($task->fresh()))->toBe(str_replace('{link}', route('tasks.show', $task) . '#questions', $expected));
+})->with([
+    'none' => [0, 'Please answer on the task page: {link}'],
+    'one' => [1, 'Please answer the question on the form: {link}'],
+    'several' => [3, 'There are 3 questions, so please answer them together on the form: {link}'],
+]);

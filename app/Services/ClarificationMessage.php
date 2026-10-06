@@ -30,8 +30,8 @@ class ClarificationMessage
 
         if (self::answersInline($task)) {
             $question = $questions[0];
-            $numbered = collect($question->labels())
-                ->map(fn (string $label, int $index): string => ($index + 1) . '. ' . $label)
+            $numbered = collect($question->options)
+                ->map(fn (array $option, int $index): string => ($index + 1) . '. ' . $option['label'] . ($option['description'] !== '' ? ": {$option['description']}" : ''))
                 ->implode("\n");
 
             return "{$question->question}\n{$numbered}\n\nReply with a number, or write your own answer.";
@@ -50,8 +50,13 @@ class ClarificationMessage
     public static function pointToForm(YakTask $task): string
     {
         $count = count($task->pendingClarificationQuestions());
+        $link = self::formLink($task);
 
-        return "There are {$count} questions, so please answer them together on the form: " . self::formLink($task);
+        return match (true) {
+            $count === 0 => "Please answer on the task page: {$link}",
+            $count === 1 => "Please answer the question on the form: {$link}",
+            default => "There are {$count} questions, so please answer them together on the form: {$link}",
+        };
     }
 
     public static function reminder(YakTask $task): string

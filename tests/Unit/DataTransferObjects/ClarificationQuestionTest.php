@@ -52,3 +52,11 @@ it('falls back to the id as header', function () {
 
     expect($question->header)->toBe('demo_accounts');
 });
+
+it('drops a question or option whose text field is not a scalar', function () {
+    $options = [['label' => 'Small', 'description' => ['nested']], ['label' => 'Large'], ['label' => (object) []]];
+
+    expect(ClarificationQuestion::fromArray(['id' => ['x'], 'question' => 'Which?', 'options' => $options]))->toBeNull()
+        ->and(ClarificationQuestion::fromArray(['id' => 'scope', 'question' => 'Which?', 'header' => ['h'], 'options' => $options])?->toArray())
+        ->toBe(['id' => 'scope', 'header' => 'scope', 'question' => 'Which?', 'options' => [['label' => 'Small', 'description' => ''], ['label' => 'Large', 'description' => '']], 'multi_select' => false]);
+});

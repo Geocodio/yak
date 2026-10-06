@@ -29,15 +29,15 @@ final readonly class ClarificationQuestion
      */
     public static function fromArray(array $data): ?self
     {
-        $id = trim((string) ($data['id'] ?? ''));
-        $question = trim((string) ($data['question'] ?? ''));
-        $header = trim((string) ($data['header'] ?? ''));
+        $id = self::text($data['id'] ?? null);
+        $question = self::text($data['question'] ?? null);
+        $header = self::text($data['header'] ?? null);
 
         $options = collect(is_array($data['options'] ?? null) ? $data['options'] : [])
-            ->filter(fn (mixed $option): bool => is_array($option) && trim((string) ($option['label'] ?? '')) !== '')
+            ->filter(fn (mixed $option): bool => is_array($option) && self::text($option['label'] ?? null) !== '')
             ->map(fn (array $option): array => [
-                'label' => trim((string) $option['label']),
-                'description' => trim((string) ($option['description'] ?? '')),
+                'label' => self::text($option['label']),
+                'description' => self::text($option['description'] ?? null),
             ])
             ->unique('label')
             ->take(self::MAX_OPTIONS)
@@ -55,6 +55,15 @@ final readonly class ClarificationQuestion
             options: $options,
             multiSelect: ($data['multi_select'] ?? false) === true,
         );
+    }
+
+    /**
+     * Agent JSON can put an array or object where a string belongs; such a
+     * field reads as empty, which drops the question or option it is in.
+     */
+    private static function text(mixed $value): string
+    {
+        return is_scalar($value) ? trim((string) $value) : '';
     }
 
     /**

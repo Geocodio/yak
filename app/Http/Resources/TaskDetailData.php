@@ -236,7 +236,7 @@ final class TaskDetailData
 
             return match ($entry->kind) {
                 'user' => self::userEntry($entry),
-                'clarification' => self::clarificationEntry($entry, $entries, $index, $task),
+                'clarification' => self::clarificationEntry($entry, $entries, $index),
                 'clarification-answers' => self::clarificationAnswersEntry($entry),
                 'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun),
                 default => self::systemEntry($entry),
@@ -295,13 +295,14 @@ final class TaskDetailData
      * @param  Collection<int, ThreadEntry>  $entries
      * @return array<string, mixed>
      */
-    private static function clarificationEntry(ThreadEntry $entry, Collection $entries, int $index, YakTask $task): array
+    private static function clarificationEntry(ThreadEntry $entry, Collection $entries, int $index): array
     {
         $nextUser = $entries->slice($index + 1)->first(fn (ThreadEntry $e) => in_array($e->kind, ['user', 'clarification-answers'], true));
         $answered = $nextUser !== null;
 
-        $ttl = ($entry->run !== null && $entry->run->is($task) && $task->status === TaskStatus::AwaitingClarification)
-            ? self::clarificationTtl($task)
+        // The run that asked may be a follow-up rather than the root task.
+        $ttl = (! $answered && $entry->run !== null && $entry->run->status === TaskStatus::AwaitingClarification)
+            ? self::clarificationTtl($entry->run)
             : null;
 
         $meta = collect([$entry->timestamp->format('g:i A'), $ttl !== null ? ($ttl === 'Expired' ? 'Expired' : "expires {$ttl}") : null])

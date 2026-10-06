@@ -91,6 +91,20 @@ test('clarification entry carries its options', function () {
                 ->etc()));
 });
 
+test('a follow-up waiting on answers shows when its questions expire', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'created_at' => now()->subHour()]);
+    YakTask::factory()->withClarificationQuestions()->create([
+        'parent_task_id' => $root->id,
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $this->get(route('tasks.show', $root))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('thread', fn ($thread) => collect($thread)->contains(
+                fn (array $entry) => $entry['kind'] === 'clarification' && str_contains($entry['meta'], 'expires') && $entry['expiresIn'] !== null,
+            )));
+});
+
 test('markdown in the thread strips raw html', function () {
     $task = YakTask::factory()->create([
         'description' => "Before the script.\n\n<script>alert(1)</script>\n\nAfter the script.",
