@@ -160,7 +160,12 @@ it('builds buttons from the single pending question', function () {
     $elements = collect($blocks)->firstWhere('block_id', 'yak_clarify_options')['elements'];
 
     expect($elements)->toHaveCount(2)
-        ->and($elements[1]['value'])->toBe($task->id . '|Large');
+        ->and(BlockFormatter::parseClarificationButtonValue($elements[1]['value']))->toBe(['taskId' => $task->id, 'questionId' => 'scope', 'label' => 'Large']);
+});
+
+it('reads a repo-choice button value whose label contains a pipe', function () {
+    expect(BlockFormatter::parseClarificationButtonValue('42|acme/web|v2'))->toBe(['taskId' => 42, 'questionId' => null, 'label' => 'acme/web|v2'])
+        ->and(BlockFormatter::parseClarificationButtonValue('{"task":"x"}'))->toBe(['taskId' => 0, 'questionId' => null, 'label' => '']);
 });
 
 it('renders no buttons when several questions are pending', function () {

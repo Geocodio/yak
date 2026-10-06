@@ -306,6 +306,9 @@ class BlockFormatter
             return [];
         }
 
+        $questions = $task->pendingClarificationQuestions();
+        $questionId = ! RepoClarificationResolver::awaitingRepoChoice($task) && count($questions) === 1 ? $questions[0]->id : null;
+
         $buttons = [];
         foreach (array_slice($options, 0, 25) as $index => $option) {
             $label = (string) $option;
@@ -318,11 +321,47 @@ class BlockFormatter
                     'type' => 'plain_text',
                     'text' => $buttonText,
                 ],
-                'value' => $task->id . '|' . $label,
+                'value' => self::clarificationButtonValue($task, $questionId, $label),
             ];
         }
 
         return $buttons;
+    }
+
+    /**
+     * A repo choice is `taskId|label`. An answer to a structured question is
+     * JSON carrying the question id, so a click on a button from an earlier
+     * round can be told apart from one for the question now pending.
+     */
+    private static function clarificationButtonValue(YakTask $task, ?string $questionId, string $label): string
+    {
+        if ($questionId === null) {
+            return $task->id . '|' . $label;
+        }
+
+        return (string) json_encode(['task' => $task->id, 'question' => $questionId, 'label' => $label]);
+    }
+
+    /**
+     * Read a button value written by clarificationButtonValue().
+     *
+     * @return array{taskId: int, questionId: string|null, label: string}
+     */
+    public static function parseClarificationButtonValue(string $value): array
+    {
+        $decoded = str_starts_with($value, '{') ? json_decode($value, true) : null;
+
+        if (is_array($decoded)) {
+            return [
+                'taskId' => is_int($decoded['task'] ?? null) ? $decoded['task'] : 0,
+                'questionId' => is_string($decoded['question'] ?? null) ? $decoded['question'] : null,
+                'label' => is_string($decoded['label'] ?? null) ? $decoded['label'] : '',
+            ];
+        }
+
+        [$taskId, $label] = array_pad(explode('|', $value, 2), 2, '');
+
+        return ['taskId' => (int) $taskId, 'questionId' => null, 'label' => $label];
     }
 
     /**

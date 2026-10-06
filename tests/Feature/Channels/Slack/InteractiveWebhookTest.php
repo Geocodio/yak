@@ -51,14 +51,16 @@ function enableSlackForInteractive(): string
  * Build a block_actions interaction payload body as Slack sends it:
  * `payload={json...}` URL-encoded form data.
  */
-function buildClarifyButtonBody(int $taskId, string $option, int $optionIndex = 0, ?string $responseUrl = null): string
+function buildClarifyButtonBody(int $taskId, string $option, int $optionIndex = 0, ?string $responseUrl = null, ?string $questionId = null): string
 {
     $payload = [
         'type' => 'block_actions',
         'user' => ['id' => 'U12345'],
         'actions' => [[
             'action_id' => 'yak_clarify_' . $optionIndex,
-            'value' => $taskId . '|' . $option,
+            'value' => $questionId === null
+                ? $taskId . '|' . $option
+                : json_encode(['task' => $taskId, 'question' => $questionId, 'label' => $option]),
         ]],
     ];
 
@@ -86,7 +88,7 @@ it('submits the clicked option as the answer to a single pending question', func
 
     $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['acme/web', 'acme/api'])->toArray()])->create(['source' => 'slack']);
 
-    $body = buildClarifyButtonBody($task->id, 'acme/web');
+    $body = buildClarifyButtonBody($task->id, 'acme/web', questionId: 'scope');
 
     $this->call('POST', '/webhooks/slack/interactive', content: $body,
         server: signSlackInteractivePayload($body, $secret)
@@ -307,3 +309,34 @@ it('does not ack when repo resolution fails to match an option', function () {
     // No POST to response_url: the buttons remain so the user can retry.
     Http::assertNotSent(fn ($request) => $request->url() === $responseUrl);
 });
+
+it('acks a click that answers the pending question', function () {
+    $secret = enableSlackForInteractive();
+    Queue::fake();
+    Http::fake();
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Small', 'Large'])->toArray()])->create(['source' => 'slack']);
+    $body = buildClarifyButtonBody($task->id, 'Large', responseUrl: 'https://hooks.slack.com/actions/T0/1/a', questionId: 'scope');
+
+    $this->call('POST', '/webhooks/slack/interactive', content: $body, server: signSlackInteractivePayload($body, $secret))->assertOk();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::Pending);
+    Http::assertSent(fn ($request) => $request->url() === 'https://hooks.slack.com/actions/T0/1/a');
+});
+
+it('ignores a button left over from an earlier round', function (?string $questionId) {
+    $secret = enableSlackForInteractive();
+    Queue::fake();
+    Http::fake();
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('database', ['Small', 'Large'])->toArray()])->create(['source' => 'slack']);
+    $body = buildClarifyButtonBody($task->id, 'Large', responseUrl: 'https://hooks.slack.com/actions/T0/1/a', questionId: $questionId);
+
+    $this->call('POST', '/webhooks/slack/interactive', content: $body, server: signSlackInteractivePayload($body, $secret))->assertOk();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->fresh()->clarificationAnswersAwaitingResume())->toBeNull();
+    Queue::assertNotPushed(RunYakJob::class);
+    Http::assertNothingSent();
+})->with([
+    'another question id' => ['scope'],
+    'no question id' => [null],
+]);
