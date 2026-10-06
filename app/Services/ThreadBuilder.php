@@ -74,8 +74,10 @@ class ThreadBuilder
             // A failed run is worth a bubble even when it never stamped
             // started_at (killed in middleware, or dead before the job body
             // ran) — otherwise the failure vanishes from the thread.
-            if ($run->started_at !== null || $status === TaskStatus::Failed) {
-                $isLive = in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying], true);
+            $isLive = in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying], true);
+            $hasContent = trim((string) $run->result_summary) !== '' || $isLive || $status === TaskStatus::Failed;
+
+            if (($run->started_at !== null || $status === TaskStatus::Failed) && $hasContent) {
 
                 $entries->push(ThreadEntry::yak(
                     $run,

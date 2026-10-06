@@ -153,3 +153,34 @@ it('adds an entry per asked round and per answered round', function () {
 
     expect($kinds)->toContain('clarification')->toContain('clarification-answers');
 });
+
+test('a parked run without a result summary yields no yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'result_summary' => '',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->not->toContain('yak');
+});
+
+test('a running run without a result summary still yields a yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'result_summary' => '',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
+});
+
+test('a failed run without a result summary still yields a yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'result_summary' => '',
+        'error_log' => 'boom',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
+});
