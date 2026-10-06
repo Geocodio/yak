@@ -20,8 +20,8 @@ use Illuminate\Support\Facades\Http;
  * interactive element we currently ship is clarification option
  * buttons: clicking one dispatches ClarificationReplyJob with the
  * selected option as the reply text, so the flow reaches Claude
- * identically to a thread-reply answer. Clicks from Slack Connect users
- * in other organizations are ignored.
+ * identically to a thread-reply answer. Clicks from guests and Slack Connect
+ * users in other organizations are ignored.
  */
 class InteractiveWebhookController extends Controller
 {
@@ -43,13 +43,13 @@ class InteractiveWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $isExternal = app(SenderPolicy::class)->isExternal(
+        $isAllowed = app(SenderPolicy::class)->isAllowed(
             (string) ($payload['user']['id'] ?? ''),
             (string) ($payload['user']['team_id'] ?? ''),
         );
 
-        if ($isExternal) {
-            return response()->json(['ok' => true, 'skipped' => 'external_user']);
+        if (! $isAllowed) {
+            return response()->json(['ok' => true, 'skipped' => 'not_workspace_member']);
         }
 
         /** @var array<int, array<string, mixed>> $actions */

@@ -758,33 +758,15 @@ it('creates a task from a direct message to Yak', function () {
     Queue::assertPushed(RunYakJob::class);
 });
 
-it('ignores a direct message from a guest', function (array $user) {
+it('ignores guests and Slack Connect users everywhere', function (string $userId, string $body) {
     $secret = enableSlackChannel();
     Queue::fake();
-    useRealSlackSenderPolicy(['U_USER_ID' => $user]);
-
-    Repository::factory()->default()->create(['slug' => 'my-app']);
-
-    $body = slackDirectMessagePayload('fix the login bug');
-    $headers = signSlackPayload($body, $secret);
-
-    $this->call('POST', '/webhooks/slack', content: $body, server: [
-        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
-        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
-        'CONTENT_TYPE' => 'application/json',
-    ])->assertSuccessful()->assertJson(['skipped' => 'guest']);
-
-    expect(YakTask::count())->toBe(0);
-})->with([
-    'multi-channel guest' => [['is_restricted' => true]],
-    'single-channel guest' => [['is_ultra_restricted' => true]],
-    'deactivated account' => [['deleted' => true]],
-]);
-
-it('ignores Slack Connect users from other organizations everywhere', function (string $body) {
-    $secret = enableSlackChannel();
-    Queue::fake();
-    useRealSlackSenderPolicy(['U_EXTERNAL' => ['team_id' => 'T_OTHER_ORG']]);
+    useRealSlackSenderPolicy([
+        'U_EXTERNAL' => ['team_id' => 'T_OTHER_ORG'],
+        'U_GUEST' => ['is_restricted' => true],
+        'U_SINGLE_CHANNEL_GUEST' => ['is_ultra_restricted' => true],
+        'U_DEACTIVATED' => ['deleted' => true],
+    ]);
 
     Repository::factory()->default()->create(['slug' => 'my-app']);
     YakTask::factory()->awaitingClarification()->create([
@@ -792,22 +774,44 @@ it('ignores Slack Connect users from other organizations everywhere', function (
         'slack_thread_ts' => '1111111111.111111',
     ]);
 
+    $body = str_replace('U_SENDER', $userId, $body);
     $headers = signSlackPayload($body, $secret);
 
     $this->call('POST', '/webhooks/slack', content: $body, server: [
         'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
         'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
         'CONTENT_TYPE' => 'application/json',
-    ])->assertSuccessful()->assertJson(['skipped' => 'external_user']);
+    ])->assertSuccessful()->assertJson(['skipped' => 'not_workspace_member']);
 
     expect(YakTask::count())->toBe(1);
     Queue::assertNothingPushed();
 })->with([
-    'mention' => fn () => slackMentionPayload('fix the login bug', ['event' => ['user' => 'U_EXTERNAL']]),
-    'mention with user_team in payload only' => fn () => slackMentionPayload('fix the login bug', ['event' => ['user_team' => 'T_OTHER_ORG']]),
-    'direct message' => fn () => slackDirectMessagePayload('fix the login bug', ['user' => 'U_EXTERNAL']),
-    'thread reply' => fn () => slackThreadReplyPayload('Option A', 'C12345678', '1111111111.111111', ['event' => ['user' => 'U_EXTERNAL']]),
+    'Slack Connect user' => 'U_EXTERNAL',
+    'multi-channel guest' => 'U_GUEST',
+    'single-channel guest' => 'U_SINGLE_CHANNEL_GUEST',
+    'deactivated account' => 'U_DEACTIVATED',
+])->with([
+    'mention' => fn () => slackMentionPayload('fix the login bug', ['event' => ['user' => 'U_SENDER']]),
+    'direct message' => fn () => slackDirectMessagePayload('fix the login bug', ['user' => 'U_SENDER']),
+    'thread reply' => fn () => slackThreadReplyPayload('Option A', 'C12345678', '1111111111.111111', ['event' => ['user' => 'U_SENDER']]),
 ]);
+
+it('ignores a sender whose payload names another organization', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    useRealSlackSenderPolicy();
+
+    $body = slackMentionPayload('fix the login bug', ['event' => ['user_team' => 'T_OTHER_ORG']]);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful()->assertJson(['skipped' => 'not_workspace_member']);
+
+    expect(YakTask::count())->toBe(0);
+});
 
 it('lets workspace members mention Yak with the real sender policy', function () {
     $secret = enableSlackChannel();
@@ -841,7 +845,7 @@ it('treats a failed Slack lookup as an external user', function () {
         'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
         'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
         'CONTENT_TYPE' => 'application/json',
-    ])->assertSuccessful()->assertJson(['skipped' => 'external_user']);
+    ])->assertSuccessful()->assertJson(['skipped' => 'not_workspace_member']);
 
     expect(YakTask::count())->toBe(0);
 });

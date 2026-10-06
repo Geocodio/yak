@@ -102,13 +102,13 @@ it('dispatches ClarificationReplyJob when a clarification button is clicked', fu
     });
 });
 
-it('ignores clarification clicks from Slack Connect users in other organizations', function () {
+it('ignores clarification clicks from guests and Slack Connect users', function (array $user) {
     $secret = enableSlackForInteractive();
     Queue::fake();
     app()->instance(SenderPolicy::class, new SenderPolicy);
     Http::fake([
         'slack.com/api/auth.test*' => Http::response(['ok' => true, 'team_id' => 'T_WORKSPACE']),
-        'slack.com/api/users.info*' => Http::response(['ok' => true, 'user' => ['id' => 'U12345', 'team_id' => 'T_OTHER_ORG']]),
+        'slack.com/api/users.info*' => Http::response(['ok' => true, 'user' => array_merge(['id' => 'U12345', 'team_id' => 'T_WORKSPACE'], $user)]),
     ]);
 
     $task = YakTask::factory()->create([
@@ -121,11 +121,14 @@ it('ignores clarification clicks from Slack Connect users in other organizations
 
     $this->call('POST', '/webhooks/slack/interactive', content: $body,
         server: signSlackInteractivePayload($body, $secret)
-    )->assertOk()->assertJson(['skipped' => 'external_user']);
+    )->assertOk()->assertJson(['skipped' => 'not_workspace_member']);
 
     Queue::assertNothingPushed();
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
-});
+})->with([
+    'Slack Connect user' => [['team_id' => 'T_OTHER_ORG']],
+    'guest' => [['is_restricted' => true]],
+]);
 
 it('ignores unrecognised action_ids', function () {
     $secret = enableSlackForInteractive();

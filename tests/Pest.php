@@ -23,14 +23,9 @@ pest()->extend(TestCase::class)
         // tests swap the real SenderPolicy back in with faked Slack lookups.
         app()->instance(SenderPolicy::class, new class extends SenderPolicy
         {
-            public function isExternal(string $userId, string ...$payloadTeamIds): bool
+            public function isAllowed(string $userId, string ...$payloadTeamIds): bool
             {
-                return false;
-            }
-
-            public function isGuest(string $userId): bool
-            {
-                return false;
+                return true;
             }
         });
     })

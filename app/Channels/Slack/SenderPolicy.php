@@ -7,49 +7,39 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Decides whether a Slack user may trigger Yak.
- *
- * External users (Slack Connect members of other organizations) never
- * may, wherever they write. The workspace is the one the bot token
- * belongs to (`auth.test`), so a team ID in the payload is only ever a
- * reason to reject, never a reason to trust. Every failed lookup counts
- * as external or guest, and failures are not cached.
+ * Decides whether a Slack user may trigger Yak: only full members of the
+ * workspace the bot token belongs to (`auth.test`). Slack Connect users
+ * from other organizations, multi-channel guests (`is_restricted`),
+ * single-channel guests (`is_ultra_restricted`) and deactivated accounts
+ * never may, on any path. A team ID in the payload is only ever a reason
+ * to reject, never a reason to trust. Every failed lookup rejects, and
+ * failures are not cached.
  */
 class SenderPolicy
 {
     private const USER_CACHE_TTL_SECONDS = 3600;
 
-    public function isExternal(string $userId, string ...$payloadTeamIds): bool
+    public function isAllowed(string $userId, string ...$payloadTeamIds): bool
     {
         $workspaceTeamId = $this->workspaceTeamId();
 
         if ($userId === '' || $workspaceTeamId === null) {
-            return true;
+            return false;
         }
 
         foreach ($payloadTeamIds as $teamId) {
             if ($teamId !== '' && $teamId !== $workspaceTeamId) {
-                return true;
+                return false;
             }
         }
 
         $user = $this->user($userId);
 
-        return $user === null || ($user['team_id'] ?? null) !== $workspaceTeamId;
-    }
-
-    /**
-     * Multi-channel (`is_restricted`) and single-channel
-     * (`is_ultra_restricted`) guests, plus deactivated accounts.
-     */
-    public function isGuest(string $userId): bool
-    {
-        $user = $this->user($userId);
-
-        return $user === null
-            || ($user['is_restricted'] ?? false) === true
-            || ($user['is_ultra_restricted'] ?? false) === true
-            || ($user['deleted'] ?? false) === true;
+        return $user !== null
+            && ($user['team_id'] ?? null) === $workspaceTeamId
+            && ($user['is_restricted'] ?? false) !== true
+            && ($user['is_ultra_restricted'] ?? false) !== true
+            && ($user['deleted'] ?? false) !== true;
     }
 
     private function workspaceTeamId(): ?string

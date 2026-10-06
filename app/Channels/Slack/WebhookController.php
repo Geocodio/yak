@@ -68,19 +68,19 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'duplicate']);
         }
 
-        if ($this->isFromExternalUser($event)) {
-            Log::channel('yak')->info('Ignored Slack event from a user outside the workspace', [
+        if (! $this->isFromWorkspaceMember($event)) {
+            Log::channel('yak')->info('Ignored Slack event from a guest or a user outside the workspace', [
                 'type' => $event['type'] ?? null,
                 'user_id' => $event['user'] ?? null,
             ]);
 
-            return response()->json(['ok' => true, 'skipped' => 'external_user']);
+            return response()->json(['ok' => true, 'skipped' => 'not_workspace_member']);
         }
 
         return match ($event['type'] ?? null) {
             'app_mention' => $this->handleMention($request),
             'message' => $this->isNewDirectMessage($event)
-                ? $this->handleDirectMessage($request, $event)
+                ? $this->handleMention($request)
                 : $this->handleThreadReply($event),
             'app_home_opened' => $this->handleAppHomeOpened($event),
             default => response()->json(['ok' => true]),
@@ -121,43 +121,24 @@ class WebhookController extends Controller
     }
 
     /**
-     * Slack Connect users from other organizations never trigger Yak,
-     * whether they mention it, reply in a thread, DM it, or open its
-     * App Home.
+     * Only full members of the workspace trigger Yak. Guests and Slack
+     * Connect users from other organizations are ignored whether they
+     * mention it, reply in a thread, DM it, or open its App Home.
      *
      * @param  array{type?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
      */
-    private function isFromExternalUser(array $event): bool
+    private function isFromWorkspaceMember(array $event): bool
     {
         if (! in_array($event['type'] ?? null, ['app_mention', 'message', 'app_home_opened'], true)) {
-            return false;
+            return true;
         }
 
-        return app(SenderPolicy::class)->isExternal(
+        return app(SenderPolicy::class)->isAllowed(
             (string) ($event['user'] ?? ''),
             (string) ($event['team'] ?? ''),
             (string) ($event['user_team'] ?? ''),
             (string) ($event['source_team'] ?? ''),
         );
-    }
-
-    /**
-     * Start a task from a DM. Guests can reach the bot by DM even when
-     * they share no channel with it, so DMs from guests are ignored.
-     *
-     * @param  array{user?: string}  $event
-     */
-    private function handleDirectMessage(Request $request, array $event): JsonResponse
-    {
-        if (app(SenderPolicy::class)->isGuest((string) ($event['user'] ?? ''))) {
-            Log::channel('yak')->info('Ignored Slack DM from a guest', [
-                'user_id' => $event['user'] ?? null,
-            ]);
-
-            return response()->json(['ok' => true, 'skipped' => 'guest']);
-        }
-
-        return $this->handleMention($request);
     }
 
     /**

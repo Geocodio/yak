@@ -178,7 +178,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
    - `channels:history`
    - `im:history` (lets Yak read direct messages sent to it)
    - `reactions:write` (lets Yak apply status reactions to your @mention)
-   - `users:read` (required: Yak looks up every sender to ignore people outside the workspace, and shows the requester's name on the task)
+   - `users:read` (required: Yak looks up every sender to ignore guests and people outside the workspace, and shows the requester's name on the task)
    - `users:read.email` (lets Yak find a person's Slack account by their Yak email, for direct messages)
 7. Install the app to your workspace
 8. Add the following to `ansible/vault/secrets.yml`:
@@ -214,7 +214,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 
 - **Reactions.** Yak reacts on your original @mention as the task progresses: 👀 when picked up, 🚧 while working, ✅ when a PR is ready, ❌ on failure. You can see status at a glance without opening the thread.
 - **Direct messages.** You can also DM Yak the same text without the `@yak` prefix (`in api: fix the timeout on batch endpoints`). Yak replies in a thread on your message, and replies in that thread work like replies in a channel thread.
-- **Who can trigger Yak.** Only members of the workspace Yak is installed in. Yak ignores Slack Connect users from other organizations everywhere: mentions, thread replies, DMs and clarification buttons. Guests can mention Yak in channels they share with it, but Yak ignores their DMs.
+- **Who can trigger Yak.** Only full members of the workspace Yak is installed in. Yak ignores guests and Slack Connect users from other organizations everywhere: mentions, thread replies, DMs and clarification buttons.
 - **`@yak help`.** Sending `@yak`, `@yak help`, or `@yak ?` returns a capabilities card with syntax examples — it does not create a task.
 - **First-time intro.** The first time a given user gets a reply from Yak, the acknowledgment has a small *"First time seeing me?"* footer pointing to this doc. It only appears once per user.
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
