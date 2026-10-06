@@ -27,7 +27,7 @@ use SplObjectStorage;
  * bookkeeping the sweep depends on, so the two can never drift apart —
  * there is no code path that stamps one without the other.
  *
- * RetryYakJob, RunFollowUpJob and ClarificationReplyJob deliberately do
+ * RetryYakJob and RunFollowUpJob deliberately do
  * NOT go through this helper, and must never be added to it:
  *   - RetryYakJob picks up a Retrying task, not a Pending one, and has no
  *     atomic claim at all.
@@ -39,10 +39,9 @@ use SplObjectStorage;
  *     let the sweep "self-heal" it by dispatching the wrong job (a fresh
  *     RunYakJob instead of a resumed follow-up, discarding branch/session
  *     context) with no claim to stop a genuine duplicate run.
- *   - ClarificationReplyJob resumes an AwaitingClarification task and
- *     carries the user's reply as a constructor argument that isn't
- *     stored on the task row — a re-dispatch from the sweep couldn't
- *     reconstruct it.
+ *
+ * Answers to questions re-dispatch the job that asked through
+ * ClarificationAnswerSubmitter; the answers are stored on the task row.
  *
  * Leaving their tasks' `dispatched_at` untouched (permanently null, since
  * they're never stamped) keeps them permanently outside

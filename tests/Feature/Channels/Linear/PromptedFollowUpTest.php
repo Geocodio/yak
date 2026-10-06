@@ -3,7 +3,6 @@
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
@@ -11,6 +10,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ClarificationMessage;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -97,10 +97,10 @@ it('cancels the task when prompted with a stop signal', function (): void {
 
 // --- Clarification reply ---
 
-it('dispatches ClarificationReplyJob when prompted on an AwaitingClarification task', function (): void {
+it('answers the single pending question when prompted on an AwaitingClarification task', function (): void {
     Bus::fake();
 
-    YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Small', 'Large'])->toArray()])->create([
         'source' => 'linear',
         'linear_agent_session_id' => 'sess-2',
     ]);
@@ -113,7 +113,31 @@ it('dispatches ClarificationReplyJob when prompted on an AwaitingClarification t
         'agentActivity' => ['content' => ['body' => 'Here is my clarification']],
     ], $this->secret)->assertSuccessful();
 
-    Bus::assertDispatched(ClarificationReplyJob::class);
+    Bus::assertDispatched(RunYakJob::class);
+    Bus::assertNotDispatched(RunFollowUpJob::class);
+    expect($task->fresh()->clarificationAnswersAwaitingResume()['answers']['scope']['other'])->toBe('Here is my clarification');
+});
+
+it('links to the form instead of dispatching when several questions are pending', function (): void {
+    Bus::fake();
+
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'source' => 'linear',
+        'linear_agent_session_id' => 'sess-multi',
+    ]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-multi'],
+        'agentActivity' => ['content' => ['body' => 'Small']],
+    ], $this->secret)->assertSuccessful()->assertJson(['handled' => 'clarification_form_link']);
+
+    $link = trim((string) json_encode(ClarificationMessage::pointToForm($task->fresh())), '"');
+
+    Http::assertSent(fn ($request): bool => str_contains($request->body(), $link));
+    Bus::assertNotDispatched(RunYakJob::class);
     Bus::assertNotDispatched(RunFollowUpJob::class);
 });
 
@@ -136,7 +160,6 @@ it('does not create a follow-up and dispatches nothing when the PR is already me
     ], $this->secret)->assertSuccessful();
 
     Bus::assertNotDispatched(RunFollowUpJob::class);
-    Bus::assertNotDispatched(ClarificationReplyJob::class);
     expect(YakTask::whereNotNull('parent_task_id')->exists())->toBeFalse();
 });
 
@@ -154,7 +177,6 @@ it('returns 200 and dispatches nothing when the session id matches no task', fun
     ], $this->secret)->assertSuccessful();
 
     Bus::assertNotDispatched(RunFollowUpJob::class);
-    Bus::assertNotDispatched(ClarificationReplyJob::class);
 });
 
 it('records the Linear actor name as the follow-up author when present', function (): void {
@@ -210,7 +232,6 @@ it('resolves the repo from a numeric reply and dispatches RunYakJob', function (
         ->and($task->status)->toBe(TaskStatus::Pending);
 
     Queue::assertPushed(RunYakJob::class);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Progress
         && $job->message === 'Working in acme/billing now.');
 });
@@ -244,16 +265,13 @@ it('lists the options again when the reply does not match a repo', function (): 
         && str_contains($job->message, "1. acme/api\n2. acme/billing"));
 });
 
-it('still routes a mid-run clarification reply to ClarificationReplyJob', function (): void {
+it('still routes a mid-run clarification reply to the job that asked', function (): void {
     Bus::fake();
 
-    YakTask::factory()->create([
+    YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['A', 'B'])->toArray()])->create([
         'source' => 'linear',
         'linear_agent_session_id' => 'sess-mid',
         'repo' => 'acme/api',
-        'session_id' => 'claude-session',
-        'status' => TaskStatus::AwaitingClarification,
-        'clarification_options' => ['A', 'B'],
     ]);
 
     postLinearPrompted([
@@ -264,7 +282,7 @@ it('still routes a mid-run clarification reply to ClarificationReplyJob', functi
         'agentActivity' => ['content' => ['body' => '2']],
     ], $this->secret)->assertSuccessful();
 
-    Bus::assertDispatched(ClarificationReplyJob::class);
+    Bus::assertDispatched(RunYakJob::class);
 });
 
 it('a Linear prompt on a finished research task creates a research follow-up', function () {

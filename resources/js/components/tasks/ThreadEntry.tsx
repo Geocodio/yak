@@ -97,6 +97,40 @@ export function ThreadEntry({
         );
     }
 
+    if (entry.kind === 'clarification-answers') {
+        return (
+            <div className="rounded-card border border-hair bg-panel shadow-card" data-testid="clarification-answers">
+                <div className="flex items-center gap-2 border-b border-hair px-6 py-3 text-[12px] text-muted">
+                    <span className="font-semibold text-body">{entry.who}</span>
+                    <span>{entry.meta}</span>
+                </div>
+                <dl className="px-6 py-2">
+                    {entry.answers?.map((item, index) => (
+                        <div key={index} className={cn('grid grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-5 py-2', index > 0 && 'border-t border-hair')}>
+                            <dt className="text-[12px] text-muted">{item.header}</dt>
+                            <dd className="text-[13px]">
+                                {item.skipped && <span className="text-muted">Skipped</span>}
+                                {item.answer}
+                                {item.other !== null && (
+                                    <span className={cn(item.answer !== null && 'block')}>
+                                        <span className="text-muted">Other: </span>
+                                        {item.other}
+                                    </span>
+                                )}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+                {entry.note && (
+                    <p className="border-t border-hair px-6 py-3 text-[13px]">
+                        <span className="text-muted">Note: </span>
+                        {entry.note}
+                    </p>
+                )}
+            </div>
+        );
+    }
+
     if (entry.kind === 'clarification') {
         return (
             <Entry who="Yak" meta={entry.meta} avatar={<img src="/mascot-avatar.png" alt="" className="h-6 w-6 rounded-pill" />}>

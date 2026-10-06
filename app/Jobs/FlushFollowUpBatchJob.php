@@ -3,9 +3,11 @@
 namespace App\Jobs;
 
 use App\Channels\GitHub\AppService;
+use App\Enums\TaskStatus;
 use App\Models\FollowUpPendingComment;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ClarificationMessage;
 use App\Services\FollowUpTaskFactory;
 use App\Services\ReviewFeedbackFormatter;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,6 +42,21 @@ class FlushFollowUpBatchJob implements ShouldQueue
         $parent = YakTask::followUpRootForPr($this->prUrl);
 
         if ($parent === null) {
+            FollowUpPendingComment::whereIn('id', $ids)->delete();
+
+            return;
+        }
+
+        $head = $parent->conversation()->last() ?? $parent;
+
+        if ($head->status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== []) {
+            $installationId = (int) config('yak.channels.github.installation_id');
+            $prNumber = (int) ($parent->pr_number ?? 0);
+
+            if ($installationId > 0 && $prNumber > 0) {
+                $gitHub->commentOnPullRequest($installationId, Repository::githubNameFor((string) $parent->repo), $prNumber, ClarificationMessage::pointToForm($head));
+            }
+
             FollowUpPendingComment::whereIn('id', $ids)->delete();
 
             return;

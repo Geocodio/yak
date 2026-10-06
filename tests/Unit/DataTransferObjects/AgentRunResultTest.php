@@ -10,8 +10,6 @@ it('constructs a success result with all metric fields', function () {
         numTurns: 15,
         durationMs: 120000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{"result":"Fixed the bug"}',
     );
 
@@ -21,8 +19,7 @@ it('constructs a success result with all metric fields', function () {
         ->and($result->numTurns)->toBe(15)
         ->and($result->durationMs)->toBe(120000)
         ->and($result->isError)->toBeFalse()
-        ->and($result->clarificationNeeded)->toBeFalse()
-        ->and($result->clarificationOptions)->toBe([]);
+        ->and($result->needsClarification())->toBeFalse();
 });
 
 it('constructs a clarification result with options', function () {
@@ -33,13 +30,12 @@ it('constructs a clarification result with options', function () {
         numTurns: 2,
         durationMs: 15000,
         isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Option A', 'Option B'],
         rawOutput: '{}',
+        clarificationQuestions: [sampleQuestion()],
     );
 
-    expect($result->clarificationNeeded)->toBeTrue()
-        ->and($result->clarificationOptions)->toBe(['Option A', 'Option B']);
+    expect($result->needsClarification())->toBeTrue()
+        ->and($result->clarificationQuestions[0]->labels())->toBe(['Option A', 'Option B']);
 });
 
 it('failure() factory builds an error result', function () {
@@ -52,8 +48,7 @@ it('failure() factory builds an error result', function () {
         ->and($result->costUsd)->toBe(0.0)
         ->and($result->numTurns)->toBe(0)
         ->and($result->durationMs)->toBe(0)
-        ->and($result->clarificationNeeded)->toBeFalse()
-        ->and($result->clarificationOptions)->toBe([]);
+        ->and($result->needsClarification())->toBeFalse();
 });
 
 it('withStderr() returns a copy carrying the stderr while preserving all other fields', function () {
@@ -84,8 +79,6 @@ it('isStaleSessionResume() detects the missing-session CLI error in stderr', fun
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         errorSubtype: 'error_during_execution',
         stderr: 'No conversation found with session ID: 98894ba5-8938-4237-b532-ca72c4fa97c7',
@@ -110,8 +103,6 @@ it('isStaleSessionResume() is false for unrelated errors and for successes', fun
         numTurns: 5,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     );
 

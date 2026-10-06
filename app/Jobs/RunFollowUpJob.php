@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\GitHub\PullRequestSummonReplier;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
@@ -13,6 +14,7 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Exceptions\ExternalBranchPushException;
 use App\GitOperations;
+use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
@@ -43,6 +45,7 @@ use Illuminate\Support\Facades\Log;
 
 class RunFollowUpJob implements ShouldQueue
 {
+    use AsksClarifyingQuestions;
     use HandlesAgentJobFailure;
     use NotifiesSourceOfFailure;
     use Queueable;
@@ -99,6 +102,7 @@ class RunFollowUpJob implements ShouldQueue
         try {
             $this->runFollowUp($agent);
         } finally {
+            $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }
@@ -143,7 +147,7 @@ class RunFollowUpJob implements ShouldQueue
             $recorder->mark('git_prepare');
 
             $request = new AgentRunRequest(
-                prompt: YakPromptBuilder::followUpPrompt((string) $this->task->description),
+                prompt: $this->promptFor(fn (): string => YakPromptBuilder::followUpPrompt((string) $this->task->description)),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
@@ -158,6 +162,7 @@ class RunFollowUpJob implements ShouldQueue
             $recorder->agentStarted($request);
             $result = $this->runAgentWithStaleSessionFallback($agent, $request);
             $recorder->agentFinished($result);
+            $this->consumeAnswers();
 
             if ($result->isError) {
                 TaskMetricsAccumulator::record($this->task, $result);
@@ -165,6 +170,13 @@ class RunFollowUpJob implements ShouldQueue
 
                 return;
             }
+
+            if ($this->askIfNeeded($result)) {
+                return;
+            }
+
+            // Questions ignored at the round limit must not reach the output.
+            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
 
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
             ArtifactPersister::persist($this->task);

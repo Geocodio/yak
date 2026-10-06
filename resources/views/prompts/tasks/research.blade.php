@@ -10,3 +10,5 @@ Research the following topic. Do NOT make any code changes.
 **Final summary (the message the user sees):** describe what you produced — e.g. "a research report" or "a written summary" — without naming `.yak-artifacts/` or any file paths. Those are internal plumbing; the user gets the report attached as a link automatically. Skip phrasings like "saved to `.yak-artifacts/research.html`".
 
 Focus on accuracy and practical recommendations. Cite sources where possible.
+
+@include('prompts.partials.clarification-contract')

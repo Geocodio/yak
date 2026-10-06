@@ -142,9 +142,7 @@ class NotificationDriver implements NotificationDriverContract
 
     private static function hasClarificationOptions(YakTask $task): bool
     {
-        $options = $task->clarification_options;
-
-        return is_array($options) && $options !== [];
+        return BlockFormatter::clarificationButtonLabels($task) !== [];
     }
 
     /**

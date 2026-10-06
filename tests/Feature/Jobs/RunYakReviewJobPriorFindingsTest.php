@@ -88,8 +88,7 @@ function bootIncrementalScenario(callable $configureGithub): array
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose', costUsd: 0,
-        numTurns: 1, durationMs: 100, isError: false,
-        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        numTurns: 1, durationMs: 100, isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -205,8 +204,7 @@ it('falls back to today\'s incremental flow when GraphQL fetch fails', function 
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose', costUsd: 0,
-        numTurns: 1, durationMs: 100, isError: false,
-        clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        numTurns: 1, durationMs: 100, isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 

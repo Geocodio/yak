@@ -34,7 +34,7 @@ class ResumeInterruptedTasksCommand extends Command
      * reconstructable from what's persisted on the row. DrainForDeployCommand
      * only stamps that promise into the failure message for tasks that
      * qualify (see failStraggler()); everything else — a follow-up
-     * (RunFollowUpJob), a clarification reply (ClarificationReplyJob), or a
+     * (RunFollowUpJob) or a
      * CI retry (RetryYakJob, via a `Retrying` task) — already carries an
      * accurate "needs a manual retry" message and is left alone here beyond
      * clearing the marker so it isn't reconsidered on the next deploy.

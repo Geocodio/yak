@@ -38,8 +38,8 @@ class ReapLostPendingCommand extends Command
      * `--minutes` ago. `App\Services\AgentJobDispatcher` is the only thing
      * that stamps `dispatched_at`, and only for the four "claiming" agent
      * jobs (RunYakJob, ResearchYakJob, RunYakReviewJob, SetupYakJob) — see
-     * its docblock. Tasks dispatched via RetryYakJob, RunFollowUpJob or
-     * ClarificationReplyJob never get `dispatched_at` set at all, so this
+     * its docblock. Tasks dispatched via RetryYakJob or RunFollowUpJob
+     * never get `dispatched_at` set at all, so this
      * query can never see them; re-dispatching one of those as a fresh
      * RunYakJob would run the wrong job and discard branch/session
      * context.

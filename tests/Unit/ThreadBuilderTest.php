@@ -144,3 +144,43 @@ test('a successful follow-up run yields a yak entry with its result summary', fu
     expect($entries->pluck('kind')->all())->toBe(['user', 'yak', 'user', 'yak'])
         ->and($entries->last()->text)->toBe('Update entry is now a draft.');
 });
+
+it('adds an entry per asked round and per answered round', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['started_at' => now()->subHour()]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], 'Note', 'Michele');
+
+    $kinds = app(ThreadBuilder::class)->build($task->fresh())->pluck('kind')->all();
+
+    expect($kinds)->toContain('clarification')->toContain('clarification-answers');
+});
+
+test('a parked run without a result summary yields no yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'result_summary' => '',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->not->toContain('yak');
+});
+
+test('a running run without a result summary still yields a yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'result_summary' => '',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
+});
+
+test('a failed run without a result summary still yields a yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'result_summary' => '',
+        'error_log' => 'boom',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
+});

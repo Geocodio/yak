@@ -9,13 +9,14 @@ use App\Facades\Telemetry;
 use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ClarificationAnswerSubmitter;
+use App\Services\ClarificationMessage;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
@@ -375,7 +376,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * Handle a thread reply — dispatch ClarificationReplyJob if the task is
+     * Handle a thread reply — answer the pending question if the task is
      * awaiting clarification, or create a follow-up when the task has an open PR.
      *
      * @param  array{channel?: string, thread_ts?: string, text?: string, subtype?: string, bot_id?: string, user?: string}  $event
@@ -400,8 +401,15 @@ class WebhookController extends Controller
 
             if (RepoClarificationResolver::awaitingRepoChoice($clarificationTask)) {
                 RepoClarificationResolver::resolve($clarificationTask, $replyText);
+            } elseif (ClarificationMessage::answersInline($clarificationTask)) {
+                app(ClarificationAnswerSubmitter::class)->submitReply(
+                    $clarificationTask,
+                    $replyText,
+                    UserNameResolver::resolve((string) ($event['user'] ?? '')) ?? 'Slack user',
+                    'slack',
+                );
             } else {
-                ClarificationReplyJob::dispatch($clarificationTask, $replyText);
+                SendNotificationJob::dispatch($clarificationTask, NotificationType::Clarification, ClarificationMessage::pointToForm($clarificationTask), personalize: false);
             }
 
             return response()->json(['ok' => true, 'handled' => 'clarification_reply']);

@@ -220,11 +220,11 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
 - **Direct ping on status changes.** When Yak needs an answer, still needs one a working day later, opens a PR, fails, or someone else cancels the task, it @-mentions the requester (and, on a follow-up, the person who replied) so they get a push. Progress ticks and expiry don't ping. Tasks started from Linear or the dashboard get the same events as a direct message from the Yak bot; a responsible person who did not start the task hears only when the PR is ready. Add `users:read.email` and reinstall the app for direct messages.
 - **Start-of-work progress.** When the worker picks a task up, Yak posts a short in-thread message ("Starting on `{repo}` — exploring the codebase now."). Closes the silent gap between ack and first push. Disable with `YAK_EMIT_START_PROGRESS=false` if you find it noisy.
-- **Click-to-answer clarification.** When Yak asks a clarification question, each option is rendered as a Block Kit button. Clicking one is equivalent to replying in the thread — it dispatches the same ClarificationReplyJob. Requires Interactivity & Shortcuts to be enabled in the Slack app config (step 5 above).
+- **Click-to-answer clarification.** When Yak asks a clarification question, each option is rendered as a Block Kit button. Clicking one is equivalent to replying in the thread: `ClarificationAnswerSubmitter` stores the answer and re-dispatches the job that asked, which resumes the Claude session. Requires Interactivity & Shortcuts to be enabled in the Slack app config (step 5 above).
 
 ### Clarification Flow
 
-Slack is the only channel where Yak will ask for clarification. If a request is ambiguous, Claude Code reads the codebase and posts 2–3 specific options grounded in what it found:
+Any task run (fix tasks from Slack, Linear, Sentry, flaky tests or the dashboard, PR follow-ups, and research) may end with structured questions. If a request is ambiguous, Claude Code reads the codebase and posts 2--3 specific options grounded in what it found:
 
 ```
 I want to make sure I fix the right thing. Which did you mean?
@@ -236,9 +236,7 @@ I want to make sure I fix the right thing. Which did you mean?
 Reply with a number and I'll get started.
 ```
 
-The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` — no re-reading, no re-analysis.
-
-Linear and Sentry tasks do not clarify because their inputs are already structured.
+The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` -- no re-reading, no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option), while several questions, or any question from GitHub or the dashboard, are answered on the task page form and Yak posts a link to it. `ClarificationAnswerSubmitter` stores the answers and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`).
 
 ### Follow-ups
 

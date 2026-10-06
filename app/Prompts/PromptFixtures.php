@@ -174,11 +174,19 @@ class PromptFixtures
                     ],
                 ],
             ],
-            'tasks-clarification-reply' => [
+            'tasks-clarification-answers' => [
                 [
-                    'label' => 'Chose option 2',
+                    'label' => 'Two answers and a skip',
                     'data' => [
-                        'chosenOption' => 'Use a database lock to prevent duplicate charges',
+                        'taskDescription' => 'Add a credit exhaustion email',
+                        'answers' => [
+                            ['question' => 'Fire only on rejection?', 'answer' => 'Only on rejection', 'other' => null],
+                            ['question' => 'Who receives it?', 'answer' => 'Every team member', 'other' => 'Owners first'],
+                            ['question' => 'Demo accounts?', 'answer' => 'No answer. Use your judgment and say what you assumed.', 'other' => null],
+                        ],
+                        'note' => null,
+                        'answeredBy' => 'Michele',
+                        'isLastRound' => false,
                     ],
                 ],
             ],

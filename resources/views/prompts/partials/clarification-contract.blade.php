@@ -1,15 +1,38 @@
+## When to ask questions
 
-## When to ask for clarification
+Ask only when the answer changes what gets built. If you can make a reasonable choice yourself, make it and say what you chose in your summary.
 
-If you cannot make progress on this task, you MUST emit `clarificationNeeded: true` in your final output, along with either a concrete question or a short list of `clarificationOptions` the user can pick from. Reasons this applies:
+Ask when:
 
-- The request is ambiguous and multiple reasonable implementations are possible.
+- The request is ambiguous and reasonable implementations differ in ways the user would care about.
 - You cannot reproduce the reported failure.
 - You need credentials, test data, or configuration only the user has.
 - The scope is too large for one pass and needs to be split.
-- You attempted the task and hit a blocker that you cannot resolve alone.
+- You hit a blocker you cannot resolve alone.
 
 Do NOT commit placeholder or best-guess code when you should be asking. An answered question is a better outcome than a speculative PR.
 
-If the task is a pure question with a short factual answer, answer in prose in your final summary and do not commit code — the pipeline will treat that as a successful answer.
+To ask, write your findings in prose first (what you found and why each question matters), then end your final output with exactly one fenced block tagged `clarification`:
+
+```clarification
+{"questions": [
+  {"id": "payg_triggers",
+   "header": "PAYG trigger",
+   "question": "Should the pay-as-you-go email fire only when requests are actually rejected?",
+   "options": [
+     {"label": "Only on rejection", "description": "No card: free tier and credits used up. Card: daily usage limit reached."},
+     {"label": "Also when the balance hits 0", "description": "Keep the issue's trigger even for carded teams."}
+   ],
+   "multi_select": false}
+]}
+```
+
+Rules for the block:
+
+- 1 to 6 questions. Each question has a unique snake_case `id`, a `header` of at most 3 words, the `question`, 2 to 4 `options` with a short `label` and a one-sentence `description`, and `multi_select` (true only when several options can apply together).
+- Do not add an "Other" option. Every question already accepts a free-text answer.
+- Do not commit code in a run that ends with this block.
+- When you end with this block, skip any summary sections the task asked for; your prose findings above the block are the summary.
+
+If the task is a pure question with a short factual answer, answer in prose in your final summary and do not emit the block.
 @include('prompts.partials.wrong-repository')

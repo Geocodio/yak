@@ -20,3 +20,5 @@ Your previous full report is at `.yak-artifacts/previous-research.html`. Read it
 **Final summary (the message the user sees):** write the answer, and if you revised the report mention that a revised report is attached, without naming `.yak-artifacts/` or any file paths. Those are internal plumbing; the user gets the report attached as a link automatically.
 
 Focus on accuracy and practical recommendations. Cite sources where possible.
+
+@include('prompts.partials.clarification-contract')

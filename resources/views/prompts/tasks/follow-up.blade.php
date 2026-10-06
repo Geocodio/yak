@@ -1,4 +1,4 @@
-The pull request for this task is already open. The user has reviewed it and is giving you feedback to refine it. Act on the following feedback, and push any code changes to the same branch. Do not ask for clarification; use your best judgment.
+The pull request for this task is already open. The user has reviewed it and is giving you feedback to refine it. Act on the following feedback, and push any code changes to the same branch.
 
 **Feedback:**
 {{ $instructions }}
@@ -28,3 +28,4 @@ If the pull request description still accurately describes what the PR does afte
 Otherwise write the full replacement description in the FINAL SUMMARY FORMAT structure (## Summary, ## Changes), describing the PR as it now stands. A reviewer reading only this should understand the whole PR, not just this run. Rewrite; do not append a changelog.
 
 A description is out of date when the follow-up added, removed, or changed a feature, a file group, a behaviour, or a decision that the description mentions or should mention. Renames, refactors that keep behaviour, test-only changes, and small fixes inside an already-described change do not require a rewrite.
+@include('prompts.partials.clarification-contract')

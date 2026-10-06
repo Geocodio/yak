@@ -227,7 +227,7 @@ class ProcessCIResultJob implements ShouldQueue
         $repository = Repository::where('slug', $this->task->repo)->firstOrFail();
 
         // Artifacts are persisted upstream in RunYakJob/RetryYakJob/
-        // ClarificationReplyJob right after SandboxArtifactCollector pulls
+        // RunFollowUpJob right after SandboxArtifactCollector pulls
         // them out of the sandbox — that way the walkthrough video +
         // screenshots show up on the task page and Remotion rendering
         // runs in parallel with Drone CI instead of sequentially.

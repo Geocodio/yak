@@ -9,9 +9,8 @@ use App\Services\IncusSandboxManager;
 trait ResumesAgentOnExistingBranch
 {
     /**
-     * Configure git, refresh the default branch, then fetch + checkout the
-     * existing task branch. Never creates a branch — the branch already
-     * exists from the original run.
+     * Configure git, refresh the default branch, then check out the task
+     * branch, creating it from the default branch when it was never pushed.
      */
     protected function prepareExistingBranch(
         IncusSandboxManager $sandbox,
@@ -25,8 +24,20 @@ trait ResumesAgentOnExistingBranch
         $sandbox->injectGitCredentials($containerName);
 
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
-        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
-        $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
+        $escapedBranch = escapeshellarg($branchName);
+        $lookup = $sandbox->run($containerName, "cd {$workspacePath} && git ls-remote --exit-code --heads origin {$escapedBranch}", timeout: 30);
+
+        // Exit 2 means the remote has no such branch: a run that stopped to ask questions never pushed it.
+        if ($lookup->exitCode() === 2) {
+            $checkout = "git checkout -b {$branchName} origin/{$repository->default_branch}";
+        } elseif ($lookup->exitCode() === 0) {
+            $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
+            $checkout = "git checkout {$branchName}";
+        } else {
+            throw new \RuntimeException("Could not check whether branch '{$branchName}' exists on the remote: {$lookup->errorOutput()}");
+        }
+
+        $sandbox->run($containerName, "cd {$workspacePath} && {$checkout}", timeout: 30);
     }
 
     /**

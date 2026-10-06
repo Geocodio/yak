@@ -35,8 +35,7 @@ test('clarification is handled for any source, not just slack', function () {
         numTurns: 1,
         durationMs: 2000,
         isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Option A', 'Option B'],
+        clarificationQuestions: [sampleQuestion('scope'), sampleQuestion('data')],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -56,7 +55,7 @@ test('clarification is handled for any source, not just slack', function () {
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
-        ->and($task->clarification_options)->toBe(['Option A', 'Option B']);
+        ->and($task->clarificationRoundCount())->toBe(1);
 });
 
 test('clarification is handled for sentry tasks too', function () {
@@ -69,8 +68,7 @@ test('clarification is handled for sentry tasks too', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Share a trace ID', 'Close as environment-specific'],
+        clarificationQuestions: [sampleQuestion('scope'), sampleQuestion('data')],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -89,7 +87,184 @@ test('clarification is handled for sentry tasks too', function () {
     (new RunYakJob($task))->handle($fake);
 
     $task->refresh();
-    expect($task->status)->toBe(TaskStatus::AwaitingClarification);
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->clarificationRoundCount())->toBe(1);
+});
+
+test('a run that asks parks the task, records the round, and skips git', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_q', resultSummary: "Two problems.\n\n```clarification\n{}\n```", costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope'), sampleQuestion('data')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'ask-repo', 'path' => '/home/yak/repos/ask-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'ask-repo', 'source' => 'linear']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->clarificationRoundCount())->toBe(1)
+        ->and($task->clarificationRounds()[0]['summary'])->toBe('Two problems.')
+        ->and($task->clarification_expires_at->isSameDay(now()->addDays(7)))->toBeTrue()
+        ->and($sandbox->commandsMatching('git push'))->toBe([]);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Clarification
+        && str_contains($job->message, 'I have 2 questions') && $job->personalize === false);
+});
+
+test('a run that asks parks the task only after the sandbox is torn down', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_teardown', resultSummary: 'Need a decision.', costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new class extends FakeSandboxManager
+    {
+        public ?TaskStatus $statusAtDestroy = null;
+
+        public function destroy(string $containerName): void
+        {
+            $this->statusAtDestroy = YakTask::query()->latest('id')->first()->status;
+            parent::destroy($containerName);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'teardown-repo', 'path' => '/home/yak/repos/teardown-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'teardown-repo', 'source' => 'linear', 'session_id' => 'sess_teardown']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    expect($sandbox->statusAtDestroy)->toBe(TaskStatus::Running)
+        ->and($sandbox->pulledTranscripts)->not->toBe([])
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Clarification);
+});
+
+test('a run that asks still parks the task when teardown throws', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_teardown_fail', resultSummary: 'Need a decision.', costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
+    {
+        public function destroy(string $containerName): void
+        {
+            throw new RuntimeException('incus unavailable');
+        }
+    });
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'teardown-fail-repo', 'path' => '/home/yak/repos/teardown-fail-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'teardown-fail-repo', 'source' => 'linear']);
+
+    expect(fn () => (new RunYakJob($task))->handle($fake))->toThrow(RuntimeException::class);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
+});
+
+test('a stale session on an answers resume reruns with the first-run prompt and the answers', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)
+        ->queueResult(new AgentRunResult(
+            sessionId: '', resultSummary: '', costUsd: 0, numTurns: 0, durationMs: 10, isError: true, rawOutput: '{}',
+            stderr: 'No conversation found with session ID: sess_first',
+        ))
+        ->queueResult(new AgentRunResult(
+            sessionId: 'sess_fresh', resultSummary: 'Answered', costUsd: 0.05, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
+        ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'stale-repo', 'path' => '/home/yak/repos/stale-repo', 'default_branch' => 'main']);
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'repo' => 'stale-repo', 'source' => 'linear', 'branch_name' => 'yak/stale', 'session_id' => 'sess_first',
+        'description' => 'Fix the flaky importer',
+    ]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new RunYakJob($task->fresh()))->handle($fake);
+
+    $fresh = $fake->calls[1];
+    expect($fake->calls[0]->prompt)->toStartWith('You stopped earlier to ask questions')
+        ->and($fresh->resumeSessionId)->toBeNull()
+        ->and($fresh->prompt)->toEndWith($fake->calls[0]->prompt)
+        ->and($fresh->prompt)->not->toStartWith('You stopped earlier to ask questions');
+});
+
+test('a run on its third round ignores new questions and finishes normally', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_q3', resultSummary: "Answer only\n\n```clarification\n{\"questions\": []}\n```", costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('again')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'r3-repo', 'path' => '/home/yak/repos/r3-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'r3-repo', 'source' => 'linear']);
+    foreach (range(1, 3) as $round) {
+        $task->recordClarificationRound([sampleQuestion("q{$round}")], 'Summary');
+        $task->recordClarificationAnswers(["q{$round}" => ['choices' => ['Option A'], 'other' => null]], null, 'Michele');
+        $task->markClarificationAnswersConsumed();
+    }
+
+    (new RunYakJob($task))->handle($fake);
+
+    expect($task->fresh()->status)->not->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->fresh()->clarificationRoundCount())->toBe(3)
+        ->and($task->fresh()->result_summary)->not->toContain('```clarification');
+    Queue::assertNotPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Clarification);
+});
+
+test('a run with answers resumes the session on the existing branch', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_resume', resultSummary: 'Answered', costUsd: 0.05, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'resume-repo', 'path' => '/home/yak/repos/resume-repo', 'default_branch' => 'main']);
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'repo' => 'resume-repo', 'source' => 'linear', 'branch_name' => 'yak/eng-1603', 'session_id' => 'sess_first',
+    ]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new RunYakJob($task->fresh()))->handle($fake);
+
+    $request = $fake->lastCall();
+    expect($request->resumeSessionId)->toBe('sess_first')
+        ->and($request->prompt)->toContain("Q: Which scope?\nA: Small")
+        ->and($sandbox->pushedTranscripts)->not->toBe([])
+        ->and($sandbox->commandsMatching('git checkout -b'))->toBe([])
+        ->and($task->fresh()->branch_name)->toBe('yak/eng-1603')
+        ->and($task->fresh()->clarificationAnswersAwaitingResume())->toBeNull();
+});
+
+test('a resume interrupted before the agent returns keeps the answers for the next attempt', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueException(new RuntimeException('worker killed'));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'int-repo', 'path' => '/home/yak/repos/int-repo']);
+    $task = YakTask::factory()->withClarificationQuestions()->create(['repo' => 'int-repo', 'branch_name' => 'yak/x']);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new RunYakJob($task->fresh()))->handle($fake);
+
+    expect($task->fresh()->clarificationAnswersAwaitingResume())->not->toBeNull();
 });
 
 test('handleSuccess marks task Success and skips push when no new commits', function () {
@@ -102,8 +277,6 @@ test('handleSuccess marks task Success and skips push when no new commits', func
         numTurns: 3,
         durationMs: 4000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -136,8 +309,6 @@ test('successful run transitions task to awaiting_ci and pushes branch', functio
         numTurns: 15,
         durationMs: 120000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -180,8 +351,6 @@ test('successful run notifies source that task is awaiting CI', function () {
         numTurns: 5,
         durationMs: 10000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -212,8 +381,6 @@ test('task does not transition to awaiting_ci when ci_system is none', function 
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -251,8 +418,6 @@ test('no awaiting-CI notification dispatched when ci_system is none', function (
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -287,8 +452,6 @@ test('successful run creates branch with yak/{external_id} naming', function () 
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -322,8 +485,6 @@ test('branch name gets a counter suffix when remote already has the branch', fun
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -369,8 +530,6 @@ test('successful run increments attempts', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -406,8 +565,6 @@ test('sandbox is created and destroyed on successful run', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -435,8 +592,6 @@ test('sandbox is destroyed even when agent errors', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -468,8 +623,7 @@ test('clarification from slack source sets awaiting_clarification status', funct
         numTurns: 5,
         durationMs: 30000,
         isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Fix the auth flow', 'Fix the API endpoint', 'Both'],
+        clarificationQuestions: [sampleQuestion('scope')],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -491,7 +645,6 @@ test('clarification from slack source sets awaiting_clarification status', funct
 
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->session_id)->toBe('sess_clarify')
-        ->and($task->clarification_options)->toBe(['Fix the auth flow', 'Fix the API endpoint', 'Both'])
         ->and($task->clarification_expires_at)->not->toBeNull()
         ->and((float) $task->cost_usd)->toBe(0.75)
         ->and($task->num_turns)->toBe(5);
@@ -505,8 +658,7 @@ test('clarification from non-slack source is honored and routes to AwaitingClari
         numTurns: 3,
         durationMs: 15000,
         isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Option A'],
+        clarificationQuestions: [sampleQuestion('scope')],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -543,8 +695,6 @@ test('claude error response marks task as failed', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -577,8 +727,6 @@ test('malformed claude output marks task as failed', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: 'not json at all {{',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -619,8 +767,6 @@ test('assembles prompt based on task source', function () {
             numTurns: 1,
             durationMs: 1000,
             isError: false,
-            clarificationNeeded: false,
-            clarificationOptions: [],
             rawOutput: '{}',
         ));
         $this->app->instance(AgentRunner::class, $fake);
@@ -724,8 +870,6 @@ test('emits a Progress notification at pickup on the first attempt', function ()
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -755,8 +899,6 @@ test('skips start-of-work progress notification when emit_start_progress is disa
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -795,8 +937,6 @@ test('refreshes git credential helper immediately before push', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -838,8 +978,6 @@ test('does not emit start-of-work progress on retry (attempts > 0)', function ()
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -865,8 +1003,6 @@ test('successful run persists the session transcript before destroying the sandb
         numTurns: 5,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

@@ -4,7 +4,6 @@ use App\Contracts\AgentRunner;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
@@ -298,44 +297,6 @@ test('SetupYakJob detects auth error and fails task with notification', function
     $task = YakTask::factory()->pending()->create(['repo' => 'setup-repo', 'source' => 'slack']);
 
     $job = new SetupYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toContain('Claude CLI authentication error');
-
-    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
-        return $job->type === NotificationType::Error;
-    });
-});
-
-/*
-|--------------------------------------------------------------------------
-| ClarificationReplyJob Auth Error Detection
-|--------------------------------------------------------------------------
-*/
-
-test('ClarificationReplyJob detects auth error and fails task with notification', function () {
-    Queue::fake([SendNotificationJob::class]);
-
-    $fake = (new FakeAgentRunner)->queueException(
-        new ClaudeAuthException('Claude CLI authentication error: session expired, please login again')
-    );
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake(['*' => Process::result('')]);
-
-    $repository = Repository::factory()->create(['slug' => 'clarify-repo', 'path' => '/home/yak/repos/clarify-repo']);
-    $task = YakTask::factory()->create([
-        'repo' => 'clarify-repo',
-        'status' => TaskStatus::AwaitingClarification,
-        'session_id' => 'sess_clarify',
-        'source' => 'slack',
-    ]);
-
-    $job = new ClarificationReplyJob($task, 'Use option A');
     $job->handle($fake);
 
     $task->refresh();

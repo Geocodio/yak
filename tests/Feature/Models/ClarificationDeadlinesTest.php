@@ -4,23 +4,23 @@ use App\Models\YakTask;
 use Carbon\CarbonImmutable;
 
 beforeEach(function () {
-    config()->set('yak.clarification_ttl_days', 3);
+    config()->set('yak.clarification_ttl_days', 7);
 });
 
-test('a Friday question is reminded on Monday and expires on Wednesday at the same time of day', function () {
+test('a question is reminded after three days and expires after seven at the same time of day', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-02 14:30:00'));
 
     $deadlines = YakTask::clarificationDeadlines();
 
     expect($deadlines['clarification_reminder_at']->toDateTimeString())->toBe('2026-10-05 14:30:00')
-        ->and($deadlines['clarification_expires_at']->toDateTimeString())->toBe('2026-10-07 14:30:00');
+        ->and($deadlines['clarification_expires_at']->toDateTimeString())->toBe('2026-10-09 14:30:00');
 });
 
-test('a Saturday question counts its working days from Monday', function () {
+test('weekends are not skipped', function () {
     $this->travelTo(CarbonImmutable::parse('2026-10-03 10:00:00'));
 
     $deadlines = YakTask::clarificationDeadlines();
 
-    expect($deadlines['clarification_reminder_at']->toDateTimeString())->toBe('2026-10-05 10:00:00')
-        ->and($deadlines['clarification_expires_at']->toDateTimeString())->toBe('2026-10-07 10:00:00');
+    expect($deadlines['clarification_reminder_at']->toDateTimeString())->toBe('2026-10-06 10:00:00')
+        ->and($deadlines['clarification_expires_at']->toDateTimeString())->toBe('2026-10-10 10:00:00');
 });

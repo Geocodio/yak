@@ -117,8 +117,20 @@ export type MediaItem = {
     caption: string | null;
 };
 
+export type QuestionOptionData = { label: string; description: string };
+
+export type QuestionData = {
+    id: string;
+    header: string;
+    question: string;
+    multiSelect: boolean;
+    options: QuestionOptionData[];
+};
+
+export type ClarificationAnswerItem = { header: string; answer: string | null; other: string | null; skipped: boolean };
+
 export type ThreadEntryData = {
-    kind: 'user' | 'yak' | 'clarification' | 'system' | 'review-context';
+    kind: 'user' | 'yak' | 'clarification' | 'clarification-answers' | 'system' | 'review-context';
     who: string | null;
     meta: string;
     bodyHtml: string;
@@ -130,6 +142,8 @@ export type ThreadEntryData = {
     error?: string | null;
     links?: { label: string; url: string }[];
     media?: MediaItem[];
+    answers?: ClarificationAnswerItem[];
+    note?: string | null;
 };
 
 export type RunSummary = {
@@ -218,7 +232,7 @@ export type FindingsData = {
 } | null;
 
 export type ComposerData = {
-    state: 'clarification' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
+    state: 'clarification' | 'questions' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
     placeholder: string;
     note: string | null;
     buttonLabel: string | null;

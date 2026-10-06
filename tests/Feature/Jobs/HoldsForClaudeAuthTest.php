@@ -1,6 +1,5 @@
 <?php
 
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -54,6 +53,5 @@ it('keeps a job held for its whole retry window under the attempts column limit'
     ResearchYakJob::class,
     RunYakReviewJob::class,
     RunFollowUpJob::class,
-    ClarificationReplyJob::class,
     SetupYakJob::class,
 ]);

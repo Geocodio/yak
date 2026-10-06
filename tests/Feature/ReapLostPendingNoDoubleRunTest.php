@@ -37,8 +37,6 @@ test('re-dispatching a task that is actually still queued does not produce two r
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     app()->instance(AgentRunner::class, $fake);

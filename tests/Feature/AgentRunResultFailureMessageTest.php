@@ -10,8 +10,6 @@ it('failureMessage() appends CLI stderr when Claude returned no result text', fu
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         errorSubtype: 'error_during_execution',
         stderr: "No conversation found with session ID: 98894ba5\n",

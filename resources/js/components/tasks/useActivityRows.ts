@@ -24,6 +24,7 @@ export const POLLED_PROPS = [
     'deployment',
     'findings',
     'composer',
+    'questions',
     'debug',
     'actions',
     'pollInterval',

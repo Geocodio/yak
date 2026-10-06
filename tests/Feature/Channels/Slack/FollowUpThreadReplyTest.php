@@ -1,9 +1,9 @@
 <?php
 
 use App\Enums\TaskMode;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
+use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
@@ -190,14 +190,15 @@ it('posts a decline notification and dispatches no follow-up when the PR is alre
 
 /*
 |--------------------------------------------------------------------------
-| Regression: awaiting_clarification still dispatches ClarificationReplyJob
+| Regression: awaiting_clarification still answers the pending question
 |--------------------------------------------------------------------------
 */
 
-it('still dispatches ClarificationReplyJob for awaiting-clarification tasks (regression)', function () {
+it('still answers the pending question for awaiting-clarification tasks (regression)', function () {
     Queue::fake();
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'slack_channel' => 'C_CLAR',
         'slack_thread_ts' => '777.888',
     ]);
@@ -211,9 +212,7 @@ it('still dispatches ClarificationReplyJob for awaiting-clarification tasks (reg
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertPushed(ClarificationReplyJob::class, function (ClarificationReplyJob $job) use ($task) {
-        return $job->task->id === $task->id;
-    });
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
     Queue::assertNotPushed(RunFollowUpJob::class);
 });
 

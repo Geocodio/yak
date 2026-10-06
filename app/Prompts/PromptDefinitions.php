@@ -114,13 +114,13 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['taskDescription', 'previousSummary', 'failureOutput'],
             ],
-            'tasks-clarification-reply' => [
-                'view' => 'prompts.tasks.clarification-reply',
-                'label' => 'Clarification Reply',
-                'description' => 'Sent when the user answers a clarification question Claude raised mid-task. Tells Claude which option was chosen so it can resume implementing without asking again.',
+            'tasks-clarification-answers' => [
+                'view' => 'prompts.tasks.clarification-answers',
+                'label' => 'Clarification Answers',
+                'description' => 'Sent when people answer the questions Claude asked. Lists each question with its answer (or that it was skipped), any extra note, and tells Claude to continue. On the last allowed round it tells Claude not to ask again.',
                 'category' => 'advanced',
                 'type' => 'task',
-                'variables' => ['chosenOption'],
+                'variables' => ['taskDescription', 'answers', 'note', 'answeredBy', 'isLastRound'],
             ],
             'tasks-follow-up' => [
                 'view' => 'prompts.tasks.follow-up',

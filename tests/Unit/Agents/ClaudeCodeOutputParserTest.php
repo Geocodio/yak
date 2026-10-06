@@ -20,28 +20,8 @@ it('parses a successful Claude Code JSON payload', function () {
         ->and($result->numTurns)->toBe(15)
         ->and($result->durationMs)->toBe(120000)
         ->and($result->isError)->toBeFalse()
-        ->and($result->clarificationNeeded)->toBeFalse()
-        ->and($result->clarificationOptions)->toBe([])
+        ->and($result->clarificationQuestions)->toBe([])
         ->and($result->rawOutput)->toBe($json);
-});
-
-it('parses a clarification payload', function () {
-    $json = json_encode([
-        'result' => 'Need clarification',
-        'session_id' => 'sess_2',
-        'cost_usd' => 0.3,
-        'num_turns' => 2,
-        'duration_ms' => 15000,
-        'is_error' => false,
-        'clarification_needed' => true,
-        'options' => ['Upgrade dependency', 'Pin version'],
-    ]);
-
-    $result = ClaudeCodeOutputParser::parse($json);
-
-    expect($result->clarificationNeeded)->toBeTrue()
-        ->and($result->clarificationOptions)->toBe(['Upgrade dependency', 'Pin version'])
-        ->and($result->isError)->toBeFalse();
 });
 
 it('parses an error payload with is_error true', function () {
@@ -82,48 +62,6 @@ it('accepts result_summary as an alias for result', function () {
     expect($result->resultSummary)->toBe('Alternate key');
 });
 
-it('extracts clarification from embedded JSON in the result text', function () {
-    $embeddedJson = json_encode([
-        'clarification_needed' => true,
-        'options' => [
-            'Add confetti on page load',
-            'Add confetti on button click',
-            'Add confetti as background animation',
-        ],
-    ]);
-
-    $json = json_encode([
-        'result' => "```json\n{$embeddedJson}\n```",
-        'session_id' => 'sess_embedded',
-        'total_cost_usd' => 0.06,
-        'num_turns' => 1,
-        'duration_ms' => 5000,
-        'is_error' => false,
-    ]);
-
-    $result = ClaudeCodeOutputParser::parse($json);
-
-    expect($result->clarificationNeeded)->toBeTrue()
-        ->and($result->clarificationOptions)->toHaveCount(3)
-        ->and($result->clarificationOptions[0])->toBe('Add confetti on page load')
-        ->and($result->isError)->toBeFalse();
-});
-
-it('prefers top-level clarification over embedded', function () {
-    $json = json_encode([
-        'result' => '{"clarification_needed": true, "options": ["embedded option"]}',
-        'session_id' => 'sess_toplevel',
-        'is_error' => false,
-        'clarification_needed' => true,
-        'options' => ['top-level option'],
-    ]);
-
-    $result = ClaudeCodeOutputParser::parse($json);
-
-    expect($result->clarificationNeeded)->toBeTrue()
-        ->and($result->clarificationOptions)->toBe(['top-level option']);
-});
-
 it('defaults missing numeric fields to zero', function () {
     $json = json_encode([
         'result' => 'ok',
@@ -136,4 +74,75 @@ it('defaults missing numeric fields to zero', function () {
     expect($result->costUsd)->toBe(0.0)
         ->and($result->numTurns)->toBe(0)
         ->and($result->durationMs)->toBe(0);
+});
+
+function clarificationResult(string $text): string
+{
+    return json_encode(['result' => $text, 'session_id' => 'sess_q', 'cost_usd' => 0.1, 'num_turns' => 2, 'duration_ms' => 100]);
+}
+
+it('parses a fenced clarification block into questions', function () {
+    $text = "I found two problems.\n\n```clarification\n" . json_encode(['questions' => [
+        ['id' => 'payg', 'header' => 'PAYG trigger', 'question' => 'Only on rejection?', 'options' => [
+            ['label' => 'Only on rejection', 'description' => 'Requests are blocked.'],
+            ['label' => 'Also at 0', 'description' => 'Keep the issue trigger.'],
+        ]],
+        ['id' => 'demo', 'header' => 'Demo accounts', 'question' => 'Include demo?', 'multi_select' => true, 'options' => [
+            ['label' => 'Leave out'], ['label' => 'Include'],
+        ]],
+    ]]) . "\n```";
+
+    $result = ClaudeCodeOutputParser::parse(clarificationResult($text));
+
+    expect($result->needsClarification())->toBeTrue()
+        ->and($result->clarificationQuestions)->toHaveCount(2)
+        ->and($result->clarificationQuestions[1]->multiSelect)->toBeTrue();
+});
+
+it('uses the last clarification block when there are several', function () {
+    $block = fn (string $id) => "```clarification\n" . json_encode(['questions' => [
+        ['id' => $id, 'question' => 'Q?', 'options' => [['label' => 'a'], ['label' => 'b']]],
+    ]]) . "\n```";
+
+    $result = ClaudeCodeOutputParser::parse(clarificationResult($block('first') . "\n\nRevised:\n" . $block('second')));
+
+    expect($result->clarificationQuestions[0]->id)->toBe('second');
+});
+
+it('ignores the old flat clarification shapes', function (string $text) {
+    expect(ClaudeCodeOutputParser::parse(clarificationResult($text))->needsClarification())->toBeFalse();
+})->with([
+    'snake case' => ["```json\n{\"clarification_needed\": true, \"options\": [\"A\", \"B\"]}\n```"],
+    'camel case' => ["```json\n{\"clarificationNeeded\": true, \"clarificationOptions\": [\"A\", \"B\"]}\n```"],
+]);
+
+it('ignores the top-level clarification_needed key', function () {
+    $output = json_encode(['result' => 'x', 'clarification_needed' => true, 'options' => ['A', 'B']]);
+
+    expect(ClaudeCodeOutputParser::parse($output)->needsClarification())->toBeFalse();
+});
+
+it('treats malformed JSON in the block as no clarification', function () {
+    $result = ClaudeCodeOutputParser::parse(clarificationResult("```clarification\n{not json\n```"));
+
+    expect($result->needsClarification())->toBeFalse()
+        ->and($result->isError)->toBeFalse();
+});
+
+it('drops invalid questions, duplicate ids, and caps at six', function () {
+    $questions = [['id' => 'bad', 'question' => 'One option', 'options' => [['label' => 'only']]]];
+    for ($i = 1; $i <= 8; $i++) {
+        $questions[] = ['id' => "q{$i}", 'question' => "Q{$i}?", 'options' => [['label' => 'a'], ['label' => 'b']]];
+    }
+    $questions[] = ['id' => 'q1', 'question' => 'Duplicate', 'options' => [['label' => 'a'], ['label' => 'b']]];
+
+    $result = ClaudeCodeOutputParser::parse(clarificationResult("```clarification\n" . json_encode(['questions' => $questions]) . "\n```"));
+
+    expect(array_map(fn ($q) => $q->id, $result->clarificationQuestions))->toBe(['q1', 'q2', 'q3', 'q4', 'q5', 'q6']);
+});
+
+it('strips the clarification block from a summary', function () {
+    $text = "Findings here.\n\n```clarification\n{\"questions\": []}\n```\n";
+
+    expect(ClaudeCodeOutputParser::stripClarificationBlock($text))->toBe('Findings here.');
 });

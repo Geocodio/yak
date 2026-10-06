@@ -1,5 +1,6 @@
 <?php
 
+use App\DataTransferObjects\ClarificationQuestion;
 use App\DataTransferObjects\ParsedReview;
 use App\DataTransferObjects\ReviewFinding;
 use App\Services\ReviewOutputParser;
@@ -98,16 +99,31 @@ function fakeClaudeRun(array $result = [], array $extraFakes = []): void
 }
 
 /**
- * Fake a Claude CLI clarification response.
+ * A valid clarification question for tests.
+ */
+function sampleQuestion(string $id = 'scope', array $labels = ['Option A', 'Option B']): ClarificationQuestion
+{
+    return ClarificationQuestion::fromArray([
+        'id' => $id,
+        'header' => ucfirst($id),
+        'question' => "Which {$id} should I use?",
+        'options' => array_map(fn (string $label): array => ['label' => $label, 'description' => "Use {$label}."], $labels),
+    ]);
+}
+
+/**
+ * Fake a Claude CLI response that ends with a clarification block.
  *
- * @param  array<int, string>  $options  Clarification options to return
+ * @param  list<ClarificationQuestion>  $questions
  * @param  array<string, mixed>  $result  Override fields in the Claude JSON output
  */
-function fakeClaudeClarification(array $options = ['Option A', 'Option B', 'Option C'], array $result = []): void
+function fakeClaudeClarification(array $questions = [], array $result = []): void
 {
+    $questions = $questions !== [] ? $questions : [sampleQuestion('scope'), sampleQuestion('data')];
+    $block = "```clarification\n" . json_encode(['questions' => array_map(fn ($q) => $q->toArray(), $questions)]) . "\n```";
+
     $defaults = [
-        'clarification_needed' => true,
-        'options' => $options,
+        'result' => "I need a decision before I build this.\n\n{$block}",
         'session_id' => 'sess_clarify_' . uniqid(),
         'cost_usd' => 0.75,
         'num_turns' => 5,

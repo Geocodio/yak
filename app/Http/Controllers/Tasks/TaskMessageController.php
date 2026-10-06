@@ -6,7 +6,6 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\SendTaskMessageRequest;
-use App\Jobs\ClarificationReplyJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
@@ -25,6 +24,7 @@ class TaskMessageController extends Controller
         $status = $head->status;
 
         $state = match (true) {
+            $status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [] => 'questions',
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
@@ -32,6 +32,7 @@ class TaskMessageController extends Controller
         };
 
         [$flashKey, $message] = match ($state) {
+            'questions' => ['error', 'Answer the questions in the form above.'],
             'clarification' => ['success', $this->sendClarification($head, $text)],
             'steering' => ['success', $this->sendSteering($head, $text)],
             'follow_up' => $this->sendFollowUpMessage($head, $text),
@@ -45,11 +46,7 @@ class TaskMessageController extends Controller
     {
         TaskLogger::info($head, 'Clarification reply submitted via Yak UI');
 
-        if (RepoClarificationResolver::awaitingRepoChoice($head)) {
-            RepoClarificationResolver::resolve($head, $text);
-        } else {
-            ClarificationReplyJob::dispatch($head, $text);
-        }
+        RepoClarificationResolver::resolve($head, $text);
 
         return 'Reply sent. Yak is continuing the task.';
     }

@@ -149,7 +149,7 @@ Not enforced. Developers can run Pint on save or set up a git pre-commit hook. C
 
 See the [Architecture](architecture.md) page for the full system design. For contributors, the shortest version:
 
-- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `ClarificationReplyJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each agent job creates an Incus sandbox at the start and destroys it in a `finally` block.
+- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `RunFollowUpJob`, `ResearchFollowUpJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each agent job creates an Incus sandbox at the start and destroys it in a `finally` block.
 - **`app/Jobs/Middleware/`** — `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
 - **`app/Agents/`** — `SandboxedAgentRunner` (the `AgentRunner` implementation), `ClaudeCodeOutputParser`, `StreamEventHandler`. The runner executes Claude Code inside the task's Incus container via `incus exec`.
 - **`app/Services/IncusSandboxManager.php`** — sandbox lifecycle: clone from snapshot, configure resource limits, push Claude/MCP config, snapshot, promote-to-template, destroy.
