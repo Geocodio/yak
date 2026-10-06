@@ -8,6 +8,7 @@ use App\Events\TaskStatusChanged;
 use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\ReRequestReviewJob;
 use App\Jobs\SummarizeTaskDescriptionJob;
+use App\Models\Concerns\HasClarificationRounds;
 use App\Services\TaskDescriptionSummary;
 use ArtisanBuild\FatEnums\StateMachine\ModelHasStateMachine;
 use Carbon\CarbonImmutable;
@@ -32,6 +33,7 @@ use Illuminate\Support\Str;
  * @property int|null $summon_review_comment_id
  * @property string|null $summon_quote
  * @property array<int, string>|null $clarification_options
+ * @property array<int, array<string, mixed>>|null $clarification_rounds
  * @property array<int, mixed>|null $screenshots
  * @property CarbonImmutable|null $clarification_expires_at
  * @property CarbonImmutable|null $started_at
@@ -56,7 +58,9 @@ use Illuminate\Support\Str;
 class YakTask extends Model
 {
     /** @use HasFactory<YakTaskFactory> */
-    use HasFactory, ModelHasStateMachine;
+    use HasClarificationRounds, HasFactory, ModelHasStateMachine;
+
+    public const MAX_CLARIFICATION_ROUNDS = 3;
 
     protected $table = 'tasks';
 
@@ -89,6 +93,7 @@ class YakTask extends Model
             'mode' => TaskMode::class,
             'targets_external_pr' => 'boolean',
             'clarification_options' => 'json',
+            'clarification_rounds' => 'json',
             're_request_review_from' => 'array',
             'review_replies' => 'array',
             'clarification_expires_at' => 'datetime',
@@ -307,8 +312,8 @@ class YakTask extends Model
         $now = now()->toImmutable();
 
         return [
-            'clarification_expires_at' => $now->addWeekdays((int) config('yak.clarification_ttl_days', 3)),
-            'clarification_reminder_at' => $now->addWeekdays(1),
+            'clarification_expires_at' => $now->addDays((int) config('yak.clarification_ttl_days', 7)),
+            'clarification_reminder_at' => $now->addDays(3),
         ];
     }
 

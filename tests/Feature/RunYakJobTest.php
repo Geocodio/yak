@@ -56,7 +56,7 @@ test('clarification is handled for any source, not just slack', function () {
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->clarificationRoundCount())->toBe(1);
-})->todo();
+});
 
 test('clarification is handled for sentry tasks too', function () {
     Queue::fake();
@@ -89,7 +89,55 @@ test('clarification is handled for sentry tasks too', function () {
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->clarificationRoundCount())->toBe(1);
-})->todo();
+});
+
+test('a run that asks parks the task, records the round, and skips git', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_q', resultSummary: "Two problems.\n\n```clarification\n{}\n```", costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope'), sampleQuestion('data')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'ask-repo', 'path' => '/home/yak/repos/ask-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'ask-repo', 'source' => 'linear']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->clarificationRoundCount())->toBe(1)
+        ->and($task->clarificationRounds()[0]['summary'])->toBe('Two problems.')
+        ->and($task->clarification_expires_at->isSameDay(now()->addDays(7)))->toBeTrue()
+        ->and($sandbox->commandsMatching('git push'))->toBe([]);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Clarification
+        && str_contains($job->message, 'I have 2 questions') && $job->personalize === false);
+});
+
+test('a run on its third round ignores new questions and finishes normally', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_q3', resultSummary: 'Answer only', costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('again')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'r3-repo', 'path' => '/home/yak/repos/r3-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'r3-repo', 'source' => 'linear']);
+    foreach (range(1, 3) as $round) {
+        $task->recordClarificationRound([sampleQuestion("q{$round}")], 'Summary');
+        $task->recordClarificationAnswers(["q{$round}" => ['choices' => ['Option A'], 'other' => null]], null, 'Michele');
+        $task->markClarificationAnswersConsumed();
+    }
+
+    (new RunYakJob($task))->handle($fake);
+
+    expect($task->fresh()->status)->not->toBe(TaskStatus::AwaitingClarification)
+        ->and($task->fresh()->clarificationRoundCount())->toBe(3);
+});
 
 test('handleSuccess marks task Success and skips push when no new commits', function () {
     Queue::fake();

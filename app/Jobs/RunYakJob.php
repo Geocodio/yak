@@ -10,6 +10,7 @@ use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
+use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\HandlesWrongRepository;
@@ -39,6 +40,7 @@ use Illuminate\Support\Facades\Log;
 
 class RunYakJob implements ShouldBeUnique, ShouldQueue
 {
+    use AsksClarifyingQuestions;
     use ClaimsTask;
     use HandlesAgentJobFailure;
     use HandlesWrongRepository;
@@ -225,9 +227,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            if ($result->needsClarification()) {
-                $this->handleClarification($result);
-
+            if ($this->askIfNeeded($result)) {
                 return;
             }
 
@@ -434,26 +434,6 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         return $update;
-    }
-
-    private function handleClarification(AgentRunResult $result): void
-    {
-        TaskMetricsAccumulator::record($this->task, $result);
-
-        $this->task->update([
-            'status' => TaskStatus::AwaitingClarification,
-            ...YakTask::clarificationDeadlines(),
-        ]);
-
-        DailyCost::accumulate($result->costUsd);
-
-        SendNotificationJob::dispatch(
-            $this->task,
-            NotificationType::Clarification,
-            'I have questions before I can continue.',
-        );
-
-        TaskLogger::info($this->task, 'Clarification posted');
     }
 
     private function handleError(string $errorMessage): void
