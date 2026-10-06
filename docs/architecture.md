@@ -246,7 +246,7 @@ Two queues separate Claude Code work from everything else:
 
 | Queue | Concurrency | Timeout | Jobs |
 |---|---|---|---|
-| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, ResearchFollowUpJob |
+| `yak-claude` | 4 | 600s | RunYakJob, RetryYakJob, ResearchYakJob, SetupYakJob, RunFollowUpJob, ResearchFollowUpJob |
 | `default` | 3 | 30s | ProcessCIResultJob, webhook handlers, PR creation, notifications, cleanup |
 
 The split exists to prevent a common failure mode: Task A's CI passes, but Task A's PR creation blocks for 10 minutes because Task B is mid-Opus on `yak-claude`. Putting coordination work (webhook processing, PR creation) on the `default` queue keeps it responsive even when Claude Code is busy.

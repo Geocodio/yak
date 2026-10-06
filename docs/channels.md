@@ -224,7 +224,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 
 ### Clarification Flow
 
-Slack is the only channel where Yak will ask for clarification. If a request is ambiguous, Claude Code reads the codebase and posts 2–3 specific options grounded in what it found:
+Any task run (fix tasks from Slack, Linear, Sentry, flaky tests or the dashboard, PR follow-ups, and research) may end with structured questions. If a request is ambiguous, Claude Code reads the codebase and posts 2--3 specific options grounded in what it found:
 
 ```
 I want to make sure I fix the right thing. Which did you mean?
@@ -236,9 +236,7 @@ I want to make sure I fix the right thing. Which did you mean?
 Reply with a number and I'll get started.
 ```
 
-The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` — no re-reading, no re-analysis. The agent ends a run with a ```clarification block of structured questions; the dashboard form takes answers to any number of them, while Slack and Linear answer a single question inline. `ClarificationAnswerSubmitter` stores the answers and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`).
-
-Linear and Sentry tasks do not clarify because their inputs are already structured.
+The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` -- no re-reading, no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option), while several questions, or any question from GitHub or the dashboard, are answered on the task page form and Yak posts a link to it. `ClarificationAnswerSubmitter` stores the answers and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`).
 
 ### Follow-ups
 
