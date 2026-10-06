@@ -14,6 +14,7 @@ import cursor_yak as yak  # noqa: E402
 
 BASE_WIDTH, BASE_FRONT, BASE_BACK, BASE_HEIGHT = 36.0, -38.0, -19.0, 3.0
 LID_HEIGHT, LID_THICKNESS = 16.0, 3.0
+PROMPT_Z = 10.0
 SHOULDER = (18.4, -2.0, 31.0)
 HAND = (14.0, -25.0, 6.2)
 
@@ -44,7 +45,7 @@ def build_laptop():
     lid = yak.rounded_box("lid", (34.0, LID_THICKNESS, LID_HEIGHT - lid_bottom), (0, BASE_FRONT + LID_THICKNESS / 2, (LID_HEIGHT + lid_bottom) / 2), 1.0)
     yak.boolean(base, lid, "UNION")
     yak.remove(lid)
-    z = 10.0
+    z = PROMPT_Z
     strokes = [((-8, z + 4), (-3, z)), ((-8, z - 4), (-3, z)), ((1, z - 4), (7, z - 4))]
     inlay = None
     for (x0, z0), (x1, z1) in strokes:
