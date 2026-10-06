@@ -26,6 +26,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -41,7 +42,7 @@ class WebhookController extends Controller
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string} $event */
+        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string} $event */
         $event = $request->input('event', []);
 
         return $this->recordWebhook(
@@ -52,7 +53,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string}  $event
+     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
      */
     private function route(Request $request, array $event): JsonResponse
     {
@@ -67,9 +68,20 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'duplicate']);
         }
 
+        if (! $this->isFromWorkspaceMember($event)) {
+            Log::channel('yak')->info('Ignored Slack event from a guest or a user outside the workspace', [
+                'type' => $event['type'] ?? null,
+                'user_id' => $event['user'] ?? null,
+            ]);
+
+            return response()->json(['ok' => true, 'skipped' => 'not_workspace_member']);
+        }
+
         return match ($event['type'] ?? null) {
             'app_mention' => $this->handleMention($request),
-            'message' => $this->handleThreadReply($event),
+            'message' => $this->isNewDirectMessage($event)
+                ? $this->handleMention($request)
+                : $this->handleThreadReply($event),
             'app_home_opened' => $this->handleAppHomeOpened($event),
             default => response()->json(['ok' => true]),
         };
@@ -89,6 +101,43 @@ class WebhookController extends Controller
             'X-Slack-Signature',
             prefix: 'v0=',
             payload: $basestring,
+        );
+    }
+
+    /**
+     * A top-level message a user sends in their DM with Yak. Slack sends
+     * these as `message.im` events, not `app_mention`, so they start a
+     * task the same way a mention does. Replies inside a DM thread carry
+     * `thread_ts` and edits or deletions carry a `subtype`, so both stay
+     * on the thread reply path.
+     *
+     * @param  array{channel_type?: string, subtype?: string, thread_ts?: string}  $event
+     */
+    private function isNewDirectMessage(array $event): bool
+    {
+        return ($event['channel_type'] ?? null) === 'im'
+            && ! isset($event['thread_ts'])
+            && ! isset($event['subtype']);
+    }
+
+    /**
+     * Only full members of the workspace trigger Yak. Guests and Slack
+     * Connect users from other organizations are ignored whether they
+     * mention it, reply in a thread, DM it, or open its App Home.
+     *
+     * @param  array{type?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
+     */
+    private function isFromWorkspaceMember(array $event): bool
+    {
+        if (! in_array($event['type'] ?? null, ['app_mention', 'message', 'app_home_opened'], true)) {
+            return true;
+        }
+
+        return app(SenderPolicy::class)->isAllowed(
+            (string) ($event['user'] ?? ''),
+            (string) ($event['team'] ?? ''),
+            (string) ($event['user_team'] ?? ''),
+            (string) ($event['source_team'] ?? ''),
         );
     }
 

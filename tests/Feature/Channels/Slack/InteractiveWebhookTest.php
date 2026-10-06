@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Slack\InteractivityTracker;
+use App\Channels\Slack\SenderPolicy;
 use App\Enums\TaskStatus;
 use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
@@ -100,6 +101,34 @@ it('dispatches ClarificationReplyJob when a clarification button is clicked', fu
         return $job->task->id === $task->id && $job->replyText === 'acme/web';
     });
 });
+
+it('ignores clarification clicks from guests and Slack Connect users', function (array $user) {
+    $secret = enableSlackForInteractive();
+    Queue::fake();
+    app()->instance(SenderPolicy::class, new SenderPolicy);
+    Http::fake([
+        'slack.com/api/auth.test*' => Http::response(['ok' => true, 'team_id' => 'T_WORKSPACE']),
+        'slack.com/api/users.info*' => Http::response(['ok' => true, 'user' => array_merge(['id' => 'U12345', 'team_id' => 'T_WORKSPACE'], $user)]),
+    ]);
+
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'source' => 'slack',
+        'clarification_options' => ['acme/web', 'acme/api'],
+    ]);
+
+    $body = buildClarifyButtonBody($task->id, 'acme/web');
+
+    $this->call('POST', '/webhooks/slack/interactive', content: $body,
+        server: signSlackInteractivePayload($body, $secret)
+    )->assertOk()->assertJson(['skipped' => 'not_workspace_member']);
+
+    Queue::assertNothingPushed();
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
+})->with([
+    'Slack Connect user' => [['team_id' => 'T_OTHER_ORG']],
+    'guest' => [['is_restricted' => true]],
+]);
 
 it('ignores unrecognised action_ids', function () {
     $secret = enableSlackForInteractive();
