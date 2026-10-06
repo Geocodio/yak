@@ -1,4 +1,4 @@
-The pull request for this task is already open. The user has reviewed it and is giving you feedback to refine it. Apply the following changes and push to the same branch. Do not ask for clarification; use your best judgment.
+The pull request for this task is already open. The user has reviewed it and is giving you feedback to refine it. Act on the following feedback, and push any code changes to the same branch. Do not ask for clarification; use your best judgment.
 
 **Feedback:**
 {{ $instructions }}
@@ -11,7 +11,7 @@ If your change alters anything the existing screenshots or walkthrough show, cap
 
 ## What changed in this run
 
-A few short bullets or sentences describing only what you changed in response to this feedback. This becomes a comment on the pull request. Do not restate the original PR description, repeat the Summary/Changes structure, or describe work from earlier runs. When the feedback has no tagged comments, this comment is the only answer the user sees: if you changed nothing, answer the question here directly instead of saying that you made no changes.
+A few short bullets or sentences describing only what you changed in response to this feedback. This becomes a comment on the pull request. Do not restate the original PR description, repeat the Summary/Changes structure, or describe work from earlier runs. When the feedback has no tagged comments, this comment is the only answer the user sees, posted directly under a quote of their message. If you changed nothing, start with the answer itself. Do not say that you made no changes, and do not restate or paraphrase the question.
 
 ## Replies
 
