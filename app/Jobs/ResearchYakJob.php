@@ -116,6 +116,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         try {
             $this->runResearch($agent);
         } finally {
+            $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }

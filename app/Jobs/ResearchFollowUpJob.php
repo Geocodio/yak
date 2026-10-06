@@ -117,6 +117,7 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
         try {
             $this->runFollowUp($agent);
         } finally {
+            $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }

@@ -586,6 +586,7 @@ it('renders answers, other text, skipped questions and the note', function () {
         ->toContain("Q: Which data?\nA: No answer. Use your judgment and say what you assumed.")
         ->toContain('Additional instructions from Michele: Keep it short')
         ->toContain('Continue the task with these answers.')
+        ->toContain('Your workspace is a fresh checkout of the task branch')
         ->toContain('```clarification')
         ->not->toContain('Do not ask again');
 });

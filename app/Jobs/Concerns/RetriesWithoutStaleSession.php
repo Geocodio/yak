@@ -10,6 +10,12 @@ use App\Services\TaskLogger;
 trait RetriesWithoutStaleSession
 {
     /**
+     * Prompt for the fresh run when it differs from the resumed run's
+     * prompt, such as the first-run prompt plus the answers to questions.
+     */
+    protected ?string $staleSessionFallbackPrompt = null;
+
+    /**
      * Run the agent, falling back to a fresh (non-resumed) run when the
      * CLI reports the resume session's transcript is missing.
      *
@@ -34,6 +40,6 @@ trait RetriesWithoutStaleSession
             ]);
         }
 
-        return $agent->run($request->withoutResume())->withStaleSessionRetry();
+        return $agent->run($request->withoutResume($this->staleSessionFallbackPrompt))->withStaleSessionRetry();
     }
 }

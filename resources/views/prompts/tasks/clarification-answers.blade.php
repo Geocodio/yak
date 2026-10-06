@@ -1,5 +1,7 @@
 You stopped earlier to ask questions about this task. The answers are below.
 
+Your workspace is a fresh checkout of the task branch; edits you made before asking were not kept unless they were pushed, so re-apply anything you still need.
+
 **Original task:**
 {{ $taskDescription }}
 

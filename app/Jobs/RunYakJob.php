@@ -125,6 +125,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         try {
             $this->runTask($agent);
         } finally {
+            $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }

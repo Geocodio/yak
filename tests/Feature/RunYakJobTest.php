@@ -116,6 +116,89 @@ test('a run that asks parks the task, records the round, and skips git', functio
         && str_contains($job->message, 'I have 2 questions') && $job->personalize === false);
 });
 
+test('a run that asks parks the task only after the sandbox is torn down', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_teardown', resultSummary: 'Need a decision.', costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new class extends FakeSandboxManager
+    {
+        public ?TaskStatus $statusAtDestroy = null;
+
+        public function destroy(string $containerName): void
+        {
+            $this->statusAtDestroy = YakTask::query()->latest('id')->first()->status;
+            parent::destroy($containerName);
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'teardown-repo', 'path' => '/home/yak/repos/teardown-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'teardown-repo', 'source' => 'linear', 'session_id' => 'sess_teardown']);
+
+    (new RunYakJob($task))->handle($fake);
+
+    expect($sandbox->statusAtDestroy)->toBe(TaskStatus::Running)
+        ->and($sandbox->pulledTranscripts)->not->toBe([])
+        ->and($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Clarification);
+});
+
+test('a run that asks still parks the task when teardown throws', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_teardown_fail', resultSummary: 'Need a decision.', costUsd: 0.05, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
+    {
+        public function destroy(string $containerName): void
+        {
+            throw new RuntimeException('incus unavailable');
+        }
+    });
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'teardown-fail-repo', 'path' => '/home/yak/repos/teardown-fail-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'teardown-fail-repo', 'source' => 'linear']);
+
+    expect(fn () => (new RunYakJob($task))->handle($fake))->toThrow(RuntimeException::class);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification);
+});
+
+test('a stale session on an answers resume reruns with the first-run prompt and the answers', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)
+        ->queueResult(new AgentRunResult(
+            sessionId: '', resultSummary: '', costUsd: 0, numTurns: 0, durationMs: 10, isError: true, rawOutput: '{}',
+            stderr: 'No conversation found with session ID: sess_first',
+        ))
+        ->queueResult(new AgentRunResult(
+            sessionId: 'sess_fresh', resultSummary: 'Answered', costUsd: 0.05, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
+        ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'stale-repo', 'path' => '/home/yak/repos/stale-repo', 'default_branch' => 'main']);
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'repo' => 'stale-repo', 'source' => 'linear', 'branch_name' => 'yak/stale', 'session_id' => 'sess_first',
+        'description' => 'Fix the flaky importer',
+    ]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new RunYakJob($task->fresh()))->handle($fake);
+
+    $fresh = $fake->calls[1];
+    expect($fake->calls[0]->prompt)->toStartWith('You stopped earlier to ask questions')
+        ->and($fresh->resumeSessionId)->toBeNull()
+        ->and($fresh->prompt)->toEndWith($fake->calls[0]->prompt)
+        ->and($fresh->prompt)->not->toStartWith('You stopped earlier to ask questions');
+});
+
 test('a run on its third round ignores new questions and finishes normally', function () {
     Queue::fake();
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(

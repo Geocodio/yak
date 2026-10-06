@@ -9,6 +9,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
+use App\Services\ThreadBuilder;
 use Illuminate\Support\Facades\Queue;
 
 it('stores answers, notifies the channel, and re-dispatches the job that asked', function () {
@@ -62,3 +63,46 @@ it('matches a reply by number, by label, or treats it as other text', function (
     'free text' => ['Medium please', ['choices' => [], 'other' => 'Medium please']],
     'out of range' => ['7', ['choices' => [], 'other' => '7']],
 ]);
+
+it('lets yak:reap-lost-pending re-dispatch a resume whose job never ran', function (TaskMode $mode, string $job) {
+    Queue::fake();
+    $task = YakTask::factory()->withClarificationQuestions()->create(['mode' => $mode, 'started_at' => now()->subHour()]);
+
+    app(ClarificationAnswerSubmitter::class)->submit($task, ['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele', 'slack');
+    expect($task->fresh()->started_at)->toBeNull();
+
+    Queue::fake();
+    $this->travel(15)->minutes();
+    $this->artisan('yak:reap-lost-pending', ['--minutes' => 10])->assertSuccessful();
+
+    Queue::assertPushed($job, fn ($pushed) => $pushed->task->id === $task->id);
+})->with([
+    'fix' => [TaskMode::Fix, RunYakJob::class],
+    'research' => [TaskMode::Research, ResearchYakJob::class],
+]);
+
+it('leaves a follow-up task out of the lost-pending sweep', function () {
+    Queue::fake();
+    $parent = YakTask::factory()->create();
+    $startedAt = now()->subHour()->startOfSecond();
+    $task = YakTask::factory()->withClarificationQuestions()->create(['parent_task_id' => $parent->id, 'started_at' => $startedAt, 'attempts' => 1]);
+
+    app(ClarificationAnswerSubmitter::class)->submit($task, ['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele', 'slack');
+
+    expect($task->fresh()->started_at->equalTo($startedAt))->toBeTrue()
+        ->and($task->fresh()->attempts)->toBe(1)
+        ->and($task->fresh()->dispatched_at)->toBeNull();
+});
+
+it('does not count a resume as a retry', function () {
+    Queue::fake();
+    $task = YakTask::factory()->withClarificationQuestions()->create(['attempts' => 1]);
+
+    app(ClarificationAnswerSubmitter::class)->submit($task, ['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele', 'dashboard');
+    expect((new RunYakJob($task->fresh()))->claimTask())->toBeTrue();
+
+    $task->refresh();
+    $retried = app(ThreadBuilder::class)->build($task)->filter(fn ($entry) => str_starts_with($entry->text, 'Retried'));
+    expect($task->attempts)->toBe(1)
+        ->and($retried)->toBeEmpty();
+});

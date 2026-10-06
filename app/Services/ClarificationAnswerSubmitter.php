@@ -34,6 +34,7 @@ class ClarificationAnswerSubmitter
                 'status' => TaskStatus::Pending,
                 'clarification_expires_at' => null,
                 'clarification_reminder_at' => null,
+                ...self::claimResetFor($locked),
             ]);
 
             return true;
@@ -63,6 +64,27 @@ class ClarificationAnswerSubmitter
         }
 
         return true;
+    }
+
+    /**
+     * A claiming job counts its claim as an attempt and stamps started_at.
+     * The resume is not a retry, so the attempt it is about to add is
+     * cancelled out, and started_at is cleared so yak:reap-lost-pending
+     * re-dispatches a resume whose job never reached the queue.
+     * RunFollowUpJob does not claim, so its task is left alone.
+     *
+     * @return array<string, mixed>
+     */
+    private static function claimResetFor(YakTask $task): array
+    {
+        if ($task->agentJobClass() === RunFollowUpJob::class) {
+            return [];
+        }
+
+        return [
+            'started_at' => null,
+            'attempts' => max(0, $task->attempts - 1),
+        ];
     }
 
     public function submitReply(YakTask $task, string $replyText, string $answeredBy, string $via): bool
