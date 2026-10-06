@@ -41,7 +41,7 @@ class WebhookController extends Controller
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string} $event */
+        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string} $event */
         $event = $request->input('event', []);
 
         return $this->recordWebhook(
@@ -52,7 +52,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string}  $event
+     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string}  $event
      */
     private function route(Request $request, array $event): JsonResponse
     {
@@ -69,7 +69,9 @@ class WebhookController extends Controller
 
         return match ($event['type'] ?? null) {
             'app_mention' => $this->handleMention($request),
-            'message' => $this->handleThreadReply($event),
+            'message' => $this->isNewDirectMessage($event)
+                ? $this->handleMention($request)
+                : $this->handleThreadReply($event),
             'app_home_opened' => $this->handleAppHomeOpened($event),
             default => response()->json(['ok' => true]),
         };
@@ -90,6 +92,22 @@ class WebhookController extends Controller
             prefix: 'v0=',
             payload: $basestring,
         );
+    }
+
+    /**
+     * A top-level message a user sends in their DM with Yak. Slack sends
+     * these as `message.im` events, not `app_mention`, so they start a
+     * task the same way a mention does. Replies inside a DM thread carry
+     * `thread_ts` and edits or deletions carry a `subtype`, so both stay
+     * on the thread reply path.
+     *
+     * @param  array{channel_type?: string, subtype?: string, thread_ts?: string}  $event
+     */
+    private function isNewDirectMessage(array $event): bool
+    {
+        return ($event['channel_type'] ?? null) === 'im'
+            && ! isset($event['thread_ts'])
+            && ! isset($event['subtype']);
     }
 
     /**

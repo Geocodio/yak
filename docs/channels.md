@@ -159,7 +159,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 
 ## Slack (optional)
 
-**Roles:** Input (task creation via `@yak` mention, follow-ups via thread replies), notification (thread replies).
+**Roles:** Input (task creation via `@yak` mention or a direct message to Yak, follow-ups via thread replies), notification (thread replies).
 
 ### Setup
 
@@ -168,13 +168,15 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 3. Subscribe to bot events:
    - `app_mention`
    - `message.channels` (needed for thread replies — clarification answers and follow-ups)
+   - `message.im` (lets people DM Yak a task instead of mentioning it in a channel)
    - `app_home_opened` (powers the welcome DM the first time a user opens Yak's App Home)
-4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view.
+4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view. On the same page, enable the **Messages Tab** and tick **Allow users to send Slash commands and messages from the messages tab**, so people can DM Yak.
 5. Enable **Interactivity & Shortcuts** with request URL `https://{your-domain}/webhooks/slack/interactive` — powers click-to-answer buttons on clarification messages.
 6. Add bot scopes:
    - `chat:write`
    - `app_mentions:read`
    - `channels:history`
+   - `im:history` (lets Yak read direct messages sent to it)
    - `reactions:write` (lets Yak apply status reactions to your @mention)
    - `users:read` (lets Yak show the Slack requester's name on the task)
    - `users:read.email` (lets Yak find a person's Slack account by their Yak email, for direct messages)
@@ -211,6 +213,7 @@ The scheduler runs `yak:healthcheck` every 15 minutes. When a check fails, such 
 Yak responds in the same thread with a Block Kit card — personality line, context chips (repo · mode · task id), and action buttons (**View task**, **View PR**).
 
 - **Reactions.** Yak reacts on your original @mention as the task progresses: 👀 when picked up, 🚧 while working, ✅ when a PR is ready, ❌ on failure. You can see status at a glance without opening the thread.
+- **Direct messages.** You can also DM Yak the same text without the `@yak` prefix (`in api: fix the timeout on batch endpoints`). Yak replies in a thread on your message, and replies in that thread work like replies in a channel thread.
 - **`@yak help`.** Sending `@yak`, `@yak help`, or `@yak ?` returns a capabilities card with syntax examples — it does not create a task.
 - **First-time intro.** The first time a given user gets a reply from Yak, the acknowledgment has a small *"First time seeing me?"* footer pointing to this doc. It only appears once per user.
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.

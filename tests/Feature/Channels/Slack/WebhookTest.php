@@ -682,6 +682,92 @@ it('dispatches ClarificationReplyJob for agent clarification (not repo)', functi
 |--------------------------------------------------------------------------
 */
 
+/**
+ * Build a top-level Slack direct message payload (`message.im`).
+ *
+ * @param  array<string, mixed>  $eventOverrides
+ */
+function slackDirectMessagePayload(string $text, array $eventOverrides = []): string
+{
+    return (string) json_encode([
+        'type' => 'event_callback',
+        'event_id' => 'Ev' . Str::random(10),
+        'event' => array_merge([
+            'type' => 'message',
+            'channel_type' => 'im',
+            'text' => $text,
+            'channel' => 'D12345678',
+            'ts' => '1234567890.654321',
+            'user' => 'U_USER_ID',
+        ], $eventOverrides),
+    ]);
+}
+
+it('creates a task from a direct message to Yak', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackDirectMessagePayload('fix the login bug');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task = YakTask::sole();
+    expect($task->description)->toBe('fix the login bug');
+    expect($task->slack_channel)->toBe('D12345678');
+    expect($task->slack_thread_ts)->toBe('1234567890.654321');
+
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('does not create a task from an edited direct message', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackDirectMessagePayload('fix the login bug', ['subtype' => 'message_changed']);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::count())->toBe(0);
+});
+
+it('dispatches ClarificationReplyJob for a reply inside a direct message thread', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    YakTask::factory()->awaitingClarification()->create([
+        'slack_channel' => 'D12345678',
+        'slack_thread_ts' => '1234567890.654321',
+    ]);
+
+    $body = slackDirectMessagePayload('the second option', ['thread_ts' => '1234567890.654321', 'ts' => '1234567899.000001']);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Queue::assertPushed(ClarificationReplyJob::class);
+    expect(YakTask::count())->toBe(1);
+});
+
 it('ignores bot messages to prevent loops', function () {
     $secret = enableSlackChannel();
     Queue::fake();
