@@ -398,7 +398,7 @@ test('slack fix prompt includes description, requester name, and ambiguity check
 
     expect($prompt)->toContain('The checkout page is broken')
         ->toContain('Alice')
-        ->toContain('clarification_needed')
+        ->toContain('```clarification')
         ->toContain('"options"');
 });
 
@@ -596,4 +596,46 @@ test('clarification reply prompt includes the wrong-repository instructions only
         ->toContain('wrong_repository')
         ->toContain('acme/other')
         ->and(YakPromptBuilder::clarificationReplyPrompt('Option A'))->not->toContain('wrong_repository');
+});
+
+it('renders answers, other text, skipped questions and the note', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['description' => 'Add the credit email']);
+    $task->recordClarificationAnswers([
+        'scope' => ['choices' => ['Small'], 'other' => 'Only PAYG for now'],
+    ], 'Keep it short', 'Michele');
+
+    $prompt = YakPromptBuilder::clarificationAnswersPrompt($task->fresh());
+
+    expect($prompt)->toContain('Add the credit email')
+        ->toContain("Q: Which scope?\nA: Small\nOther: Only PAYG for now")
+        ->toContain("Q: Which data?\nA: No answer. Use your judgment and say what you assumed.")
+        ->toContain('Additional instructions from Michele: Keep it short')
+        ->toContain('Continue the task with these answers.')
+        ->toContain('```clarification')
+        ->not->toContain('Do not ask again');
+});
+
+it('tells the agent not to ask again on the third round', function () {
+    $task = YakTask::factory()->create();
+    foreach (range(1, 3) as $round) {
+        $task->recordClarificationRound([sampleQuestion("q{$round}")], 'Summary');
+        $task->recordClarificationAnswers(["q{$round}" => ['choices' => ['Option A'], 'other' => null]], null, 'Michele');
+        if ($round < 3) {
+            $task->markClarificationAnswersConsumed();
+        }
+    }
+
+    $prompt = YakPromptBuilder::clarificationAnswersPrompt($task->fresh());
+
+    expect($prompt)->toContain('Do not ask again')
+        ->not->toContain('```clarification');
+});
+
+it('includes the clarification contract in every prompt that may ask', function (string $view) {
+    expect(file_get_contents(resource_path("views/prompts/tasks/{$view}.blade.php")))
+        ->toContain("@include('prompts.partials.clarification-contract')");
+})->with(['linear-fix', 'sentry-fix', 'flaky-test', 'slack-fix', 'follow-up', 'research', 'research-follow-up']);
+
+it('no longer tells follow-ups not to ask', function () {
+    expect(file_get_contents(resource_path('views/prompts/tasks/follow-up.blade.php')))->not->toContain('Do not ask for clarification');
 });

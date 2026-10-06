@@ -120,6 +120,39 @@ class YakPromptBuilder
     }
 
     /**
+     * Build the prompt that resumes a run after its questions are answered.
+     */
+    public static function clarificationAnswersPrompt(YakTask $task): string
+    {
+        $round = $task->clarificationAnswersAwaitingResume() ?? [];
+        $given = (array) ($round['answers'] ?? []);
+
+        $answers = collect((array) ($round['questions'] ?? []))
+            ->map(function (array $question) use ($given): array {
+                $answer = $given[$question['id']] ?? null;
+                $choices = (array) ($answer['choices'] ?? []);
+                $other = isset($answer['other']) && trim((string) $answer['other']) !== '' ? trim((string) $answer['other']) : null;
+
+                return [
+                    'question' => (string) $question['question'],
+                    'answer' => $choices !== [] ? implode(', ', $choices) : ($other !== null ? 'See below.' : 'No answer. Use your judgment and say what you assumed.'),
+                    'other' => $other,
+                ];
+            })
+            ->values()
+            ->all();
+
+        return Prompts::render('tasks-clarification-answers', [
+            'taskDescription' => (string) $task->description,
+            'answers' => $answers,
+            'note' => $round['note'] ?? null,
+            'answeredBy' => (string) ($round['answered_by'] ?? 'the user'),
+            'isLastRound' => $task->clarificationRoundCount() >= YakTask::MAX_CLARIFICATION_ROUNDS,
+            'otherRepositories' => self::otherRepositories($task),
+        ]);
+    }
+
+    /**
      * Build a follow-up prompt for refining an already-open PR. The Claude
      * session is resumed (it carries the original task history), so this is
      * intentionally terse — just the user's new instructions.
