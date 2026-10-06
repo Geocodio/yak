@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\NotificationType;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\CleanupJob;
 use App\Jobs\CreatePullRequestJob;
 use App\Jobs\ProcessCIResultJob;
@@ -35,7 +34,6 @@ test('yak-claude jobs dispatch to yak-claude queue', function () {
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
         new SetupYakJob(YakTask::factory()->pending()->make()),
-        new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
     ];
 
     foreach ($jobs as $job) {
@@ -51,7 +49,6 @@ test('per-task yak-claude jobs share a 3600 second timeout', function () {
         new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
-        new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
     ];
 
     foreach ($jobs as $job) {
@@ -74,7 +71,6 @@ test('per-task yak-claude jobs have exponential backoff', function () {
         new RunYakJob(YakTask::factory()->pending()->make()),
         new RetryYakJob(YakTask::factory()->retrying()->make()),
         new ResearchYakJob(YakTask::factory()->pending()->make()),
-        new ClarificationReplyJob(YakTask::factory()->awaitingClarification()->make(), 'test reply'),
     ];
 
     foreach ($jobs as $job) {

@@ -4,6 +4,7 @@ namespace App\Channels\Slack;
 
 use App\Enums\NotificationType;
 use App\Models\YakTask;
+use App\Services\RepoClarificationResolver;
 use App\Support\Docs;
 use Illuminate\Support\Str;
 
@@ -66,7 +67,7 @@ class BlockFormatter
         // 3. Clarification option buttons — emit an actions row with
         // one button per option so users can click-to-answer rather
         // than type back. Clicking posts to /webhooks/slack/interactive
-        // which dispatches ClarificationReplyJob. Capped at Slack's
+        // which submits the answer through ClarificationAnswerSubmitter. Capped at Slack's
         // 25-element limit.
         $optionButtons = self::clarificationOptionButtons($task, $type);
         if ($optionButtons !== []) {
@@ -270,6 +271,23 @@ class BlockFormatter
     }
 
     /**
+     * Button labels for a waiting task: the repo candidates for a repo choice,
+     * otherwise the options of the single pending question.
+     *
+     * @return list<string>
+     */
+    public static function clarificationButtonLabels(YakTask $task): array
+    {
+        if (RepoClarificationResolver::awaitingRepoChoice($task)) {
+            return array_values(array_map('strval', (array) ($task->clarification_options ?? [])));
+        }
+
+        $questions = $task->pendingClarificationQuestions();
+
+        return count($questions) === 1 ? $questions[0]->labels() : [];
+    }
+
+    /**
      * Build clickable buttons for each clarification option. Slack
      * caps button text at 75 chars and actions blocks at 25 elements;
      * we truncate and cap so a pathological clarification payload
@@ -283,9 +301,8 @@ class BlockFormatter
             return [];
         }
 
-        /** @var array<int, string>|null $options */
-        $options = $task->clarification_options;
-        if (! is_array($options) || $options === []) {
+        $options = self::clarificationButtonLabels($task);
+        if ($options === []) {
             return [];
         }
 

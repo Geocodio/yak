@@ -174,14 +174,6 @@ class PromptFixtures
                     ],
                 ],
             ],
-            'tasks-clarification-reply' => [
-                [
-                    'label' => 'Chose option 2',
-                    'data' => [
-                        'chosenOption' => 'Use a database lock to prevent duplicate charges',
-                    ],
-                ],
-            ],
             'tasks-clarification-answers' => [
                 [
                     'label' => 'Two answers and a skip',

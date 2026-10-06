@@ -109,17 +109,6 @@ class YakPromptBuilder
     }
 
     /**
-     * Build a clarification reply prompt.
-     */
-    public static function clarificationReplyPrompt(string $chosenOption, ?YakTask $task = null): string
-    {
-        return Prompts::render('tasks-clarification-reply', [
-            'chosenOption' => $chosenOption,
-            'otherRepositories' => $task !== null ? self::otherRepositories($task) : [],
-        ]);
-    }
-
-    /**
      * Build the prompt that resumes a run after its questions are answered.
      */
     public static function clarificationAnswersPrompt(YakTask $task): string

@@ -6,12 +6,12 @@ use App\Channels\Slack\SenderPolicy;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use App\Services\ClarificationMessage;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -428,11 +428,12 @@ it('dispatches acknowledgment notification on task pickup', function () {
 |--------------------------------------------------------------------------
 */
 
-it('dispatches ClarificationReplyJob for thread reply on awaiting clarification task', function () {
+it('answers the single pending question from a thread reply', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'slack_channel' => 'C_TEST_CHANNEL',
         'slack_thread_ts' => '1111111111.111111',
     ]);
@@ -446,9 +447,32 @@ it('dispatches ClarificationReplyJob for thread reply on awaiting clarification 
         'CONTENT_TYPE' => 'application/json',
     ]);
 
-    Queue::assertPushed(ClarificationReplyJob::class, function (ClarificationReplyJob $job) use ($task) {
-        return $job->task->id === $task->id && $job->replyText === 'Option A';
-    });
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    expect($task->fresh()->clarificationAnswersAwaitingResume()['answers']['scope']['choices'])->toBe(['Option A']);
+});
+
+it('points a thread reply to the form when several questions are pending', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_TEST_CHANNEL',
+        'slack_thread_ts' => '1111111111.111111',
+    ]);
+
+    $body = slackThreadReplyPayload('Small', 'C_TEST_CHANNEL', '1111111111.111111');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Clarification
+        && $job->message === ClarificationMessage::pointToForm($task->fresh()));
+    Queue::assertNotPushed(RunYakJob::class);
 });
 
 it('ignores thread reply when no task is awaiting clarification', function () {
@@ -470,7 +494,7 @@ it('ignores thread reply when no task is awaiting clarification', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertNotPushed(ClarificationReplyJob::class);
+    Queue::assertNotPushed(RunYakJob::class);
 });
 
 /*
@@ -511,7 +535,6 @@ it('resolves repo from clarification reply using full slug', function () {
     expect($task->clarification_options)->toBeNull();
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
 it('resolves repo from clarification reply using partial name', function () {
@@ -544,7 +567,6 @@ it('resolves repo from clarification reply using partial name', function () {
     expect($task->repo)->toBe('acme/marketing-site');
 
     Queue::assertPushed(RunYakJob::class);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
 it('resolves repo from clarification reply with spaces instead of hyphens', function () {
@@ -645,7 +667,6 @@ it('re-prompts when repo clarification reply does not match any option', functio
     expect($task->status)->toBe(TaskStatus::AwaitingClarification);
 
     Queue::assertNotPushed(RunYakJob::class);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
     Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
         return $job->type === NotificationType::Clarification
             && ! str_contains($job->message, 'acme/marketing-site')
@@ -654,11 +675,12 @@ it('re-prompts when repo clarification reply does not match any option', functio
     });
 });
 
-it('dispatches ClarificationReplyJob for agent clarification (not repo)', function () {
+it('answers an agent question from a thread reply without touching the repo', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'repo' => 'my-repo',
         'session_id' => 'sess_existing',
         'slack_channel' => 'C_AGENT_CLAR',
@@ -674,8 +696,9 @@ it('dispatches ClarificationReplyJob for agent clarification (not repo)', functi
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertPushed(ClarificationReplyJob::class);
-    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh()->repo)->toBe('my-repo')
+        ->and($task->fresh()->clarificationAnswersAwaitingResume())->not->toBeNull();
+    Queue::assertPushed(RunYakJob::class);
 });
 
 /*
@@ -869,11 +892,12 @@ it('does not create a task from an edited direct message', function () {
     expect(YakTask::count())->toBe(0);
 });
 
-it('dispatches ClarificationReplyJob for a reply inside a direct message thread', function () {
+it('answers a pending question from a reply inside a direct message thread', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    YakTask::factory()->awaitingClarification()->create([
+    YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'slack_channel' => 'D12345678',
         'slack_thread_ts' => '1234567890.654321',
     ]);
@@ -887,7 +911,7 @@ it('dispatches ClarificationReplyJob for a reply inside a direct message thread'
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertPushed(ClarificationReplyJob::class);
+    Queue::assertPushed(RunYakJob::class);
     expect(YakTask::count())->toBe(1);
 });
 

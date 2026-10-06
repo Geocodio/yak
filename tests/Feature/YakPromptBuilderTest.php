@@ -449,20 +449,6 @@ test('review prompt renders the tasks-review template for a review task', functi
 
 /*
 |--------------------------------------------------------------------------
-| Task Prompts - Clarification Reply
-|--------------------------------------------------------------------------
-*/
-
-test('clarification reply prompt includes chosen option', function () {
-    $prompt = YakPromptBuilder::clarificationReplyPrompt('Fix the auth flow');
-
-    expect($prompt)->toContain('Fix the auth flow')
-        ->toContain('Selected option')
-        ->toContain('Do not ask for further clarification');
-});
-
-/*
-|--------------------------------------------------------------------------
 | Task Prompts - Retry
 |--------------------------------------------------------------------------
 */
@@ -547,7 +533,6 @@ test('prompt templates exist as blade views', function () {
         'prompts.tasks.linear-fix',
         'prompts.tasks.research',
         'prompts.tasks.slack-fix',
-        'prompts.tasks.clarification-reply',
         'prompts.tasks.retry',
         'prompts.channels.sentry',
     ];
@@ -586,16 +571,6 @@ test('retry prompt leaves out the wrong-repository instructions when there is no
     $task = YakTask::factory()->make(['repo' => 'acme/app', 'description' => 'Fix it']);
 
     expect(YakPromptBuilder::retryPrompt($task, 'failure'))->not->toContain('wrong_repository');
-});
-
-test('clarification reply prompt includes the wrong-repository instructions only when given a task', function () {
-    Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
-    $task = YakTask::factory()->make(['repo' => 'acme/app']);
-
-    expect(YakPromptBuilder::clarificationReplyPrompt('Option A', $task))
-        ->toContain('wrong_repository')
-        ->toContain('acme/other')
-        ->and(YakPromptBuilder::clarificationReplyPrompt('Option A'))->not->toContain('wrong_repository');
 });
 
 it('renders answers, other text, skipped questions and the note', function () {

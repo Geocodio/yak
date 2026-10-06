@@ -6,6 +6,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
 use App\Jobs\SendNotificationJob;
 use App\Models\YakTask;
+use App\Services\ClarificationMessage;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -70,11 +71,12 @@ class CleanupExpiredClarificationsCommand extends Command
                 ->map(fn (string $option, int $index): string => ($index + 1) . '. ' . $option)
                 ->implode("\n");
 
-            SendNotificationJob::dispatch(
-                $task,
-                NotificationType::Reminder,
-                rtrim('Still waiting on an answer to my question. It closes ' . ($task->clarification_expires_at?->diffForHumans() ?? 'soon') . " if nobody replies.\n{$numberedOptions}"),
-            );
+            $hasQuestions = $task->pendingClarificationQuestions() !== [];
+            $message = $hasQuestions
+                ? ClarificationMessage::reminder($task)
+                : rtrim('Still waiting on an answer to my question. It closes ' . ($task->clarification_expires_at?->diffForHumans() ?? 'soon') . " if nobody replies.\n{$numberedOptions}");
+
+            SendNotificationJob::dispatch($task, NotificationType::Reminder, $message, personalize: ! $hasQuestions);
         }
 
         $this->components->info("Sent {$tasks->count()} reminder(s).");

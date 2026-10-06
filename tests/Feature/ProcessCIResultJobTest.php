@@ -323,8 +323,8 @@ test('green path does not apply large-change label when LOC is under threshold',
 */
 
 test('green path preserves artifact rows already persisted by the agent job', function () {
-    // Artifacts are persisted earlier now (in RunYakJob/RetryYakJob/
-    // ClarificationReplyJob right after SandboxArtifactCollector pulls
+    // Artifacts are persisted by the agent job (RunYakJob/RetryYakJob/
+    // RunFollowUpJob) right after SandboxArtifactCollector pulls
     // them out of the sandbox). ProcessCIResultJob must not duplicate,
     // delete, or otherwise mess with those rows on the green path.
     Http::fake([

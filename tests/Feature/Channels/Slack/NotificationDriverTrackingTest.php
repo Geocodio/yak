@@ -19,6 +19,8 @@ it('records a sent button-bearing clarification for the health check', function 
         'source' => 'slack',
         'slack_channel' => 'C1',
         'slack_thread_ts' => '1.2',
+        'repo' => 'unknown',
+        'session_id' => null,
         'clarification_options' => ['acme/web', 'acme/api'],
     ]);
 

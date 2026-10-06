@@ -114,14 +114,6 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['taskDescription', 'previousSummary', 'failureOutput'],
             ],
-            'tasks-clarification-reply' => [
-                'view' => 'prompts.tasks.clarification-reply',
-                'label' => 'Clarification Reply',
-                'description' => 'Sent when the user answers a clarification question Claude raised mid-task. Tells Claude which option was chosen so it can resume implementing without asking again.',
-                'category' => 'advanced',
-                'type' => 'task',
-                'variables' => ['chosenOption'],
-            ],
             'tasks-clarification-answers' => [
                 'view' => 'prompts.tasks.clarification-answers',
                 'label' => 'Clarification Answers',

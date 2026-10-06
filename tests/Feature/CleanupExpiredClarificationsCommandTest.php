@@ -131,3 +131,16 @@ test('a reminder repeats the answer options', function () {
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->task->is($task)
         && str_contains($job->message, "1. Use the default queue\n2. Use the high queue"));
 });
+
+test('a reminder for structured questions points to the form', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'clarification_reminder_at' => now()->subMinute(),
+        'clarification_expires_at' => now()->addDays(2),
+    ]);
+
+    $this->artisan('yak:cleanup')->assertSuccessful();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->task->is($task)
+        && $job->type === NotificationType::Reminder
+        && str_contains($job->message, '#questions'));
+});

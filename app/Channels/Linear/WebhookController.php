@@ -9,7 +9,6 @@ use App\Facades\Telemetry;
 use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
@@ -17,6 +16,8 @@ use App\Models\LinearOauthConnection;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ClarificationAnswerSubmitter;
+use App\Services\ClarificationMessage;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
@@ -373,7 +374,8 @@ class WebhookController extends Controller
      *
      * - stop signal → cancel the task
      * - AwaitingClarification on a repo choice → resolve the repo and start the agent
-     * - AwaitingClarification otherwise → dispatch ClarificationReplyJob
+     * - AwaitingClarification with one pending question → submit the reply as its answer
+     * - AwaitingClarification with several questions → link to the dashboard form
      * - open PR or finished research → create a chained follow-up via FollowUpTaskFactory
      * - merged/closed → post a polite decline
      * - unknown session → no-op (200 OK)
@@ -453,9 +455,15 @@ class WebhookController extends Controller
         }
 
         if ($status === TaskStatus::AwaitingClarification) {
-            ClarificationReplyJob::dispatch($task, $message);
+            if (ClarificationMessage::answersInline($task)) {
+                app(ClarificationAnswerSubmitter::class)->submitReply($task, $message, (string) ($request->input('actor.name') ?? 'Linear user'), 'linear');
 
-            return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
+                return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
+            }
+
+            app(NotificationDriver::class)->postAgentActivity($sessionId, type: 'elicitation', body: ClarificationMessage::pointToForm($task));
+
+            return response()->json(['ok' => true, 'handled' => 'clarification_form_link']);
         }
 
         if ($task->acceptsFollowUp()) {

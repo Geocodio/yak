@@ -128,6 +128,8 @@ it('produces a fallback text suitable for Slack notification previews', function
 
 it('renders one button per clarification option', function () {
     $task = YakTask::factory()->create([
+        'repo' => 'unknown',
+        'session_id' => null,
         'clarification_options' => ['acme/api', 'acme/web', 'acme/worker'],
     ]);
 
@@ -148,6 +150,25 @@ it('renders one button per clarification option', function () {
         'text' => ['type' => 'plain_text', 'text' => 'acme/api'],
         'value' => $task->id . '|acme/api',
     ]);
+});
+
+it('builds buttons from the single pending question', function () {
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Small', 'Large'])->toArray()])->create();
+
+    $blocks = BlockFormatter::blocks($task, NotificationType::Clarification, 'Which scope?', 'https://yak.example.com/tasks/' . $task->id);
+
+    $elements = collect($blocks)->firstWhere('block_id', 'yak_clarify_options')['elements'];
+
+    expect($elements)->toHaveCount(2)
+        ->and($elements[1]['value'])->toBe($task->id . '|Large');
+});
+
+it('renders no buttons when several questions are pending', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create();
+
+    $blocks = BlockFormatter::blocks($task, NotificationType::Clarification, 'Questions', 'https://yak.example.com/tasks/' . $task->id);
+
+    expect(collect($blocks)->firstWhere('block_id', 'yak_clarify_options'))->toBeNull();
 });
 
 it('skips clarification option buttons when the task has no options', function () {
@@ -180,7 +201,7 @@ it('skips clarification buttons on non-Clarification notification types', functi
 
 it('truncates long option labels to fit Slack\'s 75-char button limit', function () {
     $long = str_repeat('x', 100);
-    $task = YakTask::factory()->create(['clarification_options' => [$long]]);
+    $task = YakTask::factory()->create(['repo' => 'unknown', 'session_id' => null, 'clarification_options' => [$long]]);
 
     $blocks = BlockFormatter::blocks(
         $task,

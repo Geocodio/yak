@@ -2,7 +2,6 @@
 
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -113,23 +112,6 @@ test('does not resume a follow-up task', function () {
     expect($task->status)->toBe(TaskStatus::Failed)
         ->and($task->interrupted_by_deploy_at)->toBeNull()
         ->and($task->error_log)->toContain('manual retry');
-
-    Queue::assertNothingPushed();
-});
-
-test('does not resume a clarification reply task', function () {
-    Queue::fake();
-
-    $task = YakTask::factory()->failed()->create([
-        'claimed_job_class' => ClarificationReplyJob::class,
-        'interrupted_by_deploy_at' => now(),
-    ]);
-
-    $this->artisan('yak:resume-interrupted-tasks')->assertSuccessful();
-
-    $task->refresh();
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->interrupted_by_deploy_at)->toBeNull();
 
     Queue::assertNothingPushed();
 });

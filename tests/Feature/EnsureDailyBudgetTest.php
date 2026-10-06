@@ -2,7 +2,6 @@
 
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -179,7 +178,6 @@ test('all claude jobs include EnsureDailyBudget middleware', function () {
         new RetryYakJob($task),
         new SetupYakJob($task),
         new ResearchYakJob($task),
-        new ClarificationReplyJob($task, 'reply'),
     ];
 
     foreach ($jobs as $job) {

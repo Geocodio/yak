@@ -4,7 +4,6 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
@@ -152,7 +151,7 @@ test('a retry that reports the wrong repository asks for a repo and starts over'
     Queue::assertNotPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
 });
 
-test('a clarification reply that reports the wrong repository asks for a repo and starts over', function () {
+test('a resumed run that reports the wrong repository asks for a repo and starts over', function () {
     Queue::fake();
 
     $fake = (new FakeAgentRunner)->queueResult(wrongRepositoryResult(null));
@@ -163,14 +162,14 @@ test('a clarification reply that reports the wrong repository asks for a repo an
     Repository::factory()->create(['slug' => 'acme/atlas', 'path' => '/home/yak/repos/atlas']);
     Repository::factory()->create(['slug' => 'acme/api']);
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->pending()->create([
         'repo' => 'acme/atlas',
         'source' => 'linear',
         'session_id' => 'old-session',
         'branch_name' => 'yak/old-branch',
     ]);
 
-    (new ClarificationReplyJob($task, 'Option A'))->handle($fake);
+    (new RunYakJob($task))->handle($fake);
 
     $task->refresh();
 

@@ -5,8 +5,8 @@ namespace App\Channels\Slack;
 use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
-use App\Jobs\ClarificationReplyJob;
 use App\Models\YakTask;
+use App\Services\ClarificationAnswerSubmitter;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use Illuminate\Http\Client\ConnectionException;
@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Http;
  * Handles Slack's Interactivity & Shortcuts webhook — fires when a
  * user clicks a button inside one of Yak's messages. The only
  * interactive element we currently ship is clarification option
- * buttons: clicking one dispatches ClarificationReplyJob with the
+ * buttons: clicking one submits the clicked option through ClarificationAnswerSubmitter with the
  * selected option as the reply text, so the flow reaches Claude
  * identically to a thread-reply answer. Clicks from guests and Slack Connect
  * users in other organizations are ignored.
@@ -80,7 +80,12 @@ class InteractiveWebhookController extends Controller
         if ($isRepoChoice) {
             RepoClarificationResolver::resolve($task, $optionText);
         } else {
-            ClarificationReplyJob::dispatch($task, $optionText);
+            app(ClarificationAnswerSubmitter::class)->submitReply(
+                $task,
+                $optionText,
+                UserNameResolver::resolve((string) ($payload['user']['id'] ?? '')) ?? 'Slack user',
+                'slack',
+            );
         }
 
         // Slack hides the click feedback after a moment but doesn't

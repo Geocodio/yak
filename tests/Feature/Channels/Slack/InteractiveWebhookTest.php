@@ -3,7 +3,6 @@
 use App\Channels\Slack\InteractivityTracker;
 use App\Channels\Slack\SenderPolicy;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -81,15 +80,11 @@ it('rejects requests with an invalid Slack signature', function () {
     ])->assertForbidden();
 });
 
-it('dispatches ClarificationReplyJob when a clarification button is clicked', function () {
+it('submits the clicked option as the answer to a single pending question', function () {
     $secret = enableSlackForInteractive();
     Queue::fake();
 
-    $task = YakTask::factory()->create([
-        'status' => TaskStatus::AwaitingClarification,
-        'source' => 'slack',
-        'clarification_options' => ['acme/web', 'acme/api'],
-    ]);
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['acme/web', 'acme/api'])->toArray()])->create(['source' => 'slack']);
 
     $body = buildClarifyButtonBody($task->id, 'acme/web');
 
@@ -97,9 +92,9 @@ it('dispatches ClarificationReplyJob when a clarification button is clicked', fu
         server: signSlackInteractivePayload($body, $secret)
     )->assertOk();
 
-    Queue::assertPushed(ClarificationReplyJob::class, function (ClarificationReplyJob $job) use ($task) {
-        return $job->task->id === $task->id && $job->replyText === 'acme/web';
-    });
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    expect($task->fresh()->clarificationAnswersAwaitingResume()['answers'])->toHaveKey('scope')
+        ->and($task->fresh()->clarificationAnswersAwaitingResume()['answers']['scope']['choices'])->toBe(['acme/web']);
 });
 
 it('ignores clarification clicks from guests and Slack Connect users', function (array $user) {
@@ -210,7 +205,6 @@ it('resolves repo and dispatches RunYakJob when a repo-clarification button is c
     expect($task->status)->toBe(TaskStatus::Pending);
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
 it('replaces the original message via response_url when a click resolves', function () {
