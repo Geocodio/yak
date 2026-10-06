@@ -32,6 +32,7 @@ Rules for the block:
 - 1 to 6 questions. Each question has a unique snake_case `id`, a `header` of at most 3 words, the `question`, 2 to 4 `options` with a short `label` and a one-sentence `description`, and `multi_select` (true only when several options can apply together).
 - Do not add an "Other" option. Every question already accepts a free-text answer.
 - Do not commit code in a run that ends with this block.
+- When you end with this block, skip any summary sections the task asked for; your prose findings above the block are the summary.
 
 If the task is a pure question with a short factual answer, answer in prose in your final summary and do not emit the block.
 @include('prompts.partials.wrong-repository')

@@ -9,9 +9,8 @@ use App\Services\IncusSandboxManager;
 trait ResumesAgentOnExistingBranch
 {
     /**
-     * Configure git, refresh the default branch, then fetch + checkout the
-     * existing task branch. Never creates a branch — the branch already
-     * exists from the original run.
+     * Configure git, refresh the default branch, then check out the task
+     * branch, creating it from the default branch when it was never pushed.
      */
     protected function prepareExistingBranch(
         IncusSandboxManager $sandbox,
@@ -25,8 +24,14 @@ trait ResumesAgentOnExistingBranch
         $sandbox->injectGitCredentials($containerName);
 
         $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
-        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
-        $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$branchName}", timeout: 30);
+        $fetch = $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$branchName}", timeout: 60);
+
+        // A run that stopped to ask questions never pushed its branch.
+        $checkout = $fetch->exitCode() === 0
+            ? "git checkout {$branchName}"
+            : "git checkout -b {$branchName} origin/{$repository->default_branch}";
+
+        $sandbox->run($containerName, "cd {$workspacePath} && {$checkout}", timeout: 30);
     }
 
     /**

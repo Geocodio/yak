@@ -631,6 +631,12 @@ it('tells the agent not to ask again on the third round', function () {
         ->not->toContain('```clarification');
 });
 
+it('tells the agent to skip summary sections when it ends with questions', function () {
+    $task = YakTask::factory()->create(['source' => 'linear', 'description' => 'Do a thing']);
+
+    expect(YakPromptBuilder::taskPrompt($task, []))->toContain('skip any summary sections');
+});
+
 it('includes the clarification contract in every prompt that may ask', function (string $view) {
     expect(file_get_contents(resource_path("views/prompts/tasks/{$view}.blade.php")))
         ->toContain("@include('prompts.partials.clarification-contract')");

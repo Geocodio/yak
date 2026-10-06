@@ -119,7 +119,7 @@ test('a run that asks parks the task, records the round, and skips git', functio
 test('a run on its third round ignores new questions and finishes normally', function () {
     Queue::fake();
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_q3', resultSummary: 'Answer only', costUsd: 0.05, numTurns: 1, durationMs: 10,
+        sessionId: 'sess_q3', resultSummary: "Answer only\n\n```clarification\n{\"questions\": []}\n```", costUsd: 0.05, numTurns: 1, durationMs: 10,
         isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('again')],
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -136,7 +136,52 @@ test('a run on its third round ignores new questions and finishes normally', fun
     (new RunYakJob($task))->handle($fake);
 
     expect($task->fresh()->status)->not->toBe(TaskStatus::AwaitingClarification)
-        ->and($task->fresh()->clarificationRoundCount())->toBe(3);
+        ->and($task->fresh()->clarificationRoundCount())->toBe(3)
+        ->and($task->fresh()->result_summary)->not->toContain('```clarification');
+    Queue::assertNotPushed(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Clarification);
+});
+
+test('a run with answers resumes the session on the existing branch', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_resume', resultSummary: 'Answered', costUsd: 0.05, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'resume-repo', 'path' => '/home/yak/repos/resume-repo', 'default_branch' => 'main']);
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'repo' => 'resume-repo', 'source' => 'linear', 'branch_name' => 'yak/eng-1603', 'session_id' => 'sess_first',
+    ]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new RunYakJob($task->fresh()))->handle($fake);
+
+    $request = $fake->lastCall();
+    expect($request->resumeSessionId)->toBe('sess_first')
+        ->and($request->prompt)->toContain("Q: Which scope?\nA: Small")
+        ->and($sandbox->pushedTranscripts)->not->toBe([])
+        ->and($sandbox->commandsMatching('ls-remote'))->toBe([])
+        ->and($task->fresh()->branch_name)->toBe('yak/eng-1603')
+        ->and($task->fresh()->clarificationAnswersAwaitingResume())->toBeNull();
+});
+
+test('a resume interrupted before the agent returns keeps the answers for the next attempt', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueException(new RuntimeException('worker killed'));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'int-repo', 'path' => '/home/yak/repos/int-repo']);
+    $task = YakTask::factory()->withClarificationQuestions()->create(['repo' => 'int-repo', 'branch_name' => 'yak/x']);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new RunYakJob($task->fresh()))->handle($fake);
+
+    expect($task->fresh()->clarificationAnswersAwaitingResume())->not->toBeNull();
 });
 
 test('handleSuccess marks task Success and skips push when no new commits', function () {

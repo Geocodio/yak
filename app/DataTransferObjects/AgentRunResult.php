@@ -43,6 +43,11 @@ final readonly class AgentRunResult
         return $this->copy(['stats' => $stats]);
     }
 
+    public function withResultSummary(string $resultSummary): self
+    {
+        return $this->copy(['resultSummary' => $resultSummary]);
+    }
+
     /**
      * Marks a result produced by the non-resumed re-run that
      * RetriesWithoutStaleSession falls back to.
