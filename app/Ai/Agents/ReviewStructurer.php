@@ -43,29 +43,20 @@ Rules:
 - Copy the explicit Risk assessment (low/high/unknown). Missing or ambiguous
   assessments are unknown. Never infer low risk from an approval or no findings.
 - Copy each finding's file path, line number, severity, category, and body
-  from the source review. The body is the comment text after the
+  from the source review. When the source names a `LINE-LINE` range, use
+  the LAST line. The body is the comment text after the
   `**[Category]** path:LINE —` prefix; do not repeat the category or the
-  path inside it. Preserve markdown formatting inside the body, including
-  any ```suggestion fenced blocks. Findings are written as short inline
-  comments (often one sentence); keep them that short.
+  path inside it. Preserve markdown formatting inside the body. Findings
+  are written as short inline comments (often one sentence); keep them
+  that short.
+- Copy ```original and ```suggestion fenced blocks into the body
+  byte for byte: same lines, same indentation, same blank lines. Never
+  reindent, reflow, complete, or fix their contents. A suggestion that
+  differs from the source by a single character is discarded.
 - `summary` is the source review's `## For the reviewer` section, copied
   verbatim as markdown (without the heading). If the source has no such
   section, write one or two sentences describing what the PR does.
 - If the `## Findings` section is exactly `LGTM`, emit `findings: []`.
-- Set `suggestion_loc` to the number of changed lines in the
-  suggestion block (only when a ```suggestion fence is present in the body).
-- Only set `start_line` when the source review's prose explicitly names a
-  `LINE-LINE` range (e.g. `path/to/file.php:138-140`, "lines 138 through
-  140"). Do NOT infer a range by looking at the suggestion fence content
-  or the surrounding diff. If the prose names a single line, leave
-  `start_line` null even when the fence has multiple lines.
-- The range `(line - start_line + 1)` must approximately match
-  `suggestion_loc` — the fence REPLACES every line in the range. If the
-  prose's range is much wider than the fence (e.g. covering an entire
-  function when the fence is just a docblock), DROP the range: leave
-  `start_line` null and only emit `line`. Posting the wider range would
-  delete the unchanged lines in between when the suggestion is accepted.
-- Never set `start_line` equal to or greater than `line`.
 - Map verdict wording to one of: "Approve", "Approve with suggestions",
   "Request changes". If the reviewer uses different wording, pick the
   closest match.
@@ -93,16 +84,12 @@ PROMPT;
             'file' => $schema->string()->required()
                 ->description('Repo-relative path to the file, e.g. `app/Services/Foo.php`.'),
             'line' => $schema->integer()->required()
-                ->description('Line the comment anchors to. For range suggestions, this is the LAST line in the range.'),
-            'start_line' => $schema->integer()
-                ->description('First line of the original range a multi-line suggestion replaces. Must be strictly less than `line`. Omit for single-line suggestions or findings without a suggestion fence.'),
+                ->description('Line the comment anchors to. For a `LINE-LINE` range, the LAST line.'),
             'severity' => $schema->string()->enum(['must_fix', 'should_fix', 'consider'])->required(),
             'category' => $schema->string()->required()
                 ->description('Rubric category: `Correctness`, `Security`, `Data`, `Compatibility`, `Ticket Alignment`, `Tests`, `Performance`, or `Conventions`.'),
             'body' => $schema->string()->required()
-                ->description('Full markdown body of the comment. May include a ```suggestion fence.'),
-            'suggestion_loc' => $schema->integer()
-                ->description('Number of lines inside the suggestion block. Omit when the body has no suggestion fence.'),
+                ->description('Full markdown body of the comment, including any ```original and ```suggestion fences copied byte for byte.'),
         ]);
 
         $priorFinding = $schema->object([

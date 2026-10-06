@@ -253,7 +253,7 @@ it('posts the policy decision through the review job and preserves the SHA on fa
     app()->instance(AppService::class, $github);
 
     $method = new ReflectionMethod(RunYakReviewJob::class, 'postReview');
-    $method->invoke(new RunYakReviewJob($task), $this->repo, cleanApprovalReview(), $this->metadata);
+    $method->invoke(new RunYakReviewJob($task), $this->repo, cleanApprovalReview(), $this->metadata, '', fn (string $path): ?string => null);
     expect(PrReview::first()->commit_sha_reviewed)->toBe('head')
         ->and(PrReview::first()->risk_assessment['risk_score'])->toBe(25)
         ->and(PrReview::first()->risk_assessment['event'])->toBe($reject ? 'COMMENT' : 'APPROVE')

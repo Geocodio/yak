@@ -37,7 +37,6 @@ it('builds ParsedReview from the structurer output', function () {
             'severity' => 'must_fix',
             'category' => 'Performance',
             'body' => 'Null check missing.',
-            'suggestion_loc' => 2,
         ]],
     ]));
 
@@ -47,10 +46,10 @@ it('builds ParsedReview from the structurer output', function () {
         ->and($parsed->verdict)->toBe('Approve with suggestions')
         ->and($parsed->findings)->toHaveCount(1)
         ->and($parsed->findings[0]->severity)->toBe('must_fix')
-        ->and($parsed->findings[0]->suggestionLoc)->toBe(2);
+        ->and($parsed->findings[0]->body)->toBe('Null check missing.');
 });
 
-it('accepts a finding without suggestion_loc', function () {
+it('casts finding fields to their types', function () {
     $parser = new ReviewOutputParser(fakeStructurer([
         'summary' => 'x',
         'verdict' => 'Approve',
@@ -66,7 +65,8 @@ it('accepts a finding without suggestion_loc', function () {
 
     $parsed = $parser->parse('text');
 
-    expect($parsed->findings[0]->suggestionLoc)->toBeNull();
+    expect($parsed->findings[0]->line)->toBe(1)
+        ->and($parsed->findings[0]->body)->toBe('b');
 });
 
 it('accepts an empty findings list for a clean PR', function () {
