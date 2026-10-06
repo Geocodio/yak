@@ -216,6 +216,7 @@ No manual setup needed before provisioning. Leave the `github_app_id` fields bla
    - `chat:write`
    - `app_mentions:read`
    - `channels:history`
+   - `users:read` — required. Yak looks up every sender and ignores Slack Connect users from other organizations, and guests who DM it. Without this scope every lookup fails and Yak ignores everyone
    - `im:history` — lets Yak read direct messages, so people can DM Yak a task instead of mentioning it in a channel
    - `reactions:write` — lets Yak react 👀 / 🚧 / ✅ / ❌ on your mention for glanceable status
 4. Click **Install to Workspace** and authorize

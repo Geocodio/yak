@@ -26,6 +26,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -41,7 +42,7 @@ class WebhookController extends Controller
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string} $event */
+        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string} $event */
         $event = $request->input('event', []);
 
         return $this->recordWebhook(
@@ -52,7 +53,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string}  $event
+     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
      */
     private function route(Request $request, array $event): JsonResponse
     {
@@ -67,10 +68,19 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'duplicate']);
         }
 
+        if ($this->isFromExternalUser($event)) {
+            Log::channel('yak')->info('Ignored Slack event from a user outside the workspace', [
+                'type' => $event['type'] ?? null,
+                'user_id' => $event['user'] ?? null,
+            ]);
+
+            return response()->json(['ok' => true, 'skipped' => 'external_user']);
+        }
+
         return match ($event['type'] ?? null) {
             'app_mention' => $this->handleMention($request),
             'message' => $this->isNewDirectMessage($event)
-                ? $this->handleMention($request)
+                ? $this->handleDirectMessage($request, $event)
                 : $this->handleThreadReply($event),
             'app_home_opened' => $this->handleAppHomeOpened($event),
             default => response()->json(['ok' => true]),
@@ -108,6 +118,46 @@ class WebhookController extends Controller
         return ($event['channel_type'] ?? null) === 'im'
             && ! isset($event['thread_ts'])
             && ! isset($event['subtype']);
+    }
+
+    /**
+     * Slack Connect users from other organizations never trigger Yak,
+     * whether they mention it, reply in a thread, DM it, or open its
+     * App Home.
+     *
+     * @param  array{type?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
+     */
+    private function isFromExternalUser(array $event): bool
+    {
+        if (! in_array($event['type'] ?? null, ['app_mention', 'message', 'app_home_opened'], true)) {
+            return false;
+        }
+
+        return app(SenderPolicy::class)->isExternal(
+            (string) ($event['user'] ?? ''),
+            (string) ($event['team'] ?? ''),
+            (string) ($event['user_team'] ?? ''),
+            (string) ($event['source_team'] ?? ''),
+        );
+    }
+
+    /**
+     * Start a task from a DM. Guests can reach the bot by DM even when
+     * they share no channel with it, so DMs from guests are ignored.
+     *
+     * @param  array{user?: string}  $event
+     */
+    private function handleDirectMessage(Request $request, array $event): JsonResponse
+    {
+        if (app(SenderPolicy::class)->isGuest((string) ($event['user'] ?? ''))) {
+            Log::channel('yak')->info('Ignored Slack DM from a guest', [
+                'user_id' => $event['user'] ?? null,
+            ]);
+
+            return response()->json(['ok' => true, 'skipped' => 'guest']);
+        }
+
+        return $this->handleMention($request);
     }
 
     /**

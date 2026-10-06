@@ -1,5 +1,6 @@
 <?php
 
+use App\Channels\Slack\SenderPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
@@ -17,6 +18,22 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(function () {
+        // Slack webhook tests post as arbitrary user IDs. The sender policy
+        // tests swap the real SenderPolicy back in with faked Slack lookups.
+        app()->instance(SenderPolicy::class, new class extends SenderPolicy
+        {
+            public function isExternal(string $userId, string ...$payloadTeamIds): bool
+            {
+                return false;
+            }
+
+            public function isGuest(string $userId): bool
+            {
+                return false;
+            }
+        });
+    })
     ->in('Feature');
 
 pest()->extend(TestCase::class)
