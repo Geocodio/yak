@@ -52,6 +52,25 @@ class ThreadBuilder
                 $entries->push(ThreadEntry::system("Retried · attempt {$attempt}", Carbon::parse($run->updated_at)));
             }
 
+            foreach ($run->clarificationRounds() as $round) {
+                $entries->push(ThreadEntry::clarification(
+                    $run,
+                    $round['summary'] !== '' ? $round['summary'] : 'Yak has questions before it can continue.',
+                    [],
+                    Carbon::parse($round['asked_at']),
+                ));
+
+                if ($round['answers'] !== null) {
+                    $entries->push(ThreadEntry::clarificationAnswers(
+                        $run,
+                        self::answerItems($round),
+                        $round['note'],
+                        (string) $round['answered_by'],
+                        Carbon::parse($round['answered_at']),
+                    ));
+                }
+            }
+
             // A failed run is worth a bubble even when it never stamped
             // started_at (killed in middleware, or dead before the job body
             // ran) — otherwise the failure vanishes from the thread.
@@ -74,5 +93,25 @@ class ThreadBuilder
         }
 
         return $entries->values();
+    }
+
+    /**
+     * @param  array<string, mixed>  $round
+     * @return list<array{header: string, answer: string|null, other: string|null, skipped: bool}>
+     */
+    private static function answerItems(array $round): array
+    {
+        return collect((array) $round['questions'])->map(function (array $question) use ($round): array {
+            $answer = $round['answers'][$question['id']] ?? null;
+            $choices = (array) ($answer['choices'] ?? []);
+            $other = $answer['other'] ?? null;
+
+            return [
+                'header' => (string) $question['header'],
+                'answer' => $choices !== [] ? implode(', ', $choices) : null,
+                'other' => $other,
+                'skipped' => $choices === [] && $other === null,
+            ];
+        })->values()->all();
     }
 }

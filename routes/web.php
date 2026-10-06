@@ -32,6 +32,7 @@ use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Http\Controllers\Tasks\StoreTaskController;
 use App\Http\Controllers\Tasks\TaskActionController;
+use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
@@ -73,6 +74,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
     Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('tasks.reroute');
     Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
+    Route::post('tasks/{task}/clarification-answers', TaskClarificationAnswerController::class)->name('tasks.clarification-answers.store');
     Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
     Route::get('costs', CostDashboardController::class)->name('costs');

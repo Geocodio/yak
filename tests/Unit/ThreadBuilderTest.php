@@ -144,3 +144,12 @@ test('a successful follow-up run yields a yak entry with its result summary', fu
     expect($entries->pluck('kind')->all())->toBe(['user', 'yak', 'user', 'yak'])
         ->and($entries->last()->text)->toBe('Update entry is now a draft.');
 });
+
+it('adds an entry per asked round and per answered round', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['started_at' => now()->subHour()]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], 'Note', 'Michele');
+
+    $kinds = app(ThreadBuilder::class)->build($task->fresh())->pluck('kind')->all();
+
+    expect($kinds)->toContain('clarification')->toContain('clarification-answers');
+});

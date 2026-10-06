@@ -1,8 +1,8 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
-* @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:18
-* @route '/tasks/{task}/messages'
+* @see \App\Http\Controllers\Tasks\TaskClarificationAnswerController::__invoke
+* @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
+* @route '/tasks/{task}/clarification-answers'
 */
 export const store = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
@@ -11,13 +11,13 @@ export const store = (args: { task: string | number | { id: string | number } } 
 
 store.definition = {
     methods: ["post"],
-    url: '/tasks/{task}/messages',
+    url: '/tasks/{task}/clarification-answers',
 } satisfies RouteDefinition<["post"]>
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:18
-* @route '/tasks/{task}/messages'
+* @see \App\Http\Controllers\Tasks\TaskClarificationAnswerController::__invoke
+* @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
+* @route '/tasks/{task}/clarification-answers'
 */
 store.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
@@ -48,15 +48,17 @@ store.url = (args: { task: string | number | { id: string | number } } | [task: 
 }
 
 /**
-* @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:18
-* @route '/tasks/{task}/messages'
+* @see \App\Http\Controllers\Tasks\TaskClarificationAnswerController::__invoke
+* @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
+* @route '/tasks/{task}/clarification-answers'
 */
 store.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
 
-const TaskMessageController = { store }
+const clarificationAnswers = {
+    store: Object.assign(store, store),
+}
 
-export default TaskMessageController
+export default clarificationAnswers

@@ -137,6 +137,27 @@ test('composer state is clarification while awaiting clarification', function ()
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'clarification'));
 });
 
+test('shows the questions form state with the pending questions', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create();
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
+        ->where('composer.state', 'questions')
+        ->where('questions.0.id', 'scope')
+        ->where('questions.0.options.1.label', 'Large')
+        ->where('questions.1.multiSelect', false));
+});
+
+test('shows answered rounds in the thread, with skipped questions', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['status' => TaskStatus::Running]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => [], 'other' => 'Medium']], null, 'Michele');
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
+        ->where('questions', null)
+        ->where('thread', fn ($thread) => collect($thread)->contains(fn ($entry) => $entry['kind'] === 'clarification-answers'
+            && $entry['answers'][0] === ['header' => 'Scope', 'answer' => null, 'other' => 'Medium', 'skipped' => false]
+            && $entry['answers'][1]['skipped'] === true)));
+});
+
 test('composer state is follow_up for a success task with an open pr', function () {
     $task = YakTask::factory()->success()->create();
 
