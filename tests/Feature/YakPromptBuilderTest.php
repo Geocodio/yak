@@ -380,6 +380,20 @@ test('research prompt includes description and no-code-changes instruction', fun
         ->toContain('summary');
 });
 
+test('research prompt carries the house report template and visuals rules', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'research',
+        'description' => 'Evaluate caching strategies for API responses',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task);
+
+    expect($prompt)->toContain('<template-file path=".yak-artifacts/research.html">')
+        ->toContain('<div class="bottom-line">')
+        ->toContain('.svg-label')
+        ->toContain('NEVER chart a number you did not actually obtain');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Task Prompts - Slack Fix

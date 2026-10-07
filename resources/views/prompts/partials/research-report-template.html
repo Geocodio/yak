@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TITLE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Layout: one 44rem reading column, console-ui tokens, tinted surfaces instead of rails. */
+  :root {
+    --bg: #fbfbfc;
+    --panel: #ffffff;
+    --panel-2: #eef0f2;
+    --border: #ebecef;
+    --border-strong: #e0e1e6;
+    --text: #282a30;
+    --text-2: #62666d;
+    --text-3: #9598a1;
+    --brand: #4a6580;
+    --brand-soft: rgba(74, 101, 128, 0.10);
+    --accent-text: #503ba3;
+    --warn: #b0631a;
+    --warn-soft: rgba(217, 122, 34, 0.11);
+    --series-1: #4a6580;
+    --series-2: #503ba3;
+    --series-3: #3e8e38;
+    --series-4: #b0631a;
+    --font-sans: 'IBM Plex Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --radius-card: 8px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1011; --panel: #171819; --panel-2: #232427;
+      --border: #232428; --border-strong: #303137;
+      --text: #e6e7ea; --text-2: #9499a1; --text-3: #62666e;
+      --brand: #7f9cb4; --brand-soft: rgba(127, 156, 180, 0.14);
+      --accent-text: #a99ce3;
+      --warn: #e8985a; --warn-soft: rgba(232, 152, 90, 0.13);
+      --series-1: #7f9cb4; --series-2: #8b7bd8; --series-3: #6fbe68; --series-4: #e8985a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1011; --panel: #171819; --panel-2: #232427;
+    --border: #232428; --border-strong: #303137;
+    --text: #e6e7ea; --text-2: #9499a1; --text-3: #62666e;
+    --brand: #7f9cb4; --brand-soft: rgba(127, 156, 180, 0.14);
+    --accent-text: #a99ce3;
+    --warn: #e8985a; --warn-soft: rgba(232, 152, 90, 0.13);
+    --series-1: #7f9cb4; --series-2: #8b7bd8; --series-3: #6fbe68; --series-4: #e8985a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--font-sans); font-size: 15.5px; line-height: 1.65;
+    padding: 3rem 1.25rem 5rem;
+  }
+  .page { max-width: 44rem; margin: 0 auto; }
+
+
+  header { padding-bottom: 1.25rem; border-bottom: 1px solid var(--border-strong); margin-bottom: 1.5rem; }
+  .eyebrow {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--brand); margin-bottom: 0.75rem;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+  h1 { font-size: clamp(1.6rem, 4vw, 2.1rem); line-height: 1.2; font-weight: 600; letter-spacing: -0.015em; margin: 0 0 0.6rem; text-wrap: balance; }
+  .byline { font-size: 13px; color: var(--text-3); display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; }
+
+  .request {
+    display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem;
+    font-size: 13.5px; margin: 0 0 2rem;
+  }
+  .request dt { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); padding-top: 0.15rem; }
+  .request dd { margin: 0; min-width: 0; }
+  .chip { font-family: var(--font-mono); font-size: 12px; background: var(--panel-2); border-radius: 5px; padding: 0.1em 0.45em; }
+  @media (max-width: 34rem) { .request { grid-template-columns: 1fr; gap: 0.1rem; } .request dt { padding-top: 0.6rem; } }
+
+  .bottom-line { background: var(--brand-soft); border-radius: var(--radius-card); padding: 1.1rem 1.35rem; margin: 0 0 1.75rem; font-size: 16.5px; }
+  .bottom-line .label { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand); margin-bottom: 0.35rem; }
+  .bottom-line p { margin: 0; }
+
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; margin: 0 0 2.25rem; }
+  .figures div { background: var(--panel); padding: 0.9rem 1rem; }
+  .figures dt { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-bottom: 0.25rem; }
+  .figures dd { margin: 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .figures small { display: block; font-size: 12px; font-weight: 400; color: var(--text-2); letter-spacing: 0; }
+
+  h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-2); margin: 2.75rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.05rem; font-weight: 600; margin: 1.75rem 0 0.5rem; }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent-text); text-underline-offset: 2px; }
+  code { font-family: var(--font-mono); font-size: 0.85em; background: var(--panel-2); border-radius: 4px; padding: 0.1em 0.35em; }
+  pre { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 0.9rem 1rem; overflow-x: auto; margin: 0 0 1.5rem; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  figure { margin: 1.75rem 0 2rem; }
+  .figure-scroll { overflow-x: auto; }
+  figure svg { display: block; width: 100%; min-width: 30rem; height: auto; }
+  figcaption { font-size: 13px; color: var(--text-2); margin-top: 0.6rem; }
+  .svg-label { font-family: var(--font-sans); font-size: 11px; fill: var(--text-2); }
+  .svg-label-strong { font-family: var(--font-sans); font-size: 12px; font-weight: 600; fill: var(--text); }
+  .svg-value { font-family: var(--font-mono); font-size: 11px; fill: var(--text); }
+  .svg-axis { stroke: var(--border-strong); stroke-width: 1; }
+  .svg-grid { stroke: var(--border); stroke-width: 1; }
+  .svg-box { fill: var(--panel); stroke: var(--border-strong); stroke-width: 1.25; }
+  .svg-box-emphasis { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.25; }
+  .svg-arrow { stroke: var(--text-3); stroke-width: 1.25; fill: none; }
+  .svg-arrowhead { fill: var(--text-3); }
+  .s1 { fill: var(--series-1); } .s2 { fill: var(--series-2); } .s3 { fill: var(--series-3); } .s4 { fill: var(--series-4); }
+
+  .table-scroll { overflow-x: auto; margin: 0 0 1.5rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); border-bottom-color: var(--border-strong); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .verdict { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 12px; font-weight: 500; }
+  .verdict::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .verdict.good { color: var(--series-3); } .verdict.mixed { color: var(--warn); }
+
+  ol.steps { padding-left: 1.3rem; margin: 0 0 1.25rem; }
+  ol.steps li { margin-bottom: 0.5rem; }
+  .effort { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+
+  .caution { background: var(--warn-soft); border-radius: var(--radius-card); padding: 1rem 1.25rem; font-size: 14.5px; margin: 0 0 1.5rem; }
+  .caution ul { margin: 0; padding-left: 1.2rem; }
+  .caution li { margin-bottom: 0.35rem; }
+  .caution li:last-child { margin-bottom: 0; }
+
+  .sources { font-size: 13px; line-height: 1.55; }
+  .sources ol { padding-left: 1.3rem; margin: 0; }
+  .sources li { margin-bottom: 0.5rem; }
+  .tag { font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); margin-right: 0.35rem; }
+
+  footer { margin-top: 3.5rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-3); }
+</style>
+</head>
+<body>
+<article class="page">
+
+  <header>
+    <div class="eyebrow"><span class="dot"></span>Yak research</div>
+    <h1>TITLE: the question you answered, stated specifically</h1>
+    <div class="byline"><span>DATE</span><span>REPOSITORY</span><span>READING_TIME</span></div>
+  </header>
+
+  <!-- What was asked. Drop a row you have nothing real for. -->
+  <dl class="request">
+    <dt>Asked by</dt><dd>REQUESTER and where they asked (Slack, Linear, GitHub, dashboard)</dd>
+    <dt>Question</dt><dd>QUESTION, quoted or closely paraphrased</dd>
+    <dt>Scope</dt><dd>SCOPE: what you read, ran, or measured</dd>
+    <dt>Related</dt><dd><span class="chip">ISSUE-ID</span> RELATED_ISSUE_TITLE</dd>
+  </dl>
+
+  <!-- The one paragraph that has to survive being read alone. -->
+  <div class="bottom-line">
+    <span class="label">Bottom line</span>
+    <p>BOTTOM_LINE</p>
+  </div>
+
+  <!-- Optional. Only numbers you actually obtained. -->
+  <dl class="figures">
+    <div><dt>LABEL</dt><dd>VALUE<small>qualifier</small></dd></div>
+  </dl>
+
+  <h2>What I found</h2>
+  <h3>FINDING_HEADLINE</h3>
+  <p>FINDINGS: code paths, measured numbers, quotes from sources. Include what contradicted your first guess.</p>
+
+  <!-- Inline SVG only. Use the .svg-* and .s1 to .s4 classes. Never chart a number you did not obtain. -->
+  <figure>
+    <div class="figure-scroll">
+      <svg viewBox="0 0 640 230" role="img" aria-label="DESCRIBE_THE_FIGURE"></svg>
+    </div>
+    <figcaption>CAPTION: what the reader should take from the figure, not what it is.</figcaption>
+  </figure>
+
+  <!-- Optional. For comparing options. Verdict dots: .verdict.good or .verdict.mixed. -->
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Option</th><th class="num">Measure</th><th>Effort</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>OPTION</td><td class="num">VALUE</td><td>EFFORT</td><td><span class="verdict good">VERDICT</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>What I would do</h2>
+  <ol class="steps">
+    <li>STEP, concrete. <span class="effort">EFFORT</span></li>
+  </ol>
+
+  <h2>Where I might be wrong</h2>
+  <div class="caution">
+    <ul>
+      <li>WEAKNESS: what you could not verify, what you assumed, what would change the conclusion.</li>
+    </ul>
+  </div>
+
+  <h2>Sources</h2>
+  <div class="sources">
+    <ol>
+      <li><span class="tag">Code</span><code>path/to/file.php:LINE</code>, what it shows</li>
+      <li><span class="tag">Docs</span><a href="URL">TITLE</a></li>
+    </ol>
+  </div>
+
+  <footer>Researched by Yak. Check anything important before acting on it.</footer>
+
+</article>
+</body>
+</html>
