@@ -2,6 +2,7 @@
 
 use App\Enums\TaskStatus;
 use App\Models\YakTask;
+use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -143,4 +144,20 @@ test('a successful follow-up run yields a yak entry with its result summary', fu
 
     expect($entries->pluck('kind')->all())->toBe(['user', 'yak', 'user', 'yak'])
         ->and($entries->last()->text)->toBe('Update entry is now a draft.');
+});
+
+test('an answered question is followed by the dashboard replies to it', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'clarification_options' => ['A', 'B'],
+        'started_at' => now(),
+    ]);
+    TaskLogger::info($task, ThreadBuilder::CLARIFICATION_REPLY_LOG, ['reply' => 'Go with A', 'author' => 'Sam', 'attachment_ids' => [7]]);
+
+    $entries = app(ThreadBuilder::class)->build($task);
+
+    expect($entries->pluck('kind')->all())->toBe(['user', 'clarification', 'user', 'yak'])
+        ->and($entries[2]->text)->toBe('Go with A')
+        ->and($entries[2]->authorName)->toBe('Sam')
+        ->and($entries[2]->attachmentIds)->toBe([7]);
 });

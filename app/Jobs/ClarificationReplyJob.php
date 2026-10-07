@@ -23,6 +23,7 @@ use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\Middleware\PreventBranchOverlap;
 use App\Models\DailyCost;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
 use App\Services\IncusSandboxManager;
@@ -69,9 +70,13 @@ class ClarificationReplyJob implements ShouldQueue
      */
     public readonly CarbonImmutable $queuedAt;
 
+    /**
+     * @param  array<int, int>  $attachmentIds  TaskAttachment ids sent with the reply
+     */
     public function __construct(
         public readonly YakTask $task,
         public readonly string $replyText,
+        public readonly array $attachmentIds = [],
     ) {
         $this->queuedAt = CarbonImmutable::now();
         $this->onQueue('yak-claude');
@@ -155,6 +160,7 @@ class ClarificationReplyJob implements ShouldQueue
                 resumeSessionId: $this->task->session_id,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
+                attachments: TaskAttachment::whereKey($this->attachmentIds)->orderBy('id')->get()->all(),
             );
 
             $recorder->agentStarted($request);

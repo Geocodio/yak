@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\StoreTaskRequest;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Models\TaskAttachment;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ResponsiblePersonResolver;
@@ -35,6 +36,8 @@ class StoreTaskController extends Controller
             'started_by_user_id' => $user?->id,
             'responsible_user_id' => $resolver->resolveUser(null, $user, $validated['repo'])?->id,
         ]);
+
+        TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
 
         TaskLogger::info($task, 'Task created', ['source' => 'dashboard', 'repo' => $task->repo]);
 

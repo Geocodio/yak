@@ -8,18 +8,29 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\SendTaskMessageRequest;
 use App\Jobs\ClarificationReplyJob;
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
+use App\Services\ThreadBuilder;
+use App\Support\AttachmentNumbering;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 
 class TaskMessageController extends Controller
 {
     public function store(SendTaskMessageRequest $request, YakTask $task): RedirectResponse
     {
         $text = trim((string) $request->validated('message'));
-        $head = $task->conversation()->last() ?? $task;
+        $conversation = $task->conversation();
+        $head = $conversation->last() ?? $task;
+
+        // Labels number across the whole conversation; re-label any that an
+        // earlier message (or someone replying at the same time) already used.
+        $claimed = AttachmentNumbering::claim((array) $request->input('attachment_refs', []), $text, AttachmentNumbering::nextNumberFor($conversation));
+        $text = $claimed['text'];
+        $request->merge(['attachment_refs' => $claimed['references']]);
 
         /** @var TaskStatus $status */
         $status = $head->status;
@@ -32,31 +43,54 @@ class TaskMessageController extends Controller
         };
 
         [$flashKey, $message] = match ($state) {
-            'clarification' => ['success', $this->sendClarification($head, $text)],
-            'steering' => ['success', $this->sendSteering($head, $text)],
-            'follow_up' => $this->sendFollowUpMessage($head, $text),
+            'clarification' => ['success', $this->sendClarification($request, $head, $text)],
+            'steering' => ['success', $this->sendSteering($request, $head, $text)],
+            'follow_up' => $this->sendFollowUpMessage($request, $head, $text),
             default => ['error', 'This conversation is closed.'],
         };
 
         return redirect()->route('tasks.show', $task)->with($flashKey, $message);
     }
 
-    private function sendClarification(YakTask $head, string $text): string
+    private function sendClarification(SendTaskMessageRequest $request, YakTask $head, string $text): string
     {
-        TaskLogger::info($head, 'Clarification reply submitted via Yak UI');
-
         if (RepoClarificationResolver::awaitingRepoChoice($head)) {
+            // Choosing a repo restarts the run from scratch, which reads the
+            // task's request attachments, so the files join those.
+            $attachments = TaskAttachment::storeFromRequest($request, ['yak_task_id' => $head->id]);
+            self::logClarificationReply($head, $text, $attachments);
             RepoClarificationResolver::resolve($head, $text);
         } else {
-            ClarificationReplyJob::dispatch($head, $text);
+            $attachments = TaskAttachment::storeFromRequest($request, [
+                'yak_task_id' => $head->id,
+                'context' => TaskAttachment::CONTEXT_CLARIFICATION_REPLY,
+            ]);
+            self::logClarificationReply($head, $text, $attachments);
+            ClarificationReplyJob::dispatch($head, $text, $attachments->pluck('id')->all());
         }
 
         return 'Reply sent. Yak is continuing the task.';
     }
 
-    private function sendSteering(YakTask $head, string $text): string
+    /**
+     * The log entry doubles as the thread's record of the reply: ThreadBuilder
+     * shows each one as a message with the files sent alongside it.
+     *
+     * @param  Collection<int, TaskAttachment>  $attachments
+     */
+    private static function logClarificationReply(YakTask $head, string $text, Collection $attachments): void
     {
-        PendingSteeringMessage::queueFor($head, $text, 'dashboard');
+        TaskLogger::info($head, ThreadBuilder::CLARIFICATION_REPLY_LOG, [
+            'reply' => $text,
+            'author' => auth()->user()?->name,
+            'attachment_ids' => $attachments->pluck('id')->all(),
+        ]);
+    }
+
+    private function sendSteering(SendTaskMessageRequest $request, YakTask $head, string $text): string
+    {
+        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard');
+        TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
 
         TaskLogger::info($head, 'Steering message queued via Yak UI');
 
@@ -66,7 +100,7 @@ class TaskMessageController extends Controller
     /**
      * @return array{0: string, 1: string}
      */
-    private function sendFollowUpMessage(YakTask $head, string $text): array
+    private function sendFollowUpMessage(SendTaskMessageRequest $request, YakTask $head, string $text): array
     {
         $isResearch = $head->mode === TaskMode::Research;
         $closedMessage = $isResearch ? 'This conversation is closed.' : 'This PR is no longer open for changes.';
@@ -75,9 +109,12 @@ class TaskMessageController extends Controller
             return ['error', $closedMessage];
         }
 
-        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name);
+        $attachments = TaskAttachment::storeFromRequest($request);
+        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name, attachments: $attachments);
 
         if ($child === null) {
+            $attachments->each->delete();
+
             return ['error', $closedMessage];
         }
 

@@ -1,7 +1,12 @@
 import { useForm } from '@inertiajs/react';
-import { Button, Field, Select, Sheet, Textarea, cn } from '@geocodio/console-ui';
-import type { KeyboardEvent } from 'react';
+import { Button, Field, Select, Sheet, cn } from '@geocodio/console-ui';
+import { useRef, useState, type KeyboardEvent } from 'react';
+import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
+import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
+import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
+import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { store } from '@/routes/tasks';
+import type { MediaItem } from '@/types/tasks';
 
 type TaskMode = 'fix' | 'research';
 
@@ -14,13 +19,29 @@ export function NewTaskSheet({
     onOpenChange: (open: boolean) => void;
     repoOptions: string[];
 }) {
-    const form = useForm({ repo: '', mode: 'fix' as TaskMode, description: '' });
+    const form = useForm<{ repo: string; mode: TaskMode; description: string; attachments: File[]; attachment_refs: string[] }>({
+        repo: '',
+        mode: 'fix',
+        description: '',
+        attachments: [],
+        attachment_refs: [],
+    });
+    const editorRef = useRef<AttachmentTextareaHandle>(null);
+    const draft = useAttachmentDraft({ enabled: open, onAdd: (added) => editorRef.current?.insertTokens(added) });
+    const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const errors = form.errors as Record<string, string | undefined>;
 
     const submit = () => {
+        if (form.processing) {
+            return;
+        }
+        form.transform((data) => ({ ...data, attachments: draft.files, attachment_refs: draft.refs }));
         form.post(store.url(), {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
+                draft.clear();
                 onOpenChange(false);
             },
         });
@@ -71,16 +92,38 @@ export function NewTaskSheet({
                     {form.errors.mode && <p className="mt-1 text-[12px] text-fail">{form.errors.mode}</p>}
                 </div>
                 <Field label="Description" error={form.errors.description}>
-                    <Textarea
-                        rows={6}
-                        placeholder="Describe what you'd like Yak to do…"
-                        value={form.data.description}
-                        onChange={(event) => form.setData('description', event.target.value)}
-                        data-testid="new-task-description"
-                    />
+                    <div className="relative" {...draft.dropzoneProps}>
+                        <AttachmentDropOverlay draft={draft} />
+                        <AttachmentTextarea
+                            ref={editorRef}
+                            draft={draft}
+                            rows={6}
+                            placeholder="Describe what you'd like Yak to do… Paste or drop screenshots and files here."
+                            value={form.data.description}
+                            onValueChange={(value) => form.setData('description', value)}
+                            onPaste={draft.onPaste}
+                            wrapperClassName="rounded-control bg-panel"
+                            className="w-full"
+                            data-testid="new-task-description"
+                        />
+                    </div>
                 </Field>
-                <div className="flex items-center justify-between">
-                    <span className="hidden text-[11px] text-faint pointer-fine:inline">⌘↵ to submit</span>
+                <div className="-mt-2 -mx-3">
+                    <DraftAttachments
+                        draft={draft}
+                        errors={errors}
+                        progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null}
+                        onOpenMedia={(items, index) => {
+                            setLightboxMedia(items);
+                            setLightboxIndex(index);
+                        }}
+                    />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <AttachButton draft={draft} disabled={form.processing} />
+                        <span className="hidden text-[11px] text-faint pointer-fine:inline">⌘↵ to submit</span>
+                    </div>
                     <div className="ml-auto flex gap-2">
                         <Button onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button variant="primary" pending={form.processing} onClick={submit} data-testid="new-task-submit">
@@ -89,6 +132,12 @@ export function NewTaskSheet({
                     </div>
                 </div>
             </div>
+            <MediaLightbox
+                media={lightboxMedia}
+                index={lightboxIndex}
+                onOpenChange={(isOpen) => !isOpen && setLightboxMedia(null)}
+                onIndexChange={setLightboxIndex}
+            />
         </Sheet>
     );
 }

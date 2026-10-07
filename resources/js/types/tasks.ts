@@ -111,10 +111,29 @@ export type TaskDetail = {
 
 export type MediaItem = {
     id: number;
-    kind: 'video' | 'image';
+    kind: 'video' | 'image' | 'audio' | 'pdf' | 'text';
     url: string;
     thumbUrl: string | null;
     caption: string | null;
+    /** Offered as a download button in the lightbox when set. */
+    downloadUrl?: string | null;
+    /** File name for the download, when it differs from the URL's. */
+    downloadName?: string | null;
+    /** The file's name, used to pick syntax highlighting for a text preview. */
+    fileName?: string | null;
+};
+
+export type AttachmentData = {
+    id: number;
+    name: string;
+    /** The label the message text uses for it, e.g. `Image #1`. */
+    reference: string | null;
+    url: string;
+    mimeType: string;
+    size: number;
+    isImage: boolean;
+    previewKind: 'image' | 'video' | 'audio' | 'pdf' | 'text' | null;
+    downloadUrl: string;
 };
 
 export type ThreadEntryData = {
@@ -130,6 +149,8 @@ export type ThreadEntryData = {
     error?: string | null;
     links?: { label: string; url: string }[];
     media?: MediaItem[];
+    /** Files sent with the message (`user`), including a reply to a clarification. */
+    attachments?: AttachmentData[];
 };
 
 export type RunSummary = {
@@ -222,6 +243,8 @@ export type ComposerData = {
     placeholder: string;
     note: string | null;
     buttonLabel: string | null;
+    /** First attachment label number free in this conversation; labels never repeat across its messages. */
+    nextAttachmentNumber: number;
 };
 
 export type DebugData = Record<string, string>;

@@ -11,6 +11,7 @@ use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
@@ -58,6 +59,34 @@ test('retry routes to AwaitingClarification when Claude signals clarificationNee
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($task->clarification_options)->toBe(['Approach X', 'Approach Y']);
+});
+
+test('retry hands the agent every file sent to the run, including clarification replies', function () {
+    Queue::fake();
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_retry_files',
+        resultSummary: 'Still stuck',
+        costUsd: 0.1,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        clarificationNeeded: true,
+        clarificationOptions: ['A', 'B'],
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'retry-files-repo', 'path' => '/home/yak/repos/retry-files-repo']);
+    $task = YakTask::factory()->retrying()->create(['repo' => 'retry-files-repo', 'branch_name' => 'yak/retry-files']);
+    $request = TaskAttachment::factory()->for($task, 'task')->create();
+    $reply = TaskAttachment::factory()->for($task, 'task')->clarificationReply()->create();
+
+    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+
+    expect(collect($fake->calls[0]->attachments)->pluck('id')->all())->toBe([$request->id, $reply->id]);
 });
 
 test('retry marks task Success and skips push when no new commits', function () {

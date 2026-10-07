@@ -17,6 +17,7 @@ readonly class ThreadEntry
     /**
      * @param  array<int, string>  $options  clarification options ('clarification' kind)
      * @param  array<string, int|string|null>  $runStats  ['steps' => int, 'attempt' => int, 'duration_ms' => int|null]
+     * @param  array<int, int>|null  $attachmentIds  Files sent with a clarification reply; null for messages whose files are the run's own
      */
     private function __construct(
         public string $kind,
@@ -30,11 +31,22 @@ readonly class ThreadEntry
         public bool $isLive = false,
         public ?string $error = null,
         public ?string $authorName = null,
+        public ?array $attachmentIds = null,
     ) {}
 
     public static function user(YakTask $run, string $text, ?string $summary, Carbon $at, ?string $source, ?string $authorName = null): self
     {
         return new self('user', $run, $text, $summary, $at, $source, authorName: $authorName);
+    }
+
+    /**
+     * A person's answer to a clarification question, shown as their message.
+     *
+     * @param  array<int, int>  $attachmentIds
+     */
+    public static function clarificationReply(YakTask $run, string $text, Carbon $at, ?string $authorName, array $attachmentIds): self
+    {
+        return new self('user', $run, $text, null, $at, 'dashboard', authorName: $authorName, attachmentIds: $attachmentIds);
     }
 
     /**

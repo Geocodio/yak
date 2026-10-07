@@ -12,6 +12,7 @@ use App\Models\YakTask;
 use App\Services\AiPricing;
 use App\Services\ClaudeAuthDetector;
 use App\Services\IncusSandboxManager;
+use App\Services\TaskAttachmentStager;
 use App\Services\TaskLogger;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -69,6 +70,7 @@ class SandboxedAgentRunner implements AgentRunner
     public function run(AgentRunRequest $request): AgentRunResult
     {
         $this->refreshClaude($request);
+        $request = $this->stageAttachments($request);
         $this->logPrompts($request);
 
         if ($request->task) {
@@ -76,6 +78,23 @@ class SandboxedAgentRunner implements AgentRunner
         }
 
         return $this->runBatch($request);
+    }
+
+    /**
+     * Copy the message's attachments into the sandbox and point the prompt
+     * at them, so the logged prompt is exactly what Claude receives.
+     */
+    private function stageAttachments(AgentRunRequest $request): AgentRunRequest
+    {
+        if ($request->attachments === [] || $request->containerName === '') {
+            return $request;
+        }
+
+        $section = (new TaskAttachmentStager($this->sandbox))->stage($request->containerName, $request->attachments);
+
+        return $request->withStagedAttachments(
+            $section === '' ? $request->prompt : rtrim($request->prompt) . "\n\n" . $section,
+        );
     }
 
     /**

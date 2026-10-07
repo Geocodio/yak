@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -39,7 +40,7 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
 
     public function handle(FollowUpTaskFactory $factory): void
     {
-        $messages = PendingSteeringMessage::where('root_task_id', $this->rootTaskId)->orderBy('id')->get();
+        $messages = PendingSteeringMessage::where('root_task_id', $this->rootTaskId)->with('attachments')->orderBy('id')->get();
 
         if ($messages->isEmpty()) {
             return;
@@ -48,6 +49,7 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
         $root = YakTask::find($this->rootTaskId);
 
         if ($root === null) {
+            $messages->flatMap->attachments->each(fn (TaskAttachment $attachment) => $attachment->delete());
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();
 
             return;
@@ -58,7 +60,7 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
 
         $reviewerLogins = $messages->pluck('reviewer_login')->filter()->unique()->values()->all();
 
-        $child = $factory->create($root, $instructions, 'steering', null, $reviewerLogins);
+        $child = $factory->create($root, $instructions, 'steering', null, $reviewerLogins, attachments: $messages->flatMap->attachments->values());
 
         if ($child !== null) {
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();

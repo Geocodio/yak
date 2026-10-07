@@ -171,6 +171,7 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: $this->task->session_id,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
+                attachments: $this->task->attachments->all(),
             );
 
             $recorder->agentStarted($request);

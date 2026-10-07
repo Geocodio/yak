@@ -195,6 +195,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
+                attachments: $this->task->attachments->all(),
             );
 
             $recorder->agentStarted($request);

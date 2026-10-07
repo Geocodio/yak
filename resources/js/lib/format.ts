@@ -115,3 +115,20 @@ export function formatAgo(iso: string, now: number = Date.now()): string {
 
     return `${Math.floor(seconds / 86_400)}d ago`;
 }
+
+/**
+ * Human file size: `812 B`, `14 KB`, `2.4 MB`.
+ */
+export function formatBytes(bytes: number): string {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+
+    if (bytes < 1024 * 1024) {
+        return `${Math.round(bytes / 1024)} KB`;
+    }
+
+    const megabytes = bytes / (1024 * 1024);
+
+    return `${megabytes < 10 ? megabytes.toFixed(1) : Math.round(megabytes)} MB`;
+}

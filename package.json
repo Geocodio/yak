@@ -17,6 +17,7 @@
         "@codemirror/view": "^6.41.0",
         "@geocodio/console-ui": "^0.3.1",
         "@inertiajs/react": "^3.7.0",
+        "@lezer/highlight": "^1.2.5",
         "@tailwindcss/vite": "^4.1.11",
         "autoprefixer": "^10.4.20",
         "codemirror": "^6.0.2",

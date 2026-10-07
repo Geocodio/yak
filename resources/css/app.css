@@ -147,3 +147,32 @@ html #nprogress .bar {
 .ui-tab-bar a[data-loading] {
     color: var(--accent-text);
 }
+
+/*
+ * `[Image #1]` labels in a message, in the composer and in the thread. The
+ * composer draws these in a mirror behind its textarea, so they may only
+ * paint: padding, borders or a weight change would shift the text out of
+ * line with the caret.
+ */
+.attachment-ref {
+    border-radius: 4px;
+    background-color: var(--accent-soft);
+    color: var(--accent-text);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent);
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition:
+        background-color 120ms ease-out,
+        color 120ms ease-out,
+        box-shadow 120ms ease-out;
+}
+
+.attachment-ref[data-highlighted] {
+    background-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+
+.prose .attachment-ref {
+    cursor: pointer;
+}

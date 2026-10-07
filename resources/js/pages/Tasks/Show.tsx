@@ -248,7 +248,15 @@ export default function Show({
                         </div>
                     </div>
 
-                    <Composer taskId={task.id} composer={composer} fillValue={composerFill} />
+                    <Composer
+                        taskId={task.id}
+                        composer={composer}
+                        fillValue={composerFill}
+                        onOpenMedia={(items, i) => {
+                            setLightboxMedia(items);
+                            setLightboxIndex(i);
+                        }}
+                    />
                 </div>
 
                 {/* Mounted on every tab and hidden by class, not conditionally rendered, so the scroll position and the row store stay alive across tab switches. */}

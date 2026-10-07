@@ -1,5 +1,6 @@
 import Auth from './Auth'
 import Tasks from './Tasks'
+import TaskAttachmentController from './TaskAttachmentController'
 import CostDashboardController from './CostDashboardController'
 import AnalyticsController from './AnalyticsController'
 import Repositories from './Repositories'
@@ -21,6 +22,7 @@ import Internal from './Internal'
 const Controllers = {
     Auth: Object.assign(Auth, Auth),
     Tasks: Object.assign(Tasks, Tasks),
+    TaskAttachmentController: Object.assign(TaskAttachmentController, TaskAttachmentController),
     CostDashboardController: Object.assign(CostDashboardController, CostDashboardController),
     AnalyticsController: Object.assign(AnalyticsController, AnalyticsController),
     Repositories: Object.assign(Repositories, Repositories),

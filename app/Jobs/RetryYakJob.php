@@ -136,6 +136,7 @@ class RetryYakJob implements ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
+                attachments: $this->task->allAttachments->all(),
             );
 
             $recorder->agentStarted($request);

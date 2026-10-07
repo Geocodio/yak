@@ -205,6 +205,30 @@ class YakTask extends Model
     }
 
     /**
+     * Files attached to the message that started this run.
+     *
+     * @return HasMany<TaskAttachment, $this>
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TaskAttachment::class, 'yak_task_id')
+            ->where('context', TaskAttachment::CONTEXT_REQUEST)
+            ->orderBy('id');
+    }
+
+    /**
+     * Every file sent to this run: the request's plus any sent with
+     * clarification replies. A run that starts a fresh session needs them
+     * all, since its prompt can refer to any of them.
+     *
+     * @return HasMany<TaskAttachment, $this>
+     */
+    public function allAttachments(): HasMany
+    {
+        return $this->hasMany(TaskAttachment::class, 'yak_task_id')->orderBy('id');
+    }
+
+    /**
      * @return BelongsTo<YakTask, $this>
      */
     public function parent(): BelongsTo
