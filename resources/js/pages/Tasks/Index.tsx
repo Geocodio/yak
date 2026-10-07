@@ -6,7 +6,7 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { FilterMenu } from '@/components/tasks/FilterMenu';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
-import { NewTaskSheet } from '@/components/tasks/NewTaskSheet';
+import { NewTaskDialog } from '@/components/tasks/NewTaskDialog';
 import { openPalette } from '@/components/Sidebar';
 import { SetupCard } from '@/components/tasks/SetupCard';
 import { TaskCardList } from '@/components/tasks/TaskCardList';
@@ -304,7 +304,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <HoverPreview src={previewSrc} />
 
-            <NewTaskSheet open={sheetOpen} onOpenChange={handleSheetOpenChange} repoOptions={activeRepos} />
+            <NewTaskDialog open={sheetOpen} onOpenChange={handleSheetOpenChange} repoOptions={activeRepos} />
         </>
     );
 }

@@ -122,7 +122,7 @@ test('on a phone clearing filters from the sheet restores the full list', functi
 
     // A fresh visit with the filter already applied via the URL, rather than
     // reopening the same sheet instance a second time in one page session --
-    // Base UI's Drawer (also used by NewTaskSheet) does not reliably reopen
+    // Base UI's Drawer does not reliably reopen
     // after a prior close under this Playwright/CDP mobile emulation, a
     // pre-existing limitation unrelated to this feature.
     visit('/tasks?status=failed')->on()->mobile()
