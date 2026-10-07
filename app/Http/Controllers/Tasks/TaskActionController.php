@@ -21,6 +21,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
+use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -48,12 +49,16 @@ class TaskActionController extends Controller
             return $this->retryOnExistingBranch($task);
         }
 
+        /** @var TaskMode $mode */
+        $mode = $task->mode;
+
         // cost_usd, duration_ms and num_turns are lifetime totals and
         // deliberately survive a retry: the failed attempt still cost money.
         // The claim adds one to attempts for this pass, the same way it does
         // for a new task, so the task gets the full CI-retry budget again.
         $task->update([
             'status' => TaskStatus::Pending,
+            'description' => $this->withQueuedReplies($task, $mode),
             'attempts_at_manual_retry' => $task->attempts,
             'error_log' => null,
             'result_summary' => null,
@@ -62,9 +67,6 @@ class TaskActionController extends Controller
             'started_at' => null,
             'completed_at' => null,
         ]);
-
-        /** @var TaskMode $mode */
-        $mode = $task->mode;
 
         $jobClass = match ($mode) {
             TaskMode::Setup => SetupYakJob::class,
@@ -78,6 +80,27 @@ class TaskActionController extends Controller
         app(AgentJobDispatcher::class)->dispatch($task, $jobClass);
 
         return redirect()->route('tasks.show', $task)->with('success', 'Task re-queued.');
+    }
+
+    /**
+     * Thread replies queued while the failed run was going would otherwise
+     * wait for a success that never came. A fresh start folds them into the
+     * description so this run does them too. Setup and review runs do not
+     * read the description, so their replies stay queued.
+     */
+    private function withQueuedReplies(YakTask $task, TaskMode $mode): string
+    {
+        if (in_array($mode, [TaskMode::Setup, TaskMode::Review], true)) {
+            return $task->description;
+        }
+
+        $replies = PendingSteeringMessage::drainFor($task);
+
+        if ($replies === null) {
+            return $task->description;
+        }
+
+        return trim((string) $task->description) . "\n\nReplies added in the thread since this request:\n\n" . $replies;
     }
 
     /**
