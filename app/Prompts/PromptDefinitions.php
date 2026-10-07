@@ -154,7 +154,7 @@ class PromptDefinitions
             'agents-repo-routing' => [
                 'view' => 'prompts.agents.repo-routing',
                 'label' => 'Repo Routing Agent',
-                'description' => 'Instructions for the RepoRoutingAgent, which picks the single most likely repository for an incoming task from a list of candidate repositories, or responds UNKNOWN if it cannot decide.',
+                'description' => 'Instructions for the RepoRoutingAgent, which estimates the probability that an incoming task belongs to each candidate repository. The router picks the top candidate when it reaches 70%, and otherwise asks the user.',
                 'category' => 'advanced',
                 'type' => 'agent',
                 'variables' => [],

@@ -6,16 +6,21 @@ use App\Ai\Agents\RepoRoutingAgent;
 use App\Models\Repository;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Laravel\Ai\Responses\StructuredAgentResponse;
 
 /**
  * Uses Haiku (via Laravel AI) to pick the best-matching repository from a
  * natural language task description when no explicit repo was mentioned.
+ * Haiku estimates a probability per repository; the top candidate wins when
+ * it reaches the confidence threshold.
  */
 class RepoRouter
 {
+    public const CONFIDENCE_THRESHOLD = 70;
+
     /**
-     * Return the best-matching active repo, or null if the LLM is not
-     * confident or not configured.
+     * Return the best-matching active repo, or null if the top candidate is
+     * below the confidence threshold or the LLM is not configured.
      *
      * @param  Collection<int, Repository>  $activeRepos
      */
@@ -29,7 +34,7 @@ class RepoRouter
 
         $repoList = $activeRepos->map(function (Repository $repo): string {
             $details = array_filter([$repo->description, $repo->notes]);
-            $line = "- {$repo->slug}";
+            $line = "- {$repo->slug}" . ($repo->is_default ? ' (default)' : '');
             if (! empty($details)) {
                 $line .= ': ' . implode(' | ', $details);
             }
@@ -46,12 +51,23 @@ Task description:
 PROMPT;
 
         try {
+            /** @var StructuredAgentResponse $response */
             $response = RepoRoutingAgent::make()->prompt($prompt);
-            $slug = trim((string) $response);
 
-            if ($slug === '' || $slug === 'UNKNOWN') {
+            $candidates = is_array($response->structured['candidates'] ?? null) ? $response->structured['candidates'] : [];
+
+            $top = collect($candidates)
+                ->filter(fn (mixed $candidate): bool => is_array($candidate) && is_string($candidate['slug'] ?? null) && is_numeric($candidate['probability'] ?? null))
+                ->sortByDesc('probability')
+                ->first();
+
+            if ($top === null || (int) $top['probability'] < self::CONFIDENCE_THRESHOLD) {
+                Log::channel('yak')->info('RepoRouter: no confident match', ['candidates' => $candidates]);
+
                 return null;
             }
+
+            $slug = $top['slug'];
 
             /** @var Repository|null $match */
             $match = $activeRepos->firstWhere('slug', $slug);
@@ -64,6 +80,7 @@ PROMPT;
 
             Log::channel('yak')->info('RepoRouter: resolved repo from description', [
                 'slug' => $slug,
+                'probability' => (int) $top['probability'],
             ]);
 
             return $match;
