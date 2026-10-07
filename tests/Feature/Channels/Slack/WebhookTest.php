@@ -369,7 +369,8 @@ it('omits the repo list from the clarification text (buttons carry it)', functio
         return $job->type === NotificationType::Clarification
             && ! str_contains($job->message, 'acme/one')
             && ! str_contains($job->message, 'acme/two')
-            && ! str_contains(strtolower($job->message), 'options');
+            && ! str_contains(strtolower($job->message), 'options')
+            && $job->personalize === false;
     });
 });
 
