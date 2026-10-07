@@ -61,9 +61,14 @@ class TaskListController extends Controller
             'setupCard' => fn () => $this->setupCard($request->user()),
             'activeRepos' => fn () => Repository::query()
                 ->where('is_active', true)
+                ->orderByDesc('is_default')
                 ->orderBy('slug')
                 ->pluck('slug')
                 ->all(),
+            'defaultRepo' => fn () => Repository::query()
+                ->where('is_active', true)
+                ->where('is_default', true)
+                ->value('slug'),
             'openNew' => $request->boolean('new'),
         ]);
     }

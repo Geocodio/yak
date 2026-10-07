@@ -47,3 +47,16 @@ test('typing an at sign in the description opens the repository picker', functio
         ->assertValue('[data-testid="new-task-description"]', 'Fix the footer ')
         ->assertNoJavaScriptErrors();
 });
+
+test('the default repository is listed first with a star', function () {
+    $this->actingAs(User::factory()->create());
+    Repository::factory()->create(['slug' => 'alpha-site', 'is_active' => true]);
+    Repository::factory()->default()->create(['slug' => 'zulu-api', 'is_active' => true]);
+
+    visit('/tasks?new=1')
+        ->click('[data-testid="new-task-repo"]')
+        ->assertVisible('[data-testid="repo-option-zulu-api"] [data-testid="repo-option-default"]')
+        ->assertMissing('[data-testid="repo-option-alpha-site"] [data-testid="repo-option-default"]')
+        ->assertSeeIn('[data-testid="repo-picker-list"] [role="option"]:first-child', 'zulu-api')
+        ->assertNoJavaScriptErrors();
+});

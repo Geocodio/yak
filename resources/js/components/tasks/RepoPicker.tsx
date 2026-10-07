@@ -1,5 +1,5 @@
 import { cn } from '@geocodio/console-ui';
-import { Check, ChevronDown, GitBranch } from 'lucide-react';
+import { Check, ChevronDown, GitBranch, Star } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 /**
@@ -60,6 +60,7 @@ function initials(slug: string): string {
  */
 export function RepoPicker({
     options,
+    defaultOption,
     value,
     onChange,
     onClose,
@@ -67,6 +68,8 @@ export function RepoPicker({
     className,
 }: {
     options: string[];
+    /** The default repository, starred in the list. */
+    defaultOption?: string | null;
     value: string | null;
     onChange: (value: string | null) => void;
     /** Fires when the picker gives up focus, whether or not a repository was chosen. */
@@ -221,7 +224,21 @@ export function RepoPicker({
                                 <span className="truncate font-medium">
                                     <Highlighted text={slug} positions={match.positions} />
                                 </span>
-                                {slug === value && <Check size={14} className="ml-auto shrink-0 text-accent-text" aria-hidden="true" />}
+                                {slug === defaultOption && (
+                                    <Star
+                                        size={13}
+                                        className="ml-auto shrink-0 fill-current text-faint"
+                                        aria-label="Default repository"
+                                        data-testid="repo-option-default"
+                                    />
+                                )}
+                                {slug === value && (
+                                    <Check
+                                        size={14}
+                                        className={cn('shrink-0 text-accent-text', slug !== defaultOption && 'ml-auto')}
+                                        aria-hidden="true"
+                                    />
+                                )}
                             </div>
                         ))
                     )}

@@ -31,10 +31,12 @@ export function NewTaskDialog({
     open,
     onOpenChange,
     repoOptions,
+    defaultRepo,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     repoOptions: string[];
+    defaultRepo: string | null;
 }) {
     const form = useForm({ repo: '', mode: 'fix' as TaskMode, description: '' });
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -178,6 +180,7 @@ export function NewTaskDialog({
                 {pickerOpen && (
                     <RepoPicker
                         options={repoOptions}
+                        defaultOption={defaultRepo}
                         value={form.data.repo || null}
                         onChange={onRepoPicked}
                         onClose={() => setPickerOpen(false)}
