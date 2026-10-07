@@ -4,6 +4,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\RenderWalkthroughJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
@@ -14,6 +15,7 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -349,6 +351,7 @@ test('handles missing HTML artifact gracefully', function () {
         '*git pull *' => Process::result(''),
     ]);
     Http::fake();
+    Storage::fake('artifacts');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
@@ -359,6 +362,54 @@ test('handles missing HTML artifact gracefully', function () {
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Success);
     expect(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
+});
+
+test('a recorded walkthrough is kept, rendered and linked from the reply', function () {
+    Queue::fake([SendNotificationJob::class, RenderWalkthroughJob::class]);
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_walkthrough',
+        resultSummary: 'I recorded the walkthrough video',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new class extends FakeSandboxManager
+    {
+        public function fileExists(string $containerName, string $path): bool
+        {
+            return str_ends_with($path, '.yak-artifacts');
+        }
+
+        public function pullDirectory(string $containerName, string $remotePath, string $localPath): void
+        {
+            $dir = "{$localPath}/.yak-artifacts";
+            File::ensureDirectoryExists("{$dir}/shots");
+            File::put("{$dir}/manifest.json", json_encode(['version' => 3, 'shots' => [
+                ['id' => 'signup', 'clip' => 'shots/signup.webm', 'start' => 0, 'end' => 4, 'rect' => null, 'url' => 'https://x/'],
+            ]]));
+            File::put("{$dir}/shots/signup.webm", 'clip');
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    Storage::fake('artifacts');
+
+    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    expect(Artifact::where('yak_task_id', $task->id)->where('role', 'shot')->count())->toBe(1);
+    Queue::assertPushed(RenderWalkthroughJob::class);
+
+    $result = Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result)->first();
+    expect($result->message)->toContain(route('tasks.show', $task));
 });
 
 /*

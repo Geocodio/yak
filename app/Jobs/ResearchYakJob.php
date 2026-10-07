@@ -26,9 +26,11 @@ use App\Models\Artifact;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ArtifactPersister;
 use App\Services\IncusSandboxManager;
 use App\Services\PromptResolver;
 use App\Services\RepositoryRiskProfiles;
+use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
@@ -316,6 +318,12 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
         $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
 
+        // A research run can record a walkthrough. Its shot clips only exist
+        // inside the sandbox, and the persister hands them to the renderer.
+        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+        $hasWalkthrough = collect(ArtifactPersister::persist($this->task))->contains('type', 'video');
+        $taskUrl = route('tasks.show', $this->task);
+
         $this->task->update([
             'status' => TaskStatus::Success,
             'result_summary' => $summary,
@@ -342,6 +350,10 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
         }
 
+        if ($hasWalkthrough) {
+            $notificationMessage .= "\n\n🎬 **[Watch the walkthrough]({$taskUrl})** (ready once it finishes rendering)";
+        }
+
         $this->reportResult($notificationMessage);
 
         if ($this->task->source === 'linear') {
@@ -354,6 +366,15 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                     title: 'Research report',
                     url: $artifactUrl,
                     subtitle: 'Detailed findings from Yak · HTML',
+                );
+            }
+
+            if ($hasWalkthrough) {
+                app(LinearNotificationDriver::class)->createIssueAttachment(
+                    $this->task,
+                    title: 'Walkthrough video',
+                    url: $taskUrl,
+                    subtitle: 'Recorded by Yak',
                 );
             }
         }
