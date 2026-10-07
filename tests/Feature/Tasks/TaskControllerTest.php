@@ -8,6 +8,7 @@ use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\TaskLog;
+use App\Models\TaskRun;
 use App\Models\User;
 use App\Models\YakTask;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -91,6 +92,20 @@ test('clarification entry carries its options', function () {
                 ->etc()));
 });
 
+test('a follow-up waiting on answers shows when its questions expire', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'created_at' => now()->subHour()]);
+    YakTask::factory()->withClarificationQuestions()->create([
+        'parent_task_id' => $root->id,
+        'clarification_expires_at' => now()->addDays(3),
+    ]);
+
+    $this->get(route('tasks.show', $root))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('thread', fn ($thread) => collect($thread)->contains(
+                fn (array $entry) => $entry['kind'] === 'clarification' && str_contains($entry['meta'], 'expires') && $entry['expiresIn'] !== null,
+            )));
+});
+
 test('markdown in the thread strips raw html', function () {
     $task = YakTask::factory()->create([
         'description' => "Before the script.\n\n<script>alert(1)</script>\n\nAfter the script.",
@@ -135,6 +150,27 @@ test('composer state is clarification while awaiting clarification', function ()
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'clarification'));
+});
+
+test('shows the questions form state with the pending questions', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create();
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
+        ->where('composer.state', 'questions')
+        ->where('questions.0.id', 'scope')
+        ->where('questions.0.options.1.label', 'Large')
+        ->where('questions.1.multiSelect', false));
+});
+
+test('shows answered rounds in the thread, with skipped questions', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['status' => TaskStatus::Running]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => [], 'other' => 'Medium']], null, 'Michele');
+
+    $this->get(route('tasks.show', $task))->assertInertia(fn (Assert $page) => $page
+        ->where('questions', null)
+        ->where('thread', fn ($thread) => collect($thread)->contains(fn ($entry) => $entry['kind'] === 'clarification-answers'
+            && $entry['answers'][0] === ['header' => 'Scope', 'answer' => null, 'other' => 'Medium', 'skipped' => false]
+            && $entry['answers'][1]['skipped'] === true)));
 });
 
 test('composer state is follow_up for a success task with an open pr', function () {
@@ -765,4 +801,29 @@ test('show exposes who started the task and who is responsible', function () {
         ->component('Tasks/Show')
         ->where('task.startedBy', 'Jane Doe')
         ->where('task.responsible', 'John Smith'));
+});
+
+test('it shows the model the agent resolved instead of the configured alias', function () {
+    $task = YakTask::factory()->create(['model_used' => 'opus']);
+    TaskRun::factory()->create([
+        'yak_task_id' => $task->id,
+        'model_usage' => [
+            'claude-haiku-4-5-20251001' => ['input' => 500, 'output' => 40, 'cache_read' => 0, 'cache_creation' => 0, 'cost_usd' => 0.01],
+            'claude-opus-5-5' => ['input' => 12, 'output' => 2887, 'cache_read' => 271592, 'cache_creation' => 45943, 'cost_usd' => 0.48],
+        ],
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.model', 'claude-opus-5-5')
+            ->etc());
+});
+
+test('it falls back to the configured alias when no run recorded model usage', function () {
+    $task = YakTask::factory()->create(['model_used' => 'opus']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.model', 'opus')
+            ->etc());
 });

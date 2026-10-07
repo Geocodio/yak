@@ -5,8 +5,8 @@ namespace App\Channels\Slack;
 use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
-use App\Jobs\ClarificationReplyJob;
 use App\Models\YakTask;
+use App\Services\ClarificationAnswerSubmitter;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use Illuminate\Http\Client\ConnectionException;
@@ -18,9 +18,10 @@ use Illuminate\Support\Facades\Http;
  * Handles Slack's Interactivity & Shortcuts webhook — fires when a
  * user clicks a button inside one of Yak's messages. The only
  * interactive element we currently ship is clarification option
- * buttons: clicking one dispatches ClarificationReplyJob with the
+ * buttons: clicking one submits the clicked option through ClarificationAnswerSubmitter with the
  * selected option as the reply text, so the flow reaches Claude
- * identically to a thread-reply answer.
+ * identically to a thread-reply answer. Clicks from guests and Slack Connect
+ * users in other organizations are ignored.
  */
 class InteractiveWebhookController extends Controller
 {
@@ -42,6 +43,15 @@ class InteractiveWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
+        $isAllowed = app(SenderPolicy::class)->isAllowed(
+            (string) ($payload['user']['id'] ?? ''),
+            (string) ($payload['user']['team_id'] ?? ''),
+        );
+
+        if (! $isAllowed) {
+            return response()->json(['ok' => true, 'skipped' => 'not_workspace_member']);
+        }
+
         /** @var array<int, array<string, mixed>> $actions */
         $actions = $payload['actions'] ?? [];
         $action = $actions[0] ?? null;
@@ -55,35 +65,44 @@ class InteractiveWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        [$taskId, $optionText] = array_pad(explode('|', (string) ($action['value'] ?? ''), 2), 2, '');
+        $button = BlockFormatter::parseClarificationButtonValue((string) ($action['value'] ?? ''));
+        $optionText = $button['label'];
 
-        $task = YakTask::find((int) $taskId);
+        $task = YakTask::find($button['taskId']);
 
         if ($task === null || $task->status !== TaskStatus::AwaitingClarification) {
             return response()->json(['ok' => true]);
         }
 
-        TaskLogger::info($task, 'Clarification received via button', ['option' => $optionText]);
-
         $isRepoChoice = RepoClarificationResolver::awaitingRepoChoice($task);
 
-        if ($isRepoChoice) {
-            RepoClarificationResolver::resolve($task, $optionText);
-        } else {
-            ClarificationReplyJob::dispatch($task, $optionText);
+        if (! $isRepoChoice && ! $this->isForPendingQuestion($task, $button['questionId'])) {
+            TaskLogger::info($task, 'Clarification button ignored: it belongs to an earlier round', ['option' => $optionText]);
+
+            return response()->json(['ok' => true]);
         }
+
+        TaskLogger::info($task, 'Clarification received via button', ['option' => $optionText]);
 
         // Slack hides the click feedback after a moment but doesn't
         // otherwise update the message, so a successful click looks
         // identical to one that went nowhere. Replace the original
         // (button-bearing) message in-place via response_url so the
-        // user gets immediate confirmation. We only ack on a confirmed
-        // resolution — for repo choices the resolver flips the status
-        // synchronously; for in-flight agent clarifications the dispatch
-        // itself is the point of no return, so ack there too.
-        $resolved = $isRepoChoice
-            ? $task->fresh()?->status !== TaskStatus::AwaitingClarification
-            : true;
+        // user gets immediate confirmation, but only once the click
+        // resolved the question: the resolver flips a repo choice's
+        // status synchronously, and the submitter reports whether it
+        // accepted the answer.
+        if ($isRepoChoice) {
+            RepoClarificationResolver::resolve($task, $optionText);
+            $resolved = $task->fresh()?->status !== TaskStatus::AwaitingClarification;
+        } else {
+            $resolved = app(ClarificationAnswerSubmitter::class)->submitReply(
+                $task,
+                $optionText,
+                UserNameResolver::resolve((string) ($payload['user']['id'] ?? '')) ?? 'Slack user',
+                'slack',
+            );
+        }
 
         if ($resolved) {
             $this->ackClick(
@@ -93,6 +112,17 @@ class InteractiveWebhookController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * A structured-question button answers only the single question pending
+     * now; a button left over from an earlier round carries another id.
+     */
+    private function isForPendingQuestion(YakTask $task, ?string $questionId): bool
+    {
+        $pending = $task->pendingClarificationQuestions();
+
+        return $questionId !== null && count($pending) === 1 && $pending[0]->id === $questionId;
     }
 
     /**

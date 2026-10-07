@@ -42,8 +42,6 @@ function researchAnswer(string $summary = 'Backoff is cheapest.'): AgentRunResul
         numTurns: 4,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     );
 }
@@ -231,10 +229,37 @@ test('a research follow-up fails the task when the agent errors', function () {
     $child = researchFollowUpFixture();
     $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_research', resultSummary: 'boom', costUsd: 0.0, numTurns: 1, durationMs: 1,
-        isError: true, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: true, rawOutput: '{}',
     ));
 
     runResearchFollowUp($agent, new FakeSandboxManager, $child);
 
     expect($child->fresh()->status)->toBe(TaskStatus::Failed);
+});
+
+test('a research follow-up that asks parks the child task', function () {
+    Queue::fake();
+    $child = researchFollowUpFixture();
+    $agent = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_research', resultSummary: 'Need a call', costUsd: 0.1, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+
+    runResearchFollowUp($agent, new FakeSandboxManager, $child);
+
+    expect($child->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and(Artifact::where('yak_task_id', $child->id)->count())->toBe(0);
+});
+
+test('a research follow-up resumed with answers uses the answers prompt', function () {
+    Queue::fake();
+    $child = researchFollowUpFixture();
+    $child->update(['clarification_rounds' => YakTask::factory()->withClarificationQuestions()->make()->clarification_rounds]);
+    $child->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $agent = (new FakeAgentRunner)->queueResult(researchAnswer());
+
+    runResearchFollowUp($agent, new FakeSandboxManager, $child->fresh());
+
+    expect($agent->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
+        ->and($agent->lastCall()->resumeSessionId)->toBe('sess_research');
 });

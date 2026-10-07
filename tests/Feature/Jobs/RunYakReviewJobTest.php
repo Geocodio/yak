@@ -69,8 +69,6 @@ it('runs a full-scope review end to end', function () {
         numTurns: 3,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
@@ -136,22 +134,24 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
 
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('yak-task-' . $task->id);
+    $sandbox->shouldReceive('run')
+        ->withArgs(fn ($container, $command): bool => str_contains($command, 'git show'))
+        ->andReturn(Process::result(output: implode("\n", array_merge(array_fill(0, 11, 'ctx'), ['    public int $count = 0;', 'ctx'])) . "\n", exitCode: 0));
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: "app/Foo.php\n", exitCode: 0));
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's-nit', resultSummary: 'prose', costUsd: 0.01, numTurns: 1, durationMs: 10,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        sessionId: 's-nit', resultSummary: "Rename for clarity.\n\n```suggestion\n    public int \$retryCount = 0;\n```", costUsd: 0.01, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
     fakeReviewParser(
         findings: [[
             'file' => 'app/Foo.php', 'line' => 12, 'severity' => 'consider',
-            'category' => 'Clean Code', 'body' => "Rename for clarity.\n\n```suggestion\n    public int \$retryCount = 0;\n```",
-            'suggestion_loc' => 1,
+            'category' => 'Clean Code', 'body' => "Rename for clarity.\n\n```original\n    public int \$count = 0;\n```\n```suggestion\n    public int \$retryCount = 0;\n```",
         ]],
         summary: 'Small cleanup PR.',
         verdict: 'Approve',
@@ -185,6 +185,7 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($captured['comments'][0]['line'])->toBe(12)
         ->and($captured['comments'][0]['body'])->toContain('NITPICK')
         ->and($captured['comments'][0]['body'])->toContain('```suggestion')
+        ->and($captured['comments'][0]['body'])->not->toContain('```original')
         ->and($captured['body'])->not->toContain('Nitpicks')
         ->and($captured['body'])->toContain('Request a re-review')
         ->and($captured['body'])->toContain(route('tasks.show', $task));
@@ -195,8 +196,16 @@ it('posts consider-severity findings as inline NITPICK comments when they sit in
         ->and($comment->is_suggestion)->toBeTrue();
 });
 
-it('passes start_line to GitHub for multi-line suggestion ranges', function () {
-    $repo = Repository::factory()->create([
+/**
+ * Run a review whose single finding carries a suggestion, with the file at
+ * the PR head served from the sandbox, and return the posted line comments.
+ *
+ * @param  array<string, mixed>  $finding
+ * @return array<int, array<string, mixed>>
+ */
+function postSuggestionReview(array $finding, string $fileAtHead, string $patch): array
+{
+    Repository::factory()->create([
         'slug' => 'geocodio/api',
         'pr_review_enabled' => true,
         'default_branch' => 'main',
@@ -206,10 +215,10 @@ it('passes start_line to GitHub for multi-line suggestion ranges', function () {
 
     $task = YakTask::factory()->create([
         'mode' => TaskMode::Review,
-        'repo' => $repo->slug,
+        'repo' => 'geocodio/api',
         'pr_url' => 'https://github.com/geocodio/api/pull/45',
         'external_id' => 'https://github.com/geocodio/api/pull/45',
-        'branch_name' => 'feat/range',
+        'branch_name' => 'feat/suggestion',
         'context' => json_encode([
             'pr_number' => 45, 'head_sha' => 'h', 'base_sha' => 'b',
             'author' => 'm', 'title' => 't', 'body' => '',
@@ -219,36 +228,33 @@ it('passes start_line to GitHub for multi-line suggestion ranges', function () {
 
     $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
     $sandbox->shouldReceive('create')->andReturn('c');
+    $sandbox->shouldReceive('run')
+        ->withArgs(fn ($container, $command): bool => str_contains($command, 'git show'))
+        ->andReturn(Process::result(output: $fileAtHead, exitCode: 0));
     $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
     $sandbox->shouldReceive('destroy');
     app()->instance(IncusSandboxManager::class, $sandbox);
 
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        sessionId: 's', resultSummary: "## Findings\n" . $finding['body'], costUsd: 0, numTurns: 1, durationMs: 1,
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
     fakeReviewParser(
-        findings: [[
-            'file' => 'tests/Foo.php', 'line' => 12, 'start_line' => 10,
-            'severity' => 'should_fix', 'category' => 'Test Quality',
-            'body' => "Collapse these.\n\n```suggestion\nA\nB\nC\n```",
-            'suggestion_loc' => 3,
-        ]],
-        summary: 'Range suggestion.',
+        findings: [$finding + ['severity' => 'should_fix', 'category' => 'Correctness']],
         verdict: 'Approve with suggestions',
     );
 
     $github = mock(GitHubAppService::class);
     $github->shouldReceive('getInstallationToken')->andReturn('tok');
     $github->shouldReceive('listPullRequestFiles')->andReturn([[
-        'filename' => 'tests/Foo.php',
-        'patch' => "@@ -10,3 +10,3 @@\n+added 10\n+added 11\n+added 12",
+        'filename' => $finding['file'],
+        'patch' => $patch,
     ]]);
 
-    $captured = null;
+    $captured = [];
     $github->shouldReceive('createPullRequestReview')
         ->once()
         ->withArgs(function ($_i, $_r, $_p, $_b, $_e, $comments) use (&$captured) {
@@ -256,259 +262,111 @@ it('passes start_line to GitHub for multi-line suggestion ranges', function () {
 
             return true;
         })
-        ->andReturn([
-            'id' => 1,
-            'comments' => [
-                ['id' => 333, 'path' => 'tests/Foo.php', 'line' => 12, 'body' => 'stored'],
-            ],
-        ]);
+        ->andReturn(['id' => 1]);
+    $github->shouldReceive('listReviewComments')->andReturn([
+        ['id' => 333, 'path' => $finding['file'], 'line' => 1, 'body' => 'stored'],
+    ]);
     app()->instance(GitHubAppService::class, $github);
 
     (new RunYakReviewJob($task))->handle($agent);
 
-    expect($captured)->toHaveCount(1)
-        ->and($captured[0]['line'])->toBe(12)
-        ->and($captured[0]['start_line'])->toBe(10)
-        ->and($captured[0]['start_side'])->toBe('RIGHT');
-});
+    return $captured;
+}
 
-it('strips the suggestion fence when the range is much wider than the fence', function () {
-    $repo = Repository::factory()->create([
-        'slug' => 'geocodio/api',
-        'pr_review_enabled' => true,
-        'default_branch' => 'main',
-        'ci_system' => 'none',
-        'is_active' => true,
-    ]);
+it('derives the multi-line range from the original fence, not the reported line', function () {
+    // The reviewer reports only the last line, as in the cron/tags case
+    // where a single-line anchor duplicated five lines on accept.
+    $fileAtHead = "ctx1\nctx2\n- name: Schedule purge\n  cron:\n    job: 'purge'\n";
 
-    $task = YakTask::factory()->create([
-        'mode' => TaskMode::Review,
-        'repo' => $repo->slug,
-        'pr_url' => 'https://github.com/geocodio/api/pull/47',
-        'external_id' => 'https://github.com/geocodio/api/pull/47',
-        'branch_name' => 'feat/oversize-range',
-        'context' => json_encode([
-            'pr_number' => 47, 'head_sha' => 'h', 'base_sha' => 'b',
-            'author' => 'm', 'title' => 't', 'body' => '',
-            'review_scope' => 'full', 'incremental_base_sha' => null,
-        ]),
-    ]);
-
-    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
-    $sandbox->shouldReceive('create')->andReturn('c');
-    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('destroy');
-    app()->instance(IncusSandboxManager::class, $sandbox);
-
-    $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
-    ));
-    app()->instance(AgentRunner::class, $agent);
-
-    // Range claims 24 lines (39–62), fence has 3 — accepting would delete 21 lines.
-    $fenceBody = "Improve the docblock.\n\n```suggestion\n/**\n * Better docblock.\n */\n```";
-    fakeReviewParser(
-        findings: [[
-            'file' => 'app/Foo.php', 'line' => 62, 'start_line' => 39,
-            'severity' => 'consider', 'category' => 'Documentation',
-            'body' => $fenceBody,
-            'suggestion_loc' => 3,
-        ]],
-        summary: 'Oversize range.',
-        verdict: 'Approve',
+    $comments = postSuggestionReview(
+        [
+            'file' => 'ansible/tasks/cron.yml', 'line' => 5,
+            'body' => "Add tags.\n\n```original\n- name: Schedule purge\n  cron:\n    job: 'purge'\n```\n```suggestion\n- name: Schedule purge\n  cron:\n    job: 'purge'\n  tags:\n    - deploy_web\n```",
+        ],
+        $fileAtHead,
+        "@@ -1,2 +1,5 @@\n ctx1\n ctx2\n+- name: Schedule purge\n+  cron:\n+    job: 'purge'",
     );
 
-    $github = mock(GitHubAppService::class);
-    $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
-        'filename' => 'app/Foo.php',
-        'patch' => "@@ -36,3 +36,28 @@\n ctx36\n ctx37\n ctx38" . str_repeat("\n+added", 25),
-    ]]);
+    expect($comments)->toHaveCount(1)
+        ->and($comments[0]['start_line'])->toBe(3)
+        ->and($comments[0]['line'])->toBe(5)
+        ->and($comments[0]['start_side'])->toBe('RIGHT')
+        ->and($comments[0]['body'])->toContain('```suggestion')
+        ->and($comments[0]['body'])->not->toContain('```original');
 
-    $captured = null;
-    $github->shouldReceive('createPullRequestReview')
-        ->once()
-        ->withArgs(function ($_i, $_r, $_p, $_b, $_e, $comments) use (&$captured) {
-            $captured = $comments;
-
-            return true;
-        })
-        ->andReturn([
-            'id' => 1,
-            'comments' => [
-                ['id' => 555, 'path' => 'app/Foo.php', 'line' => 62, 'body' => 'stored'],
-            ],
-        ]);
-    app()->instance(GitHubAppService::class, $github);
-
-    (new RunYakReviewJob($task))->handle($agent);
-
-    expect($captured)->toHaveCount(1)
-        ->and($captured[0]['line'])->toBe(62)
-        ->and($captured[0])->not->toHaveKey('start_line')
-        ->and($captured[0]['body'])->not->toContain('```suggestion')
-        ->and($captured[0]['body'])->toContain('Suggestion fence omitted')
-        ->and($captured[0]['body'])->toContain('Improve the docblock.');
+    expect(PrReviewComment::first()->line_number)->toBe(5)
+        ->and(PrReviewComment::first()->is_suggestion)->toBeTrue();
 });
 
-it('keeps the suggestion fence for legitimate small consolidations', function () {
-    $repo = Repository::factory()->create([
-        'slug' => 'geocodio/api',
-        'pr_review_enabled' => true,
-        'default_branch' => 'main',
-        'ci_system' => 'none',
-        'is_active' => true,
-    ]);
+it('anchors to the original lines even when the reported line is far away', function () {
+    $fileAtHead = implode("\n", array_map(fn (int $n): string => "line {$n}", range(1, 70))) . "\n";
 
-    $task = YakTask::factory()->create([
-        'mode' => TaskMode::Review,
-        'repo' => $repo->slug,
-        'pr_url' => 'https://github.com/geocodio/api/pull/48',
-        'external_id' => 'https://github.com/geocodio/api/pull/48',
-        'branch_name' => 'feat/consolidate',
-        'context' => json_encode([
-            'pr_number' => 48, 'head_sha' => 'h', 'base_sha' => 'b',
-            'author' => 'm', 'title' => 't', 'body' => '',
-            'review_scope' => 'full', 'incremental_base_sha' => null,
-        ]),
-    ]);
-
-    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
-    $sandbox->shouldReceive('create')->andReturn('c');
-    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('destroy');
-    app()->instance(IncusSandboxManager::class, $sandbox);
-
-    $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
-    ));
-    app()->instance(AgentRunner::class, $agent);
-
-    // Replace 4 lines with 1 — diff of 3 is within the tolerance.
-    fakeReviewParser(
-        findings: [[
-            'file' => 'app/Foo.php', 'line' => 13, 'start_line' => 10,
-            'severity' => 'consider', 'category' => 'Clean Code',
-            'body' => "Collapse to a one-liner.\n\n```suggestion\nreturn \$value ?? throw new RuntimeException();\n```",
-            'suggestion_loc' => 1,
-        ]],
-        summary: 'Consolidate.',
-        verdict: 'Approve',
+    $comments = postSuggestionReview(
+        [
+            'file' => 'app/Foo.php', 'line' => 62,
+            'body' => "Improve the docblock.\n\n```original\nline 40\nline 41\n```\n```suggestion\n/**\n * Better docblock.\n */\n```",
+        ],
+        $fileAtHead,
+        "@@ -36,3 +36,28 @@\n ctx36\n ctx37\n ctx38" . str_repeat("\n+added", 25),
     );
 
-    $github = mock(GitHubAppService::class);
-    $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
-        'filename' => 'app/Foo.php',
-        'patch' => "@@ -10,4 +10,4 @@\n+added 10\n+added 11\n+added 12\n+added 13",
-    ]]);
-
-    $captured = null;
-    $github->shouldReceive('createPullRequestReview')
-        ->once()
-        ->withArgs(function ($_i, $_r, $_p, $_b, $_e, $comments) use (&$captured) {
-            $captured = $comments;
-
-            return true;
-        })
-        ->andReturn([
-            'id' => 1,
-            'comments' => [
-                ['id' => 666, 'path' => 'app/Foo.php', 'line' => 13, 'body' => 'stored'],
-            ],
-        ]);
-    app()->instance(GitHubAppService::class, $github);
-
-    (new RunYakReviewJob($task))->handle($agent);
-
-    expect($captured)->toHaveCount(1)
-        ->and($captured[0]['start_line'])->toBe(10)
-        ->and($captured[0]['line'])->toBe(13)
-        ->and($captured[0]['body'])->toContain('```suggestion');
+    expect($comments[0]['start_line'])->toBe(40)
+        ->and($comments[0]['line'])->toBe(41)
+        ->and($comments[0]['body'])->toContain('```suggestion');
 });
 
-it('strips the suggestion fence and omits start_line when any range line is outside the diff hunk', function () {
-    $repo = Repository::factory()->create([
-        'slug' => 'geocodio/api',
-        'pr_review_enabled' => true,
-        'default_branch' => 'main',
-        'ci_system' => 'none',
-        'is_active' => true,
-    ]);
+it('posts a consolidation that replaces several lines with one', function () {
+    $fileAtHead = implode("\n", array_merge(array_fill(0, 9, 'ctx'), ['if ($value === null) {', '    throw new RuntimeException();', '}', 'return $value;'])) . "\n";
 
-    $task = YakTask::factory()->create([
-        'mode' => TaskMode::Review,
-        'repo' => $repo->slug,
-        'pr_url' => 'https://github.com/geocodio/api/pull/46',
-        'external_id' => 'https://github.com/geocodio/api/pull/46',
-        'branch_name' => 'feat/partial-range',
-        'context' => json_encode([
-            'pr_number' => 46, 'head_sha' => 'h', 'base_sha' => 'b',
-            'author' => 'm', 'title' => 't', 'body' => '',
-            'review_scope' => 'full', 'incremental_base_sha' => null,
-        ]),
-    ]);
+    $comments = postSuggestionReview(
+        [
+            'file' => 'app/Foo.php', 'line' => 13,
+            'body' => "Collapse to a one-liner.\n\n```original\nif (\$value === null) {\n    throw new RuntimeException();\n}\nreturn \$value;\n```\n```suggestion\nreturn \$value ?? throw new RuntimeException();\n```",
+        ],
+        $fileAtHead,
+        "@@ -8,6 +8,6 @@\n ctx\n ctx\n+if (\$value === null) {\n+    throw new RuntimeException();\n+}\n+return \$value;",
+    );
 
-    $sandbox = mock(IncusSandboxManager::class)->shouldIgnoreMissing();
-    $sandbox->shouldReceive('create')->andReturn('c');
-    $sandbox->shouldReceive('run')->andReturn(Process::result(output: '', exitCode: 0));
-    $sandbox->shouldReceive('destroy');
-    app()->instance(IncusSandboxManager::class, $sandbox);
+    expect($comments[0]['start_line'])->toBe(10)
+        ->and($comments[0]['line'])->toBe(13)
+        ->and($comments[0]['body'])->toContain('```suggestion');
+});
 
-    $agent = mock(AgentRunner::class);
-    $agent->shouldReceive('run')->andReturn(new AgentRunResult(
-        sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
-    ));
-    app()->instance(AgentRunner::class, $agent);
+it('strips the suggestion fence when any original line is outside the diff hunk', function () {
+    $fileAtHead = implode("\n", array_map(fn (int $n): string => "line {$n}", range(1, 14))) . "\n";
 
-    // Range claims lines 8–12, but the hunk only covers 10–14.
-    fakeReviewParser(
-        findings: [[
-            'file' => 'tests/Foo.php', 'line' => 12, 'start_line' => 8,
-            'severity' => 'consider', 'category' => 'Test Quality',
+    $comments = postSuggestionReview(
+        [
+            'file' => 'tests/Foo.php', 'line' => 12,
+            'body' => "tweak\n\n```original\nline 8\nline 9\nline 10\n```\n```suggestion\nA\nB\nC\n```",
+        ],
+        $fileAtHead,
+        "@@ -10,5 +10,5 @@\n line 10\n line 11\n+line 12\n line 13\n line 14",
+    );
+
+    expect($comments)->toHaveCount(1)
+        ->and($comments[0]['line'])->toBe(12)
+        ->and($comments[0])->not->toHaveKey('start_line')
+        ->and($comments[0]['body'])->not->toContain('```suggestion')
+        ->and($comments[0]['body'])->not->toContain('```original')
+        ->and($comments[0]['body'])->toContain('Suggested change omitted');
+
+    expect(PrReviewComment::first()->is_suggestion)->toBeFalse();
+});
+
+it('strips a suggestion fence that has no original fence', function () {
+    $comments = postSuggestionReview(
+        [
+            'file' => 'tests/Foo.php', 'line' => 12,
             'body' => "tweak\n\n```suggestion\nA\nB\nC\n```",
-            'suggestion_loc' => 3,
-        ]],
-        summary: 'Partial range.',
-        verdict: 'Approve',
+        ],
+        "line 1\n",
+        "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
     );
 
-    $github = mock(GitHubAppService::class);
-    $github->shouldReceive('getInstallationToken')->andReturn('tok');
-    $github->shouldReceive('listPullRequestFiles')->andReturn([[
-        'filename' => 'tests/Foo.php',
-        'patch' => "@@ -10,5 +10,5 @@\n ctx10\n ctx11\n+added 12\n ctx13\n ctx14",
-    ]]);
-
-    $captured = null;
-    $github->shouldReceive('createPullRequestReview')
-        ->once()
-        ->withArgs(function ($_i, $_r, $_p, $_b, $_e, $comments) use (&$captured) {
-            $captured = $comments;
-
-            return true;
-        })
-        ->andReturn([
-            'id' => 2,
-            'comments' => [
-                ['id' => 444, 'path' => 'tests/Foo.php', 'line' => 12, 'body' => 'stored'],
-            ],
-        ]);
-    app()->instance(GitHubAppService::class, $github);
-
-    (new RunYakReviewJob($task))->handle($agent);
-
-    expect($captured)->toHaveCount(1)
-        ->and($captured[0]['line'])->toBe(12)
-        ->and($captured[0])->not->toHaveKey('start_line')
-        ->and($captured[0])->not->toHaveKey('start_side')
-        ->and($captured[0]['body'])->not->toContain('```suggestion')
-        ->and($captured[0]['body'])->toContain('Suggestion fence omitted');
+    expect($comments[0]['line'])->toBe(12)
+        ->and($comments[0]['body'])->not->toContain('```suggestion')
+        ->and($comments[0]['body'])->toContain('Suggested change omitted');
 });
 
 it('keeps out-of-diff consider findings in the collapsed nitpicks block', function () {
@@ -542,7 +400,7 @@ it('keeps out-of-diff consider findings in the collapsed nitpicks block', functi
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'p', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -619,7 +477,7 @@ it('falls back to a body-only review when GitHub rejects the line comments', fun
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -687,7 +545,7 @@ it('does not fetch Linear ticket when no identifier is present', function () {
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose review', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -740,7 +598,7 @@ it('skips Linear fetch when no LinearOauthConnection exists', function () {
     $agent = mock(AgentRunner::class);
     $agent->shouldReceive('run')->andReturn(new AgentRunResult(
         sessionId: 's', resultSummary: 'prose review', costUsd: 0, numTurns: 1, durationMs: 1,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -787,7 +645,7 @@ it('carries the reviewed profile through a full approval and fails closed if it 
         }
 
         return new AgentRunResult(sessionId: 'approval', resultSummary: 'review', costUsd: 0.01,
-            numTurns: 1, durationMs: 10, isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '');
+            numTurns: 1, durationMs: 10, isError: false, rawOutput: '');
     });
     $signals = ['model_confidence' => 90, 'uncertainties' => [], 'human_review_reasons' => []];
     foreach (['impact' => 1, 'blast_radius' => 1, 'behavior_change' => 0, 'verification_strength' => 3, 'context_completeness' => 3] as $key => $value) {

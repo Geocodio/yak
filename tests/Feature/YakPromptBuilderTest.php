@@ -380,6 +380,20 @@ test('research prompt includes description and no-code-changes instruction', fun
         ->toContain('summary');
 });
 
+test('research prompt carries the house report template and visuals rules', function () {
+    $task = YakTask::factory()->pending()->create([
+        'source' => 'research',
+        'description' => 'Evaluate caching strategies for API responses',
+    ]);
+
+    $prompt = YakPromptBuilder::taskPrompt($task);
+
+    expect($prompt)->toContain('<template-file path=".yak-artifacts/research.html">')
+        ->toContain('<div class="bottom-line">')
+        ->toContain('.svg-label')
+        ->toContain('NEVER chart a number you did not actually obtain');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Task Prompts - Slack Fix
@@ -398,7 +412,7 @@ test('slack fix prompt includes description, requester name, and ambiguity check
 
     expect($prompt)->toContain('The checkout page is broken')
         ->toContain('Alice')
-        ->toContain('clarification_needed')
+        ->toContain('```clarification')
         ->toContain('"options"');
 });
 
@@ -445,20 +459,6 @@ test('review prompt renders the tasks-review template for a review task', functi
         ->and($prompt)->toContain('Add retry')
         ->and($prompt)->toContain('full review')
         ->and($prompt)->not->toContain('clarification_needed');
-});
-
-/*
-|--------------------------------------------------------------------------
-| Task Prompts - Clarification Reply
-|--------------------------------------------------------------------------
-*/
-
-test('clarification reply prompt includes chosen option', function () {
-    $prompt = YakPromptBuilder::clarificationReplyPrompt('Fix the auth flow');
-
-    expect($prompt)->toContain('Fix the auth flow')
-        ->toContain('Selected option')
-        ->toContain('Do not ask for further clarification');
 });
 
 /*
@@ -547,7 +547,6 @@ test('prompt templates exist as blade views', function () {
         'prompts.tasks.linear-fix',
         'prompts.tasks.research',
         'prompts.tasks.slack-fix',
-        'prompts.tasks.clarification-reply',
         'prompts.tasks.retry',
         'prompts.channels.sentry',
     ];
@@ -588,12 +587,51 @@ test('retry prompt leaves out the wrong-repository instructions when there is no
     expect(YakPromptBuilder::retryPrompt($task, 'failure'))->not->toContain('wrong_repository');
 });
 
-test('clarification reply prompt includes the wrong-repository instructions only when given a task', function () {
-    Repository::factory()->create(['slug' => 'acme/other', 'is_active' => true]);
-    $task = YakTask::factory()->make(['repo' => 'acme/app']);
+it('renders answers, other text, skipped questions and the note', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['description' => 'Add the credit email']);
+    $task->recordClarificationAnswers([
+        'scope' => ['choices' => ['Small'], 'other' => 'Only PAYG for now'],
+    ], 'Keep it short', 'Michele');
 
-    expect(YakPromptBuilder::clarificationReplyPrompt('Option A', $task))
-        ->toContain('wrong_repository')
-        ->toContain('acme/other')
-        ->and(YakPromptBuilder::clarificationReplyPrompt('Option A'))->not->toContain('wrong_repository');
+    $prompt = YakPromptBuilder::clarificationAnswersPrompt($task->fresh());
+
+    expect($prompt)->toContain('Add the credit email')
+        ->toContain("Q: Which scope?\nA: Small\nOther: Only PAYG for now")
+        ->toContain("Q: Which data?\nA: No answer. Use your judgment and say what you assumed.")
+        ->toContain('Additional instructions from Michele: Keep it short')
+        ->toContain('Continue the task with these answers.')
+        ->toContain('Your workspace is a fresh checkout of the task branch')
+        ->toContain('```clarification')
+        ->not->toContain('Do not ask again');
+});
+
+it('tells the agent not to ask again on the third round', function () {
+    $task = YakTask::factory()->create();
+    foreach (range(1, 3) as $round) {
+        $task->recordClarificationRound([sampleQuestion("q{$round}")], 'Summary');
+        $task->recordClarificationAnswers(["q{$round}" => ['choices' => ['Option A'], 'other' => null]], null, 'Michele');
+        if ($round < 3) {
+            $task->markClarificationAnswersConsumed();
+        }
+    }
+
+    $prompt = YakPromptBuilder::clarificationAnswersPrompt($task->fresh());
+
+    expect($prompt)->toContain('Do not ask again')
+        ->not->toContain('```clarification');
+});
+
+it('tells the agent to skip summary sections when it ends with questions', function () {
+    $task = YakTask::factory()->create(['source' => 'linear', 'description' => 'Do a thing']);
+
+    expect(YakPromptBuilder::taskPrompt($task, []))->toContain('skip any summary sections');
+});
+
+it('includes the clarification contract in every prompt that may ask', function (string $view) {
+    expect(file_get_contents(resource_path("views/prompts/tasks/{$view}.blade.php")))
+        ->toContain("@include('prompts.partials.clarification-contract')");
+})->with(['linear-fix', 'sentry-fix', 'flaky-test', 'slack-fix', 'follow-up', 'research', 'research-follow-up']);
+
+it('no longer tells follow-ups not to ask', function () {
+    expect(file_get_contents(resource_path('views/prompts/tasks/follow-up.blade.php')))->not->toContain('Do not ask for clarification');
 });

@@ -9,13 +9,14 @@ use App\Facades\Telemetry;
 use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ClarificationAnswerSubmitter;
+use App\Services\ClarificationMessage;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
@@ -26,6 +27,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WebhookController extends Controller
 {
@@ -41,7 +43,7 @@ class WebhookController extends Controller
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string} $event */
+        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string} $event */
         $event = $request->input('event', []);
 
         return $this->recordWebhook(
@@ -52,7 +54,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, thread_ts?: string, text?: string}  $event
+     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
      */
     private function route(Request $request, array $event): JsonResponse
     {
@@ -67,9 +69,20 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'duplicate']);
         }
 
+        if (! $this->isFromWorkspaceMember($event)) {
+            Log::channel('yak')->info('Ignored Slack event from a guest or a user outside the workspace', [
+                'type' => $event['type'] ?? null,
+                'user_id' => $event['user'] ?? null,
+            ]);
+
+            return response()->json(['ok' => true, 'skipped' => 'not_workspace_member']);
+        }
+
         return match ($event['type'] ?? null) {
             'app_mention' => $this->handleMention($request),
-            'message' => $this->handleThreadReply($event),
+            'message' => $this->isNewDirectMessage($event)
+                ? $this->handleMention($request)
+                : $this->handleThreadReply($event),
             'app_home_opened' => $this->handleAppHomeOpened($event),
             default => response()->json(['ok' => true]),
         };
@@ -89,6 +102,43 @@ class WebhookController extends Controller
             'X-Slack-Signature',
             prefix: 'v0=',
             payload: $basestring,
+        );
+    }
+
+    /**
+     * A top-level message a user sends in their DM with Yak. Slack sends
+     * these as `message.im` events, not `app_mention`, so they start a
+     * task the same way a mention does. Replies inside a DM thread carry
+     * `thread_ts` and edits or deletions carry a `subtype`, so both stay
+     * on the thread reply path.
+     *
+     * @param  array{channel_type?: string, subtype?: string, thread_ts?: string}  $event
+     */
+    private function isNewDirectMessage(array $event): bool
+    {
+        return ($event['channel_type'] ?? null) === 'im'
+            && ! isset($event['thread_ts'])
+            && ! isset($event['subtype']);
+    }
+
+    /**
+     * Only full members of the workspace trigger Yak. Guests and Slack
+     * Connect users from other organizations are ignored whether they
+     * mention it, reply in a thread, DM it, or open its App Home.
+     *
+     * @param  array{type?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
+     */
+    private function isFromWorkspaceMember(array $event): bool
+    {
+        if (! in_array($event['type'] ?? null, ['app_mention', 'message', 'app_home_opened'], true)) {
+            return true;
+        }
+
+        return app(SenderPolicy::class)->isAllowed(
+            (string) ($event['user'] ?? ''),
+            (string) ($event['team'] ?? ''),
+            (string) ($event['user_team'] ?? ''),
+            (string) ($event['source_team'] ?? ''),
         );
     }
 
@@ -175,7 +225,7 @@ class WebhookController extends Controller
             ]);
 
             TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
-            SendNotificationJob::dispatch($task, NotificationType::Clarification, 'Which repo should I work in?');
+            SendNotificationJob::dispatch($task, NotificationType::Clarification, 'Which repo should I work in?', personalize: false);
 
             Telemetry::feature('repo_clarification', ['options' => count($repoOptions)], task: $task);
 
@@ -307,6 +357,26 @@ class WebhookController extends Controller
     }
 
     /**
+     * Mark a queued steering reply with :eyes: so the person who wrote it
+     * can see Yak picked it up. Best-effort, like the status reactions.
+     */
+    private function reactToReply(string $channel, string $messageTs): void
+    {
+        $token = (string) config('yak.channels.slack.bot_token');
+
+        if ($token === '' || $messageTs === '') {
+            return;
+        }
+
+        Http::withToken($token)
+            ->post('https://slack.com/api/reactions.add', [
+                'channel' => $channel,
+                'timestamp' => $messageTs,
+                'name' => 'eyes',
+            ]);
+    }
+
+    /**
      * Dispatch the right agent job for the task's mode. Research tasks
      * go through ResearchYakJob (read-only, produces artifacts); every
      * other mode goes through RunYakJob (writes code, pushes a branch,
@@ -326,10 +396,10 @@ class WebhookController extends Controller
     }
 
     /**
-     * Handle a thread reply — dispatch ClarificationReplyJob if the task is
+     * Handle a thread reply — answer the pending question if the task is
      * awaiting clarification, or create a follow-up when the task has an open PR.
      *
-     * @param  array{channel?: string, thread_ts?: string, text?: string, subtype?: string, bot_id?: string, user?: string}  $event
+     * @param  array{channel?: string, thread_ts?: string, ts?: string, text?: string, subtype?: string, bot_id?: string, user?: string}  $event
      */
     private function handleThreadReply(array $event): JsonResponse
     {
@@ -351,8 +421,15 @@ class WebhookController extends Controller
 
             if (RepoClarificationResolver::awaitingRepoChoice($clarificationTask)) {
                 RepoClarificationResolver::resolve($clarificationTask, $replyText);
+            } elseif (ClarificationMessage::answersInline($clarificationTask)) {
+                app(ClarificationAnswerSubmitter::class)->submitReply(
+                    $clarificationTask,
+                    $replyText,
+                    UserNameResolver::resolve((string) ($event['user'] ?? '')) ?? 'Slack user',
+                    'slack',
+                );
             } else {
-                ClarificationReplyJob::dispatch($clarificationTask, $replyText);
+                SendNotificationJob::dispatch($clarificationTask, NotificationType::Clarification, ClarificationMessage::pointToForm($clarificationTask), personalize: false);
             }
 
             return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
@@ -418,6 +495,7 @@ class WebhookController extends Controller
 
             PendingSteeringMessage::queueFor($activeTask, $text, 'slack');
             TaskLogger::info($activeTask, 'Steering reply queued (mid-run)');
+            $this->reactToReply($channel, (string) ($event['ts'] ?? ''));
 
             return response()->json(['ok' => true, 'handled' => 'steering']);
         }

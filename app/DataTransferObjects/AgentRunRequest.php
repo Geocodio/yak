@@ -33,10 +33,10 @@ final readonly class AgentRunRequest
      * Copy of this request with the resume session stripped, for retrying
      * a run whose `--resume` failed because the transcript is gone.
      */
-    public function withoutResume(): self
+    public function withoutResume(?string $prompt = null): self
     {
         return new self(
-            prompt: $this->prompt,
+            prompt: $prompt ?? $this->prompt,
             systemPrompt: $this->systemPrompt,
             containerName: $this->containerName,
             timeoutSeconds: $this->timeoutSeconds,

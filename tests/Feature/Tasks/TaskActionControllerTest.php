@@ -13,6 +13,7 @@ use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
 use App\Models\LinearOauthConnection;
+use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\User;
@@ -35,6 +36,18 @@ test('retry re-queues a failed task and dispatches RunYakJob', function () {
     Queue::assertPushed(RunYakJob::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Pending);
     expect($task->fresh()->error_log)->toBeNull();
+});
+
+test('retry folds thread replies queued during the failed run into the fresh run', function () {
+    Queue::fake();
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed, 'description' => 'Update Emily\'s title']);
+    PendingSteeringMessage::create(['root_task_id' => $task->id, 'text' => 'Update Cory\'s title too', 'source' => 'slack']);
+
+    $this->post(route('tasks.retry', $task));
+
+    expect($task->fresh()->description)->toBe("Update Emily's title\n\nReplies added in the thread since this request:\n\n- Update Cory's title too");
+    expect(PendingSteeringMessage::count())->toBe(0);
+    Queue::assertPushed(RunYakJob::class);
 });
 
 test('retry continues a task that failed CI on its existing branch', function () {

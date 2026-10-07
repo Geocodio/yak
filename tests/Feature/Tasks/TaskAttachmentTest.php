@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\FlushSteeringMessagesJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
@@ -83,22 +82,27 @@ test('attachments are capped in count and size', function () {
     expect(TaskAttachment::count())->toBe(0);
 });
 
-test('a clarification reply hands its attachments to the reply job', function () {
-    Queue::fake([ClarificationReplyJob::class]);
-    $task = YakTask::factory()->create(['status' => TaskStatus::AwaitingClarification]);
+test('files sent with a repo choice join the request, so the restarted run gets them', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'repo' => 'unknown',
+        'session_id' => null,
+        'clarification_options' => ['acme/web', 'acme/api'],
+    ]);
 
     $this->post(route('tasks.messages.store', $task), [
-        'message' => 'It looks like this',
+        'message' => 'acme/web, it looks like [Image #1]',
         'attachments' => [UploadedFile::fake()->image('what-i-see.png')],
+        'attachment_refs' => ['Image #1'],
     ])->assertSessionHas('success');
 
     $attachment = TaskAttachment::sole();
 
-    expect($attachment->yak_task_id)->toBe($task->id)
-        ->and($attachment->context)->toBe(TaskAttachment::CONTEXT_CLARIFICATION_REPLY)
-        ->and($task->attachments)->toBeEmpty();
-
-    Queue::assertPushed(ClarificationReplyJob::class, fn (ClarificationReplyJob $job) => $job->attachmentIds === [$attachment->id]);
+    expect($task->fresh()->repo)->toBe('acme/web')
+        ->and($attachment->context)->toBe(TaskAttachment::CONTEXT_REQUEST)
+        ->and($task->fresh()->attachments->modelKeys())->toBe([$attachment->id]);
 });
 
 test('steering attachments ride the queued message and move to the follow-up on flush', function () {
@@ -178,36 +182,29 @@ test('the thread shows request attachments on the request', function () {
             ->where('attachmentLimits.maxFiles', 8));
 });
 
-test('each clarification reply shows as its own message with its files linked', function () {
-    Queue::fake([ClarificationReplyJob::class]);
+test('a repo choice reply shows as its own message with its files, not on the original request', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/web', 'is_active' => true]);
     $task = YakTask::factory()->create([
         'status' => TaskStatus::AwaitingClarification,
-        'clarification_options' => ['Option A', 'Option B'],
+        'repo' => 'unknown',
+        'session_id' => null,
+        'clarification_options' => ['acme/web', 'acme/api'],
     ]);
 
     $this->post(route('tasks.messages.store', $task), [
-        'message' => 'First, see [File #1]',
+        'message' => 'acme/web, see [File #1]',
         'attachments' => [UploadedFile::fake()->createWithContent('trace.txt', 'boom')],
         'attachment_refs' => ['File #1'],
-    ]);
-    $this->post(route('tasks.messages.store', $task), [
-        'message' => 'And [Image #2]',
-        'attachments' => [UploadedFile::fake()->image('shot.png')],
-        'attachment_refs' => ['Image #2'],
     ]);
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('thread.1.kind', 'user')
-            ->where('thread.1.attachments.0.name', 'trace.txt')
-            ->where('thread.1.bodyHtml', fn (string $html) => str_contains($html, 'data-attachment-ref="File #1"'))
-            ->where('thread.2.kind', 'user')
-            ->has('thread.2.attachments', 1)
-            ->where('thread.2.attachments.0.name', 'shot.png')
-            ->where('thread.2.bodyHtml', fn (string $html) => str_contains($html, 'data-attachment-ref="Image #2"'))
-            // Still waiting on an answer, so the open question comes last.
-            ->where('thread.3.kind', 'clarification')
-            ->missing('thread.3.attachments'));
+            ->where('thread.0.kind', 'user')
+            ->has('thread.0.attachments', 0)
+            ->where('thread', fn ($thread) => collect($thread)->contains(fn (array $entry) => $entry['kind'] === 'user'
+                && str_contains($entry['bodyHtml'], 'data-attachment-ref="File #1"')
+                && ($entry['attachments'][0]['name'] ?? null) === 'trace.txt')));
 });
 
 test('previewable files are served inline, text strictly as plain text, everything else downloads', function () {
@@ -340,4 +337,20 @@ test('labels in a sent message become chips linked to its attachments', function
                 && str_contains($html, 'data-attachment-ref="Image #2"')
                 && str_contains($html, 'unknown [Image #9]')
                 && str_contains($html, '<code>[Image #1]</code>')));
+});
+
+test('files on queued replies move onto the task when a retry folds the replies in', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Failed]);
+    $message = PendingSteeringMessage::queueFor($task, 'Also match [Image #1]', 'dashboard');
+    $attachment = TaskAttachment::factory()->create([
+        'yak_task_id' => null,
+        'pending_steering_message_id' => $message->id,
+        'reference' => 'Image #1',
+    ]);
+
+    expect(PendingSteeringMessage::drainFor($task))->toContain('Also match [Image #1]');
+
+    expect($attachment->fresh()->yak_task_id)->toBe($task->id)
+        ->and($attachment->fresh()->pending_steering_message_id)->toBeNull()
+        ->and($task->attachments->modelKeys())->toBe([$attachment->id]);
 });

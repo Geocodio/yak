@@ -1,9 +1,9 @@
 <?php
 
 use App\Enums\TaskMode;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
+use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
@@ -137,6 +137,31 @@ it('queues a steering message when a thread reply arrives while the task is stil
     expect(PendingSteeringMessage::where('root_task_id', $task->id)->where('text', 'Please also add a test')->exists())->toBeTrue();
 });
 
+it('reacts with eyes to a thread reply it queues as a steering message', function () {
+    Queue::fake();
+    Http::fake(['slack.com/*' => Http::response(['ok' => true])]);
+
+    YakTask::factory()->running()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C123',
+        'slack_thread_ts' => '111.222',
+    ]);
+
+    $body = slackThreadReplyPayload('Update Cory too', 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://slack.com/api/reactions.add'
+        && $request['channel'] === 'C123'
+        && $request['timestamp'] === '1234567899.999999'
+        && $request['name'] === 'eyes');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Thread reply with no matching task → ignored
@@ -190,14 +215,15 @@ it('posts a decline notification and dispatches no follow-up when the PR is alre
 
 /*
 |--------------------------------------------------------------------------
-| Regression: awaiting_clarification still dispatches ClarificationReplyJob
+| Regression: awaiting_clarification still answers the pending question
 |--------------------------------------------------------------------------
 */
 
-it('still dispatches ClarificationReplyJob for awaiting-clarification tasks (regression)', function () {
+it('still answers the pending question for awaiting-clarification tasks (regression)', function () {
     Queue::fake();
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'slack_channel' => 'C_CLAR',
         'slack_thread_ts' => '777.888',
     ]);
@@ -211,9 +237,7 @@ it('still dispatches ClarificationReplyJob for awaiting-clarification tasks (reg
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertPushed(ClarificationReplyJob::class, function (ClarificationReplyJob $job) use ($task) {
-        return $job->task->id === $task->id;
-    });
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
     Queue::assertNotPushed(RunFollowUpJob::class);
 });
 

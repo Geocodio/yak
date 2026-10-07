@@ -4,6 +4,7 @@ namespace App\Channels\Slack;
 
 use App\Enums\NotificationType;
 use App\Models\YakTask;
+use App\Services\RepoClarificationResolver;
 use App\Support\Docs;
 use Illuminate\Support\Str;
 
@@ -66,7 +67,7 @@ class BlockFormatter
         // 3. Clarification option buttons — emit an actions row with
         // one button per option so users can click-to-answer rather
         // than type back. Clicking posts to /webhooks/slack/interactive
-        // which dispatches ClarificationReplyJob. Capped at Slack's
+        // which submits the answer through ClarificationAnswerSubmitter. Capped at Slack's
         // 25-element limit.
         $optionButtons = self::clarificationOptionButtons($task, $type);
         if ($optionButtons !== []) {
@@ -270,6 +271,23 @@ class BlockFormatter
     }
 
     /**
+     * Button labels for a waiting task: the repo candidates for a repo choice,
+     * otherwise the options of the single pending question.
+     *
+     * @return list<string>
+     */
+    public static function clarificationButtonLabels(YakTask $task): array
+    {
+        if (RepoClarificationResolver::awaitingRepoChoice($task)) {
+            return array_values(array_map('strval', (array) ($task->clarification_options ?? [])));
+        }
+
+        $questions = $task->pendingClarificationQuestions();
+
+        return count($questions) === 1 ? $questions[0]->labels() : [];
+    }
+
+    /**
      * Build clickable buttons for each clarification option. Slack
      * caps button text at 75 chars and actions blocks at 25 elements;
      * we truncate and cap so a pathological clarification payload
@@ -283,11 +301,13 @@ class BlockFormatter
             return [];
         }
 
-        /** @var array<int, string>|null $options */
-        $options = $task->clarification_options;
-        if (! is_array($options) || $options === []) {
+        $options = self::clarificationButtonLabels($task);
+        if ($options === []) {
             return [];
         }
+
+        $questions = $task->pendingClarificationQuestions();
+        $questionId = ! RepoClarificationResolver::awaitingRepoChoice($task) && count($questions) === 1 ? $questions[0]->id : null;
 
         $buttons = [];
         foreach (array_slice($options, 0, 25) as $index => $option) {
@@ -301,11 +321,47 @@ class BlockFormatter
                     'type' => 'plain_text',
                     'text' => $buttonText,
                 ],
-                'value' => $task->id . '|' . $label,
+                'value' => self::clarificationButtonValue($task, $questionId, $label),
             ];
         }
 
         return $buttons;
+    }
+
+    /**
+     * A repo choice is `taskId|label`. An answer to a structured question is
+     * JSON carrying the question id, so a click on a button from an earlier
+     * round can be told apart from one for the question now pending.
+     */
+    private static function clarificationButtonValue(YakTask $task, ?string $questionId, string $label): string
+    {
+        if ($questionId === null) {
+            return $task->id . '|' . $label;
+        }
+
+        return (string) json_encode(['task' => $task->id, 'question' => $questionId, 'label' => $label]);
+    }
+
+    /**
+     * Read a button value written by clarificationButtonValue().
+     *
+     * @return array{taskId: int, questionId: string|null, label: string}
+     */
+    public static function parseClarificationButtonValue(string $value): array
+    {
+        $decoded = str_starts_with($value, '{') ? json_decode($value, true) : null;
+
+        if (is_array($decoded)) {
+            return [
+                'taskId' => is_int($decoded['task'] ?? null) ? $decoded['task'] : 0,
+                'questionId' => is_string($decoded['question'] ?? null) ? $decoded['question'] : null,
+                'label' => is_string($decoded['label'] ?? null) ? $decoded['label'] : '',
+            ];
+        }
+
+        [$taskId, $label] = array_pad(explode('|', $value, 2), 2, '');
+
+        return ['taskId' => (int) $taskId, 'questionId' => null, 'label' => $label];
     }
 
     /**

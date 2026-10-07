@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:21
+* @see app/Http/Controllers/Tasks/TaskMessageController.php:22
 * @route '/tasks/{task}/messages'
 */
 export const store = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:21
+* @see app/Http/Controllers/Tasks/TaskMessageController.php:22
 * @route '/tasks/{task}/messages'
 */
 store.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ store.url = (args: { task: number | { id: number } } | [task: number | { id: num
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:21
+* @see app/Http/Controllers/Tasks/TaskMessageController.php:22
 * @route '/tasks/{task}/messages'
 */
 store.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

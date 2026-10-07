@@ -39,6 +39,7 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
 use App\Support\GitHubDiffLines;
 use App\Support\PathMatcher;
+use App\Support\ReviewSuggestion;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -69,14 +70,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     {
         return now()->addHours(6);
     }
-
-    /**
-     * Allow the suggestion fence to differ from the comment's line range
-     * by a few lines (consolidations, small expansions). Beyond this we
-     * assume the model picked the wrong end-of-range and strip the fence
-     * to avoid a click-accept that deletes unchanged code.
-     */
-    private const SUGGESTION_RANGE_TOLERANCE = 5;
 
     /**
      * When this job object was built, which is when it went on the queue.
@@ -207,7 +200,13 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 throw $e;
             }
 
-            $this->postReview($repository, $parsed, $metadata);
+            $this->postReview(
+                $repository,
+                $parsed,
+                $metadata,
+                $result->resultSummary,
+                fn (string $path): ?string => $this->readFileAtHead($sandbox, $containerName, $path, $metadata),
+            );
             $recorder->mark('post_agent');
 
             $this->task->update([
@@ -457,8 +456,28 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     /**
      * @param  array<string, mixed>  $metadata
      */
-    private function postReview(Repository $repository, ParsedReview $parsed, array $metadata): void
+    private function readFileAtHead(IncusSandboxManager $sandbox, string $containerName, string $path, array $metadata): ?string
     {
+        $result = $sandbox->run(
+            $containerName,
+            'cd ' . IncusSandboxManager::workspacePath() . ' && git show ' . escapeshellarg((string) $metadata['head_sha'] . ':' . $path),
+            timeout: 30,
+        );
+
+        return $result->exitCode() === 0 ? $result->output() : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     * @param  \Closure(string): ?string  $readFileAtHead
+     */
+    private function postReview(
+        Repository $repository,
+        ParsedReview $parsed,
+        array $metadata,
+        string $agentOutput,
+        \Closure $readFileAtHead,
+    ): void {
         $unfiltered = $parsed;
         $parsed = $this->filterFindings($parsed, $repository->pr_review_path_excludes
             ?? (array) config('yak.pr_review.default_path_excludes', []));
@@ -530,10 +549,31 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $nitpicks = [];
         $outOfDiff = [];
 
-        foreach ($findings as $f) {
-            $lineIsCommentable = isset($validLines[$f->file][$f->line]);
+        $fileContents = [];
+        $lineCommentSuggestions = [];
 
-            if (! $lineIsCommentable) {
+        foreach ($findings as $f) {
+            if (! array_key_exists($f->file, $fileContents)) {
+                $fileContents[$f->file] = str_contains($f->body, '```suggestion') ? $readFileAtHead($f->file) : null;
+            }
+
+            $suggestion = ReviewSuggestion::resolve(
+                $f->body,
+                $f->line,
+                $fileContents[$f->file],
+                $validLines[$f->file] ?? [],
+                $agentOutput,
+            );
+
+            if ($suggestion->omittedReason !== null) {
+                TaskLogger::warning($this->task, 'Suggestion fence omitted', [
+                    'file' => $f->file,
+                    'line' => $f->line,
+                    'reason' => $suggestion->omittedReason,
+                ]);
+            }
+
+            if (! isset($validLines[$f->file][$suggestion->line])) {
                 if ($f->severity === 'consider') {
                     $nitpicks[] = $f;
                 } else {
@@ -545,73 +585,20 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
             $severityLabel = $f->severity === 'consider' ? 'NITPICK' : strtoupper($f->severity);
 
-            $body = $f->body;
-            $startLine = null;
-
-            // GitHub treats a comment without `start_line` as single-line:
-            // a ```suggestion fence with N lines replaces only `line`,
-            // injecting N-1 duplicate lines around it. Send the range
-            // when the model marked one and every line in it lives in a
-            // diff hunk.
-            if ($f->startLine !== null && $f->startLine < $f->line) {
-                $rangeSize = $f->line - $f->startLine + 1;
-                $fenceSize = $f->suggestionLoc ?? 0;
-
-                // Defensive: when the line range is substantially larger
-                // than the fence, accepting the suggestion would delete
-                // the unchanged lines in between (e.g. the model anchors
-                // a docblock rewrite to the end of the function body).
-                // Strip the fence rather than post a destructive
-                // click-accept; the prose still lands as a comment.
-                if ($fenceSize > 0 && $rangeSize - $fenceSize > self::SUGGESTION_RANGE_TOLERANCE) {
-                    $body = $this->stripSuggestionFence(
-                        $f->body,
-                        '_(Suggestion fence omitted: the proposed range covered ' . $rangeSize
-                            . ' lines but the replacement is only ' . $fenceSize
-                            . ' lines, which would delete unchanged code if accepted.)_',
-                    );
-                } else {
-                    $rangeIsCommentable = true;
-                    for ($l = $f->startLine; $l <= $f->line; $l++) {
-                        if (! isset($validLines[$f->file][$l])) {
-                            $rangeIsCommentable = false;
-                            break;
-                        }
-                    }
-
-                    if ($rangeIsCommentable) {
-                        $startLine = $f->startLine;
-                    } elseif ($fenceSize > 1) {
-                        // Range can't be posted (some line isn't in a diff
-                        // hunk), so GitHub will anchor the comment to a
-                        // single line. A multi-line fence on a single-line
-                        // anchor expands one line into many on accept,
-                        // leaving the original lines in place. Strip the
-                        // fence so the prose still lands but no click-
-                        // accept can corrupt the file.
-                        $body = $this->stripSuggestionFence(
-                            $f->body,
-                            '_(Suggestion fence omitted: the proposed range spans ' . $rangeSize
-                                . ' lines but some of those lines fall outside the diff hunk, so GitHub can only anchor the comment to a single line. Accepting a ' . $fenceSize
-                                . '-line replacement against a single-line anchor would duplicate the surrounding code.)_',
-                        );
-                    }
-                }
-            }
-
             $comment = [
                 'path' => $f->file,
-                'line' => $f->line,
-                'body' => "**[{$f->category} · {$severityLabel}]**\n\n{$body}",
+                'line' => $suggestion->line,
+                'body' => "**[{$f->category} · {$severityLabel}]**\n\n{$suggestion->body}",
             ];
 
-            if ($startLine !== null) {
-                $comment['start_line'] = $startLine;
+            if ($suggestion->startLine !== null) {
+                $comment['start_line'] = $suggestion->startLine;
                 $comment['start_side'] = 'RIGHT';
             }
 
             $lineComments[] = $comment;
             $lineCommentFindings[] = $f;
+            $lineCommentSuggestions[] = $suggestion;
         }
 
         if ($outOfDiff !== []) {
@@ -688,6 +675,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             );
             $lineComments = [];
             $lineCommentFindings = [];
+            $lineCommentSuggestions = [];
         }
 
         $review = PrReview::create([
@@ -707,13 +695,11 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         ]);
 
         $severities = ['must_fix' => 0, 'should_fix' => 0, 'consider' => 0];
-        $suggestions = 0;
         foreach ($parsed->findings as $finding) {
             $severities[$finding->severity] = ($severities[$finding->severity] ?? 0) + 1;
-            if ($finding->suggestionLoc !== null) {
-                $suggestions++;
-            }
         }
+
+        $suggestions = count(array_filter($lineCommentSuggestions, fn (ReviewSuggestion $suggestion): bool => $suggestion->isSuggestion));
 
         Telemetry::record('review.submitted', [
             'github_event' => $decision['event'],
@@ -807,27 +793,13 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 'pr_review_id' => $review->id,
                 'github_comment_id' => (int) $returned['id'],
                 'file_path' => $original->file,
-                'line_number' => $original->line,
+                'line_number' => $lineCommentSuggestions[$i]->line,
                 'body' => $finding['body'],
                 'category' => $original->category,
                 'severity' => $original->severity,
-                'is_suggestion' => $original->suggestionLoc !== null,
+                'is_suggestion' => $lineCommentSuggestions[$i]->isSuggestion,
             ]);
         }
-    }
-
-    /**
-     * Replace each ```suggestion fenced block in $body with $replacement.
-     * Used when posting the suggestion as-is would be destructive (range
-     * size doesn't match the fence content).
-     */
-    private function stripSuggestionFence(string $body, string $replacement): string
-    {
-        return (string) preg_replace(
-            '/```suggestion\b[^\n]*\R.*?```/s',
-            $replacement,
-            $body,
-        );
     }
 
     /**

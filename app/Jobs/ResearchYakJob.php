@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
@@ -10,10 +11,12 @@ use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ReportsResearchToSource;
+use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -23,9 +26,11 @@ use App\Models\Artifact;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ArtifactPersister;
 use App\Services\IncusSandboxManager;
 use App\Services\PromptResolver;
 use App\Services\RepositoryRiskProfiles;
+use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
@@ -40,11 +45,13 @@ use Illuminate\Support\Facades\Log;
 
 class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 {
+    use AsksClarifyingQuestions;
     use ClaimsTask;
     use HandlesAgentJobFailure;
     use NotifiesSourceOfFailure;
     use Queueable;
     use ReportsResearchToSource;
+    use RetriesWithoutStaleSession;
 
     public int $timeout = 3600;
 
@@ -111,6 +118,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         try {
             $this->runResearch($agent);
         } finally {
+            $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }
@@ -160,6 +168,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $resuming = $this->resumingWithAnswers();
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
         $recorder = RunRecorder::start($this->task, TaskRunKind::Research, self::class, $this->task->dispatched_at ?? $this->queuedAt);
@@ -169,7 +178,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         // One-shot "starting research" progress on first attempt,
         // matching the RunYakJob cadence. Research tasks can take
         // minutes; this keeps the channel alive while we explore.
-        if ((int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
+        if (! $resuming && (int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
             SendNotificationJob::dispatch(
                 $this->task,
                 NotificationType::Progress,
@@ -205,24 +214,28 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                 }
                 $this->task->update(['context' => json_encode($context)]);
             }
+            if ($resuming) {
+                $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
+            }
             $recorder->mark('git_prepare');
 
             $request = new AgentRunRequest(
-                prompt: $riskProfile ? app(PromptResolver::class)->render('tasks-risk-profile') : YakPromptBuilder::taskPrompt($this->task),
+                prompt: $this->promptFor(fn (): string => $riskProfile ? app(PromptResolver::class)->render('tasks-risk-profile') : YakPromptBuilder::taskPrompt($this->task)),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
-                resumeSessionId: null,
+                resumeSessionId: $resuming ? $this->task->session_id : null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
                 attachments: $this->task->attachments->all(),
             );
 
             $recorder->agentStarted($request);
-            $result = $agent->run($request);
+            $result = $this->runAgentWithStaleSessionFallback($agent, $request);
+            $this->consumeAnswers();
             $recorder->agentFinished($result);
 
             if ($result->isError) {
@@ -231,6 +244,13 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
                 return;
             }
+
+            if ($this->askIfNeeded($result)) {
+                return;
+            }
+
+            // Questions ignored at the round limit must not reach the output.
+            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
 
             $this->handleSuccess($repository, $result, $sandbox, $containerName);
             $recorder->mark('post_agent');
@@ -299,6 +319,12 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
         $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
 
+        // A research run can record a walkthrough. Its shot clips only exist
+        // inside the sandbox, and the persister hands them to the renderer.
+        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
+        $hasWalkthrough = collect(ArtifactPersister::persist($this->task))->contains('type', 'video');
+        $taskUrl = route('tasks.show', $this->task);
+
         $this->task->update([
             'status' => TaskStatus::Success,
             'result_summary' => $summary,
@@ -325,6 +351,10 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
         }
 
+        if ($hasWalkthrough) {
+            $notificationMessage .= "\n\n🎬 **[Watch the walkthrough]({$taskUrl})** (ready once it finishes rendering)";
+        }
+
         $this->reportResult($notificationMessage);
 
         if ($this->task->source === 'linear') {
@@ -337,6 +367,15 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                     title: 'Research report',
                     url: $artifactUrl,
                     subtitle: 'Detailed findings from Yak · HTML',
+                );
+            }
+
+            if ($hasWalkthrough) {
+                app(LinearNotificationDriver::class)->createIssueAttachment(
+                    $this->task,
+                    title: 'Walkthrough video',
+                    url: $taskUrl,
+                    subtitle: 'Recorded by Yak',
                 );
             }
         }

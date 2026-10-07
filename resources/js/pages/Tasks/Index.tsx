@@ -6,7 +6,7 @@ import { AppLayout } from '@/layouts/AppLayout';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
 import { FilterMenu } from '@/components/tasks/FilterMenu';
 import { HoverPreview } from '@/components/tasks/HoverPreview';
-import { NewTaskSheet } from '@/components/tasks/NewTaskSheet';
+import { NewTaskDialog } from '@/components/tasks/NewTaskDialog';
 import { openPalette } from '@/components/Sidebar';
 import { SetupCard } from '@/components/tasks/SetupCard';
 import { TaskCardList } from '@/components/tasks/TaskCardList';
@@ -24,6 +24,7 @@ type Props = PageProps<{
     filters: TaskFilters;
     setupCard: SetupCardData;
     activeRepos: string[];
+    defaultRepo: string | null;
     openNew: boolean;
 }>;
 
@@ -90,7 +91,7 @@ function TabStrip({
     );
 }
 
-export default function Index({ tasks, counts, filters, setupCard, activeRepos, openNew }: Props) {
+export default function Index({ tasks, counts, filters, setupCard, activeRepos, defaultRepo, openNew }: Props) {
     // Poll only `tasks` and `counts` -- a full-page poll (no `only`) would be a
     // non-partial reload, and non-partial reloads replace merge props outright
     // instead of merging, which would wipe out any pages the user has already
@@ -304,7 +305,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
 
             <HoverPreview src={previewSrc} />
 
-            <NewTaskSheet open={sheetOpen} onOpenChange={handleSheetOpenChange} repoOptions={activeRepos} />
+            <NewTaskDialog open={sheetOpen} onOpenChange={handleSheetOpenChange} repoOptions={activeRepos} defaultRepo={defaultRepo} />
         </>
     );
 }

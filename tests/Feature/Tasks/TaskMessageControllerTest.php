@@ -1,9 +1,10 @@
 <?php
 
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunFollowUpJob;
+use App\Jobs\RunYakJob;
 use App\Models\PendingSteeringMessage;
+use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Queue;
@@ -12,15 +13,33 @@ beforeEach(function () {
     $this->actingAs(User::factory()->create());
 });
 
-test('a clarification reply dispatches ClarificationReplyJob', function () {
-    Queue::fake([ClarificationReplyJob::class]);
-    $task = YakTask::factory()->create(['status' => TaskStatus::AwaitingClarification]);
+test('a repo choice typed in the message box still resolves', function () {
+    Queue::fake();
+    Repository::factory()->create(['slug' => 'acme/api', 'is_active' => true]);
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'repo' => 'unknown',
+        'session_id' => null,
+        'clarification_options' => ['acme/api', 'acme/web'],
+    ]);
 
-    $this->post(route('tasks.messages.store', $task), ['message' => 'Convert in place'])
+    $this->post(route('tasks.messages.store', $task), ['message' => 'acme/api'])
         ->assertRedirect(route('tasks.show', $task))
         ->assertSessionHas('success', 'Reply sent. Yak is continuing the task.');
 
-    Queue::assertPushed(ClarificationReplyJob::class);
+    expect($task->fresh()->repo)->toBe('acme/api');
+    Queue::assertPushed(RunYakJob::class);
+});
+
+test('a plain message while questions are pending points back to the form', function () {
+    Queue::fake();
+    $task = YakTask::factory()->withClarificationQuestions()->create();
+
+    $this->post(route('tasks.messages.store', $task), ['message' => 'Convert in place'])
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('error', 'Answer the questions in the form above.');
+
+    Queue::assertNothingPushed();
 });
 
 test('a running task queues a steering message', function () {

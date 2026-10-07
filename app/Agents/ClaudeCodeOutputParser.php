@@ -3,6 +3,7 @@
 namespace App\Agents;
 
 use App\DataTransferObjects\AgentRunResult;
+use App\DataTransferObjects\ClarificationQuestion;
 use App\DataTransferObjects\RunUsage;
 
 class ClaudeCodeOutputParser
@@ -17,9 +18,6 @@ class ClaudeCodeOutputParser
 
         $resultText = (string) ($decoded['result'] ?? $decoded['result_summary'] ?? '');
 
-        // Check for clarification at top level first, then in the result text
-        $clarification = self::extractClarification($decoded, $resultText);
-
         $wrongRepository = self::extractWrongRepository($resultText);
 
         $isError = ($decoded['is_error'] ?? false) === true;
@@ -33,8 +31,6 @@ class ClaudeCodeOutputParser
             numTurns: (int) ($decoded['num_turns'] ?? 0),
             durationMs: (int) ($decoded['duration_ms'] ?? 0),
             isError: $isError,
-            clarificationNeeded: $clarification['needed'],
-            clarificationOptions: $clarification['options'],
             rawOutput: $output,
             errorSubtype: $isError ? $subtype : null,
             usage: RunUsage::fromResultEvent($decoded),
@@ -43,6 +39,7 @@ class ClaudeCodeOutputParser
             wrongRepository: $wrongRepository !== null,
             wrongRepositoryReason: $wrongRepository['reason'] ?? null,
             suggestedRepository: $wrongRepository['suggested_repository'] ?? null,
+            clarificationQuestions: self::extractClarificationQuestions($resultText),
         );
     }
 
@@ -95,42 +92,38 @@ class ClaudeCodeOutputParser
         ];
     }
 
+    public const MAX_QUESTIONS = 6;
+
     /**
-     * Extract clarification from top-level keys or from embedded JSON in the result text.
+     * Questions from the last fenced `clarification` block in the result text.
+     * Invalid questions and repeated ids are dropped; at most six are kept.
      *
-     * The agent may return clarification as a top-level key or as a JSON code block
-     * inside the result text (per the prompt instructions).
-     *
-     * @param  array<string, mixed>  $decoded
-     * @return array{needed: bool, options: list<string>}
+     * @return list<ClarificationQuestion>
      */
-    private static function extractClarification(array $decoded, string $resultText): array
+    public static function extractClarificationQuestions(string $resultText): array
     {
-        // Top-level clarification (e.g. from a custom agent format)
-        if (($decoded['clarification_needed'] ?? false) === true) {
-            $options = $decoded['options'] ?? [];
-
-            return [
-                'needed' => true,
-                'options' => is_array($options) ? array_values(array_map('strval', $options)) : [],
-            ];
+        if (! preg_match_all('/```clarification\s*\n(.+?)\n```/s', $resultText, $matches) || $matches[1] === []) {
+            return [];
         }
 
-        // Check if the result text contains a JSON block with clarification_needed
-        if (preg_match('/\{[^{}]*"clarification_needed"\s*:\s*true[^{}]*\}/s', $resultText, $match)) {
-            /** @var array{clarification_needed?: bool, options?: list<string>}|null $embedded */
-            $embedded = json_decode($match[0], true);
+        $decoded = json_decode(trim((string) end($matches[1])), true);
+        $raw = is_array($decoded) && is_array($decoded['questions'] ?? null) ? $decoded['questions'] : [];
 
-            if (is_array($embedded) && ($embedded['clarification_needed'] ?? false) === true) {
-                $options = $embedded['options'] ?? [];
+        return collect($raw)
+            ->filter(fn (mixed $item): bool => is_array($item))
+            ->map(fn (array $item): ?ClarificationQuestion => ClarificationQuestion::fromArray($item))
+            ->filter()
+            ->unique(fn (ClarificationQuestion $question): string => $question->id)
+            ->take(self::MAX_QUESTIONS)
+            ->values()
+            ->all();
+    }
 
-                return [
-                    'needed' => true,
-                    'options' => array_map('strval', $options),
-                ];
-            }
-        }
-
-        return ['needed' => false, 'options' => []];
+    /**
+     * The result text without its clarification block, for showing as prose.
+     */
+    public static function stripClarificationBlock(string $resultText): string
+    {
+        return trim((string) preg_replace('/```clarification\s*\n.+?\n```/s', '', $resultText));
     }
 }

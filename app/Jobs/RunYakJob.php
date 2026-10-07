@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Agents\ClaudeCodeOutputParser;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
@@ -10,10 +11,13 @@ use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\GitOperations;
+use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\HandlesWrongRepository;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
+use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
+use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
@@ -39,11 +43,14 @@ use Illuminate\Support\Facades\Log;
 
 class RunYakJob implements ShouldBeUnique, ShouldQueue
 {
+    use AsksClarifyingQuestions;
     use ClaimsTask;
     use HandlesAgentJobFailure;
     use HandlesWrongRepository;
     use NotifiesSourceOfFailure;
     use Queueable;
+    use ResumesAgentOnExistingBranch;
+    use RetriesWithoutStaleSession;
 
     // Agent sessions involving browser capture, docker-compose warmup,
     // or long tool calls regularly exceed 10 minutes. Laravel enforces
@@ -118,6 +125,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         try {
             $this->runTask($agent);
         } finally {
+            $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }
@@ -155,6 +163,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        $resuming = $this->resumingWithAnswers();
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
         $recorder = RunRecorder::start($this->task, TaskRunKind::Initial, self::class, $this->task->dispatched_at ?? $this->queuedAt);
@@ -165,7 +174,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         // attempt, gated by yak.emit_start_progress. Closes the silent
         // gap between ack and first push (can be several minutes for
         // research tasks). Skipped on retries to avoid re-notifying.
-        if ((int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
+        if (! $resuming && (int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
             SendNotificationJob::dispatch(
                 $this->task,
                 NotificationType::Progress,
@@ -179,10 +188,15 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
 
-            $this->prepareBranch($sandbox, $containerName, $repository);
+            if ($resuming && $this->task->branch_name !== null) {
+                $this->prepareExistingBranch($sandbox, $containerName, $repository, $this->task->branch_name);
+                $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
+            } else {
+                $this->prepareBranch($sandbox, $containerName, $repository);
+            }
             $recorder->mark('git_prepare');
 
-            $prompt = $this->assemblePrompt();
+            $prompt = $this->promptFor(fn (): string => $this->assemblePrompt());
 
             $request = new AgentRunRequest(
                 prompt: $prompt,
@@ -192,15 +206,16 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
-                resumeSessionId: null,
+                resumeSessionId: $resuming ? $this->task->session_id : null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
                 attachments: $this->task->attachments->all(),
             );
 
             $recorder->agentStarted($request);
-            $result = $agent->run($request);
+            $result = $this->runAgentWithStaleSessionFallback($agent, $request);
             $recorder->agentFinished($result);
+            $this->consumeAnswers();
 
             if ($result->isError) {
                 TaskMetricsAccumulator::record($this->task, $result);
@@ -226,11 +241,12 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            if ($result->clarificationNeeded) {
-                $this->handleClarification($result);
-
+            if ($this->askIfNeeded($result)) {
                 return;
             }
+
+            // Questions ignored at the round limit must not reach the PR body or reply.
+            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
 
             // Pull .yak-artifacts/ out of the sandbox…
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
@@ -435,31 +451,6 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         return $update;
-    }
-
-    private function handleClarification(AgentRunResult $result): void
-    {
-        TaskMetricsAccumulator::record($this->task, $result);
-
-        $this->task->update([
-            'status' => TaskStatus::AwaitingClarification,
-            'clarification_options' => $result->clarificationOptions,
-            ...YakTask::clarificationDeadlines(),
-        ]);
-
-        DailyCost::accumulate($result->costUsd);
-
-        $numberedOptions = collect($result->clarificationOptions)
-            ->map(fn (string $option, int $i) => ($i + 1) . '. ' . $option)
-            ->implode("\n");
-
-        SendNotificationJob::dispatch(
-            $this->task,
-            NotificationType::Clarification,
-            "I need some direction before I can continue. Reply with your choice:\n{$numberedOptions}",
-        );
-
-        TaskLogger::info($this->task, 'Clarification posted');
     }
 
     private function handleError(string $errorMessage): void

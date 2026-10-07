@@ -288,6 +288,10 @@ def build(variant):
     tight_square(Image.open(os.path.join(RENDERS, f"cursor-yak-{variant}-square.png")).convert("RGBA")).resize((1024, 1024), Image.LANCZOS).save(
         os.path.join(folder, "avatar/avatar-3d-transparent-1024.png"))
     raster(tile(variant, radius=0, scale=0.8), os.path.join(folder, "avatar/avatar-flat-1024.png"), 1024)
+    # Bot avatar for GitHub and similar: the zoomed face on paper, so the cream fringe keeps contrast on white UIs.
+    fx, fy, fw, fh = face_view_box(variant).split()
+    raster(svg(512, 512, face_view_box(variant), f'<rect x="{fx}" y="{fy}" width="{fw}" height="{fh}" fill="{PAPER}"/>' + mark_group(variant, small=True)),
+           os.path.join(folder, "avatar/avatar-face-paper-1024.png"), 1024)
     social_card(variant, folder)
 
     with zipfile.ZipFile(os.path.join(OUT, f"cursor-yak-{variant}-brand.zip"), "w", zipfile.ZIP_DEFLATED) as archive:

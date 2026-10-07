@@ -26,53 +26,16 @@ use Tests\Support\FakeSandboxManager;
 |--------------------------------------------------------------------------
 */
 
-test('retry routes to AwaitingClarification when Claude signals clarificationNeeded', function () {
-    Queue::fake();
-
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_retry_clarify',
-        resultSummary: 'Still stuck',
-        costUsd: 0.15,
-        numTurns: 2,
-        durationMs: 5000,
-        isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['Approach X', 'Approach Y'],
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    $fakeSandbox = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-
-    Process::fake(['*' => Process::result('')]);
-
-    Repository::factory()->create(['slug' => 'retry-clar-repo', 'path' => '/home/yak/repos/retry-clar-repo']);
-    $task = YakTask::factory()->retrying()->create([
-        'repo' => 'retry-clar-repo',
-        'branch_name' => 'yak/retry-clar',
-        'source' => 'linear',
-    ]);
-
-    (new RetryYakJob($task, 'CI failed'))->handle($fake);
-
-    $task->refresh();
-    expect($task->status)->toBe(TaskStatus::AwaitingClarification)
-        ->and($task->clarification_options)->toBe(['Approach X', 'Approach Y']);
-});
-
 test('retry hands the agent every file sent to the run, including clarification replies', function () {
     Queue::fake();
 
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_retry_files',
-        resultSummary: 'Still stuck',
+        resultSummary: 'Still failing',
         costUsd: 0.1,
         numTurns: 1,
         durationMs: 1000,
-        isError: false,
-        clarificationNeeded: true,
-        clarificationOptions: ['A', 'B'],
+        isError: true,
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -99,8 +62,6 @@ test('retry marks task Success and skips push when no new commits', function () 
         numTurns: 2,
         durationMs: 6000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -136,8 +97,6 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
         numTurns: 10,
         durationMs: 90000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -194,8 +153,6 @@ test('refreshes git credential helper immediately before push', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
 
@@ -238,8 +195,6 @@ test('successful retry accumulates cost and turns on task', function () {
         numTurns: 5,
         durationMs: 30000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -281,8 +236,6 @@ test('successful retry clears a stale pr_body_update from the failed attempt', f
         numTurns: 2,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -314,8 +267,6 @@ test('retry marks task Success and clears a stale pr_body_update when there are 
         numTurns: 2,
         durationMs: 5000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -353,8 +304,6 @@ test('does NOT pass --resume on retry (sandbox is fresh, session file is gone)',
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -393,8 +342,6 @@ test('retry prompt includes CI failure output', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -440,8 +387,6 @@ test('claude error response marks task as failed', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -515,8 +460,6 @@ test('sandbox is destroyed even when retry fails', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -546,8 +489,6 @@ test('retry persists the new session transcript before destroying the sandbox', 
         numTurns: 3,
         durationMs: 10000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -584,8 +525,6 @@ test('retry rebases the task branch onto the current default branch', function (
         numTurns: 4,
         durationMs: 10000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -637,8 +576,6 @@ test('retry aborts a conflicting rebase and continues on the original base', fun
         numTurns: 4,
         durationMs: 10000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);

@@ -154,12 +154,6 @@ class RetryYakJob implements ShouldQueue
                 return;
             }
 
-            if ($result->clarificationNeeded) {
-                $this->handleClarification($result);
-
-                return;
-            }
-
             SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
             ArtifactPersister::persist($this->task);
 
@@ -352,31 +346,6 @@ class RetryYakJob implements ShouldQueue
         }
 
         return $update;
-    }
-
-    private function handleClarification(AgentRunResult $result): void
-    {
-        TaskMetricsAccumulator::record($this->task, $result);
-
-        $this->task->update([
-            'status' => TaskStatus::AwaitingClarification,
-            'clarification_options' => $result->clarificationOptions,
-            ...YakTask::clarificationDeadlines(),
-        ]);
-
-        DailyCost::accumulate($result->costUsd, newTask: false);
-
-        $numberedOptions = collect($result->clarificationOptions)
-            ->map(fn (string $option, int $i) => ($i + 1) . '. ' . $option)
-            ->implode("\n");
-
-        SendNotificationJob::dispatch(
-            $this->task,
-            NotificationType::Clarification,
-            "I need some direction before I can continue. Reply with your choice:\n{$numberedOptions}",
-        );
-
-        TaskLogger::info($this->task, 'Clarification posted (retry)');
     }
 
     private function handleError(string $errorMessage): void

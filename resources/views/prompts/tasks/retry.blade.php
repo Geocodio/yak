@@ -36,4 +36,4 @@ Your final summary replaces the **entire** pull request body — not just the pa
 - A CI fix that was unrelated to the original task (a flaky test, a dependency advisory that predates the branch, an infrastructure failure) gets at most one bullet near the end of `## Changes`. Never make it the summary, and do not open the body with an explanation of it.
 - Do not complain about the CI failure, argue that it was pre-existing, or justify your choices to the reviewer in the PR body. State what changed. If a decision genuinely needs the reviewer's attention, make it one short bullet.
 
-@include('prompts.partials.clarification-contract')
+@include('prompts.partials.wrong-repository')

@@ -39,8 +39,6 @@ function successfulRunResult(): AgentRunResult
         numTurns: 7,
         durationMs: 90_000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         usage: new RunUsage(inputTokens: 1000, outputTokens: 500, cacheReadTokens: 20_000, cacheCreationTokens: 300, apiDurationMs: 60_000, modelUsage: ['claude-opus-4-6' => ['input' => 1000, 'output' => 500, 'cache_read' => 20_000, 'cache_creation' => 300, 'cost_usd' => 1.25]]),
         stats: $stats,
@@ -125,8 +123,6 @@ test('an agent error records the failure category and message', function () {
         numTurns: 300,
         durationMs: 10_000,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         errorSubtype: 'error_max_turns',
     ));
@@ -152,8 +148,6 @@ test('a budget-cap error is categorised as budget_cap', function () {
         numTurns: 84,
         durationMs: 10_000,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         errorSubtype: 'error_during_execution',
     ));

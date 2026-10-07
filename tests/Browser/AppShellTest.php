@@ -76,13 +76,13 @@ test('on a phone the sidebar folds into a top bar, a floating tab bar and a navi
         ->assertNoJavaScriptErrors();
 });
 
-test('on a phone the round button opens the new task sheet from any page', function () {
+test('on a phone the round button opens the new task dialog from any page', function () {
     $this->actingAs(User::factory()->create());
 
     $page = visit('/repos')->on()->mobile();
 
     $page->click('[data-testid="tab-new-task"]')
         ->assertPathIs('/tasks')
-        ->assertVisible('[data-testid="new-task-sheet"]')
+        ->assertVisible('[data-testid="new-task-dialog"]')
         ->assertNoJavaScriptErrors();
 });

@@ -24,8 +24,6 @@ function fakeFollowUpResult(string $sessionId = 'sess_followup', string $resultS
         numTurns: 4,
         durationMs: 20000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     );
 }
@@ -90,8 +88,6 @@ test('RunFollowUpJob stores the change summary and the rewritten description sep
         numTurns: 4,
         durationMs: 20000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -149,8 +145,6 @@ test('RunFollowUpJob leaves pr_body_update null when the description is unchange
         numTurns: 4,
         durationMs: 20000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -208,8 +202,6 @@ test('RunFollowUpJob stores a null result_summary instead of an empty string whe
         numTurns: 4,
         durationMs: 20000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -456,8 +448,6 @@ test('RunFollowUpJob surfaces CLI stderr in error_log when the run fails', funct
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
         errorSubtype: 'error_during_execution',
         stderr: 'MCP server crashed on startup',

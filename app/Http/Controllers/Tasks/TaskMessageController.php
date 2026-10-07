@@ -6,7 +6,6 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\SendTaskMessageRequest;
-use App\Jobs\ClarificationReplyJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\YakTask;
@@ -36,6 +35,7 @@ class TaskMessageController extends Controller
         $status = $head->status;
 
         $state = match (true) {
+            $status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [] => 'questions',
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
@@ -43,6 +43,7 @@ class TaskMessageController extends Controller
         };
 
         [$flashKey, $message] = match ($state) {
+            'questions' => ['error', 'Answer the questions in the form above.'],
             'clarification' => ['success', $this->sendClarification($request, $head, $text)],
             'steering' => ['success', $this->sendSteering($request, $head, $text)],
             'follow_up' => $this->sendFollowUpMessage($request, $head, $text),
@@ -52,22 +53,18 @@ class TaskMessageController extends Controller
         return redirect()->route('tasks.show', $task)->with($flashKey, $message);
     }
 
+    /**
+     * Free-text replies only answer "which repository?" now (structured
+     * questions go through the answers form). Choosing a repo restarts the
+     * run from scratch, which reads the task's request attachments, so the
+     * files join those.
+     */
     private function sendClarification(SendTaskMessageRequest $request, YakTask $head, string $text): string
     {
-        if (RepoClarificationResolver::awaitingRepoChoice($head)) {
-            // Choosing a repo restarts the run from scratch, which reads the
-            // task's request attachments, so the files join those.
-            $attachments = TaskAttachment::storeFromRequest($request, ['yak_task_id' => $head->id]);
-            self::logClarificationReply($head, $text, $attachments);
-            RepoClarificationResolver::resolve($head, $text);
-        } else {
-            $attachments = TaskAttachment::storeFromRequest($request, [
-                'yak_task_id' => $head->id,
-                'context' => TaskAttachment::CONTEXT_CLARIFICATION_REPLY,
-            ]);
-            self::logClarificationReply($head, $text, $attachments);
-            ClarificationReplyJob::dispatch($head, $text, $attachments->pluck('id')->all());
-        }
+        $attachments = TaskAttachment::storeFromRequest($request, ['yak_task_id' => $head->id]);
+        self::logClarificationReply($head, $text, $attachments);
+
+        RepoClarificationResolver::resolve($head, $text);
 
         return 'Reply sent. Yak is continuing the task.';
     }

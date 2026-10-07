@@ -7,17 +7,29 @@
 >
     @if ($failed ?? false)
         <h1>This preview didn't come up</h1>
-        <p>Yak tried to boot the sandbox for <span class="host">{{ $deployment->hostname }}</span> and hit a snag.</p>
+        <p>Yak tried to boot the sandbox for <span class="hostname">{{ $deployment->hostname }}</span> and hit a snag.</p>
         <div class="reason">{{ $reason }}</div>
         <a class="cta" href="{{ config('app.url') . '/deployments/' . $deployment->id }}">
             Open in Yak dashboard <span class="arrow">&rarr;</span>
         </a>
         <p class="tagline">Or ping whoever pushed this branch &mdash; they'll know what's up.</p>
     @else
-        <h1>Waking up<span class="dots" aria-hidden="true"><span></span><span></span><span></span></span></h1>
-        <p>Yak is rousing the sandbox for <span class="host">{{ $deployment->hostname }}</span>.</p>
-        <p>This usually takes under a minute &mdash; sit tight, the page reloads on its own.</p>
-        <p class="progress-hint">No action needed. We'll bring you straight to the preview as soon as it's ready.</p>
+        <h1>Waking up the preview</h1>
+        <div class="hostchip"><span class="dot"></span>{{ $deployment->hostname }}</div>
+        <div class="meter">
+            <div class="track"><span></span></div>
+            <div class="legend"><span>Usually under a minute</span><b id="elapsed" data-testid="elapsed">0:00</b></div>
+        </div>
+        <script>
+            (function () {
+                const startedAt = Date.now();
+                const elapsed = document.getElementById('elapsed');
+                setInterval(function () {
+                    const seconds = Math.floor((Date.now() - startedAt) / 1000);
+                    elapsed.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+                }, 1000);
+            })();
+        </script>
         <script>
             // Quietly poll the same URL with HEAD requests. The wake
             // endpoint returns 425 while the sandbox is still warming;

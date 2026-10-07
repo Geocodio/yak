@@ -3,7 +3,6 @@
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -238,7 +237,6 @@ test('all agent-running jobs wire up EnsureRepoReady before the agent runs', fun
         new RunYakJob($task),
         new RetryYakJob($task),
         new ResearchYakJob($task),
-        new ClarificationReplyJob($task, 'reply'),
     ];
 
     foreach ($jobs as $job) {

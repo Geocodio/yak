@@ -81,6 +81,7 @@ final class TaskDetailData
             'deployment' => self::deployment($task),
             'findings' => self::findings($review),
             'composer' => self::composer($task, $conversation),
+            'questions' => self::questions($conversation->last() ?? $task),
             'debug' => self::debug($task, $focusedRun),
             'actions' => self::actions($task),
             'pollInterval' => in_array($task->status, self::FAST_POLL_STATUSES, true) ? 5000 : 15000,
@@ -157,7 +158,7 @@ final class TaskDetailData
             'sourceUrl' => TaskSourceUrl::resolve($task),
             'startedBy' => $task->author_name,
             'responsible' => $task->responsible_name,
-            'model' => $task->model_used,
+            'model' => $task->resolvedModel(),
             'turns' => $task->num_turns,
             'duration' => self::formatDuration($task->duration_ms),
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
@@ -258,7 +259,8 @@ final class TaskDetailData
 
             return match ($entry->kind) {
                 'user' => self::withAttachments(self::userEntry($entry), $attachmentsFor($entry)),
-                'clarification' => self::clarificationEntry($entry, $entries, $index, $task),
+                'clarification' => self::clarificationEntry($entry, $entries, $index),
+                'clarification-answers' => self::clarificationAnswersEntry($entry),
                 'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun),
                 default => self::systemEntry($entry),
             };
@@ -335,13 +337,14 @@ final class TaskDetailData
      * @param  Collection<int, ThreadEntry>  $entries
      * @return array<string, mixed>
      */
-    private static function clarificationEntry(ThreadEntry $entry, Collection $entries, int $index, YakTask $task): array
+    private static function clarificationEntry(ThreadEntry $entry, Collection $entries, int $index): array
     {
-        $nextUser = $entries->slice($index + 1)->first(fn (ThreadEntry $e) => $e->kind === 'user');
+        $nextUser = $entries->slice($index + 1)->first(fn (ThreadEntry $e) => in_array($e->kind, ['user', 'clarification-answers'], true));
         $answered = $nextUser !== null;
 
-        $ttl = ($entry->run !== null && $entry->run->is($task) && $task->status === TaskStatus::AwaitingClarification)
-            ? self::clarificationTtl($task)
+        // The run that asked may be a follow-up rather than the root task.
+        $ttl = (! $answered && $entry->run !== null && $entry->run->status === TaskStatus::AwaitingClarification)
+            ? self::clarificationTtl($entry->run)
             : null;
 
         $meta = collect([$entry->timestamp->format('g:i A'), $ttl !== null ? ($ttl === 'Expired' ? 'Expired' : "expires {$ttl}") : null])
@@ -355,6 +358,24 @@ final class TaskDetailData
             'options' => $entry->options,
             'expiresIn' => $ttl,
             'superseded' => $answered,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function clarificationAnswersEntry(ThreadEntry $entry): array
+    {
+        $answered = collect($entry->answerItems)->where('skipped', false)->count();
+        $total = count($entry->answerItems);
+
+        return [
+            'kind' => 'clarification-answers',
+            'who' => $entry->authorName,
+            'meta' => $entry->timestamp->format('g:i A') . " · answered {$answered} of {$total}",
+            'bodyHtml' => '',
+            'answers' => $entry->answerItems,
+            'note' => $entry->text !== '' ? $entry->text : null,
         ];
     }
 
@@ -642,6 +663,7 @@ final class TaskDetailData
         $status = $head->status;
 
         $state = match (true) {
+            $status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [] => 'questions',
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
             $head->acceptsFollowUp() => 'follow_up',
@@ -652,6 +674,7 @@ final class TaskDetailData
         $retryActionLabel = $task->mode === TaskMode::Review ? 'Re-run review' : 'Retry';
 
         [$placeholder, $note] = match ($state) {
+            'questions' => ['', null],
             'clarification' => ['Answer Yak…', null],
             'steering' => ['Steer Yak — this will be picked up when the current run checks in…', 'Queued until the current run finishes.'],
             'follow_up' => [
@@ -666,7 +689,7 @@ final class TaskDetailData
             default => ['This conversation is closed — mention Yak again to start a new task.', null],
         };
 
-        if ($note === null && $state !== 'disabled_closed' && in_array($task->source, ['slack', 'linear'], true)) {
+        if ($note === null && ! in_array($state, ['disabled_closed', 'questions'], true) && in_array($task->source, ['slack', 'linear'], true)) {
             $note = 'Replies here and in the ' . ucfirst((string) $task->source) . ' thread land in the same conversation.';
         }
 
@@ -677,6 +700,26 @@ final class TaskDetailData
             'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
             'nextAttachmentNumber' => AttachmentNumbering::nextNumberFor($conversation),
         ];
+    }
+
+    /**
+     * @return list<array{id: string, header: string, question: string, multiSelect: bool, options: list<array{label: string, description: string}>}>|null
+     */
+    private static function questions(YakTask $head): ?array
+    {
+        if ($head->status !== TaskStatus::AwaitingClarification) {
+            return null;
+        }
+
+        $questions = $head->pendingClarificationQuestions();
+
+        return $questions === [] ? null : array_map(fn ($question): array => [
+            'id' => $question->id,
+            'header' => $question->header,
+            'question' => $question->question,
+            'multiSelect' => $question->multiSelect,
+            'options' => $question->options,
+        ], $questions);
     }
 
     private static function pullRequestLabel(YakTask $task): string
@@ -697,7 +740,7 @@ final class TaskDetailData
 
         $debug = array_filter([
             'Session ID' => $focusedRun->session_id,
-            'Model' => $focusedRun->model_used,
+            'Model' => $focusedRun->resolvedModel(),
             'Turns' => $focusedRun->num_turns ? (string) $focusedRun->num_turns : null,
             'Claude Code cost (est.)' => '$' . number_format((float) $focusedRun->cost_usd, 2),
             'API-billed spend' => '$' . number_format(self::apiSpend($task), 4),

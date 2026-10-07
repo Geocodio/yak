@@ -62,7 +62,7 @@ it('computes diff against incremental_base_sha in incremental scope', function (
         sessionId: 's',
         resultSummary: 'prose review',
         costUsd: 0.01, numTurns: 1, durationMs: 100,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -126,7 +126,7 @@ it('falls back to full review when incremental base fetch fails', function () {
         sessionId: 's',
         resultSummary: 'prose review',
         costUsd: 0.01, numTurns: 1, durationMs: 100,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+        isError: false, rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);
 
@@ -191,8 +191,7 @@ it('passes hydrated prior findings into the prompt context', function () {
 
         return new AgentRunResult(
             sessionId: 's', resultSummary: 'prose', costUsd: 0,
-            numTurns: 1, durationMs: 100, isError: false,
-            clarificationNeeded: false, clarificationOptions: [], rawOutput: '',
+            numTurns: 1, durationMs: 100, isError: false, rawOutput: '',
         );
     });
     app()->instance(AgentRunner::class, $agent);

@@ -12,6 +12,7 @@ import {
     type MouseEvent,
     type ReactNode,
     type Ref,
+    type RefObject,
 } from 'react';
 import { findTokens, repairTokens, stripTokens, tokenAround, tokensForInsertion } from './attachmentTokens';
 import type { AttachmentDraft, DraftAttachment } from './useAttachmentDraft';
@@ -53,6 +54,8 @@ type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'>
     /** Classes for the wrapper, which carries the field's background now the textarea is see-through. */
     wrapperClassName?: string;
     ref?: Ref<AttachmentTextareaHandle>;
+    /** Receives the underlying `<textarea>`, e.g. for a dialog's initial focus. */
+    inputRef?: RefObject<HTMLTextAreaElement | null>;
 };
 
 /**
@@ -64,7 +67,7 @@ type Props = Omit<ComponentProps<typeof Textarea>, 'value' | 'onChange' | 'ref'>
  * token removes its attachment and vice versa. Hovering a token highlights
  * its attachment (and the attachment's tile highlights the token).
  */
-export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassName, className, ref, ...rest }: Props) {
+export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassName, className, ref, inputRef, ...rest }: Props) {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const mirrorRef = useRef<HTMLDivElement>(null);
     const valueRef = useRef(value);
@@ -468,7 +471,12 @@ export function AttachmentTextarea({ value, onValueChange, draft, wrapperClassNa
             </div>
             <Textarea
                 {...rest}
-                ref={textareaRef}
+                ref={(element: HTMLTextAreaElement | null) => {
+                    textareaRef.current = element;
+                    if (inputRef) {
+                        inputRef.current = element;
+                    }
+                }}
                 value={value}
                 onChange={onChange}
                 onKeyDown={onKeyDown}

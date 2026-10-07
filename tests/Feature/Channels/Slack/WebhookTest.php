@@ -2,15 +2,17 @@
 
 use App\Ai\Agents\TaskIntentClassifier;
 use App\Channels\Slack\NotificationDriver as SlackNotificationDriver;
+use App\Channels\Slack\SenderPolicy;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
-use App\Jobs\ClarificationReplyJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
+use App\Services\ClarificationMessage;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -367,7 +369,8 @@ it('omits the repo list from the clarification text (buttons carry it)', functio
         return $job->type === NotificationType::Clarification
             && ! str_contains($job->message, 'acme/one')
             && ! str_contains($job->message, 'acme/two')
-            && ! str_contains(strtolower($job->message), 'options');
+            && ! str_contains(strtolower($job->message), 'options')
+            && $job->personalize === false;
     });
 });
 
@@ -426,11 +429,12 @@ it('dispatches acknowledgment notification on task pickup', function () {
 |--------------------------------------------------------------------------
 */
 
-it('dispatches ClarificationReplyJob for thread reply on awaiting clarification task', function () {
+it('answers the single pending question from a thread reply', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'slack_channel' => 'C_TEST_CHANNEL',
         'slack_thread_ts' => '1111111111.111111',
     ]);
@@ -444,9 +448,32 @@ it('dispatches ClarificationReplyJob for thread reply on awaiting clarification 
         'CONTENT_TYPE' => 'application/json',
     ]);
 
-    Queue::assertPushed(ClarificationReplyJob::class, function (ClarificationReplyJob $job) use ($task) {
-        return $job->task->id === $task->id && $job->replyText === 'Option A';
-    });
+    Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    expect($task->fresh()->clarificationAnswersAwaitingResume()['answers']['scope']['choices'])->toBe(['Option A']);
+});
+
+it('points a thread reply to the form when several questions are pending', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    $task = YakTask::factory()->withClarificationQuestions()->create([
+        'source' => 'slack',
+        'slack_channel' => 'C_TEST_CHANNEL',
+        'slack_thread_ts' => '1111111111.111111',
+    ]);
+
+    $body = slackThreadReplyPayload('Small', 'C_TEST_CHANNEL', '1111111111.111111');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Clarification
+        && $job->message === ClarificationMessage::pointToForm($task->fresh()));
+    Queue::assertNotPushed(RunYakJob::class);
 });
 
 it('ignores thread reply when no task is awaiting clarification', function () {
@@ -468,7 +495,7 @@ it('ignores thread reply when no task is awaiting clarification', function () {
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertNotPushed(ClarificationReplyJob::class);
+    Queue::assertNotPushed(RunYakJob::class);
 });
 
 /*
@@ -509,7 +536,6 @@ it('resolves repo from clarification reply using full slug', function () {
     expect($task->clarification_options)->toBeNull();
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
 it('resolves repo from clarification reply using partial name', function () {
@@ -542,7 +568,6 @@ it('resolves repo from clarification reply using partial name', function () {
     expect($task->repo)->toBe('acme/marketing-site');
 
     Queue::assertPushed(RunYakJob::class);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
 });
 
 it('resolves repo from clarification reply with spaces instead of hyphens', function () {
@@ -643,7 +668,6 @@ it('re-prompts when repo clarification reply does not match any option', functio
     expect($task->status)->toBe(TaskStatus::AwaitingClarification);
 
     Queue::assertNotPushed(RunYakJob::class);
-    Queue::assertNotPushed(ClarificationReplyJob::class);
     Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) {
         return $job->type === NotificationType::Clarification
             && ! str_contains($job->message, 'acme/marketing-site')
@@ -652,11 +676,12 @@ it('re-prompts when repo clarification reply does not match any option', functio
     });
 });
 
-it('dispatches ClarificationReplyJob for agent clarification (not repo)', function () {
+it('answers an agent question from a thread reply without touching the repo', function () {
     $secret = enableSlackChannel();
     Queue::fake();
 
-    $task = YakTask::factory()->awaitingClarification()->create([
+    $task = YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
         'repo' => 'my-repo',
         'session_id' => 'sess_existing',
         'slack_channel' => 'C_AGENT_CLAR',
@@ -672,8 +697,9 @@ it('dispatches ClarificationReplyJob for agent clarification (not repo)', functi
         'CONTENT_TYPE' => 'application/json',
     ])->assertSuccessful();
 
-    Queue::assertPushed(ClarificationReplyJob::class);
-    Queue::assertNotPushed(RunYakJob::class);
+    expect($task->fresh()->repo)->toBe('my-repo')
+        ->and($task->fresh()->clarificationAnswersAwaitingResume())->not->toBeNull();
+    Queue::assertPushed(RunYakJob::class);
 });
 
 /*
@@ -681,6 +707,214 @@ it('dispatches ClarificationReplyJob for agent clarification (not repo)', functi
 | Bot Message Filtering
 |--------------------------------------------------------------------------
 */
+
+/**
+ * Build a top-level Slack direct message payload (`message.im`).
+ *
+ * @param  array<string, mixed>  $eventOverrides
+ */
+function slackDirectMessagePayload(string $text, array $eventOverrides = []): string
+{
+    return (string) json_encode([
+        'type' => 'event_callback',
+        'event_id' => 'Ev' . Str::random(10),
+        'team_id' => 'T_WORKSPACE',
+        'event' => array_merge([
+            'type' => 'message',
+            'channel_type' => 'im',
+            'team' => 'T_WORKSPACE',
+            'text' => $text,
+            'channel' => 'D12345678',
+            'ts' => '1234567890.654321',
+            'user' => 'U_USER_ID',
+        ], $eventOverrides),
+    ]);
+}
+
+/**
+ * Use the real SenderPolicy against faked Slack lookups. The workspace is
+ * T_WORKSPACE; users not listed are full members of it.
+ *
+ * @param  array<string, array<string, mixed>>  $users
+ */
+function useRealSlackSenderPolicy(array $users = []): void
+{
+    app()->instance(SenderPolicy::class, new SenderPolicy);
+
+    Http::fake([
+        'slack.com/api/auth.test*' => Http::response(['ok' => true, 'team_id' => 'T_WORKSPACE']),
+        'slack.com/api/users.info*' => function (Request $request) use ($users) {
+            $userId = (string) $request['user'];
+
+            return Http::response(['ok' => true, 'user' => array_merge([
+                'id' => $userId,
+                'team_id' => 'T_WORKSPACE',
+                'is_restricted' => false,
+                'is_ultra_restricted' => false,
+                'deleted' => false,
+            ], $users[$userId] ?? [])]);
+        },
+        '*' => Http::response(['ok' => true]),
+    ]);
+}
+
+it('creates a task from a direct message to Yak', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    useRealSlackSenderPolicy();
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackDirectMessagePayload('fix the login bug');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $task = YakTask::sole();
+    expect($task->description)->toBe('fix the login bug');
+    expect($task->slack_channel)->toBe('D12345678');
+    expect($task->slack_thread_ts)->toBe('1234567890.654321');
+
+    Queue::assertPushed(RunYakJob::class);
+});
+
+it('ignores guests and Slack Connect users everywhere', function (string $userId, string $body) {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    useRealSlackSenderPolicy([
+        'U_EXTERNAL' => ['team_id' => 'T_OTHER_ORG'],
+        'U_GUEST' => ['is_restricted' => true],
+        'U_SINGLE_CHANNEL_GUEST' => ['is_ultra_restricted' => true],
+        'U_DEACTIVATED' => ['deleted' => true],
+    ]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+    YakTask::factory()->awaitingClarification()->create([
+        'slack_channel' => 'C12345678',
+        'slack_thread_ts' => '1111111111.111111',
+    ]);
+
+    $body = str_replace('U_SENDER', $userId, $body);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful()->assertJson(['skipped' => 'not_workspace_member']);
+
+    expect(YakTask::count())->toBe(1);
+    Queue::assertNothingPushed();
+})->with([
+    'Slack Connect user' => 'U_EXTERNAL',
+    'multi-channel guest' => 'U_GUEST',
+    'single-channel guest' => 'U_SINGLE_CHANNEL_GUEST',
+    'deactivated account' => 'U_DEACTIVATED',
+])->with([
+    'mention' => fn () => slackMentionPayload('fix the login bug', ['event' => ['user' => 'U_SENDER']]),
+    'direct message' => fn () => slackDirectMessagePayload('fix the login bug', ['user' => 'U_SENDER']),
+    'thread reply' => fn () => slackThreadReplyPayload('Option A', 'C12345678', '1111111111.111111', ['event' => ['user' => 'U_SENDER']]),
+]);
+
+it('ignores a sender whose payload names another organization', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    useRealSlackSenderPolicy();
+
+    $body = slackMentionPayload('fix the login bug', ['event' => ['user_team' => 'T_OTHER_ORG']]);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful()->assertJson(['skipped' => 'not_workspace_member']);
+
+    expect(YakTask::count())->toBe(0);
+});
+
+it('lets workspace members mention Yak with the real sender policy', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    useRealSlackSenderPolicy();
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackMentionPayload('fix the login bug');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::count())->toBe(1);
+});
+
+it('treats a failed Slack lookup as an external user', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    app()->instance(SenderPolicy::class, new SenderPolicy);
+    Http::fake(['*' => Http::response(['ok' => false, 'error' => 'ratelimited'])]);
+
+    $body = slackMentionPayload('fix the login bug');
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful()->assertJson(['skipped' => 'not_workspace_member']);
+
+    expect(YakTask::count())->toBe(0);
+});
+
+it('does not create a task from an edited direct message', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->default()->create(['slug' => 'my-app']);
+
+    $body = slackDirectMessagePayload('fix the login bug', ['subtype' => 'message_changed']);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    expect(YakTask::count())->toBe(0);
+});
+
+it('answers a pending question from a reply inside a direct message thread', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+
+    YakTask::factory()->withClarificationQuestions([sampleQuestion('scope', ['Option A', 'Option B'])->toArray()])->create([
+        'source' => 'slack',
+        'slack_channel' => 'D12345678',
+        'slack_thread_ts' => '1234567890.654321',
+    ]);
+
+    $body = slackDirectMessagePayload('the second option', ['thread_ts' => '1234567890.654321', 'ts' => '1234567899.000001']);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    Queue::assertPushed(RunYakJob::class);
+    expect(YakTask::count())->toBe(1);
+});
 
 it('ignores bot messages to prevent loops', function () {
     $secret = enableSlackChannel();

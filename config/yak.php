@@ -46,7 +46,7 @@ return [
 
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
-    'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 3),
+    'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 7),
 
     // Emit an extra "starting work" progress notification when the
     // agent picks up a task. Closes the silent gap between ack and

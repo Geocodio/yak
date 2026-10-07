@@ -160,7 +160,7 @@ test('single active repo is always used without clarification', function (): voi
 
 test('multi-repo with natural language routes via Haiku before clarification', function (): void {
     config(['ai.providers.anthropic.key' => 'sk-ant-test']);
-    Ai::fakeAgent(RepoRoutingAgent::class, ['acme/deployer']);
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => [['slug' => 'acme/deployer', 'probability' => 90]]]]);
 
     Repository::factory()->create(['slug' => 'acme/api']);
     Repository::factory()->create(['slug' => 'acme/deployer']);

@@ -241,8 +241,8 @@ class DrainForDeployCommand extends Command
         // yak:resume-interrupted-tasks only resumes a task that was
         // actually running one of the four claiming jobs when interrupted —
         // a Retrying task is mid-CI-retry via RetryYakJob, and a Running
-        // task can also be driven by RunFollowUpJob or ClarificationReplyJob
-        // (both stamp claimed_job_class themselves at pickup). Any of
+        // task can also be driven by RunFollowUpJob
+        // (which stamps claimed_job_class itself at pickup). Any of
         // those needs a human, so the message must not promise otherwise.
         $resumable = $task->status === TaskStatus::Running
             && in_array($task->claimed_job_class, AgentJobDispatcher::claimableJobClasses(), true);

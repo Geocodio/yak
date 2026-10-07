@@ -4,6 +4,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\RenderWalkthroughJob;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
@@ -14,6 +15,7 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -35,7 +37,7 @@ test('risk profile research saves a draft tied to the checked out revision witho
             'unknowns' => [],
         ]),
         costUsd: 0.25, numTurns: 1, durationMs: 1000,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: false, rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
     $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
@@ -76,7 +78,7 @@ test('a rejected risk profile draft keeps the research output for a human to cor
         sessionId: 'sess_profile_bad',
         resultSummary: "Here is the profile:\n```json\n{\"areas\": []}\n```",
         costUsd: 0.25, numTurns: 1, durationMs: 1000,
-        isError: false, clarificationNeeded: false, clarificationOptions: [], rawOutput: '{}',
+        isError: false, rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
     $this->app->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
@@ -120,8 +122,6 @@ test('successful research transitions task to success with result_summary and co
         numTurns: 10,
         durationMs: 90000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -162,8 +162,6 @@ test('research creates sandbox and completes successfully', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -200,8 +198,6 @@ test('research does not create any branch', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -237,8 +233,6 @@ test('research fetches and resets default branch to origin before agent runs', f
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -298,8 +292,6 @@ test('collects HTML artifact from sandbox when present', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -349,8 +341,6 @@ test('handles missing HTML artifact gracefully', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -361,6 +351,7 @@ test('handles missing HTML artifact gracefully', function () {
         '*git pull *' => Process::result(''),
     ]);
     Http::fake();
+    Storage::fake('artifacts');
 
     $repository = Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
@@ -371,6 +362,54 @@ test('handles missing HTML artifact gracefully', function () {
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Success);
     expect(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
+});
+
+test('a recorded walkthrough is kept, rendered and linked from the reply', function () {
+    Queue::fake([SendNotificationJob::class, RenderWalkthroughJob::class]);
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_walkthrough',
+        resultSummary: 'I recorded the walkthrough video',
+        costUsd: 0.0,
+        numTurns: 1,
+        durationMs: 1000,
+        isError: false,
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+
+    $fakeSandbox = new class extends FakeSandboxManager
+    {
+        public function fileExists(string $containerName, string $path): bool
+        {
+            return str_ends_with($path, '.yak-artifacts');
+        }
+
+        public function pullDirectory(string $containerName, string $remotePath, string $localPath): void
+        {
+            $dir = "{$localPath}/.yak-artifacts";
+            File::ensureDirectoryExists("{$dir}/shots");
+            File::put("{$dir}/manifest.json", json_encode(['version' => 3, 'shots' => [
+                ['id' => 'signup', 'clip' => 'shots/signup.webm', 'start' => 0, 'end' => 4, 'rect' => null, 'url' => 'https://x/'],
+            ]]));
+            File::put("{$dir}/shots/signup.webm", 'clip');
+        }
+    };
+    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
+
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    Storage::fake('artifacts');
+
+    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    expect(Artifact::where('yak_task_id', $task->id)->where('role', 'shot')->count())->toBe(1);
+    Queue::assertPushed(RenderWalkthroughJob::class);
+
+    $result = Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result)->first();
+    expect($result->message)->toContain(route('tasks.show', $task));
 });
 
 /*
@@ -387,8 +426,6 @@ test('posts summary and findings URL as Linear comment', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -482,8 +519,6 @@ test('moves Linear issue to Done state', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -536,8 +571,6 @@ test('posts summary and findings URL as Slack thread reply', function () {
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -615,8 +648,6 @@ test('Claude error response marks task as failed', function () {
         numTurns: 0,
         durationMs: 0,
         isError: true,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -663,8 +694,6 @@ test('the research answer is sent once through SendNotificationJob without a sec
         numTurns: 1,
         durationMs: 1000,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '{}',
     ));
     $this->app->instance(AgentRunner::class, $fake);
@@ -682,4 +711,46 @@ test('the research answer is sent once through SendNotificationJob without a sec
     expect($results)->toHaveCount(1)
         ->and($results->first()->personalize)->toBeFalse()
         ->and($results->first()->message)->toContain('Three bottlenecks found');
+});
+
+test('research that asks parks the task and collects no artifact', function () {
+    Queue::fake();
+    Storage::fake('artifacts');
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_rq', resultSummary: 'Need a call', costUsd: 0.1, numTurns: 1, durationMs: 10,
+        isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Repository::factory()->create(['slug' => 'rq-repo', 'path' => '/home/yak/repos/rq-repo']);
+    $task = YakTask::factory()->pending()->create(['repo' => 'rq-repo', 'source' => 'slack', 'mode' => 'research']);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
+        ->and(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
+});
+
+test('research resumed with answers resumes the session with the answers prompt', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result('')]);
+    Http::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_rr', resultSummary: 'Done', costUsd: 0.1, numTurns: 1, durationMs: 10, isError: false, rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $sandbox = new FakeSandboxManager;
+    $this->app->instance(IncusSandboxManager::class, $sandbox);
+    Repository::factory()->create(['slug' => 'rr-repo', 'path' => '/home/yak/repos/rr-repo']);
+    $task = YakTask::factory()->withClarificationQuestions()->create(['repo' => 'rr-repo', 'source' => 'slack', 'mode' => 'research', 'session_id' => 'sess_first']);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
+    $task->update(['status' => TaskStatus::Pending]);
+
+    (new ResearchYakJob($task->fresh()))->handle($fake);
+
+    expect($fake->lastCall()->resumeSessionId)->toBe('sess_first')
+        ->and($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
+        ->and($sandbox->pushedTranscripts)->toBe(['sess_first']);
 });

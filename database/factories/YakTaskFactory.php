@@ -135,4 +135,31 @@ class YakTaskFactory extends Factory
             'clarification_expires_at' => now()->subDay(),
         ]);
     }
+
+    /**
+     * A task waiting on structured questions, as a run leaves it.
+     *
+     * @param  list<array<string, mixed>>|null  $questions
+     */
+    public function withClarificationQuestions(?array $questions = null): static
+    {
+        $questions ??= [
+            ['id' => 'scope', 'header' => 'Scope', 'question' => 'Which scope?', 'options' => [['label' => 'Small', 'description' => ''], ['label' => 'Large', 'description' => '']], 'multi_select' => false],
+            ['id' => 'data', 'header' => 'Data', 'question' => 'Which data?', 'options' => [['label' => 'Live', 'description' => ''], ['label' => 'Sample', 'description' => '']], 'multi_select' => false],
+        ];
+
+        return $this->state(fn (): array => [
+            'status' => TaskStatus::AwaitingClarification,
+            'started_at' => now(),
+            'session_id' => 'sess_' . fake()->uuid(),
+            'clarification_rounds' => [[
+                'questions' => $questions,
+                'summary' => 'I need a decision before I build this.',
+                'asked_at' => now()->toIso8601String(),
+                'answers' => null, 'note' => null, 'answered_by' => null, 'answered_at' => null, 'consumed_at' => null,
+            ]],
+            'clarification_expires_at' => now()->addDays(7),
+            'clarification_reminder_at' => now()->addDays(3),
+        ]);
+    }
 }

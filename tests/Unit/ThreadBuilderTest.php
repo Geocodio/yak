@@ -161,3 +161,43 @@ test('an answered question is followed by the dashboard replies to it', function
         ->and($entries[2]->authorName)->toBe('Sam')
         ->and($entries[2]->attachmentIds)->toBe([7]);
 });
+
+it('adds an entry per asked round and per answered round', function () {
+    $task = YakTask::factory()->withClarificationQuestions()->create(['started_at' => now()->subHour()]);
+    $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], 'Note', 'Michele');
+
+    $kinds = app(ThreadBuilder::class)->build($task->fresh())->pluck('kind')->all();
+
+    expect($kinds)->toContain('clarification')->toContain('clarification-answers');
+});
+
+test('a parked run without a result summary yields no yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::AwaitingClarification,
+        'result_summary' => '',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->not->toContain('yak');
+});
+
+test('a running run without a result summary still yields a yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'result_summary' => '',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
+});
+
+test('a failed run without a result summary still yields a yak entry', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Failed,
+        'result_summary' => '',
+        'error_log' => 'boom',
+        'started_at' => now(),
+    ]);
+
+    expect(app(ThreadBuilder::class)->build($task)->pluck('kind'))->toContain('yak');
+});

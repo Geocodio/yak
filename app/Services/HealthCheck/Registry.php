@@ -18,6 +18,7 @@ class Registry
         'video-render' => RenderHealthCheck::class,
         'voiceover' => VoiceoverHealthCheck::class,
         'incus-daemon' => IncusDaemonCheck::class,
+        'disk-space' => DiskSpaceCheck::class,
         'sandbox-base-template' => SandboxBaseTemplateCheck::class,
         'claude-cli' => ClaudeCliCheck::class,
         'claude-auth' => ClaudeAuthCheck::class,

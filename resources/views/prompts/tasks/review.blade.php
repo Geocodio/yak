@@ -180,7 +180,7 @@ Otherwise say nothing. Silence means approval.
 - **Never describe the review.** No "I tested", "I ran", "I also checked", no test counts, no "PHPStan is clean", no recap of what the PR does. The author knows what they wrote.
 - **Mirror the author's language.** Danish PR, Danish comments.
 - **Stay inside the diff.** Every finding anchors to a line that was **added or modified in this PR** — a `+` line (or an adjacent context line inside the same hunk). A bug caused by an untouched call site is anchored to the changed line that breaks it, and the sentence names the call site. Pre-existing issues in code the PR doesn't touch are out of scope; say nothing.
-- **Provide the fix when it is unambiguous.** A ` ```suggestion ` fence when the change is 1–10 lines AND inside the relevant diff hunk. Otherwise a short phrase in the sentence.
+- **Provide the fix when it is unambiguous.** An ` ```original ` + ` ```suggestion ` fence pair (see Suggested changes) when the change is 1–10 lines AND inside the relevant diff hunk. Otherwise a short phrase in the sentence.
 - **Do NOT report any of these.** They are noise, not findings:
     - Anything an auto-formatter handles: indentation, trailing commas, quote style, spacing, line length, import order.
     - Naming preferences — unless the name says the opposite of what the code does.
@@ -203,9 +203,31 @@ Otherwise say nothing. Silence means approval.
 
 - Do NOT commit, push, or modify any files. This is read-only analysis.
 - Skip any file matching `pathExcludes`: @json($pathExcludes)
-- Use ` ```suggestion ` blocks only when the change is 1–10 lines AND inside the relevant diff hunk. Populate `suggestion_loc` with the line count.
-- **The fence REPLACES the lines in the comment's range — exactly those, nothing else.** Pick the range to cover ONLY the lines that should disappear when the suggestion is accepted, not the surrounding context. Example: to rewrite a docblock above a function, the range is the existing docblock's lines (or the single line above the function if there is no docblock yet) — NEVER the function body or its closing brace. A range that covers extra lines will silently delete them on accept. A single-line range with a multi-line fence is also wrong: it expands one line into many, leaving the lines you meant to replace untouched. Match the range to the fence size precisely.
 - Suggestion blocks are optional, not expected. Only attach one when the rewrite is unambiguous and obviously correct.
+
+## Suggested changes
+
+A suggestion becomes a GitHub "Commit suggestion" button. Accepting it replaces some lines of the file with the suggestion's lines. Yak works out which lines from an ` ```original ` fence that you write directly above the ` ```suggestion ` fence. Line numbers are not used for this.
+
+- ` ```original ` holds the exact lines that disappear when the suggestion is accepted, copied from the file at HEAD (`git show HEAD:path`, or `sed -n 'A,Bp' path`). Copy them character for character, with the same indentation. Never retype them from memory or from the diff view.
+- ` ```suggestion ` holds the complete text that takes their place. Every line of `original` that should stay must appear again in `suggestion`.
+- To add lines, include the neighbouring line they go after (or before) in both fences.
+- Cover only lines that this PR added or changed, all inside one diff hunk, as a contiguous block. Use the smallest block that holds the change. Include extra lines only when the same text appears more than once in the file and you need them to make the block unique.
+- Do not put any other code fence in the finding.
+
+Example: adding `tags` under an existing task. `original` is the task's last line; `suggestion` repeats it and adds the new lines.
+
+````
+- **[Correctness]** `ansible/tasks/cron.yml:65` — The cron is never installed by a tagged deploy.
+```original
+    job: 'php artisan purge:tiles'
+```
+```suggestion
+    job: 'php artisan purge:tiles'
+  tags:
+    - deploy_web
+```
+````
 
 ## Output
 
@@ -223,10 +245,10 @@ The pipeline turns this into GitHub review comments. The author sees the finding
 ## Findings
 
 ### Must Fix
-- **[Category]** `path/to/file.php:LINE` — one sentence naming the concrete failure. Optional ```suggestion fence on the next lines.
+- **[Category]** `path/to/file.php:LINE` — one sentence naming the concrete failure. Optional ```original + ```suggestion fence pair on the next lines.
 
 ### Should Fix
-- **[Category]** `path/to/file.php:LINE` — one sentence. Use `LINE-LINE` (e.g. `tests/Foo.php:138-140`) when a suggestion replaces a multi-line range.
+- **[Category]** `path/to/file.php:LINE` — one sentence.
 
 ### Consider
 - **[Category]** `path/to/file.php:LINE` — nit: one line.

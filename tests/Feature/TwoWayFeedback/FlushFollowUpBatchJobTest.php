@@ -5,6 +5,7 @@ use App\Jobs\FlushFollowUpBatchJob;
 use App\Jobs\RunFollowUpJob;
 use App\Models\FollowUpPendingComment;
 use App\Models\YakTask;
+use App\Services\ClarificationMessage;
 use App\Services\FollowUpTaskFactory;
 use Illuminate\Support\Facades\Queue;
 
@@ -113,4 +114,34 @@ test('follow-up task takes its author from the buffered comments', function () {
     );
 
     expect(YakTask::where('parent_task_id', $root->id)->first()->author_name)->toBe('mathias');
+});
+
+test('a buffered comment while the head task waits on questions posts the form link and creates nothing', function () {
+    Queue::fake();
+
+    $root = YakTask::factory()->success()->create([
+        'repo' => 'acme/web',
+        'pr_url' => 'https://github.com/acme/web/pull/9',
+        'pr_number' => 9,
+        'branch_name' => 'yak/CSV-1',
+        'session_id' => 'sess',
+    ]);
+    $head = YakTask::factory()->withClarificationQuestions()->create([
+        'repo' => 'acme/web',
+        'parent_task_id' => $root->id,
+        'pr_url' => $root->pr_url,
+        'pr_number' => 9,
+    ]);
+    FollowUpPendingComment::create(['yak_task_id' => $root->id, 'pr_url' => $root->pr_url, 'body' => 'yak also rename it']);
+
+    $github = $this->mock(AppService::class);
+    $github->shouldReceive('commentOnPullRequest')->once()
+        ->withArgs(fn ($installationId, $slug, $number, $body) => $number === 9 && $body === ClarificationMessage::pointToForm($head))
+        ->andReturn(true);
+
+    (new FlushFollowUpBatchJob($root->pr_url))->handle(app(FollowUpTaskFactory::class), $github);
+
+    expect(YakTask::count())->toBe(2)
+        ->and(FollowUpPendingComment::where('pr_url', $root->pr_url)->count())->toBe(0);
+    Queue::assertNothingPushed();
 });

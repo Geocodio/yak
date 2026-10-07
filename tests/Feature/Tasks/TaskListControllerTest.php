@@ -65,6 +65,16 @@ test('index exposes active repositories for the new task sheet', function () {
             ->where('activeRepos', ['active-one']));
 });
 
+test('index lists the default repository first and names it', function () {
+    Repository::factory()->create(['slug' => 'alpha', 'is_active' => true]);
+    Repository::factory()->default()->create(['slug' => 'zulu', 'is_active' => true]);
+
+    $this->get(route('tasks'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('activeRepos', ['zulu', 'alpha'])
+            ->where('defaultRepo', 'zulu'));
+});
+
 test('it shows status for every task status', function () {
     foreach (TaskStatus::cases() as $status) {
         YakTask::factory()->create(['status' => $status]);

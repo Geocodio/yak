@@ -62,8 +62,6 @@ function setUpReviewJobMocks(string $scope = 'full'): YakTask
         numTurns: 1,
         durationMs: 100,
         isError: false,
-        clarificationNeeded: false,
-        clarificationOptions: [],
         rawOutput: '',
     ));
     app()->instance(AgentRunner::class, $agent);

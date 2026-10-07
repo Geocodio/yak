@@ -159,7 +159,7 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 
 ## Slack (optional)
 
-**Roles:** Input (task creation via `@yak` mention, follow-ups via thread replies), notification (thread replies).
+**Roles:** Input (task creation via `@yak` mention or a direct message to Yak, follow-ups via thread replies), notification (thread replies).
 
 ### Setup
 
@@ -168,15 +168,17 @@ Results post to the PR (for fix tasks) or to the task's dashboard page (for rese
 3. Subscribe to bot events:
    - `app_mention`
    - `message.channels` (needed for thread replies — clarification answers and follow-ups)
+   - `message.im` (lets people DM Yak a task instead of mentioning it in a channel)
    - `app_home_opened` (powers the welcome DM the first time a user opens Yak's App Home)
-4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view.
+4. Enable the **App Home** tab (under **App Home** in the Slack app config). The tab itself can stay default — Yak uses the open event to DM the user, not to publish a Home view. On the same page, enable the **Messages Tab** and tick **Allow users to send Slash commands and messages from the messages tab**, so people can DM Yak.
 5. Enable **Interactivity & Shortcuts** with request URL `https://{your-domain}/webhooks/slack/interactive` — powers click-to-answer buttons on clarification messages.
 6. Add bot scopes:
    - `chat:write`
    - `app_mentions:read`
    - `channels:history`
+   - `im:history` (lets Yak read direct messages sent to it)
    - `reactions:write` (lets Yak apply status reactions to your @mention)
-   - `users:read` (lets Yak show the Slack requester's name on the task)
+   - `users:read` (required: Yak looks up every sender to ignore guests and people outside the workspace, and shows the requester's name on the task)
    - `users:read.email` (lets Yak find a person's Slack account by their Yak email, for direct messages)
 7. Install the app to your workspace
 8. Add the following to `ansible/vault/secrets.yml`:
@@ -211,16 +213,18 @@ The scheduler runs `yak:healthcheck` every 15 minutes. When a check fails, such 
 Yak responds in the same thread with a Block Kit card — personality line, context chips (repo · mode · task id), and action buttons (**View task**, **View PR**).
 
 - **Reactions.** Yak reacts on your original @mention as the task progresses: 👀 when picked up, 🚧 while working, ✅ when a PR is ready, ❌ on failure. You can see status at a glance without opening the thread.
+- **Direct messages.** You can also DM Yak the same text without the `@yak` prefix (`in api: fix the timeout on batch endpoints`). Yak replies in a thread on your message, and replies in that thread work like replies in a channel thread.
+- **Who can trigger Yak.** Only full members of the workspace Yak is installed in. Yak ignores guests and Slack Connect users from other organizations everywhere: mentions, thread replies, DMs and clarification buttons.
 - **`@yak help`.** Sending `@yak`, `@yak help`, or `@yak ?` returns a capabilities card with syntax examples — it does not create a task.
 - **First-time intro.** The first time a given user gets a reply from Yak, the acknowledgment has a small *"First time seeing me?"* footer pointing to this doc. It only appears once per user.
 - **App Home welcome.** The first time a user opens Yak's App Home tab in Slack, Yak DMs them a welcome card with syntax examples and links. Requires the `app_home_opened` event subscription above.
 - **Direct ping on status changes.** When Yak needs an answer, still needs one a working day later, opens a PR, fails, or someone else cancels the task, it @-mentions the requester (and, on a follow-up, the person who replied) so they get a push. Progress ticks and expiry don't ping. Tasks started from Linear or the dashboard get the same events as a direct message from the Yak bot; a responsible person who did not start the task hears only when the PR is ready. Add `users:read.email` and reinstall the app for direct messages.
 - **Start-of-work progress.** When the worker picks a task up, Yak posts a short in-thread message ("Starting on `{repo}` — exploring the codebase now."). Closes the silent gap between ack and first push. Disable with `YAK_EMIT_START_PROGRESS=false` if you find it noisy.
-- **Click-to-answer clarification.** When Yak asks a clarification question, each option is rendered as a Block Kit button. Clicking one is equivalent to replying in the thread — it dispatches the same ClarificationReplyJob. Requires Interactivity & Shortcuts to be enabled in the Slack app config (step 5 above).
+- **Click-to-answer clarification.** When Yak asks a clarification question, each option is rendered as a Block Kit button. Clicking one is equivalent to replying in the thread: `ClarificationAnswerSubmitter` stores the answer and re-dispatches the job that asked, which resumes the Claude session. Requires Interactivity & Shortcuts to be enabled in the Slack app config (step 5 above).
 
 ### Clarification Flow
 
-Slack is the only channel where Yak will ask for clarification. If a request is ambiguous, Claude Code reads the codebase and posts 2–3 specific options grounded in what it found:
+Any task run (fix tasks from Slack, Linear, Sentry, flaky tests or the dashboard, PR follow-ups, and research) may end with structured questions. If a request is ambiguous, Claude Code reads the codebase and posts 2--3 specific options grounded in what it found:
 
 ```
 I want to make sure I fix the right thing. Which did you mean?
@@ -232,9 +236,7 @@ I want to make sure I fix the right thing. Which did you mean?
 Reply with a number and I'll get started.
 ```
 
-The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` — no re-reading, no re-analysis.
-
-Linear and Sentry tasks do not clarify because their inputs are already structured.
+The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` -- no re-reading, no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option), while several questions, or any question from GitHub or the dashboard, are answered on the task page form and Yak posts a link to it. `ClarificationAnswerSubmitter` stores the answers and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`).
 
 ### Follow-ups
 

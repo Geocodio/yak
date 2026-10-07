@@ -3,6 +3,7 @@ import { cn, Dialog } from '@geocodio/console-ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
+import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { Composer } from '@/components/tasks/Composer';
 import { DebugDetails } from '@/components/tasks/DebugDetails';
 import { DeploymentCard } from '@/components/tasks/DeploymentCard';
@@ -28,6 +29,7 @@ import type {
     ActivityRow,
     ActivitySummary,
     ComposerData,
+    QuestionData,
     DebugData,
     DeploymentData,
     FindingsData,
@@ -55,6 +57,7 @@ type Props = PageProps<{
     deployment: DeploymentData;
     findings: FindingsData;
     composer: ComposerData;
+    questions: QuestionData[] | null;
     debug: DebugData;
     actions: ActionsData;
     pollInterval: number;
@@ -77,6 +80,7 @@ export default function Show({
     deployment,
     findings,
     composer,
+    questions,
     debug,
     actions,
     pollInterval,
@@ -95,6 +99,7 @@ export default function Show({
     const [openLogId, setOpenLogId] = useState<number | null>(transcriptLogId);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
+    const hasQuestions = composer.state === 'questions' && questions !== null;
     const [composerFill, setComposerFill] = useState<string | null>(null);
     const [walkthroughOpen, setWalkthroughOpen] = useState(false);
     const walkthroughCloseRef = useRef<HTMLButtonElement>(null);
@@ -245,18 +250,26 @@ export default function Show({
                                     />
                                 ))}
                             </div>
+
+                            {hasQuestions && questions !== null && (
+                                <div className="mt-6 max-lg:pb-[calc(6rem+env(safe-area-inset-bottom))]">
+                                    <QuestionsForm key={questions.map((question) => question.id).join(',')} taskId={task.id} questions={questions} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <Composer
-                        taskId={task.id}
-                        composer={composer}
-                        fillValue={composerFill}
-                        onOpenMedia={(items, i) => {
-                            setLightboxMedia(items);
-                            setLightboxIndex(i);
-                        }}
-                    />
+                    {!hasQuestions && (
+                        <Composer
+                            taskId={task.id}
+                            composer={composer}
+                            fillValue={composerFill}
+                            onOpenMedia={(items, i) => {
+                                setLightboxMedia(items);
+                                setLightboxIndex(i);
+                            }}
+                        />
+                    )}
                 </div>
 
                 {/* Mounted on every tab and hidden by class, not conditionally rendered, so the scroll position and the row store stay alive across tab switches. */}
