@@ -8,6 +8,7 @@ use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\TaskLog;
+use App\Models\TaskRun;
 use App\Models\User;
 use App\Models\YakTask;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -800,4 +801,29 @@ test('show exposes who started the task and who is responsible', function () {
         ->component('Tasks/Show')
         ->where('task.startedBy', 'Jane Doe')
         ->where('task.responsible', 'John Smith'));
+});
+
+test('it shows the model the agent resolved instead of the configured alias', function () {
+    $task = YakTask::factory()->create(['model_used' => 'opus']);
+    TaskRun::factory()->create([
+        'yak_task_id' => $task->id,
+        'model_usage' => [
+            'claude-haiku-4-5-20251001' => ['input' => 500, 'output' => 40, 'cache_read' => 0, 'cache_creation' => 0, 'cost_usd' => 0.01],
+            'claude-opus-5-5' => ['input' => 12, 'output' => 2887, 'cache_read' => 271592, 'cache_creation' => 45943, 'cost_usd' => 0.48],
+        ],
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.model', 'claude-opus-5-5')
+            ->etc());
+});
+
+test('it falls back to the configured alias when no run recorded model usage', function () {
+    $task = YakTask::factory()->create(['model_used' => 'opus']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.model', 'opus')
+            ->etc());
 });

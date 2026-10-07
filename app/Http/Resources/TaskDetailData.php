@@ -155,7 +155,7 @@ final class TaskDetailData
             'sourceUrl' => TaskSourceUrl::resolve($task),
             'startedBy' => $task->author_name,
             'responsible' => $task->responsible_name,
-            'model' => $task->model_used,
+            'model' => $task->resolvedModel(),
             'turns' => $task->num_turns,
             'duration' => self::formatDuration($task->duration_ms),
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
@@ -697,7 +697,7 @@ final class TaskDetailData
 
         $debug = array_filter([
             'Session ID' => $focusedRun->session_id,
-            'Model' => $focusedRun->model_used,
+            'Model' => $focusedRun->resolvedModel(),
             'Turns' => $focusedRun->num_turns ? (string) $focusedRun->num_turns : null,
             'Claude Code cost (est.)' => '$' . number_format((float) $focusedRun->cost_usd, 2),
             'API-billed spend' => '$' . number_format(self::apiSpend($task), 4),

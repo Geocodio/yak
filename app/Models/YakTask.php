@@ -202,6 +202,27 @@ class YakTask extends Model
     }
 
     /**
+     * The concrete model ID the agent ran on (e.g. `claude-opus-5-5`), taken
+     * from the newest run's per-model usage. `model_used` holds the
+     * configured alias (`opus`), which the CLI resolves at run time. Haiku
+     * side calls also appear in the usage, so the model that wrote the most
+     * output tokens is the main one.
+     */
+    public function resolvedModel(): ?string
+    {
+        $modelUsage = $this->runs()->reorder()->whereNotNull('model_usage')->latest('id')->value('model_usage');
+
+        if (! is_array($modelUsage) || $modelUsage === []) {
+            return $this->model_used;
+        }
+
+        $outputTokensByModel = array_map(fn (array $usage): int => (int) ($usage['output'] ?? 0), $modelUsage);
+        arsort($outputTokensByModel);
+
+        return (string) array_key_first($outputTokensByModel);
+    }
+
+    /**
      * @return HasMany<Artifact, $this>
      */
     public function artifacts(): HasMany
