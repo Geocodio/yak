@@ -43,7 +43,7 @@ class WebhookController extends Controller
             return response()->json(['challenge' => $request->input('challenge')]);
         }
 
-        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string} $event */
+        /** @var array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string} $event */
         $event = $request->input('event', []);
 
         return $this->recordWebhook(
@@ -54,7 +54,7 @@ class WebhookController extends Controller
     }
 
     /**
-     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
+     * @param  array{type?: string, bot_id?: string, subtype?: string, channel?: string, channel_type?: string, thread_ts?: string, ts?: string, text?: string, user?: string, team?: string, user_team?: string, source_team?: string}  $event
      */
     private function route(Request $request, array $event): JsonResponse
     {
@@ -357,6 +357,26 @@ class WebhookController extends Controller
     }
 
     /**
+     * Mark a queued steering reply with :eyes: so the person who wrote it
+     * can see Yak picked it up. Best-effort, like the status reactions.
+     */
+    private function reactToReply(string $channel, string $messageTs): void
+    {
+        $token = (string) config('yak.channels.slack.bot_token');
+
+        if ($token === '' || $messageTs === '') {
+            return;
+        }
+
+        Http::withToken($token)
+            ->post('https://slack.com/api/reactions.add', [
+                'channel' => $channel,
+                'timestamp' => $messageTs,
+                'name' => 'eyes',
+            ]);
+    }
+
+    /**
      * Dispatch the right agent job for the task's mode. Research tasks
      * go through ResearchYakJob (read-only, produces artifacts); every
      * other mode goes through RunYakJob (writes code, pushes a branch,
@@ -379,7 +399,7 @@ class WebhookController extends Controller
      * Handle a thread reply — answer the pending question if the task is
      * awaiting clarification, or create a follow-up when the task has an open PR.
      *
-     * @param  array{channel?: string, thread_ts?: string, text?: string, subtype?: string, bot_id?: string, user?: string}  $event
+     * @param  array{channel?: string, thread_ts?: string, ts?: string, text?: string, subtype?: string, bot_id?: string, user?: string}  $event
      */
     private function handleThreadReply(array $event): JsonResponse
     {
@@ -475,6 +495,7 @@ class WebhookController extends Controller
 
             PendingSteeringMessage::queueFor($activeTask, $text, 'slack');
             TaskLogger::info($activeTask, 'Steering reply queued (mid-run)');
+            $this->reactToReply($channel, (string) ($event['ts'] ?? ''));
 
             return response()->json(['ok' => true, 'handled' => 'steering']);
         }
