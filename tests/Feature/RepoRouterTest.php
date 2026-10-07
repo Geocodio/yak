@@ -26,7 +26,10 @@ test('returns null when repo list is empty', function (): void {
 });
 
 test('resolves repo from natural language when agent returns confident match', function (): void {
-    Ai::fakeAgent(RepoRoutingAgent::class, ['acme/deployer']);
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => [
+        ['slug' => 'acme/api', 'probability' => 10],
+        ['slug' => 'acme/deployer', 'probability' => 85],
+    ]]]);
 
     $repos = collect([
         Repository::factory()->create(['slug' => 'acme/api']),
@@ -42,8 +45,8 @@ test('resolves repo from natural language when agent returns confident match', f
     expect($result->slug)->toBe('acme/deployer');
 });
 
-test('returns null when agent returns UNKNOWN', function (): void {
-    Ai::fakeAgent(RepoRoutingAgent::class, ['UNKNOWN']);
+test('returns null when agent returns no candidates', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => []]]);
 
     $repos = collect([
         Repository::factory()->create(['slug' => 'repo-a']),
@@ -55,8 +58,36 @@ test('returns null when agent returns UNKNOWN', function (): void {
     expect($result)->toBeNull();
 });
 
+test('returns null when the top candidate is below the confidence threshold', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => [
+        ['slug' => 'repo-a', 'probability' => 55],
+        ['slug' => 'repo-b', 'probability' => 45],
+    ]]]);
+
+    $repos = collect([
+        Repository::factory()->create(['slug' => 'repo-a']),
+        Repository::factory()->create(['slug' => 'repo-b']),
+    ]);
+
+    expect((new RepoRouter)->route('something ambiguous', $repos))->toBeNull();
+});
+
+test('resolves the top candidate at exactly the confidence threshold', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => [
+        ['slug' => 'repo-b', 'probability' => 30],
+        ['slug' => 'repo-a', 'probability' => RepoRouter::CONFIDENCE_THRESHOLD],
+    ]]]);
+
+    $repos = collect([
+        Repository::factory()->create(['slug' => 'repo-a']),
+        Repository::factory()->create(['slug' => 'repo-b']),
+    ]);
+
+    expect((new RepoRouter)->route('pricing audit', $repos)?->slug)->toBe('repo-a');
+});
+
 test('returns null when agent returns a slug not in the list', function (): void {
-    Ai::fakeAgent(RepoRoutingAgent::class, ['some-other-repo']);
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => [['slug' => 'some-other-repo', 'probability' => 90]]]]);
 
     $repos = collect([Repository::factory()->create(['slug' => 'repo-a'])]);
 
@@ -83,7 +114,7 @@ test('includes repo description and notes in the routing prompt', function (): v
     Ai::fakeAgent(RepoRoutingAgent::class, function ($prompt) use (&$captured) {
         $captured = $prompt;
 
-        return 'my-repo';
+        return ['candidates' => [['slug' => 'my-repo', 'probability' => 90]]];
     });
 
     $repos = collect([
@@ -91,6 +122,7 @@ test('includes repo description and notes in the routing prompt', function (): v
             'slug' => 'my-repo',
             'description' => 'Customer signup and billing service',
             'notes' => 'Uses Stripe webhooks',
+            'is_default' => true,
         ]),
     ]);
 
@@ -100,4 +132,5 @@ test('includes repo description and notes in the routing prompt', function (): v
     expect((string) $captured)->toContain('my-repo');
     expect((string) $captured)->toContain('Customer signup and billing service');
     expect((string) $captured)->toContain('Uses Stripe webhooks');
+    expect((string) $captured)->toContain('my-repo (default)');
 });

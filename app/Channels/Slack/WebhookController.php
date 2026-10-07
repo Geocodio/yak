@@ -225,7 +225,7 @@ class WebhookController extends Controller
             ]);
 
             TaskLogger::info($task, 'Task created — awaiting repo clarification', ['source' => 'slack', 'options' => $repoOptions]);
-            SendNotificationJob::dispatch($task, NotificationType::Clarification, 'Which repo should I work in?');
+            SendNotificationJob::dispatch($task, NotificationType::Clarification, 'Which repo should I work in?', personalize: false);
 
             Telemetry::feature('repo_clarification', ['options' => count($repoOptions)], task: $task);
 
