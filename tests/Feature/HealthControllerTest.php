@@ -59,7 +59,7 @@ it('renders the health page with system and channel checks', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Health/Index')
-            ->has('systemChecks', 11)
+            ->has('systemChecks', 12)
             ->where('channelChecks', []));
 });
 

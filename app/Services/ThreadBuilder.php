@@ -53,7 +53,7 @@ class ThreadBuilder
             ));
 
             // Replies logged before the text was recorded have nothing to show.
-            $replies = ($repliesByRun[$run->id] ?? collect())
+            $replies = ($repliesByRun[$run->id] ?? new Collection)
                 ->filter(fn (TaskLog $log): bool => isset($log->metadata['reply']))
                 ->map(fn (TaskLog $log): ThreadEntry => ThreadEntry::clarificationReply(
                     $run,
@@ -134,10 +134,10 @@ class ThreadBuilder
      */
     private static function answerItems(array $round): array
     {
-        return collect((array) $round['questions'])->map(function (array $question) use ($round): array {
+        return array_values(collect((array) $round['questions'])->map(function (array $question) use ($round): array {
             $answer = $round['answers'][$question['id']] ?? null;
             $choices = (array) ($answer['choices'] ?? []);
-            $other = $answer['other'] ?? null;
+            $other = is_string($answer['other'] ?? null) ? $answer['other'] : null;
 
             return [
                 'header' => (string) $question['header'],
@@ -145,6 +145,6 @@ class ThreadBuilder
                 'other' => $other,
                 'skipped' => $choices === [] && $other === null,
             ];
-        })->values()->all();
+        })->all());
     }
 }

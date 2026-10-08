@@ -22,7 +22,7 @@ trait HasClarificationRounds
      */
     public function clarificationRounds(): array
     {
-        return array_values((array) ($this->clarification_rounds ?? []));
+        return $this->clarification_rounds ?? [];
     }
 
     public function clarificationRoundCount(): int
@@ -121,12 +121,23 @@ trait HasClarificationRounds
      */
     public function agentJobClass(): string
     {
+        return $this->claimingJobClass() ?? RunFollowUpJob::class;
+    }
+
+    /**
+     * Same as agentJobClass(), or null for a code follow-up, whose job does
+     * not claim the task and so is not sent through AgentJobDispatcher.
+     *
+     * @return class-string<RunYakJob|ResearchYakJob|ResearchFollowUpJob>|null
+     */
+    public function claimingJobClass(): ?string
+    {
         $isFollowUp = $this->parent_task_id !== null;
 
         if ($this->mode === TaskMode::Research) {
             return $isFollowUp ? ResearchFollowUpJob::class : ResearchYakJob::class;
         }
 
-        return $isFollowUp ? RunFollowUpJob::class : RunYakJob::class;
+        return $isFollowUp ? null : RunYakJob::class;
     }
 }

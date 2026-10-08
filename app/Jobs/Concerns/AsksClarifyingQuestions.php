@@ -96,7 +96,7 @@ trait AsksClarifyingQuestions
         SendNotificationJob::dispatch(
             $this->task,
             NotificationType::Clarification,
-            ClarificationMessage::asked($this->task->fresh()),
+            ClarificationMessage::asked($this->task->refresh()),
             personalize: false,
         );
     }

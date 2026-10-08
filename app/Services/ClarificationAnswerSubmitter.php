@@ -55,9 +55,9 @@ class ClarificationAnswerSubmitter
 
         SendNotificationJob::dispatch($task, NotificationType::Progress, 'Got your answers, continuing.', personalize: false);
 
-        $jobClass = $task->agentJobClass();
+        $jobClass = $task->claimingJobClass();
 
-        if ($jobClass === RunFollowUpJob::class) {
+        if ($jobClass === null) {
             RunFollowUpJob::dispatch($task);
         } else {
             app(AgentJobDispatcher::class)->dispatch($task, $jobClass);

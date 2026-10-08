@@ -109,14 +109,15 @@ class ClaudeCodeOutputParser
         $decoded = json_decode(trim((string) end($matches[1])), true);
         $raw = is_array($decoded) && is_array($decoded['questions'] ?? null) ? $decoded['questions'] : [];
 
-        return collect($raw)
+        $questions = collect($raw)
             ->filter(fn (mixed $item): bool => is_array($item))
             ->map(fn (array $item): ?ClarificationQuestion => ClarificationQuestion::fromArray($item))
             ->filter()
             ->unique(fn (ClarificationQuestion $question): string => $question->id)
             ->take(self::MAX_QUESTIONS)
-            ->values()
             ->all();
+
+        return array_values($questions);
     }
 
     /**

@@ -33,7 +33,7 @@ final readonly class ClarificationQuestion
         $question = self::text($data['question'] ?? null);
         $header = self::text($data['header'] ?? null);
 
-        $options = collect(is_array($data['options'] ?? null) ? $data['options'] : [])
+        $options = array_values(collect(is_array($data['options'] ?? null) ? $data['options'] : [])
             ->filter(fn (mixed $option): bool => is_array($option) && self::text($option['label'] ?? null) !== '')
             ->map(fn (array $option): array => [
                 'label' => self::text($option['label']),
@@ -41,8 +41,7 @@ final readonly class ClarificationQuestion
             ])
             ->unique('label')
             ->take(self::MAX_OPTIONS)
-            ->values()
-            ->all();
+            ->all());
 
         if ($id === '' || $question === '' || count($options) < 2) {
             return null;
