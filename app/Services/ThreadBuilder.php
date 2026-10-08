@@ -12,6 +12,12 @@ use Illuminate\Support\Collection;
 class ThreadBuilder
 {
     /**
+     * Task log message recording a clarification reply sent from the
+     * dashboard; its metadata carries the reply text and attachment ids.
+     */
+    public const string CLARIFICATION_REPLY_LOG = 'Clarification reply submitted via Yak UI';
+
+    /**
      * @return Collection<int, ThreadEntry>
      */
     public function build(YakTask $task): Collection
@@ -23,6 +29,13 @@ class ThreadBuilder
             ->selectRaw('yak_task_id, count(*) as c')
             ->groupBy('yak_task_id')
             ->pluck('c', 'yak_task_id');
+
+        $repliesByRun = TaskLog::query()
+            ->whereIn('yak_task_id', $chain->pluck('id'))
+            ->where('message', self::CLARIFICATION_REPLY_LOG)
+            ->orderBy('id')
+            ->get()
+            ->groupBy('yak_task_id');
 
         $entries = collect();
 
@@ -39,14 +52,29 @@ class ThreadBuilder
                 $run->author_name,
             ));
 
-            if (! empty($run->clarification_options)) {
-                $entries->push(ThreadEntry::clarification(
-                    $run,
-                    'Yak asked a question',
-                    array_values((array) $run->clarification_options),
-                    Carbon::parse($run->created_at),
-                ));
-            }
+            $replies = ($repliesByRun[$run->id] ?? collect())->map(fn (TaskLog $log): ThreadEntry => ThreadEntry::clarificationReply(
+                $run,
+                (string) ($log->metadata['reply'] ?? ''),
+                Carbon::parse($log->created_at),
+                $log->metadata['author'] ?? null,
+                array_map(intval(...), (array) ($log->metadata['attachment_ids'] ?? [])),
+            ));
+
+            // A run keeps only its latest question, so while it is waiting
+            // on an answer that question comes after the replies to earlier ones.
+            $question = ! empty($run->clarification_options) ? ThreadEntry::clarification(
+                $run,
+                'Yak asked a question',
+                array_values((array) $run->clarification_options),
+                Carbon::parse($run->created_at),
+            ) : null;
+
+            $isAwaitingAnswer = $status === TaskStatus::AwaitingClarification;
+            $entries->push(...array_filter([
+                $isAwaitingAnswer ? null : $question,
+                ...$replies,
+                $isAwaitingAnswer ? $question : null,
+            ]));
 
             for ($attempt = 2; $attempt <= (int) $run->attempts; $attempt++) {
                 $entries->push(ThreadEntry::system("Retried · attempt {$attempt}", Carbon::parse($run->updated_at)));

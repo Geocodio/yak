@@ -2,11 +2,13 @@
 
 use App\Agents\SandboxedAgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
+use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Recording fake sandbox manager — captures the exact command and flags
@@ -20,6 +22,17 @@ class RecordingSandboxManager extends IncusSandboxManager
     /** @var array<string, ProcessResult> */
     public array $responses = [];
 
+    /** @var list<array{local: string, remote: string}> */
+    public array $pushes = [];
+
+    /** @var list<?string> */
+    public array $inputs = [];
+
+    public function pushFile(string $containerName, string $localPath, string $remotePath): void
+    {
+        $this->pushes[] = ['local' => $localPath, 'remote' => $remotePath];
+    }
+
     public function respondTo(string $pattern, ProcessResult $result): void
     {
         $this->responses[$pattern] = $result;
@@ -28,6 +41,7 @@ class RecordingSandboxManager extends IncusSandboxManager
     public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
     {
         $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => $timeout];
+        $this->inputs[] = $input;
 
         foreach ($this->responses as $pattern => $result) {
             if (str_contains($command, $pattern)) {
@@ -911,4 +925,68 @@ it('reassembles a stream line that arrives across several pipe reads', function 
     expect($result->isError)->toBeFalse()
         ->and($result->resultSummary)->toBe(str_repeat('long review text ', 500))
         ->and(TaskLog::where('yak_task_id', $task->id)->where('message', 'like', '%not valid JSON%')->exists())->toBeFalse();
+});
+
+it('stages attachments outside the workspace and lists them in the prompt', function () {
+    Storage::fake('artifacts');
+    $attachment = TaskAttachment::factory()->create(['original_name' => 'broken-chart.png', 'disk_path' => 'attachments/01ABC/broken-chart.png', 'reference' => 'Image #1']);
+    Storage::disk('artifacts')->put($attachment->disk_path, 'png-bytes');
+    $missing = TaskAttachment::factory()->create();
+
+    $sandbox = new RecordingSandboxManager;
+    $request = new AgentRunRequest(
+        prompt: 'do the thing',
+        systemPrompt: 'you are an agent',
+        containerName: 'task-test',
+        timeoutSeconds: 600,
+        maxBudgetUsd: 5.0,
+        maxTurns: 300,
+        model: 'opus',
+        attachments: [$attachment, $missing],
+    );
+
+    (new SandboxedAgentRunner($sandbox))->run($request);
+
+    $remotePath = "/home/yak/attachments/{$attachment->id}/broken-chart.png";
+
+    expect($sandbox->pushes)->toBe([['local' => $attachment->absolutePath(), 'remote' => $remotePath]])
+        ->and(collect($sandbox->calls)->pluck('command')->filter(fn (string $c) => str_contains($c, 'chown -R yak:yak'))->isNotEmpty())->toBeTrue();
+
+    $prompt = (string) end($sandbox->inputs);
+
+    expect($prompt)->toStartWith('do the thing')
+        ->toContain('## Attached files')
+        ->toContain("- [Image #1] `{$remotePath}` (image/png")
+        ->not->toContain((string) $missing->id . '/');
+});
+
+it('leaves out an attachment the agent could not read', function () {
+    Storage::fake('artifacts');
+    $attachment = TaskAttachment::factory()->create();
+    Storage::disk('artifacts')->put($attachment->disk_path, 'png-bytes');
+
+    $sandbox = new RecordingSandboxManager;
+    $sandbox->respondTo('chown', Process::result(errorOutput: 'invalid user', exitCode: 1));
+
+    (new SandboxedAgentRunner($sandbox))->run(new AgentRunRequest(
+        prompt: 'do the thing',
+        systemPrompt: 'you are an agent',
+        containerName: 'task-test',
+        timeoutSeconds: 600,
+        maxBudgetUsd: 5.0,
+        maxTurns: 300,
+        model: 'opus',
+        attachments: [$attachment],
+    ));
+
+    expect(end($sandbox->inputs))->toBe('do the thing');
+});
+
+it('leaves the prompt untouched when there are no attachments', function () {
+    $sandbox = new RecordingSandboxManager;
+
+    (new SandboxedAgentRunner($sandbox))->run(buildAgentRunRequest());
+
+    expect($sandbox->pushes)->toBe([])
+        ->and(end($sandbox->inputs))->toBe('do the thing');
 });

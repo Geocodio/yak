@@ -230,6 +230,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: $resuming ? $this->task->session_id : null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
+                attachments: $this->task->attachments->all(),
             );
 
             $recorder->agentStarted($request);

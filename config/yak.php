@@ -28,6 +28,22 @@ return [
 
     'max_turns' => (int) env('YAK_MAX_TURNS', 300),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Message Attachments
+    |--------------------------------------------------------------------------
+    |
+    | Files attached to a dashboard message (new task, reply, steering or
+    | follow-up). Keep max_files * max_file_kb under PHP's post_max_size
+    | and nginx's client_max_body_size (docker/php.ini, docker/nginx.conf).
+    |
+    */
+
+    'attachments' => [
+        'max_files' => (int) env('YAK_ATTACHMENTS_MAX_FILES', 8),
+        'max_file_kb' => (int) env('YAK_ATTACHMENTS_MAX_FILE_KB', 10240),
+    ],
+
     'default_model' => env('YAK_DEFAULT_MODEL', 'opus'),
 
     'clarification_ttl_days' => (int) env('YAK_CLARIFICATION_TTL_DAYS', 7),

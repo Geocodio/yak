@@ -28,6 +28,7 @@ use App\Http\Controllers\Repositories\RepositoryController;
 use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\TaskAttachmentController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Http\Controllers\Tasks\StoreTaskController;
@@ -77,6 +78,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/clarification-answers', TaskClarificationAnswerController::class)->name('tasks.clarification-answers.store');
     Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
+    Route::get('task-attachments/{attachment}', TaskAttachmentController::class)
+        ->middleware('signed')
+        ->name('task-attachments.show');
     Route::get('costs', CostDashboardController::class)->name('costs');
     Route::get('analytics', AnalyticsController::class)->name('analytics');
 

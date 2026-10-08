@@ -7,7 +7,9 @@ use App\Enums\TaskStatus;
 use App\Facades\Telemetry;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
+use App\Models\TaskAttachment;
 use App\Models\YakTask;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class FollowUpTaskFactory
@@ -23,8 +25,9 @@ class FollowUpTaskFactory
      * @param  int|null  $summonReviewCommentId  Review comment thread the summary reply goes to, when summoned from an inline comment
      * @param  string|null  $summonQuote  Conversation-tab comment the summary reply quotes, when summoned from one
      * @param  string|null  $slackFollowUpUserId  Slack user who replied in the thread, mentioned alongside the original requester
+     * @param  Collection<int, TaskAttachment>|null  $attachments  Files sent with the instructions; they move onto the new run
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -39,7 +42,7 @@ class FollowUpTaskFactory
 
         $isResearch = $head->mode === TaskMode::Research;
 
-        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -72,6 +75,14 @@ class FollowUpTaskFactory
             // chain root plus this row's own primary key — avoids the
             // count-based race and prevents '-followup-N-followup-M' growth.
             $child->update(['external_id' => $root->external_id . '-followup-' . $child->id]);
+
+            if ($attachments !== null && $attachments->isNotEmpty()) {
+                TaskAttachment::whereKey($attachments->pluck('id'))->update([
+                    'yak_task_id' => $child->id,
+                    'pending_steering_message_id' => null,
+                    'context' => TaskAttachment::CONTEXT_REQUEST,
+                ]);
+            }
 
             return $child;
         });

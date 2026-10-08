@@ -1,10 +1,10 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:18
+* @see app/Http/Controllers/Tasks/TaskMessageController.php:22
 * @route '/tasks/{task}/messages'
 */
-export const store = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -16,10 +16,10 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:18
+* @see app/Http/Controllers/Tasks/TaskMessageController.php:22
 * @route '/tasks/{task}/messages'
 */
-store.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+store.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -49,10 +49,10 @@ store.url = (args: { task: string | number | { id: string | number } } | [task: 
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskMessageController::store
-* @see app/Http/Controllers/Tasks/TaskMessageController.php:18
+* @see app/Http/Controllers/Tasks/TaskMessageController.php:22
 * @route '/tasks/{task}/messages'
 */
-store.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })

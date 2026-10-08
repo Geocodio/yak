@@ -1,10 +1,15 @@
 import { useForm } from '@inertiajs/react';
 import { BrandMarkIcon, Button, Dialog, Kbd, cn } from '@geocodio/console-ui';
 import { ChevronDown, Search, Wrench } from 'lucide-react';
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
+import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
+import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
+import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { RepoPicker } from '@/components/tasks/RepoPicker';
 import { YAK_MARK } from '@/lib/brand';
 import { store } from '@/routes/tasks';
+import type { MediaItem } from '@/types/tasks';
 
 type TaskMode = 'fix' | 'research';
 
@@ -26,6 +31,8 @@ function initials(slug: string): string {
  * The type-first composer for starting a task from the dashboard. The
  * description is the whole surface; the repository and mode live in one bar
  * underneath it. Typing `@` in the description opens the repository picker.
+ * Files pasted, dropped or picked attach with an `[Image #1]` token in the
+ * description, as in the task composer.
  */
 export function NewTaskDialog({
     open,
@@ -38,9 +45,19 @@ export function NewTaskDialog({
     repoOptions: string[];
     defaultRepo: string | null;
 }) {
-    const form = useForm({ repo: '', mode: 'fix' as TaskMode, description: '' });
+    const form = useForm<{ repo: string; mode: TaskMode; description: string; attachments: File[]; attachment_refs: string[] }>({
+        repo: '',
+        mode: 'fix',
+        description: '',
+        attachments: [],
+        attachment_refs: [],
+    });
     const [pickerOpen, setPickerOpen] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const editorRef = useRef<AttachmentTextareaHandle>(null);
+    const draft = useAttachmentDraft({ enabled: open, onAdd: (added) => editorRef.current?.insertTokens(added) });
+    const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
     const selectedMode = MODES.find((entry) => entry.mode === form.data.mode) ?? MODES[0];
     const canSubmit = form.data.repo !== '' && form.data.description.trim().length >= 3;
 
@@ -54,10 +71,12 @@ export function NewTaskDialog({
         if (!canSubmit || form.processing) {
             return;
         }
+        form.transform((data) => ({ ...data, attachments: draft.files, attachment_refs: draft.refs }));
         form.post(store.url(), {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
+                draft.clear();
                 onOpenChange(false);
             },
         });
@@ -70,8 +89,7 @@ export function NewTaskDialog({
         }
     };
 
-    const onDescriptionInput = (event: ChangeEvent<HTMLTextAreaElement>) => {
-        form.setData('description', event.target.value);
+    const onDescriptionInput = (event: FormEvent<HTMLTextAreaElement>) => {
         const typed = (event.nativeEvent as InputEvent).data;
         if (typed === '@' && form.data.repo === '') {
             setPickerOpen(true);
@@ -91,6 +109,7 @@ export function NewTaskDialog({
         }
     };
 
+    const errors = form.errors as Record<string, string | undefined>;
     const error = form.errors.repo ?? form.errors.description ?? form.errors.mode;
 
     return (
@@ -105,17 +124,36 @@ export function NewTaskDialog({
             initialFocus={textareaRef}
             data-testid="new-task-dialog"
         >
-            <div className="flex items-start gap-3 px-[18px] pb-2 pt-4">
-                <BrandMarkIcon mark={YAK_MARK} size={26} className="mt-[3px] shrink-0" />
-                <textarea
-                    ref={textareaRef}
-                    rows={4}
-                    placeholder="What should Yak do? Type @ to pick a repo…"
-                    value={form.data.description}
-                    onChange={onDescriptionInput}
-                    className="min-h-24 w-full resize-none bg-transparent text-[16px] leading-[1.55] text-body outline-none placeholder:text-faint"
-                    data-testid="new-task-description"
-                />
+            <div className="relative" {...draft.dropzoneProps}>
+                <AttachmentDropOverlay draft={draft} />
+                <div className="flex items-start gap-3 px-[18px] pb-2 pt-4">
+                    <BrandMarkIcon mark={YAK_MARK} size={26} className="mt-[3px] shrink-0" />
+                    <AttachmentTextarea
+                        ref={editorRef}
+                        inputRef={textareaRef}
+                        draft={draft}
+                        rows={4}
+                        placeholder="What should Yak do? Type @ to pick a repo, or paste and drop screenshots and files…"
+                        value={form.data.description}
+                        onValueChange={(value) => form.setData('description', value)}
+                        onInput={onDescriptionInput}
+                        onPaste={draft.onPaste}
+                        wrapperClassName="min-w-0 flex-1"
+                        className="min-h-24 w-full resize-none rounded-none border-0 bg-transparent px-0 py-0 text-[16px] leading-[1.55] shadow-none outline-none hover:border-0 focus:shadow-none"
+                        data-testid="new-task-description"
+                    />
+                </div>
+                <div className="pl-[44px] pr-[6px]">
+                    <DraftAttachments
+                        draft={draft}
+                        errors={errors}
+                        progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null}
+                        onOpenMedia={(items, index) => {
+                            setLightboxMedia(items);
+                            setLightboxIndex(index);
+                        }}
+                    />
+                </div>
             </div>
 
             <div className="relative">
@@ -162,6 +200,8 @@ export function NewTaskDialog({
                         ))}
                     </div>
 
+                    <AttachButton draft={draft} disabled={form.processing} />
+
                     <div className="ml-auto flex items-center gap-2.5">
                         <Kbd keys={['⌘', '↵']} className="hidden pointer-fine:inline-flex" />
                         <Button
@@ -195,6 +235,13 @@ export function NewTaskDialog({
                     {error}
                 </p>
             )}
+
+            <MediaLightbox
+                media={lightboxMedia}
+                index={lightboxIndex}
+                onOpenChange={(isOpen) => !isOpen && setLightboxMedia(null)}
+                onIndexChange={setLightboxIndex}
+            />
         </Dialog>
     );
 }

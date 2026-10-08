@@ -10,10 +10,13 @@ use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\ChainMediaResolver;
 use App\Services\ThreadBuilder;
+use App\Support\AttachmentNumbering;
+use App\Support\AttachmentReferences;
 use App\Support\Markdown;
 use App\Support\Tasks\ArtifactPreviewUrl;
 use App\Support\Tasks\VideoRenderStatus;
@@ -226,22 +229,61 @@ final class TaskDetailData
             fn (YakTask $run) => [$run->id => collect(app(ChainMediaResolver::class)->forRun($run)->all())]
         );
 
+        $attachments = TaskAttachment::query()
+            ->whereIn('yak_task_id', $conversation->pluck('id'))
+            ->orderBy('id')
+            ->get();
+
         $entries = app(ThreadBuilder::class)->build($task)->values();
+
+        // Files sent with a clarification reply show on that reply, even when
+        // they also joined the run's request files (a repo choice restarts the run).
+        $replyAttachmentIds = $entries->pluck('attachmentIds')->filter()->flatten()->all();
+
+        $attachmentsFor = fn (ThreadEntry $entry): array => ($entry->attachmentIds !== null
+            ? $attachments->whereIn('id', $entry->attachmentIds)
+            : $attachments
+                ->where('yak_task_id', $entry->run?->id)
+                ->where('context', TaskAttachment::CONTEXT_REQUEST)
+                ->whereNotIn('id', $replyAttachmentIds))
+            ->map(fn (TaskAttachment $attachment) => AttachmentData::from($attachment))
+            ->values()
+            ->all();
+
         $lastYakIndex = $entries->filter(fn (ThreadEntry $e) => $e->kind === 'yak')->keys()->last();
 
-        return $entries->map(function (ThreadEntry $entry, int $index) use ($task, $entries, $mediaByRun, $lastYakIndex): array {
+        return $entries->map(function (ThreadEntry $entry, int $index) use ($task, $entries, $mediaByRun, $lastYakIndex, $attachmentsFor): array {
             if ($entry->kind === 'user' && $task->mode === TaskMode::Review && $index === 0) {
                 return self::reviewContextEntry($entry);
             }
 
             return match ($entry->kind) {
-                'user' => self::userEntry($entry),
+                'user' => self::withAttachments(self::userEntry($entry), $attachmentsFor($entry)),
                 'clarification' => self::clarificationEntry($entry, $entries, $index),
                 'clarification-answers' => self::clarificationAnswersEntry($entry),
                 'yak' => self::yakEntry($entry, $index, $lastYakIndex, $mediaByRun),
                 default => self::systemEntry($entry),
             };
         })->values()->all();
+    }
+
+    /**
+     * Attach the message's files and turn the `[Image #1]` labels in its
+     * text into chips that point at them.
+     *
+     * @param  array<string, mixed>  $entry
+     * @param  array<int, array{reference: ?string}>  $attachments
+     * @return array<string, mixed>
+     */
+    private static function withAttachments(array $entry, array $attachments): array
+    {
+        $references = array_values(array_filter(array_column($attachments, 'reference')));
+
+        return [
+            ...$entry,
+            'bodyHtml' => AttachmentReferences::linkInHtml((string) $entry['bodyHtml'], $references),
+            'attachments' => $attachments,
+        ];
     }
 
     /**
@@ -656,6 +698,7 @@ final class TaskDetailData
             'placeholder' => $placeholder,
             'note' => $note,
             'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
+            'nextAttachmentNumber' => AttachmentNumbering::nextNumberFor($conversation),
         ];
     }
 

@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
-const TaskClarificationAnswerController = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+const TaskClarificationAnswerController = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: TaskClarificationAnswerController.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ TaskClarificationAnswerController.definition = {
 * @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
-TaskClarificationAnswerController.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+TaskClarificationAnswerController.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -52,7 +52,7 @@ TaskClarificationAnswerController.url = (args: { task: string | number | { id: s
 * @see app/Http/Controllers/Tasks/TaskClarificationAnswerController.php:13
 * @route '/tasks/{task}/clarification-answers'
 */
-TaskClarificationAnswerController.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+TaskClarificationAnswerController.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: TaskClarificationAnswerController.url(args, options),
     method: 'post',
 })

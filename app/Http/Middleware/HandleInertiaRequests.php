@@ -64,6 +64,10 @@ class HandleInertiaRequests extends Middleware
                 'activeTaskCount' => $user === null ? 0 : YakTask::query()->whereIn('status', TaskStatus::activeValues())->count(),
             ],
             'docs' => ['baseUrl' => (string) config('docs.base_url')],
+            'attachmentLimits' => [
+                'maxFiles' => (int) config('yak.attachments.max_files'),
+                'maxFileBytes' => (int) config('yak.attachments.max_file_kb') * 1024,
+            ],
         ];
     }
 }

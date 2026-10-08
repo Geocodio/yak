@@ -1,6 +1,7 @@
 import { cn } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import { useState } from 'react';
+import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
 import { FindingsBlock } from '@/components/tasks/FindingsBlock';
 import type { FindingsData, MediaItem, ThreadEntryData } from '@/types/tasks';
@@ -83,16 +84,18 @@ export function ThreadEntry({
     if (entry.kind === 'user') {
         return (
             <Entry who={entry.who} meta={entry.meta} avatar={entry.who?.[0]?.toUpperCase() ?? 'U'}>
-                {entry.fullText && !expanded ? (
-                    <div>
-                        <p>{entry.fullText}</p>
-                        <button type="button" onClick={() => setExpanded(true)} className="mt-1 text-[12px] text-accent-text hover:underline">
-                            full request ▸
-                        </button>
-                    </div>
-                ) : (
-                    <Prose html={entry.bodyHtml} />
-                )}
+                <MessageWithAttachments attachments={entry.attachments ?? []} onOpenMedia={onOpenMedia}>
+                    {entry.fullText && !expanded ? (
+                        <div>
+                            <p>{entry.fullText}</p>
+                            <button type="button" onClick={() => setExpanded(true)} className="mt-1 text-[12px] text-accent-text hover:underline">
+                                full request ▸
+                            </button>
+                        </div>
+                    ) : (
+                        <Prose html={entry.bodyHtml} />
+                    )}
+                </MessageWithAttachments>
             </Entry>
         );
     }
