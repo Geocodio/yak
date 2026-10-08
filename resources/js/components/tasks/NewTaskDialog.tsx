@@ -67,6 +67,16 @@ export function NewTaskDialog({
         }
     }, [open]);
 
+    // Server errors are keyed by position (`attachments.2`), so they stop
+    // lining up as soon as the list changes.
+    useEffect(() => {
+        const stale = Object.keys(form.errors).filter((key) => key.startsWith('attachments')) as (keyof typeof form.data)[];
+        if (stale.length > 0) {
+            form.clearErrors(...stale);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [draft.items]);
+
     const submit = () => {
         if (!canSubmit || form.processing) {
             return;

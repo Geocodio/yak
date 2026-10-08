@@ -162,6 +162,19 @@ test('an answered question is followed by the dashboard replies to it', function
         ->and($entries[2]->attachmentIds)->toBe([7]);
 });
 
+test('a reply logged without its text adds no message', function () {
+    $task = YakTask::factory()->create([
+        'status' => TaskStatus::Running,
+        'clarification_options' => ['A', 'B'],
+        'started_at' => now(),
+    ]);
+    TaskLogger::info($task, ThreadBuilder::CLARIFICATION_REPLY_LOG);
+
+    $entries = app(ThreadBuilder::class)->build($task);
+
+    expect($entries->pluck('kind')->all())->toBe(['user', 'clarification', 'yak']);
+});
+
 it('adds an entry per asked round and per answered round', function () {
     $task = YakTask::factory()->withClarificationQuestions()->create(['started_at' => now()->subHour()]);
     $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], 'Note', 'Michele');

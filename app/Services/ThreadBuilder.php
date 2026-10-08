@@ -52,13 +52,16 @@ class ThreadBuilder
                 $run->author_name,
             ));
 
-            $replies = ($repliesByRun[$run->id] ?? collect())->map(fn (TaskLog $log): ThreadEntry => ThreadEntry::clarificationReply(
-                $run,
-                (string) ($log->metadata['reply'] ?? ''),
-                Carbon::parse($log->created_at),
-                $log->metadata['author'] ?? null,
-                array_map(intval(...), (array) ($log->metadata['attachment_ids'] ?? [])),
-            ));
+            // Replies logged before the text was recorded have nothing to show.
+            $replies = ($repliesByRun[$run->id] ?? collect())
+                ->filter(fn (TaskLog $log): bool => isset($log->metadata['reply']))
+                ->map(fn (TaskLog $log): ThreadEntry => ThreadEntry::clarificationReply(
+                    $run,
+                    (string) ($log->metadata['reply'] ?? ''),
+                    Carbon::parse($log->created_at),
+                    $log->metadata['author'] ?? null,
+                    array_map(intval(...), (array) ($log->metadata['attachment_ids'] ?? [])),
+                ));
 
             // A run keeps only its latest question, so while it is waiting
             // on an answer that question comes after the replies to earlier ones.
