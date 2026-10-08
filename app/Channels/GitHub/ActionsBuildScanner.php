@@ -54,7 +54,7 @@ class ActionsBuildScanner implements CIBuildScanner
                     $failures->push(new CIBuildFailure(
                         testName: $failure['test'],
                         output: $failure['output'],
-                        buildUrl: $run['html_url'],
+                        buildUrl: $job['html_url'] ?? $run['html_url'],
                         buildId: (string) $run['id'],
                         branch: $run['head_branch'] ?? null,
                         commitSha: $run['head_sha'] ?? null,
@@ -74,7 +74,7 @@ class ActionsBuildScanner implements CIBuildScanner
      * megabytes apiece — so the filter is both a correctness guard and the
      * thing that keeps this scan affordable.
      *
-     * @return array<int, array{id: int, name: string}>
+     * @return array<int, array{id: int, name: string, html_url?: string}>
      */
     private function failedTestJobs(PendingRequest $client, string $repoSlug, int $runId): array
     {
@@ -87,7 +87,7 @@ class ActionsBuildScanner implements CIBuildScanner
             ->throw()
             ->json();
 
-        /** @var array<int, array{id: int, name: string, conclusion?: string|null}> $jobs */
+        /** @var array<int, array{id: int, name: string, html_url?: string, conclusion?: string|null}> $jobs */
         $jobs = $response['jobs'] ?? [];
 
         return array_values(array_filter(

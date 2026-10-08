@@ -16,7 +16,8 @@ class TaskSourceUrl
         return match ((string) $task->source) {
             'slack' => self::slackUrl($task),
             'linear' => self::linearUrl($task),
-            'sentry' => self::externalUrl($task),
+            'sentry' => self::externalUrl($task) ?? self::sentryIssueFromEventUrl($task),
+            'flaky-test' => self::externalUrl($task),
             default => null,
         };
     }
@@ -49,5 +50,21 @@ class TaskSourceUrl
         $url = (string) ($task->external_url ?? '');
 
         return $url !== '' ? $url : null;
+    }
+
+    /**
+     * Sentry tasks created before the issue URL was stored still carry the
+     * event URL in their context; the issue URL is its prefix.
+     */
+    private static function sentryIssueFromEventUrl(YakTask $task): ?string
+    {
+        $context = json_decode((string) $task->context, true);
+        $eventUrl = is_array($context) ? (string) ($context['context'] ?? '') : '';
+
+        if (preg_match('#(https://\S+/issues/\d+/)#', $eventUrl, $matches) !== 1) {
+            return null;
+        }
+
+        return $matches[1];
     }
 }

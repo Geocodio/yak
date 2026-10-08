@@ -15,6 +15,7 @@ use App\Services\PullRequestTitle;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
+use App\Support\TaskTrigger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -180,6 +181,15 @@ class CreatePullRequestJob implements ShouldQueue
     }
 
     /**
+     * Wrap outside text (Sentry error messages, test names) in a code span so
+     * GitHub renders it literally: no links, images, or @mentions.
+     */
+    private static function codeSpan(string $text): string
+    {
+        return '`' . str_replace(['`', "\r", "\n"], ["'", ' ', ' '], $text) . '`';
+    }
+
+    /**
      * @param  array<int, array{filename: string, url: string, type: string}>  $signedUrls
      */
     private function buildPrBody(array $signedUrls): string
@@ -212,7 +222,19 @@ class CreatePullRequestJob implements ShouldQueue
             }
         }
 
-        if ($taskUrl !== '') {
+        $trigger = TaskTrigger::describe($this->task);
+
+        if ($this->task->source === 'sentry' && $trigger !== null) {
+            $title = $trigger['lines'][0]['text'] ?? $trigger['label'];
+            $title = self::codeSpan($title);
+            $parts[] = '**Sentry issue:** ' . ($trigger['url'] !== null ? "[{$title}]({$trigger['url']})" : $title);
+        } elseif ($this->task->source === 'flaky-test' && $trigger !== null) {
+            $tests = implode(', ', array_map(
+                fn (array $line): string => $line['url'] !== null ? '[' . self::codeSpan($line['text']) . "]({$line['url']})" : self::codeSpan($line['text']),
+                $trigger['lines'],
+            ));
+            $parts[] = '**Flaky tests:** ' . $tests . ($trigger['url'] !== null ? " ([CI build]({$trigger['url']}))" : '');
+        } elseif ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }
 
