@@ -34,19 +34,40 @@ class HealthCheckCommand extends Command
      */
     private const AWAITING_RECOVERY_CACHE_KEY = 'yak:healthcheck:awaiting-recovery';
 
+    /**
+     * Set per check while it is failing. A check alerts only when it was
+     * already failing on the previous run, so a single transient blip (a
+     * DNS hiccup, a slow API) never reaches Slack.
+     */
+    private const FAILING_CACHE_KEY_PREFIX = 'yak:healthcheck:failing:';
+
+    /**
+     * The check whose failure the re-login runbook in the alert fixes.
+     */
+    private const CLAUDE_AUTH_CHECK_ID = 'claude-auth';
+
     public function handle(Registry $registry): int
     {
-        /** @var array<string, array{name: string, result: HealthResult}> $failures */
+        /** @var array<string, array{name: string, result: HealthResult, isConsecutive: bool}> $failures */
         $failures = [];
 
         foreach ($registry->all() as $check) {
             $result = $check->run();
+            $failingKey = self::FAILING_CACHE_KEY_PREFIX . $check->id();
 
             if ($result->status === HealthStatus::Ok || $result->status === HealthStatus::NotConnected) {
+                Cache::forget($failingKey);
+
                 continue;
             }
 
-            $failures[$check->id()] = ['name' => $check->name(), 'result' => $result];
+            $failures[$check->id()] = [
+                'name' => $check->name(),
+                'result' => $result,
+                'isConsecutive' => Cache::has($failingKey),
+            ];
+
+            Cache::put($failingKey, true, now()->addHour());
         }
 
         if (count($failures) === 0) {
@@ -69,11 +90,12 @@ class HealthCheckCommand extends Command
 
         $unannounced = array_filter(
             $failures,
-            fn (string $id): bool => ! Cache::has(self::ALERTED_CACHE_KEY_PREFIX . $id),
-            ARRAY_FILTER_USE_KEY,
+            fn (array $failure, string $id): bool => $failure['isConsecutive']
+                && ! Cache::has(self::ALERTED_CACHE_KEY_PREFIX . $id),
+            ARRAY_FILTER_USE_BOTH,
         );
 
-        if ($unannounced !== [] && $this->notifySlack(array_values($unannounced))) {
+        if ($unannounced !== [] && $this->notifySlack($unannounced)) {
             foreach (array_keys($unannounced) as $id) {
                 Cache::put(self::ALERTED_CACHE_KEY_PREFIX . $id, true, now()->addHours(self::ALERT_COOLDOWN_HOURS));
             }
@@ -85,7 +107,7 @@ class HealthCheckCommand extends Command
     }
 
     /**
-     * @param  list<array{name: string, result: HealthResult}>  $failures
+     * @param  array<string, array{name: string, result: HealthResult, isConsecutive: bool}>  $failures
      */
     private function notifySlack(array $failures): bool
     {
@@ -105,10 +127,13 @@ class HealthCheckCommand extends Command
         $held = DB::table('jobs')->where('queue', 'yak-claude')->count();
 
         $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines)
-            . "\n\n*Agent jobs queued:* {$held}"
-            . "\n\n*To re-authenticate Claude:*\n"
-            . "```\nssh root@" . parse_url((string) config('app.url'), PHP_URL_HOST) . "\nyak-claude-login\n```\n"
-            . 'Then type `/login` in the Claude session that opens.';
+            . "\n\n*Agent jobs queued:* {$held}";
+
+        if (array_key_exists(self::CLAUDE_AUTH_CHECK_ID, $failures)) {
+            $text .= "\n\n*To re-authenticate Claude:*\n"
+                . "```\nssh root@" . parse_url((string) config('app.url'), PHP_URL_HOST) . "\nyak-claude-login\n```\n"
+                . 'Then type `/login` in the Claude session that opens.';
+        }
 
         return $this->postToSlack($slack, $text);
     }

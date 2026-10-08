@@ -109,6 +109,8 @@ test('healthcheck command posts to slack on failure when configured', function (
 
     $this->artisan('yak:healthcheck')
         ->assertFailed();
+    $this->artisan('yak:healthcheck')
+        ->assertFailed();
 
     Http::assertSent(function ($request) {
         return str_contains($request->url(), 'chat.postMessage')
@@ -185,6 +187,7 @@ test('healthcheck command includes the agent queue count and the runbook in the 
     bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
 
     $this->artisan('yak:healthcheck')->assertExitCode(1);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertSent(function ($request) {
         return str_contains($request['text'], 'Agent jobs queued:')
@@ -209,23 +212,25 @@ test('healthcheck command alerts on a newly-failing check without a false recove
     $checkAOk = fakeHealthCheck(fn () => HealthResult::ok('A up'), id: 'check-a', name: 'Check A');
     $checkBOk = fakeHealthCheck(fn () => HealthResult::ok('B up'), id: 'check-b', name: 'Check B');
 
-    // Run 1: only A fails — one post for A's onset.
+    // Runs 1-2: only A fails — one post once A has failed twice.
     bindHealthCheckRegistry($checkA);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
     $this->artisan('yak:healthcheck')->assertExitCode(1);
     Http::assertSentCount(1);
 
-    // Run 2: A still down, B newly fails — a second post, for B's onset.
+    // Runs 3-4: A still down, B newly fails — a second post, for B's onset.
     bindHealthCheckRegistry($checkA, $checkB);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
     $this->artisan('yak:healthcheck')->assertExitCode(1);
     Http::assertSentCount(2);
 
-    // Run 3: A clears but B is still down — no post, and definitely no
+    // Run 5: A clears but B is still down — no post, and definitely no
     // recovery claim while B is still failing.
     bindHealthCheckRegistry($checkAOk, $checkB);
     $this->artisan('yak:healthcheck')->assertExitCode(1);
     Http::assertSentCount(2);
 
-    // Run 4: B clears too — the outage is actually over, recovery post.
+    // Run 6: B clears too — the outage is actually over, recovery post.
     bindHealthCheckRegistry($checkAOk, $checkBOk);
     $this->artisan('yak:healthcheck')->assertExitCode(0);
     Http::assertSentCount(3);
@@ -249,6 +254,7 @@ test('healthcheck command posts the alert to the configured channel', function (
     bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
 
     $this->artisan('yak:healthcheck')->assertExitCode(1);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertSent(fn ($request) => $request['channel'] === 'C0ALERTS');
 });
@@ -263,6 +269,7 @@ test('healthcheck command alerts a flapping check at most once per day', functio
 
     foreach (range(1, 3) as $flap) {
         bindHealthCheckRegistry($failing);
+        $this->artisan('yak:healthcheck')->assertExitCode(1);
         $this->artisan('yak:healthcheck')->assertExitCode(1);
 
         bindHealthCheckRegistry($healthy);
@@ -281,13 +288,16 @@ test('healthcheck command re-alerts a check that is still failing a day later', 
     bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down')));
 
     $this->artisan('yak:healthcheck')->assertExitCode(1);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     $this->travel(23)->hours();
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertSentCount(1);
 
     $this->travel(2)->hours();
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertSentCount(2);
@@ -320,4 +330,35 @@ test('healthcheck command skips slack when no alert channel is set', function ()
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertNothingSent();
+});
+
+test('healthcheck command does not alert on a single transient failure', function () {
+    enableHealthCheckSlack();
+
+    Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down'), id: 'linear', name: 'Linear'));
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::ok('up'), id: 'linear', name: 'Linear'));
+    $this->artisan('yak:healthcheck')->assertExitCode(0);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down'), id: 'linear', name: 'Linear'));
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertNothingSent();
+});
+
+test('healthcheck command leaves out the claude runbook when claude auth is healthy', function () {
+    enableHealthCheckSlack();
+
+    Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
+
+    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down'), id: 'linear', name: 'Linear'));
+
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+    $this->artisan('yak:healthcheck')->assertExitCode(1);
+
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'Linear')
+        && ! str_contains($request['text'], 'yak-claude-login'));
 });
