@@ -32,8 +32,8 @@ test('default_model defaults to opus', function () {
     expect(config('yak.default_model'))->toBe('opus');
 });
 
-test('clarification_ttl_days defaults to 3', function () {
-    expect(config('yak.clarification_ttl_days'))->toBe(3);
+test('clarification_ttl_days defaults to 7', function () {
+    expect(config('yak.clarification_ttl_days'))->toBe(7);
 });
 
 test('large_change_threshold defaults to 200', function () {

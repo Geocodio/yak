@@ -16,7 +16,7 @@ class TaskClarificationAnswerController extends Controller
             $request->head(),
             $request->answers(),
             $request->validated('note'),
-            (string) ($request->user()?->name ?? 'Someone'),
+            (string) ($request->user()->name ?? 'Someone'),
             'dashboard',
         );
 

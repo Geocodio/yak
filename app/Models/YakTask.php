@@ -33,7 +33,7 @@ use Illuminate\Support\Str;
  * @property int|null $summon_review_comment_id
  * @property string|null $summon_quote
  * @property array<int, string>|null $clarification_options
- * @property array<int, array<string, mixed>>|null $clarification_rounds
+ * @property list<array{questions: list<array<string, mixed>>, summary: string, asked_at: string, answers: array<string, array{choices: list<string>, other: string|null}>|null, note: string|null, answered_by: string|null, answered_at: string|null, consumed_at: string|null}>|null $clarification_rounds
  * @property array<int, mixed>|null $screenshots
  * @property CarbonImmutable|null $clarification_expires_at
  * @property CarbonImmutable|null $started_at
