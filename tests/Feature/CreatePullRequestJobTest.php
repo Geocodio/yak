@@ -550,6 +550,63 @@ test('PR body includes source, repo, attempts, and result summary', function () 
     });
 });
 
+test('PR body names the Sentry issue or flaky tests that triggered the task', function (array $attributes, string $expectedLine) {
+    Http::fake([
+        'api.github.com/app/installations/*/access_tokens' => Http::response([
+            'token' => 'ghs_test',
+            'expires_at' => now()->addHour()->toIso8601String(),
+        ]),
+        'api.github.com/repos/*/pulls?*' => Http::response([]),
+        'api.github.com/repos/*/pulls' => Http::response([
+            'number' => 1,
+            'html_url' => 'https://github.com/org/test-repo/pull/1',
+        ]),
+        'api.github.com/repos/*/issues/*/labels' => Http::response(['ok' => true]),
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => []]),
+    ]);
+
+    Process::fake([
+        'git diff --name-only *' => Process::result(''),
+    ]);
+
+    Repository::factory()->create([
+        'slug' => 'org/test-repo',
+        'path' => '/home/yak/repos/test-repo',
+    ]);
+
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/test-repo',
+        'branch_name' => 'yak/FIX-TRIGGER',
+        ...$attributes,
+    ]);
+
+    app()->call([new CreatePullRequestJob($task), 'handle']);
+
+    Http::assertSent(fn ($request) => $request->method() === 'POST'
+        && str_contains($request->url(), '/pulls')
+        && str_contains($request['body'], $expectedLine)
+        && ! str_contains($request['body'], '**Task:**'));
+})->with([
+    'sentry' => [
+        [
+            'source' => 'sentry',
+            'external_id' => '7547344735',
+            'external_url' => 'https://sentry.io/organizations/acme/issues/7547344735/',
+            'context' => json_encode(['sentry_issue_id' => '7547344735', 'error' => 'TypeError: Cannot assign string']),
+        ],
+        '**Sentry issue:** [TypeError: Cannot assign string](https://sentry.io/organizations/acme/issues/7547344735/)',
+    ],
+    'flaky test' => [
+        [
+            'source' => 'flaky-test',
+            'external_id' => 'flaky-test:commit:abc',
+            'external_url' => 'https://github.com/org/test-repo/actions/runs/1',
+            'context' => json_encode(['tests' => [['test_name' => 'FooTest > it works', 'build_urls' => ['https://github.com/org/test-repo/actions/runs/1/job/7']], ['test_name' => 'BarTest > it works']]]),
+        ],
+        '**Flaky tests:** [`FooTest > it works`](https://github.com/org/test-repo/actions/runs/1/job/7), `BarTest > it works` ([CI build](https://github.com/org/test-repo/actions/runs/1))',
+    ],
+]);
+
 test('PR body does not wrap the agent summary in a "What changed" heading', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([

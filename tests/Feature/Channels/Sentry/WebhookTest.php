@@ -150,6 +150,7 @@ it('creates a task from a valid Sentry alert with yak-eligible tag', function ()
     expect($task)->not->toBeNull();
     expect($task->source)->toBe('sentry');
     expect($task->external_id)->toBe('99001');
+    expect($task->external_url)->toBe('https://sentry.io/organizations/test-org/issues/99001/');
     expect($task->repo)->toBe('my-app');
     expect($task->status)->toBe(TaskStatus::Pending);
     expect($task->description)->toContain('TypeError: Cannot read property of undefined');

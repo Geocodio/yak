@@ -76,6 +76,32 @@ export function TaskSummary({ task }: { task: TaskDetail }) {
                     </Meta>
                 )}
             </div>
+
+            {task.trigger && (
+                <div className="mt-3 flex gap-3 text-[12px]" data-testid="task-trigger">
+                    <span className="shrink-0 text-faint">Triggered by</span>
+                    <div className="min-w-0">
+                        {task.trigger.url ? (
+                            <a href={task.trigger.url} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                                {task.trigger.label}
+                            </a>
+                        ) : (
+                            <span className="text-muted">{task.trigger.label}</span>
+                        )}
+                        {task.trigger.lines.map((line) => (
+                            <div key={line.text} className="font-mono text-[11px] text-muted wrap-break-word">
+                                {line.url ? (
+                                    <a href={line.url} target="_blank" rel="noopener noreferrer" className="hover:text-accent-text hover:underline">
+                                        {line.text}
+                                    </a>
+                                ) : (
+                                    line.text
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -15,6 +15,7 @@ use App\Services\PullRequestTitle;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
+use App\Support\TaskTrigger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -212,7 +213,18 @@ class CreatePullRequestJob implements ShouldQueue
             }
         }
 
-        if ($taskUrl !== '') {
+        $trigger = TaskTrigger::describe($this->task);
+
+        if ($this->task->source === 'sentry' && $trigger !== null) {
+            $title = $trigger['lines'][0]['text'] ?? $trigger['label'];
+            $parts[] = '**Sentry issue:** ' . ($trigger['url'] !== null ? "[{$title}]({$trigger['url']})" : $title);
+        } elseif ($this->task->source === 'flaky-test' && $trigger !== null) {
+            $tests = implode(', ', array_map(
+                fn (array $line): string => $line['url'] !== null ? "[`{$line['text']}`]({$line['url']})" : "`{$line['text']}`",
+                $trigger['lines'],
+            ));
+            $parts[] = '**Flaky tests:** ' . $tests . ($trigger['url'] !== null ? " ([CI build]({$trigger['url']}))" : '');
+        } elseif ($taskUrl !== '') {
             $parts[] = "**Task:** [{$this->task->external_id}]({$taskUrl})";
         }
 

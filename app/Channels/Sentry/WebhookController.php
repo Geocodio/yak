@@ -92,6 +92,7 @@ class WebhookController extends Controller
             'source' => 'sentry',
             'repo' => $resolvedSlug,
             'external_id' => $description->externalId,
+            'external_url' => $description->metadata['sentry_issue_url'] ?: null,
             'description' => $description->body,
             'context' => json_encode($description->metadata),
             'mode' => 'fix',

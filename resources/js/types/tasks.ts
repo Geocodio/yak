@@ -91,6 +91,8 @@ export type TaskDetail = {
     repoUrl: string | null;
     sourceLabel: string;
     sourceUrl: string | null;
+    /** The Sentry issue or flaky tests that started the task. */
+    trigger: { label: string; url: string | null; lines: { text: string; url: string | null }[] } | null;
     startedBy: string | null;
     responsible: string | null;
     model: string | null;

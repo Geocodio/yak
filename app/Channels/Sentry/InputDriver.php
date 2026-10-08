@@ -43,6 +43,7 @@ class InputDriver implements InputDriverContract
             metadata: [
                 'mode' => TaskMode::Fix->value,
                 'sentry_issue_id' => $issueId,
+                'sentry_issue_url' => preg_replace('#events/[^/]+/?$#', '', $webUrl),
                 'sentry_project' => $projectSlug,
                 'error' => $title,
                 'culprit' => $culprit,

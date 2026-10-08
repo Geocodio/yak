@@ -21,6 +21,7 @@ use App\Support\Markdown;
 use App\Support\Tasks\ArtifactPreviewUrl;
 use App\Support\Tasks\VideoRenderStatus;
 use App\Support\TaskSourceUrl;
+use App\Support\TaskTrigger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -154,8 +155,9 @@ final class TaskDetailData
             'summary' => $task->description_summary ?: Str::limit((string) $task->description, 70),
             'repo' => $task->repo,
             'repoUrl' => $repository !== null ? route('repos.edit', $repository) : null,
-            'sourceLabel' => ucfirst($task->source),
+            'sourceLabel' => ucfirst(str_replace('-', ' ', (string) $task->source)),
             'sourceUrl' => TaskSourceUrl::resolve($task),
+            'trigger' => TaskTrigger::describe($task),
             'startedBy' => $task->author_name,
             'responsible' => $task->responsible_name,
             'model' => $task->resolvedModel(),
@@ -320,7 +322,7 @@ final class TaskDetailData
         $who = $entry->authorName ?? 'You';
         $meta = collect([
             $entry->authorName,
-            'via ' . ($entry->source ? ucfirst($entry->source) : 'dashboard'),
+            'via ' . ($entry->source ? ucfirst(str_replace('-', ' ', $entry->source)) : 'dashboard'),
             $entry->timestamp->format('g:i A'),
         ])->filter()->implode(' · ');
 

@@ -51,6 +51,57 @@ test('it renders the task detail page with the task fields', function () {
             ->etc());
 });
 
+test('a Sentry task names the issue that triggered it', function () {
+    $task = YakTask::factory()->create([
+        'source' => 'sentry',
+        'external_id' => '7547344735',
+        'external_url' => 'https://sentry.io/organizations/acme/issues/7547344735/',
+        'context' => json_encode(['sentry_issue_id' => '7547344735', 'error' => 'TypeError: Cannot assign string']),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.sourceUrl', 'https://sentry.io/organizations/acme/issues/7547344735/')
+            ->where('task.trigger', [
+                'label' => 'Sentry issue 7547344735',
+                'url' => 'https://sentry.io/organizations/acme/issues/7547344735/',
+                'lines' => [['text' => 'TypeError: Cannot assign string', 'url' => null]],
+            ])
+            ->etc());
+});
+
+test('a flaky-test task names the failing tests and links the CI build', function () {
+    $task = YakTask::factory()->create([
+        'source' => 'flaky-test',
+        'external_url' => 'https://github.com/acme/app/actions/runs/1',
+        'context' => json_encode(['tests' => [
+            ['test_name' => 'Tests\\Feature\\FooTest > it works', 'build_urls' => ['https://github.com/acme/app/actions/runs/1/job/7']],
+            ['test_name' => 'Tests\\Feature\\BarTest > it works'],
+        ]]),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.sourceLabel', 'Flaky test')
+            ->where('task.sourceUrl', 'https://github.com/acme/app/actions/runs/1')
+            ->where('task.trigger', [
+                'label' => 'CI build',
+                'url' => 'https://github.com/acme/app/actions/runs/1',
+                'lines' => [
+                    ['text' => 'Tests\\Feature\\FooTest > it works', 'url' => 'https://github.com/acme/app/actions/runs/1/job/7'],
+                    ['text' => 'Tests\\Feature\\BarTest > it works', 'url' => null],
+                ],
+            ])
+            ->etc());
+});
+
+test('a Slack task has no trigger line', function () {
+    $task = YakTask::factory()->create(['source' => 'slack']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('task.trigger', null)->etc());
+});
+
 test('a follow-up task url redirects to the root task', function () {
     $root = YakTask::factory()->create();
     $child = YakTask::factory()->create(['parent_task_id' => $root->id]);

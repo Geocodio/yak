@@ -55,7 +55,7 @@ test('reads logs from failed test jobs and parses the flaky test out of them', f
         'api.github.com/repos/acme/app/actions/runs?*' => Http::response(failedRunResponse()),
         'api.github.com/repos/acme/app/actions/runs/900/jobs*' => Http::response([
             'jobs' => [
-                ['id' => 11, 'name' => 'Test (Main)', 'conclusion' => 'failure'],
+                ['id' => 11, 'name' => 'Test (Main)', 'conclusion' => 'failure', 'html_url' => 'https://github.com/acme/app/actions/runs/900/job/11'],
             ],
         ]),
         'api.github.com/repos/acme/app/actions/jobs/11/logs' => Http::response(pestJobLog()),
@@ -70,7 +70,7 @@ test('reads logs from failed test jobs and parses the flaky test out of them', f
     expect($failure->testName)->toBe('Tests\Dash\Feature\OneOffInvoiceIssuanceTest…')
         ->and($failure->output)->toContain('RateLimitException')
         ->and($failure->buildId)->toBe('900')
-        ->and($failure->buildUrl)->toBe('https://github.com/acme/app/actions/runs/900')
+        ->and($failure->buildUrl)->toBe('https://github.com/acme/app/actions/runs/900/job/11')
         ->and($failure->branch)->toBe('master')
         ->and($failure->commitSha)->toBe('abc123');
 });

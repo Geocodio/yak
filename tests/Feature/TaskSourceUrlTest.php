@@ -60,6 +60,25 @@ it('returns the stored external_url for Sentry tasks', function () {
         ->toBe('https://sentry.io/organizations/acme/issues/12345/');
 });
 
+it('returns the CI build URL for flaky-test tasks', function () {
+    $task = YakTask::factory()->create([
+        'source' => 'flaky-test',
+        'external_url' => 'https://github.com/acme/app/actions/runs/1',
+    ]);
+
+    expect(TaskSourceUrl::resolve($task))->toBe('https://github.com/acme/app/actions/runs/1');
+});
+
+it('derives the Sentry issue URL from the stored event URL for older tasks', function () {
+    $task = YakTask::factory()->create([
+        'source' => 'sentry',
+        'external_url' => null,
+        'context' => json_encode(['context' => 'Sentry event: https://sentry.io/organizations/acme/issues/12345/events/abc123/']),
+    ]);
+
+    expect(TaskSourceUrl::resolve($task))->toBe('https://sentry.io/organizations/acme/issues/12345/');
+});
+
 it('returns null for unrecognised sources', function () {
     $task = YakTask::factory()->create([
         'source' => 'system',
