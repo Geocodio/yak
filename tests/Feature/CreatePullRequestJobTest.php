@@ -594,7 +594,16 @@ test('PR body names the Sentry issue or flaky tests that triggered the task', fu
             'external_url' => 'https://sentry.io/organizations/acme/issues/7547344735/',
             'context' => json_encode(['sentry_issue_id' => '7547344735', 'error' => 'TypeError: Cannot assign string']),
         ],
-        '**Sentry issue:** [TypeError: Cannot assign string](https://sentry.io/organizations/acme/issues/7547344735/)',
+        '**Sentry issue:** [`TypeError: Cannot assign string`](https://sentry.io/organizations/acme/issues/7547344735/)',
+    ],
+    'sentry error with markdown and mentions' => [
+        [
+            'source' => 'sentry',
+            'external_id' => '1',
+            'external_url' => 'https://sentry.io/organizations/acme/issues/1/',
+            'context' => json_encode(['sentry_issue_id' => '1', 'error' => "Bad `input`](https://evil.example) @acme/team\n# heading"]),
+        ],
+        "**Sentry issue:** [`Bad 'input'](https://evil.example) @acme/team # heading`](https://sentry.io/organizations/acme/issues/1/)",
     ],
     'flaky test' => [
         [

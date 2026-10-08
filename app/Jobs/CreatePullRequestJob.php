@@ -181,6 +181,15 @@ class CreatePullRequestJob implements ShouldQueue
     }
 
     /**
+     * Wrap outside text (Sentry error messages, test names) in a code span so
+     * GitHub renders it literally: no links, images, or @mentions.
+     */
+    private static function codeSpan(string $text): string
+    {
+        return '`' . str_replace(['`', "\r", "\n"], ["'", ' ', ' '], $text) . '`';
+    }
+
+    /**
      * @param  array<int, array{filename: string, url: string, type: string}>  $signedUrls
      */
     private function buildPrBody(array $signedUrls): string
@@ -217,10 +226,11 @@ class CreatePullRequestJob implements ShouldQueue
 
         if ($this->task->source === 'sentry' && $trigger !== null) {
             $title = $trigger['lines'][0]['text'] ?? $trigger['label'];
+            $title = self::codeSpan($title);
             $parts[] = '**Sentry issue:** ' . ($trigger['url'] !== null ? "[{$title}]({$trigger['url']})" : $title);
         } elseif ($this->task->source === 'flaky-test' && $trigger !== null) {
             $tests = implode(', ', array_map(
-                fn (array $line): string => $line['url'] !== null ? "[`{$line['text']}`]({$line['url']})" : "`{$line['text']}`",
+                fn (array $line): string => $line['url'] !== null ? '[' . self::codeSpan($line['text']) . "]({$line['url']})" : self::codeSpan($line['text']),
                 $trigger['lines'],
             ));
             $parts[] = '**Flaky tests:** ' . $tests . ($trigger['url'] !== null ? " ([CI build]({$trigger['url']}))" : '');
