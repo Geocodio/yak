@@ -50,7 +50,7 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     $result = parseYak('config.yml', $yaml);
 
     expect($result['data'])->toBeNull()
-        ->and(implode("\n", $result['errors']))->toContain($expectedKey);
+        ->and(collect($result['errors'])->contains(fn (string $error): bool => str_starts_with($error, "{$expectedKey}: ")))->toBeTrue();
 })->with([
     'unknown top-level key' => ["version: 1\nreveiw: {}\n", 'reveiw'],
     'unknown nested key' => ["version: 1\nreview:\n  enabeld: true\n", 'review'],
@@ -61,6 +61,8 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     'min_confidence under limit' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    min_confidence: 50\n", 'review.approval.min_confidence'],
     'bad gate mode' => ["version: 1\nco_owner_gate:\n  mode: shadow\n", 'co_owner_gate.mode'],
     'bad url' => ["version: 1\nwalkthrough:\n  public_site_url: not-a-url\n", 'walkthrough.public_site_url'],
+    'exclude path with spaces' => ["version: 1\nreview:\n  exclude_paths: [ \"a b/**\" ]\n", 'review.exclude_paths.0'],
+    'empty allowed path' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"\" ]\n", 'review.approval.allowed_paths.0'],
     'path glob with spaces' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"a b/**\" ]\n", 'review.approval.allowed_paths.0'],
 ]);
 
@@ -94,8 +96,8 @@ it('validates risk-profile.yml with the shared area rules and unique names', fun
     $area = "  - name: Billing\n    risk: critical\n    paths: [ \"app/Billing/**\" ]\n    symbols: []\n    rationale: Charges cards.\n    evidence: [ \"InvoiceCalculator rounds per line\" ]\n";
 
     expect(parseYak('risk-profile.yml', "version: 1\nareas:\n{$area}unknowns: []\n")['errors'])->toBe([])
-        ->and(parseYak('risk-profile.yml', "version: 1\nareas:\n{$area}{$area}")['errors'])->not->toBe([])
-        ->and(parseYak('risk-profile.yml', "version: 1\nareas: []\n")['errors'])->not->toBe([]);
+        ->and(implode("\n", parseYak('risk-profile.yml', "version: 1\nareas:\n{$area}{$area}")['errors']))->toContain('areas.1.name: ')
+        ->and(implode("\n", parseYak('risk-profile.yml', "version: 1\nareas: []\n")['errors']))->toContain('areas: ');
 });
 
 it('limits AGENTS.md to 10000 characters and passes preview.sh through', function () {
