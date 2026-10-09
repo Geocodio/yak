@@ -174,12 +174,8 @@ class ReviewApprovalPolicy
                     $installationId, $repository->github_full_name, (int) $metadata['pr_number'],
                     (string) $metadata['head_sha'], (string) $pr['base']['ref'],
                 );
-                $requiredChecks = [];
-                foreach ($policy['required_checks'] as $check) {
-                    $requiredChecks[$check['name']] = isset($check['app_id']) ? (int) $check['app_id'] : null;
-                }
                 $reasons = $this->evidenceReasons(
-                    $evidence, $requiredChecks,
+                    $evidence, $this->requiredCheckMap($policy),
                     array_map('intval', array_column($policy['required_statuses'], 'creator_id', 'name')),
                 );
                 if ($reasons === []) {
@@ -208,6 +204,23 @@ class ReviewApprovalPolicy
         $decision['event'] = $mode === 'enforce' ? $decision['candidate'] : 'COMMENT';
 
         return $decision;
+    }
+
+    /**
+     * A file-backed check (match_any_app) matches by name from any app; a database
+     * check without an app ID maps to 0 and never matches.
+     *
+     * @param  array<string, mixed>  $policy
+     * @return array<string, int|null>
+     */
+    public function requiredCheckMap(array $policy): array
+    {
+        $map = [];
+        foreach ($policy['required_checks'] as $check) {
+            $map[$check['name']] = ($check['match_any_app'] ?? false) === true ? null : (int) ($check['app_id'] ?? 0);
+        }
+
+        return $map;
     }
 
     /**

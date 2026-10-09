@@ -44,8 +44,9 @@ final readonly class RepositorySettings
     }
 
     /**
-     * A file's approval block starts from the built-in defaults, not from the
-     * database, so a key left out of the file never inherits a stale form value.
+     * A key the file's approval block leaves out falls back to the repository's
+     * database policy. File required_checks are names only (match_any_app) and
+     * replace the database checks and statuses; without them both stay as stored.
      *
      * @return array<string, mixed>
      */
@@ -57,13 +58,15 @@ final readonly class RepositorySettings
             return $this->repository->reviewPolicy();
         }
 
-        $approval['required_checks'] = array_map(
-            fn (string $name): array => ['name' => $name, 'app_id' => null],
-            $approval['required_checks'] ?? [],
-        );
-        $approval['required_statuses'] = [];
+        if (array_key_exists('required_checks', $approval)) {
+            $approval['required_checks'] = array_map(
+                fn (string $name): array => ['name' => $name, 'match_any_app' => true],
+                $approval['required_checks'],
+            );
+            $approval['required_statuses'] = [];
+        }
 
-        return array_replace((new Repository)->reviewPolicy(), $approval);
+        return array_replace($this->repository->reviewPolicy(), $approval);
     }
 
     public function agentInstructions(): string

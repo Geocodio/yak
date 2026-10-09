@@ -22,10 +22,23 @@ it('maps the review approval block onto the policy shape with name-only checks',
     $policy = yakSettingsWith($repository, ['config.yml' => "version: 1\nreview:\n  approval:\n    mode: shadow\n    required_checks: [ tests ]\n"])->reviewPolicy();
 
     expect($policy['mode'])->toBe('shadow')
-        ->and($policy['allowed_paths'])->toBe([])
-        ->and($policy['required_checks'])->toBe([['name' => 'tests', 'app_id' => null]])
+        ->and($policy['allowed_paths'])->toBe(['db/**'])
+        ->and($policy['required_checks'])->toBe([['name' => 'tests', 'match_any_app' => true]])
         ->and($policy['required_statuses'])->toBe([])
         ->and($policy['max_lines'])->toBe(150);
+});
+
+it('keeps database blocked paths and required checks when the file omits them', function () {
+    $repository = Repository::factory()->make(['pr_review_policy' => [
+        'mode' => 'enforce', 'blocked_paths' => ['secrets/**'],
+        'required_checks' => [['name' => 'ci', 'app_id' => 7]], 'required_statuses' => [['name' => 's', 'creator_id' => 3]],
+    ]]);
+
+    $policy = yakSettingsWith($repository, ['config.yml' => "version: 1\nreview:\n  approval:\n    mode: shadow\n"])->reviewPolicy();
+
+    expect($policy['blocked_paths'])->toBe(['secrets/**'])
+        ->and($policy['required_checks'])->toBe([['name' => 'ci', 'app_id' => 7]])
+        ->and($policy['required_statuses'])->toBe([['name' => 's', 'creator_id' => 3]]);
 });
 
 it('falls back per key to the database', function () {

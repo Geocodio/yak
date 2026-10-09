@@ -40,3 +40,35 @@ it('uses the .yak/ risk profile as the active profile without approval columns',
     expect($profile['source'])->toBe('file')
         ->and($profile['version'])->toBe(hash('sha256', $content));
 });
+
+it('fails closed for a database check without an app id', function () {
+    $evidence = [
+        'dismiss_stale_reviews' => true, 'threads_clear' => true, 'total_count' => 1, 'status_count' => 0,
+        'check_runs' => [['name' => 'tests', 'status' => 'completed', 'conclusion' => 'success', 'app' => ['id' => 555]]],
+        'statuses' => [],
+    ];
+    $policy = ['required_checks' => [['name' => 'tests', 'app_id' => null], ['name' => 'lint']]];
+
+    expect(app(ReviewApprovalPolicy::class)->requiredCheckMap($policy))->toBe(['tests' => 0, 'lint' => 0])
+        ->and(app(ReviewApprovalPolicy::class)->evidenceReasons($evidence, app(ReviewApprovalPolicy::class)->requiredCheckMap($policy)))
+        ->toBe(['Required CI check missing from trusted app: tests']);
+});
+
+it('maps a file check to a name-only match', function () {
+    $map = app(ReviewApprovalPolicy::class)->requiredCheckMap(['required_checks' => [['name' => 'tests', 'match_any_app' => true], ['name' => 'ci', 'app_id' => 7]]]);
+
+    expect($map)->toBe(['tests' => null, 'ci' => 7]);
+});
+
+it('falls back to the database risk profile when risk-profile.yml is absent or invalid', function (array $files) {
+    Repository::factory()->create(['slug' => 'acme/api']);
+    $profiles = app(RepositoryRiskProfiles::class);
+    $draft = $profiles->draft('acme/api', str_repeat('a', 40), json_encode([
+        'areas' => [['name' => 'Docs', 'paths' => ['docs/**'], 'symbols' => [], 'risk' => 'low',
+            'rationale' => 'Documentation only.', 'evidence' => ['docs/guide.md:1']]], 'unknowns' => [],
+    ]));
+    $profiles->approve('acme/api', $draft['version'], 'reviewer');
+    fakeYakFiles($files);
+
+    expect($profiles->active('acme/api')['version'])->toBe($draft['version']);
+})->with([[[]], [['config.yml' => "version: 1\n"]]]);
