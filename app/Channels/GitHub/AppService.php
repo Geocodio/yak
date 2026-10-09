@@ -563,6 +563,58 @@ class AppService
     }
 
     /**
+     * The raw contents of a file at a ref, or null when the file does not exist.
+     *
+     * Any other failure throws, so callers never mistake a GitHub outage or a
+     * missing permission for a deleted file.
+     */
+    public function getFileContents(int $installationId, string $repoSlug, string $path, string $ref): ?string
+    {
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $path)));
+
+        $response = $this->installationClient($installationId)
+            ->withHeaders(['Accept' => 'application/vnd.github.raw+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/contents/{$encodedPath}", ['ref' => $ref]);
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        if (! $response->successful()) {
+            throw new \RuntimeException("GitHub returned {$response->status()} for {$path} at {$ref}.");
+        }
+
+        return $response->body();
+    }
+
+    /**
+     * The first merged pull request that contains a commit.
+     *
+     * @return array{number: int, title: string, url: string}|null
+     */
+    public function findPullRequestForCommit(int $installationId, string $repoSlug, string $sha): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$sha}/pulls");
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        foreach ((array) $response->json() as $pullRequest) {
+            if (is_array($pullRequest) && ($pullRequest['merged_at'] ?? null) !== null) {
+                return [
+                    'number' => (int) $pullRequest['number'],
+                    'title' => (string) $pullRequest['title'],
+                    'url' => (string) $pullRequest['html_url'],
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Re-run only the failed jobs of a workflow run, as a new attempt of the same run.
      */
     public function rerunFailedJobs(int $installationId, string $repoSlug, int $runId): bool
