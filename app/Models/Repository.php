@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\DataTransferObjects\RepositorySettings;
+use App\Services\RepositoryConfig;
+use Carbon\CarbonImmutable;
 use Database\Factories\RepositoryFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,6 +33,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<string, mixed>|null $pr_review_policy
  * @property bool $deployments_enabled
  * @property string|null $public_site_url
+ * @property CarbonImmutable|null $config_read_at
+ * @property CarbonImmutable|null $co_owner_gate_enforced_at
+ * @property string|null $config_commit_sha
+ * @property string|null $config_read_error
  */
 class Repository extends Model
 {
@@ -63,7 +70,24 @@ class Repository extends Model
             'preview_manifest' => 'array',
             'preview_env_overrides' => 'array',
             'current_template_version' => 'integer',
+            'config_read_at' => 'datetime',
+            'co_owner_gate_enforced_at' => 'datetime',
         ];
+    }
+
+    /** @return HasMany<RepositoryConfigFile, $this> */
+    public function configFiles(): HasMany
+    {
+        return $this->hasMany(RepositoryConfigFile::class);
+    }
+
+    /**
+     * The effective settings: the `.yak/` file on the default branch when it
+     * has a value, otherwise the database column.
+     */
+    public function settings(): RepositorySettings
+    {
+        return new RepositorySettings($this, app(RepositoryConfig::class)->snapshot($this));
     }
 
     /** @return array<string, mixed> */

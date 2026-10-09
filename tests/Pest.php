@@ -1,6 +1,12 @@
 <?php
 
 use App\Channels\Slack\SenderPolicy;
+use App\DataTransferObjects\ConfigFile;
+use App\DataTransferObjects\ConfigSnapshot;
+use App\Models\Repository;
+use App\Services\RepositoryConfig;
+use App\Services\RepositoryConfigParser;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
@@ -26,6 +32,19 @@ pest()->extend(TestCase::class)
             public function isAllowed(string $userId, string ...$payloadTeamIds): bool
             {
                 return true;
+            }
+        });
+
+        // Most tests never touch GitHub. They see the database values, as a
+        // repository without `.yak/` files does. Tests of the reader itself
+        // call app()->forgetInstance(RepositoryConfig::class).
+        app()->instance(RepositoryConfig::class, new class extends RepositoryConfig
+        {
+            public function __construct() {}
+
+            public function snapshot(Repository $repository): ConfigSnapshot
+            {
+                return ConfigSnapshot::unavailable();
             }
         });
     })
@@ -81,4 +100,30 @@ require_once __DIR__ . '/Helpers/AssertionHelpers.php';
 function forceClick(AwaitableWebpage $page, string $selector): void
 {
     $page->page()->locator($selector)->click(['force' => true]);
+}
+
+/**
+ * Serve fixed `.yak/` files to every Repository::settings() call in a test.
+ *
+ * @param  array<string, string>  $files  file name under .yak/ => raw content
+ */
+function fakeYakFiles(array $files, string $sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'): void
+{
+    $parsed = [];
+    foreach ($files as $name => $content) {
+        $result = (new RepositoryConfigParser)->parse($name, $content);
+        expect($result['errors'])->toBe([]);
+        $parsed[$name] = new ConfigFile($name, $result['data'], $content, $sha, null, null, null);
+    }
+    $snapshot = new ConfigSnapshot('read', $sha, CarbonImmutable::now(), null, $parsed);
+
+    app()->instance(RepositoryConfig::class, new class($snapshot) extends RepositoryConfig
+    {
+        public function __construct(private ConfigSnapshot $fixedSnapshot) {}
+
+        public function snapshot(Repository $repository): ConfigSnapshot
+        {
+            return $this->fixedSnapshot;
+        }
+    });
 }
