@@ -93,7 +93,7 @@ co_owner_gate:
 |---|---|
 | `version` | The file format version. Always `1`. Required. |
 | `description` | A short description of what the repository is, shown to Yak as context. Up to 1000 characters. |
-| `ci` | The CI system Yak reads build results from: `github_actions`, `drone` or `none`. |
+| `ci` | The CI system Yak reads build results from: `github_actions`, `drone` or `none`. When absent, it falls back to the CI system stored in Yak, which setup detects. |
 | `walkthrough.public_site_url` | The public origin shown in the mock URL bar of walkthrough videos. Up to 255 characters. |
 | `pull_requests.large_change_lines` | The number of changed lines above which a PR counts as large. At least 1. |
 | `co_owner_gate.mode` | `off` or `enforce`. See the note below. |
@@ -102,7 +102,7 @@ co_owner_gate:
 | `review.approval.mode` | Required when `approval` is set. `off`, `shadow` (record what Yak would decide without acting) or `enforce`. |
 | `review.approval.allowed_paths` | Path globs a change must stay within to be approved. Up to 100. |
 | `review.approval.blocked_paths` | Path globs that always need a human. Up to 100. They are added to the host floor, never replace it. |
-| `review.approval.required_checks` | Check names that must pass before Yak approves. Up to 50. Matched by name. |
+| `review.approval.required_checks` | Check names that must pass before Yak approves. Up to 50, each name up to 255 characters. Matched by name. |
 | `review.approval.max_files` | The most files a change may touch and still be approved. 1 to 100. |
 | `review.approval.max_lines` | The most changed lines a change may have and still be approved. 1 to 5000. |
 | `review.approval.max_risk_score` | The highest risk score a change may have and still be approved. 0 to 30. |
@@ -211,7 +211,7 @@ unknowns:
 | `areas[].risk` | `low`, `medium`, `high`, `critical` or `unknown`. |
 | `areas[].rationale` | Why the area has this risk level. Up to 4000 characters. |
 | `areas[].evidence` | Facts from the repository that support the rationale. 1 to 100 entries, each up to 1000 characters. |
-| `unknowns` | Questions Yak could not answer and a human should check. Up to 100. Any entry blocks auto-approval. |
+| `unknowns` | Questions Yak could not answer and a human should check. Up to 100, each up to 2000 characters. Any entry blocks auto-approval. |
 
 Yak can write this file for you. Starting risk profile generation on the repository page opens a PR on the `yak/risk-profile` branch, or updates the open one. Merging the PR approves the profile.
 
@@ -262,7 +262,7 @@ CODEOWNERS support arrives later, together with the co-owner gate. Use placehold
 
 ## The yak / config check
 
-When a PR touches `.yak/**`, Yak adds a check run named `yak / config` to the PR head commit. It validates the changed files and reports any errors. The check reads only the PR's head commit. Config used by Yak itself still comes only from the default branch.
+When a PR touches `.yak/**`, Yak adds a check run named `yak / config` to the PR head commit. It validates every `.yak/` file present at that commit, and for `risk-profile.yml` it also fails any path glob that matches no file. The check reads only the PR's head commit. Config used by Yak itself still comes only from the default branch.
 
 Make `yak / config` a required status check in branch protection, so a broken file cannot merge. This needs the Checks (Read & Write) permission. See [Accepting new permissions](channels.md#accepting-new-permissions).
 
@@ -284,6 +284,6 @@ A repository that was added before `.yak/` existed keeps its settings in Yak. To
 - click **Open a config PR** on the repository page, or
 - run `php artisan yak:migrate-config` on the server. Add `--repo=<slug>` for one repository and `--dry-run` to see what would be written without opening a PR.
 
-Yak opens a PR on the `yak/config-migration` branch with the `yak` label. The PR reproduces today's effective values. The one difference is that required checks no longer pin a GitHub App ID, because they match by name. The PR body says so.
+Yak opens a PR on the `yak/config-migration` branch with the `yak` label. The PR reproduces today's effective values. The one difference is that required checks no longer pin a GitHub App ID, because they match by name. The PR body says so. `yak:migrate-config` skips repositories that already have `.yak/` files, or whose `.yak/` Yak could not read.
 
-New repositories get the same thing from setup: it opens a PR on `yak/setup-config` that adds `config.yml` and `preview.yml`. Settings apply once the PR merges.
+New repositories get the same thing from setup: it opens a PR on `yak/setup-config` that adds `config.yml` and `preview.yml`. Setup opens its PR only when neither `config.yml` nor `preview.yml` exists. Settings apply once the PR merges.

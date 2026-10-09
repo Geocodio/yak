@@ -64,8 +64,8 @@ The GitHub App subscribes to:
 - `issue_comment.created` — `/yak` follow-up comments on an open PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review.submitted` — review feedback on Yak's PRs, and `/yak` summons in reviews and inline comments on any PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review_comment.created` — `/yak` follow-up replies on an inline review comment (the file, line, and diff hunk are passed to Yak as context)
-- `push` — refreshes branch preview deployments and re-reads `.yak/` when the default branch moves
-- `delete` — tears down branch preview deployments
+- `push`: refreshes branch preview deployments and re-reads `.yak/` when the default branch moves
+- `delete`: tears down branch preview deployments
 - `repository.renamed` / `repository.transferred` — keeps Yak's record of where the repo lives on GitHub current
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
