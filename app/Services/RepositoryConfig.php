@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ConfigFile;
 use App\DataTransferObjects\ConfigSnapshot;
+use App\Jobs\CommentOnBrokenConfigJob;
 use App\Models\Repository;
 use App\Models\RepositoryConfigFile;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -159,6 +160,10 @@ class RepositoryConfig
                 if ($row->error !== $error) {
                     $row->error_commit_sha = $sha;
                     $row->error_pull_request = $this->github->findPullRequestForCommit($installationId, $repository->github_full_name, $sha);
+
+                    if ($row->error_pull_request !== null) {
+                        CommentOnBrokenConfigJob::dispatch($repository->id, $name, $sha)->afterCommit();
+                    }
                 }
                 $row->error = $error;
             }
