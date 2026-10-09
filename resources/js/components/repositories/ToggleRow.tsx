@@ -1,5 +1,6 @@
 import { Toggle } from '@geocodio/console-ui';
 import { BookOpen } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 export function ToggleRow({
     label,
@@ -8,6 +9,8 @@ export function ToggleRow({
     onChange,
     id,
     docsHref,
+    badge,
+    disabled = false,
 }: {
     label: string;
     description: string;
@@ -15,11 +18,16 @@ export function ToggleRow({
     onChange: (value: boolean) => void;
     id?: string;
     docsHref?: string;
+    badge?: ReactNode;
+    disabled?: boolean;
 }) {
     return (
         <div id={id} className="flex items-start justify-between gap-6 rounded-card border border-hair bg-panel px-4 py-3 shadow-card">
             <div>
-                <div className="text-[13px] font-medium">{label}</div>
+                <div className="flex flex-wrap items-center gap-2 text-[13px] font-medium">
+                    {label}
+                    {badge}
+                </div>
                 <div className="mt-0.5 text-[12px] text-muted">{description}</div>
                 {docsHref && (
                     <a
@@ -32,7 +40,7 @@ export function ToggleRow({
                     </a>
                 )}
             </div>
-            <Toggle checked={checked} onCheckedChange={onChange} label={label} className="mt-0.5" />
+            <Toggle disabled={disabled} checked={checked} onCheckedChange={onChange} label={label} className="mt-0.5" />
         </div>
     );
 }

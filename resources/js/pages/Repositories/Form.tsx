@@ -1,5 +1,5 @@
-import { Head, useForm } from '@inertiajs/react';
-import { Badge, Button, Field, PageHeader, Select, StatusPill, Textarea, TextInput, Tooltip } from '@geocodio/console-ui';
+import { Deferred, Head, useForm } from '@inertiajs/react';
+import { Badge, Button, Field, PageHeader, Select, Skeleton, StatusPill, Textarea, TextInput, Tooltip } from '@geocodio/console-ui';
 import { BookOpen, ExternalLink, Info, RefreshCw, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
@@ -11,6 +11,8 @@ import { GitHubRepoPicker } from '@/components/repositories/GitHubRepoPicker';
 import { PathExcludes } from '@/components/repositories/PathExcludes';
 import { SetupHistory } from '@/components/repositories/SetupHistory';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
+import { ConfigSourceBadge, LockedField, LockedValue, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
+import { YakConfigStrip, YakConfigStripSkeleton } from '@/components/repositories/YakConfigStrip';
 import { ReviewApprovalSettings } from '@/components/repositories/ReviewApprovalSettings';
 import type { ReviewPolicy } from '@/types/repositories';
 import repos from '@/routes/repos';
@@ -72,6 +74,7 @@ function Section({
     children,
     aside,
     docsHref,
+    headerAside,
 }: {
     id: string;
     title: string;
@@ -79,6 +82,7 @@ function Section({
     children: ReactNode;
     aside?: ReactNode;
     docsHref?: string;
+    headerAside?: ReactNode;
 }) {
     return (
         <section id={id} className="grid grid-cols-1 gap-4 border-b border-hair py-8 first:pt-2 last:border-0 lg:grid-cols-[220px_1fr] lg:gap-8">
@@ -96,6 +100,7 @@ function Section({
                     </a>
                 )}
                 {aside}
+                {headerAside && <div className="mt-2 flex flex-col items-start gap-1.5">{headerAside}</div>}
             </div>
             <div className="flex flex-col gap-6">{children}</div>
         </section>
@@ -130,20 +135,39 @@ function ManifestSection({
     manifest,
     errors,
     onChange,
+    yakConfig,
 }: {
     repository: RepositoryDetail;
     manifest: ManifestData;
     errors: Partial<Record<'manifest.port' | 'manifest.health_probe_path' | 'manifest.wake_timeout_seconds', string>>;
     onChange: (manifest: ManifestData) => void;
+    yakConfig?: YakConfig;
 }) {
     const action = useRouterAction();
+    const fileManifest = yakConfig?.values.previewManifest ?? null;
 
     const setField = <K extends keyof ManifestData>(key: K, value: ManifestData[K]) => {
         onChange({ ...manifest, [key]: value });
     };
 
     return (
-        <Section id="branch-deployments" title="Branch deployments" description="How the preview for this repository is built and served.">
+        <Section
+            id="branch-deployments"
+            title="Branch deployments"
+            description="How the preview for this repository is built and served."
+            headerAside={
+                yakConfig && fileManifest ? (
+                    <>
+                        <ConfigSourceBadge field="previewManifest" config={yakConfig} fileName="preview.yml" />
+                        <ProposeChangeLink config={yakConfig} fileName="preview.yml" />
+                    </>
+                ) : undefined
+            }
+        >
+            {yakConfig && fileManifest ? (
+                <LockedManifest manifest={fileManifest} config={yakConfig} />
+            ) : (
+            <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Port" description="Container port serving HTTP inside the preview." error={errors['manifest.port']}>
                     <TextInput type="number" value={manifest.port} onChange={(e) => setField('port', Number(e.target.value))} />
@@ -186,6 +210,8 @@ function ManifestSection({
             >
                 <TextInput type="number" value={manifest.wakeTimeoutSeconds} onChange={(e) => setField('wakeTimeoutSeconds', Number(e.target.value))} />
             </Field>
+            </>
+            )}
             <div>
                 <Button
                     icon={<RefreshCw size={13} />}
@@ -200,11 +226,52 @@ function ManifestSection({
     );
 }
 
-export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks }: Props) {
+function FieldSkeleton({ label, height }: { label: string; height: string }) {
+    return (
+        <div className="flex flex-col gap-1.5" data-testid="yak-config-field-skeleton">
+            <div className="text-[12px] font-medium">{label}</div>
+            <Skeleton className={`${height} w-full rounded-control`} />
+        </div>
+    );
+}
+
+function LockedManifest({ manifest, config }: { manifest: Record<string, unknown>; config: YakConfig }) {
+    const show = (key: string) => (manifest[key] === undefined || manifest[key] === null || manifest[key] === '' ? 'Not set' : String(manifest[key]));
+
+    return (
+        <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <LockedField label="Port" field="manifestPort" config={config} fileName="preview.yml" mono>{show('port')}</LockedField>
+                <LockedField label="Health probe path" field="manifestHealthProbePath" config={config} fileName="preview.yml" mono>{show('health_probe_path')}</LockedField>
+            </div>
+            <LockedField label="Cold start command" field="manifestColdStart" config={config} fileName="preview.yml" mono>{show('cold_start')}</LockedField>
+            <div className="flex flex-col gap-1.5">
+                <div className="flex flex-wrap items-center gap-2 text-[12px] font-medium">
+                    Checkout refresh command
+                    {config.values.previewScript && <Badge tone="neutral">Replaced by .yak/preview.sh</Badge>}
+                </div>
+                <LockedValue mono testId="locked-manifestCheckoutRefresh">{show('checkout_refresh')}</LockedValue>
+                {config.values.previewScript && <p className="text-[12px] text-muted"><span className="font-mono">.yak/preview.sh</span> is committed, so deployments run it instead of this command.</p>}
+            </div>
+            <LockedField label="Wake timeout (seconds)" field="manifestWakeTimeout" config={config} fileName="preview.yml" mono>{show('wake_timeout_seconds')}</LockedField>
+        </>
+    );
+}
+
+export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks, yakConfig }: Props) {
     const isEditing = repository !== null;
     const showManifest = isEditing && repository.deploymentsEnabled && manifest !== null;
 
     const action = useRouterAction();
+
+    /**
+     * A non-null `.yak/` value locks its field: the file value is shown
+     * read-only and the form keeps submitting the database value.
+     */
+    const fileValues = yakConfig?.values;
+    const isReadingConfig = isEditing && yakConfig === undefined;
+    const isPrReviewLocked = fileValues?.prReviewEnabled != null;
+    const isPrReviewOn = isPrReviewLocked ? (fileValues?.prReviewEnabled as boolean) : null;
 
     const form = useForm<FormData>({
         name: repository?.name ?? '',
@@ -229,6 +296,8 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         selected_github_repo_id: null,
         manifest,
     });
+
+    const isPrReviewEnabled = isPrReviewOn ?? form.data.pr_review_enabled;
 
     const manifestErrors = form.errors as Partial<Record<'manifest.port' | 'manifest.health_probe_path' | 'manifest.wake_timeout_seconds', string>>;
 
@@ -358,6 +427,20 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         for details.
                     </p>
 
+                    {isEditing && repository && (
+                        <Deferred data="yakConfig" fallback={<YakConfigStripSkeleton />}>
+                            {yakConfig ? (
+                                <YakConfigStrip
+                                    config={yakConfig}
+                                    slug={repository.slug}
+                                    branch={repository.defaultBranch}
+                                    setupDone={yakConfig.setupStatus === 'ready'}
+                                    guideUrl={docsLinks.guide}
+                                />
+                            ) : null}
+                        </Deferred>
+                    )}
+
                     {!isEditing && (
                         <Section
                             id="github"
@@ -423,19 +506,33 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </a>
                             </Field>
                         </div>
-                        <Field
-                            label="Description"
-                            description="One-line description of what this repo does. Used to route natural-language tasks to the right repo."
-                            error={form.errors.description}
-                        >
-                            <Textarea rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
-                        </Field>
+                        {isReadingConfig ? (
+                            <FieldSkeleton label="Description" height="h-[58px]" />
+                        ) : yakConfig && fileValues?.description != null ? (
+                            <LockedField label="Description" field="description" config={yakConfig} fileName="config.yml" propose>
+                                {fileValues.description}
+                            </LockedField>
+                        ) : (
+                            <Field
+                                label="Description"
+                                description="One-line description of what this repo does. Used to route natural-language tasks to the right repo."
+                                error={form.errors.description}
+                            >
+                                <Textarea rows={2} value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} />
+                            </Field>
+                        )}
                         <p className="-mt-4 text-[12px] text-muted">
                             <a href={docsLinks.routing} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-accent-text hover:underline">
                                 <BookOpen size={11} /> See how routing works
                             </a>
                         </p>
-                        {isEditing && (
+                        {isReadingConfig ? (
+                            <FieldSkeleton label="Agent instructions" height="h-[120px]" />
+                        ) : yakConfig && fileValues?.agentInstructions != null ? (
+                            <LockedField label="Agent instructions" field="agentInstructions" config={yakConfig} fileName="AGENTS.md" mono propose>
+                                {fileValues.agentInstructions}
+                            </LockedField>
+                        ) : isEditing && (
                             <Field
                                 label="Agent instructions"
                                 description="Freeform notes appended to every task's system prompt for this repo. Leave empty to use only the global rules."
@@ -465,6 +562,13 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         )}
                         {isEditing && (
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                {isReadingConfig ? (
+                                    <FieldSkeleton label="Public site URL" height="h-[34px]" />
+                                ) : yakConfig && fileValues?.publicSiteUrl != null ? (
+                                    <LockedField label="Public site URL" field="publicSiteUrl" config={yakConfig} fileName="config.yml">
+                                        {fileValues.publicSiteUrl}
+                                    </LockedField>
+                                ) : (
                                 <Field label="Public site URL" description="Shown in the video's browser bar instead of the sandbox address." error={form.errors.public_site_url}>
                                     <TextInput
                                         placeholder="https://www.example.com"
@@ -472,6 +576,14 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                         onChange={(e) => form.setData('public_site_url', e.target.value)}
                                     />
                                 </Field>
+                                )}
+                                {isReadingConfig ? (
+                                    <FieldSkeleton label="CI system" height="h-[34px]" />
+                                ) : yakConfig && fileValues?.ciSystem != null ? (
+                                    <LockedField label="CI system" field="ciSystem" config={yakConfig} fileName="config.yml">
+                                        {options.ciSystems.find((system) => system.value === fileValues.ciSystem)?.label ?? fileValues.ciSystem}
+                                    </LockedField>
+                                ) : (
                                 <Field label="CI system" error={form.errors.ci_system}>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Select
@@ -483,6 +595,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                         <InfoTip label="Where Yak reads CI results from after it pushes a branch. Detected from the repo when you add it." />
                                     </div>
                                 </Field>
+                                )}
                                 {options.sentryProjects.length > 0 ? (
                                     <Field label="Sentry project">
                                         <div className="flex flex-wrap items-center gap-2">
@@ -535,14 +648,24 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 onChange={(v) => form.setData('default_responsible_user_id', v ?? '')}
                             />
                         </Field>
-                        <ToggleRow
-                            label="PR review"
-                            description="Have Yak review every open, non-draft pull request on this repo."
-                            checked={form.data.pr_review_enabled}
-                            onChange={(v) => form.setData('pr_review_enabled', v)}
-                            docsHref={docsLinks.prReview}
-                        />
-                        {form.data.pr_review_enabled && !(repository?.prReviewEnabled ?? false) && (
+                        {isReadingConfig ? (
+                            <FieldSkeleton label="PR review" height="h-[58px]" />
+                        ) : (
+                            <ToggleRow
+                                label="PR review"
+                                description={
+                                    isPrReviewLocked
+                                        ? 'Set by review.enabled in the file.'
+                                        : 'Have Yak review every open, non-draft pull request on this repo.'
+                                }
+                                checked={isPrReviewEnabled}
+                                onChange={(v) => form.setData('pr_review_enabled', v)}
+                                docsHref={docsLinks.prReview}
+                                disabled={isPrReviewLocked}
+                                badge={yakConfig && isPrReviewLocked ? <ConfigSourceBadge field="prReviewEnabled" config={yakConfig} fileName="config.yml" /> : undefined}
+                            />
+                        )}
+                        {!isPrReviewLocked && form.data.pr_review_enabled && !(repository?.prReviewEnabled ?? false) && (
                             <ToggleRow
                                 label="Review all currently open PRs on save"
                                 description="Enqueues a review task for every open, non-draft pull request once this repository is saved."
@@ -550,7 +673,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 onChange={(v) => form.setData('apply_to_open_prs', v)}
                             />
                         )}
-                        {isEditing && repository && form.data.pr_review_enabled && repository.prReviewEnabled && (
+                        {isEditing && repository && isPrReviewEnabled && repository.prReviewEnabled && (
                             <div>
                                 <Button
                                     pending={action.isPending('review-open-prs')}
@@ -561,10 +684,20 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </Button>
                             </div>
                         )}
-                        {form.data.pr_review_enabled && (
+                        {isPrReviewEnabled && (isReadingConfig ? (
+                            <Skeleton className="h-24 w-full rounded-card" />
+                        ) : yakConfig && fileValues?.pathExcludes != null ? (
+                            <LockedField label="PR review path filters" field="pathExcludes" config={yakConfig} fileName="config.yml" mono propose>
+                                {fileValues.pathExcludes.join('\n') || 'None'}
+                            </LockedField>
+                        ) : (
                             <PathExcludes value={form.data.path_excludes} defaults={options.defaultPathExcludes} onChange={(v) => form.setData('path_excludes', v)} />
-                        )}
-                        {form.data.pr_review_enabled && <ReviewApprovalSettings value={form.data.pr_review_policy} onChange={(policy) => form.setData('pr_review_policy', policy)} errors={form.errors} repository={repository} />}
+                        ))}
+                        {isPrReviewEnabled && (isReadingConfig ? (
+                            <Skeleton className="h-48 w-full rounded-card" />
+                        ) : (
+                            <ReviewApprovalSettings value={form.data.pr_review_policy} onChange={(policy) => form.setData('pr_review_policy', policy)} errors={form.errors} repository={repository} yakConfig={yakConfig} />
+                        ))}
                         {isEditing && (
                             <ToggleRow
                                 label="Branch deployments"
@@ -587,8 +720,10 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         </div>
                     )}
 
-                    {isEditing && repository && showManifest && form.data.manifest && (
+                    {isEditing && repository && showManifest && isReadingConfig && <Skeleton className="mb-6 h-64 w-full rounded-card" />}
+                    {isEditing && repository && showManifest && !isReadingConfig && form.data.manifest && (
                         <ManifestSection
+                            yakConfig={yakConfig}
                             repository={repository}
                             manifest={form.data.manifest}
                             errors={manifestErrors}

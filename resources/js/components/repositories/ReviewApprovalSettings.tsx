@@ -4,21 +4,29 @@ import { useState } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { show as showPrompt } from '@/routes/prompts';
-import type { RepositoryDetail, ReviewPolicy } from '@/types/repositories';
+import { ConfigSourceBadge, LockedField, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
+import type { RepositoryDetail, ReviewPolicy, YakConfig } from '@/types/repositories';
 
-export function ReviewApprovalSettings({ value, onChange, errors, repository }: {
+export function ReviewApprovalSettings({ value, onChange, errors, repository, yakConfig }: {
     value: ReviewPolicy;
     onChange: (policy: ReviewPolicy) => void;
     errors: Record<string, string | undefined>;
     repository: RepositoryDetail | null;
+    yakConfig?: YakConfig;
 }) {
+    const lockedPolicy = yakConfig?.values.reviewPolicy as ReviewPolicy | null | undefined;
+    const lockedRisk = yakConfig?.values.riskProfile;
     const set = <K extends keyof ReviewPolicy>(key: K, next: ReviewPolicy[K]) => onChange({ ...value, [key]: next });
     return (
         <div className="space-y-4 rounded-card border border-hair bg-panel p-4" data-testid="review-approval-settings">
             <div>
-                <h3 className="text-[13px] font-semibold">Risk-based approval</h3>
+                <h3 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
+                    Risk-based approval
+                    {yakConfig && lockedPolicy && <ConfigSourceBadge field="reviewPolicy" config={yakConfig} fileName="config.yml" />}
+                </h3>
                 <p className="mt-1 text-[12px] text-muted">Yak can approve eligible PRs by other authors. Yak-authored PRs need a human approval. Yak never merges.</p>
             </div>
+            {yakConfig && lockedPolicy ? <LockedPolicy policy={lockedPolicy} config={yakConfig} /> : <>
             <Field label="Approval mode" error={errors['pr_review_policy.mode']}>
                 <Select value={value.mode} onChange={(mode) => set('mode', (mode ?? 'off') as ReviewPolicy['mode'])} options={[
                     { value: 'off', label: 'Off: comments only' },
@@ -68,10 +76,56 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository }: 
                 </Field>
             ))}
             {Object.entries(errors).filter(([key, error]) => key.startsWith('pr_review_policy.') && error).map(([key, error]) => <p key={key} role="alert" className="text-[12px] text-fail">{error}</p>)}
+            </>}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
             {' · '}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
-            {repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
+            {yakConfig && repository && lockedRisk ? <LockedRiskProfile profile={lockedRisk} config={yakConfig} branch={repository.defaultBranch} /> : repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
+        </div>
+    );
+}
+
+function LockedPolicy({ policy, config }: { policy: ReviewPolicy; config: YakConfig }) {
+    const lines = (items: string[]) => (items.length > 0 ? items.join('\n') : 'None');
+    const checks = [...policy.required_checks.map((check) => check.name), ...policy.required_statuses.map((status) => status.name)];
+
+    return (
+        <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <LockedField label="Approval mode" field="reviewPolicyMode" config={config} fileName="config.yml" mono>{policy.mode}</LockedField>
+                <LockedField label="Required checks" field="reviewPolicyChecks" config={config} fileName="config.yml" mono>{lines(checks)}</LockedField>
+                <LockedField label="Allowed paths" field="reviewPolicyAllowed" config={config} fileName="config.yml" mono>{lines(policy.allowed_paths)}</LockedField>
+                <LockedField label="Additional blocked paths" field="reviewPolicyBlocked" config={config} fileName="config.yml" mono>{lines(policy.blocked_paths)}</LockedField>
+            </div>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+                {([
+                    ['max_files', 'Max files'],
+                    ['max_lines', 'Max lines'],
+                    ['max_risk_score', 'Max risk score'],
+                    ['min_confidence', 'Min confidence'],
+                    ['profile_max_age_days', 'Profile validity (days)'],
+                ] as const).map(([key, label]) => (
+                    <LockedField key={key} label={label} field={`reviewPolicy-${key}`} config={config} fileName="config.yml" mono>{policy[key]}</LockedField>
+                ))}
+            </div>
+            <ProposeChangeLink config={config} fileName="config.yml" />
+        </div>
+    );
+}
+
+function LockedRiskProfile({ profile, config, branch }: { profile: NonNullable<YakConfig['values']['riskProfile']>; config: YakConfig; branch: string }) {
+    return (
+        <div className="space-y-2 border-t border-hair pt-4" data-testid="locked-risk-profile">
+            <h4 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
+                Repository risk profile
+                <ConfigSourceBadge field="riskProfile" config={config} fileName="risk-profile.yml" />
+            </h4>
+            <p className="text-[13px] font-medium">{profile.areas} areas, {profile.unknowns} open {profile.unknowns === 1 ? 'question' : 'questions'}</p>
+            <p className="text-[12px] text-muted">
+                Approved by merging into {branch}.{profile.commitSha ? <> In use since <span className="font-mono">{profile.commitSha.slice(0, 7)}</span>.</> : null}
+            </p>
+            {profile.unknowns > 0 && <p className="text-[12px] text-warn">Open questions block Yak's auto-approval until they are answered in the file.</p>}
+            <ProposeChangeLink config={config} fileName="risk-profile.yml" />
         </div>
     );
 }
