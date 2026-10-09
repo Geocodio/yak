@@ -219,3 +219,29 @@ it('lists at most 30 problems per file in the summary', function () {
     expect(substr_count($summary, 'unknown key'))->toBe(30)
         ->and($summary)->toContain('- and 10 more');
 });
+
+it('stops the glob check when the time budget runs out', function () {
+    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml('app/Legacy/**')]);
+
+    $payload = (new RepositoryConfigCheck(app(AppService::class), new RepositoryConfigParser, globCheckSeconds: 0))->run($this->repository, 7, CHECK_SHA);
+
+    expect($payload['conclusion'])->toBe('success')
+        ->and($payload['output']['summary'])->toContain('Skipped the rest of the glob check')
+        ->not->toContain('matches no file');
+});
+
+it('restores the pcre backtrack limit after the glob check, even when it throws', function () {
+    ini_set('pcre.backtrack_limit', '777777');
+
+    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml()]);
+    app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+    expect(ini_get('pcre.backtrack_limit'))->toBe('777777');
+
+    Http::fake(['api.github.com/repos/acme/api/git/trees/*' => Http::response([], 500)]);
+    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml()]);
+    try {
+        app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+    } catch (Throwable) {
+    }
+    expect(ini_get('pcre.backtrack_limit'))->toBe('777777');
+});

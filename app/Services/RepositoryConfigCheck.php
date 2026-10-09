@@ -24,10 +24,17 @@ class RepositoryConfigCheck
     /** Upper bound on glob x path comparisons, since risk-profile content comes from the pull request. */
     public const MAX_GLOB_COMPARISONS = 2000000;
 
+    /** Wall-clock budget for the whole glob check. */
+    public const GLOB_CHECK_SECONDS = 5;
+
+    /** Tighter than PHP's default so one hostile glob cannot run long. */
+    private const GLOB_BACKTRACK_LIMIT = '100000';
+
     public function __construct(
         private AppService $github,
         private RepositoryConfigParser $parser,
         private int $maxGlobComparisons = self::MAX_GLOB_COMPARISONS,
+        private float $globCheckSeconds = self::GLOB_CHECK_SECONDS,
     ) {}
 
     /**
@@ -89,60 +96,68 @@ class RepositoryConfigCheck
         $notes = [];
 
         if (isset($dataByFile['risk-profile.yml'])) {
-            $tree = $this->github->listTreePaths($installationId, $slug, $headSha);
-            $content = $contentByFile['risk-profile.yml'];
-            $comparisons = 0;
-            $isCapped = false;
+            $previousBacktrackLimit = ini_set('pcre.backtrack_limit', self::GLOB_BACKTRACK_LIMIT);
+            $startedAt = hrtime(true);
 
-            if ($tree === null) {
-                $notes[] = 'Skipped the glob check: GitHub truncated the file list for this commit.';
-            }
+            try {
+                $tree = $this->github->listTreePaths($installationId, $slug, $headSha);
+                $content = $contentByFile['risk-profile.yml'];
+                $comparisons = 0;
+                $isCapped = false;
 
-            foreach ($tree === null ? [] : $dataByFile['risk-profile.yml']['areas'] ?? [] as $areaIndex => $area) {
-                $isDead = false;
-
-                foreach ($area['paths'] ?? [] as $pathIndex => $glob) {
-                    $matcher = PathMatcher::compile($glob);
-                    $isMatched = false;
-                    $isUnchecked = false;
-
-                    foreach ($tree as $path) {
-                        if ($comparisons++ >= $this->maxGlobComparisons) {
-                            $isCapped = true;
-
-                            break 3;
-                        }
-
-                        $result = $matcher($path);
-
-                        if ($result === null) {
-                            $isUnchecked = true;
-
-                            break;
-                        }
-
-                        if ($result) {
-                            $isMatched = true;
-
-                            break;
-                        }
-                    }
-
-                    if ($isUnchecked) {
-                        $notes[] = "Could not check: `{$glob}`";
-                    }
-
-                    if ($isMatched || $isUnchecked) {
-                        continue;
-                    }
-
-                    $isDead = true;
-                    $line = YamlKeyLocator::line($content, "areas.{$areaIndex}.paths.{$pathIndex}");
-                    $line = $line === 1 ? YamlKeyLocator::line($content, "areas.{$areaIndex}.paths") : $line;
-                    $fail('risk-profile.yml', "Area **{$area['name']}**: `{$glob}` matches no file in this commit", "Area \"{$area['name']}\": {$glob} matches no file", $line);
+                if ($tree === null) {
+                    $notes[] = 'Skipped the glob check: GitHub truncated the file list for this commit.';
                 }
 
-                $deadAreaCount += $isDead ? 1 : 0;
+                foreach ($tree === null ? [] : $dataByFile['risk-profile.yml']['areas'] ?? [] as $areaIndex => $area) {
+                    $isDead = false;
+
+                    foreach ($area['paths'] ?? [] as $pathIndex => $glob) {
+                        $matcher = PathMatcher::compile($glob);
+                        $isMatched = false;
+                        $isUnchecked = false;
+
+                        foreach ($tree as $path) {
+                            if ($comparisons++ >= $this->maxGlobComparisons || hrtime(true) - $startedAt >= $this->globCheckSeconds * 1e9) {
+                                $isCapped = true;
+
+                                break 3;
+                            }
+
+                            $result = $matcher($path);
+
+                            if ($result === null) {
+                                $isUnchecked = true;
+
+                                break;
+                            }
+
+                            if ($result) {
+                                $isMatched = true;
+
+                                break;
+                            }
+                        }
+
+                        if ($isUnchecked) {
+                            $notes[] = "Could not check: `{$glob}`";
+                        }
+
+                        if ($isMatched || $isUnchecked) {
+                            continue;
+                        }
+
+                        $isDead = true;
+                        $line = YamlKeyLocator::line($content, "areas.{$areaIndex}.paths.{$pathIndex}");
+                        $line = $line === 1 ? YamlKeyLocator::line($content, "areas.{$areaIndex}.paths") : $line;
+                        $fail('risk-profile.yml', "Area **{$area['name']}**: `{$glob}` matches no file in this commit", "Area \"{$area['name']}\": {$glob} matches no file", $line);
+                    }
+
+                    $deadAreaCount += $isDead ? 1 : 0;
+                }
+
+            } finally {
+                ini_set('pcre.backtrack_limit', (string) $previousBacktrackLimit);
             }
 
             if ($isCapped) {

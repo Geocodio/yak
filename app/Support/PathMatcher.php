@@ -42,8 +42,12 @@ class PathMatcher
         return static function (string $path) use ($regex, $isAnchored): ?bool {
             $result = preg_match($regex, $path);
 
+            if ($result === false) {
+                return null;
+            }
+
             if ($result === 1 || $isAnchored) {
-                return $result === false ? null : $result === 1;
+                return $result === 1;
             }
 
             $basenameResult = preg_match($regex, basename($path));
@@ -72,10 +76,8 @@ class PathMatcher
                 $regex .= '[^/]*';
             } elseif ($c === '?') {
                 $regex .= '[^/]';
-            } elseif (in_array($c, ['.', '+', '(', ')', '[', ']', '^', '$', '|', '\\'], true)) {
-                $regex .= '\\' . $c;
             } else {
-                $regex .= $c;
+                $regex .= preg_quote($c, '#');
             }
         }
 
