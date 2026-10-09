@@ -118,3 +118,18 @@ it('limits AGENTS.md to 10000 characters and passes preview.sh through', functio
         ->and(parseYak('AGENTS.md', str_repeat('a', 10001))['errors'])->toBe(['AGENTS.md: must be at most 10000 characters'])
         ->and(parseYak('preview.sh', "#!/bin/sh\nmake\n")['data'])->toBe("#!/bin/sh\nmake\n");
 });
+
+it('caps the error list and counts the rest', function () {
+    $yaml = "version: 1\n" . implode('', array_map(fn (int $index): string => "unknown_{$index}: 1\n", range(1, 5000)));
+
+    $errors = parseYak('config.yml', $yaml)['errors'];
+
+    expect($errors)->toHaveCount(RepositoryConfigParser::MAX_ERRORS + 1)
+        ->and(end($errors))->toBe('… and 4900 more errors');
+});
+
+it('rejects risk profile path globs with characters outside the glob set', function (string $glob) {
+    $yaml = "version: 1\nareas:\n  - name: Billing\n    paths: [ \"{$glob}\" ]\n    symbols: []\n    risk: high\n    rationale: Money\n    evidence: [ a ]\nunknowns: []\n";
+
+    expect(implode("\n", parseYak('risk-profile.yml', $yaml)['errors']))->toContain('areas.0.paths.0: ');
+})->with(['hash' => 'app/#x', 'space' => 'app/Billing x']);

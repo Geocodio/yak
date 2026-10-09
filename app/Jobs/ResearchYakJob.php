@@ -38,6 +38,7 @@ use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\YakConfigFiles;
 use App\Services\YakPersonality;
+use App\Support\MarkdownText;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -304,7 +305,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             }
 
             $current = $repository->settings()->riskProfile();
-            $currentRisks = collect($current['areas'] ?? [])->pluck('risk', 'name');
+            $currentRisks = array_column($current['areas'] ?? [], 'risk', 'name');
             $changes = [];
             foreach ($profile['areas'] as $area) {
                 $old = $currentRisks[$area['name']] ?? null;
@@ -314,9 +315,8 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                     $changes[$area['name']] = "{$old} to **{$area['risk']}**";
                 }
             }
-            $newNames = collect($profile['areas'])->pluck('name');
-            foreach ($currentRisks->keys()->diff($newNames) as $name) {
-                $changes[$name] = 'Removed: its paths no longer exist';
+            foreach (array_diff(array_keys($currentRisks), array_column($profile['areas'], 'name')) as $name) {
+                $changes[$name] = 'Removed';
             }
 
             $body = view('pull-requests.risk-profile', [
@@ -337,7 +337,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         } catch (\Throwable $e) {
             TaskLogger::warning($this->task, 'Could not open the risk profile PR: ' . $e->getMessage());
 
-            return "\n\nCould not open the risk profile PR: " . $e->getMessage();
+            return "\n\nCould not open the risk profile PR: " . MarkdownText::inline($e->getMessage());
         }
     }
 

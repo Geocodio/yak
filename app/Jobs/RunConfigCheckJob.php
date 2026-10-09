@@ -16,6 +16,8 @@ class RunConfigCheckJob implements ShouldQueue
 
     public int $tries = 3;
 
+    public int $timeout = 90;
+
     /** @var list<int> */
     public array $backoff = [10, 60];
 

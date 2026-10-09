@@ -18,7 +18,10 @@ class RepositoryConfigParser
     /** File names under `.yak/` that Yak reads. */
     public const FILES = ['config.yml', 'preview.yml', 'risk-profile.yml', 'AGENTS.md', 'preview.sh'];
 
-    private const MAX_BYTES = 1048576;
+    public const MAX_BYTES = 1048576;
+
+    /** Most errors parse() returns; the rest collapse into one summary line. */
+    public const MAX_ERRORS = 100;
 
     private const PATH_GLOB = '#^[A-Za-z0-9_./*?\-]+$#';
 
@@ -135,6 +138,11 @@ class RepositoryConfigParser
      */
     private function invalid(array $errors): array
     {
+        if (count($errors) > self::MAX_ERRORS) {
+            $hidden = count($errors) - self::MAX_ERRORS;
+            $errors = [...array_slice($errors, 0, self::MAX_ERRORS), "… and {$hidden} more errors"];
+        }
+
         return ['data' => null, 'errors' => $errors];
     }
 
@@ -182,6 +190,7 @@ class RepositoryConfigParser
             'risk-profile.yml' => [
                 'version' => ['required', 'integer', 'in:1'],
                 ...RepositoryRiskProfiles::areaRules(),
+                'areas.*.paths.*' => ['required', 'string', 'max:500', 'regex:' . self::PATH_GLOB],
                 'areas.*' => ['required', 'array'],
                 'areas.*.name' => ['required', 'string', 'max:200', 'distinct'],
                 'unknowns' => ['sometimes', 'array', 'max:100'],

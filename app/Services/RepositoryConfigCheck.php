@@ -86,9 +86,10 @@ class RepositoryConfigCheck
                 continue;
             }
 
-            foreach ($result['errors'] as $error) {
+            foreach ($result['errors'] as $index => $error) {
                 $key = Str::before($error, ': ');
-                $fail($file, MarkdownText::code($key) . ': ' . MarkdownText::inline(Str::after($error, ': ')), $error, YamlKeyLocator::line($content, $key));
+                $line = count($annotations) < self::MAX_ANNOTATIONS ? YamlKeyLocator::line($content, $key) : 1;
+                $fail($file, MarkdownText::code($key) . ': ' . MarkdownText::inline(Str::after($error, ': ')), $error, $line);
                 $errorCounts[$file] = ($errorCounts[$file] ?? 0) + 1;
             }
         }
@@ -118,7 +119,7 @@ class RepositoryConfigCheck
                         $isMatched = false;
                         $isUnchecked = false;
 
-                        foreach ($tree as $path) {
+                        foreach ($tree ?? [] as $path) {
                             if ($comparisons++ >= $this->maxGlobComparisons || hrtime(true) - $startedAt >= $this->globCheckSeconds * 1e9) {
                                 $isCapped = true;
 

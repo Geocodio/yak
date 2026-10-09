@@ -6,7 +6,9 @@ use App\DataTransferObjects\ConfigSnapshot;
 use App\DataTransferObjects\RepositorySettings;
 use App\Models\Repository;
 use App\Services\ConfigPullRequests;
+use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Shapes a {@see ConfigSnapshot} for the repository settings page. A `values`
@@ -129,7 +131,11 @@ final class YakConfigData
         }
 
         try {
-            return app(ConfigPullRequests::class)->openPullRequest($repository);
+            return Cache::remember(
+                RepositoryConfig::configPullRequestCacheKey($repository),
+                60,
+                fn (): array => ['pullRequest' => app(ConfigPullRequests::class)->openPullRequest($repository)],
+            )['pullRequest'];
         } catch (\Throwable) {
             return null;
         }

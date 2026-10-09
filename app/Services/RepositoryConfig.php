@@ -46,8 +46,14 @@ class RepositoryConfig
         return "yak-config:{$repository->id}:backoff";
     }
 
+    public static function configPullRequestCacheKey(Repository $repository): string
+    {
+        return "yak-config:{$repository->id}:config-pr";
+    }
+
     public function forget(Repository $repository): void
     {
+        Cache::forget(self::configPullRequestCacheKey($repository));
         Cache::forget(self::headCacheKey($repository));
         Cache::forget(self::backoffCacheKey($repository));
     }

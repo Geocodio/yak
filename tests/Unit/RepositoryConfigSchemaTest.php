@@ -52,6 +52,11 @@ it('matches the parser limits for every bounded value', function () {
         ->and($approval['mode']['enum'])->toBe(['off', 'shadow', 'enforce'])
         ->and($schema['properties']['ci']['enum'])->toBe(['github_actions', 'drone', 'none'])
         ->and($schema['properties']['co_owner_gate']['properties']['mode']['enum'])->toBe(['off', 'enforce']);
+
+    $risk = json_decode(file_get_contents(yakSchemaPath('risk-profile.yml')), true, flags: JSON_THROW_ON_ERROR);
+
+    expect($risk['properties']['areas']['items']['properties']['paths']['items'])
+        ->toMatchArray(['maxLength' => 500, 'pattern' => '^[A-Za-z0-9_./*?\\-]+$']);
 });
 
 /**

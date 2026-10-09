@@ -263,7 +263,7 @@ class WebhookController extends Controller
 
         $repo = $this->resolveRepositoryFromPayload($request);
 
-        if ($repo !== null) {
+        if ($repo !== null && $repo->is_active) {
             RunConfigCheckJob::dispatch(
                 $repo->id,
                 (int) $request->input('pull_request.number'),

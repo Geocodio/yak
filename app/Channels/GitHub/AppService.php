@@ -3,6 +3,7 @@
 namespace App\Channels\GitHub;
 
 use App\Models\GitHubInstallationToken;
+use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
@@ -568,6 +569,11 @@ class AppService
      *
      * Any other failure throws, so callers never mistake a GitHub outage or a
      * missing permission for a deleted file.
+     *
+     * The body is streamed and read up to MAX_BYTES + 1 bytes, so a huge file
+     * is never held in memory. A file over the limit comes back as exactly
+     * MAX_BYTES + 1 bytes, which the parser rejects with its "must be at most
+     * 1 MiB" error.
      */
     public function getFileContents(int $installationId, string $repoSlug, string $path, string $ref): ?string
     {
@@ -575,6 +581,7 @@ class AppService
 
         $response = $this->installationClient($installationId)
             ->withHeaders(['Accept' => 'application/vnd.github.raw+json'])
+            ->withOptions(['stream' => true])
             ->get("https://api.github.com/repos/{$repoSlug}/contents/{$encodedPath}", ['ref' => $ref]);
 
         if ($response->status() === 404 && $response->json('message') === 'Not Found') {
@@ -585,7 +592,20 @@ class AppService
             throw new \RuntimeException("GitHub returned {$response->status()} for {$path} at {$ref}.");
         }
 
-        return $response->body();
+        $limit = RepositoryConfigParser::MAX_BYTES + 1;
+
+        if ((int) $response->header('Content-Length') > RepositoryConfigParser::MAX_BYTES) {
+            return str_repeat('x', $limit);
+        }
+
+        $stream = $response->toPsrResponse()->getBody();
+        $body = '';
+
+        while (strlen($body) < $limit && ! $stream->eof()) {
+            $body .= $stream->read($limit - strlen($body));
+        }
+
+        return $body;
     }
 
     /**

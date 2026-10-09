@@ -3,6 +3,7 @@
 use App\Jobs\RunConfigCheckJob;
 use App\Models\Repository;
 use App\Providers\ChannelServiceProvider;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -65,4 +66,22 @@ it('dispatches nothing for an unknown repository or an unrelated action', functi
     postConfigCheckPullRequest('labeled');
 
     Queue::assertNotPushed(RunConfigCheckJob::class);
+});
+
+it('dispatches nothing for an inactive repository', function () {
+    Repository::factory()->create(['slug' => 'example-org/example-repo', 'is_active' => false, 'deployments_enabled' => false]);
+
+    postConfigCheckPullRequest('opened');
+
+    Queue::assertNotPushed(RunConfigCheckJob::class);
+});
+
+it('makes no GitHub calls while dispatching', function () {
+    Http::fake();
+    Repository::factory()->create(['slug' => 'example-org/example-repo', 'is_active' => true, 'deployments_enabled' => false]);
+
+    postConfigCheckPullRequest('opened');
+
+    Queue::assertPushed(RunConfigCheckJob::class);
+    Http::assertNothingSent();
 });

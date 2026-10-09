@@ -2,7 +2,12 @@
 
 use App\Actions\OpenConfigMigrationPullRequest;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\User;
+use App\Services\RepositoryConfig;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 function migrationBody(bool $riskProfileUnapproved, array $checksLostAppPin, ?string $riskProfileDate = '2026-09-21'): string
 {
@@ -83,4 +88,46 @@ it('escapes the repository name and check names', function () {
     expect($body)->toContain('**a \<\!\-\- @' . "\u{200B}" . 'org/team**')
         ->toContain("`te'st`")
         ->not->toContain('<!--');
+});
+
+function migrationRepositoryWithApprovedProfile(): Repository
+{
+    $repository = Repository::factory()->create(['slug' => 'acme/api', 'github_full_name' => 'acme/api', 'default_branch' => 'main']);
+    $profile = ['schema_version' => 1, 'repo' => 'acme/api', 'source_sha' => str_repeat('a', 40),
+        'areas' => [['name' => 'Billing', 'paths' => ['app/Billing/**'], 'symbols' => [], 'risk' => 'high',
+            'rationale' => 'Handles money.', 'evidence' => ['app/Billing/Invoice.php']]],
+        'unknowns' => []];
+    $profile['version'] = hash('sha256', json_encode([
+        $profile['schema_version'], $profile['repo'], $profile['source_sha'], $profile['areas'], $profile['unknowns'],
+    ]));
+    RiskProfile::create(['repo' => 'acme/api', 'version' => $profile['version'], 'profile' => $profile,
+        'approved_by' => 'Ada', 'approved_at' => now()]);
+
+    return $repository;
+}
+
+it('labels an approved risk profile as approved in the pull request body', function () {
+    $repository = migrationRepositoryWithApprovedProfile();
+    fakeUnreachableYakRead([]);
+    fakeGithubConfigPullRequestApi();
+
+    app(OpenConfigMigrationPullRequest::class)->handle($repository);
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/pulls')
+        && str_contains($request['body'], '| `.yak/risk-profile.yml` | Approved risk profile |')
+        && ! str_contains($request['body'], 'Risk profile draft from'));
+});
+
+it('reads the default branch head again instead of trusting a cached one', function () {
+    $repository = migrationRepositoryWithApprovedProfile();
+    app()->forgetInstance(RepositoryConfig::class);
+    Cache::put(RepositoryConfig::headCacheKey($repository), str_repeat('9', 40), now()->addMinutes(5));
+    fakeGithubConfigPullRequestApi(overrides: [
+        'api.github.com/repos/acme/api/contents/*' => Http::response(['message' => 'Not Found'], 404),
+    ]);
+
+    app(OpenConfigMigrationPullRequest::class)->handle($repository);
+
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/branches/main'));
 });

@@ -31,7 +31,8 @@
             "maxItems": 50,
             "items": {
               "type": "string",
-              "maxLength": 500
+              "maxLength": 500,
+              "pattern": "^[A-Za-z0-9_./*?\\-]+$"
             }
           },
           "symbols": {

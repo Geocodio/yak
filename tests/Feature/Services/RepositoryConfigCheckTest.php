@@ -256,3 +256,15 @@ it('escapes untrusted area names, globs and error keys in the summary', function
         ->not->toContain('<!--')
         ->not->toContain("\n## Approved");
 });
+
+it('caps the work for a config with thousands of errors', function () {
+    $yaml = "version: 1\n" . implode('', array_map(fn (int $index): string => "unknown_{$index}: 1\n", range(1, 5000)));
+    fakeConfigCheck(['config.yml' => $yaml]);
+
+    $startedAt = microtime(true);
+    $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+
+    expect(microtime(true) - $startedAt)->toBeLessThan(2.0)
+        ->and($payload['output']['title'])->toBe('101 errors in .yak/config.yml')
+        ->and($payload['output']['annotations'])->toHaveCount(50);
+});

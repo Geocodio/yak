@@ -761,7 +761,7 @@ test('research resumed with answers resumes the session with the answers prompt'
 function runRiskProfileResearch(string $areaName = 'billing'): YakTask
 {
     $area = fn (string $name, string $risk): array => [
-        'name' => $name, 'paths' => ["{$name}/*"], 'symbols' => [],
+        'name' => $name, 'paths' => ['src/**'], 'symbols' => [],
         'risk' => $risk, 'rationale' => 'Because.', 'evidence' => ["{$name}/a.php:1"],
     ];
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
@@ -816,7 +816,7 @@ test('risk profile research opens a PR listing new, changed and removed areas', 
             && str_contains($request['body'], 'proposes these changes to `.yak/risk-profile.yml`. Merging approves them.')
             && str_contains($request['body'], '| billing | medium to **high** |')
             && str_contains($request['body'], '| docs | New, **low** |')
-            && str_contains($request['body'], '| legacy | Removed: its paths no longer exist |')
+            && str_contains($request['body'], '| legacy | Removed |')
             && str_contains($request['body'], "1 open question remains. Open questions block Yak's auto-approval until they are answered in the file.")
             && str_contains($request['body'], str_repeat('b', 7));
     });

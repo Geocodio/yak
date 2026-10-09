@@ -36,6 +36,7 @@ class OpenConfigMigrationPullRequest
      */
     public function handle(Repository $repository): array
     {
+        $this->config->forget($repository);
         $snapshot = $this->config->snapshot($repository);
 
         if ($snapshot->state !== 'read') {
@@ -51,7 +52,7 @@ class OpenConfigMigrationPullRequest
         $sources = [];
         foreach (array_keys($migration['files']) as $path) {
             $sources[$path] = self::FILE_SOURCES[$path]
-                ?? "Risk profile draft from {$migration['riskProfileDate']}" . ($migration['riskProfileUnapproved'] ? ' (see the warning below)' : '');
+                ?? ($migration['riskProfileUnapproved'] ? "Risk profile draft from {$migration['riskProfileDate']} (see the warning below)" : 'Approved risk profile');
         }
 
         $body = view('pull-requests.config-migration', [

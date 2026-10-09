@@ -46,18 +46,18 @@ class CommentOnBrokenConfigJob implements ShouldQueue
             return;
         }
 
-        $key = "yak-config:broken-comment:{$this->repositoryId}:{$this->fileName}:{$this->errorCommitSha}";
-
-        if (! Cache::add($key, true, now()->addDays(30))) {
-            return;
-        }
-
         $body = view('pull-requests.broken-config-comment', [
             'fileName' => $this->fileName,
             'validSha' => $file->valid_commit_sha,
             'error' => $file->error,
             'settingsUrl' => route('repos.edit', $repository),
         ])->render();
+
+        $key = "yak-config:broken-comment:{$this->repositoryId}:{$this->fileName}:{$this->errorCommitSha}";
+
+        if (! Cache::add($key, true, now()->addDays(30))) {
+            return;
+        }
 
         try {
             $isPosted = $github->commentOnPullRequest(
