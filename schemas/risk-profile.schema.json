@@ -36,7 +36,7 @@
           },
           "symbols": {
             "type": "array",
-            "description": "Functions or classes that belong to the area.",
+            "description": "Functions or classes that belong to the area. May be an empty list.",
             "maxItems": 100,
             "items": {
               "type": "string",
@@ -72,6 +72,7 @@
         "required": [
           "name",
           "paths",
+          "symbols",
           "risk",
           "rationale",
           "evidence"

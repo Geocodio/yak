@@ -53,3 +53,42 @@ it('matches the parser limits for every bounded value', function () {
         ->and($schema['properties']['ci']['enum'])->toBe(['github_actions', 'drone', 'none'])
         ->and($schema['properties']['co_owner_gate']['properties']['mode']['enum'])->toBe(['off', 'enforce']);
 });
+
+/**
+ * @param  array<string, mixed>  $schema
+ * @return list<string>
+ */
+function yakOpenObjectPaths(array $schema, string $path = '#'): array
+{
+    $open = [];
+    if (isset($schema['properties']) && ($schema['additionalProperties'] ?? null) !== false) {
+        $open[] = $path;
+    }
+    foreach ($schema['properties'] ?? [] as $key => $child) {
+        array_push($open, ...yakOpenObjectPaths($child, "{$path}/{$key}"));
+    }
+    if (isset($schema['items'])) {
+        array_push($open, ...yakOpenObjectPaths($schema['items'], "{$path}/items"));
+    }
+
+    return $open;
+}
+
+it('closes every object at every depth', function (string $file) {
+    $schema = json_decode(file_get_contents(yakSchemaPath($file)), true, flags: JSON_THROW_ON_ERROR);
+
+    expect(yakOpenObjectPaths($schema))->toBe([]);
+})->with('yak schema files');
+
+it('requires exactly the keys the parser requires', function () {
+    $load = fn (string $file): array => json_decode(file_get_contents(yakSchemaPath($file)), true, flags: JSON_THROW_ON_ERROR);
+
+    $config = $load('config.yml');
+    $risk = $load('risk-profile.yml');
+
+    expect($config['required'])->toBe(['version'])
+        ->and($config['properties']['review']['properties']['approval']['required'])->toBe(['mode'])
+        ->and($load('preview.yml')['required'])->toBe(['port', 'health_probe_path'])
+        ->and($risk['required'])->toBe(['version', 'areas'])
+        ->and($risk['properties']['areas']['items']['required'])->toBe(['name', 'paths', 'symbols', 'risk', 'rationale', 'evidence']);
+});
