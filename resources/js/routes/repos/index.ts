@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
+import config from './config'
 import manifest from './manifest'
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::create
@@ -653,6 +654,7 @@ const repos = {
     reviewOpenPrs: Object.assign(reviewOpenPrs, reviewOpenPrs),
     riskProfile: Object.assign(riskProfile, riskProfile),
     rebuildDeployments: Object.assign(rebuildDeployments, rebuildDeployments),
+    config: Object.assign(config, config),
     manifest: Object.assign(manifest, manifest),
 }
 

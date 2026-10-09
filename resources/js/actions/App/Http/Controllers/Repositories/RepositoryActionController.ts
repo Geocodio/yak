@@ -116,6 +116,64 @@ rerunSetup.post = (args: { repository: string | { slug: string } } | [repository
 })
 
 /**
+* @see \App\Http\Controllers\Repositories\RepositoryActionController::refreshConfig
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:60
+* @route '/repos/{repository}/config/refresh'
+*/
+export const refreshConfig = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: refreshConfig.url(args, options),
+    method: 'post',
+})
+
+refreshConfig.definition = {
+    methods: ["post"],
+    url: '/repos/{repository}/config/refresh',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Repositories\RepositoryActionController::refreshConfig
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:60
+* @route '/repos/{repository}/config/refresh'
+*/
+refreshConfig.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { repository: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'slug' in args) {
+        args = { repository: args.slug }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            repository: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        repository: typeof args.repository === 'object'
+        ? args.repository.slug
+        : args.repository,
+    }
+
+    return refreshConfig.definition.url
+            .replace('{repository}', parsedArgs.repository.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Repositories\RepositoryActionController::refreshConfig
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:60
+* @route '/repos/{repository}/config/refresh'
+*/
+refreshConfig.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: refreshConfig.url(args, options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::reviewOpenPrs
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:59
 * @route '/repos/{repository}/review-open-prs'
@@ -289,6 +347,6 @@ rebuildDeployments.post = (args: { repository: string | { slug: string } } | [re
     method: 'post',
 })
 
-const RepositoryActionController = { toggleActive, rerunSetup, reviewOpenPrs, riskProfile, rebuildDeployments }
+const RepositoryActionController = { toggleActive, rerunSetup, refreshConfig, reviewOpenPrs, riskProfile, rebuildDeployments }
 
 export default RepositoryActionController
