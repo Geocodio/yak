@@ -864,6 +864,37 @@ GRAPHQL;
     }
 
     /**
+     * Like listPullRequestFiles, but any non-2xx response, on any page, throws.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPullRequestFilesOrFail(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $results = [];
+
+        for ($page = 1; ; $page++) {
+            $batch = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/files", ['per_page' => 100, 'page' => $page])
+                ->throw()
+                ->json();
+
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * @param  array<int, array{path: string, line: int, body: string, start_line?: int, start_side?: string}>  $comments
      * @return array<string, mixed>
      */

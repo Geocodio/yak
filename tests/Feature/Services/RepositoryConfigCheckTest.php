@@ -1,8 +1,11 @@
 <?php
 
+use App\Channels\GitHub\AppService;
 use App\Models\Repository;
 use App\Services\RepositoryConfigCheck;
+use App\Services\RepositoryConfigParser;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -57,7 +60,7 @@ areas:
     evidence: [ app/Billing/Invoice.php ]
   - name: Legacy importer
     paths:
-      - {$glob}
+      - "{$glob}"
     symbols: []
     risk: medium
     rationale: Old code
@@ -142,4 +145,77 @@ it('caps annotations at 50', function () {
     fakeConfigCheck(['config.yml' => "version: 1\n{$lines}\n"]);
 
     expect(app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA)['output']['annotations'])->toHaveCount(50);
+});
+
+it('says a key absent from config.yml is not set', function () {
+    fakeConfigCheck(['config.yml' => "version: 1\n"]);
+
+    expect(app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA)['output']['summary'])
+        ->toContain('Co-owner gate: **not set** (keeps its current value).')
+        ->toContain('Review approval: **not set** (keeps its current value).');
+});
+
+it('throws when the pull request file listing fails', function (string $failingUrl) {
+    $files = array_fill(0, 100, ['filename' => 'app/a.php']);
+    Http::fake([
+        'api.github.com/repos/acme/api/pulls/7/files?per_page=100&page=1' => Http::response($files),
+        $failingUrl => Http::response([], 500),
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 't', 'expires_at' => now()->addHour()->toIso8601String()]),
+    ]);
+    fakeConfigCheck(['config.yml' => "version: 1\n"]);
+
+    app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+})->with([
+    'first page' => ['api.github.com/repos/acme/api/pulls/7/files?per_page=100&page=1'],
+    'second page' => ['api.github.com/repos/acme/api/pulls/7/files?per_page=100&page=2'],
+])->throws(RequestException::class);
+
+it('stops the glob check at the comparison cap', function () {
+    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml('app/Legacy/**')], tree: ['a', 'b', 'c', 'd', 'e']);
+
+    $payload = (new RepositoryConfigCheck(app(AppService::class), new RepositoryConfigParser, 3))->run($this->repository, 7, CHECK_SHA);
+
+    expect($payload['conclusion'])->toBe('success')
+        ->and($payload['output']['summary'])->toContain('Skipped the rest of the glob check: the risk profile and file list are too large to compare.')
+        ->not->toContain('matches no file');
+});
+
+it('does not report a glob PCRE cannot evaluate as matching no file', function () {
+    $glob = str_repeat('*a', 12) . '*b';
+    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml($glob)], tree: [str_repeat('a', 60) . 'bc', 'docs/index.md']);
+    $jit = ini_get('pcre.jit');
+    $limit = ini_get('pcre.backtrack_limit');
+    ini_set('pcre.jit', '0');
+    ini_set('pcre.backtrack_limit', '1000');
+
+    try {
+        $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+    } finally {
+        ini_set('pcre.jit', $jit);
+        ini_set('pcre.backtrack_limit', $limit);
+    }
+
+    expect($payload['conclusion'])->toBe('success')
+        ->and($payload['output']['summary'])->toContain("Could not check: `{$glob}`")
+        ->not->toContain('matches no file');
+});
+
+it('reports a commit with no .yak files left', function () {
+    fakeConfigCheck([], ['.yak/config.yml']);
+
+    $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+
+    expect($payload['conclusion'])->toBe('success')
+        ->and($payload['output']['title'])->toBe('No .yak/ files in this commit')
+        ->and($payload['output']['summary'])->toContain('no `.yak/` files');
+});
+
+it('lists at most 30 problems per file in the summary', function () {
+    $lines = implode("\n", array_map(fn (int $number): string => "bad{$number}: 1", range(1, 40)));
+    fakeConfigCheck(['config.yml' => "version: 1\n{$lines}\n"]);
+
+    $summary = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA)['output']['summary'];
+
+    expect(substr_count($summary, 'unknown key'))->toBe(30)
+        ->and($summary)->toContain('- and 10 more');
 });

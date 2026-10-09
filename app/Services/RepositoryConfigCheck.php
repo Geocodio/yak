@@ -19,7 +19,16 @@ class RepositoryConfigCheck
 
     private const MAX_ANNOTATIONS = 50;
 
-    public function __construct(private AppService $github, private RepositoryConfigParser $parser) {}
+    private const MAX_LISTED_PER_FILE = 30;
+
+    /** Upper bound on glob x path comparisons, since risk-profile content comes from the pull request. */
+    public const MAX_GLOB_COMPARISONS = 2000000;
+
+    public function __construct(
+        private AppService $github,
+        private RepositoryConfigParser $parser,
+        private int $maxGlobComparisons = self::MAX_GLOB_COMPARISONS,
+    ) {}
 
     /**
      * @return array<string, mixed>|null the posted payload, or null when the pull request touches no `.yak/` file
@@ -29,7 +38,7 @@ class RepositoryConfigCheck
         $installationId = (int) config('yak.channels.github.installation_id');
         $slug = $repository->github_full_name;
 
-        $changesYak = collect($this->github->listPullRequestFiles($installationId, $slug, $pullRequestNumber))
+        $changesYak = collect($this->github->listPullRequestFilesOrFail($installationId, $slug, $pullRequestNumber))
             ->contains(fn (array $file): bool => str_starts_with((string) ($file['filename'] ?? ''), '.yak/'));
 
         if (! $changesYak) {
@@ -77,18 +86,53 @@ class RepositoryConfigCheck
         }
 
         $deadAreaCount = 0;
-        $treeTruncated = false;
+        $notes = [];
 
         if (isset($dataByFile['risk-profile.yml'])) {
             $tree = $this->github->listTreePaths($installationId, $slug, $headSha);
-            $treeTruncated = $tree === null;
             $content = $contentByFile['risk-profile.yml'];
+            $comparisons = 0;
+            $isCapped = false;
+
+            if ($tree === null) {
+                $notes[] = 'Skipped the glob check: GitHub truncated the file list for this commit.';
+            }
 
             foreach ($tree === null ? [] : $dataByFile['risk-profile.yml']['areas'] ?? [] as $areaIndex => $area) {
                 $isDead = false;
 
                 foreach ($area['paths'] ?? [] as $pathIndex => $glob) {
-                    if (collect($tree)->contains(fn (string $path): bool => PathMatcher::matches($path, [$glob]))) {
+                    $matcher = PathMatcher::compile($glob);
+                    $isMatched = false;
+                    $isUnchecked = false;
+
+                    foreach ($tree as $path) {
+                        if ($comparisons++ >= $this->maxGlobComparisons) {
+                            $isCapped = true;
+
+                            break 3;
+                        }
+
+                        $result = $matcher($path);
+
+                        if ($result === null) {
+                            $isUnchecked = true;
+
+                            break;
+                        }
+
+                        if ($result) {
+                            $isMatched = true;
+
+                            break;
+                        }
+                    }
+
+                    if ($isUnchecked) {
+                        $notes[] = "Could not check: `{$glob}`";
+                    }
+
+                    if ($isMatched || $isUnchecked) {
                         continue;
                     }
 
@@ -101,12 +145,17 @@ class RepositoryConfigCheck
                 $deadAreaCount += $isDead ? 1 : 0;
             }
 
+            if ($isCapped) {
+                $notes[] = 'Skipped the rest of the glob check: the risk profile and file list are too large to compare.';
+            }
+
             if ($deadAreaCount > 0) {
                 unset($dataByFile['risk-profile.yml']);
             }
         }
 
         $isValid = $failures === [];
+        $hasNoFiles = $isValid && $contentByFile === [];
 
         $payload = [
             'name' => self::CHECK_NAME,
@@ -114,10 +163,12 @@ class RepositoryConfigCheck
             'status' => 'completed',
             'conclusion' => $isValid ? 'success' : 'failure',
             'output' => [
-                'title' => $isValid ? '.yak/ is valid' : $this->title($errorCounts, $deadAreaCount),
-                'summary' => $isValid
-                    ? $this->passingSummary($dataByFile, $contentByFile, $treeTruncated, $repository->default_branch)
-                    : $this->failingSummary($failures, array_keys($dataByFile), $treeTruncated),
+                'title' => $hasNoFiles ? 'No .yak/ files in this commit' : ($isValid ? '.yak/ is valid' : $this->title($errorCounts, $deadAreaCount)),
+                'summary' => match (true) {
+                    $hasNoFiles => "This pull request's head commit has no `.yak/` files, so Yak has nothing to read from it. " . $this->link(),
+                    $isValid => $this->passingSummary($dataByFile, $contentByFile, $notes, $repository->default_branch),
+                    default => $this->failingSummary($failures, array_keys($dataByFile), $notes),
+                },
                 'annotations' => array_slice($annotations, 0, self::MAX_ANNOTATIONS),
             ],
         ];
@@ -148,15 +199,19 @@ class RepositoryConfigCheck
     /**
      * @param  array<string, list<string>>  $failures
      * @param  list<string>  $passed
+     * @param  list<string>  $notes
      */
-    private function failingSummary(array $failures, array $passed, bool $treeTruncated): string
+    private function failingSummary(array $failures, array $passed, array $notes): string
     {
         $summary = "Yak checked the `.yak/` files on this pull request's head commit. Merging it as is would leave Yak on the last valid version of the files that fail.\n";
 
         foreach ($failures as $file => $items) {
             $summary .= "\n### .yak/{$file}\n\n";
-            foreach ($items as $item) {
+            foreach (array_slice($items, 0, self::MAX_LISTED_PER_FILE) as $item) {
                 $summary .= "- {$item}\n";
+            }
+            if (count($items) > self::MAX_LISTED_PER_FILE) {
+                $summary .= '- and ' . (count($items) - self::MAX_LISTED_PER_FILE) . " more\n";
             }
         }
 
@@ -167,8 +222,8 @@ class RepositoryConfigCheck
             }
         }
 
-        if ($treeTruncated) {
-            $summary .= "\n" . $this->truncatedLine() . "\n";
+        foreach ($notes as $note) {
+            $summary .= "\n{$note}\n";
         }
 
         return $summary . "\nMake this check required in branch protection to block merges that would break Yak's config. " . $this->link();
@@ -177,17 +232,18 @@ class RepositoryConfigCheck
     /**
      * @param  array<string, mixed>  $data
      * @param  array<string, string>  $contents
+     * @param  list<string>  $notes
      */
-    private function passingSummary(array $data, array $contents, bool $treeTruncated, string $defaultBranch): string
+    private function passingSummary(array $data, array $contents, array $notes, string $defaultBranch): string
     {
         $rows = [];
 
         foreach ($data as $file => $value) {
             $rows[] = "| `{$file}` | " . match ($file) {
-                'config.yml' => 'Valid. Co-owner gate: **' . ($value['co_owner_gate']['mode'] ?? 'off') . '**. Review approval: **' . ($value['review']['approval']['mode'] ?? 'off') . '**.',
+                'config.yml' => 'Valid. Co-owner gate: ' . $this->modeText($value['co_owner_gate']['mode'] ?? null) . '. Review approval: ' . $this->modeText($value['review']['approval']['mode'] ?? null) . '.',
                 'preview.yml' => "Valid. Port {$value['port']}, health probe `{$value['health_probe_path']}`.",
                 'risk-profile.yml' => 'Valid. ' . ($count = count($value['areas'] ?? [])) . ' ' . Str::plural('area', $count)
-                    . ($treeTruncated ? '' : ', every glob matches at least one file')
+                    . ($notes === [] ? ', every glob matches at least one file' : '')
                     . ', ' . ($open = count($value['unknowns'] ?? [])) . ' open ' . Str::plural('question', $open) . '.',
                 'AGENTS.md' => 'Valid. ' . number_format(mb_strlen($contents[$file])) . ' characters.',
                 default => 'Valid.',
@@ -195,13 +251,13 @@ class RepositoryConfigCheck
         }
 
         return "| File | Result |\n| --- | --- |\n" . implode("\n", $rows) . "\n"
-            . ($treeTruncated ? "\n" . $this->truncatedLine() . "\n" : '')
+            . implode('', array_map(fn (string $note): string => "\n{$note}\n", $notes))
             . "\nThese settings apply once this pull request merges into `{$defaultBranch}`. " . $this->link();
     }
 
-    private function truncatedLine(): string
+    private function modeText(?string $mode): string
     {
-        return 'Skipped the glob check: GitHub truncated the file list for this commit.';
+        return $mode === null ? '**not set** (keeps its current value)' : "**{$mode}**";
     }
 
     private function link(): string

@@ -26,3 +26,11 @@ it('matches nested globs', function () {
 it('matches files with matching basename against top-level glob', function () {
     expect(PathMatcher::matches('app/deep/nested.min.js', ['*.min.js']))->toBeTrue();
 });
+
+it('compiles a glob into a reusable matcher', function () {
+    $matcher = PathMatcher::compile('app/**/*.php');
+
+    expect($matcher('app/Models/User.php'))->toBeTrue()
+        ->and($matcher('docs/a.md'))->toBeFalse()
+        ->and(PathMatcher::compile('*.js')('public/x.js'))->toBeTrue();
+});

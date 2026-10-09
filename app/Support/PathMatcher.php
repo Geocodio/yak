@@ -27,17 +27,34 @@ class PathMatcher
         return false;
     }
 
-    private static function singleMatch(string $path, string $pattern): bool
+    /**
+     * Compiles one glob into a matcher that reuses its regex. The matcher
+     * returns null when PCRE fails on a path (for example the backtrack
+     * limit), so callers can tell "could not check" from "no match".
+     *
+     * @return \Closure(string): ?bool
+     */
+    public static function compile(string $pattern): \Closure
     {
         $regex = self::globToRegex($pattern);
+        $isAnchored = str_contains($pattern, '/');
 
-        if (str_contains($pattern, '/')) {
-            return preg_match($regex, $path) === 1;
-        }
+        return static function (string $path) use ($regex, $isAnchored): ?bool {
+            $result = preg_match($regex, $path);
 
-        $basename = basename($path);
+            if ($result === 1 || $isAnchored) {
+                return $result === false ? null : $result === 1;
+            }
 
-        return preg_match($regex, $basename) === 1 || preg_match($regex, $path) === 1;
+            $basenameResult = preg_match($regex, basename($path));
+
+            return $basenameResult === false ? null : $basenameResult === 1;
+        };
+    }
+
+    private static function singleMatch(string $path, string $pattern): bool
+    {
+        return self::compile($pattern)($path) === true;
     }
 
     private static function globToRegex(string $pattern): string
