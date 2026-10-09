@@ -109,6 +109,10 @@ class RepositoryRiskProfiles
     public function active(string $repo): ?array
     {
         try {
+            $fromFile = Repository::where('slug', $repo)->first()?->settings()->riskProfile();
+            if ($fromFile !== null) {
+                return $fromFile;
+            }
             $row = RiskProfile::where('repo', $repo)->whereNotNull('approved_at')
                 ->orderByDesc('approved_at')->orderByDesc('id')->first();
             if ($row === null) {

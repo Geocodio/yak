@@ -703,7 +703,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'repo not registered or inactive']);
         }
 
-        if (! $repo->pr_review_enabled) {
+        if (! $repo->settings()->reviewEnabled()) {
             return response()->json(['ok' => true, 'skipped' => 'pr review disabled on repo']);
         }
 

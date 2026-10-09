@@ -22,8 +22,9 @@ class ReviewApprovalPolicy
     public function evaluate(Repository $repository, ParsedReview $review, array $metadata, array $files): array
     {
         $repository->refresh();
-        $policy = $repository->reviewPolicy();
-        $mode = $repository->is_active && $repository->pr_review_enabled ? ($policy['mode'] ?? 'off') : 'off';
+        $settings = $repository->settings();
+        $policy = $settings->reviewPolicy();
+        $mode = $repository->is_active && $settings->reviewEnabled() ? ($policy['mode'] ?? 'off') : 'off';
         $assessment = app(ReviewRiskScorer::class)->assess($review->signals, (int) $policy['min_confidence']);
         $decision = ['event' => 'COMMENT', 'candidate' => 'COMMENT', 'reasons' => [], 'mode' => $mode,
             'risk_score' => $assessment['score'], 'model_confidence' => $assessment['model_confidence'],
@@ -43,7 +44,7 @@ class ReviewApprovalPolicy
         if (($profile['unknowns'] ?? []) !== []) {
             $reasons[] = 'Repository risk profile has unresolved context gaps.';
         }
-        $excludes = $repository->pr_review_path_excludes ?? (array) config('yak.pr_review.default_path_excludes', []);
+        $excludes = $settings->reviewPathExcludes() ?? (array) config('yak.pr_review.default_path_excludes', []);
         $mustFix = false;
         foreach ($review->findings as $finding) {
             // Every finding blocks approval, but only a finding the author can
@@ -173,8 +174,12 @@ class ReviewApprovalPolicy
                     $installationId, $repository->github_full_name, (int) $metadata['pr_number'],
                     (string) $metadata['head_sha'], (string) $pr['base']['ref'],
                 );
+                $requiredChecks = [];
+                foreach ($policy['required_checks'] as $check) {
+                    $requiredChecks[$check['name']] = isset($check['app_id']) ? (int) $check['app_id'] : null;
+                }
                 $reasons = $this->evidenceReasons(
-                    $evidence, array_map('intval', array_column($policy['required_checks'], 'app_id', 'name')),
+                    $evidence, $requiredChecks,
                     array_map('intval', array_column($policy['required_statuses'], 'creator_id', 'name')),
                 );
                 if ($reasons === []) {
@@ -207,7 +212,7 @@ class ReviewApprovalPolicy
 
     /**
      * @param  array<string, mixed>  $evidence
-     * @param  array<string, int>  $requiredChecks
+     * @param  array<string, int|null>  $requiredChecks
      * @param  array<string, int>  $requiredStatuses
      * @return array<int, string>
      */
@@ -229,6 +234,17 @@ class ReviewApprovalPolicy
             }
         }
         foreach ($requiredChecks as $name => $appId) {
+            if ($appId === null) {
+                $matches = array_merge(
+                    array_filter($checks, fn (array $check): bool => ($check['name'] ?? '') === $name),
+                    array_filter((array) ($evidence['statuses'] ?? []), fn (array $status): bool => ($status['context'] ?? '') === $name),
+                );
+                if ($matches === []) {
+                    return ["Required CI check missing: {$name}"];
+                }
+
+                continue;
+            }
             $matches = array_filter($checks, fn (array $check): bool => ($check['name'] ?? '') === $name
                 && (int) ($check['app']['id'] ?? 0) === $appId && $appId > 0);
             if ($matches === []) {
