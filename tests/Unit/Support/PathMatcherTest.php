@@ -62,3 +62,17 @@ it('returns null from a compiled unanchored glob when the full-path match fails'
         ini_set('pcre.backtrack_limit', $limit);
     }
 });
+
+it('throws instead of reporting no match when a glob cannot be evaluated', function () {
+    $limit = ini_get('pcre.backtrack_limit');
+    $jit = ini_get('pcre.jit');
+    ini_set('pcre.jit', '0');
+    ini_set('pcre.backtrack_limit', '1000');
+
+    try {
+        PathMatcher::matches(str_repeat('a', 60) . 'bc', [str_repeat('*a', 12) . '*b']);
+    } finally {
+        ini_set('pcre.jit', $jit);
+        ini_set('pcre.backtrack_limit', $limit);
+    }
+})->throws(RuntimeException::class, 'Could not evaluate glob');

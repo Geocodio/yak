@@ -10,6 +10,7 @@ namespace App\Support;
  * - Matching is anchored to the full path for patterns containing `/`.
  * - Patterns without `/` (e.g. `*.min.js`) match any segment of the path.
  * - Returns true if any pattern matches. Empty pattern list → false.
+ * - Throws when a pattern cannot be evaluated, so callers fail closed.
  */
 class PathMatcher
 {
@@ -19,7 +20,13 @@ class PathMatcher
     public static function matches(string $path, array $patterns): bool
     {
         foreach ($patterns as $pattern) {
-            if (self::singleMatch($path, $pattern)) {
+            $result = self::compile($pattern)($path);
+
+            if ($result === null) {
+                throw new \RuntimeException("Could not evaluate glob {$pattern} against {$path}");
+            }
+
+            if ($result) {
                 return true;
             }
         }
@@ -54,11 +61,6 @@ class PathMatcher
 
             return $basenameResult === false ? null : $basenameResult === 1;
         };
-    }
-
-    private static function singleMatch(string $path, string $pattern): bool
-    {
-        return self::compile($pattern)($path) === true;
     }
 
     private static function globToRegex(string $pattern): string
