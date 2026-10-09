@@ -25,6 +25,7 @@ import type {
     RepositoryStats,
     SandboxData,
     SetupHistoryRow,
+    YakConfig,
 } from '@/types/repositories';
 
 type Props = PageProps<{
@@ -37,6 +38,7 @@ type Props = PageProps<{
     canDelete: boolean;
     deleteBlockedReason: string | null;
     docsLinks: RepositoryDocsLinks;
+    yakConfig?: YakConfig;
 }>;
 
 type FormData = {

@@ -9,10 +9,12 @@ use App\Enums\TaskMode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\SaveRepositoryRequest;
 use App\Http\Resources\RepositorySummaryData;
+use App\Http\Resources\YakConfigData;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
@@ -89,6 +91,10 @@ class RepositoryController extends Controller
                 ? null
                 : 'This repository has tasks and cannot be deleted. Deactivate it instead.',
             'docsLinks' => $this->docsLinks(),
+            'yakConfig' => Inertia::defer(
+                fn () => YakConfigData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
+                'yak-config',
+            ),
         ]);
     }
 

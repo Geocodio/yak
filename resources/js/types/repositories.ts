@@ -50,7 +50,7 @@ export type ReviewPolicy = {
     mode: 'off' | 'shadow' | 'enforce';
     allowed_paths: string[];
     blocked_paths: string[];
-    required_checks: { name: string; app_id: number }[];
+    required_checks: { name: string; app_id?: number | null; match_any_app?: boolean }[];
     required_statuses: { name: string; creator_id: number }[];
     max_files: number;
     max_lines: number;
@@ -116,4 +116,39 @@ export type GitHubSearchRepo = {
     private: boolean;
     language: string | null;
     pushedAt: string | null;
+};
+
+export type YakConfigFile = {
+    name: string;
+    valid: boolean;
+    error: string | null;
+    validCommitSha: string | null;
+    errorCommitSha: string | null;
+    errorCommitUrl: string | null;
+    errorPullRequest: { number: number; title: string; url: string } | null;
+    blobUrl: string | null;
+    editUrl: string | null;
+};
+
+export type YakConfig = {
+    state: 'read' | 'unreachable' | 'unavailable';
+    setupStatus: string;
+    commitSha: string | null;
+    commitUrl: string | null;
+    readAt: string | null;
+    readError: string | null;
+    directoryUrl: string | null;
+    files: YakConfigFile[];
+    values: {
+        description: string | null;
+        agentInstructions: string | null;
+        publicSiteUrl: string | null;
+        ciSystem: string | null;
+        prReviewEnabled: boolean | null;
+        pathExcludes: string[] | null;
+        reviewPolicy: Record<string, unknown> | null;
+        previewManifest: Record<string, unknown> | null;
+        previewScript: boolean;
+        riskProfile: { areas: number; unknowns: number; commitSha: string | null } | null;
+    };
 };
