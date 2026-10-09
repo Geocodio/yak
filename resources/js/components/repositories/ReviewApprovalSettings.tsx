@@ -1,5 +1,6 @@
 import { Button, Field, Select, Textarea, TextInput } from '@geocodio/console-ui';
 import { Link, useForm } from '@inertiajs/react';
+import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
@@ -75,8 +76,8 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
                     <TextInput type="number" min={min} max={max} value={value[key]} onChange={(e) => set(key, Number(e.target.value))} />
                 </Field>
             ))}
-            {Object.entries(errors).filter(([key, error]) => key.startsWith('pr_review_policy.') && error).map(([key, error]) => <p key={key} role="alert" className="text-[12px] text-fail">{error}</p>)}
             </>}
+            {Object.entries(errors).filter(([key, error]) => key.startsWith('pr_review_policy.') && error).map(([key, error]) => <p key={key} role="alert" className="text-[12px] text-fail">{error}</p>)}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
             {' · '}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
@@ -124,7 +125,7 @@ function LockedRiskProfile({ profile, config, branch }: { profile: NonNullable<Y
             <p className="text-[12px] text-muted">
                 Approved by merging into {branch}.{profile.commitSha ? <> In use since <span className="font-mono">{profile.commitSha.slice(0, 7)}</span>.</> : null}
             </p>
-            {profile.unknowns > 0 && <p className="text-[12px] text-warn">Open questions block Yak's auto-approval until they are answered in the file.</p>}
+            {profile.unknowns > 0 && <p className="flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert size={12} className="shrink-0 text-warn" />Open questions block Yak's auto-approval until they are answered in the file.</p>}
             <ProposeChangeLink config={config} fileName="risk-profile.yml" />
         </div>
     );

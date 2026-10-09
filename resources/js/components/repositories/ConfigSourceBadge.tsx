@@ -18,7 +18,10 @@ export function ConfigSourceBadge({ field, config, fileName }: { field: string; 
     const label = isStale ? `${fileName} at ${file.validCommitSha?.slice(0, 7)}` : fileName;
 
     return (
-        <a href={file?.blobUrl ?? undefined} target="_blank" rel="noopener noreferrer" data-testid={`config-source-${field}`} className="inline-flex">
+        <a href={file?.blobUrl ?? undefined} target="_blank" rel="noopener noreferrer" data-testid={`config-source-${field}`}
+            aria-label={`Value from .yak/${fileName}, opens on GitHub in a new tab`}
+            className="inline-flex"
+        >
             <Badge tone={isStale ? 'warn' : 'accent'} className="inline-flex items-center gap-1">
                 <Lock size={10} />
                 {label}

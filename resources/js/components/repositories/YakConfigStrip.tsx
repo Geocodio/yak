@@ -197,11 +197,18 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
         );
     }
 
+    if (invalidFiles.length > 0) {
+        return (
+            <>
+                {invalidFiles.map((file) => (
+                    <InvalidFileStrip key={file.name} file={file} />
+                ))}
+            </>
+        );
+    }
+
     return (
         <>
-            {invalidFiles.map((file) => (
-                <InvalidFileStrip key={file.name} file={file} />
-            ))}
             <Strip
                 tone="ok"
                 icon={<FolderGit2 size={16} className="text-ok" />}

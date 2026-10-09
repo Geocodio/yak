@@ -165,52 +165,56 @@ function ManifestSection({
             }
         >
             {yakConfig && fileManifest ? (
-                <LockedManifest manifest={fileManifest} config={yakConfig} />
+                <LockedManifest
+                    manifest={fileManifest}
+                    fallback={{ port: manifest.port, health_probe_path: manifest.healthProbePath, cold_start: manifest.coldStart, checkout_refresh: manifest.checkoutRefresh, wake_timeout_seconds: manifest.wakeTimeoutSeconds }}
+                    config={yakConfig}
+                />
             ) : (
-            <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field label="Port" description="Container port serving HTTP inside the preview." error={errors['manifest.port']}>
-                    <TextInput type="number" value={manifest.port} onChange={(e) => setField('port', Number(e.target.value))} />
-                </Field>
-                <Field
-                    label="Health probe path"
-                    description="Path that returns a 2xx response once the app is ready to serve traffic."
-                    error={errors['manifest.health_probe_path']}
-                >
-                    <TextInput value={manifest.healthProbePath} onChange={(e) => setField('healthProbePath', e.target.value)} />
-                </Field>
-            </div>
-            <Field label="Cold start command" description="Brings services up from a stopped container, e.g. docker compose up -d.">
-                <ExpandableCodeField
-                    value={manifest.coldStart}
-                    onChange={(value) => setField('coldStart', value)}
-                    languageExtensions={shellHighlighting}
-                    title="Cold start command"
-                    ariaLabel="Cold start command"
-                    data-testid="manifest-cold-start"
-                />
-            </Field>
-            <Field
-                label="Checkout refresh command"
-                description="Full rebuild run on every push to the branch (image builds, dependency installs, migrations, cache clears). If the repo has a .yak/preview.sh script, Yak runs that instead."
-            >
-                <ExpandableCodeField
-                    value={manifest.checkoutRefresh}
-                    onChange={(value) => setField('checkoutRefresh', value)}
-                    languageExtensions={shellHighlighting}
-                    title="Checkout refresh command"
-                    ariaLabel="Checkout refresh command"
-                    data-testid="manifest-checkout-refresh"
-                />
-            </Field>
-            <Field
-                label="Wake timeout (seconds)"
-                description="Overall cap on wake-plus-refresh time before a request to a hibernated preview gives up."
-                error={errors['manifest.wake_timeout_seconds']}
-            >
-                <TextInput type="number" value={manifest.wakeTimeoutSeconds} onChange={(e) => setField('wakeTimeoutSeconds', Number(e.target.value))} />
-            </Field>
-            </>
+                <>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Port" description="Container port serving HTTP inside the preview." error={errors['manifest.port']}>
+                            <TextInput type="number" value={manifest.port} onChange={(e) => setField('port', Number(e.target.value))} />
+                        </Field>
+                        <Field
+                            label="Health probe path"
+                            description="Path that returns a 2xx response once the app is ready to serve traffic."
+                            error={errors['manifest.health_probe_path']}
+                        >
+                            <TextInput value={manifest.healthProbePath} onChange={(e) => setField('healthProbePath', e.target.value)} />
+                        </Field>
+                    </div>
+                    <Field label="Cold start command" description="Brings services up from a stopped container, e.g. docker compose up -d.">
+                        <ExpandableCodeField
+                            value={manifest.coldStart}
+                            onChange={(value) => setField('coldStart', value)}
+                            languageExtensions={shellHighlighting}
+                            title="Cold start command"
+                            ariaLabel="Cold start command"
+                            data-testid="manifest-cold-start"
+                        />
+                    </Field>
+                    <Field
+                        label="Checkout refresh command"
+                        description="Full rebuild run on every push to the branch (image builds, dependency installs, migrations, cache clears). If the repo has a .yak/preview.sh script, Yak runs that instead."
+                    >
+                        <ExpandableCodeField
+                            value={manifest.checkoutRefresh}
+                            onChange={(value) => setField('checkoutRefresh', value)}
+                            languageExtensions={shellHighlighting}
+                            title="Checkout refresh command"
+                            ariaLabel="Checkout refresh command"
+                            data-testid="manifest-checkout-refresh"
+                        />
+                    </Field>
+                    <Field
+                        label="Wake timeout (seconds)"
+                        description="Overall cap on wake-plus-refresh time before a request to a hibernated preview gives up."
+                        error={errors['manifest.wake_timeout_seconds']}
+                    >
+                        <TextInput type="number" value={manifest.wakeTimeoutSeconds} onChange={(e) => setField('wakeTimeoutSeconds', Number(e.target.value))} />
+                    </Field>
+                </>
             )}
             <div>
                 <Button
@@ -235,8 +239,20 @@ function FieldSkeleton({ label, height }: { label: string; height: string }) {
     );
 }
 
-function LockedManifest({ manifest, config }: { manifest: Record<string, unknown>; config: YakConfig }) {
-    const show = (key: string) => (manifest[key] === undefined || manifest[key] === null || manifest[key] === '' ? 'Not set' : String(manifest[key]));
+function LockedManifest({ manifest, fallback, config }: { manifest: Record<string, unknown>; fallback: Record<string, unknown>; config: YakConfig }) {
+    const show = (key: string) => {
+        const fromFile = manifest[key];
+
+        if (fromFile !== undefined && fromFile !== null) {
+            return String(fromFile) === '' ? <span className="text-faint">(empty)</span> : String(fromFile);
+        }
+
+        return (
+            <>
+                {String(fallback[key] ?? '') === '' ? '' : String(fallback[key])} <span className="text-faint">(from Yak)</span>
+            </>
+        );
+    };
 
     return (
         <>
@@ -569,13 +585,13 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                         {fileValues.publicSiteUrl}
                                     </LockedField>
                                 ) : (
-                                <Field label="Public site URL" description="Shown in the video's browser bar instead of the sandbox address." error={form.errors.public_site_url}>
-                                    <TextInput
-                                        placeholder="https://www.example.com"
-                                        value={form.data.public_site_url}
-                                        onChange={(e) => form.setData('public_site_url', e.target.value)}
-                                    />
-                                </Field>
+                                    <Field label="Public site URL" description="Shown in the video's browser bar instead of the sandbox address." error={form.errors.public_site_url}>
+                                        <TextInput
+                                            placeholder="https://www.example.com"
+                                            value={form.data.public_site_url}
+                                            onChange={(e) => form.setData('public_site_url', e.target.value)}
+                                        />
+                                    </Field>
                                 )}
                                 {isReadingConfig ? (
                                     <FieldSkeleton label="CI system" height="h-[34px]" />
@@ -584,17 +600,17 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                         {options.ciSystems.find((system) => system.value === fileValues.ciSystem)?.label ?? fileValues.ciSystem}
                                     </LockedField>
                                 ) : (
-                                <Field label="CI system" error={form.errors.ci_system}>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <Select
-                                            className="flex-1"
-                                            options={options.ciSystems}
-                                            value={form.data.ci_system}
-                                            onChange={(v) => form.setData('ci_system', v ?? 'none')}
-                                        />
-                                        <InfoTip label="Where Yak reads CI results from after it pushes a branch. Detected from the repo when you add it." />
-                                    </div>
-                                </Field>
+                                    <Field label="CI system" error={form.errors.ci_system}>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <Select
+                                                className="flex-1"
+                                                options={options.ciSystems}
+                                                value={form.data.ci_system}
+                                                onChange={(v) => form.setData('ci_system', v ?? 'none')}
+                                            />
+                                            <InfoTip label="Where Yak reads CI results from after it pushes a branch. Detected from the repo when you add it." />
+                                        </div>
+                                    </Field>
                                 )}
                                 {options.sentryProjects.length > 0 ? (
                                     <Field label="Sentry project">
@@ -684,7 +700,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 </Button>
                             </div>
                         )}
-                        {isPrReviewEnabled && (isReadingConfig ? (
+                        {(isReadingConfig || isPrReviewEnabled) && (isReadingConfig ? (
                             <Skeleton className="h-24 w-full rounded-card" />
                         ) : yakConfig && fileValues?.pathExcludes != null ? (
                             <LockedField label="PR review path filters" field="pathExcludes" config={yakConfig} fileName="config.yml" mono propose>
@@ -693,7 +709,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         ) : (
                             <PathExcludes value={form.data.path_excludes} defaults={options.defaultPathExcludes} onChange={(v) => form.setData('path_excludes', v)} />
                         ))}
-                        {isPrReviewEnabled && (isReadingConfig ? (
+                        {(isReadingConfig || isPrReviewEnabled) && (isReadingConfig ? (
                             <Skeleton className="h-48 w-full rounded-card" />
                         ) : (
                             <ReviewApprovalSettings value={form.data.pr_review_policy} onChange={(policy) => form.setData('pr_review_policy', policy)} errors={form.errors} repository={repository} yakConfig={yakConfig} />
