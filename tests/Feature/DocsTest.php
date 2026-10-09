@@ -28,3 +28,7 @@ it('respects the YAK_DOCS_URL env override', function () {
 
     expect(Docs::url('channels'))->toBe('https://custom.example.com/docs/channels/');
 });
+
+it('resolves the repository config anchor', function () {
+    expect(Docs::url('repositories.config'))->toEndWith('repo-config/');
+});

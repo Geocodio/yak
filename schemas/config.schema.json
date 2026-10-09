@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Geocodio/yak/main/schemas/config.schema.json",
+  "title": "Yak repository config (.yak/config.yml)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "The file format version. Always 1."
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000,
+      "description": "A short description of what this repository is, shown to Yak as context."
+    },
+    "ci": {
+      "enum": [
+        "github_actions",
+        "drone",
+        "none"
+      ],
+      "description": "The CI system Yak reads build results from."
+    },
+    "walkthrough": {
+      "type": "object",
+      "description": "Settings for video walkthroughs.",
+      "additionalProperties": false,
+      "properties": {
+        "public_site_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri",
+          "maxLength": 255,
+          "description": "The public origin shown in the mock URL bar of walkthrough videos."
+        }
+      }
+    },
+    "pull_requests": {
+      "type": "object",
+      "description": "Settings for the pull requests Yak opens.",
+      "additionalProperties": false,
+      "properties": {
+        "large_change_lines": {
+          "type": "integer",
+          "description": "The number of changed lines above which a pull request counts as large.",
+          "minimum": 1
+        }
+      }
+    },
+    "co_owner_gate": {
+      "type": "object",
+      "description": "The gate that asks code owners to approve changes to protected paths.",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "off",
+            "enforce"
+          ],
+          "description": "Whether the gate is off or enforced."
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "description": "Settings for pull request review.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether Yak reviews pull requests in this repository."
+        },
+        "exclude_paths": {
+          "type": "array",
+          "description": "Path globs Yak leaves out of reviews.",
+          "maxItems": 100,
+          "items": {
+            "type": "string",
+            "maxLength": 500,
+            "pattern": "^[A-Za-z0-9_./*?\\-]+$"
+          }
+        },
+        "approval": {
+          "type": "object",
+          "description": "Rules for when Yak may approve a pull request.",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "off",
+                "shadow",
+                "enforce"
+              ],
+              "description": "Whether approval is off, recorded without acting (shadow), or enforced."
+            },
+            "allowed_paths": {
+              "type": "array",
+              "description": "Path globs a change must stay within to be approved.",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^[A-Za-z0-9_./*?\\-]+$"
+              }
+            },
+            "blocked_paths": {
+              "type": "array",
+              "description": "Path globs that always need a human, even when everything else passes.",
+              "maxItems": 100,
+              "items": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^[A-Za-z0-9_./*?\\-]+$"
+              }
+            },
+            "required_checks": {
+              "type": "array",
+              "description": "Check names that must pass before Yak approves.",
+              "maxItems": 50,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "maxLength": 255
+              }
+            },
+            "max_files": {
+              "type": "integer",
+              "description": "The most files a change may touch and still be approved.",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "max_lines": {
+              "type": "integer",
+              "description": "The most changed lines a change may have and still be approved.",
+              "minimum": 1,
+              "maximum": 5000
+            },
+            "max_risk_score": {
+              "type": "integer",
+              "description": "The highest risk score a change may have and still be approved.",
+              "minimum": 0,
+              "maximum": 30
+            },
+            "min_confidence": {
+              "type": "integer",
+              "description": "The lowest review confidence, as a percentage, at which Yak approves.",
+              "minimum": 80,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "mode"
+          ]
+        }
+      }
+    }
+  },
+  "required": [
+    "version"
+  ]
+}

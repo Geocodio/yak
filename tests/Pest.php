@@ -8,6 +8,7 @@ use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
 
@@ -126,4 +127,54 @@ function fakeYakFiles(array $files, string $sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa
             return $this->fixedSnapshot;
         }
     });
+}
+
+/**
+ * Serve an unreachable snapshot for the named repository slugs and a clean
+ * read with no files for every other repository.
+ *
+ * @param  list<string>  $slugs
+ */
+function fakeUnreachableYakRead(array $slugs): void
+{
+    app()->instance(RepositoryConfig::class, new class($slugs) extends RepositoryConfig
+    {
+        /** @param list<string> $slugs */
+        public function __construct(private array $slugs) {}
+
+        public function snapshot(Repository $repository): ConfigSnapshot
+        {
+            return in_array($repository->slug, $this->slugs, true)
+                ? new ConfigSnapshot('unreachable', null, null, 'GitHub is down', [])
+                : new ConfigSnapshot('read', str_repeat('a', 40), CarbonImmutable::now(), null, []);
+        }
+    });
+}
+
+/**
+ * Configure the GitHub App and fake the API calls ConfigPullRequests makes for acme/api.
+ * Pass a status to make the pull request POST fail instead.
+ */
+function fakeGithubConfigPullRequestApi(int $pullRequestStatus = 201, array $overrides = []): void
+{
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '12345');
+    config()->set('yak.channels.github.private_key', $privateKey);
+    config()->set('yak.channels.github.installation_id', 99999);
+
+    Http::fake($overrides + [
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 't', 'expires_at' => now()->addHour()->toIso8601String()]),
+        'api.github.com/repos/acme/api/branches/main' => Http::response(['commit' => ['sha' => 'base', 'commit' => ['tree' => ['sha' => 'tree']]]]),
+        'api.github.com/repos/acme/api/git/blobs' => Http::response(['sha' => 'blob'], 201),
+        'api.github.com/repos/acme/api/git/trees' => Http::response(['sha' => 'tree2'], 201),
+        'api.github.com/repos/acme/api/git/commits' => Http::response(['sha' => 'commit'], 201),
+        'api.github.com/repos/acme/api/git/refs' => Http::response(['ref' => 'x'], 201),
+        'api.github.com/repos/acme/api/git/refs/heads/*' => Http::response(['ref' => 'x']),
+        'api.github.com/repos/acme/api/pulls?*' => Http::response([]),
+        'api.github.com/repos/acme/api/pulls' => $pullRequestStatus === 201
+            ? Http::response(['number' => 12, 'html_url' => 'https://github.com/acme/api/pull/12'], 201)
+            : Http::response(['message' => 'boom'], $pullRequestStatus),
+        'api.github.com/repos/acme/api/issues/12/labels' => Http::response([]),
+    ]);
 }

@@ -3,10 +3,12 @@
 namespace App\Channels\GitHub;
 
 use App\Models\GitHubInstallationToken;
+use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AppService
 {
@@ -567,6 +569,11 @@ class AppService
      *
      * Any other failure throws, so callers never mistake a GitHub outage or a
      * missing permission for a deleted file.
+     *
+     * The body is streamed and read up to MAX_BYTES + 1 bytes, so a huge file
+     * is never held in memory. A file over the limit comes back as exactly
+     * MAX_BYTES + 1 bytes, which the parser rejects with its "must be at most
+     * 1 MiB" error.
      */
     public function getFileContents(int $installationId, string $repoSlug, string $path, string $ref): ?string
     {
@@ -574,6 +581,7 @@ class AppService
 
         $response = $this->installationClient($installationId)
             ->withHeaders(['Accept' => 'application/vnd.github.raw+json'])
+            ->withOptions(['stream' => true])
             ->get("https://api.github.com/repos/{$repoSlug}/contents/{$encodedPath}", ['ref' => $ref]);
 
         if ($response->status() === 404 && $response->json('message') === 'Not Found') {
@@ -584,7 +592,20 @@ class AppService
             throw new \RuntimeException("GitHub returned {$response->status()} for {$path} at {$ref}.");
         }
 
-        return $response->body();
+        $limit = RepositoryConfigParser::MAX_BYTES + 1;
+
+        if ((int) $response->header('Content-Length') > RepositoryConfigParser::MAX_BYTES) {
+            return str_repeat('x', $limit);
+        }
+
+        $stream = $response->toPsrResponse()->getBody();
+        $body = '';
+
+        while (strlen($body) < $limit && ! $stream->eof()) {
+            $body .= $stream->read($limit - strlen($body));
+        }
+
+        return $body;
     }
 
     /**
@@ -612,6 +633,86 @@ class AppService
         }
 
         return null;
+    }
+
+    /**
+     * Commit files on top of a branch's head and point another branch at the
+     * commit, creating the branch or force-moving it when it already exists.
+     *
+     * @param  array<string, string>  $files  repository path => file content
+     */
+    public function createBranchWithFiles(int $installationId, string $repoSlug, string $baseBranch, string $branch, array $files, string $message): string
+    {
+        $client = fn () => $this->installationClient($installationId);
+        $base = $client()->get("https://api.github.com/repos/{$repoSlug}/branches/" . rawurlencode($baseBranch))->throw();
+
+        $tree = [];
+        foreach ($files as $path => $content) {
+            $blob = $client()->post("https://api.github.com/repos/{$repoSlug}/git/blobs", ['content' => $content, 'encoding' => 'utf-8'])->throw();
+            $tree[] = ['path' => $path, 'mode' => '100644', 'type' => 'blob', 'sha' => $blob->json('sha')];
+        }
+
+        $treeSha = $client()->post("https://api.github.com/repos/{$repoSlug}/git/trees", [
+            'base_tree' => $base->json('commit.commit.tree.sha'), 'tree' => $tree,
+        ])->throw()->json('sha');
+
+        $commitSha = (string) $client()->post("https://api.github.com/repos/{$repoSlug}/git/commits", [
+            'message' => $message, 'tree' => $treeSha, 'parents' => [$base->json('commit.sha')],
+        ])->throw()->json('sha');
+
+        $created = $client()->post("https://api.github.com/repos/{$repoSlug}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commitSha]);
+
+        if ($created->status() === 422 && str_contains((string) $created->json('message'), 'already exists')) {
+            $client()->patch("https://api.github.com/repos/{$repoSlug}/git/refs/heads/{$branch}", ['sha' => $commitSha, 'force' => true])->throw();
+        } else {
+            $created->throw();
+        }
+
+        return $commitSha;
+    }
+
+    /**
+     * Blob paths of a commit's full tree, or null when GitHub truncates the listing.
+     *
+     * @return list<string>|null
+     */
+    public function listTreePaths(int $installationId, string $repoSlug, string $sha): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/git/trees/{$sha}", ['recursive' => 1])
+            ->throw();
+
+        if ($response->json('truncated') === true) {
+            return null;
+        }
+
+        $paths = [];
+        foreach ((array) $response->json('tree') as $entry) {
+            if (($entry['type'] ?? null) === 'blob') {
+                $paths[] = (string) $entry['path'];
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * Create a check run. Returns null when the App lacks the Checks write permission.
+     *
+     * @param  array<string, mixed>  $checkRun  GitHub check-run payload
+     */
+    public function createCheckRun(int $installationId, string $repoSlug, array $checkRun): ?int
+    {
+        $response = $this->installationClient($installationId)
+            ->post("https://api.github.com/repos/{$repoSlug}/check-runs", $checkRun);
+
+        if ($response->status() === 403) {
+            Log::warning("GitHub refused the yak / config check on {$repoSlug} (403): the GitHub App may lack the Checks write permission, or the request was rate limited.");
+
+            return null;
+        }
+
+        return (int) $response->throw()->json('id');
     }
 
     /**
@@ -777,6 +878,37 @@ GRAPHQL;
             }
 
             $page++;
+        }
+
+        return $results;
+    }
+
+    /**
+     * Like listPullRequestFiles, but any non-2xx response, on any page, throws.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPullRequestFilesOrFail(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        $token = $this->getInstallationToken($installationId);
+        $results = [];
+
+        for ($page = 1; ; $page++) {
+            $batch = Http::withToken($token)
+                ->withHeaders(['Accept' => 'application/vnd.github+json'])
+                ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/files", ['per_page' => 100, 'page' => $page])
+                ->throw()
+                ->json();
+
+            if (! is_array($batch) || $batch === []) {
+                break;
+            }
+
+            $results = array_merge($results, $batch);
+
+            if (count($batch) < 100) {
+                break;
+            }
         }
 
         return $results;

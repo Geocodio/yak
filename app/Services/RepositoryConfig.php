@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Channels\GitHub\AppService;
 use App\DataTransferObjects\ConfigFile;
 use App\DataTransferObjects\ConfigSnapshot;
+use App\Jobs\CommentOnBrokenConfigJob;
 use App\Models\Repository;
 use App\Models\RepositoryConfigFile;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -45,8 +46,14 @@ class RepositoryConfig
         return "yak-config:{$repository->id}:backoff";
     }
 
+    public static function configPullRequestCacheKey(Repository $repository): string
+    {
+        return "yak-config:{$repository->id}:config-pr";
+    }
+
     public function forget(Repository $repository): void
     {
+        Cache::forget(self::configPullRequestCacheKey($repository));
         Cache::forget(self::headCacheKey($repository));
         Cache::forget(self::backoffCacheKey($repository));
     }
@@ -159,6 +166,10 @@ class RepositoryConfig
                 if ($row->error !== $error) {
                     $row->error_commit_sha = $sha;
                     $row->error_pull_request = $this->github->findPullRequestForCommit($installationId, $repository->github_full_name, $sha);
+
+                    if ($row->error_pull_request !== null) {
+                        CommentOnBrokenConfigJob::dispatch($repository->id, $name, $sha)->afterCommit();
+                    }
                 }
                 $row->error = $error;
             }

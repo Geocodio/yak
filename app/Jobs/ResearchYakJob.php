@@ -27,14 +27,18 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
+use App\Services\ConfigPullRequests;
 use App\Services\IncusSandboxManager;
 use App\Services\PromptResolver;
+use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\YakConfigFiles;
 use App\Services\YakPersonality;
+use App\Support\MarkdownText;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -284,6 +288,59 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
+    /**
+     * Opens or updates the PR carrying the drafted profile as `.yak/risk-profile.yml`,
+     * only after a clean read of GitHub. The database draft is already saved, so a
+     * failure is reported in the returned summary text and never loses the work.
+     *
+     * @param  array<string, mixed>  $profile
+     */
+    private function openRiskProfilePullRequest(Repository $repository, array $profile): string
+    {
+        try {
+            $snapshot = app(RepositoryConfig::class)->snapshot($repository);
+
+            if ($snapshot->state !== 'read') {
+                return "\n\nNo risk profile PR was opened: Yak could not read `.yak/` from GitHub. Generate the profile again once it is reachable.";
+            }
+
+            $current = $repository->settings()->riskProfile();
+            $currentRisks = array_column($current['areas'] ?? [], 'risk', 'name');
+            $changes = [];
+            foreach ($profile['areas'] as $area) {
+                $old = $currentRisks[$area['name']] ?? null;
+                if ($old === null) {
+                    $changes[$area['name']] = "New, **{$area['risk']}**";
+                } elseif ($old !== $area['risk']) {
+                    $changes[$area['name']] = "{$old} to **{$area['risk']}**";
+                }
+            }
+            foreach (array_diff(array_keys($currentRisks), array_column($profile['areas'], 'name')) as $name) {
+                $changes[$name] = 'Removed';
+            }
+
+            $body = view('pull-requests.risk-profile', [
+                'shortSha' => substr((string) $profile['source_sha'], 0, 7),
+                'changes' => $changes,
+                'unknownCount' => count($profile['unknowns']),
+            ])->render();
+            $title = $current === null ? 'Add Yak risk profile' : 'Update Yak risk profile';
+
+            $pullRequest = app(ConfigPullRequests::class)->open(
+                $repository, 'yak/risk-profile',
+                ['.yak/risk-profile.yml' => app(YakConfigFiles::class)->riskProfile($profile)],
+                $title, $body, $title, true,
+            );
+            TaskLogger::info($this->task, 'Opened risk profile PR', ['url' => $pullRequest['url']]);
+
+            return "\n\nRisk profile PR: " . $pullRequest['url'];
+        } catch (\Throwable $e) {
+            TaskLogger::warning($this->task, 'Could not open the risk profile PR: ' . $e->getMessage());
+
+            return "\n\nCould not open the risk profile PR: " . MarkdownText::inline($e->getMessage());
+        }
+    }
+
     private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
     {
         $summary = $result->resultSummary;
@@ -305,6 +362,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
                 TaskLogger::info($this->task, 'Risk profile draft saved', [
                     'version' => $profile['version'], 'source_sha' => $profile['source_sha'],
                 ]);
+                $summary .= $this->openRiskProfilePullRequest($repository, $profile);
             } catch (\Throwable $e) {
                 $summary .= "\n\nNo draft risk profile was saved: " . $e->getMessage()
                     . "\nCorrect the JSON above and import it with `php artisan yak:risk-profile "

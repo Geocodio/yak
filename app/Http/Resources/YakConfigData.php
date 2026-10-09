@@ -5,7 +5,10 @@ namespace App\Http\Resources;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\DataTransferObjects\RepositorySettings;
 use App\Models\Repository;
+use App\Services\ConfigPullRequests;
+use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Shapes a {@see ConfigSnapshot} for the repository settings page. A `values`
@@ -23,6 +26,7 @@ final class YakConfigData
      *     readAt: ?string,
      *     readError: ?string,
      *     directoryUrl: ?string,
+     *     configPullRequest: array{number: int, title: string, url: string}|null,
      *     files: list<array{
      *         name: string,
      *         valid: bool,
@@ -90,6 +94,7 @@ final class YakConfigData
             'readAt' => $snapshot->readAt?->toIso8601String(),
             'readError' => $snapshot->readError,
             'directoryUrl' => $githubUrl !== null ? "{$githubUrl}/tree/{$branch}/.yak" : null,
+            'configPullRequest' => self::configPullRequest($repository, $files === []),
             'files' => $files,
             'values' => [
                 'description' => $config['description'] ?? null,
@@ -111,5 +116,28 @@ final class YakConfigData
                 ] : null,
             ],
         ];
+    }
+
+    /**
+     * Only looked up while the repository has no `.yak/` files, because the
+     * pull request matters only until it merges. A GitHub failure gives null.
+     *
+     * @return array{number: int, title: string, url: string}|null
+     */
+    private static function configPullRequest(Repository $repository, bool $hasNoFiles): ?array
+    {
+        if (! $hasNoFiles) {
+            return null;
+        }
+
+        try {
+            return Cache::remember(
+                RepositoryConfig::configPullRequestCacheKey($repository),
+                60,
+                fn (): array => ['pullRequest' => app(ConfigPullRequests::class)->openPullRequest($repository)],
+            )['pullRequest'];
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

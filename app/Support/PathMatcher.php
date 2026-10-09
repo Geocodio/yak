@@ -10,6 +10,7 @@ namespace App\Support;
  * - Matching is anchored to the full path for patterns containing `/`.
  * - Patterns without `/` (e.g. `*.min.js`) match any segment of the path.
  * - Returns true if any pattern matches. Empty pattern list → false.
+ * - Throws when a pattern cannot be evaluated, so callers fail closed.
  */
 class PathMatcher
 {
@@ -19,7 +20,13 @@ class PathMatcher
     public static function matches(string $path, array $patterns): bool
     {
         foreach ($patterns as $pattern) {
-            if (self::singleMatch($path, $pattern)) {
+            $result = self::compile($pattern)($path);
+
+            if ($result === null) {
+                throw new \RuntimeException("Could not evaluate glob {$pattern} against {$path}");
+            }
+
+            if ($result) {
                 return true;
             }
         }
@@ -27,17 +34,33 @@ class PathMatcher
         return false;
     }
 
-    private static function singleMatch(string $path, string $pattern): bool
+    /**
+     * Compiles one glob into a matcher that reuses its regex. The matcher
+     * returns null when PCRE fails on a path (for example the backtrack
+     * limit), so callers can tell "could not check" from "no match".
+     *
+     * @return \Closure(string): ?bool
+     */
+    public static function compile(string $pattern): \Closure
     {
         $regex = self::globToRegex($pattern);
+        $isAnchored = str_contains($pattern, '/');
 
-        if (str_contains($pattern, '/')) {
-            return preg_match($regex, $path) === 1;
-        }
+        return static function (string $path) use ($regex, $isAnchored): ?bool {
+            $result = preg_match($regex, $path);
 
-        $basename = basename($path);
+            if ($result === false) {
+                return null;
+            }
 
-        return preg_match($regex, $basename) === 1 || preg_match($regex, $path) === 1;
+            if ($result === 1 || $isAnchored) {
+                return $result === 1;
+            }
+
+            $basenameResult = preg_match($regex, basename($path));
+
+            return $basenameResult === false ? null : $basenameResult === 1;
+        };
     }
 
     private static function globToRegex(string $pattern): string
@@ -55,10 +78,8 @@ class PathMatcher
                 $regex .= '[^/]*';
             } elseif ($c === '?') {
                 $regex .= '[^/]';
-            } elseif (in_array($c, ['.', '+', '(', ')', '[', ']', '^', '$', '|', '\\'], true)) {
-                $regex .= '\\' . $c;
             } else {
-                $regex .= $c;
+                $regex .= preg_quote($c, '#');
             }
         }
 

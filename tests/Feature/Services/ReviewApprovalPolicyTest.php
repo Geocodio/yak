@@ -309,6 +309,15 @@ it('requires human review for the approval machinery itself', function (string $
     'app/Channels/GitHub/AppService.php', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
 ]);
 
+it('holds a diff to .yak/ config for a human even when the repository allows the path', function () {
+    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), ['allowed_paths' => ['.yak/**']])]);
+    $this->files[0]['filename'] = '.yak/config.yml';
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+
+    expect($decision['event'])->toBe('COMMENT')
+        ->and($decision['reasons'])->toContain('Path requires human review: .yak/config.yml');
+});
+
 it('does not request changes for a must_fix the author never sees', function () {
     $this->repo->update(['pr_review_path_excludes' => ['docs/**']]);
     $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'must_fix', 'Correctness', 'Broken example.')]);
@@ -337,3 +346,22 @@ it('recognises test coverage outside the Laravel tests directory', function (str
     $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
     expect($decision['reasons'])->toBe([])->and($decision['event'])->toBe('APPROVE');
 })->with(['spec/slug_spec.rb', '__tests__/slug.test.js']);
+
+it('fails closed with an exception when a blocked glob cannot be evaluated', function () {
+    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), [
+        'allowed_paths' => ['a*'],
+        'blocked_paths' => [str_repeat('*a', 12) . '*b'],
+    ])]);
+    $this->files[0]['filename'] = str_repeat('a', 60) . 'bc';
+    $limit = ini_get('pcre.backtrack_limit');
+    $jit = ini_get('pcre.jit');
+    ini_set('pcre.jit', '0');
+    ini_set('pcre.backtrack_limit', '1000');
+
+    try {
+        app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+    } finally {
+        ini_set('pcre.jit', $jit);
+        ini_set('pcre.backtrack_limit', $limit);
+    }
+})->throws(RuntimeException::class, 'Could not evaluate glob');

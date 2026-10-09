@@ -13,6 +13,7 @@ use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Jobs\FlushFollowUpBatchJob;
 use App\Jobs\HandlePullRequestSummonJob;
 use App\Jobs\ProcessCIResultJob;
+use App\Jobs\RunConfigCheckJob;
 use App\Jobs\TriageReviewJob;
 use App\Models\BranchDeployment;
 use App\Models\FollowUpPendingComment;
@@ -96,6 +97,8 @@ class WebhookController extends Controller
 
             return $this->handleClosed($request);
         }
+
+        $this->maybeDispatchConfigCheck($request, (string) $action);
 
         if ($action === 'synchronize') {
             // Pushes still refresh the branch deployment, but no longer
@@ -250,6 +253,23 @@ class WebhookController extends Controller
         }
 
         return response()->json(['ok' => true, 'updated' => true]);
+    }
+
+    private function maybeDispatchConfigCheck(Request $request, string $action): void
+    {
+        if (! in_array($action, ['opened', 'reopened', 'ready_for_review', 'synchronize'], true)) {
+            return;
+        }
+
+        $repo = $this->resolveRepositoryFromPayload($request);
+
+        if ($repo !== null && $repo->is_active) {
+            RunConfigCheckJob::dispatch(
+                $repo->id,
+                (int) $request->input('pull_request.number'),
+                (string) $request->input('pull_request.head.sha'),
+            );
+        }
     }
 
     private function maybeDispatchDeployment(Request $request, string $action): void

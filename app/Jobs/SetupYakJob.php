@@ -21,10 +21,14 @@ use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use App\Services\ConfigPullRequests;
 use App\Services\IncusSandboxManager;
+use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\YakConfigFiles;
+use App\Support\MarkdownText;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -311,6 +315,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         if ($manifest !== null) {
             $repository->preview_manifest = $manifest;
             $repository->save();
+            $this->openConfigPullRequest($repository, $manifest);
         }
 
         // Promote the setup container to a repo template with snapshot.
@@ -334,6 +339,40 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         ]);
 
         SendNotificationJob::dispatch($this->task, NotificationType::Result, "Repository {$repository->name} is set up. I can work on tasks there now.");
+    }
+
+    /**
+     * Opens the PR that adds `.yak/config.yml` and `.yak/preview.yml`, only
+     * when GitHub was read cleanly and neither file exists, so an unreadable
+     * state never produces a PR that could overwrite real files. The database
+     * manifest stays the fallback, so a failure here never fails setup.
+     *
+     * @param  array<string, mixed>  $manifest
+     */
+    private function openConfigPullRequest(Repository $repository, array $manifest): void
+    {
+        try {
+            $snapshot = app(RepositoryConfig::class)->snapshot($repository);
+
+            if ($snapshot->state !== 'read' || isset($snapshot->files['config.yml']) || isset($snapshot->files['preview.yml'])) {
+                return;
+            }
+
+            $files = app(YakConfigFiles::class)->forSetup($repository, $manifest);
+            $commands = collect(['cold_start', 'checkout_refresh'])->contains(fn (string $key): bool => filled($manifest[$key] ?? null));
+            $previewSummary = (isset($manifest['port']) ? 'Port ' . (int) $manifest['port'] . ', ' : '')
+                . 'health probe ' . MarkdownText::code((string) ($manifest['health_probe_path'] ?? '/'))
+                . ($commands ? ', start and refresh commands' : '');
+            $body = view('pull-requests.setup-config', ['previewSummary' => $previewSummary])->render();
+
+            $pullRequest = app(ConfigPullRequests::class)->open(
+                $repository, 'yak/setup-config', $files, "Add Yak config for {$repository->name}", $body, 'Add Yak config',
+            );
+
+            TaskLogger::info($this->task, 'Opened .yak/ setup PR', ['url' => $pullRequest['url']]);
+        } catch (\Throwable $e) {
+            TaskLogger::warning($this->task, 'Could not open the .yak/ setup PR: ' . $e->getMessage());
+        }
     }
 
     /**

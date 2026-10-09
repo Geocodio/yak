@@ -18,17 +18,80 @@ class RepositoryConfigParser
     /** File names under `.yak/` that Yak reads. */
     public const FILES = ['config.yml', 'preview.yml', 'risk-profile.yml', 'AGENTS.md', 'preview.sh'];
 
-    private const MAX_BYTES = 1048576;
+    public const MAX_BYTES = 1048576;
+
+    /** Most errors parse() returns; the rest collapse into one summary line. */
+    public const MAX_ERRORS = 100;
 
     private const PATH_GLOB = '#^[A-Za-z0-9_./*?\-]+$#';
 
-    /** @var array<string, list<string>> */
+    /**
+     * Known keys per file as a nested tree: each key maps to the tree of its
+     * children, `[]` marks a leaf, and `'*'` stands for every item of a list.
+     *
+     * @var array<string, array<string, mixed>>
+     */
     private const KEYS = [
-        'config.yml' => ['version', 'description', 'ci', 'walkthrough', 'pull_requests', 'co_owner_gate', 'review'],
-        'preview.yml' => ['port', 'health_probe_path', 'cold_start', 'checkout_refresh', 'wake_timeout_seconds',
-            'cold_start_timeout_seconds', 'checkout_refresh_timeout_seconds', 'health_probe_timeout_seconds'],
-        'risk-profile.yml' => ['version', 'areas', 'unknowns'],
+        'config.yml' => [
+            'version' => [], 'description' => [], 'ci' => [],
+            'walkthrough' => ['public_site_url' => []],
+            'pull_requests' => ['large_change_lines' => []],
+            'co_owner_gate' => ['mode' => []],
+            'review' => [
+                'enabled' => [], 'exclude_paths' => [],
+                'approval' => [
+                    'mode' => [], 'allowed_paths' => [], 'blocked_paths' => [], 'required_checks' => [],
+                    'max_files' => [], 'max_lines' => [], 'max_risk_score' => [], 'min_confidence' => [],
+                ],
+            ],
+        ],
+        'preview.yml' => [
+            'port' => [], 'health_probe_path' => [], 'cold_start' => [], 'checkout_refresh' => [],
+            'wake_timeout_seconds' => [], 'cold_start_timeout_seconds' => [],
+            'checkout_refresh_timeout_seconds' => [], 'health_probe_timeout_seconds' => [],
+        ],
+        'risk-profile.yml' => [
+            'version' => [],
+            'areas' => ['*' => ['name' => [], 'paths' => [], 'symbols' => [], 'risk' => [], 'rationale' => [], 'evidence' => []]],
+            'unknowns' => [],
+        ],
     ];
+
+    /**
+     * The known-key tree for a file (see KEYS), for tools that mirror the
+     * schema such as the published JSON Schema.
+     *
+     * @return array<string, mixed>
+     */
+    public static function keyTree(string $file): array
+    {
+        return self::KEYS[$file] ?? throw new \InvalidArgumentException("Unknown file {$file}");
+    }
+
+    /**
+     * @param  array<string, mixed>  $tree
+     * @return list<string>
+     */
+    private function unknownKeys(mixed $value, array $tree, string $prefix = ''): array
+    {
+        if (! is_array($value) || $tree === []) {
+            return [];
+        }
+
+        $errors = [];
+        foreach ($value as $key => $child) {
+            $path = $prefix . $key;
+            $subtree = isset($tree['*']) && array_is_list($value) ? $tree['*'] : ($tree[$key] ?? null);
+            if ($subtree === null) {
+                $errors[] = "{$path}: unknown key";
+
+                continue;
+            }
+            array_push($errors, ...$this->unknownKeys($child, $subtree, "{$path}."));
+        }
+
+        return $errors;
+    }
 
     /** @return array{data: mixed, errors: list<string>} */
     public function parse(string $file, string $content): array
@@ -57,10 +120,7 @@ class RepositoryConfigParser
             return $this->invalid(["{$file}: must be a YAML mapping"]);
         }
 
-        $errors = array_map(
-            fn (string|int $key): string => "{$key}: unknown key",
-            array_values(array_diff(array_keys($data), self::KEYS[$file])),
-        );
+        $errors = $this->unknownKeys($data, self::KEYS[$file]);
 
         $validator = Validator::make($data, $this->rules($file));
         foreach ($validator->errors()->messages() as $key => $messages) {
@@ -78,6 +138,11 @@ class RepositoryConfigParser
      */
     private function invalid(array $errors): array
     {
+        if (count($errors) > self::MAX_ERRORS) {
+            $hidden = count($errors) - self::MAX_ERRORS;
+            $errors = [...array_slice($errors, 0, self::MAX_ERRORS), "… and {$hidden} more errors"];
+        }
+
         return ['data' => null, 'errors' => $errors];
     }
 
@@ -89,17 +154,17 @@ class RepositoryConfigParser
                 'version' => ['required', 'integer', 'in:1'],
                 'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
                 'ci' => ['sometimes', Rule::in(['github_actions', 'drone', 'none'])],
-                'walkthrough' => ['sometimes', 'array:public_site_url'],
+                'walkthrough' => ['sometimes', 'array'],
                 'walkthrough.public_site_url' => ['sometimes', 'nullable', 'url', 'max:255'],
-                'pull_requests' => ['sometimes', 'array:large_change_lines'],
+                'pull_requests' => ['sometimes', 'array'],
                 'pull_requests.large_change_lines' => ['sometimes', 'integer', 'min:1'],
-                'co_owner_gate' => ['sometimes', 'array:mode'],
+                'co_owner_gate' => ['sometimes', 'array'],
                 'co_owner_gate.mode' => ['sometimes', Rule::in(['off', 'enforce'])],
-                'review' => ['sometimes', 'array:enabled,exclude_paths,approval'],
+                'review' => ['sometimes', 'array'],
                 'review.enabled' => ['sometimes', 'boolean'],
                 'review.exclude_paths' => ['sometimes', 'array', 'max:100'],
                 'review.exclude_paths.*' => ['required', 'string', 'max:500', 'regex:' . self::PATH_GLOB],
-                'review.approval' => ['sometimes', 'array:mode,allowed_paths,blocked_paths,required_checks,max_files,max_lines,max_risk_score,min_confidence'],
+                'review.approval' => ['sometimes', 'array'],
                 'review.approval.mode' => ['required_with:review.approval', Rule::in(['off', 'shadow', 'enforce'])],
                 'review.approval.allowed_paths' => ['sometimes', 'array', 'max:100'],
                 'review.approval.allowed_paths.*' => ['required', 'string', 'max:500', 'regex:' . self::PATH_GLOB],
@@ -125,6 +190,8 @@ class RepositoryConfigParser
             'risk-profile.yml' => [
                 'version' => ['required', 'integer', 'in:1'],
                 ...RepositoryRiskProfiles::areaRules(),
+                'areas.*.paths.*' => ['required', 'string', 'max:500', 'regex:' . self::PATH_GLOB],
+                'areas.*' => ['required', 'array'],
                 'areas.*.name' => ['required', 'string', 'max:200', 'distinct'],
                 'unknowns' => ['sometimes', 'array', 'max:100'],
                 'unknowns.*' => ['string', 'max:2000'],

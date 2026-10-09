@@ -638,6 +638,7 @@ test('edit exposes docs links for the repositories guide', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('docsLinks', fn (Assert $links) => $links
                 ->where('guide', Docs::url('repositories'))
+                ->where('config', Docs::url('repositories.config'))
                 ->where('adding', Docs::url('repositories.adding'))
                 ->where('setup', Docs::url('repositories.setup'))
                 ->where('claudeMd', Docs::url('repositories.claude-md'))
@@ -652,6 +653,7 @@ test('create exposes docs links for the repositories guide', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('docsLinks', fn (Assert $links) => $links
                 ->where('guide', Docs::url('repositories'))
+                ->where('config', Docs::url('repositories.config'))
                 ->where('adding', Docs::url('repositories.adding'))
                 ->where('setup', Docs::url('repositories.setup'))
                 ->where('claudeMd', Docs::url('repositories.claude-md'))

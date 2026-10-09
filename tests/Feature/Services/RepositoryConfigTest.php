@@ -1,11 +1,13 @@
 <?php
 
+use App\Jobs\CommentOnBrokenConfigJob;
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
@@ -26,6 +28,8 @@ beforeEach(function () {
         public int $contentsStatus = 200;
 
         public bool $pullsThrow = false;
+
+        public bool $pullsEmpty = false;
 
         public int $branchCalls = 0;
 
@@ -62,7 +66,7 @@ beforeEach(function () {
                 throw new ConnectionException('Connection timed out');
             }
 
-            return Http::response([
+            return $github->pullsEmpty ? Http::response([]) : Http::response([
                 ['number' => 1482, 'title' => 'Loosen review limits', 'html_url' => 'https://github.com/acme/api/pull/1482', 'merged_at' => '2026-10-09T10:00:00Z'],
             ]);
         },
@@ -126,6 +130,34 @@ it('keeps the last valid version when a newer file is invalid', function () {
         ->and($file->errorCommitSha)->toBe($brokenSha)
         ->and($file->error)->toContain('ci')
         ->and($file->errorPullRequest['number'])->toBe(1482);
+});
+
+it('queues one comment for a new break that has a merged pull request', function () {
+    Queue::fake();
+    $brokenSha = str_repeat('2', 40);
+    serveYakFilesAt($this->github, str_repeat('1', 40), ['config.yml' => "version: 1\nci: drone\n"], $this->repository);
+    $this->repository->settings();
+
+    serveYakFilesAt($this->github, $brokenSha, ['config.yml' => "version: 1\nci: jenkins\n"], $this->repository);
+    $this->repository->refresh()->settings();
+
+    Queue::assertPushed(CommentOnBrokenConfigJob::class, 1);
+    Queue::assertPushed(CommentOnBrokenConfigJob::class, fn ($job) => $job->fileName === 'config.yml' && $job->errorCommitSha === $brokenSha);
+
+    serveYakFilesAt($this->github, str_repeat('3', 40), ['config.yml' => "version: 1\nci: jenkins\n"], $this->repository);
+    $this->repository->refresh()->settings();
+
+    Queue::assertPushed(CommentOnBrokenConfigJob::class, 1);
+});
+
+it('queues no comment when the broken commit has no pull request', function () {
+    Queue::fake();
+    $this->github->pullsEmpty = true;
+
+    serveYakFilesAt($this->github, str_repeat('2', 40), ['config.yml' => "version: 1\nci: jenkins\n"], $this->repository);
+    $this->repository->settings();
+
+    Queue::assertNotPushed(CommentOnBrokenConfigJob::class);
 });
 
 it('uses database values for a file that has never been valid', function () {

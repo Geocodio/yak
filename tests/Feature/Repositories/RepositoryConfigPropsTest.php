@@ -5,6 +5,7 @@ use App\DataTransferObjects\ConfigSnapshot;
 use App\Http\Resources\YakConfigData;
 use App\Models\Repository;
 use App\Models\User;
+use App\Services\ConfigPullRequests;
 use App\Services\RepositoryConfig;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
@@ -95,4 +96,26 @@ it('exposes the raw review approval block next to the merged policy', function (
 
     expect($values['reviewApproval'])->toBe(['mode' => 'shadow'])
         ->and($values['reviewPolicy']['max_files'])->toBe(5);
+});
+
+it('exposes the open config pull request while no .yak/ files exist', function () {
+    $user = User::factory()->create();
+    $repository = Repository::factory()->create();
+    $this->mock(ConfigPullRequests::class)->shouldReceive('openPullRequest')->andReturn(['number' => 1490, 'title' => 'Add Yak config in .yak/', 'url' => 'https://github.com/o/r/pull/1490']);
+
+    $this->actingAs($user)->get(route('repos.edit', $repository))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
+                ->where('yakConfig.configPullRequest.number', 1490)));
+});
+
+it('gives a null config pull request when none is open or GitHub fails', function () {
+    $user = User::factory()->create();
+    $repository = Repository::factory()->create();
+    $this->mock(ConfigPullRequests::class)->shouldReceive('openPullRequest')->andThrow(new RuntimeException('GitHub App is not configured'));
+
+    $this->actingAs($user)->get(route('repos.edit', $repository))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->loadDeferredProps('yak-config', fn (AssertableInertia $reload) => $reload
+                ->where('yakConfig.configPullRequest', null)));
 });

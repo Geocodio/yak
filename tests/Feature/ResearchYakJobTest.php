@@ -13,8 +13,11 @@ use App\Models\Repository;
 use App\Models\RiskProfile;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\RepositoryConfigParser;
 use App\Services\RepositoryRiskProfiles;
+use App\Services\YakConfigFiles;
 use Illuminate\Contracts\Process\ProcessResult;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -753,4 +756,157 @@ test('research resumed with answers resumes the session with the answers prompt'
     expect($fake->lastCall()->resumeSessionId)->toBe('sess_first')
         ->and($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
         ->and($sandbox->pushedTranscripts)->toBe(['sess_first']);
+});
+
+function runRiskProfileResearch(string $areaName = 'billing'): YakTask
+{
+    $area = fn (string $name, string $risk): array => [
+        'name' => $name, 'paths' => ['src/**'], 'symbols' => [],
+        'risk' => $risk, 'rationale' => 'Because.', 'evidence' => ["{$name}/a.php:1"],
+    ];
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_profile_pr',
+        resultSummary: json_encode(['areas' => [$area($areaName, 'high'), $area('docs', 'low')], 'unknowns' => ['Who owns cron?']]),
+        costUsd: 0.25, numTurns: 1, durationMs: 1000, isError: false, rawOutput: '{}',
+    ));
+    app()->instance(AgentRunner::class, $fake);
+    app()->instance(IncusSandboxManager::class, new class extends FakeSandboxManager
+    {
+        public function run(string $containerName, string $command, ?int $timeout = null, bool $asRoot = false, ?string $input = null, ?callable $output = null): ProcessResult
+        {
+            if (str_contains($command, 'git rev-parse HEAD')) {
+                return Process::result(str_repeat('b', 40));
+            }
+
+            return parent::run($containerName, $command, $timeout, $asRoot, $input, $output);
+        }
+    });
+    Storage::fake('local');
+    Process::fake(['*' => Process::result('')]);
+    Repository::factory()->create(['slug' => 'pr-profile', 'github_full_name' => 'acme/api', 'default_branch' => 'main']);
+    $task = YakTask::factory()->pending()->create([
+        'repo' => 'pr-profile', 'source' => 'cli', 'mode' => 'research',
+        'context' => json_encode(['risk_profile_draft' => true]),
+    ]);
+
+    (new ResearchYakJob($task))->handle($fake);
+
+    return $task->fresh();
+}
+
+test('risk profile research opens a PR listing new, changed and removed areas', function () {
+    $current = app(YakConfigFiles::class)->riskProfile(['areas' => [
+        ['name' => 'billing', 'paths' => ['billing/*'], 'symbols' => [], 'risk' => 'medium', 'rationale' => 'x', 'evidence' => ['a:1']],
+        ['name' => 'legacy', 'paths' => ['legacy/*'], 'symbols' => [], 'risk' => 'low', 'rationale' => 'x', 'evidence' => ['a:1']],
+    ], 'unknowns' => []]);
+    fakeYakFiles(['risk-profile.yml' => $current]);
+    fakeGithubConfigPullRequestApi();
+
+    $task = runRiskProfileResearch();
+
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and(RiskProfile::where('repo', 'pr-profile')->count())->toBe(1);
+    Http::assertSent(function (Request $request) {
+        if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/pulls')) {
+            return false;
+        }
+
+        return $request['head'] === 'yak/risk-profile'
+            && $request['title'] === 'Update Yak risk profile'
+            && str_contains($request['body'], 'proposes these changes to `.yak/risk-profile.yml`. Merging approves them.')
+            && str_contains($request['body'], '| billing | medium to **high** |')
+            && str_contains($request['body'], '| docs | New, **low** |')
+            && str_contains($request['body'], '| legacy | Removed |')
+            && str_contains($request['body'], "1 open question remains. Open questions block Yak's auto-approval until they are answered in the file.")
+            && str_contains($request['body'], str_repeat('b', 7));
+    });
+    Http::assertSent(function (Request $request) {
+        if (! str_ends_with($request->url(), '/git/blobs')) {
+            return false;
+        }
+        $parsed = (new RepositoryConfigParser)->parse('risk-profile.yml', $request['content']);
+
+        return $parsed['errors'] === [];
+    });
+});
+
+test('risk profile research titles the PR as an addition when no file exists', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    runRiskProfileResearch();
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
+        && $request['title'] === 'Add Yak risk profile' && str_contains($request['body'], '| billing | New, **high** |'));
+});
+
+test('risk profile research keeps the draft and notes the failure when the PR cannot be opened', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi(500);
+
+    $task = runRiskProfileResearch();
+
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and(RiskProfile::where('repo', 'pr-profile')->count())->toBe(1)
+        ->and($task->result_summary)->toContain('Could not open the risk profile PR');
+});
+
+test('risk profile research opens no PR when .yak/ could not be read', function () {
+    fakeGithubConfigPullRequestApi();
+
+    runRiskProfileResearch();
+
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls'));
+});
+
+test('an area name cannot inject markdown into the risk profile PR body', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    runRiskProfileResearch("x\n## Approved <!-- y");
+
+    Http::assertSent(function (Request $request): bool {
+        if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/pulls')) {
+            return false;
+        }
+
+        return str_contains($request['body'], '| x \#\# Approved \<\!\-\- y | New, **high** |')
+            && ! str_contains($request['body'], "\n## Approved");
+    });
+});
+
+test('regenerating with an open PR pushes a new commit and updates its body', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi(201, [
+        'api.github.com/repos/acme/api/pulls?*' => Http::response([['number' => 9, 'title' => 'Existing', 'html_url' => 'https://github.com/acme/api/pull/9']]),
+        'api.github.com/repos/acme/api/pulls/9' => Http::response(['number' => 9, 'html_url' => 'https://github.com/acme/api/pull/9']),
+    ]);
+
+    runRiskProfileResearch();
+
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/git/commits'));
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PATCH' && str_ends_with($request->url(), '/pulls/9')
+        && str_contains($request['body'], '| billing | New, **high** |'));
+});
+
+test('risk profile research says so when .yak/ could not be read', function () {
+    fakeGithubConfigPullRequestApi();
+
+    $task = runRiskProfileResearch();
+
+    expect($task->result_summary)->toContain('No risk profile PR was opened: Yak could not read `.yak/` from GitHub. Generate the profile again once it is reachable.');
+});
+
+test('an unchanged profile shows a single no-changes row', function () {
+    $current = app(YakConfigFiles::class)->riskProfile(['areas' => [
+        ['name' => 'billing', 'paths' => ['billing/*'], 'symbols' => [], 'risk' => 'high', 'rationale' => 'x', 'evidence' => ['a:1']],
+        ['name' => 'docs', 'paths' => ['docs/*'], 'symbols' => [], 'risk' => 'low', 'rationale' => 'x', 'evidence' => ['a:1']],
+    ], 'unknowns' => ['Who owns cron?']]);
+    fakeYakFiles(['risk-profile.yml' => $current]);
+    fakeGithubConfigPullRequestApi();
+
+    runRiskProfileResearch();
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
+        && str_contains($request['body'], "| --- | --- |\n| No area changes | |"));
 });

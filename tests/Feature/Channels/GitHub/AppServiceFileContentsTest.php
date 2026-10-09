@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\GitHub\AppService;
+use App\Services\RepositoryConfigParser;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -79,3 +80,18 @@ it('throws when GitHub answers 404 for a missing commit instead of a missing fil
     expect(fn () => app(AppService::class)->getFileContents(99999, 'acme/api', '.yak/config.yml', 'abc'))
         ->toThrow(RuntimeException::class);
 });
+
+it('reports an oversize file as over the limit without parsing it', function (array $headers) {
+    Http::fake(fakeInstallationToken() + [
+        'api.github.com/repos/acme/api/contents/*' => Http::response(str_repeat('a: 1' . "\n", 2 * 1024 * 1024 / 5), 200, $headers),
+    ]);
+
+    $contents = app(AppService::class)->getFileContents(99999, 'acme/api', '.yak/config.yml', 'main');
+    $result = (new RepositoryConfigParser)->parse('config.yml', $contents);
+
+    expect(strlen($contents))->toBe(RepositoryConfigParser::MAX_BYTES + 1)
+        ->and($result['errors'])->toBe(['config.yml: must be at most 1 MiB']);
+})->with([
+    'with content length' => [['Content-Length' => (string) (2 * 1024 * 1024)]],
+    'without content length' => [[]],
+]);

@@ -1,5 +1,5 @@
 import { Badge, Button, Skeleton } from '@geocodio/console-ui';
-import { ExternalLink, FolderGit2, Pencil, RefreshCw, TriangleAlert } from 'lucide-react';
+import { ExternalLink, FolderGit2, GitPullRequest, Pencil, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { formatAgo } from '@/lib/format';
@@ -111,7 +111,7 @@ function InvalidFileStrip({ file }: { file: YakConfigFile }) {
     );
 }
 
-export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { config: YakConfig; slug: string; branch: string; setupDone: boolean; guideUrl: string }) {
+export function YakConfigStrip({ config, slug, branch, setupDone, configUrl }: { config: YakConfig; slug: string; branch: string; setupDone: boolean; configUrl: string }) {
     const action = useRouterAction();
 
     if (config.state === 'unavailable') {
@@ -158,6 +158,30 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
 
     const invalidFiles = config.files.filter((file) => !file.valid);
 
+    if (config.files.length === 0 && config.configPullRequest) {
+        const pullRequest = config.configPullRequest;
+
+        return (
+            <Strip
+                tone="neutral"
+                icon={<GitPullRequest size={16} className="text-muted" />}
+                title="Config PR waiting for review"
+                action={
+                    <a href={pullRequest.url} target="_blank" rel="noopener noreferrer">
+                        <Button icon={<ExternalLink size={13} />}>Open PR</Button>
+                    </a>
+                }
+            >
+                <p className="text-[12px] text-muted">
+                    <a href={pullRequest.url} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                        #{pullRequest.number} {pullRequest.title}
+                    </a>
+                    . The values below apply until it merges.
+                </p>
+            </Strip>
+        );
+    }
+
     if (config.files.length === 0) {
         return setupDone ? (
             <Strip
@@ -165,14 +189,21 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
                 icon={<FolderGit2 size={16} className="text-muted" />}
                 title="Settings are stored in Yak, not in the repository"
                 action={
-                    <a href={guideUrl} target="_blank" rel="noopener noreferrer">
-                        <Button icon={<ExternalLink size={13} />}>
-                            How .yak/ works
-                        </Button>
-                    </a>
+                    <Button
+                        data-testid="yak-config-migrate"
+                        pending={action.isPending('config-migrate')}
+                        onClick={() => action.run('config-migrate', 'post', repos.config.migrate.url(slug))}
+                    >
+                        {action.isPending('config-migrate') ? 'Opening PR…' : 'Open a config PR'}
+                    </Button>
                 }
             >
-                <p className="text-[12px] text-muted">You can commit a .yak/ directory to manage settings through pull requests.</p>
+                <p className="text-[12px] text-muted">
+                    Open a PR that moves them into <span className="font-mono">.yak/</span>, so changes go through review on GitHub.{' '}
+                    <a href={configUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                        How .yak/ works
+                    </a>
+                </p>
             </Strip>
         ) : (
             <Strip
@@ -190,7 +221,7 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
                 }
             >
                 <p className="text-[12px] text-muted">
-                    Setup prepares the sandbox for Yak tasks. You can commit a .yak/ directory to manage settings through pull requests.
+                    Setup prepares the sandbox and opens a PR that adds <code>.yak/</code>. Settings apply once the PR merges.
                 </p>
             </Strip>
         );

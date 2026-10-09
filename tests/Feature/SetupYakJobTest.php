@@ -17,7 +17,9 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
 use App\YakPromptBuilder;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
@@ -714,4 +716,88 @@ test('a failed setup sends one error notice', function () {
 
     expect(Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Error))
         ->toHaveCount(1);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Setup config pull request
+|--------------------------------------------------------------------------
+*/
+
+function runSetupEmittingManifest(string $healthProbePath = '/'): array
+{
+    $summary = "Done.\n\n```preview_manifest\n" . json_encode([
+        'port' => 3000, 'health_probe_path' => $healthProbePath, 'cold_start' => 'npm start', 'checkout_refresh' => 'npm install',
+    ]) . "\n```";
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_cfg', resultSummary: $summary, costUsd: 1.0, numTurns: 5, durationMs: 1000, isError: false, rawOutput: '{}',
+    ));
+    app()->instance(AgentRunner::class, $fake);
+    app()->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    $repository = Repository::factory()->create([
+        'slug' => 'cfg-repo', 'name' => 'Cfg Repo', 'github_full_name' => 'acme/api', 'default_branch' => 'main',
+        'setup_status' => 'pending', 'ci_system' => 'github_actions',
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'cfg-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    return [$repository->fresh(), $task->fresh()];
+}
+
+test('setup opens a PR adding .yak/ files when the repository has none', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    [$repository, $task] = runSetupEmittingManifest();
+
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($repository->preview_manifest['port'])->toBe(3000);
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
+        && $request['head'] === 'yak/setup-config'
+        && $request['title'] === 'Add Yak config for Cfg Repo'
+        && str_contains($request['body'], "Yak's setup task prepared the sandbox for this repository")
+        && str_contains($request['body'], 'Yak already uses these values. Merging makes them reviewable here.'));
+});
+
+test('setup opens no PR when .yak/ files already exist', function () {
+    fakeYakFiles(['config.yml' => "version: 1\n"]);
+    fakeGithubConfigPullRequestApi();
+
+    [$repository, $task] = runSetupEmittingManifest();
+
+    expect($task->status)->toBe(TaskStatus::Success)->and($repository->preview_manifest)->not->toBeNull();
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls'));
+});
+
+test('setup opens no PR when .yak/ could not be read', function () {
+    fakeGithubConfigPullRequestApi();
+
+    [, $task] = runSetupEmittingManifest();
+
+    expect($task->status)->toBe(TaskStatus::Success);
+    Http::assertNotSent(fn (Request $request): bool => str_ends_with($request->url(), '/pulls'));
+});
+
+test('setup still succeeds and logs a warning when the PR cannot be opened', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi(500);
+
+    [$repository, $task] = runSetupEmittingManifest();
+
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($repository->preview_manifest['port'])->toBe(3000)
+        ->and($task->logs()->where('level', 'warning')->where('message', 'like', 'Could not open the .yak/ setup PR%')->exists())->toBeTrue();
+});
+
+test('a hostile health probe path stays in one table cell of the setup PR', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    runSetupEmittingManifest("/a`b|c\nd");
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
+        && str_contains($request['body'], "| `.yak/preview.yml` | Port 3000, health probe `/a'b\\|c d`, start and refresh commands |"));
 });

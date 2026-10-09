@@ -110,6 +110,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('repos/{repository}/config/refresh', [RepositoryActionController::class, 'refreshConfig'])
         ->name('repos.config.refresh')
         ->where('repository', '.+');
+    Route::post('repos/{repository}/config/migrate', [RepositoryActionController::class, 'migrateConfig'])
+        ->name('repos.config.migrate')
+        ->where('repository', '.+');
     Route::post('repos/{repository}/review-open-prs', [RepositoryActionController::class, 'reviewOpenPrs'])
         ->name('repos.review-open-prs')
         ->where('repository', '.+');

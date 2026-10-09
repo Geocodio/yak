@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Geocodio/yak/main/schemas/preview.schema.json",
+  "title": "Yak preview config (.yak/preview.yml)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "port": {
+      "type": "integer",
+      "description": "The port the app listens on inside the preview.",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "health_probe_path": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "The path Yak requests to check the preview is up. Starts with a slash."
+    },
+    "cold_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The command that starts the app from a stopped preview."
+    },
+    "checkout_refresh": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The command that refreshes a preview after a new commit."
+    },
+    "wake_timeout_seconds": {
+      "type": "integer",
+      "description": "Seconds to wait for a sleeping preview to wake.",
+      "minimum": 1
+    },
+    "cold_start_timeout_seconds": {
+      "type": "integer",
+      "description": "Seconds to wait for the cold start command to finish.",
+      "minimum": 1
+    },
+    "checkout_refresh_timeout_seconds": {
+      "type": "integer",
+      "description": "Seconds to wait for the checkout refresh command to finish.",
+      "minimum": 1
+    },
+    "health_probe_timeout_seconds": {
+      "type": "integer",
+      "description": "Seconds to wait for the health probe to answer.",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "port",
+    "health_probe_path"
+  ]
+}

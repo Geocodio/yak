@@ -44,3 +44,8 @@ it('saves and resets the risk prompt through the versioned editor', function () 
     $this->delete(route('prompts.reset', 'tasks-risk-profile'))->assertSessionHas('success');
     expect(app(PromptResolver::class)->render('tasks-risk-profile'))->toContain('areas');
 });
+
+it('tells the risk profile prompt to start from the existing file', function () {
+    expect(app(PromptResolver::class)->render('tasks-risk-profile'))
+        ->toContain('If `.yak/risk-profile.yml` exists in the checkout, start from it');
+});

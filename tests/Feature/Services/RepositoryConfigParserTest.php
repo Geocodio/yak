@@ -53,7 +53,7 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
         ->and(collect($result['errors'])->contains(fn (string $error): bool => str_starts_with($error, "{$expectedKey}: ")))->toBeTrue();
 })->with([
     'unknown top-level key' => ["version: 1\nreveiw: {}\n", 'reveiw'],
-    'unknown nested key' => ["version: 1\nreview:\n  enabeld: true\n", 'review'],
+    'unknown nested key' => ["version: 1\nreview:\n  enabeld: true\n", 'review.enabeld'],
     'missing version' => ["ci: none\n", 'version'],
     'wrong version' => ["version: 2\n", 'version'],
     'bad ci' => ["version: 1\nci: jenkins\n", 'ci'],
@@ -66,6 +66,18 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     'empty allowed path' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"\" ]\n", 'review.approval.allowed_paths.0'],
     'path glob with spaces' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"a b/**\" ]\n", 'review.approval.allowed_paths.0'],
 ]);
+
+it('names a nested unknown key', function () {
+    $errors = parseYak('config.yml', "version: 1\nreview:\n  enabeld: true\n  approval:\n    mode: shadow\n    max_file: 3\n")['errors'];
+
+    expect($errors)->toBe(['review.enabeld: unknown key', 'review.approval.max_file: unknown key']);
+});
+
+it('names an unknown key inside a risk profile area', function () {
+    $yaml = "version: 1\nareas:\n  - name: A\n    paths: [ \"a/**\" ]\n    symbols: []\n    risk: low\n    rationale: r\n    evidence: [ \"x\" ]\n    colour: red\n";
+
+    expect(parseYak('risk-profile.yml', $yaml)['errors'])->toBe(['areas.0.colour: unknown key']);
+});
 
 it('rejects files that are not a YAML mapping', function (string $content) {
     $result = parseYak('config.yml', $content);
@@ -106,3 +118,18 @@ it('limits AGENTS.md to 10000 characters and passes preview.sh through', functio
         ->and(parseYak('AGENTS.md', str_repeat('a', 10001))['errors'])->toBe(['AGENTS.md: must be at most 10000 characters'])
         ->and(parseYak('preview.sh', "#!/bin/sh\nmake\n")['data'])->toBe("#!/bin/sh\nmake\n");
 });
+
+it('caps the error list and counts the rest', function () {
+    $yaml = "version: 1\n" . implode('', array_map(fn (int $index): string => "unknown_{$index}: 1\n", range(1, 5000)));
+
+    $errors = parseYak('config.yml', $yaml)['errors'];
+
+    expect($errors)->toHaveCount(RepositoryConfigParser::MAX_ERRORS + 1)
+        ->and(end($errors))->toBe('… and 4900 more errors');
+});
+
+it('rejects risk profile path globs with characters outside the glob set', function (string $glob) {
+    $yaml = "version: 1\nareas:\n  - name: Billing\n    paths: [ \"{$glob}\" ]\n    symbols: []\n    risk: high\n    rationale: Money\n    evidence: [ a ]\nunknowns: []\n";
+
+    expect(implode("\n", parseYak('risk-profile.yml', $yaml)['errors']))->toContain('areas.0.paths.0: ');
+})->with(['hash' => 'app/#x', 'space' => 'app/Billing x']);
