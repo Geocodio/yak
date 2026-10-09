@@ -43,13 +43,14 @@ readonly class ThreadEntry
     }
 
     /**
-     * A person's answer to a clarification question, shown as their message.
+     * A person's answer to a clarification question, or a message they
+     * steered at the running agent, shown as their message.
      *
      * @param  array<int, int>  $attachmentIds
      */
-    public static function clarificationReply(YakTask $run, string $text, Carbon $at, ?string $authorName, array $attachmentIds): self
+    public static function clarificationReply(YakTask $run, string $text, Carbon $at, ?string $authorName, array $attachmentIds, string $source = 'dashboard'): self
     {
-        return new self('user', $run, $text, null, $at, 'dashboard', authorName: $authorName, attachmentIds: $attachmentIds);
+        return new self('user', $run, $text, null, $at, $source, authorName: $authorName, attachmentIds: $attachmentIds);
     }
 
     /**

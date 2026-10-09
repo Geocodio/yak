@@ -1,6 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import setupCard from './setup-card'
 import messages from './messages'
+import queuedMessages from './queued-messages'
 import clarificationAnswers from './clarification-answers'
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
@@ -462,6 +463,7 @@ const tasks = {
     retryRender: Object.assign(retryRender, retryRender),
     reroute: Object.assign(reroute, reroute),
     messages: Object.assign(messages, messages),
+    queuedMessages: Object.assign(queuedMessages, queuedMessages),
     clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
     reRequestReview: Object.assign(reRequestReview, reRequestReview),
 }

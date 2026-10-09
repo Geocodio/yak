@@ -381,6 +381,20 @@ class YakTask extends Model
     }
 
     /**
+     * The first task of the follow-up conversation this task belongs to,
+     * found by walking up the parents (which stay loaded on each task).
+     */
+    public function rootTask(): self
+    {
+        $root = $this;
+        while ($root->parent_task_id !== null && $root->parent !== null) {
+            $root = $root->parent;
+        }
+
+        return $root;
+    }
+
+    /**
      * The whole follow-up conversation this task belongs to: the chain's
      * root plus every descendant, ordered oldest-first. Each follow-up's
      * parent is the previous head, so the chain is walked up to the root
@@ -393,10 +407,7 @@ class YakTask extends Model
      */
     public function conversation(): Collection
     {
-        $root = $this;
-        while ($root->parent_task_id !== null && $root->parent !== null) {
-            $root = $root->parent;
-        }
+        $root = $this->rootTask();
 
         /** @var Collection<int, YakTask> $chain */
         $chain = collect([$root]);

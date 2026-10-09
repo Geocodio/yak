@@ -2,10 +2,13 @@
 
 use App\Agents\SandboxedAgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
+use App\Enums\SteeringMode;
+use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
+use App\Services\ThreadBuilder;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -532,7 +535,7 @@ test('user prompt is piped to claude -p via stdin, never embedded as an argv arg
             ]);
 
             $shellCommand = sprintf(
-                'cat > %s; printf "%%s\n" %s',
+                'head -n 1 > %s; printf "%%s\n" %s',
                 escapeshellarg($this->stdinCaptureFile),
                 escapeshellarg($resultEvent),
             );
@@ -574,8 +577,11 @@ test('user prompt is piped to claude -p via stdin, never embedded as an argv arg
     expect($claudeCall['command'])->not->toContain(str_repeat('A', 1000));
 
     // stdin path: the prompt arrived at the child process via the
-    // stdin pipe, byte-for-byte.
-    expect(file_get_contents($capturedStdin))->toBe($largePrompt);
+    // stdin pipe, byte-for-byte, as a stream-json user message.
+    expect(json_decode((string) file_get_contents($capturedStdin), true))->toBe([
+        'type' => 'user',
+        'message' => ['role' => 'user', 'content' => $largePrompt],
+    ]);
 
     expect($result->isError)->toBeFalse();
     expect($result->resultSummary)->toBe('prompt received');
@@ -729,7 +735,7 @@ class ScriptedStreamSandbox extends RecordingSandboxManager
             2 => ['pipe', 'w'],
         ];
 
-        $process = proc_open(['bash', '-c', sprintf('cat > /dev/null; printf "%%s\n" %s', escapeshellarg($lines))], $descriptors, $pipes);
+        $process = proc_open(['bash', '-c', sprintf('head -n 1 > /dev/null; printf "%%s\n" %s', escapeshellarg($lines))], $descriptors, $pipes);
 
         return [$process, $pipes];
     }
@@ -866,7 +872,7 @@ it('records stream lines that are not valid JSON on the task log instead of drop
             ]);
 
             $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
-            $shell = sprintf('cat > /dev/null; echo "not json at all {"; echo %s', escapeshellarg($resultEvent));
+            $shell = sprintf('head -n 1 > /dev/null; echo "not json at all {"; echo %s', escapeshellarg($resultEvent));
             $process = proc_open(['bash', '-c', $shell], $descriptors, $pipes);
 
             return [$process, $pipes];
@@ -909,7 +915,7 @@ it('reassembles a stream line that arrives across several pipe reads', function 
 
             $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
             $shell = sprintf(
-                'cat > /dev/null; printf %%s %s; sleep 0.3; printf "%%s\n" %s',
+                'head -n 1 > /dev/null; printf %%s %s; sleep 0.3; printf "%%s\n" %s',
                 escapeshellarg(substr($resultEvent, 0, $splitAt)),
                 escapeshellarg(substr($resultEvent, $splitAt)),
             );
@@ -989,4 +995,158 @@ it('leaves the prompt untouched when there are no attachments', function () {
 
     expect($sandbox->pushes)->toBe([])
         ->and(end($sandbox->inputs))->toBe('do the thing');
+});
+
+/**
+ * Fake sandbox whose `claude -p` is a bash script, for runs that talk back
+ * and forth over stdin the way the stream-json input protocol does. The
+ * script sees `$CAPTURE`, a file it can copy stdin lines into.
+ */
+class InteractiveStreamSandbox extends RecordingSandboxManager
+{
+    public string $capture;
+
+    public function __construct(public string $script)
+    {
+        $this->capture = (string) tempnam(sys_get_temp_dir(), 'yak-steer-');
+    }
+
+    public function streamExec(string $containerName, string $command, bool $asRoot = false): array
+    {
+        $this->calls[] = ['command' => $command, 'asRoot' => $asRoot, 'timeout' => null];
+
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $process = proc_open(['bash', '-c', $this->script], $descriptors, $pipes, null, ['CAPTURE' => $this->capture]);
+
+        return [$process, $pipes];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function capturedMessages(): array
+    {
+        return array_values(array_map(
+            fn (string $line): array => json_decode($line, true),
+            array_filter(explode("\n", (string) file_get_contents($this->capture))),
+        ));
+    }
+}
+
+function streamLine(array $event): string
+{
+    return escapeshellarg((string) json_encode($event));
+}
+
+function replayLine(): string
+{
+    return streamLine(['type' => 'user', 'isReplay' => true, 'message' => ['role' => 'user', 'content' => 'echo']]);
+}
+
+function resultLine(string $text): string
+{
+    return streamLine(['type' => 'result', 'is_error' => false, 'result' => $text, 'num_turns' => 1, 'total_cost_usd' => 0.0, 'duration_ms' => 1, 'session_id' => 'sess_steer']);
+}
+
+function steeringRunner(InteractiveStreamSandbox $sandbox, float $steeredTurnGraceSeconds = 30.0, float $steeringCheckIntervalSeconds = 0.0): SandboxedAgentRunner
+{
+    return new SandboxedAgentRunner(
+        sandbox: $sandbox,
+        postResultGraceSeconds: 2.0,
+        streamIdleTimeoutSeconds: 20,
+        streamPollIntervalSeconds: 0,
+        steeringCheckIntervalSeconds: $steeringCheckIntervalSeconds,
+        steeredTurnGraceSeconds: $steeredTurnGraceSeconds,
+    );
+}
+
+it('passes the prompt as stream-json and asks the CLI to echo each message it takes in', function () {
+    $method = new ReflectionMethod(SandboxedAgentRunner::class, 'buildClaudeCommand');
+    $command = $method->invoke(steeringRunner(new InteractiveStreamSandbox('')), buildAgentRunRequest(YakTask::factory()->create()));
+
+    expect($command)->toContain('--input-format stream-json')
+        ->toContain('--replay-user-messages');
+});
+
+it('hands a steered message to the running CLI and records it in the thread', function () {
+    $task = YakTask::factory()->running()->create();
+    PendingSteeringMessage::queueFor($task, 'use the v2 endpoint', 'dashboard', mode: SteeringMode::Steer, authorName: 'Ada');
+    PendingSteeringMessage::queueFor($task, 'add docs afterwards', 'dashboard');
+
+    $sandbox = new InteractiveStreamSandbox(implode('; ', [
+        'read -r line; echo "$line" >> "$CAPTURE"; echo ' . replayLine(),
+        'read -r line; echo "$line" >> "$CAPTURE"; echo ' . replayLine(),
+        'echo ' . resultLine('done with v2'),
+        'cat > /dev/null',
+    ]));
+
+    $result = steeringRunner($sandbox)->run(buildAgentRunRequest($task));
+
+    expect($result->isError)->toBeFalse()
+        ->and($result->resultSummary)->toBe('done with v2');
+
+    $messages = $sandbox->capturedMessages();
+    expect($messages)->toHaveCount(2)
+        ->and($messages[0]['message']['content'])->toBe('do the thing')
+        ->and($messages[1]['message']['content'])->toContain('use the v2 endpoint');
+
+    // The queued message waits for the run to finish instead.
+    expect(PendingSteeringMessage::pluck('text')->all())->toBe(['add docs afterwards']);
+    expect(TaskLog::where('yak_task_id', $task->id)->where('message', ThreadBuilder::STEERING_MESSAGE_LOG)->sole()->metadata)
+        ->toMatchArray(['reply' => 'use the v2 endpoint', 'author' => 'Ada']);
+});
+
+it('leaves a steered message waiting when the CLI cannot take it in', function () {
+    $task = YakTask::factory()->running()->create();
+
+    // The CLI stops reading stdin after the prompt, well before the first
+    // steering check, so the steered message cannot be written.
+    $sandbox = new InteractiveStreamSandbox(implode('; ', [
+        'read -r line; exec 0<&-',
+        'echo ' . replayLine(),
+        'sleep 1',
+        'echo ' . resultLine('finished'),
+    ]));
+    PendingSteeringMessage::queueFor($task, 'too late', 'dashboard', mode: SteeringMode::Steer);
+
+    $result = steeringRunner($sandbox, steeringCheckIntervalSeconds: 0.5)->run(buildAgentRunRequest($task));
+
+    expect($result->resultSummary)->toBe('finished')
+        ->and(PendingSteeringMessage::pluck('text')->all())->toBe(['too late'])
+        ->and(TaskLog::where('yak_task_id', $task->id)->where('message', ThreadBuilder::STEERING_MESSAGE_LOG)->exists())->toBeFalse();
+});
+
+it('waits for the extra turn when a steered message lands just as a turn ends', function () {
+    $task = YakTask::factory()->running()->create();
+    PendingSteeringMessage::queueFor($task, 'one more thing', 'dashboard', mode: SteeringMode::Steer);
+
+    // The first result arrives before the CLI has echoed the steered
+    // message; the echo then starts a second turn with its own result.
+    $sandbox = new InteractiveStreamSandbox(implode('; ', [
+        'read -r line; echo ' . replayLine(),
+        'read -r line',
+        'echo ' . resultLine('first turn'),
+        'sleep 0.3; echo ' . replayLine(),
+        'sleep 0.3; echo ' . resultLine('second turn'),
+        'cat > /dev/null',
+    ]));
+
+    $result = steeringRunner($sandbox)->run(buildAgentRunRequest($task));
+
+    expect($result->resultSummary)->toBe('second turn');
+});
+
+it('stops waiting for an extra turn when the CLI never echoes the steered message', function () {
+    $task = YakTask::factory()->running()->create();
+    PendingSteeringMessage::queueFor($task, 'one more thing', 'dashboard', mode: SteeringMode::Steer);
+
+    $sandbox = new InteractiveStreamSandbox(implode('; ', [
+        'read -r line; read -r line',
+        'echo ' . resultLine('finished'),
+        'cat > /dev/null',
+    ]));
+
+    $start = microtime(true);
+    $result = steeringRunner($sandbox, steeredTurnGraceSeconds: 0.5)->run(buildAgentRunRequest($task));
+
+    expect($result->resultSummary)->toBe('finished')
+        ->and(microtime(true) - $start)->toBeLessThan(5.0);
 });

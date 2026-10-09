@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Tasks;
 
+use App\Enums\SteeringMode;
 use App\Models\TaskAttachment;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SendTaskMessageRequest extends FormRequest
 {
@@ -12,12 +14,13 @@ class SendTaskMessageRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, array<int, string>> */
+    /** @return array<string, array<int, mixed>> */
     public function rules(): array
     {
         return [
             'message' => ['required', 'string', 'max:20000'],
             'option' => ['nullable', 'string'],
+            'mode' => ['nullable', Rule::enum(SteeringMode::class)],
             ...TaskAttachment::rules(),
         ];
     }

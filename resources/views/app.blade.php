@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <x-app-icons />
+    @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
     <x-inertia::head>
         <title>{{ config('app.name') }}</title>

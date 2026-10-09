@@ -4,6 +4,7 @@ import DismissSetupCardController from './DismissSetupCardController'
 import TaskController from './TaskController'
 import TaskActionController from './TaskActionController'
 import TaskMessageController from './TaskMessageController'
+import QueuedMessageController from './QueuedMessageController'
 import TaskClarificationAnswerController from './TaskClarificationAnswerController'
 import RequestReReviewController from './RequestReReviewController'
 
@@ -14,6 +15,7 @@ const Tasks = {
     TaskController: Object.assign(TaskController, TaskController),
     TaskActionController: Object.assign(TaskActionController, TaskActionController),
     TaskMessageController: Object.assign(TaskMessageController, TaskMessageController),
+    QueuedMessageController: Object.assign(QueuedMessageController, QueuedMessageController),
     TaskClarificationAnswerController: Object.assign(TaskClarificationAnswerController, TaskClarificationAnswerController),
     RequestReReviewController: Object.assign(RequestReReviewController, RequestReReviewController),
 }

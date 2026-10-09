@@ -261,6 +261,23 @@ export type ComposerData = {
     buttonLabel: string | null;
     /** First attachment label number free in this conversation; labels never repeat across its messages. */
     nextAttachmentNumber: number;
+    /** Messages waiting for the busy task, oldest first. */
+    queued: QueuedMessage[];
+};
+
+/** How a message sent while Yak works reaches it: after the run finishes, or at its next tool call. */
+export type SteeringMode = 'queue' | 'steer';
+
+export type QueuedMessage = {
+    id: number;
+    text: string;
+    mode: SteeringMode;
+    /** Where it was sent from: `dashboard`, `slack`, `github_review`… */
+    source: string;
+    authorName: string | null;
+    /** False for a GitHub review, which waits for the follow-up so the reviewer is asked to look again. */
+    canSteer: boolean;
+    attachments: AttachmentData[];
 };
 
 export type DebugData = Record<string, string>;
