@@ -254,7 +254,9 @@ class RunFollowUpJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
         ];
 
-        if ($repository->ci_system !== 'none') {
+        $ciSystem = $repository->settings()->ciSystem();
+
+        if ($ciSystem !== 'none') {
             $update['status'] = TaskStatus::AwaitingCi;
         }
 
@@ -264,7 +266,7 @@ class RunFollowUpJob implements ShouldQueue
         $recorder->mark('post_agent');
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 
-        if ($repository->ci_system === 'none') {
+        if ($ciSystem === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed your changes on branch {$branchName} — waiting for CI before updating the PR.");

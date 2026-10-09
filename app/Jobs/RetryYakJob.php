@@ -315,7 +315,7 @@ class RetryYakJob implements ShouldQueue
             $this->task->update($this->postAgentUpdate($repository, $result));
         }
 
-        if ($repository->ci_system === 'none') {
+        if ($repository->settings()->ciSystem() === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed retry on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
@@ -341,7 +341,7 @@ class RetryYakJob implements ShouldQueue
             'model_used' => config('yak.default_model'),
         ];
 
-        if ($repository->ci_system !== 'none') {
+        if ($repository->settings()->ciSystem() !== 'none') {
             $update['status'] = TaskStatus::AwaitingCi;
         }
 

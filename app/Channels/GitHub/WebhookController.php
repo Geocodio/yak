@@ -148,7 +148,7 @@ class WebhookController extends Controller
 
         $repository = Repository::where('slug', $task->repo)->first();
 
-        if (! $repository || $repository->ci_system !== 'github_actions') {
+        if (! $repository || $repository->settings()->ciSystem() !== 'github_actions') {
             return response()->json(['ok' => true, 'skipped' => 'wrong CI system']);
         }
 

@@ -138,7 +138,7 @@ class TaskActionController extends Controller
             || ! str_starts_with((string) $task->error_log, TimeoutAwaitingCiCommand::TIMEOUT_ERROR_PREFIX)
             || $installationId === 0
             || $repository === null
-            || $repository->ci_system !== 'github_actions') {
+            || $repository->settings()->ciSystem() !== 'github_actions') {
             return false;
         }
 
