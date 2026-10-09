@@ -111,7 +111,7 @@ function InvalidFileStrip({ file }: { file: YakConfigFile }) {
     );
 }
 
-export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { config: YakConfig; slug: string; branch: string; setupDone: boolean; guideUrl: string }) {
+export function YakConfigStrip({ config, slug, branch, setupDone, configUrl }: { config: YakConfig; slug: string; branch: string; setupDone: boolean; configUrl: string }) {
     const action = useRouterAction();
 
     if (config.state === 'unavailable') {
@@ -200,7 +200,7 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
             >
                 <p className="text-[12px] text-muted">
                     Open a PR that moves them into <span className="font-mono">.yak/</span>, so changes go through review on GitHub.{' '}
-                    <a href={guideUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                    <a href={configUrl} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
                         How .yak/ works
                     </a>
                 </p>

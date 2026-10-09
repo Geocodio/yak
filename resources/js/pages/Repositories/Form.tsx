@@ -452,7 +452,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                     slug={repository.slug}
                                     branch={repository.defaultBranch}
                                     setupDone={yakConfig.setupStatus === 'ready'}
-                                    guideUrl={docsLinks.guide}
+                                    configUrl={docsLinks.config}
                                 />
                             ) : null}
                         </Deferred>

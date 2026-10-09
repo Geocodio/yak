@@ -97,6 +97,7 @@ export type RepositoryStats = {
 
 export type RepositoryDocsLinks = {
     guide: string;
+    config: string;
     adding: string;
     setup: string;
     claudeMd: string;

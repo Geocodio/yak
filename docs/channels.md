@@ -48,8 +48,9 @@ If you already have a GitHub App and want to reuse it, fill in `github_app_id`, 
 | Contents | Read & Write (push branches) |
 | Pull requests | Read & Write (create PRs, add labels) |
 | Issues | Read & Write (react to follow-up comments) |
-| Checks | Read (CI results) |
+| Checks | Read & Write (CI results, the `yak / config` check) |
 | Actions | Read & Write (flaky-test scan and CI failures read job logs; a failed run gets one re-run of its failed jobs) |
+| Members | Read (expand CODEOWNERS teams) |
 | Metadata | Read (default) |
 
 ### Webhook Events
@@ -63,12 +64,17 @@ The GitHub App subscribes to:
 - `issue_comment.created` — `/yak` follow-up comments on an open PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review.submitted` — review feedback on Yak's PRs, and `/yak` summons in reviews and inline comments on any PR (see [Follow-ups](#follow-ups) below)
 - `pull_request_review_comment.created` — `/yak` follow-up replies on an inline review comment (the file, line, and diff hunk are passed to Yak as context)
-- `push` / `delete` — refreshes and tears down branch preview deployments
+- `push` — refreshes branch preview deployments and re-reads `.yak/` when the default branch moves
+- `delete` — tears down branch preview deployments
 - `repository.renamed` / `repository.transferred` — keeps Yak's record of where the repo lives on GitHub current
 
 Webhook URL: `https://{your-domain}/webhooks/ci/github` for CI; `https://{your-domain}/webhooks/github` for PR review and follow-up events.
 
 > **Subscribing an existing app.** Freshly provisioned apps include these events and permissions via the Ansible manifest. If you reuse a pre-existing GitHub App, add **Issue comments**, **Pull request reviews**, and **Pull request review comments** to its event subscriptions (or follow-ups won't fire) and bump **Issues** to **Read & Write** (or the 👀 acknowledgement on PR conversation comments will 403). GitHub will prompt installations to re-accept the new permission.
+
+### Accepting new permissions
+
+Checks (Read & Write) and Members (Read) are new. Every installation has to accept them once, from the GitHub App's installation page in your organization settings. Until an installation does, Yak skips the `yak / config` check on that installation and logs a warning. Everything else keeps working. Apps that reuse a pre-existing GitHub App also need the **Push**, **Delete** and **Repository** events subscribed. See [Repository config](repo-config.md) for the check itself.
 
 ### Repository renames
 
