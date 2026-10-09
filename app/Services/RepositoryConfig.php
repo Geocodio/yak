@@ -62,6 +62,7 @@ class RepositoryConfig
             }
         } catch (\Throwable $exception) {
             report($exception);
+            $repository->refresh();
             $this->recordReadError($repository, $exception->getMessage());
         }
 
@@ -81,7 +82,14 @@ class RepositoryConfig
             return $cached ?: null;
         }
 
-        $sha = $this->github->getBranchHeadSha($installationId, $repository->github_full_name, $repository->default_branch);
+        try {
+            $sha = $this->github->getBranchHeadSha($installationId, $repository->github_full_name, $repository->default_branch);
+        } catch (\Throwable $exception) {
+            Cache::put($key, false, now()->addMinute());
+
+            throw $exception;
+        }
+
         Cache::put($key, $sha ?? false, $sha === null ? now()->addMinute() : now()->addMinutes(5));
 
         return $sha;

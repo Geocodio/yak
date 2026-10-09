@@ -25,6 +25,10 @@ beforeEach(function () {
 
         public int $contentsStatus = 200;
 
+        public bool $pullsThrow = false;
+
+        public int $branchCalls = 0;
+
         /** @var array<string, string> */
         public array $files = [];
     };
@@ -33,6 +37,7 @@ beforeEach(function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'ghs_token', 'expires_at' => now()->addHour()->toIso8601String()]),
         'api.github.com/repos/acme/api/branches/*' => function () use ($github) {
+            $github->branchCalls++;
             if ($github->branchStatus === 0) {
                 throw new ConnectionException('Connection timed out');
             }
@@ -52,9 +57,15 @@ beforeEach(function () {
 
             return isset($github->files[$name]) ? Http::response($github->files[$name]) : Http::response('', 404);
         },
-        'api.github.com/repos/acme/api/commits/*/pulls' => Http::response([
-            ['number' => 1482, 'title' => 'Loosen review limits', 'html_url' => 'https://github.com/acme/api/pull/1482', 'merged_at' => '2026-10-09T10:00:00Z'],
-        ]),
+        'api.github.com/repos/acme/api/commits/*/pulls' => function () use ($github) {
+            if ($github->pullsThrow) {
+                throw new ConnectionException('Connection timed out');
+            }
+
+            return Http::response([
+                ['number' => 1482, 'title' => 'Loosen review limits', 'html_url' => 'https://github.com/acme/api/pull/1482', 'merged_at' => '2026-10-09T10:00:00Z'],
+            ]);
+        },
     ]);
 
     $this->repository = Repository::factory()->create([
@@ -221,4 +232,26 @@ it('keeps the original valid commit when the content is unchanged', function () 
 
     expect($settings->snapshot->commitSha)->toBe(str_repeat('2', 40))
         ->and($settings->snapshot->file('config.yml')->validCommitSha)->toBe(str_repeat('1', 40));
+});
+
+it('backs off for a minute after the head lookup throws', function () {
+    $this->github->branchStatus = 0;
+
+    $this->repository->settings();
+    $this->repository->refresh()->settings();
+
+    expect($this->github->branchCalls)->toBe(1);
+});
+
+it('does not persist an enforce marker from a read that rolled back', function () {
+    serveYakFilesAt($this->github, str_repeat('1', 40), [
+        'config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n",
+        'preview.yml' => "port: 99999999\n",
+    ], $this->repository);
+    $this->github->pullsThrow = true;
+
+    $settings = $this->repository->settings();
+
+    expect($settings->snapshot->state)->toBe('unreachable')
+        ->and($this->repository->refresh()->co_owner_gate_enforced_at)->toBeNull();
 });
