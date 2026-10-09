@@ -635,3 +635,14 @@ it('includes the clarification contract in every prompt that may ask', function 
 it('no longer tells follow-ups not to ask', function () {
     expect(file_get_contents(resource_path('views/prompts/tasks/follow-up.blade.php')))->not->toContain('Do not ask for clarification');
 });
+
+test('system prompt uses AGENTS.md from the repo files over the stored agent_instructions', function () {
+    fakeYakFiles(['AGENTS.md' => 'Run pint before every commit.']);
+    $repo = Repository::factory()->create(['slug' => 'acme/files', 'agent_instructions' => 'Stored instructions']);
+    $task = YakTask::factory()->pending()->create(['repo' => $repo->slug]);
+
+    $prompt = YakPromptBuilder::systemPrompt($task);
+
+    expect($prompt)->toContain('Run pint before every commit.')
+        ->not->toContain('Stored instructions');
+});

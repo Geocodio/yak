@@ -5,6 +5,7 @@ use App\DataTransferObjects\WalkthroughTimeline;
 use App\Jobs\RenderWalkthroughJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
+use App\Models\Repository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\Mp4ChapterWriter;
@@ -490,4 +491,35 @@ it('puts the real cause in the failure notification, not the leading warnings', 
 
         return true;
     });
+});
+
+it('passes the public site URL from .yak/config.yml to the renderer', function (): void {
+    fakeYakFiles(['config.yml' => "version: 1\nwalkthrough:\n  public_site_url: https://file.example.com\n"]);
+    Repository::factory()->create(['slug' => 'acme/web', 'public_site_url' => 'https://stored.example.com']);
+    $task = walkthroughTaskFixture();
+    fakeGitHubPrBody();
+
+    $capturedOrigin = null;
+    $renderer = $this->mock(VideoRenderer::class);
+    $renderer->shouldReceive('timeline')->once()->andReturn(walkthroughTimelineFixture());
+    $renderer->shouldReceive('renderWalkthrough')->once()->andReturnUsing(
+        function (string $script, string $manifest, array $clips, ?array $vo, array $theme, ?string $origin, string $output) use (&$capturedOrigin): string {
+            $capturedOrigin = $origin;
+            File::ensureDirectoryExists(dirname($output));
+            File::put($output, 'mp4-bytes');
+
+            return $output;
+        }
+    );
+    $renderer->shouldReceive('probeDurationSeconds')->andReturn(60.0);
+    $this->mock(RenderQaCheck::class)->shouldReceive('assertPasses')->once();
+    $this->mock(PreviewGifGenerator::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(fn (string $mp4, string $output): string => tap($output, fn () => File::put($output, 'gif')));
+    $this->mock(VideoThumbnailer::class)->shouldReceive('generate')->once()
+        ->andReturnUsing(fn (string $video, string $output): string => tap($output, fn () => File::put($output, 'jpg')));
+    $this->mock(Mp4ChapterWriter::class)->shouldReceive('write')->once();
+
+    runRenderWalkthroughJob($task);
+
+    expect($capturedOrigin)->toBe('https://file.example.com');
 });

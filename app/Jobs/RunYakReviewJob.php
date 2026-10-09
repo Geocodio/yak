@@ -385,7 +385,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'diffSummary' => trim($diffStat),
             'reviewScope' => $scope,
             'changedFiles' => $changedFiles,
-            'repoAgentInstructions' => (string) ($repository->agent_instructions ?? ''),
+            'repoAgentInstructions' => $repository->settings()->agentInstructions(),
             'pathExcludes' => $pathExcludes,
             'linearTicket' => $this->tryFetchLinearTicket($metadata),
             'priorFindings' => $priorFindings,

@@ -33,7 +33,7 @@ class RepoRouter
         }
 
         $repoList = $activeRepos->map(function (Repository $repo): string {
-            $details = array_filter([$repo->description, $repo->notes]);
+            $details = array_filter([$repo->settings()->description(), $repo->notes]);
             $line = "- {$repo->slug}" . ($repo->is_default ? ' (default)' : '');
             if (! empty($details)) {
                 $line .= ': ' . implode(' | ', $details);
