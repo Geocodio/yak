@@ -284,6 +284,6 @@ A repository that was added before `.yak/` existed keeps its settings in Yak. To
 - click **Open a config PR** on the repository page, or
 - run `php artisan yak:migrate-config` on the server. Add `--repo=<slug>` for one repository and `--dry-run` to see what would be written without opening a PR.
 
-Yak opens a PR on the `yak/config-migration` branch with the `yak` label. The PR reproduces today's effective values. The one difference is that required checks no longer pin a GitHub App ID, because they match by name. The PR body says so. `yak:migrate-config` skips repositories that already have `.yak/` files, or whose `.yak/` Yak could not read.
+Yak opens a PR on the `yak/config-migration` branch with the `yak` label. The PR reproduces today's effective values. The one difference is that required checks no longer pin a GitHub App ID, because they match by name. The PR body says so. `yak:migrate-config` skips repositories that already have `.yak/` files. A repository whose `.yak/` Yak could not read is not skipped: the command reports it as an error, continues with the other repositories, and exits with a failure code.
 
 New repositories get the same thing from setup: it opens a PR on `yak/setup-config` that adds `config.yml` and `preview.yml`. Setup opens its PR only when neither `config.yml` nor `preview.yml` exists. Settings apply once the PR merges.
