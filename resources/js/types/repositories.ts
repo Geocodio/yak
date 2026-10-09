@@ -138,6 +138,7 @@ export type YakConfig = {
     readAt: string | null;
     readError: string | null;
     directoryUrl: string | null;
+    configPullRequest: { number: number; title: string; url: string } | null;
     files: YakConfigFile[];
     values: {
         description: string | null;

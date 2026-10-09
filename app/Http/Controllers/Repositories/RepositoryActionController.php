@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Repositories;
 
 use App\Actions\ApplyPrReviewToOpenPulls;
 use App\Actions\DispatchRepositorySetupTask;
+use App\Actions\OpenConfigMigrationPullRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\RiskProfileRequest;
 use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
@@ -62,6 +63,17 @@ class RepositoryActionController extends Controller
         $config->forget($repository);
 
         return back()->with('success', 'Yak will read .yak/ again.');
+    }
+
+    public function migrateConfig(Repository $repository, OpenConfigMigrationPullRequest $migrate): RedirectResponse
+    {
+        try {
+            $pullRequest = $migrate->handle($repository);
+        } catch (\Throwable $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return back()->with('success', "Opened #{$pullRequest['number']} {$pullRequest['url']}");
     }
 
     public function reviewOpenPrs(Repository $repository, ApplyPrReviewToOpenPulls $applyPrReview): RedirectResponse

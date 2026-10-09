@@ -1,10 +1,10 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::toggleActive
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:44
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:46
 * @route '/repos/{repository}/toggle-active'
 */
-export const toggleActive = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const toggleActive = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: toggleActive.url(args, options),
     method: 'post',
 })
@@ -16,10 +16,10 @@ toggleActive.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::toggleActive
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:44
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:46
 * @route '/repos/{repository}/toggle-active'
 */
-toggleActive.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+toggleActive.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -49,20 +49,20 @@ toggleActive.url = (args: { repository: string | { slug: string } } | [repositor
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::toggleActive
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:44
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:46
 * @route '/repos/{repository}/toggle-active'
 */
-toggleActive.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+toggleActive.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: toggleActive.url(args, options),
     method: 'post',
 })
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::rerunSetup
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:52
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:54
 * @route '/repos/{repository}/rerun-setup'
 */
-export const rerunSetup = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const rerunSetup = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rerunSetup.url(args, options),
     method: 'post',
 })
@@ -74,10 +74,10 @@ rerunSetup.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::rerunSetup
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:52
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:54
 * @route '/repos/{repository}/rerun-setup'
 */
-rerunSetup.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+rerunSetup.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -107,17 +107,17 @@ rerunSetup.url = (args: { repository: string | { slug: string } } | [repository:
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::rerunSetup
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:52
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:54
 * @route '/repos/{repository}/rerun-setup'
 */
-rerunSetup.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+rerunSetup.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rerunSetup.url(args, options),
     method: 'post',
 })
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::refreshConfig
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:60
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
 export const refreshConfig = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -132,7 +132,7 @@ refreshConfig.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::refreshConfig
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:60
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
 refreshConfig.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
@@ -165,7 +165,7 @@ refreshConfig.url = (args: { repository: string | number | { slug: string | numb
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::refreshConfig
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:60
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
 refreshConfig.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -174,11 +174,69 @@ refreshConfig.post = (args: { repository: string | number | { slug: string | num
 })
 
 /**
+* @see \App\Http\Controllers\Repositories\RepositoryActionController::migrateConfig
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
+* @route '/repos/{repository}/config/migrate'
+*/
+export const migrateConfig = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: migrateConfig.url(args, options),
+    method: 'post',
+})
+
+migrateConfig.definition = {
+    methods: ["post"],
+    url: '/repos/{repository}/config/migrate',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Repositories\RepositoryActionController::migrateConfig
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
+* @route '/repos/{repository}/config/migrate'
+*/
+migrateConfig.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { repository: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'slug' in args) {
+        args = { repository: args.slug }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            repository: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        repository: typeof args.repository === 'object'
+        ? args.repository.slug
+        : args.repository,
+    }
+
+    return migrateConfig.definition.url
+            .replace('{repository}', parsedArgs.repository.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Repositories\RepositoryActionController::migrateConfig
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
+* @route '/repos/{repository}/config/migrate'
+*/
+migrateConfig.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: migrateConfig.url(args, options),
+    method: 'post',
+})
+
+/**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::reviewOpenPrs
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:59
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:79
 * @route '/repos/{repository}/review-open-prs'
 */
-export const reviewOpenPrs = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const reviewOpenPrs = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reviewOpenPrs.url(args, options),
     method: 'post',
 })
@@ -190,10 +248,10 @@ reviewOpenPrs.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::reviewOpenPrs
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:59
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:79
 * @route '/repos/{repository}/review-open-prs'
 */
-reviewOpenPrs.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+reviewOpenPrs.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -223,20 +281,20 @@ reviewOpenPrs.url = (args: { repository: string | { slug: string } } | [reposito
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::reviewOpenPrs
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:59
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:79
 * @route '/repos/{repository}/review-open-prs'
 */
-reviewOpenPrs.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+reviewOpenPrs.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reviewOpenPrs.url(args, options),
     method: 'post',
 })
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::riskProfile
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:17
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
-export const riskProfile = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const riskProfile = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: riskProfile.url(args, options),
     method: 'post',
 })
@@ -248,10 +306,10 @@ riskProfile.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::riskProfile
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:17
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
-riskProfile.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+riskProfile.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -281,20 +339,20 @@ riskProfile.url = (args: { repository: string | { slug: string } } | [repository
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::riskProfile
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:17
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:19
 * @route '/repos/{repository}/risk-profile'
 */
-riskProfile.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+riskProfile.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: riskProfile.url(args, options),
     method: 'post',
 })
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::rebuildDeployments
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:66
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:86
 * @route '/repos/{repository}/rebuild-deployments'
 */
-export const rebuildDeployments = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const rebuildDeployments = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rebuildDeployments.url(args, options),
     method: 'post',
 })
@@ -306,10 +364,10 @@ rebuildDeployments.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::rebuildDeployments
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:66
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:86
 * @route '/repos/{repository}/rebuild-deployments'
 */
-rebuildDeployments.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+rebuildDeployments.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -339,14 +397,14 @@ rebuildDeployments.url = (args: { repository: string | { slug: string } } | [rep
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryActionController::rebuildDeployments
-* @see app/Http/Controllers/Repositories/RepositoryActionController.php:66
+* @see app/Http/Controllers/Repositories/RepositoryActionController.php:86
 * @route '/repos/{repository}/rebuild-deployments'
 */
-rebuildDeployments.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+rebuildDeployments.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rebuildDeployments.url(args, options),
     method: 'post',
 })
 
-const RepositoryActionController = { toggleActive, rerunSetup, refreshConfig, reviewOpenPrs, riskProfile, rebuildDeployments }
+const RepositoryActionController = { toggleActive, rerunSetup, refreshConfig, migrateConfig, reviewOpenPrs, riskProfile, rebuildDeployments }
 
 export default RepositoryActionController
