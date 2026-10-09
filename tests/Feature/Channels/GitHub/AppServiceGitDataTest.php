@@ -2,6 +2,7 @@
 
 use App\Channels\GitHub\AppService;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -78,4 +79,31 @@ it('creates a check run and returns null with a warning when the permission is m
     expect(app(AppService::class)->createCheckRun(99999, 'acme/api', $payload))->toBe(42)
         ->and(app(AppService::class)->createCheckRun(99999, 'acme/api', $payload))->toBeNull();
     Log::shouldHaveReceived('warning')->withArgs(fn (string $message): bool => str_contains($message, 'Checks'))->once();
+});
+
+it('throws without moving the branch when the ref is rejected for another reason', function () {
+    Http::fake(gitDataToken() + [
+        'api.github.com/repos/acme/api/branches/main' => Http::response(['commit' => ['sha' => 'base111', 'commit' => ['tree' => ['sha' => 'tree111']]]]),
+        'api.github.com/repos/acme/api/git/blobs' => Http::response(['sha' => 'blobA'], 201),
+        'api.github.com/repos/acme/api/git/trees' => Http::response(['sha' => 'tree222'], 201),
+        'api.github.com/repos/acme/api/git/commits' => Http::response(['sha' => 'commit333'], 201),
+        'api.github.com/repos/acme/api/git/refs' => Http::response(['message' => 'Validation Failed'], 422),
+    ]);
+
+    expect(fn () => app(AppService::class)->createBranchWithFiles(99999, 'acme/api', 'main', 'yak/config-migration', ['.yak/config.yml' => "version: 1\n"], 'msg'))
+        ->toThrow(RequestException::class);
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'PATCH');
+});
+
+it('does not touch refs when the commit cannot be created', function () {
+    Http::fake(gitDataToken() + [
+        'api.github.com/repos/acme/api/branches/main' => Http::response(['commit' => ['sha' => 'base111', 'commit' => ['tree' => ['sha' => 'tree111']]]]),
+        'api.github.com/repos/acme/api/git/blobs' => Http::response(['sha' => 'blobA'], 201),
+        'api.github.com/repos/acme/api/git/trees' => Http::response(['sha' => 'tree222'], 201),
+        'api.github.com/repos/acme/api/git/commits' => Http::response(['message' => 'boom'], 500),
+    ]);
+
+    expect(fn () => app(AppService::class)->createBranchWithFiles(99999, 'acme/api', 'main', 'yak/config-migration', ['.yak/config.yml' => "version: 1\n"], 'msg'))
+        ->toThrow(RequestException::class);
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), '/git/refs'));
 });

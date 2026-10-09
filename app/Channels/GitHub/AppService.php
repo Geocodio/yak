@@ -642,7 +642,7 @@ class AppService
 
         $created = $client()->post("https://api.github.com/repos/{$repoSlug}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commitSha]);
 
-        if ($created->status() === 422) {
+        if ($created->status() === 422 && str_contains((string) $created->json('message'), 'already exists')) {
             $client()->patch("https://api.github.com/repos/{$repoSlug}/git/refs/heads/{$branch}", ['sha' => $commitSha, 'force' => true])->throw();
         } else {
             $created->throw();
@@ -687,7 +687,7 @@ class AppService
             ->post("https://api.github.com/repos/{$repoSlug}/check-runs", $checkRun);
 
         if ($response->status() === 403) {
-            Log::warning("GitHub App lacks the Checks write permission; skipped the yak / config check on {$repoSlug}.");
+            Log::warning("GitHub refused the yak / config check on {$repoSlug} (403): the GitHub App may lack the Checks write permission, or the request was rate limited.");
 
             return null;
         }
