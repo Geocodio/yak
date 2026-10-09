@@ -106,7 +106,7 @@ class RepositoryConfigParser
                 'review.approval.blocked_paths' => ['sometimes', 'array', 'max:100'],
                 'review.approval.blocked_paths.*' => ['required', 'string', 'max:500', 'regex:' . self::PATH_GLOB],
                 'review.approval.required_checks' => ['sometimes', 'array', 'max:50'],
-                'review.approval.required_checks.*' => ['string', 'max:255', 'distinct'],
+                'review.approval.required_checks.*' => ['required', 'string', 'max:255', 'distinct'],
                 'review.approval.max_files' => ['sometimes', 'integer', 'between:1,100'],
                 'review.approval.max_lines' => ['sometimes', 'integer', 'between:1,5000'],
                 'review.approval.max_risk_score' => ['sometimes', 'integer', 'between:0,30'],
@@ -129,6 +129,7 @@ class RepositoryConfigParser
                 'unknowns' => ['sometimes', 'array', 'max:100'],
                 'unknowns.*' => ['string', 'max:2000'],
             ],
+            default => throw new \InvalidArgumentException("Unknown file {$file}"),
         };
     }
 }

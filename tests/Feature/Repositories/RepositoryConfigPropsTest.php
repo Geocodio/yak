@@ -2,10 +2,12 @@
 
 use App\DataTransferObjects\ConfigFile;
 use App\DataTransferObjects\ConfigSnapshot;
+use App\Http\Resources\YakConfigData;
 use App\Models\Repository;
 use App\Models\User;
 use App\Services\RepositoryConfig;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 
 function bindConfigSnapshot(ConfigSnapshot $snapshot): void
@@ -67,4 +69,30 @@ it('reports an unreachable read', function () {
                 ->where('yakConfig.readError', 'GitHub returned 503')
                 ->where('yakConfig.files', [])
                 ->where('yakConfig.values.description', null)));
+});
+
+it('sends no HTTP request while rendering the edit page', function () {
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '12345');
+    config()->set('yak.channels.github.private_key', $privateKey);
+    config()->set('yak.channels.github.installation_id', 99999);
+    app()->forgetInstance(RepositoryConfig::class);
+    Http::preventStrayRequests();
+    Http::fake();
+
+    $this->actingAs(User::factory()->create())->get(route('repos.edit', Repository::factory()->create()))
+        ->assertInertia(fn (AssertableInertia $page) => $page->component('Repositories/Form')->has('repository.riskProfiles'));
+
+    Http::assertNothingSent();
+});
+
+it('exposes the raw review approval block next to the merged policy', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['config.yml' => "version: 1\nreview:\n  approval:\n    mode: shadow\n"]);
+
+    $values = YakConfigData::from($repository, $repository->settings()->snapshot)['values'];
+
+    expect($values['reviewApproval'])->toBe(['mode' => 'shadow'])
+        ->and($values['reviewPolicy']['max_files'])->toBe(5);
 });

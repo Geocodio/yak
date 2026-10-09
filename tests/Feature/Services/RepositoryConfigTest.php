@@ -55,7 +55,7 @@ beforeEach(function () {
             }
             $name = basename((string) parse_url($request->url(), PHP_URL_PATH));
 
-            return isset($github->files[$name]) ? Http::response($github->files[$name]) : Http::response('', 404);
+            return isset($github->files[$name]) ? Http::response($github->files[$name]) : Http::response(['message' => 'Not Found'], 404);
         },
         'api.github.com/repos/acme/api/commits/*/pulls' => function () use ($github) {
             if ($github->pullsThrow) {
@@ -254,4 +254,21 @@ it('does not persist an enforce marker from a read that rolled back', function (
 
     expect($settings->snapshot->state)->toBe('unreachable')
         ->and($this->repository->refresh()->co_owner_gate_enforced_at)->toBeNull();
+});
+
+it('backs off for a minute when the contents fetch fails after the head is cached', function () {
+    serveYakFilesAt($this->github, str_repeat('1', 40), ['config.yml' => "version: 1\nci: drone\n"], $this->repository);
+    $this->github->contentsStatus = 503;
+
+    $this->repository->settings();
+    $this->repository->refresh()->settings();
+
+    $contentsRequests = Http::recorded(fn (Request $request): bool => str_contains($request->url(), '/contents/'))->count();
+    expect($contentsRequests)->toBe(1)
+        ->and($this->repository->refresh()->config_read_error)->toContain('503');
+
+    app(RepositoryConfig::class)->forget($this->repository);
+    $this->github->contentsStatus = 200;
+
+    expect($this->repository->refresh()->settings()->ciSystem())->toBe('drone');
 });

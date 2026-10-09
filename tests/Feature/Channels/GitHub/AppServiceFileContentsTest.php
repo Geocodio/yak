@@ -70,3 +70,12 @@ it('returns no pull request when GitHub cannot list them', function () {
 
     expect(app(AppService::class)->findPullRequestForCommit(99999, 'acme/api', str_repeat('b', 40)))->toBeNull();
 });
+
+it('throws when GitHub answers 404 for a missing commit instead of a missing file', function () {
+    Http::fake(fakeInstallationToken() + [
+        'api.github.com/repos/acme/api/contents/*' => Http::response(['message' => 'No commit found for the ref abc'], 404),
+    ]);
+
+    expect(fn () => app(AppService::class)->getFileContents(99999, 'acme/api', '.yak/config.yml', 'abc'))
+        ->toThrow(RuntimeException::class);
+});

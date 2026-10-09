@@ -86,9 +86,7 @@ final readonly class RepositorySettings
 
     public function hasPreviewScript(): bool
     {
-        $file = $this->snapshot->file('preview.sh');
-
-        return $file !== null && $file->isValid() && $file->data !== null;
+        return $this->snapshot->data('preview.sh') !== null;
     }
 
     /**

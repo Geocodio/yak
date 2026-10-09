@@ -1,5 +1,4 @@
 import { Badge, Button, Skeleton } from '@geocodio/console-ui';
-import { router } from '@inertiajs/react';
 import { ExternalLink, FolderGit2, Pencil, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRouterAction } from '@/lib/useRouterAction';
@@ -43,13 +42,13 @@ function ErrorLines({ error }: { error: string | null }) {
     return error ? <pre className="whitespace-pre-wrap break-words rounded-control bg-panel px-3 py-2 font-mono text-[12px] text-fail">{error}</pre> : null;
 }
 
-export function YakConfigStripSkeleton() {
+export function YakConfigStripSkeleton({ branch }: { branch: string }) {
     return (
         <div data-testid="yak-config-strip-loading" className={`mb-4 flex items-start gap-3 rounded-card border p-4 ${SURFACE.neutral}`}>
             <RefreshCw size={16} className="mt-0.5 shrink-0 text-faint" />
             <div className="flex-1 space-y-2">
                 <div className="text-[13px] font-medium">
-                    Reading <span className="font-mono">.yak/</span> from GitHub…
+                    Reading <span className="font-mono">.yak/</span> from {branch}…
                 </div>
                 <Skeleton className="h-3 w-2/3" />
             </div>
@@ -135,7 +134,7 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
                         icon={<RefreshCw size={13} />}
                         pending={action.isPending('config-refresh')}
                         onClick={() =>
-                            action.run('config-refresh', 'post', repos.config.refresh.url(slug), {}, { onSuccess: () => router.reload({ only: ['yakConfig'] }) })
+                            action.run('config-refresh', 'post', repos.config.refresh.url(slug))
                         }
                     >
                         Try again

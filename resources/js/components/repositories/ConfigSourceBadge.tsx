@@ -65,6 +65,7 @@ export function LockedField({
     children,
     mono,
     propose = false,
+    hideBadge = false,
 }: {
     label: string;
     field: string;
@@ -73,12 +74,13 @@ export function LockedField({
     children: ReactNode;
     mono?: boolean;
     propose?: boolean;
+    hideBadge?: boolean;
 }) {
     return (
         <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2 text-[12px] font-medium">
                 {label}
-                <ConfigSourceBadge field={field} config={config} fileName={fileName} />
+                {!hideBadge && <ConfigSourceBadge field={field} config={config} fileName={fileName} />}
             </div>
             <LockedValue mono={mono} testId={`locked-${field}`}>
                 {children}

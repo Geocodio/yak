@@ -1,7 +1,7 @@
 import { Button, Field, Select, Textarea, TextInput } from '@geocodio/console-ui';
 import { Link, useForm } from '@inertiajs/react';
 import { TriangleAlert } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { show as showPrompt } from '@/routes/prompts';
@@ -87,27 +87,32 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
 }
 
 function LockedPolicy({ policy, config }: { policy: ReviewPolicy; config: YakConfig }) {
+    const approval = config.values.reviewApproval ?? {};
     const lines = (items: string[]) => (items.length > 0 ? items.join('\n') : 'None');
     const checks = [...policy.required_checks.map((check) => check.name), ...policy.required_statuses.map((status) => status.name)];
+    const fromFile = (key: string) => key in approval;
+    const show = (key: string, value: ReactNode) => (fromFile(key) ? value : <>{value} <span className="text-faint">(from Yak)</span></>);
+    const field = (key: string, name: string, label: string, value: ReactNode, fileKey = key) => (
+        fromFile(fileKey)
+            ? <LockedField key={name} label={label} field={name} config={config} fileName="config.yml" mono>{value}</LockedField>
+            : <LockedField key={name} label={label} field={name} config={config} fileName="config.yml" mono hideBadge>{show(fileKey, value)}</LockedField>
+    );
 
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <LockedField label="Approval mode" field="reviewPolicyMode" config={config} fileName="config.yml" mono>{policy.mode}</LockedField>
-                <LockedField label="Required checks" field="reviewPolicyChecks" config={config} fileName="config.yml" mono>{lines(checks)}</LockedField>
-                <LockedField label="Allowed paths" field="reviewPolicyAllowed" config={config} fileName="config.yml" mono>{lines(policy.allowed_paths)}</LockedField>
-                <LockedField label="Additional blocked paths" field="reviewPolicyBlocked" config={config} fileName="config.yml" mono>{lines(policy.blocked_paths)}</LockedField>
+                {field('mode', 'reviewPolicyMode', 'Approval mode', policy.mode)}
+                {field('required_checks', 'reviewPolicyChecks', 'Required checks', lines(checks))}
+                {field('allowed_paths', 'reviewPolicyAllowed', 'Allowed paths', lines(policy.allowed_paths))}
+                {field('blocked_paths', 'reviewPolicyBlocked', 'Additional blocked paths', lines(policy.blocked_paths))}
             </div>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {([
                     ['max_files', 'Max files'],
                     ['max_lines', 'Max lines'],
                     ['max_risk_score', 'Max risk score'],
                     ['min_confidence', 'Min confidence'],
-                    ['profile_max_age_days', 'Profile validity (days)'],
-                ] as const).map(([key, label]) => (
-                    <LockedField key={key} label={label} field={`reviewPolicy-${key}`} config={config} fileName="config.yml" mono>{policy[key]}</LockedField>
-                ))}
+                ] as const).map(([key, label]) => field(key, `reviewPolicy-${key}`, label, policy[key]))}
             </div>
             <ProposeChangeLink config={config} fileName="config.yml" />
         </div>

@@ -878,3 +878,12 @@ test('it falls back to the configured alias when no run recorded model usage', f
             ->where('task.model', 'opus')
             ->etc());
 });
+
+test('canRequestReview follows the effective setting from .yak/ config', function () {
+    fakeYakFiles(['config.yml' => "version: 1\nreview:\n  enabled: true\n"]);
+    $repository = Repository::factory()->create(['slug' => 'org/filed', 'is_active' => true, 'pr_review_enabled' => false]);
+    $task = YakTask::factory()->create(['repo' => $repository->slug, 'mode' => TaskMode::Fix, 'pr_url' => 'https://github.com/org/filed/pull/1']);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page->where('actions.canRequestReview', true));
+});

@@ -20,6 +20,9 @@ use Illuminate\Support\Facades\DB;
  * or a cache flush never falls back to defaults. Config is never read from a
  * task branch, so a change cannot edit the rules that judge it.
  *
+ * A failed read pauses further GitHub calls for a minute, and `forget()`
+ * lifts the pause.
+ *
  * Two workers can read the same new SHA at once. Each writes inside a
  * transaction, and the one that loses the race on a file's unique index
  * defers to the winner and reloads the repository. No lock is used; add a
@@ -37,9 +40,15 @@ class RepositoryConfig
         return "yak-config:{$repository->id}:head";
     }
 
+    private static function backoffCacheKey(Repository $repository): string
+    {
+        return "yak-config:{$repository->id}:backoff";
+    }
+
     public function forget(Repository $repository): void
     {
         Cache::forget(self::headCacheKey($repository));
+        Cache::forget(self::backoffCacheKey($repository));
     }
 
     public function snapshot(Repository $repository): ConfigSnapshot
@@ -48,6 +57,10 @@ class RepositoryConfig
 
         if ($installationId === 0) {
             return ConfigSnapshot::unavailable();
+        }
+
+        if (Cache::has(self::backoffCacheKey($repository))) {
+            return $this->fromStorage($repository);
         }
 
         try {
@@ -62,6 +75,7 @@ class RepositoryConfig
             }
         } catch (\Throwable $exception) {
             report($exception);
+            Cache::put(self::backoffCacheKey($repository), true, now()->addMinute());
             $repository->refresh();
             $this->recordReadError($repository, $exception->getMessage());
         }

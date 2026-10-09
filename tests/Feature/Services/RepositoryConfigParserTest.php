@@ -57,6 +57,7 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     'missing version' => ["ci: none\n", 'version'],
     'wrong version' => ["version: 2\n", 'version'],
     'bad ci' => ["version: 1\nci: jenkins\n", 'ci'],
+    'empty required check name' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    required_checks: ['']\n", 'review.approval.required_checks.0'],
     'max_lines over limit' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    max_lines: 8000\n", 'review.approval.max_lines'],
     'min_confidence under limit' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    min_confidence: 50\n", 'review.approval.min_confidence'],
     'bad gate mode' => ["version: 1\nco_owner_gate:\n  mode: shadow\n", 'co_owner_gate.mode'],

@@ -21,7 +21,7 @@ class PollCommand extends Command
 
     public function handle(BuildScanner $scanner): int
     {
-        $droneRepoSlugs = Repository::all()
+        $droneRepoSlugs = Repository::where('is_active', true)->get()
             ->filter(fn (Repository $repository): bool => $repository->settings()->ciSystem() === 'drone')
             ->pluck('slug')
             ->all();

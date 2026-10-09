@@ -240,6 +240,7 @@ function FieldSkeleton({ label, height }: { label: string; height: string }) {
 }
 
 function LockedManifest({ manifest, fallback, config }: { manifest: Record<string, unknown>; fallback: Record<string, unknown>; config: YakConfig }) {
+    const has = (key: string) => manifest[key] !== undefined && manifest[key] !== null;
     const show = (key: string) => {
         const fromFile = manifest[key];
 
@@ -257,10 +258,10 @@ function LockedManifest({ manifest, fallback, config }: { manifest: Record<strin
     return (
         <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <LockedField label="Port" field="manifestPort" config={config} fileName="preview.yml" mono>{show('port')}</LockedField>
-                <LockedField label="Health probe path" field="manifestHealthProbePath" config={config} fileName="preview.yml" mono>{show('health_probe_path')}</LockedField>
+                <LockedField label="Port" field="manifestPort" config={config} hideBadge={!has('port')} fileName="preview.yml" mono>{show('port')}</LockedField>
+                <LockedField label="Health probe path" field="manifestHealthProbePath" config={config} hideBadge={!has('health_probe_path')} fileName="preview.yml" mono>{show('health_probe_path')}</LockedField>
             </div>
-            <LockedField label="Cold start command" field="manifestColdStart" config={config} fileName="preview.yml" mono>{show('cold_start')}</LockedField>
+            <LockedField label="Cold start command" field="manifestColdStart" config={config} hideBadge={!has('cold_start')} fileName="preview.yml" mono>{show('cold_start')}</LockedField>
             <div className="flex flex-col gap-1.5">
                 <div className="flex flex-wrap items-center gap-2 text-[12px] font-medium">
                     Checkout refresh command
@@ -269,7 +270,7 @@ function LockedManifest({ manifest, fallback, config }: { manifest: Record<strin
                 <LockedValue mono testId="locked-manifestCheckoutRefresh">{show('checkout_refresh')}</LockedValue>
                 {config.values.previewScript && <p className="text-[12px] text-muted"><span className="font-mono">.yak/preview.sh</span> is committed, so deployments run it instead of this command.</p>}
             </div>
-            <LockedField label="Wake timeout (seconds)" field="manifestWakeTimeout" config={config} fileName="preview.yml" mono>{show('wake_timeout_seconds')}</LockedField>
+            <LockedField label="Wake timeout (seconds)" field="manifestWakeTimeout" config={config} hideBadge={!has('wake_timeout_seconds')} fileName="preview.yml" mono>{show('wake_timeout_seconds')}</LockedField>
         </>
     );
 }
@@ -444,7 +445,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                     </p>
 
                     {isEditing && repository && (
-                        <Deferred data="yakConfig" fallback={<YakConfigStripSkeleton />}>
+                        <Deferred data="yakConfig" fallback={<YakConfigStripSkeleton branch={repository.defaultBranch} />}>
                             {yakConfig ? (
                                 <YakConfigStrip
                                     config={yakConfig}

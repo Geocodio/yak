@@ -576,7 +576,7 @@ class AppService
             ->withHeaders(['Accept' => 'application/vnd.github.raw+json'])
             ->get("https://api.github.com/repos/{$repoSlug}/contents/{$encodedPath}", ['ref' => $ref]);
 
-        if ($response->status() === 404) {
+        if ($response->status() === 404 && $response->json('message') === 'Not Found') {
             return null;
         }
 

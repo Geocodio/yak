@@ -79,7 +79,11 @@ final class YakConfigData
         $instructions = $snapshot->data('AGENTS.md');
 
         return [
-            'state' => $snapshot->state,
+            'state' => match ($snapshot->state) {
+                'read' => 'read',
+                'unreachable' => 'unreachable',
+                default => 'unavailable',
+            },
             'setupStatus' => (string) $repository->setup_status,
             'commitSha' => $snapshot->commitSha,
             'commitUrl' => $commitUrl($snapshot->commitSha),
@@ -97,12 +101,13 @@ final class YakConfigData
                 'reviewPolicy' => isset($config['review']['approval'])
                     ? (new RepositorySettings($repository, $snapshot))->reviewPolicy()
                     : null,
+                'reviewApproval' => is_array($config['review']['approval'] ?? null) ? $config['review']['approval'] : null,
                 'previewManifest' => is_array($manifest) ? $manifest : null,
                 'previewScript' => $snapshot->data('preview.sh') !== null,
                 'riskProfile' => is_array($riskProfile) ? [
                     'areas' => count($riskProfile['areas'] ?? []),
                     'unknowns' => count($riskProfile['unknowns'] ?? []),
-                    'commitSha' => $snapshot->file('risk-profile.yml')->validCommitSha,
+                    'commitSha' => $snapshot->file('risk-profile.yml')?->validCommitSha,
                 ] : null,
             ],
         ];

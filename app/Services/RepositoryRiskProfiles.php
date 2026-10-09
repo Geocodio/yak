@@ -39,7 +39,7 @@ class RepositoryRiskProfiles
             }
         }
 
-        return ['active' => $this->active($repo), 'drafts' => $drafts];
+        return ['active' => $this->activeFromDatabase($repo), 'drafts' => $drafts];
     }
 
     /** @return array<string, mixed> */
@@ -113,6 +113,21 @@ class RepositoryRiskProfiles
             if ($fromFile !== null) {
                 return $fromFile;
             }
+
+            return $this->activeFromDatabase($repo);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The approved database profile, without reading `.yak/` from GitHub.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function activeFromDatabase(string $repo): ?array
+    {
+        try {
             $row = RiskProfile::where('repo', $repo)->whereNotNull('approved_at')
                 ->orderByDesc('approved_at')->orderByDesc('id')->first();
             if ($row === null) {

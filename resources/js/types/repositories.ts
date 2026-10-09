@@ -147,6 +147,7 @@ export type YakConfig = {
         prReviewEnabled: boolean | null;
         pathExcludes: string[] | null;
         reviewPolicy: Record<string, unknown> | null;
+        reviewApproval: Record<string, unknown> | null;
         previewManifest: Record<string, unknown> | null;
         previewScript: boolean;
         riskProfile: { areas: number; unknowns: number; commitSha: string | null } | null;
