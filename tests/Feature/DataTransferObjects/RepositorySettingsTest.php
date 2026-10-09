@@ -56,3 +56,11 @@ it('reads AGENTS.md and the preview manifest from files', function () {
         ->and($settings->previewManifest()['port'])->toBe(80)
         ->and($settings->hasPreviewScript())->toBeTrue();
 });
+
+it('ignores a preview script whose stored row is not valid', function () {
+    $repository = Repository::factory()->make();
+    $file = new ConfigFile('preview.sh', null, 'make', null, 'preview.sh: broken', str_repeat('b', 40), null);
+    $snapshot = new ConfigSnapshot('read', str_repeat('b', 40), now()->toImmutable(), null, ['preview.sh' => $file]);
+
+    expect((new RepositorySettings($repository, $snapshot))->hasPreviewScript())->toBeFalse();
+});

@@ -70,8 +70,8 @@ class Repository extends Model
             'preview_manifest' => 'array',
             'preview_env_overrides' => 'array',
             'current_template_version' => 'integer',
-            'config_read_at' => 'datetime',
-            'co_owner_gate_enforced_at' => 'datetime',
+            'config_read_at' => 'immutable_datetime',
+            'co_owner_gate_enforced_at' => 'immutable_datetime',
         ];
     }
 

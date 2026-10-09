@@ -7,7 +7,9 @@ use App\DataTransferObjects\ConfigFile;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\Models\Repository;
 use App\Models\RepositoryConfigFile;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Reads a repository's `.yak/` files from its default branch.
@@ -18,9 +20,10 @@ use Illuminate\Support\Facades\Cache;
  * or a cache flush never falls back to defaults. Config is never read from a
  * task branch, so a change cannot edit the rules that judge it.
  *
- * Two workers can read the same new SHA at once. Both write the same rows, so
- * no lock is used; add a `Cache::lock` around `read()` if GitHub rate limits
- * become a problem.
+ * Two workers can read the same new SHA at once. Each writes inside a
+ * transaction, and the one that loses the race on a file's unique index
+ * defers to the winner and reloads the repository. No lock is used; add a
+ * `Cache::lock` around `read()` if GitHub rate limits become a problem.
  */
 class RepositoryConfig
 {
@@ -47,18 +50,19 @@ class RepositoryConfig
             return ConfigSnapshot::unavailable();
         }
 
-        $headSha = $this->headSha($repository, $installationId);
+        try {
+            $headSha = $this->headSha($repository, $installationId);
 
-        if ($headSha === null) {
-            $this->recordReadError($repository, 'Could not read the default branch from GitHub.');
-        } elseif ($headSha !== $repository->config_commit_sha) {
-            try {
+            if ($headSha === null) {
+                $this->recordReadError($repository, 'Could not read the default branch from GitHub.');
+            } elseif ($headSha !== $repository->config_commit_sha) {
                 $this->read($repository, $installationId, $headSha);
-            } catch (\RuntimeException $exception) {
-                $this->recordReadError($repository, $exception->getMessage());
+            } elseif ($repository->config_read_error !== null) {
+                $repository->forceFill(['config_read_error' => null])->saveQuietly();
             }
-        } elseif ($repository->config_read_error !== null) {
-            $repository->forceFill(['config_read_error' => null])->saveQuietly();
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->recordReadError($repository, $exception->getMessage());
         }
 
         return $this->fromStorage($repository);
@@ -94,6 +98,18 @@ class RepositoryConfig
             $contents[$name] = $this->github->getFileContents($installationId, $repository->github_full_name, ".yak/{$name}", $sha);
         }
 
+        try {
+            DB::transaction(function () use ($repository, $installationId, $sha, $contents): void {
+                $this->store($repository, $installationId, $sha, $contents);
+            });
+        } catch (UniqueConstraintViolationException) {
+            $repository->refresh();
+        }
+    }
+
+    /** @param  array<string, string|null>  $contents */
+    private function store(Repository $repository, int $installationId, string $sha, array $contents): void
+    {
         foreach ($contents as $name => $content) {
             if ($content === null) {
                 RepositoryConfigFile::where('repository_id', $repository->id)->where('name', $name)->delete();
@@ -105,8 +121,12 @@ class RepositoryConfig
             $row = RepositoryConfigFile::firstOrNew(['repository_id' => $repository->id, 'name' => $name]);
 
             if ($parsed['errors'] === []) {
-                $row->fill(['content' => $content, 'data' => $parsed['data'], 'valid_commit_sha' => $sha,
-                    'error' => null, 'error_commit_sha' => null, 'error_pull_request' => null]);
+                $isUnchanged = $row->exists && $row->error === null && $row->content === $content;
+
+                if (! $isUnchanged) {
+                    $row->fill(['content' => $content, 'data' => $parsed['data'], 'valid_commit_sha' => $sha,
+                        'error' => null, 'error_commit_sha' => null, 'error_pull_request' => null]);
+                }
 
                 if ($name === 'config.yml' && ($parsed['data']['co_owner_gate']['mode'] ?? null) === 'enforce') {
                     $repository->co_owner_gate_enforced_at ??= now();

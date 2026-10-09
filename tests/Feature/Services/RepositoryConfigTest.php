@@ -3,6 +3,7 @@
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -31,10 +32,19 @@ beforeEach(function () {
 
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'ghs_token', 'expires_at' => now()->addHour()->toIso8601String()]),
-        'api.github.com/repos/acme/api/branches/*' => fn () => $github->branchStatus === 200
-            ? Http::response(['commit' => ['sha' => $github->headSha]])
-            : Http::response('', $github->branchStatus),
+        'api.github.com/repos/acme/api/branches/*' => function () use ($github) {
+            if ($github->branchStatus === 0) {
+                throw new ConnectionException('Connection timed out');
+            }
+
+            return $github->branchStatus === 200
+                ? Http::response(['commit' => ['sha' => $github->headSha]])
+                : Http::response('', $github->branchStatus);
+        },
         'api.github.com/repos/acme/api/contents/*' => function (Request $request) use ($github) {
+            if ($github->contentsStatus === 0) {
+                throw new ConnectionException('Connection timed out');
+            }
             if ($github->contentsStatus !== 200) {
                 return Http::response('', $github->contentsStatus);
             }
@@ -163,4 +173,52 @@ it('sends no requests when this installation has no GitHub app', function () {
 
     expect($this->repository->settings()->snapshot->state)->toBe('unavailable');
     Http::assertNothingSent();
+});
+
+it('keeps stored values when a request throws a transport error', function (string $failure) {
+    serveYakFilesAt($this->github, str_repeat('1', 40), ['config.yml' => "version: 1\nci: drone\n"], $this->repository);
+    $this->repository->settings();
+
+    serveYakFilesAt($this->github, str_repeat('2', 40), [], $this->repository);
+    $failure === 'branch' ? $this->github->branchStatus = 0 : $this->github->contentsStatus = 0;
+    $settings = $this->repository->refresh()->settings();
+
+    expect($settings->ciSystem())->toBe('drone')
+        ->and($settings->snapshot->state)->toBe('unreachable')
+        ->and($this->repository->refresh()->config_read_error)->not->toBeNull();
+})->with(['branch', 'contents']);
+
+it('keeps the gate enforced after enforce then off when config.yml later breaks', function () {
+    serveYakFilesAt($this->github, str_repeat('1', 40), ['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n"], $this->repository);
+    $this->repository->settings();
+
+    serveYakFilesAt($this->github, str_repeat('2', 40), ['config.yml' => "version: 1\nco_owner_gate:\n  mode: off\n"], $this->repository);
+    expect($this->repository->refresh()->settings()->coOwnerGateMode())->toBe('off');
+
+    serveYakFilesAt($this->github, str_repeat('3', 40), ['config.yml' => "version: 1\nco_owner_gate:\n  mode: maybe\n"], $this->repository);
+    expect($this->repository->refresh()->settings()->coOwnerGateMode())->toBe('enforce');
+});
+
+it('keeps the gate enforced after enforce then off when GitHub becomes unreachable', function () {
+    serveYakFilesAt($this->github, str_repeat('1', 40), ['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n"], $this->repository);
+    $this->repository->settings();
+
+    serveYakFilesAt($this->github, str_repeat('2', 40), ['config.yml' => "version: 1\nco_owner_gate:\n  mode: off\n"], $this->repository);
+    expect($this->repository->refresh()->settings()->coOwnerGateMode())->toBe('off');
+
+    serveYakFilesAt($this->github, str_repeat('3', 40), [], $this->repository);
+    $this->github->branchStatus = 503;
+    expect($this->repository->refresh()->settings()->coOwnerGateMode())->toBe('enforce');
+});
+
+it('keeps the original valid commit when the content is unchanged', function () {
+    $content = "version: 1\nci: drone\n";
+    serveYakFilesAt($this->github, str_repeat('1', 40), ['config.yml' => $content], $this->repository);
+    $this->repository->settings();
+
+    serveYakFilesAt($this->github, str_repeat('2', 40), ['config.yml' => $content], $this->repository);
+    $settings = $this->repository->refresh()->settings();
+
+    expect($settings->snapshot->commitSha)->toBe(str_repeat('2', 40))
+        ->and($settings->snapshot->file('config.yml')->validCommitSha)->toBe(str_repeat('1', 40));
 });
