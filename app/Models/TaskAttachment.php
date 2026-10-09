@@ -27,6 +27,9 @@ class TaskAttachment extends Model
 
     public const string CONTEXT_CLARIFICATION_REPLY = 'clarification_reply';
 
+    /** Sent with a message steered into a run while it was working. */
+    public const string CONTEXT_STEERING = 'steering';
+
     /**
      * Formats both a browser and Claude's Read tool render as an image.
      * Everything else is offered as a download, so an uploaded SVG or

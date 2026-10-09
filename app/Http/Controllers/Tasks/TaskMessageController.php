@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tasks;
 
+use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
@@ -86,12 +87,16 @@ class TaskMessageController extends Controller
 
     private function sendSteering(SendTaskMessageRequest $request, YakTask $head, string $text): string
     {
-        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard');
+        $mode = $request->enum('mode', SteeringMode::class) ?? SteeringMode::Queue;
+
+        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name);
         TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
 
-        TaskLogger::info($head, 'Steering message queued via Yak UI');
+        TaskLogger::info($head, $mode === SteeringMode::Steer ? 'Steering message waiting for the next tool call via Yak UI' : 'Steering message queued via Yak UI');
 
-        return 'Queued -- Yak will pick this up when the current run finishes.';
+        return $mode === SteeringMode::Steer
+            ? 'Yak will read this after its current step.'
+            : 'Queued -- Yak will pick this up when the current run finishes.';
     }
 
     /**

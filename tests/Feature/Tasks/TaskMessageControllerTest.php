@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SteeringMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
@@ -48,7 +49,20 @@ test('a running task queues a steering message', function () {
     $this->post(route('tasks.messages.store', $task), ['message' => 'also handle IPv6'])
         ->assertSessionHas('success', 'Queued -- Yak will pick this up when the current run finishes.');
 
-    expect(PendingSteeringMessage::where('root_task_id', $task->id)->count())->toBe(1);
+    expect(PendingSteeringMessage::where('root_task_id', $task->id)->sole()->mode)->toBe(SteeringMode::Queue);
+});
+
+test('a running task takes a steered message for its next tool call', function () {
+    $user = User::factory()->create(['name' => 'Ada Lovelace']);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+
+    $this->actingAs($user)
+        ->post(route('tasks.messages.store', $task), ['message' => 'use the v2 endpoint', 'mode' => 'steer'])
+        ->assertSessionHas('success', 'Yak will read this after its current step.');
+
+    $message = PendingSteeringMessage::where('root_task_id', $task->id)->sole();
+    expect($message->mode)->toBe(SteeringMode::Steer)
+        ->and($message->author_name)->toBe('Ada Lovelace');
 });
 
 test('an open-pr task creates a chained follow-up and dispatches RunFollowUpJob', function () {

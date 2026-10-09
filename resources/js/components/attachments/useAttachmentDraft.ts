@@ -243,6 +243,35 @@ export function useAttachmentDraft({
 
     const parkedRefs = useCallback(() => parked.current.map((item) => item.ref), []);
 
+    /**
+     * Put back files that already have labels, as when a queued message is
+     * pulled back into the composer. The text already has their tokens, so
+     * `onAdd` is not called, and later files are numbered after them.
+     */
+    const adopt = useCallback((labelled: { file: File; ref: string }[]) => {
+        if (labelled.length === 0) {
+            return;
+        }
+
+        const adopted = labelled.map(({ file, ref }): DraftAttachment => {
+            const kind = previewKindOf(file.type, file.name);
+            const objectUrl = kind ? URL.createObjectURL(file) : null;
+
+            return {
+                key: `attachment-${nextKey++}`,
+                file,
+                ref,
+                previewUrl: IMAGE_TYPES.includes(file.type) ? objectUrl : null,
+                previewKind: kind,
+                objectUrl,
+            };
+        });
+
+        nextNumber.current = Math.max(nextNumber.current, ...adopted.map((item) => labelNumber(item) + 1));
+        itemsRef.current = [...itemsRef.current, ...adopted].sort((a, b) => labelNumber(a) - labelNumber(b));
+        setItems(itemsRef.current);
+    }, []);
+
     const clear = useCallback(() => {
         [...itemsRef.current, ...parked.current].forEach((item) => item.objectUrl && URL.revokeObjectURL(item.objectUrl));
         itemsRef.current = [];
@@ -385,6 +414,7 @@ export function useAttachmentDraft({
         isDraggingFiles,
         isOverDropzone,
         add,
+        adopt,
         remove,
         parkRefs,
         restoreRefs,

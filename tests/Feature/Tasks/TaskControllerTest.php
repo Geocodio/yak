@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
@@ -194,6 +196,37 @@ test('composer state is steering for a running task', function () {
 
     $this->get(route('tasks.show', $task))
         ->assertInertia(fn (Assert $page) => $page->where('composer.state', 'steering'));
+});
+
+test('composer lists the messages waiting for a busy task, steered ones first', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    PendingSteeringMessage::queueFor($task, 'first queued', 'dashboard', authorName: 'Ada');
+    PendingSteeringMessage::queueFor($task, 'first steered', 'slack', mode: SteeringMode::Steer);
+    PendingSteeringMessage::queueFor($task, 'second queued', 'dashboard');
+    PendingSteeringMessage::queueFor($task, 'second steered', 'dashboard', mode: SteeringMode::Steer);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('composer.queued', 4)
+            ->where('composer.queued.0.text', 'first steered')
+            ->where('composer.queued.0.mode', 'steer')
+            ->where('composer.queued.0.source', 'slack')
+            ->where('composer.queued.1.text', 'second steered')
+            ->where('composer.queued.2.text', 'first queued')
+            ->where('composer.queued.2.mode', 'queue')
+            ->where('composer.queued.2.authorName', 'Ada')
+            ->where('composer.queued.3.text', 'second queued'));
+});
+
+test('composer marks a waiting GitHub review as one that cannot be steered', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    PendingSteeringMessage::queueFor($task, 'from the dashboard', 'dashboard');
+    PendingSteeringMessage::queueFor($task, 'please rename', 'github_review', reviewerLogin: 'alice');
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('composer.queued.0.canSteer', true)
+            ->where('composer.queued.1.canSteer', false));
 });
 
 test('composer state is clarification while awaiting clarification', function () {

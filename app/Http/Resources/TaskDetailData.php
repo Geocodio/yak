@@ -3,11 +3,13 @@
 namespace App\Http\Resources;
 
 use App\DataTransferObjects\ThreadEntry;
+use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
@@ -656,7 +658,14 @@ final class TaskDetailData
 
     /**
      * @param  Collection<int, YakTask>  $conversation
-     * @return array<string, mixed>
+     * @return array{
+     *     state: string,
+     *     placeholder: string,
+     *     note: string|null,
+     *     buttonLabel: string|null,
+     *     nextAttachmentNumber: int,
+     *     queued: array<int, array{id: int, text: string, mode: string, source: string, authorName: string|null, canSteer: bool, attachments: array<int, array<string, mixed>>}>,
+     * }
      */
     private static function composer(YakTask $task, Collection $conversation): array
     {
@@ -678,7 +687,7 @@ final class TaskDetailData
         [$placeholder, $note] = match ($state) {
             'questions' => ['', null],
             'clarification' => ['Answer Yak…', null],
-            'steering' => ['Steer Yak — this will be picked up when the current run checks in…', 'Queued until the current run finishes.'],
+            'steering' => ['Message Yak while it works…', null],
             'follow_up' => [
                 $head->mode === TaskMode::Research && ! $head->prIsOpen()
                     ? 'Ask Yak a follow-up question about this research…'
@@ -701,6 +710,19 @@ final class TaskDetailData
             'note' => $note,
             'buttonLabel' => in_array($state, ['clarification', 'steering', 'follow_up'], true) ? 'Send' : null,
             'nextAttachmentNumber' => AttachmentNumbering::nextNumberFor($conversation),
+            // Steered messages reach Yak before queued ones, so they lead.
+            'queued' => PendingSteeringMessage::waitingFor($head)->sortBy([
+                fn (PendingSteeringMessage $a, PendingSteeringMessage $b): int => ($a->mode === SteeringMode::Steer ? 0 : 1) <=> ($b->mode === SteeringMode::Steer ? 0 : 1),
+                fn (PendingSteeringMessage $a, PendingSteeringMessage $b): int => $a->id <=> $b->id,
+            ])->map(fn (PendingSteeringMessage $message): array => [
+                'id' => $message->id,
+                'text' => $message->text,
+                'mode' => $message->mode->value,
+                'source' => $message->source,
+                'authorName' => $message->author_name,
+                'canSteer' => $message->canSteer(),
+                'attachments' => $message->attachments->map(fn (TaskAttachment $attachment) => AttachmentData::from($attachment))->values()->all(),
+            ])->values()->all(),
         ];
     }
 

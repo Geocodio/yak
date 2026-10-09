@@ -1,10 +1,15 @@
 <?php
 
+use App\DataTransferObjects\ThreadEntry;
+use App\Enums\SteeringMode;
 use App\Enums\TaskStatus;
 use App\Jobs\FlushSteeringMessagesJob;
 use App\Models\PendingSteeringMessage;
+use App\Models\TaskAttachment;
+use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
+use App\Services\ThreadBuilder;
 use Illuminate\Support\Facades\Queue;
 
 test('queueFor resolves the chain root', function () {
@@ -123,4 +128,94 @@ test('flush passes the distinct reviewer logins to the factory', function () {
         ->andReturn(YakTask::factory()->create(['parent_task_id' => $root->id]));
 
     (new FlushSteeringMessagesJob($root->id))->handle(app(FollowUpTaskFactory::class));
+});
+
+test('delivering steered messages hands them to the run and records them in the thread', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success]);
+    $run = YakTask::factory()->create(['parent_task_id' => $root->id, 'status' => TaskStatus::Running]);
+    $steered = PendingSteeringMessage::queueFor($run, 'use the v2 endpoint', 'dashboard', mode: SteeringMode::Steer, authorName: 'Ada');
+    $attachment = TaskAttachment::factory()->create(['yak_task_id' => null, 'pending_steering_message_id' => $steered->id]);
+    PendingSteeringMessage::queueFor($run, 'later, add docs', 'dashboard');
+
+    $sent = [];
+    $delivered = PendingSteeringMessage::deliverSteeredFor($run, PendingSteeringMessage::steeredFor($run), function (PendingSteeringMessage $message) use (&$sent): bool {
+        $sent[] = [$message->text, $message->attachments->pluck('id')->all()];
+
+        return true;
+    });
+
+    expect($delivered)->toBe(1)
+        ->and($sent)->toBe([['use the v2 endpoint', [$attachment->id]]])
+        ->and(PendingSteeringMessage::pluck('text')->all())->toBe(['later, add docs']);
+
+    expect($attachment->fresh())
+        ->yak_task_id->toBe($run->id)
+        ->pending_steering_message_id->toBeNull()
+        ->context->toBe(TaskAttachment::CONTEXT_STEERING);
+
+    $entry = app(ThreadBuilder::class)->build($run)
+        ->first(fn (ThreadEntry $entry) => $entry->text === 'use the v2 endpoint');
+
+    expect($entry)->not->toBeNull()
+        ->and($entry->kind)->toBe('user')
+        ->and($entry->authorName)->toBe('Ada')
+        ->and($entry->attachmentIds)->toBe([$attachment->id]);
+});
+
+test('a steered message the run could not send keeps waiting, along with those after it', function () {
+    $run = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    PendingSteeringMessage::queueFor($run, 'first', 'dashboard', mode: SteeringMode::Steer);
+    PendingSteeringMessage::queueFor($run, 'second', 'dashboard', mode: SteeringMode::Steer);
+    PendingSteeringMessage::queueFor($run, 'third', 'dashboard', mode: SteeringMode::Steer);
+
+    $delivered = PendingSteeringMessage::deliverSteeredFor(
+        $run,
+        PendingSteeringMessage::steeredFor($run),
+        fn (PendingSteeringMessage $message): bool => $message->text === 'first',
+    );
+
+    expect($delivered)->toBe(1)
+        ->and(PendingSteeringMessage::orderBy('id')->pluck('text')->all())->toBe(['second', 'third'])
+        ->and(TaskLog::where('message', ThreadBuilder::STEERING_MESSAGE_LOG)->count())->toBe(1);
+});
+
+test('a steered message withdrawn or switched back after it was read is not sent', function () {
+    $run = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    $withdrawn = PendingSteeringMessage::queueFor($run, 'withdrawn', 'dashboard', mode: SteeringMode::Steer);
+    $switched = PendingSteeringMessage::queueFor($run, 'switched', 'dashboard', mode: SteeringMode::Steer);
+    $read = PendingSteeringMessage::steeredFor($run);
+
+    $withdrawn->withdraw();
+    $switched->update(['mode' => SteeringMode::Queue]);
+
+    $delivered = PendingSteeringMessage::deliverSteeredFor($run, $read, fn (): bool => throw new RuntimeException('nothing should be sent'));
+
+    expect($delivered)->toBe(0)
+        ->and(PendingSteeringMessage::pluck('text')->all())->toBe(['switched']);
+});
+
+test('a steered message keeps its source in the thread', function () {
+    $run = YakTask::factory()->create(['status' => TaskStatus::Running]);
+    PendingSteeringMessage::queueFor($run, 'from slack', 'slack', mode: SteeringMode::Steer);
+
+    PendingSteeringMessage::deliverSteeredFor($run, PendingSteeringMessage::steeredFor($run), fn (): bool => true);
+
+    $entry = app(ThreadBuilder::class)->build($run)->first(fn (ThreadEntry $entry) => $entry->text === 'from slack');
+
+    expect($entry->source)->toBe('slack');
+});
+
+test('a steered message the run never took still flushes as a follow-up', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'pr_url' => 'https://github.com/geocodio/geocodio/pull/1']);
+    PendingSteeringMessage::queueFor($root, 'steered too late', 'dashboard', mode: SteeringMode::Steer);
+
+    $this->mock(FollowUpTaskFactory::class)
+        ->shouldReceive('create')
+        ->once()
+        ->withArgs(fn (YakTask $parent, string $instructions) => str_contains($instructions, 'steered too late'))
+        ->andReturn(YakTask::factory()->create(['parent_task_id' => $root->id]));
+
+    (new FlushSteeringMessagesJob($root->id))->handle(app(FollowUpTaskFactory::class));
+
+    expect(PendingSteeringMessage::count())->toBe(0);
 });

@@ -8,6 +8,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\RunStats;
 use App\DataTransferObjects\StreamOutcome;
 use App\Exceptions\ClaudeAuthException;
+use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Services\AiPricing;
 use App\Services\ClaudeAuthDetector;
@@ -65,6 +66,9 @@ class SandboxedAgentRunner implements AgentRunner
         private readonly float $sigkillEscalationSeconds = 5.0,
         private readonly float $memorySnapshotIntervalSeconds = 30.0,
         private readonly int $maxResumeAttempts = 1,
+        private readonly float $steeringCheckIntervalSeconds = 3.0,
+        private readonly float $steeredTurnGraceSeconds = 30.0,
+        private readonly float $steeredWriteTimeoutSeconds = 5.0,
     ) {}
 
     public function run(AgentRunRequest $request): AgentRunResult
@@ -487,8 +491,25 @@ class SandboxedAgentRunner implements AgentRunner
 
         [$process, $pipes] = $this->sandbox->streamExec($containerName, $command);
 
-        $this->writePromptToStdin($pipes[0], $request->prompt);
-        fclose($pipes[0]);
+        // stdin stays open for the whole turn so messages steered at the
+        // task can be passed in; the CLI takes each one in at its next tool
+        // call. Closing it after the final result lets the CLI exit.
+        $stdin = $pipes[0];
+        $this->writePromptToStdin($stdin, self::userMessageLine($request->prompt));
+        $closeStdin = function () use (&$stdin): void {
+            if (is_resource($stdin)) {
+                fclose($stdin);
+            }
+        };
+
+        $steeredCount = 0;
+        $lastSteeringCheckAt = microtime(true);
+        $replaysAtStart = $handler->getReplayedMessageCount();
+        $resultsSeen = $handler->getResultCount();
+        $replaysSeen = $replaysAtStart;
+        // A result that arrived before the CLI echoed every steered message:
+        // the unechoed one starts another turn, so this result isn't the last.
+        $unconfirmedResultAt = null;
 
         $lineCount = 0;
         $stdout = $pipes[1];
@@ -529,6 +550,19 @@ class SandboxedAgentRunner implements AgentRunner
                 $lastMemorySnapshotAt = $loopNow;
             }
 
+            if ($resultReceivedAt === null && $unconfirmedResultAt === null && ($loopNow - $lastSteeringCheckAt) >= $this->steeringCheckIntervalSeconds) {
+                $lastSteeringCheckAt = $loopNow;
+                $steeredCount += $this->deliverSteeredMessages($request, $stdin);
+            }
+
+            // A CLI that never echoes messages back would otherwise leave the
+            // run waiting for a turn that is not coming.
+            if ($unconfirmedResultAt !== null && ($loopNow - $unconfirmedResultAt) >= $this->steeredTurnGraceSeconds) {
+                $unconfirmedResultAt = null;
+                $resultReceivedAt = $loopNow;
+                $closeStdin();
+            }
+
             $read = [$stdout];
             $write = null;
             $except = null;
@@ -556,8 +590,22 @@ class SandboxedAgentRunner implements AgentRunner
                 $this->processLine($pendingLine, $handler, $request->task);
                 $pendingLine = '';
 
-                if ($resultReceivedAt === null && $handler->getResultEvent() !== null) {
-                    $resultReceivedAt = microtime(true);
+                if ($handler->getReplayedMessageCount() > $replaysSeen) {
+                    $replaysSeen = $handler->getReplayedMessageCount();
+                    $unconfirmedResultAt = null;
+                }
+
+                if ($resultReceivedAt === null && $handler->getResultCount() > $resultsSeen) {
+                    $resultsSeen = $handler->getResultCount();
+
+                    // Every message written so far (the prompt plus each
+                    // steered one) has been echoed, so nothing else is coming.
+                    if ($steeredCount === 0 || $replaysSeen - $replaysAtStart >= $steeredCount + 1) {
+                        $resultReceivedAt = microtime(true);
+                        $closeStdin();
+                    } else {
+                        $unconfirmedResultAt = microtime(true);
+                    }
                 }
             } else {
                 $status = proc_get_status($process);
@@ -643,6 +691,8 @@ class SandboxedAgentRunner implements AgentRunner
             $lineCount++;
             $this->processLine($pendingLine, $handler, $request->task);
         }
+
+        $closeStdin();
 
         $stderrOutput = stream_get_contents($stderr) ?: '';
 
@@ -730,18 +780,92 @@ class SandboxedAgentRunner implements AgentRunner
     }
 
     /**
-     * Write the prompt to `claude -p`'s stdin, draining the pipe via
-     * stream_select so we don't deadlock when the prompt exceeds the
-     * OS pipe buffer (64KB on Linux by default, up to 1MB). claude
-     * reads stdin as the user prompt when no positional prompt arg
-     * is given — this is the documented `cat | claude -p` pattern.
+     * Pass the messages steered at the task since the last check to the
+     * running CLI, staging any files they carry. Returns how many went in.
+     * A failure here is logged rather than ending a run that is otherwise
+     * fine; a message the CLI did not get stays waiting and flushes as a
+     * follow-up when the run finishes. A write that fails part-way leaves
+     * the input stream unusable, so stdin is closed and no more messages
+     * are steered this run.
      *
      * @param  resource  $stdin
      */
-    private function writePromptToStdin($stdin, string $prompt): void
+    private function deliverSteeredMessages(AgentRunRequest $request, $stdin): int
+    {
+        assert($request->task !== null);
+
+        if (! is_resource($stdin)) {
+            return 0;
+        }
+
+        try {
+            $messages = PendingSteeringMessage::steeredFor($request->task);
+
+            if ($messages->isEmpty()) {
+                return 0;
+            }
+
+            // Staged before the rows are locked, so a slow copy does not hold
+            // up someone withdrawing a message. Files of a message withdrawn
+            // in the meantime are left unused in the sandbox.
+            $sections = $messages->mapWithKeys(fn (PendingSteeringMessage $message): array => [
+                $message->id => $message->attachments->isEmpty() || $request->containerName === ''
+                    ? ''
+                    : (new TaskAttachmentStager($this->sandbox))->stage($request->containerName, $message->attachments->all()),
+            ]);
+
+            return PendingSteeringMessage::deliverSteeredFor($request->task, $messages, function (PendingSteeringMessage $message) use ($request, $stdin, $sections): bool {
+                $section = $sections[$message->id] ?? '';
+                $text = "The person you are working for sent this message while you were working. Take it into account from here on:\n\n"
+                    . $message->text
+                    . ($section === '' ? '' : "\n\n" . $section);
+
+                if ($this->writePromptToStdin($stdin, self::userMessageLine($text), $this->steeredWriteTimeoutSeconds)) {
+                    return true;
+                }
+
+                Log::channel('yak')->warning('Claude stream: could not pass a steered message to the CLI', [
+                    'task_id' => $request->task->id,
+                    'message_id' => $message->id,
+                ]);
+                fclose($stdin);
+
+                return false;
+            });
+        } catch (Throwable $e) {
+            Log::channel('yak')->warning('Claude stream: could not deliver steered messages', [
+                'task_id' => $request->task->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
+    }
+
+    /**
+     * One user message in the CLI's `--input-format stream-json` protocol.
+     */
+    private static function userMessageLine(string $text): string
+    {
+        return json_encode(
+            ['type' => 'user', 'message' => ['role' => 'user', 'content' => $text]],
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE,
+        ) . "\n";
+    }
+
+    /**
+     * Write the prompt to `claude -p`'s stdin, draining the pipe via
+     * stream_select so we don't deadlock when the prompt exceeds the
+     * OS pipe buffer (64KB on Linux by default, up to 1MB). Used for the
+     * prompt and for each steered message, as stream-json lines. Returns
+     * whether all of it was written.
+     *
+     * @param  resource  $stdin
+     */
+    private function writePromptToStdin($stdin, string $prompt, float $timeoutSeconds = 60.0): bool
     {
         if ($prompt === '') {
-            return;
+            return true;
         }
 
         stream_set_blocking($stdin, false);
@@ -751,12 +875,13 @@ class SandboxedAgentRunner implements AgentRunner
         $startedAt = microtime(true);
 
         while ($offset < $len) {
-            if ((microtime(true) - $startedAt) > 60.0) {
+            if ((microtime(true) - $startedAt) > $timeoutSeconds) {
                 Log::channel('yak')->warning('Claude stream: stdin write timed out', [
                     'bytes_written' => $offset,
                     'bytes_total' => $len,
                 ]);
-                break;
+
+                return false;
             }
 
             $write = [$stdin];
@@ -764,17 +889,19 @@ class SandboxedAgentRunner implements AgentRunner
             $except = null;
 
             if (@stream_select($read, $write, $except, 5) === false) {
-                break;
+                return false;
             }
 
             $bytes = @fwrite($stdin, substr($prompt, $offset));
 
             if ($bytes === false) {
-                break;
+                return false;
             }
 
             $offset += $bytes;
         }
+
+        return true;
     }
 
     private function processLine(string $line, StreamEventHandler $handler, YakTask $task): void
@@ -837,7 +964,10 @@ class SandboxedAgentRunner implements AgentRunner
     {
         $streaming = $request->task !== null;
         $outputFormat = $streaming ? 'stream-json' : 'json';
-        $verboseFlag = $streaming ? ' --verbose' : '';
+        // Streaming runs take their prompt (and any steered messages) as
+        // stream-json on stdin, and the CLI echoes each one back as it
+        // takes it in, so the runner knows which have been seen.
+        $verboseFlag = $streaming ? ' --verbose --input-format stream-json --replay-user-messages' : '';
 
         $workspacePath = IncusSandboxManager::workspacePath();
 

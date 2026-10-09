@@ -108,7 +108,7 @@ class TelemetryScriptedStreamSandbox extends IncusSandboxManager
         $lines = implode("\n", array_map(fn (array $e): string => json_encode($e), $events));
 
         $process = proc_open(
-            ['bash', '-c', sprintf('cat > /dev/null; printf "%%s\n" %s', escapeshellarg($lines))],
+            ['bash', '-c', sprintf('head -n 1 > /dev/null; printf "%%s\n" %s', escapeshellarg($lines))],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
         );

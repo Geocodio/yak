@@ -18,6 +18,12 @@ class ThreadBuilder
     public const string CLARIFICATION_REPLY_LOG = 'Clarification reply submitted via Yak UI';
 
     /**
+     * Task log message recording a steered message handed to the running
+     * agent; its metadata carries the text, author and attachment ids.
+     */
+    public const string STEERING_MESSAGE_LOG = 'Steering message sent to the running agent';
+
+    /**
      * @return Collection<int, ThreadEntry>
      */
     public function build(YakTask $task): Collection
@@ -32,7 +38,7 @@ class ThreadBuilder
 
         $repliesByRun = TaskLog::query()
             ->whereIn('yak_task_id', $chain->pluck('id'))
-            ->where('message', self::CLARIFICATION_REPLY_LOG)
+            ->whereIn('message', [self::CLARIFICATION_REPLY_LOG, self::STEERING_MESSAGE_LOG])
             ->orderBy('id')
             ->get()
             ->groupBy('yak_task_id');
@@ -61,6 +67,7 @@ class ThreadBuilder
                     Carbon::parse($log->created_at),
                     $log->metadata['author'] ?? null,
                     array_map(intval(...), (array) ($log->metadata['attachment_ids'] ?? [])),
+                    (string) ($log->metadata['source'] ?? 'dashboard'),
                 ));
 
             // A run keeps only its latest question, so while it is waiting

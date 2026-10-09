@@ -30,6 +30,7 @@ use App\Http\Controllers\Settings\McpServerController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskAttachmentController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
+use App\Http\Controllers\Tasks\QueuedMessageController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
 use App\Http\Controllers\Tasks\StoreTaskController;
 use App\Http\Controllers\Tasks\TaskActionController;
@@ -75,6 +76,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');
     Route::post('tasks/{task}/reroute', [TaskActionController::class, 'reroute'])->name('tasks.reroute');
     Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
+    Route::patch('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'update'])->whereNumber('message')->name('tasks.queued-messages.update');
+    Route::delete('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'destroy'])->whereNumber('message')->name('tasks.queued-messages.destroy');
     Route::post('tasks/{task}/clarification-answers', TaskClarificationAnswerController::class)->name('tasks.clarification-answers.store');
     Route::post('tasks/{task}/re-request-review', RequestReReviewController::class)
         ->name('tasks.re-request-review');
