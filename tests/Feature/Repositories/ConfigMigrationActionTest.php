@@ -70,3 +70,17 @@ it('refuses to migrate and writes nothing when .yak/ could not be read', functio
 
     Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'git/blobs'));
 });
+
+it('escapes the repository name and check names', function () {
+    $body = view('pull-requests.config-migration', [
+        'repository' => Repository::factory()->make(['name' => 'a <!-- @org/team']),
+        'files' => ['.yak/config.yml' => 'x'],
+        'riskProfileUnapproved' => false,
+        'riskProfileDate' => null,
+        'checksLostAppPin' => ['te`st'],
+    ])->render();
+
+    expect($body)->toContain('**a \<\!\-\- @' . "\u{200B}" . 'org/team**')
+        ->toContain("`te'st`")
+        ->not->toContain('<!--');
+});

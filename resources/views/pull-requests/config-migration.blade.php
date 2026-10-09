@@ -1,6 +1,6 @@
 ## Summary
 
-Yak now reads per-repository settings from a `.yak/` directory on the default branch. This pull request moves the values stored in Yak for **{!! $repository->name !!}** into files, so later changes go through review here. Nothing changes in how Yak behaves when it merges: every value is the one Yak uses today.
+Yak now reads per-repository settings from a `.yak/` directory on the default branch. This pull request moves the values stored in Yak for **{!! App\Support\MarkdownText::inline((string) $repository->name) !!}** into files, so later changes go through review here. Nothing changes in how Yak behaves when it merges: every value is the one Yak uses today.
 
 | File | From |
 | --- | --- |
@@ -15,7 +15,7 @@ Yak now reads per-repository settings from a `.yak/` directory on the default br
 @if ($checksLostAppPin !== [])
 
 > [!NOTE]
-> **Required checks match by name.** Yak stored {!! collect($checksLostAppPin)->map(fn ($name) => "`{$name}`")->join(', ', ' and ') !!} with a trusted GitHub App ID. In `config.yml` they match by name, so a check with the same name from any app counts. Branch protection still decides who can report checks.
+> **Required checks match by name.** Yak stored {!! collect($checksLostAppPin)->map(fn ($name) => App\Support\MarkdownText::code((string) $name))->join(', ', ' and ') !!} with a trusted GitHub App ID. In `config.yml` they match by name, so a check with the same name from any app counts. Branch protection still decides who can report checks.
 @endif
 
 ## After merging

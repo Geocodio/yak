@@ -22,3 +22,7 @@ it('truncates with an ellipsis', function () {
 it('renders a code span without backticks, newlines or table breaks', function () {
     expect(MarkdownText::code("a`b\nc|d <!--"))->toBe('`a\'b c\|d <!--`');
 });
+
+it('neutralises mentions', function () {
+    expect(MarkdownText::inline('ping @org/team'))->not->toContain('@o')->toContain("@\u{200B}org");
+});

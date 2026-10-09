@@ -28,6 +28,7 @@ use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\YakConfigFiles;
+use App\Support\MarkdownText;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -359,7 +360,8 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
 
             $files = app(YakConfigFiles::class)->forSetup($repository, $manifest);
             $commands = collect(['cold_start', 'checkout_refresh'])->contains(fn (string $key): bool => filled($manifest[$key] ?? null));
-            $previewSummary = 'Port ' . ($manifest['port'] ?? '') . ', health probe `' . ($manifest['health_probe_path'] ?? '/') . '`'
+            $previewSummary = (isset($manifest['port']) ? 'Port ' . (int) $manifest['port'] . ', ' : '')
+                . 'health probe ' . MarkdownText::code((string) ($manifest['health_probe_path'] ?? '/'))
                 . ($commands ? ', start and refresh commands' : '');
             $body = view('pull-requests.setup-config', ['previewSummary' => $previewSummary])->render();
 

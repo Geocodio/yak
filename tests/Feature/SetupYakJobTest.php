@@ -724,10 +724,10 @@ test('a failed setup sends one error notice', function () {
 |--------------------------------------------------------------------------
 */
 
-function runSetupEmittingManifest(): array
+function runSetupEmittingManifest(string $healthProbePath = '/'): array
 {
     $summary = "Done.\n\n```preview_manifest\n" . json_encode([
-        'port' => 3000, 'health_probe_path' => '/', 'cold_start' => 'npm start', 'checkout_refresh' => 'npm install',
+        'port' => 3000, 'health_probe_path' => $healthProbePath, 'cold_start' => 'npm start', 'checkout_refresh' => 'npm install',
     ]) . "\n```";
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_cfg', resultSummary: $summary, costUsd: 1.0, numTurns: 5, durationMs: 1000, isError: false, rawOutput: '{}',
@@ -790,4 +790,14 @@ test('setup still succeeds and logs a warning when the PR cannot be opened', fun
     expect($task->status)->toBe(TaskStatus::Success)
         ->and($repository->preview_manifest['port'])->toBe(3000)
         ->and($task->logs()->where('level', 'warning')->where('message', 'like', 'Could not open the .yak/ setup PR%')->exists())->toBeTrue();
+});
+
+test('a hostile health probe path stays in one table cell of the setup PR', function () {
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    runSetupEmittingManifest("/a`b|c\nd");
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
+        && str_contains($request['body'], "| `.yak/preview.yml` | Port 3000, health probe `/a'b\\|c d`, start and refresh commands |"));
 });

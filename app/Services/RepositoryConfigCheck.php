@@ -268,7 +268,7 @@ class RepositoryConfigCheck
 
         return "| File | Result |\n| --- | --- |\n" . implode("\n", $rows) . "\n"
             . implode('', array_map(fn (string $note): string => "\n{$note}\n", $notes))
-            . "\nThese settings apply once this pull request merges into `{$defaultBranch}`. " . $this->link();
+            . "\nThese settings apply once this pull request merges into " . MarkdownText::code($defaultBranch) . '. ' . $this->link();
     }
 
     private function modeText(?string $mode): string
