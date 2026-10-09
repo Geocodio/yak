@@ -97,6 +97,6 @@ class DeploymentWaker
 
     private function manifestPort(BranchDeployment $deployment): int
     {
-        return PreviewManifest::fromArray($deployment->repository->preview_manifest)->port;
+        return PreviewManifest::fromArray($deployment->repository->settings()->previewManifest())->port;
     }
 }

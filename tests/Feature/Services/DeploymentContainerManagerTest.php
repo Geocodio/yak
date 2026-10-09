@@ -437,3 +437,25 @@ it('falls back to a full reclaim when the workspace is not a git checkout', func
 
     expect($reclaim->message)->toContain('chown -R yak:yak');
 });
+
+it('probes the port from .yak/preview.yml over the stored manifest', function () {
+    fakeYakFiles(['preview.yml' => "port: 8080\nhealth_probe_path: /up\n"]);
+    Process::fake([
+        'incus start deploy-42' => Process::result(exitCode: 0),
+        'incus list deploy-42 *' => Process::result(exitCode: 0, output: 'deploy-42,"10.0.0.42 (eth0)"'),
+    ]);
+    Http::fake(['http://10.0.0.42*' => Http::response('ok', 200)]);
+
+    $repo = Repository::factory()->create([
+        'slug' => 'example-repo',
+        'preview_manifest' => ['port' => 3000, 'health_probe_path' => '/health'],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'container_name' => 'deploy-42',
+        'template_version' => 1,
+    ]);
+
+    app(DeploymentContainerManager::class)->start($deployment);
+
+    Http::assertSent(fn ($request) => $request->url() === 'http://10.0.0.42:8080/up');
+});
