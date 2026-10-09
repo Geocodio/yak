@@ -57,17 +57,7 @@ class RepositoryRiskProfiles
             throw new \RuntimeException('Risk profile must be a JSON object.');
         }
         $validated = Validator::make($data, [
-            'areas' => ['required', 'array', 'min:1', 'max:100'],
-            'areas.*' => ['required', 'array:name,paths,symbols,risk,rationale,evidence'],
-            'areas.*.name' => ['required', 'string', 'max:200'],
-            'areas.*.paths' => ['required', 'array', 'min:1', 'max:50'],
-            'areas.*.paths.*' => ['required', 'string', 'max:500'],
-            'areas.*.symbols' => ['present', 'array', 'max:100'],
-            'areas.*.symbols.*' => ['string', 'max:500'],
-            'areas.*.risk' => ['required', 'in:low,medium,high,critical,unknown'],
-            'areas.*.rationale' => ['required', 'string', 'max:4000'],
-            'areas.*.evidence' => ['required', 'array', 'min:1', 'max:100'],
-            'areas.*.evidence.*' => ['required', 'string', 'max:1000'],
+            ...self::areaRules(),
             'unknowns' => ['present', 'array', 'max:100'],
             'unknowns.*' => ['string', 'max:2000'],
         ])->validate();
@@ -137,5 +127,23 @@ class RepositoryRiskProfiles
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /** @return array<string, array<int, mixed>> */
+    public static function areaRules(): array
+    {
+        return [
+            'areas' => ['required', 'array', 'min:1', 'max:100'],
+            'areas.*' => ['required', 'array:name,paths,symbols,risk,rationale,evidence'],
+            'areas.*.name' => ['required', 'string', 'max:200'],
+            'areas.*.paths' => ['required', 'array', 'min:1', 'max:50'],
+            'areas.*.paths.*' => ['required', 'string', 'max:500'],
+            'areas.*.symbols' => ['present', 'array', 'max:100'],
+            'areas.*.symbols.*' => ['string', 'max:500'],
+            'areas.*.risk' => ['required', 'in:low,medium,high,critical,unknown'],
+            'areas.*.rationale' => ['required', 'string', 'max:4000'],
+            'areas.*.evidence' => ['required', 'array', 'min:1', 'max:100'],
+            'areas.*.evidence.*' => ['required', 'string', 'max:1000'],
+        ];
     }
 }
