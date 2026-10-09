@@ -4,6 +4,7 @@ use App\DataTransferObjects\ParsedReview;
 use App\Models\Repository;
 use App\Services\RepositoryRiskProfiles;
 use App\Services\ReviewApprovalPolicy;
+use App\Support\PathMatcher;
 
 it('matches a name-only required check against any app or a commit status', function () {
     $policy = app(ReviewApprovalPolicy::class);
@@ -72,3 +73,9 @@ it('falls back to the database risk profile when risk-profile.yml is absent or i
 
     expect($profiles->active('acme/api')['version'])->toBe($draft['version']);
 })->with([[[]], [['config.yml' => "version: 1\n"]]]);
+
+it('never auto-approves a diff that touches Yak config, CODEOWNERS or agent rules', function (string $path) {
+    $blocked = array_merge((array) config('yak.pr_review.approval_blocked_paths'), (array) config('yak.pr_review.config_floor_paths'));
+
+    expect(PathMatcher::matches($path, $blocked))->toBeTrue();
+})->with(['.yak/config.yml', '.yak/risk-profile.yml', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md']);

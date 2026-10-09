@@ -454,6 +454,12 @@ return [
     'pr_review' => [
         // Repository approval settings live in the dashboard/database.
         // These non-overridable exclusions are the minimum security boundary.
+        // Files that decide how Yak itself behaves in a repository. A diff
+        // touching them always needs a human, whatever the repository says.
+        'config_floor_paths' => [
+            '.yak/**', 'CODEOWNERS', '.github/CODEOWNERS', 'docs/CODEOWNERS', 'AGENTS.md', 'CLAUDE.md',
+        ],
+
         'approval_blocked_paths' => [
             '.github/**', '.claude/**', '.drone*', 'AGENTS.md', 'CLAUDE.md',
             'database/**', 'routes/**', 'config/**', 'bootstrap/**', 'ansible/**',

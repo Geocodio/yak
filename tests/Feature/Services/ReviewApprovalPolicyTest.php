@@ -309,6 +309,15 @@ it('requires human review for the approval machinery itself', function (string $
     'app/Channels/GitHub/AppService.php', 'app/Jobs/ResearchYakJob.php', 'app/Support/PathMatcher.php',
 ]);
 
+it('holds a diff to .yak/ config for a human even when the repository allows the path', function () {
+    $this->repo->update(['pr_review_policy' => array_replace($this->repo->reviewPolicy(), ['allowed_paths' => ['.yak/**']])]);
+    $this->files[0]['filename'] = '.yak/config.yml';
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+
+    expect($decision['event'])->toBe('COMMENT')
+        ->and($decision['reasons'])->toContain('Path requires human review: .yak/config.yml');
+});
+
 it('does not request changes for a must_fix the author never sees', function () {
     $this->repo->update(['pr_review_path_excludes' => ['docs/**']]);
     $review = cleanApprovalReview(findings: [new ReviewFinding('docs/guide.md', 1, 'must_fix', 'Correctness', 'Broken example.')]);

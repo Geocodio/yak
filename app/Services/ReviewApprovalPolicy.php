@@ -69,7 +69,7 @@ class ReviewApprovalPolicy
         }
 
         $allowed = (array) ($policy['allowed_paths'] ?? []);
-        $blocked = array_merge((array) config('yak.pr_review.approval_blocked_paths', []), $policy['blocked_paths']);
+        $blocked = array_merge((array) config('yak.pr_review.approval_blocked_paths', []), (array) config('yak.pr_review.config_floor_paths', []), $policy['blocked_paths']);
         $lines = 0;
         $hasCode = false;
         $hasTests = false;

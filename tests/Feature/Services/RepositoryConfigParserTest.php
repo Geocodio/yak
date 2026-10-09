@@ -53,7 +53,7 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
         ->and(collect($result['errors'])->contains(fn (string $error): bool => str_starts_with($error, "{$expectedKey}: ")))->toBeTrue();
 })->with([
     'unknown top-level key' => ["version: 1\nreveiw: {}\n", 'reveiw'],
-    'unknown nested key' => ["version: 1\nreview:\n  enabeld: true\n", 'review'],
+    'unknown nested key' => ["version: 1\nreview:\n  enabeld: true\n", 'review.enabeld'],
     'missing version' => ["ci: none\n", 'version'],
     'wrong version' => ["version: 2\n", 'version'],
     'bad ci' => ["version: 1\nci: jenkins\n", 'ci'],
@@ -66,6 +66,18 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     'empty allowed path' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"\" ]\n", 'review.approval.allowed_paths.0'],
     'path glob with spaces' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    allowed_paths: [ \"a b/**\" ]\n", 'review.approval.allowed_paths.0'],
 ]);
+
+it('names a nested unknown key', function () {
+    $errors = parseYak('config.yml', "version: 1\nreview:\n  enabeld: true\n  approval:\n    mode: shadow\n    max_file: 3\n")['errors'];
+
+    expect($errors)->toBe(['review.enabeld: unknown key', 'review.approval.max_file: unknown key']);
+});
+
+it('names an unknown key inside a risk profile area', function () {
+    $yaml = "version: 1\nareas:\n  - name: A\n    paths: [ \"a/**\" ]\n    symbols: []\n    risk: low\n    rationale: r\n    evidence: [ \"x\" ]\n    colour: red\n";
+
+    expect(parseYak('risk-profile.yml', $yaml)['errors'])->toBe(['areas.0.colour: unknown key']);
+});
 
 it('rejects files that are not a YAML mapping', function (string $content) {
     $result = parseYak('config.yml', $content);
