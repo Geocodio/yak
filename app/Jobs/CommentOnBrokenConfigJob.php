@@ -34,12 +34,21 @@ class CommentOnBrokenConfigJob implements ShouldQueue
         $repository = Repository::find($this->repositoryId);
         $file = RepositoryConfigFile::where('repository_id', $this->repositoryId)->where('name', $this->fileName)->first();
 
-        if ($repository === null || $file === null || $file->error === null
-            || $file->error_commit_sha !== $this->errorCommitSha || $file->error_pull_request === null) {
+        if ($repository === null || $file === null) {
             return;
         }
 
-        if (! Cache::add("yak-config:broken-comment:{$this->repositoryId}:{$this->fileName}:{$this->errorCommitSha}", true, now()->addDays(30))) {
+        if ($file->error === null || $file->error_pull_request === null) {
+            return;
+        }
+
+        if ($file->error_commit_sha !== $this->errorCommitSha) {
+            return;
+        }
+
+        $key = "yak-config:broken-comment:{$this->repositoryId}:{$this->fileName}:{$this->errorCommitSha}";
+
+        if (! Cache::add($key, true, now()->addDays(30))) {
             return;
         }
 
@@ -50,11 +59,23 @@ class CommentOnBrokenConfigJob implements ShouldQueue
             'settingsUrl' => route('repos.edit', $repository),
         ])->render();
 
-        $github->commentOnPullRequest(
-            (int) config('yak.channels.github.installation_id'),
-            $repository->github_full_name,
-            $file->error_pull_request['number'],
-            $body,
-        );
+        try {
+            $isPosted = $github->commentOnPullRequest(
+                (int) config('yak.channels.github.installation_id'),
+                $repository->github_full_name,
+                $file->error_pull_request['number'],
+                $body,
+            );
+        } catch (\Throwable $exception) {
+            Cache::forget($key);
+
+            throw $exception;
+        }
+
+        if (! $isPosted) {
+            Cache::forget($key);
+
+            throw new \RuntimeException("GitHub rejected the broken-config comment on {$repository->github_full_name}.");
+        }
     }
 }

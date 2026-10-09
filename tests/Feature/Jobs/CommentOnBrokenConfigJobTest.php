@@ -4,6 +4,7 @@ use App\Channels\GitHub\AppService;
 use App\Jobs\CommentOnBrokenConfigJob;
 use App\Models\Repository;
 use App\Models\RepositoryConfigFile;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -85,3 +86,19 @@ it('posts nothing once the error is fixed or moved to another commit', function 
     'fixed' => [['error' => null, 'error_commit_sha' => null, 'error_pull_request' => null]],
     'newer break' => [['error_commit_sha' => str_repeat('3', 40)]],
 ]);
+
+it('retries after a failed post and stops once a post succeeds', function () {
+    brokenConfigRow($this->repository);
+    $job = new CommentOnBrokenConfigJob($this->repository->id, 'config.yml', str_repeat('2', 40));
+    Http::swap(new Factory);
+    Http::fake([
+        'api.github.com/repos/acme/api/issues/*/comments' => Http::sequence()->push([], 500)->push([], 201),
+        'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 'ghs_token', 'expires_at' => now()->addHour()->toIso8601String()]),
+    ]);
+
+    expect(fn () => $job->handle(app(AppService::class)))->toThrow(RuntimeException::class);
+    $job->handle(app(AppService::class));
+    $job->handle(app(AppService::class));
+
+    expect(postedComments())->toHaveCount(2);
+});
