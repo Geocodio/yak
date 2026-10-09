@@ -112,3 +112,34 @@ it('refuses to render a file the parser rejects', function () {
 
     expect(fn () => app(YakConfigFiles::class)->forMigration($repository))->toThrow(RuntimeException::class);
 });
+
+it('writes empty lists as YAML sequences', function () {
+    $repository = Repository::factory()->create([
+        'pr_review_enabled' => true, 'pr_review_path_excludes' => [],
+        'pr_review_policy' => ['mode' => 'shadow', 'allowed_paths' => [], 'blocked_paths' => [], 'required_checks' => [], 'required_statuses' => []],
+    ]);
+    $profile = migrationProfile($repository->slug);
+    $profile['areas'][0]['symbols'] = [];
+    $profile['unknowns'] = [];
+    $profile['version'] = hash('sha256', json_encode([
+        $profile['schema_version'], $profile['repo'], $profile['source_sha'], $profile['areas'], $profile['unknowns'],
+    ]));
+    RiskProfile::create(['repo' => $repository->slug, 'version' => $profile['version'], 'profile' => $profile]);
+
+    $files = app(YakConfigFiles::class)->forMigration($repository)['files'];
+
+    foreach ($files as $content) {
+        expect($content)->toContain('[]')->not->toContain('{}');
+    }
+    fakeYakFiles(collect($files)->mapWithKeys(fn ($content, $path) => [basename($path) => $content])->all());
+    expect($repository->settings()->reviewPathExcludes())->toBe([]);
+});
+
+it('omits exclude_paths when null and writes an empty list when empty', function () {
+    $generator = app(YakConfigFiles::class);
+    $unset = Repository::factory()->create(['pr_review_path_excludes' => null]);
+    $empty = Repository::factory()->create(['pr_review_path_excludes' => []]);
+
+    expect($generator->forMigration($unset)['files']['.yak/config.yml'])->not->toContain('exclude_paths')
+        ->and($generator->forMigration($empty)['files']['.yak/config.yml'])->toContain('exclude_paths: []');
+});

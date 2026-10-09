@@ -132,7 +132,7 @@ class YakConfigFiles
     private function render(string $file, array $data): string
     {
         $content = '# yaml-language-server: $schema=' . RepositoryConfigSchemas::url($file) . "\n"
-            . Yaml::dump($data, 6, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK);
+            . Yaml::dump($data, 6, 2, Yaml::DUMP_MULTI_LINE_LITERAL_BLOCK | Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE);
 
         $this->assertValid($file, $content);
 
