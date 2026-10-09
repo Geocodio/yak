@@ -116,7 +116,7 @@ class RenderWalkthroughJob implements ShouldQueue
                 clipPaths: $clipPaths,
                 voiceover: $voiceover,
                 theme: (array) config('yak.video.theme'),
-                publicOrigin: $task->repository?->public_site_url,
+                publicOrigin: $task->repository?->settings()->publicSiteUrl(),
                 outputPath: $outputPath,
             );
 

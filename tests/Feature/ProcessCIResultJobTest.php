@@ -2,6 +2,7 @@
 
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
+use App\Jobs\CreatePullRequestJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\SendNotificationJob;
@@ -11,6 +12,7 @@ use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -1219,3 +1221,26 @@ test('a GitHub-started task gets no second PR comment for the green path or a re
 
     Queue::assertNotPushed(SendNotificationJob::class);
 })->with(['green path' => true, 'first failure' => false]);
+
+test('green path takes the large-change threshold from .yak/config.yml', function () {
+    Bus::fake([CreatePullRequestJob::class]);
+    Http::fake([
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => [
+            ['filename' => 'a.php', 'additions' => 1, 'deletions' => 1],
+        ]]),
+    ]);
+    config()->set('yak.large_change_threshold', 200);
+    fakeYakFiles(['config.yml' => "version: 1\npull_requests:\n  large_change_lines: 1\n"]);
+
+    Repository::factory()->create(['slug' => 'org/my-repo', 'path' => '/home/yak/repos/my-repo']);
+    $task = YakTask::factory()->awaitingCi()->create([
+        'repo' => 'org/my-repo',
+        'branch_name' => 'yak/FIX-30',
+        'source' => 'manual',
+        'attempts' => 1,
+    ]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    Bus::assertDispatched(CreatePullRequestJob::class, fn (CreatePullRequestJob $job) => $job->isLargeChange === true);
+});

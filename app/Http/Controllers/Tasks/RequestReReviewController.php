@@ -19,7 +19,7 @@ class RequestReReviewController extends Controller
         abort_unless($task->pr_url !== null && $task->pr_url !== '', 404);
 
         $repo = Repository::where('slug', $task->repo)->first();
-        abort_if($repo === null || ! $repo->is_active || ! $repo->pr_review_enabled, 404);
+        abort_if($repo === null || ! $repo->is_active || ! $repo->settings()->reviewEnabled(), 404);
 
         // Review tasks carry the PR number in their context; tasks that opened
         // the PR themselves store it on the task row.

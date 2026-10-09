@@ -20,6 +20,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
+use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,7 +58,7 @@ class WebhookController extends Controller
         }
 
         if ($event === 'push') {
-            return $this->handleDeploymentPush($request);
+            return $this->handlePush($request);
         }
 
         if ($event === 'delete') {
@@ -147,7 +148,7 @@ class WebhookController extends Controller
 
         $repository = Repository::where('slug', $task->repo)->first();
 
-        if (! $repository || $repository->ci_system !== 'github_actions') {
+        if (! $repository || $repository->settings()->ciSystem() !== 'github_actions') {
             return response()->json(['ok' => true, 'skipped' => 'wrong CI system']);
         }
 
@@ -319,9 +320,13 @@ class WebhookController extends Controller
         }
     }
 
-    private function handleDeploymentPush(Request $request): JsonResponse
+    private function handlePush(Request $request): JsonResponse
     {
         $repo = $this->resolveRepositoryFromPayload($request);
+
+        if ($repo !== null && $request->input('ref') === 'refs/heads/' . $repo->default_branch) {
+            app(RepositoryConfig::class)->forget($repo);
+        }
 
         if ($repo === null || ! $repo->deployments_enabled) {
             return response()->json(['ok' => true, 'skipped' => 'deployments disabled or repo not found']);
@@ -698,7 +703,7 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'skipped' => 'repo not registered or inactive']);
         }
 
-        if (! $repo->pr_review_enabled) {
+        if (! $repo->settings()->reviewEnabled()) {
             return response()->json(['ok' => true, 'skipped' => 'pr review disabled on repo']);
         }
 

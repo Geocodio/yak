@@ -104,6 +104,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('repos/{repository}/rerun-setup', [RepositoryActionController::class, 'rerunSetup'])
         ->name('repos.rerun-setup')
         ->where('repository', '.+');
+    Route::post('repos/{repository}/config/refresh', [RepositoryActionController::class, 'refreshConfig'])
+        ->name('repos.config.refresh')
+        ->where('repository', '.+');
     Route::post('repos/{repository}/review-open-prs', [RepositoryActionController::class, 'reviewOpenPrs'])
         ->name('repos.review-open-prs')
         ->where('repository', '.+');

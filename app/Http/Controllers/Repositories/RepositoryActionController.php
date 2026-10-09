@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\RiskProfileRequest;
 use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
 use App\Models\Repository;
+use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,6 +55,13 @@ class RepositoryActionController extends Controller
         $task = $dispatchSetup($repository, $request->user());
 
         return redirect()->route('tasks.show', $task)->with('success', 'Setup task dispatched.');
+    }
+
+    public function refreshConfig(Repository $repository, RepositoryConfig $config): RedirectResponse
+    {
+        $config->forget($repository);
+
+        return back()->with('success', 'Yak will read .yak/ again.');
     }
 
     public function reviewOpenPrs(Repository $repository, ApplyPrReviewToOpenPulls $applyPrReview): RedirectResponse

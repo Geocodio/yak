@@ -127,7 +127,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     {
         $repository = Repository::where('slug', $this->task->repo)->first();
 
-        if ($repository === null || ! $repository->pr_review_enabled) {
+        if ($repository === null || ! $repository->settings()->reviewEnabled()) {
             $this->handleError('Repository missing or PR review not enabled');
 
             return;
@@ -352,7 +352,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         $changedFiles = array_values(array_filter(array_map('trim', explode("\n", $changedList))));
 
         /** @var array<int, string> $pathExcludes */
-        $pathExcludes = $repository->pr_review_path_excludes
+        $pathExcludes = $repository->settings()->reviewPathExcludes()
             ?? (array) config('yak.pr_review.default_path_excludes', []);
 
         $changedFiles = array_values(array_filter(
@@ -385,7 +385,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
             'diffSummary' => trim($diffStat),
             'reviewScope' => $scope,
             'changedFiles' => $changedFiles,
-            'repoAgentInstructions' => (string) ($repository->agent_instructions ?? ''),
+            'repoAgentInstructions' => $repository->settings()->agentInstructions(),
             'pathExcludes' => $pathExcludes,
             'linearTicket' => $this->tryFetchLinearTicket($metadata),
             'priorFindings' => $priorFindings,
@@ -479,7 +479,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
         \Closure $readFileAtHead,
     ): void {
         $unfiltered = $parsed;
-        $parsed = $this->filterFindings($parsed, $repository->pr_review_path_excludes
+        $parsed = $this->filterFindings($parsed, $repository->settings()->reviewPathExcludes()
             ?? (array) config('yak.pr_review.default_path_excludes', []));
         $installationId = (int) config('yak.channels.github.installation_id');
         $maxFindings = (int) config('yak.pr_review.max_findings_per_review', 20);

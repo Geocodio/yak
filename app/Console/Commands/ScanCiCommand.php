@@ -73,7 +73,7 @@ class ScanCiCommand extends Command
         $scanner = $this->resolveScanner($repository);
 
         if (! $scanner) {
-            $this->components->warn("No CI scanner available for {$repository->slug} (ci_system: {$repository->ci_system}).");
+            $this->components->warn("No CI scanner available for {$repository->slug} (ci_system: {$repository->settings()->ciSystem()}).");
 
             return 0;
         }
@@ -620,7 +620,7 @@ class ScanCiCommand extends Command
 
     private function resolveScanner(Repository $repository): ?CIBuildScanner
     {
-        return match ($repository->ci_system) {
+        return match ($repository->settings()->ciSystem()) {
             'github_actions' => app(GitHubActionsBuildScanner::class),
             'drone' => app(DroneBuildScanner::class),
             default => null,

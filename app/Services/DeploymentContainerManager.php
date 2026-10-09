@@ -53,7 +53,7 @@ class DeploymentContainerManager
     public function start(BranchDeployment $deployment): string
     {
         $deployment->loadMissing('repository');
-        $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
+        $manifest = PreviewManifest::fromArray($deployment->repository->settings()->previewManifest());
 
         $result = Process::timeout(self::LIFECYCLE_TIMEOUT)->run("incus start {$deployment->container_name}");
 
@@ -108,7 +108,7 @@ class DeploymentContainerManager
     public function applyCheckoutRefresh(BranchDeployment $deployment, string $commitSha): void
     {
         $deployment->loadMissing('repository');
-        $manifest = PreviewManifest::fromArray($deployment->repository->preview_manifest);
+        $manifest = PreviewManifest::fromArray($deployment->repository->settings()->previewManifest());
         $workspace = IncusSandboxManager::workspacePath();
 
         // GitHub App installation tokens TTL out after ~1 hour, so the

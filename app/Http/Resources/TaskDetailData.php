@@ -790,7 +790,7 @@ final class TaskDetailData
             'canRerunReview' => $task->mode === TaskMode::Review,
             'canRequestReview' => $task->mode !== TaskMode::Review
                 && $task->pr_url !== null
-                && Repository::where('slug', (string) $task->repo)->where('is_active', true)->where('pr_review_enabled', true)->exists(),
+                && (Repository::where('slug', (string) $task->repo)->where('is_active', true)->first()?->settings()->reviewEnabled() ?? false),
             'canRetryRender' => $task->artifacts()->rawFootage()->exists(),
             'canReroute' => $canReroute,
             'rerouteTargets' => $rerouteTargets,

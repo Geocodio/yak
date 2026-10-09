@@ -134,3 +134,15 @@ test('includes repo description and notes in the routing prompt', function (): v
     expect((string) $captured)->toContain('Uses Stripe webhooks');
     expect((string) $captured)->toContain('my-repo (default)');
 });
+
+test('routing prompt uses the description from .yak/config.yml', function (): void {
+    Ai::fakeAgent(RepoRoutingAgent::class, [['candidates' => []]]);
+    fakeYakFiles(['config.yml' => "version: 1\ndescription: Billing service from the file\n"]);
+
+    $repos = collect([Repository::factory()->create(['slug' => 'acme/billing', 'description' => 'Stored description'])]);
+
+    (new RepoRouter)->route('fix an invoice bug', $repos);
+
+    RepoRoutingAgent::assertPrompted(fn ($prompt) => str_contains((string) $prompt->prompt, 'Billing service from the file')
+        && ! str_contains((string) $prompt->prompt, 'Stored description'));
+});

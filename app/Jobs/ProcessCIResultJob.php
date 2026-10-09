@@ -233,7 +233,7 @@ class ProcessCIResultJob implements ShouldQueue
         // runs in parallel with Drone CI instead of sequentially.
 
         $loc = $this->countLinesOfCode($repository);
-        $isLargeChange = $loc > (int) config('yak.large_change_threshold');
+        $isLargeChange = $loc > $repository->settings()->largeChangeLines();
 
         CreatePullRequestJob::dispatchSync($this->task, $isLargeChange);
 

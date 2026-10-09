@@ -422,7 +422,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             $this->task->update($this->postAgentUpdate($repository, $result));
         }
 
-        if ($repository->ci_system === 'none') {
+        if ($repository->settings()->ciSystem() === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
@@ -446,7 +446,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         // straight to Success — and, if PR creation blows up, the failed()
         // recovery path moves it to Failed instead of stranding it in a
         // misleading "awaiting_ci" state on a repo with no CI.
-        if ($repository->ci_system !== 'none') {
+        if ($repository->settings()->ciSystem() !== 'none') {
             $update['status'] = TaskStatus::AwaitingCi;
         }
 

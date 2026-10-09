@@ -40,7 +40,7 @@ class YakPromptBuilder
 
         $repository = Repository::where('slug', $task->repo)->first();
 
-        return trim((string) ($repository->agent_instructions ?? ''));
+        return $repository?->settings()->agentInstructions() ?? '';
     }
 
     /**
@@ -92,7 +92,7 @@ class YakPromptBuilder
                 ->get()
                 ->map(fn (Repository $repository): array => [
                     'slug' => $repository->slug,
-                    'description' => trim((string) $repository->description),
+                    'description' => trim((string) $repository->settings()->description()),
                 ])
                 ->all(),
         );

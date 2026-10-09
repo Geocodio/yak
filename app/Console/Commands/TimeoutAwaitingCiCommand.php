@@ -115,7 +115,7 @@ class TimeoutAwaitingCiCommand extends Command
         if ($installationId === 0
             || $task->branch_name === null
             || $repository === null
-            || $repository->ci_system !== 'github_actions') {
+            || $repository->settings()->ciSystem() !== 'github_actions') {
             return false;
         }
 

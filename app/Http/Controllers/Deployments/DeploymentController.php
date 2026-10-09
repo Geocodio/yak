@@ -139,7 +139,7 @@ class DeploymentController extends Controller
      */
     private function manifestData(BranchDeployment $deployment): array
     {
-        $manifest = $deployment->repository->preview_manifest ?? [];
+        $manifest = $deployment->repository->settings()->previewManifest() ?? [];
 
         return [
             'port' => (int) ($manifest['port'] ?? config('yak.deployments.default_port')),
