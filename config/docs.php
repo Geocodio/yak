@@ -56,6 +56,7 @@ return [
         'repositories' => 'repositories/',
         'repositories.adding' => 'repositories/#adding-a-repository',
         'repositories.setup' => 'repositories/#the-setup-task',
+        'repositories.config' => 'repo-config/',
         'repositories.claude-md' => 'repositories/#claudemd-the-highest-leverage-config-point',
         'repositories.management' => 'repositories/#repo-management-pages',
         'repositories.multi-repo' => 'repositories/#multi-repo-requests',
