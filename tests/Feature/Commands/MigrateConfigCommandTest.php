@@ -10,6 +10,7 @@ beforeEach(function () {
     config()->set('yak.channels.github.app_id', '12345');
     config()->set('yak.channels.github.private_key', $privateKey);
     config()->set('yak.channels.github.installation_id', 99999);
+    fakeYakFiles([]);
 });
 
 function migrationCommandFakes(array $overrides = []): array
@@ -89,4 +90,18 @@ it('limits the run to the repository named by --repo', function () {
     $this->artisan('yak:migrate-config', ['--repo' => 'api'])->assertExitCode(0);
 
     Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'acme/other'));
+});
+
+it('fails a repository whose .yak/ could not be read and continues with the next', function () {
+    Http::fake(migrationCommandFakes());
+    migratableRepository(['slug' => 'broken', 'github_full_name' => 'acme/broken']);
+    migratableRepository();
+    fakeUnreachableYakRead(['broken']);
+
+    $this->artisan('yak:migrate-config')
+        ->expectsOutputToContain('Could not read .yak/ for broken')
+        ->expectsOutputToContain('https://github.com/acme/api/pull/12')
+        ->assertExitCode(1);
+
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'acme/broken'));
 });

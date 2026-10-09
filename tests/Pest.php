@@ -127,3 +127,25 @@ function fakeYakFiles(array $files, string $sha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaa
         }
     });
 }
+
+/**
+ * Serve an unreachable snapshot for the named repository slugs and a clean
+ * read with no files for every other repository.
+ *
+ * @param  list<string>  $slugs
+ */
+function fakeUnreachableYakRead(array $slugs): void
+{
+    app()->instance(RepositoryConfig::class, new class($slugs) extends RepositoryConfig
+    {
+        /** @param list<string> $slugs */
+        public function __construct(private array $slugs) {}
+
+        public function snapshot(Repository $repository): ConfigSnapshot
+        {
+            return in_array($repository->slug, $this->slugs, true)
+                ? new ConfigSnapshot('unreachable', null, null, 'GitHub is down', [])
+                : new ConfigSnapshot('read', str_repeat('a', 40), CarbonImmutable::now(), null, []);
+        }
+    });
+}

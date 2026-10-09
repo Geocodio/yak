@@ -32,11 +32,17 @@ class OpenConfigMigrationPullRequest
     /**
      * @return array{number: int, url: string, created: bool}
      *
-     * @throws \RuntimeException when the repository already has `.yak/` files
+     * @throws \RuntimeException when `.yak/` cannot be read or the repository already has `.yak/` files
      */
     public function handle(Repository $repository): array
     {
-        if ($this->config->snapshot($repository)->files !== []) {
+        $snapshot = $this->config->snapshot($repository);
+
+        if ($snapshot->state !== 'read') {
+            throw new \RuntimeException("Could not read .yak/ for {$repository->slug} from GitHub; try again once the settings page shows the current config.");
+        }
+
+        if ($snapshot->files !== []) {
             throw new \RuntimeException("{$repository->slug} already has .yak/ files");
         }
 

@@ -59,3 +59,14 @@ it('flashes an error when the action throws', function () {
         ->assertRedirect()
         ->assertSessionHas('error', 'GitHub App is not configured');
 });
+
+it('refuses to migrate and writes nothing when .yak/ could not be read', function () {
+    Http::fake();
+    $repository = Repository::factory()->create(['slug' => 'api']);
+    fakeUnreachableYakRead(['api']);
+
+    expect(fn () => app(OpenConfigMigrationPullRequest::class)->handle($repository))
+        ->toThrow(RuntimeException::class, 'Could not read .yak/ for api from GitHub');
+
+    Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'git/blobs'));
+});
