@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class AppService
 {
@@ -612,6 +613,86 @@ class AppService
         }
 
         return null;
+    }
+
+    /**
+     * Commit files on top of a branch's head and point another branch at the
+     * commit, creating the branch or force-moving it when it already exists.
+     *
+     * @param  array<string, string>  $files  repository path => file content
+     */
+    public function createBranchWithFiles(int $installationId, string $repoSlug, string $baseBranch, string $branch, array $files, string $message): string
+    {
+        $client = fn () => $this->installationClient($installationId);
+        $base = $client()->get("https://api.github.com/repos/{$repoSlug}/branches/" . rawurlencode($baseBranch))->throw();
+
+        $tree = [];
+        foreach ($files as $path => $content) {
+            $blob = $client()->post("https://api.github.com/repos/{$repoSlug}/git/blobs", ['content' => $content, 'encoding' => 'utf-8'])->throw();
+            $tree[] = ['path' => $path, 'mode' => '100644', 'type' => 'blob', 'sha' => $blob->json('sha')];
+        }
+
+        $treeSha = $client()->post("https://api.github.com/repos/{$repoSlug}/git/trees", [
+            'base_tree' => $base->json('commit.commit.tree.sha'), 'tree' => $tree,
+        ])->throw()->json('sha');
+
+        $commitSha = (string) $client()->post("https://api.github.com/repos/{$repoSlug}/git/commits", [
+            'message' => $message, 'tree' => $treeSha, 'parents' => [$base->json('commit.sha')],
+        ])->throw()->json('sha');
+
+        $created = $client()->post("https://api.github.com/repos/{$repoSlug}/git/refs", ['ref' => "refs/heads/{$branch}", 'sha' => $commitSha]);
+
+        if ($created->status() === 422) {
+            $client()->patch("https://api.github.com/repos/{$repoSlug}/git/refs/heads/{$branch}", ['sha' => $commitSha, 'force' => true])->throw();
+        } else {
+            $created->throw();
+        }
+
+        return $commitSha;
+    }
+
+    /**
+     * Blob paths of a commit's full tree, or null when GitHub truncates the listing.
+     *
+     * @return list<string>|null
+     */
+    public function listTreePaths(int $installationId, string $repoSlug, string $sha): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/git/trees/{$sha}", ['recursive' => 1])
+            ->throw();
+
+        if ($response->json('truncated') === true) {
+            return null;
+        }
+
+        $paths = [];
+        foreach ((array) $response->json('tree') as $entry) {
+            if (($entry['type'] ?? null) === 'blob') {
+                $paths[] = (string) $entry['path'];
+            }
+        }
+
+        return $paths;
+    }
+
+    /**
+     * Create a check run. Returns null when the App lacks the Checks write permission.
+     *
+     * @param  array<string, mixed>  $checkRun  GitHub check-run payload
+     */
+    public function createCheckRun(int $installationId, string $repoSlug, array $checkRun): ?int
+    {
+        $response = $this->installationClient($installationId)
+            ->post("https://api.github.com/repos/{$repoSlug}/check-runs", $checkRun);
+
+        if ($response->status() === 403) {
+            Log::warning("GitHub App lacks the Checks write permission; skipped the yak / config check on {$repoSlug}.");
+
+            return null;
+        }
+
+        return (int) $response->throw()->json('id');
     }
 
     /**
