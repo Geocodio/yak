@@ -12,7 +12,7 @@
  * src/content/docs/.
  */
 
-import { readdirSync, readFileSync, writeFileSync, copyFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, copyFileSync, cpSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,6 +21,8 @@ const __dirname = dirname(__filename);
 
 const SOURCE_DIR = resolve(__dirname, '../../docs');
 const TARGET_DIR = resolve(__dirname, '../src/content/docs');
+const SCHEMAS_DIR = resolve(__dirname, '../../schemas');
+const SCHEMAS_TARGET_DIR = resolve(__dirname, '../public/schemas');
 
 // Must match `base` in astro.config.mjs. Internal `<a href>` in Markdown
 // is NOT auto-prefixed with Astro's base, so links must be written with
@@ -135,6 +137,12 @@ function main() {
       console.log(`  ✓ ${file}`);
       synced += 1;
     }
+  }
+
+  // Publish the JSON Schemas for .yak/ files next to the docs.
+  if (existsSync(SCHEMAS_DIR)) {
+    cpSync(SCHEMAS_DIR, SCHEMAS_TARGET_DIR, { recursive: true });
+    console.log('  ✓ schemas/');
   }
 
   console.log(`\nSynced ${synced} pages to ${TARGET_DIR}`);

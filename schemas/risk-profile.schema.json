@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Geocodio/yak/main/schemas/risk-profile.schema.json",
+  "title": "Yak risk profile (.yak/risk-profile.yml)",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "The file format version. Always 1."
+    },
+    "areas": {
+      "type": "array",
+      "description": "The areas of the codebase and their risk.",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "description": "One area of the codebase and how risky it is to change.",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "A unique name for the area."
+          },
+          "paths": {
+            "type": "array",
+            "description": "Path globs that belong to the area.",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "symbols": {
+            "type": "array",
+            "description": "Functions or classes that belong to the area.",
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "risk": {
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "critical",
+              "unknown"
+            ],
+            "description": "How risky changes to the area are."
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Why the area has this risk level."
+          },
+          "evidence": {
+            "type": "array",
+            "description": "Facts from the repository that support the rationale.",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          }
+        },
+        "required": [
+          "name",
+          "paths",
+          "risk",
+          "rationale",
+          "evidence"
+        ]
+      }
+    },
+    "unknowns": {
+      "type": "array",
+      "description": "Questions Yak could not answer and a human should check.",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 2000
+      }
+    }
+  },
+  "required": [
+    "version",
+    "areas"
+  ]
+}
