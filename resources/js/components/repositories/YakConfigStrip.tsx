@@ -221,7 +221,7 @@ export function YakConfigStrip({ config, slug, branch, setupDone, guideUrl }: { 
                 }
             >
                 <p className="text-[12px] text-muted">
-                    Setup prepares the sandbox for Yak tasks. You can commit a .yak/ directory to manage settings through pull requests.
+                    Setup prepares the sandbox and opens a PR that adds <code>.yak/</code>. Settings apply once the PR merges.
                 </p>
             </Strip>
         );
