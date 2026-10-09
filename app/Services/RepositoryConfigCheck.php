@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Channels\GitHub\AppService;
 use App\Models\Repository;
 use App\Support\Docs;
+use App\Support\MarkdownText;
 use App\Support\PathMatcher;
 use App\Support\YamlKeyLocator;
 use Illuminate\Support\Str;
@@ -87,7 +88,7 @@ class RepositoryConfigCheck
 
             foreach ($result['errors'] as $error) {
                 $key = Str::before($error, ': ');
-                $fail($file, "`{$key}`: " . Str::after($error, ': '), $error, YamlKeyLocator::line($content, $key));
+                $fail($file, MarkdownText::code($key) . ': ' . MarkdownText::inline(Str::after($error, ': ')), $error, YamlKeyLocator::line($content, $key));
                 $errorCounts[$file] = ($errorCounts[$file] ?? 0) + 1;
             }
         }
@@ -140,7 +141,7 @@ class RepositoryConfigCheck
                         }
 
                         if ($isUnchecked) {
-                            $notes[] = "Could not check: `{$glob}`";
+                            $notes[] = 'Could not check: ' . MarkdownText::code($glob);
                         }
 
                         if ($isMatched || $isUnchecked) {
@@ -150,7 +151,7 @@ class RepositoryConfigCheck
                         $isDead = true;
                         $line = YamlKeyLocator::line($content, "areas.{$areaIndex}.paths.{$pathIndex}");
                         $line = $line === 1 ? YamlKeyLocator::line($content, "areas.{$areaIndex}.paths") : $line;
-                        $fail('risk-profile.yml', "Area **{$area['name']}**: `{$glob}` matches no file in this commit", "Area \"{$area['name']}\": {$glob} matches no file", $line);
+                        $fail('risk-profile.yml', 'Area **' . MarkdownText::inline((string) $area['name']) . '**: ' . MarkdownText::code($glob) . ' matches no file in this commit', "Area \"{$area['name']}\": {$glob} matches no file", $line);
                     }
 
                     $deadAreaCount += $isDead ? 1 : 0;
@@ -256,7 +257,7 @@ class RepositoryConfigCheck
         foreach ($data as $file => $value) {
             $rows[] = "| `{$file}` | " . match ($file) {
                 'config.yml' => 'Valid. Co-owner gate: ' . $this->modeText($value['co_owner_gate']['mode'] ?? null) . '. Review approval: ' . $this->modeText($value['review']['approval']['mode'] ?? null) . '.',
-                'preview.yml' => "Valid. Port {$value['port']}, health probe `{$value['health_probe_path']}`.",
+                'preview.yml' => "Valid. Port {$value['port']}, health probe " . MarkdownText::code((string) $value['health_probe_path']) . '.',
                 'risk-profile.yml' => 'Valid. ' . ($count = count($value['areas'] ?? [])) . ' ' . Str::plural('area', $count)
                     . ($notes === [] ? ', every glob matches at least one file' : '')
                     . ', ' . ($open = count($value['unknowns'] ?? [])) . ' open ' . Str::plural('question', $open) . '.',

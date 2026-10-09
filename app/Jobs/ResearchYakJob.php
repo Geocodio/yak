@@ -300,7 +300,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $snapshot = app(RepositoryConfig::class)->snapshot($repository);
 
             if ($snapshot->state !== 'read') {
-                return '';
+                return "\n\nNo risk profile PR was opened: Yak could not read `.yak/` from GitHub. Generate the profile again once it is reachable.";
             }
 
             $current = $repository->settings()->riskProfile();
@@ -329,7 +329,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $pullRequest = app(ConfigPullRequests::class)->open(
                 $repository, 'yak/risk-profile',
                 ['.yak/risk-profile.yml' => app(YakConfigFiles::class)->riskProfile($profile)],
-                $title, $body, $title,
+                $title, $body, $title, true,
             );
             TaskLogger::info($this->task, 'Opened risk profile PR', ['url' => $pullRequest['url']]);
 

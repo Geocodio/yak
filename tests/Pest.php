@@ -155,7 +155,7 @@ function fakeUnreachableYakRead(array $slugs): void
  * Configure the GitHub App and fake the API calls ConfigPullRequests makes for acme/api.
  * Pass a status to make the pull request POST fail instead.
  */
-function fakeGithubConfigPullRequestApi(int $pullRequestStatus = 201): void
+function fakeGithubConfigPullRequestApi(int $pullRequestStatus = 201, array $overrides = []): void
 {
     $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($keyPair, $privateKey);
@@ -163,7 +163,7 @@ function fakeGithubConfigPullRequestApi(int $pullRequestStatus = 201): void
     config()->set('yak.channels.github.private_key', $privateKey);
     config()->set('yak.channels.github.installation_id', 99999);
 
-    Http::fake([
+    Http::fake($overrides + [
         'api.github.com/app/installations/*/access_tokens' => Http::response(['token' => 't', 'expires_at' => now()->addHour()->toIso8601String()]),
         'api.github.com/repos/acme/api/branches/main' => Http::response(['commit' => ['sha' => 'base', 'commit' => ['tree' => ['sha' => 'tree']]]]),
         'api.github.com/repos/acme/api/git/blobs' => Http::response(['sha' => 'blob'], 201),

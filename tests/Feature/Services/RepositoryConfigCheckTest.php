@@ -245,3 +245,14 @@ it('restores the pcre backtrack limit after the glob check, even when it throws'
     }
     expect(ini_get('pcre.backtrack_limit'))->toBe('777777');
 });
+
+it('escapes untrusted area names, globs and error keys in the summary', function () {
+    $yaml = str_replace(['name: Legacy importer', '"app/Billing/**"'], ['name: "Evil <!-- x\\n## Approved"', '"gone/**"'], riskProfileYaml('gone/**'));
+    fakeConfigCheck(['risk-profile.yml' => $yaml], ['.yak/risk-profile.yml']);
+
+    $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
+
+    expect($payload['output']['summary'])->toContain('Evil \<\!\-\- x \#\# Approved')
+        ->not->toContain('<!--')
+        ->not->toContain("\n## Approved");
+});

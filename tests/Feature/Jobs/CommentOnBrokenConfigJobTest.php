@@ -52,7 +52,7 @@ it('comments on the merged pull request with the file, the error and the last va
     $body = $comments[0][0]->data()['body'];
     expect($body)->toContain('**This merge made `.yak/config.yml` invalid.**')
         ->toContain('Yak keeps using the version from `a1b2c3d`')
-        ->toContain('- `review.approval.max_lines`: must be between 1 and 5000 (got 8000)')
+        ->toContain('- `review.approval.max_lines`: must be between 1 and 5000 \(got 8000\)')
         ->toContain(route('repos.edit', $this->repository));
 });
 
@@ -101,4 +101,14 @@ it('retries after a failed post and stops once a post succeeds', function () {
     $job->handle(app(AppService::class));
 
     expect(postedComments())->toHaveCount(2);
+});
+
+it('escapes a hostile error line', function () {
+    brokenConfigRow($this->repository, ['error' => 'areas.0.name: bad <!-- x [link](http://evil) `tick`']);
+
+    (new CommentOnBrokenConfigJob($this->repository->id, 'config.yml', str_repeat('2', 40)))->handle(app(AppService::class));
+
+    $body = postedComments()[0][0]->data()['body'];
+    expect($body)->toContain('- `areas.0.name`: bad \<\!\-\- x \[link\]\(http://evil\) \`tick\`')
+        ->not->toContain('<!--');
 });

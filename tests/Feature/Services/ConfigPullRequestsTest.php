@@ -81,3 +81,17 @@ it('throws when the GitHub App is not configured', function () {
 
     expect(fn () => openConfigPr($this->repository))->toThrow(RuntimeException::class, 'GitHub App is not configured');
 });
+
+it('refreshes the branch and body of an open pull request when asked to update it', function () {
+    Http::fake(configPrFakes([
+        'api.github.com/repos/acme/api/pulls?*' => Http::response([['number' => 9, 'title' => 'Existing', 'html_url' => 'https://github.com/acme/api/pull/9']]),
+        'api.github.com/repos/acme/api/pulls/9' => Http::response(['number' => 9, 'html_url' => 'https://github.com/acme/api/pull/9']),
+    ]));
+
+    $result = app(ConfigPullRequests::class)->open($this->repository, 'yak/risk-profile', ['.yak/risk-profile.yml' => "version: 1\n"], 'Update', 'New body', 'Update', true);
+
+    expect($result)->toBe(['number' => 9, 'url' => 'https://github.com/acme/api/pull/9', 'created' => false]);
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), '/git/commits'));
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'PATCH' && str_ends_with($request->url(), '/pulls/9') && $request['body'] === 'New body');
+    Http::assertNotSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls'));
+});

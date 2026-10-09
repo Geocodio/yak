@@ -10,6 +10,8 @@ impact and citing actual file paths and symbols. Include lower-risk areas only
 where you inspected them. Uninspected paths remain unknown. Never invent test
 coverage or operational guarantees. Record missing production context explicitly.
 
+If `.yak/risk-profile.yml` exists in the checkout, start from it: keep its areas, risk levels and answered unknowns unless the code shows they are wrong, and explain any change in the area's evidence.
+
 Return a JSON object in a single ```json fence as your final response:
 {
   "areas": [{

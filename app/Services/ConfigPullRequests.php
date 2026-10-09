@@ -22,12 +22,19 @@ class ConfigPullRequests
      * @param  array<string, string>  $files  repository path => content
      * @return array{number: int, url: string, created: bool}
      */
-    public function open(Repository $repository, string $branch, array $files, string $title, string $body, string $commitMessage): array
+    public function open(Repository $repository, string $branch, array $files, string $title, string $body, string $commitMessage, bool $updateExisting = false): array
     {
         $installationId = $this->installationId();
         $slug = $repository->github_full_name;
 
         $existing = $this->github->findOpenPullRequestForBranch($installationId, $slug, $branch);
+
+        if ($existing !== null && $updateExisting) {
+            $this->github->createBranchWithFiles($installationId, $slug, $repository->default_branch, $branch, $files, $commitMessage);
+            $this->github->updatePullRequest($installationId, $slug, (int) $existing['number'], ['body' => $body]);
+
+            return ['number' => (int) $existing['number'], 'url' => (string) $existing['html_url'], 'created' => false];
+        }
 
         if ($existing !== null) {
             return ['number' => (int) $existing['number'], 'url' => (string) $existing['html_url'], 'created' => false];
