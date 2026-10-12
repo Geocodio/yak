@@ -657,6 +657,51 @@ test('setup prompt template includes repo name and setup steps', function () {
         ->toContain('Do NOT make any code changes');
 });
 
+test('setup prompt shows an existing preview manifest verbatim so a re-run keeps hand-tuned steps', function () {
+    $refresh = "cd /workspace && sed -i 's|^APP_ENV=.*|APP_ENV=preview|' .env && npm run build";
+
+    $prompt = YakPromptBuilder::setupPrompt('My Project', ['port' => 8090, 'checkout_refresh' => $refresh]);
+
+    expect($prompt)
+        ->toContain('This repository already has a preview manifest')
+        ->toContain(json_encode($refresh, JSON_UNESCAPED_SLASHES))
+        ->toContain('"port": 8090');
+});
+
+test('setup prompt has no existing-manifest section on a first run', function () {
+    expect(YakPromptBuilder::setupPrompt('My Project'))
+        ->not->toContain('This repository already has a preview manifest');
+});
+
+test('setup job hands the agent the repository\'s current preview manifest', function () {
+    fakeYakFiles([]);
+
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_setup_rerun',
+        resultSummary: 'Docker compose failed to start',
+        costUsd: 0.25,
+        numTurns: 1,
+        durationMs: 5000,
+        isError: true,
+        rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create([
+        'slug' => 'rerun-repo',
+        'path' => '/home/yak/repos/rerun-repo',
+        'setup_status' => 'pending',
+        'preview_manifest' => ['port' => 8090, 'checkout_refresh' => 'hand-tuned-refresh-step'],
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'rerun-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($fake->lastCall()->prompt)->toContain('hand-tuned-refresh-step');
+});
+
 test('taskPrompt routes setup mode to setup template', function () {
     $task = YakTask::factory()->pending()->make([
         'mode' => TaskMode::Setup,

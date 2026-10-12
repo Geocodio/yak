@@ -153,6 +153,19 @@ class PromptFixtures
                     'label' => 'Laravel project',
                     'data' => [
                         'repoName' => 'acme/billing',
+                        'currentManifest' => null,
+                    ],
+                ],
+                [
+                    'label' => 'Re-run with an existing manifest',
+                    'data' => [
+                        'repoName' => 'acme/billing',
+                        'currentManifest' => json_encode([
+                            'port' => 8080,
+                            'health_probe_path' => '/up',
+                            'cold_start' => 'cd /workspace && docker compose up -d',
+                            'checkout_refresh' => "cd /workspace && sed -i 's|^APP_ENV=.*|APP_ENV=preview|' .env && docker compose up -d --force-recreate web",
+                        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
                     ],
                 ],
             ],

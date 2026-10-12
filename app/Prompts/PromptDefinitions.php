@@ -80,7 +80,7 @@ class PromptDefinitions
                 'description' => 'Sent for repository environment-setup tasks (TaskMode::Setup). Asks Claude to install dependencies, start the dev environment without making code changes, and emit a preview manifest if the repo supports branch previews.',
                 'category' => 'advanced',
                 'type' => 'task',
-                'variables' => ['repoName'],
+                'variables' => ['repoName', 'currentManifest'],
             ],
             'tasks-risk-profile' => [
                 'view' => 'prompts.tasks.risk-profile',

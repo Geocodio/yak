@@ -100,11 +100,19 @@ class YakPromptBuilder
 
     /**
      * Build a setup prompt for repository environment setup.
+     *
+     * A re-run passes the repository's current preview manifest so the agent
+     * revises it instead of replacing hand-tuned commands it cannot see.
+     *
+     * @param  array<string, mixed>|null  $currentManifest
      */
-    public static function setupPrompt(string $repoName): string
+    public static function setupPrompt(string $repoName, ?array $currentManifest = null): string
     {
         return Prompts::render('tasks-setup', [
             'repoName' => $repoName,
+            'currentManifest' => empty($currentManifest)
+                ? null
+                : json_encode($currentManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
         ]);
     }
 

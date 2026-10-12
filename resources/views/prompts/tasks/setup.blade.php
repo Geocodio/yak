@@ -104,6 +104,20 @@ Field requirements — ALL of these apply and past manifests have been rejected 
 
   **Verify before emitting:** run your proposed `checkout_refresh` command once from a clean `git` state (e.g. `git fetch && git checkout --force <current sha> && <your refresh command>`). Confirm it exits 0 and the health probe returns 2xx. If it fails, fix the script before emitting — a manifest whose refresh command is broken will break every push to the branch.
 
+@isset($currentManifest)
+### This repository already has a preview manifest
+
+People tune these commands by hand to fix real preview problems, and those fixes are invisible from the code alone (for example, a step that switches the app into its preview environment so assets resolve against the preview hostname). Start from the current manifest below instead of writing a new one:
+
+- Keep every field and every step of each command unless you verified that it is broken or obsolete.
+- Change only what your verification shows is wrong, such as a port that no longer serves or a step that now fails.
+- In your final report, list each change you made to the manifest and why. If you changed nothing, say so.
+
+```json
+{!! $currentManifest !!}
+```
+
+@endisset
 Before emitting the manifest, **verify the values**: run `curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:<port><health_probe_path>` inside the container (or the sandbox) and confirm you get 2xx. If you can't, pick different values and retry — don't emit a manifest that hasn't been probed.
 
 Emit the manifest exactly once, in a single `preview_manifest` code block. Skip this section if the repo is not a web app (libraries, CLI tools, etc.).

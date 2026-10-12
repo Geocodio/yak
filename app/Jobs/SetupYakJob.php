@@ -209,7 +209,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             TaskLogger::info($this->task, 'Starting Claude agent');
 
             $request = new AgentRunRequest(
-                prompt: YakPromptBuilder::setupPrompt($repository->name),
+                prompt: YakPromptBuilder::setupPrompt($repository->name, $repository->settings()->previewManifest()),
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->agentTimeoutSeconds(),
