@@ -173,6 +173,43 @@ it('raises when the health probe never goes green', function () {
     app(DeploymentContainerManager::class)->start($deployment);
 })->throws(DeploymentStartTimeoutException::class);
 
+it('refreshes to the given commit before probing, so the probe sees that commit\'s stack', function () {
+    $refreshed = false;
+
+    Process::fake([
+        'incus start *' => Process::result(exitCode: 0),
+        'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 1),
+        '*recreate-on-new-port*' => function () use (&$refreshed) {
+            $refreshed = true;
+
+            return Process::result(exitCode: 0);
+        },
+        'incus exec *' => Process::result(exitCode: 0, output: ''),
+        'incus list *' => Process::result(exitCode: 0, output: 'deploy-x,10.0.0.42 (eth0)'),
+    ]);
+
+    Http::fake(function () use (&$refreshed) {
+        return $refreshed ? Http::response('ok', 200) : Http::response('template stack', 503);
+    });
+
+    $repo = Repository::factory()->create([
+        'preview_manifest' => [
+            'port' => 8090,
+            'health_probe_path' => '/up',
+            'checkout_refresh' => 'recreate-on-new-port',
+            'health_probe_timeout_seconds' => 1,
+            'cold_start_timeout_seconds' => 1,
+            'checkout_refresh_timeout_seconds' => 1,
+        ],
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create(['container_name' => 'deploy-x']);
+
+    app(DeploymentContainerManager::class)->start($deployment, 'branch-sha');
+
+    expect($deployment->fresh()->current_commit_sha)->toBe('branch-sha');
+    Http::assertSent(fn ($request) => $request->url() === 'http://10.0.0.42:8090/up');
+});
+
 it('injects a fresh installation token before fetching, without logging it', function () {
     Process::fake([
         'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 1),

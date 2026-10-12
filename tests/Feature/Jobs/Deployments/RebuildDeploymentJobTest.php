@@ -21,8 +21,7 @@ it('destroys the container, re-pins to latest template, and re-creates', functio
     $manager->shouldReceive('destroy')->once();
     $manager->shouldReceive('createFromTemplate')->once()
         ->with(Mockery::on(fn ($d) => $d->template_version === 9));
-    $manager->shouldReceive('start')->once()->andReturn('10.0.0.5');
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'sha');
+    $manager->shouldReceive('start')->once()->with(Mockery::any(), 'sha')->andReturn('10.0.0.5');
 
     (new RebuildDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -63,7 +62,6 @@ it('writes lifecycle logs across the rebuild path', function () {
     $manager->shouldReceive('destroy')->once();
     $manager->shouldReceive('createFromTemplate')->once();
     $manager->shouldReceive('start')->once()->andReturn('10.0.0.8');
-    $manager->shouldReceive('applyCheckoutRefresh')->once();
 
     (new RebuildDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -88,8 +86,7 @@ it('rebuilds from the branch head rather than a stale stored sha', function () {
         ->with(Mockery::any(), 'acme/widgets', 'feat/thing')
         ->andReturn(['number' => 7, 'head' => ['sha' => 'freshsha']]);
 
-    $manager = mockRebuildManager();
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'freshsha');
+    mockRebuildManager('freshsha');
 
     (new RebuildDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -106,8 +103,7 @@ it('keeps the stored sha when the branch has no open pull request', function () 
     $this->app->instance(GitHubAppService::class, $github);
     $github->shouldReceive('findOpenPullRequestForBranch')->once()->andReturn(null);
 
-    $manager = mockRebuildManager();
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'stalesha');
+    mockRebuildManager('stalesha');
 
     (new RebuildDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -126,8 +122,7 @@ it('falls back to the stored sha when GitHub is unreachable', function () {
         ->once()
         ->andThrow(new ConnectionException('network down'));
 
-    $manager = mockRebuildManager();
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'stalesha');
+    mockRebuildManager('stalesha');
 
     (new RebuildDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -135,16 +130,16 @@ it('falls back to the stored sha when GitHub is unreachable', function () {
 });
 
 /**
- * The three lifecycle calls every rebuild makes before the checkout, which
- * these cases share and none of them are asserting on.
+ * The three lifecycle calls every rebuild makes, expecting `start` to be
+ * handed the commit the rebuild checks out.
  */
-function mockRebuildManager(): MockInterface
+function mockRebuildManager(string $expectedCommitSha): MockInterface
 {
     $manager = Mockery::mock(DeploymentContainerManager::class);
     app()->instance(DeploymentContainerManager::class, $manager);
     $manager->shouldReceive('destroy')->once();
     $manager->shouldReceive('createFromTemplate')->once();
-    $manager->shouldReceive('start')->once()->andReturn('10.0.0.9');
+    $manager->shouldReceive('start')->once()->with(Mockery::any(), $expectedCommitSha)->andReturn('10.0.0.9');
 
     return $manager;
 }

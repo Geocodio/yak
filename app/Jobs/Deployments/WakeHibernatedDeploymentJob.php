@@ -38,11 +38,7 @@ class WakeHibernatedDeploymentJob implements ShouldBeUnique, ShouldQueue
         }
 
         try {
-            $manager->start($deployment);
-
-            if ($deployment->dirty && $deployment->current_commit_sha !== null) {
-                $manager->applyCheckoutRefresh($deployment, $deployment->current_commit_sha);
-            }
+            $manager->start($deployment, $deployment->dirty ? $deployment->current_commit_sha : null);
 
             $deployment->status = DeploymentStatus::Running;
             $deployment->last_accessed_at = now();

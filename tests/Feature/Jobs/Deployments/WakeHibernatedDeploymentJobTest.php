@@ -13,8 +13,7 @@ it('starts the container and marks running', function () {
 
     $manager = Mockery::mock(DeploymentContainerManager::class);
     $this->app->instance(DeploymentContainerManager::class, $manager);
-    $manager->shouldReceive('start')->once()->with(Mockery::on(fn ($d) => $d->id === $deployment->id))->andReturn('10.0.0.5');
-    $manager->shouldNotReceive('applyCheckoutRefresh');
+    $manager->shouldReceive('start')->once()->with(Mockery::on(fn ($d) => $d->id === $deployment->id), null)->andReturn('10.0.0.5');
 
     (new WakeHibernatedDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -30,8 +29,7 @@ it('applies a pending dirty checkout before serving traffic', function () {
 
     $manager = Mockery::mock(DeploymentContainerManager::class);
     $this->app->instance(DeploymentContainerManager::class, $manager);
-    $manager->shouldReceive('start')->once()->andReturn('10.0.0.9');
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'old-sha');
+    $manager->shouldReceive('start')->once()->with(Mockery::any(), 'old-sha')->andReturn('10.0.0.9');
 
     (new WakeHibernatedDeploymentJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 });
