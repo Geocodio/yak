@@ -50,7 +50,14 @@ class DeploymentContainerManager
         Process::timeout(self::QUERY_TIMEOUT)->run("incus config unset {$deployment->container_name} raw.idmap 2>/dev/null");
     }
 
-    public function start(BranchDeployment $deployment): string
+    /**
+     * Boot the container and wait until the preview answers its health probe.
+     *
+     * When a commit is given, the checkout refresh runs before the probe, so
+     * the probe checks the stack for that commit and not the template's. The
+     * two can serve on different ports when the branch changes its compose file.
+     */
+    public function start(BranchDeployment $deployment, ?string $commitSha = null): string
     {
         $deployment->loadMissing('repository');
         $manifest = PreviewManifest::fromArray($deployment->repository->settings()->previewManifest());
@@ -68,6 +75,10 @@ class DeploymentContainerManager
 
         if ($manifest->coldStart !== '') {
             $this->exec($deployment, 'cold_start', $manifest->coldStart, $manifest->coldStartTimeoutSeconds);
+        }
+
+        if ($commitSha !== null) {
+            $this->applyCheckoutRefresh($deployment, $commitSha);
         }
 
         $ip = $this->resolveContainerIp($deployment->container_name);

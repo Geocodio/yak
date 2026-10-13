@@ -14,8 +14,7 @@ it('creates the container, starts it, checks out the sha, and marks running', fu
     $this->app->instance(DeploymentContainerManager::class, $manager);
 
     $manager->shouldReceive('createFromTemplate')->once()->with(Mockery::on(fn ($d) => $d->id === $deployment->id));
-    $manager->shouldReceive('start')->once()->andReturn('10.0.0.10');
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'abc123');
+    $manager->shouldReceive('start')->once()->with(Mockery::any(), 'abc123')->andReturn('10.0.0.10');
 
     (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 
@@ -46,8 +45,7 @@ it('writes lifecycle logs across the happy path', function () {
     $manager = Mockery::mock(DeploymentContainerManager::class);
     $this->app->instance(DeploymentContainerManager::class, $manager);
     $manager->shouldReceive('createFromTemplate')->once();
-    $manager->shouldReceive('start')->once()->andReturn('10.0.0.5');
-    $manager->shouldReceive('applyCheckoutRefresh')->once()->with(Mockery::any(), 'abc123');
+    $manager->shouldReceive('start')->once()->with(Mockery::any(), 'abc123')->andReturn('10.0.0.5');
 
     (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
 

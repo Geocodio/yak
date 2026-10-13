@@ -32,11 +32,7 @@ class DeployBranchJob implements ShouldQueue
             $manager->createFromTemplate($deployment);
 
             DeploymentLog::record($deployment, 'info', 'lifecycle', 'Starting container');
-            $manager->start($deployment);
-
-            if ($deployment->current_commit_sha !== null) {
-                $manager->applyCheckoutRefresh($deployment, $deployment->current_commit_sha);
-            }
+            $manager->start($deployment, $deployment->current_commit_sha);
 
             $deployment->status = DeploymentStatus::Running;
             $deployment->last_accessed_at = now();

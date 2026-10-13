@@ -45,13 +45,7 @@ class RebuildDeploymentJob implements ShouldQueue
             $manager->createFromTemplate($deployment);
 
             DeploymentLog::record($deployment, 'info', 'lifecycle', 'Starting container');
-            $manager->start($deployment);
-
-            $commitSha = $this->resolveHeadSha($deployment);
-
-            if ($commitSha !== null) {
-                $manager->applyCheckoutRefresh($deployment, $commitSha);
-            }
+            $manager->start($deployment, $this->resolveHeadSha($deployment));
 
             $deployment->status = DeploymentStatus::Running;
             $deployment->last_accessed_at = now();
