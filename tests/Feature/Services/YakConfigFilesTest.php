@@ -2,6 +2,7 @@
 
 use App\Models\Repository;
 use App\Models\RiskProfile;
+use App\Services\RepositoryConfigParser;
 use App\Services\YakConfigFiles;
 
 function migrationProfile(string $repo): array
@@ -142,4 +143,16 @@ it('omits exclude_paths when null and writes an empty list when empty', function
 
     expect($generator->forMigration($unset)['files']['.yak/config.yml'])->not->toContain('exclude_paths')
         ->and($generator->forMigration($empty)['files']['.yak/config.yml'])->toContain('exclude_paths: []');
+});
+
+it('expands brace globs and de-duplicates paths when writing risk-profile.yml', function () {
+    $profile = migrationProfile('acme/app');
+    $profile['areas'][0]['paths'] = ['app/Services/{A,B}.php', 'app/Services/A.php'];
+
+    $content = app(YakConfigFiles::class)->riskProfile($profile);
+    $parsed = app(RepositoryConfigParser::class)->parse('risk-profile.yml', $content);
+
+    expect($parsed['errors'])->toBe([])
+        ->and(substr_count($content, 'app/Services/A.php'))->toBe(1)
+        ->and(substr_count($content, 'app/Services/B.php'))->toBe(1);
 });
