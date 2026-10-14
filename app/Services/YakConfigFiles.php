@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Repository;
 use App\Models\RiskProfile;
+use App\Support\GlobExpander;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -101,9 +102,17 @@ class YakConfigFiles
     /** @param array<string, mixed> $profile */
     public function riskProfile(array $profile): string
     {
+        $areas = array_map(function (array $area): array {
+            $area['paths'] = array_values(array_unique(array_merge(
+                [], ...array_map(GlobExpander::expand(...), $area['paths'] ?? [])
+            )));
+
+            return $area;
+        }, $profile['areas']);
+
         return $this->render('risk-profile.yml', [
             'version' => 1,
-            'areas' => $profile['areas'],
+            'areas' => $areas,
             'unknowns' => $profile['unknowns'] ?? [],
         ]);
     }

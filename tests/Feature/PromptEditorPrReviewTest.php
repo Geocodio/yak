@@ -27,7 +27,8 @@ it('renders the review prompt against the fixture', function () {
 it('registers and resolves an editable repository risk profile prompt', function () {
     expect(PromptDefinitions::has('tasks-risk-profile'))->toBeTrue();
     $resolver = app(PromptResolver::class);
-    expect($resolver->render('tasks-risk-profile'))->toContain('areas');
+    expect($resolver->render('tasks-risk-profile'))->toContain('areas')
+        ->toContain('Do not use brace expansion such as `{a,b}`');
     Prompt::updateOrCreate(['slug' => 'tasks-risk-profile'], [
         'content' => 'Custom repository risk research instructions.', 'is_customized' => true,
     ]);
