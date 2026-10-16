@@ -16,7 +16,7 @@ Every open PR on an opted-in repo gets a live preview URL. Click it, sign in wit
 2. Yak creates a `BranchDeployment`, provisions a container from the repo's per-branch template snapshot, and checks out the PR head.
 3. GitHub shows a "Deployments" entry on the PR with a "View deployment" button.
 4. You or a reviewer clicks the button. If the preview has been idle, the request holds for a few seconds while the container wakes.
-5. Every push to the branch updates the preview in place (or marks it dirty to be refreshed on next wake if hibernated).
+5. Every push to the branch updates the preview in place (or marks it dirty to be refreshed on next wake if hibernated). A push to a failed preview rebuilds it from the template at the new commit.
 6. After 15 minutes of no traffic, the container hibernates. Next request wakes it again.
 7. When the PR is closed, merged, or the branch is deleted, the preview is torn down.
 8. Preview state never lives longer than 30 days of idle, regardless of PR state.
