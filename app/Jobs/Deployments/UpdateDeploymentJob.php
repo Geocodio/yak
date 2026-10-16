@@ -40,5 +40,11 @@ class UpdateDeploymentJob implements ShouldQueue
 
             return;
         }
+
+        if ($deployment->status === DeploymentStatus::Failed) {
+            $deployment->update(['current_commit_sha' => $this->commitSha]);
+            DeploymentLog::record($deployment, 'info', 'lifecycle', "Retrying failed deployment at {$this->commitSha}");
+            RebuildDeploymentJob::dispatch($deployment->id);
+        }
     }
 }

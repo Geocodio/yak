@@ -1,8 +1,10 @@
 <?php
 
+use App\Jobs\Deployments\RebuildDeploymentJob;
 use App\Jobs\Deployments\UpdateDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Services\DeploymentContainerManager;
+use Illuminate\Support\Facades\Queue;
 
 it('applies checkout refresh when the deployment is running', function () {
     $deployment = BranchDeployment::factory()->running()->create();
@@ -30,7 +32,20 @@ it('marks dirty when the deployment is hibernated', function () {
     expect($fresh->current_commit_sha)->toBe('new-sha');
 });
 
-it('is a no-op on a failed or destroyed deployment', function () {
+it('rebuilds a failed deployment at the pushed commit', function () {
+    Queue::fake();
+    $deployment = BranchDeployment::factory()->failed()->create();
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $manager->shouldNotReceive('applyCheckoutRefresh');
+
+    (new UpdateDeploymentJob($deployment->id, 'new-sha'))->handle($manager);
+
+    expect($deployment->fresh()->current_commit_sha)->toBe('new-sha');
+    Queue::assertPushed(RebuildDeploymentJob::class, fn (RebuildDeploymentJob $job) => $job->deploymentId === $deployment->id);
+});
+
+it('is a no-op on a destroyed deployment', function () {
     $deployment = BranchDeployment::factory()->destroyed()->create();
 
     $manager = Mockery::mock(DeploymentContainerManager::class);
