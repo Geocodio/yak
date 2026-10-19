@@ -251,14 +251,36 @@ YAML;
  * Fake the GitHub calls behind the risk map: the head tree, CODEOWNERS, the
  * last commit of the profile file and the pull request that merged it.
  *
+ * `$pullRequests` maps a PR number to its changed files, or to an HTTP status
+ * the PR answers with; `$branches` maps a branch name to its compare files.
+ * Any other PR or branch is not found.
+ *
  * @param  list<string>  $paths
+ * @param  array<int, list<array<string, string>>|int>  $pullRequests
+ * @param  array<string, list<array<string, string>>>  $branches
  */
-function fakeRiskMapGitHub(array $paths, ?string $codeOwners = null, bool $isTruncated = false, int $treeStatus = 200): void
+function fakeRiskMapGitHub(array $paths, ?string $codeOwners = null, bool $isTruncated = false, int $treeStatus = 200, array $pullRequests = [], array $branches = []): void
 {
+    $changeFakes = [];
+    foreach ($pullRequests as $number => $files) {
+        if (is_int($files)) {
+            $changeFakes["api.github.com/repos/*/pulls/{$number}*"] = Http::response(['message' => 'Error'], $files);
+
+            continue;
+        }
+        $changeFakes["api.github.com/repos/*/pulls/{$number}/files*"] = Http::response($files);
+        $changeFakes["api.github.com/repos/*/pulls/{$number}"] = Http::response(['number' => $number, 'html_url' => "https://github.com/o/r/pull/{$number}"]);
+    }
+    foreach ($branches as $branch => $files) {
+        $changeFakes['api.github.com/repos/*/compare/*...' . rawurlencode($branch) . '*'] = Http::response(['files' => $files]);
+    }
+    $changeFakes['api.github.com/repos/*/pulls/*'] = Http::response(['message' => 'Not Found'], 404);
+    $changeFakes['api.github.com/repos/*/compare/*'] = Http::response(['message' => 'Not Found'], 404);
+
     configureFakeGitHubApp();
-    Http::fake(gitHubTokenFake() + [
+    Http::fake(gitHubTokenFake() + $changeFakes + [
         'api.github.com/repos/*/git/trees/*' => Http::response(['truncated' => $isTruncated, 'tree' => array_map(fn (string $path): array => ['path' => $path, 'type' => 'blob'], $paths)], $treeStatus),
-        'api.github.com/repos/*/contents/.github/CODEOWNERS*' => $codeOwners === null ? Http::response(['message' => 'Not Found'], 404) : Http::response($codeOwners),
+        'api.github.com/repos/*/contents/.github/CODEOWNERS*' => $codeOwners === null ? Http::response(['message' => 'Not Found'], 404) : fn () => Http::response($codeOwners),
         'api.github.com/repos/*/contents/*' => Http::response(['message' => 'Not Found'], 404),
         'api.github.com/repos/*/commits/*/pulls' => Http::response([['number' => 4801, 'title' => 'Add profile', 'html_url' => 'https://github.com/o/r/pull/4801', 'merged_at' => '2026-10-09T10:00:00Z']]),
         'api.github.com/repos/*/commits*' => Http::response([['sha' => str_repeat('b', 40), 'commit' => ['author' => ['name' => 'Mathias Hansen', 'date' => '2026-10-09T10:00:00Z']]]]),

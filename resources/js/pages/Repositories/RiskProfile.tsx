@@ -4,6 +4,7 @@ import { ExternalLink, Lock, Pencil } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { readAgo } from '@/components/riskProfile/ProfileBanners';
+import { ChangeTester } from '@/components/riskProfile/ChangeTester';
 import { ProfileView } from '@/components/riskProfile/ProfileView';
 import {
     EmptyState,
@@ -15,11 +16,12 @@ import {
     WaitingState,
 } from '@/components/riskProfile/RiskProfileStates';
 import type { PageProps } from '@/types/shared';
-import type { RiskProfilePage, RiskProfileRepository } from '@/types/riskProfile';
+import type { ChangeTestResult, RiskProfilePage, RiskProfileRepository } from '@/types/riskProfile';
 
 type Props = PageProps<{
     repository: RiskProfileRepository;
     riskProfile?: RiskProfilePage;
+    changeTest?: ChangeTestResult | null;
 }>;
 
 const FILE = '.yak/risk-profile.yml';
@@ -139,7 +141,7 @@ function Shell({ repository, data, children }: { repository: RiskProfileReposito
     );
 }
 
-function Body({ data, repository }: { data: RiskProfilePage; repository: RiskProfileRepository }) {
+function Body({ data, repository, changeTest }: { data: RiskProfilePage; repository: RiskProfileRepository; changeTest: ChangeTestResult | null }) {
     if (data.state === 'unavailable') {
         return <UnavailableState />;
     }
@@ -160,13 +162,20 @@ function Body({ data, repository }: { data: RiskProfilePage; repository: RiskPro
             body = <EmptyState repository={repository} />;
         }
     } else {
-        body = <ProfileView page={data} repository={repository} />;
+        body = (
+            <ProfileView
+                page={data}
+                repository={repository}
+                changeTestResult={changeTest}
+                changeTest={<ChangeTester result={changeTest} branch={repository.defaultBranch} />}
+            />
+        );
     }
 
     return body;
 }
 
-export default function RiskProfile({ repository, riskProfile }: Props) {
+export default function RiskProfile({ repository, riskProfile, changeTest = null }: Props) {
     return (
         <Deferred
             data="riskProfile"
@@ -178,7 +187,7 @@ export default function RiskProfile({ repository, riskProfile }: Props) {
         >
             {riskProfile ? (
                 <Shell repository={repository} data={riskProfile}>
-                    <Body data={riskProfile} repository={repository} />
+                    <Body data={riskProfile} repository={repository} changeTest={changeTest} />
                 </Shell>
             ) : null}
         </Deferred>
