@@ -10,7 +10,6 @@ import {
     LoadingState,
     NeverValidState,
     UnavailableState,
-    UnreachableStrip,
     WaitingState,
 } from '@/components/riskProfile/RiskProfileStates';
 import type { PageProps } from '@/types/shared';
@@ -54,7 +53,11 @@ function sourceLine(data: RiskProfilePage, branch: string): ReactNode {
     }
 
     if (data.source === 'database') {
-        return 'From the approved profile stored in Yak';
+        return (
+            <>
+                From the approved profile stored in Yak. No <span className={code}>{FILE}</span> on {branch} yet.
+            </>
+        );
     }
 
     const changedIn = file?.changedIn ?? null;
@@ -122,7 +125,6 @@ function Body({ data, repository }: { data: RiskProfilePage; repository: RiskPro
         return <UnavailableState />;
     }
 
-    const strip = data.readState === 'unreachable' ? <UnreachableStrip slug={repository.slug} readAt={data.readAt} readError={data.readError} /> : null;
     const generation = data.generation;
     let body: ReactNode = null;
 
@@ -143,12 +145,7 @@ function Body({ data, repository }: { data: RiskProfilePage; repository: RiskPro
         body = <div data-testid="risk-profile-view" className="min-h-16" />;
     }
 
-    return (
-        <>
-            {strip}
-            {body}
-        </>
-    );
+    return body;
 }
 
 export default function RiskProfile({ repository, riskProfile }: Props) {

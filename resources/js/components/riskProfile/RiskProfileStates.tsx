@@ -3,8 +3,6 @@ import { Button, Skeleton } from '@geocodio/console-ui';
 import { CircleAlert, ExternalLink, GitPullRequest, Loader2, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { formatAgo } from '@/lib/format';
-import { useRouterAction } from '@/lib/useRouterAction';
-import repos from '@/routes/repos';
 import type { RiskProfileFile, RiskProfileGeneration, RiskProfileRepository } from '@/types/riskProfile';
 
 const WHAT_FOR =
@@ -22,9 +20,13 @@ function Card({ testId, icon, title, children }: { testId: string; icon: ReactNo
     );
 }
 
+export function pluralize(count: number, noun: string): string {
+    return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
 function Callout({ tone, icon, children }: { tone: keyof typeof SURFACE; icon: ReactNode; children: ReactNode }) {
     return (
-        <div className={`flex w-full items-start gap-3 rounded-card border border-hair p-4 text-left ${SURFACE[tone]}`}>
+        <div role="status" className={`flex w-full items-start gap-3 rounded-card border border-hair p-4 text-left ${SURFACE[tone]}`}>
             <div className="mt-0.5 shrink-0">{icon}</div>
             <div className="min-w-0 flex-1 space-y-1.5 text-[13px]">{children}</div>
         </div>
@@ -71,7 +73,7 @@ function minutesBetween(start: string | null, end: string | null): string | null
 
 export function LoadingState({ branch }: { branch: string }) {
     return (
-        <div data-testid="risk-profile-loading" className="space-y-4">
+        <div data-testid="risk-profile-loading" role="status" aria-busy="true" className="space-y-4">
             <div className="flex items-start gap-3 rounded-card border border-hair bg-panel-2 p-4">
                 <RefreshCw size={16} className="mt-0.5 shrink-0 text-faint" />
                 <div className="flex-1 space-y-2">
@@ -147,8 +149,8 @@ export function WaitingState({ generation }: { generation: RiskProfileGeneration
     }
 
     const details = [
-        pullRequest.areas === null ? null : `${pullRequest.areas} areas`,
-        pullRequest.unknowns === null ? null : `${pullRequest.unknowns} open questions`,
+        pullRequest.areas === null ? null : pluralize(pullRequest.areas, 'area'),
+        pullRequest.unknowns === null ? null : pluralize(pullRequest.unknowns, 'open question'),
     ].filter((part): part is string => part !== null);
 
     return (
@@ -212,13 +214,26 @@ export function NeverValidState({ file, repository }: { file: RiskProfileFile | 
                 </b>
                 <p className="text-muted">
                     No commit of this file passed validation, so Yak has no profile to read.
-                    {file?.errorPullRequest && (
+                    {file?.errorCommitSha && (
                         <>
                             {' '}
                             It was added in{' '}
-                            <a href={file.errorPullRequest.url} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
-                                #{file.errorPullRequest.number}
-                            </a>
+                            {file.errorCommitUrl ? (
+                                <a href={file.errorCommitUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-accent-text hover:underline">
+                                    {file.errorCommitSha.slice(0, 7)}
+                                </a>
+                            ) : (
+                                <span className="font-mono">{file.errorCommitSha.slice(0, 7)}</span>
+                            )}
+                            {file.errorPullRequest && (
+                                <>
+                                    {' '}
+                                    by{' '}
+                                    <a href={file.errorPullRequest.url} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
+                                        #{file.errorPullRequest.number}
+                                    </a>
+                                </>
+                            )}
                             .
                         </>
                     )}
@@ -247,32 +262,6 @@ export function UnavailableState() {
     return (
         <div data-testid="risk-profile-unavailable" className="rounded-card border border-hair bg-panel-2 p-6 text-[13px] text-muted">
             Yak reads the risk profile through its GitHub App, and this installation has none configured.
-        </div>
-    );
-}
-
-export function UnreachableStrip({ slug, readAt, readError }: { slug: string; readAt: string | null; readError: string | null }) {
-    const action = useRouterAction();
-
-    return (
-        <div data-testid="risk-profile-unreachable" className="mb-4 flex flex-wrap items-start gap-3 rounded-card border border-hair bg-warn-soft p-4">
-            <CircleAlert size={16} className="mt-0.5 shrink-0 text-warn" />
-            <div className="min-w-0 flex-1 space-y-1 text-[13px]">
-                <b>
-                    Could not read <span className="font-mono">.yak/</span> from GitHub
-                </b>
-                <p className="text-[12px] text-muted">
-                    {readAt && <>Last read {formatAgo(readAt)}. </>}
-                    {readError && <>GitHub said: {readError}</>}
-                </p>
-            </div>
-            <Button
-                icon={<RefreshCw size={13} />}
-                pending={action.isPending('config-refresh')}
-                onClick={() => action.run('config-refresh', 'post', repos.config.refresh.url(slug))}
-            >
-                Try again
-            </Button>
         </div>
     );
 }

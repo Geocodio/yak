@@ -4,6 +4,7 @@ use App\DataTransferObjects\ConfigFile;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\Enums\TaskStatus;
 use App\Models\Repository;
+use App\Models\RiskProfile;
 use App\Models\User;
 use App\Models\YakTask;
 use Carbon\CarbonImmutable;
@@ -82,6 +83,7 @@ it('shows a file that has never been valid', function () {
 
     visit(route('repos.risk-profile.show', $repository))
         ->assertSee('has never been valid')
+        ->assertSee('It was added in dddddd')
         ->assertSee('areas[3].paths: must not be empty')
         ->assertSee('Generate a replacement')
         ->assertVisible('[data-testid="risk-profile-never-valid"]')
@@ -108,5 +110,24 @@ it('renders the profile view for a valid profile', function () {
     visit(route('repos.risk-profile.show', $repository))
         ->assertVisible('[data-testid="risk-profile-view"]')
         ->assertSee('Read-only')
+        ->assertSee('From .yak/risk-profile.yml on')
+        ->assertNoJavascriptErrors();
+});
+
+it('names the default branch for a profile stored in Yak', function () {
+    $repository = Repository::factory()->create(['slug' => 'acme/api', 'default_branch' => 'trunk']);
+    fakeYakFiles([]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php'], null);
+    $profile = [
+        'schema_version' => 1, 'repo' => 'acme/api', 'source_sha' => str_repeat('c', 40),
+        'areas' => [['name' => 'Billing', 'paths' => ['app/Billing/**'], 'symbols' => [], 'risk' => 'critical', 'rationale' => 'Money.', 'evidence' => ['Invoice.php']]],
+        'unknowns' => [],
+    ];
+    $profile['version'] = hash('sha256', json_encode([$profile['schema_version'], $profile['repo'], $profile['source_sha'], $profile['areas'], $profile['unknowns']]));
+    RiskProfile::factory()->approved()->create(['repo' => 'acme/api', 'version' => $profile['version'], 'profile' => $profile]);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.risk-profile.show', $repository))
+        ->assertSee('From the approved profile stored in Yak. No .yak/risk-profile.yml on trunk yet.')
         ->assertNoJavascriptErrors();
 });
