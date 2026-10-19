@@ -39,6 +39,7 @@ class RiskProfileChangeCheck
      *     isFloorHeld: bool,
      *     asks: list<string>,
      *     capReason: 'listing'|'budget'|null,
+     *     capMessage: ?string,
      *     holdReason: ?string,
      *     gateMode: 'off'|'enforce',
      * }
@@ -48,7 +49,7 @@ class RiskProfileChangeCheck
         $input = trim($input);
         $result = [
             'input' => $input, 'verdict' => 'invalid', 'kind' => null, 'label' => $input, 'url' => null, 'message' => null,
-            'files' => [], 'heldAreas' => [], 'isFloorHeld' => false, 'asks' => [], 'capReason' => null, 'holdReason' => null,
+            'files' => [], 'heldAreas' => [], 'isFloorHeld' => false, 'asks' => [], 'capReason' => null, 'capMessage' => null, 'holdReason' => null,
             'gateMode' => $repository->settings()->coOwnerGateMode() === 'enforce' ? 'enforce' : 'off',
         ];
 
@@ -114,7 +115,7 @@ class RiskProfileChangeCheck
             }
         }
 
-        $paths = array_values(array_unique(array_merge(...array_map(fn (array $entry): array => array_values(array_filter($entry)), $entries ?: [[]]))));
+        $paths = array_values(array_unique(array_merge(...array_map(fn (array $entry): array => array_values(array_filter($entry, fn (?string $path): bool => $path !== null && $path !== '')), $entries ?: [[]]))));
         $areas = array_values((array) ($profile['areas'] ?? []));
         $classified = $this->matcher->classify($paths, $areas, array_values(array_map('strval', (array) config('yak.pr_review.config_floor_paths'))), $codeOwners);
         $rank = array_flip(RiskProfileMatcher::RISK_ORDER);
@@ -161,14 +162,18 @@ class RiskProfileChangeCheck
 
         $capReason = $classified['isCapped'] ? 'budget' : (count($changed) >= $listingCap ? 'listing' : null);
         $isHeld = $heldAreas !== [] || $isFloorHeld || $isUncheckedHeld || $capReason !== null;
+        $capMessage = match ($capReason) {
+            'listing' => $listingMessage,
+            'budget' => 'Yak could not check every file against the profile in time, so it would hold this change.',
+            default => null,
+        };
         $holdReason = null;
 
         if ($isHeld && $heldAreas === []) {
             $holdReason = match (true) {
                 $isFloorHeld => "This change touches Yak's own config files, so Yak always holds it.",
                 $isUncheckedHeld => 'Yak could not check some files against the profile, so it would hold this change.',
-                $capReason === 'listing' => $listingMessage,
-                default => 'Yak could not check every file against the profile in time, so it would hold this change.',
+                default => $capMessage,
             };
         }
 
@@ -180,6 +185,7 @@ class RiskProfileChangeCheck
             'isFloorHeld' => $isFloorHeld,
             'asks' => array_map('strval', array_keys($ownerCounts)),
             'capReason' => $capReason,
+            'capMessage' => $capMessage,
             'holdReason' => $holdReason,
         ];
     }

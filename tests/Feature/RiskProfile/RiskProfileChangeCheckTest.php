@@ -179,3 +179,50 @@ it('leaves the prop out of the initial load', function () {
     $this->actingAs(User::factory()->create())->get(route('repos.risk-profile.show', ['repository' => $repository, 'change' => '4790']))
         ->assertInertia(fn ($page) => $page->missing('changeTest'));
 });
+
+it('classifies a file literally named 0', function () {
+    fakeYakFiles(['risk-profile.yml' => "version: 1\nareas:\n  - name: Everything\n    risk: high\n    paths: [\"*\"]\n    symbols: []\n    rationale: All of it.\n    evidence: [\"x\"]\nunknowns: []\n"]);
+    fakeChangeCheckPullRequest(10, [['filename' => '0']]);
+
+    $result = runChangeCheck(Repository::factory()->create(), '10');
+
+    expect($result['verdict'])->toBe('held')
+        ->and($result['heldAreas'][0]['name'])->toBe('Everything')
+        ->and($result['files'][0]['path'])->toBe('0');
+});
+
+it('returns the cap message even when a held area exists', function () {
+    $files = array_map(fn (int $number): array => ['filename' => "docs/file{$number}.md"], range(1, 299));
+    $files[] = ['filename' => 'app/Http/Kernel.php'];
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/*/compare/*' => Http::response(['files' => $files]),
+        'api.github.com/repos/*/contents/*' => Http::response(['message' => 'Not Found'], 404),
+    ]);
+
+    $result = runChangeCheck(Repository::factory()->create(), 'big-branch');
+
+    expect($result['holdReason'])->toBeNull()
+        ->and($result['capMessage'])->toBe('GitHub compares at most 300 files, so Yak cannot see every file and would hold this change.');
+});
+
+it('returns the cap message for each cap reason and null otherwise', function () {
+    fakeChangeCheckPullRequest(11, [['filename' => 'a.php']]);
+    expect(runChangeCheck(Repository::factory()->create(), '11')['capMessage'])->toBeNull();
+
+    app()->bind(RiskProfileMatcher::class, fn () => new RiskProfileMatcher(maxComparisons: 1));
+    expect(runChangeCheck(Repository::factory()->create(), '11')['capMessage'])->toBe('Yak could not check every file against the profile in time, so it would hold this change.');
+});
+
+it('returns the cap message for a PR at the 3,000-file listing cap', function () {
+    $pages = Http::sequence();
+    foreach (array_chunk(range(1, 3000), 100) as $chunk) {
+        $pages->push(array_map(fn (int $number): array => ['filename' => "f{$number}.md"], $chunk));
+    }
+    $pages->push([]);
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/*/pulls/12/files*' => $pages,
+        'api.github.com/repos/*/pulls/12' => Http::response(['number' => 12]),
+        'api.github.com/repos/*/contents/*' => Http::response(['message' => 'Not Found'], 404),
+    ]);
+    expect(runChangeCheck(Repository::factory()->create(), '12')['capMessage'])->toBe('GitHub lists at most 3,000 files for a PR, so Yak cannot see every file and would hold this change.');
+});
