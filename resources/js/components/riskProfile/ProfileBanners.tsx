@@ -2,15 +2,14 @@ import { router } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
 import { CircleAlert, CircleHelp, ExternalLink, RefreshCw } from 'lucide-react';
 import { Callout } from '@/components/riskProfile/RiskProfileStates';
-import { formatAgo } from '@/lib/format';
+import { formatAgoLong } from '@/lib/format';
 import type { RiskProfilePage } from '@/types/riskProfile';
 
 const FILE = '.yak/risk-profile.yml';
 const mono = 'font-mono text-text';
 
-/** "3h ago" reads as "3h" after "read". */
 export function readAgo(iso: string | null): string {
-    return iso ? formatAgo(iso) : 'earlier';
+    return iso ? formatAgoLong(iso) : 'earlier';
 }
 
 export function InvalidFileBanner({ page, branch }: { page: RiskProfilePage; branch: string }) {
@@ -37,7 +36,7 @@ export function InvalidFileBanner({ page, branch }: { page: RiskProfilePage; bra
                                 {' '}
                                 by{' '}
                                 <a href={pullRequest.url} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
-                                    #{pullRequest.number} “{pullRequest.title}”
+                                    #{pullRequest.number} "{pullRequest.title}"
                                 </a>
                             </>
                         )}
@@ -48,8 +47,14 @@ export function InvalidFileBanner({ page, branch }: { page: RiskProfilePage; bra
             </p>
             <pre className="whitespace-pre-wrap break-words rounded-control bg-panel px-3 py-2 font-mono text-[12px] text-fail">{errorLines.join('\n')}</pre>
             {file.blobUrl && (
-                <a href={file.blobUrl} target="_blank" rel="noopener noreferrer">
-                    <Button icon={<ExternalLink size={13} />}>Open the file</Button>
+                <a
+                    href={file.blobUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-8 items-center gap-1.5 rounded-control border border-hair bg-panel px-3 text-[13px] font-medium text-text hover:bg-panel-2"
+                >
+                    <ExternalLink size={13} />
+                    Open the file
                 </a>
             )}
         </Callout>

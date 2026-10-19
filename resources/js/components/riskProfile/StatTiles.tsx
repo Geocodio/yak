@@ -26,7 +26,7 @@ export function StatTiles({ profile, map }: { profile: RiskProfileDetail; map: R
     const coverage = map?.available ? map : null;
     const total = coverage?.totalFiles ?? 0;
     const uncovered = coverage ? total - coverage.coveredFiles : 0;
-    const percent = coverage && total > 0 ? Math.round((coverage.coveredFiles / total) * 100) : 0;
+    const percent = coverage && total > 0 ? Math.floor((coverage.coveredFiles / total) * 100) : 0;
 
     return (
         <div data-testid="risk-profile-tiles" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-[1.45fr_1fr_1fr]">

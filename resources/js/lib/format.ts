@@ -117,6 +117,34 @@ export function formatAgo(iso: string, now: number = Date.now()): string {
 }
 
 /**
+ * Long-form elapsed time: `just now`, `5 minutes ago`, `3 hours ago`, `2 days ago`.
+ */
+export function formatAgoLong(iso: string, now: number = Date.now()): string {
+    const time = new Date(iso).getTime();
+
+    if (Number.isNaN(time)) {
+        return iso;
+    }
+
+    const minutes = Math.floor(Math.max(0, now - time) / 60_000);
+    const unit = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'} ago`;
+
+    if (minutes < 1) {
+        return 'just now';
+    }
+
+    if (minutes < 60) {
+        return unit(minutes, 'minute');
+    }
+
+    if (minutes < 1440) {
+        return unit(Math.floor(minutes / 60), 'hour');
+    }
+
+    return unit(Math.floor(minutes / 1440), 'day');
+}
+
+/**
  * Human file size: `812 B`, `14 KB`, `2.4 MB`.
  */
 export function formatBytes(bytes: number): string {

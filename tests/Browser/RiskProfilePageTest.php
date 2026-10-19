@@ -188,7 +188,7 @@ it('shows the invalid-file banner with the last valid version', function () {
     visit(route('repos.risk-profile.show', $repository))
         ->assertSee('is invalid')
         ->assertSee('Introduced in 9f8e7d6')
-        ->assertSee('#4803 “Rate the launcher as low”')
+        ->assertSee('#4803 "Rate the launcher as low"')
         ->assertSee('Yak keeps using the version from a1b2c3d until the file is fixed.')
         ->assertSee('areas[1].risk: "extreme" must be one of')
         ->assertSee('Showing the version from a1b2c3d on')
@@ -219,9 +219,70 @@ it('shows the unreachable banner', function () {
 
     visit(route('repos.risk-profile.show', $repository))
         ->assertSee('Could not read .yak/ from GitHub')
-        ->assertSee('Using the version from a1b2c3d, read 3h ago. GitHub said: 503 Service Unavailable.')
+        ->assertSee('Using the version from a1b2c3d, read 3 hours ago. GitHub said: 503 Service Unavailable.')
         ->assertSee('Showing the version from a1b2c3d on')
         ->assertSee('Try again')
+        ->assertNoJavascriptErrors();
+});
+
+it('selects the areas tab with ArrowRight and the map tab with ArrowLeft', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php', 'app/Support/Slug.php']);
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('repos.risk-profile.show', $repository))
+        ->assertVisible('[data-testid="risk-map"]');
+    $page->script("document.querySelector('[data-testid=\"risk-tab-map\"]').focus()");
+    $page->keys('[data-testid="risk-tab-map"]', 'ArrowRight')
+        ->assertAttribute('[data-testid="risk-tab-areas"]', 'aria-selected', 'true')
+        ->assertVisible('[data-testid="risk-areas"]')
+        ->assertAttribute('[data-testid="risk-areas"]', 'role', 'tabpanel')
+        ->keys('[data-testid="risk-tab-areas"]', 'ArrowLeft')
+        ->assertAttribute('[data-testid="risk-tab-map"]', 'aria-selected', 'true')
+        ->assertVisible('[data-testid="risk-map"]')
+        ->assertNoJavascriptErrors();
+});
+
+it('does not flash the map when loading the areas hash', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.risk-profile.show', $repository) . '#areas')
+        ->assertAttribute('[data-testid="risk-tab-areas"]', 'aria-selected', 'true')
+        ->assertMissing('[data-testid="risk-map"]');
+});
+
+it('reloads the profile when Try again is clicked', function () {
+    $repository = Repository::factory()->create();
+    $sha = 'a1b2c3d' . str_repeat('0', 33);
+    $file = new ConfigFile('risk-profile.yml', riskProfileFileData(), riskProfileYaml(), $sha, null, null, null);
+    bindConfigSnapshot(new ConfigSnapshot('unreachable', $sha, CarbonImmutable::now()->subHours(3), '503 Service Unavailable', ['risk-profile.yml' => $file]));
+    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('repos.risk-profile.show', $repository))
+        ->assertSee('Could not read .yak/ from GitHub');
+
+    bindConfigSnapshot(new ConfigSnapshot('read', $sha, CarbonImmutable::now(), null, ['risk-profile.yml' => $file]));
+
+    $page->click('Try again')
+        ->assertDontSee('Could not read .yak/ from GitHub')
+        ->assertVisible('[data-testid="risk-profile-view"]')
+        ->assertNoJavascriptErrors();
+});
+
+it('rounds coverage down so a few uncovered files never read 100 percent', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    $paths = array_merge(['app/Http/Kernel.php'], array_map(fn (int $number): string => "app/Http/Middleware/M{$number}.php", range(1, 250)));
+    fakeRiskMapGitHub(array_merge($paths, ['docs/readme.md']));
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.risk-profile.show', $repository))
+        ->assertSee('99% of files')
         ->assertNoJavascriptErrors();
 });
 

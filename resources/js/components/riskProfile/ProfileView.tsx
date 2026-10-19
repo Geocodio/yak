@@ -11,19 +11,21 @@ function tabFromHash(): Tab {
 }
 
 export function ProfileView({ page, repository, changeTest }: { page: RiskProfilePage; repository: RiskProfileRepository; changeTest?: ReactNode }) {
-    const [tab, setTab] = useState<Tab>('map');
+    const [tab, setTab] = useState<Tab>(tabFromHash);
     const profile = page.profile;
 
     useEffect(() => {
-        setTab(tabFromHash());
         const onHashChange = () => setTab(tabFromHash());
         window.addEventListener('hashchange', onHashChange);
 
         return () => window.removeEventListener('hashchange', onHashChange);
     }, []);
 
-    const select = useCallback((next: Tab) => {
+    const select = useCallback((next: Tab, shouldFocus = false) => {
         setTab(next);
+        if (shouldFocus) {
+            document.getElementById(`risk-tab-${next}`)?.focus();
+        }
         window.history.replaceState(null, '', next === 'areas' ? '#areas' : window.location.pathname + window.location.search);
     }, []);
 
@@ -50,12 +52,28 @@ export function ProfileView({ page, repository, changeTest }: { page: RiskProfil
             {deadAreas > 0 && <DeadAreasBanner count={deadAreas} branch={repository.defaultBranch} />}
             <StatTiles profile={profile} map={page.map} />
             {changeTest}
-            <div role="tablist" className="inline-flex rounded-[8px] bg-panel-2 p-0.5">
+            <div
+                role="tablist"
+                aria-label="Risk profile views"
+                onKeyDown={(event) => {
+                    const last = tabs.length - 1;
+                    const current = tabs.findIndex(({ key }) => key === tab);
+                    const target = { ArrowRight: current === last ? 0 : current + 1, ArrowLeft: current === 0 ? last : current - 1, Home: 0, End: last }[event.key];
+
+                    if (target !== undefined) {
+                        event.preventDefault();
+                        select(tabs[target].key, true);
+                    }
+                }}
+                className="inline-flex rounded-[8px] bg-panel-2 p-0.5">
                 {tabs.map(({ key, label, count }) => (
                     <button
                         key={key}
                         type="button"
                         role="tab"
+                        id={`risk-tab-${key}`}
+                        aria-controls={`risk-panel-${key}`}
+                        tabIndex={tab === key ? 0 : -1}
                         aria-selected={tab === key}
                         data-testid={`risk-tab-${key}`}
                         onClick={() => select(key)}
@@ -66,7 +84,7 @@ export function ProfileView({ page, repository, changeTest }: { page: RiskProfil
                     </button>
                 ))}
             </div>
-            {tab === 'map' ? <div data-testid="risk-map" className="min-h-8" /> : <div data-testid="risk-areas" className="min-h-8" />}
+            <div key={tab} role="tabpanel" id={`risk-panel-${tab}`} aria-labelledby={`risk-tab-${tab}`} data-testid={`risk-${tab}`} className="min-h-8" />
         </div>
     );
 }
