@@ -1,7 +1,8 @@
+import { router } from '@inertiajs/react';
 import { Button } from '@geocodio/console-ui';
 import { Info } from 'lucide-react';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { AreaPanel } from '@/components/riskProfile/AreaPanel';
 import { INK, LABEL } from '@/components/riskProfile/RiskBadge';
 import { leafFor, squarify } from '@/components/riskProfile/squarify';
@@ -15,12 +16,7 @@ const FLOOR_FILL = '#5d6169';
 const NONE_FILL = 'repeating-linear-gradient(135deg, transparent 0 4px, var(--risk-none-hatch) 4px 5.2px)';
 const UNCHECKED_FILL = 'repeating-linear-gradient(135deg, var(--risk-unknown-soft) 0 4px, var(--risk-unknown) 4px 5.5px)';
 
-const REASON_COPY: Record<'truncated' | 'too-large' | 'unreachable', string> = {
-    truncated: 'GitHub cut the file list for this commit short, so Yak cannot place every file on a map.',
-    'too-large': 'This repository has more files than the map can draw.',
-    unreachable: 'Yak could not read the file list from GitHub.',
-};
-
+type Hover = { rect: Rect; lines: string[] };
 type Kind = 'area' | 'unchecked' | 'floor' | 'none';
 type PlacedSegment = { segment: RiskMapSegment; rect: Rect; isFirst: boolean };
 type PlacedLeaf = { node: RiskMapNode; rect: Rect; segments: PlacedSegment[] };
@@ -77,6 +73,10 @@ function kindOf(segment: RiskMapSegment): Kind {
     return segment.area !== null ? 'area' : segment.isFloor ? 'floor' : 'none';
 }
 
+function segmentKeyOf(node: RiskMapNode, segment: RiskMapSegment): string {
+    return `${node.id}:${segment.area}:${segment.isFloor}:${segment.isUnchecked}`;
+}
+
 function percentOf(files: number, total: number): string {
     const percent = total > 0 ? Math.round((files / total) * 100) : 0;
 
@@ -87,7 +87,7 @@ function Swatch({ style, isDashed = false }: { style: CSSProperties; isDashed?: 
     return <i aria-hidden="true" className={`size-3 flex-none rounded-[3px] ${isDashed ? 'border-[1.5px] border-dashed border-muted' : ''}`} style={style} />;
 }
 
-function LegendItem({ swatch, children, testId }: { swatch: React.ReactNode; children: React.ReactNode; testId?: string }) {
+function LegendItem({ swatch, children, testId }: { swatch: ReactNode; children: ReactNode; testId?: string }) {
     return (
         <span data-testid={testId} className="inline-flex h-[26px] items-center gap-1.5 rounded-control border border-hair bg-panel pl-2 pr-2.5 text-[12px]">
             {swatch}
@@ -96,20 +96,122 @@ function LegendItem({ swatch, children, testId }: { swatch: React.ReactNode; chi
     );
 }
 
-export function MapNotice({ reason, onOpenAreas }: { reason: 'truncated' | 'too-large' | 'unreachable'; onOpenAreas: () => void }) {
+export function MapNotice({
+    reason,
+    commitSha,
+    onOpenAreas,
+}: {
+    reason: 'truncated' | 'too-large' | 'unreachable';
+    commitSha: string | null;
+    onOpenAreas: () => void;
+}) {
+    const copy = {
+        truncated: `GitHub returned only part of the file list for ${commitSha ? commitSha.slice(0, 7) : 'this commit'}, so Yak cannot place every file in an area. The Areas tab and the test helper still work.`,
+        'too-large': 'This repository has too many files to match against every area in time. The Areas tab and the test helper still work.',
+        unreachable: 'GitHub could not be reached, so Yak cannot read the file list for this commit. Try again.',
+    }[reason];
+
     return (
         <div data-testid="risk-map-notice" role="status" className="mx-auto flex max-w-[640px] flex-col items-center gap-3 rounded-card border border-hair bg-panel px-6 py-10 text-center">
             <div className="flex size-10 items-center justify-center rounded-full bg-panel-2">
                 <Info size={18} className="text-muted" />
             </div>
             <h2 className="text-[16px] font-semibold">The map is not available</h2>
-            <p className="max-w-[460px] text-[13px] text-muted">{REASON_COPY[reason]} Every area is still listed on the Areas tab, and Yak still holds changes by the profile.</p>
-            <Button onClick={onOpenAreas}>Open the Areas tab</Button>
+            <p className="max-w-[460px] text-[13px] text-muted">{copy}</p>
+            <div className="flex gap-2">
+                <Button onClick={onOpenAreas}>Open the Areas tab</Button>
+                {reason === 'unreachable' && <Button onClick={() => router.reload({ only: ['riskProfile'] })}>Try again</Button>}
+            </div>
         </div>
     );
 }
 
-type Hover = { rect: Rect; lines: string[] };
+
+type SegmentBlockProps = {
+    leaf: RiskMapNode;
+    segment: RiskMapSegment;
+    rect: Rect;
+    isFirst: boolean;
+    area: RiskArea | undefined;
+    isSelected: boolean;
+    tabIndex: number;
+    segmentKey: string;
+    onSelectArea: (index: number) => void;
+    onHover: (hover: Hover | null) => void;
+    onFocusSegment: (key: string) => void;
+};
+
+const SegmentBlock = memo(function SegmentBlock({ leaf, segment, rect, isFirst, area, isSelected, tabIndex, segmentKey, onSelectArea, onHover, onFocusSegment }: SegmentBlockProps) {
+    const kind = kindOf(segment);
+    const directory = directoryOf(leaf);
+    const fill: CSSProperties =
+        kind === 'area' && area
+            ? { backgroundColor: `var(--risk-${area.risk})`, color: INK[area.risk] }
+            : kind === 'unchecked'
+              ? { backgroundImage: UNCHECKED_FILL, boxShadow: 'inset 0 0 0 1px var(--risk-unknown)', color: 'var(--risk-unknown-ink)' }
+              : kind === 'floor'
+                ? { backgroundColor: FLOOR_FILL, color: '#fff' }
+                : { backgroundColor: 'var(--color-panel-2)', backgroundImage: NONE_FILL, color: 'var(--color-muted)' };
+    const meaning = kind === 'area' && area ? `${area.name}, ${area.risk}` : kind === 'unchecked' ? 'could not check' : kind === 'floor' ? 'always held' : 'no area';
+    const files = `${segment.files.toLocaleString('en-US')} ${segment.files === 1 ? 'file' : 'files'}`;
+    const style: CSSProperties = {
+        left: rect.x,
+        top: rect.y,
+        width: rect.width,
+        height: rect.height,
+        ...fill,
+        ...(isSelected ? { boxShadow: `inset 0 0 0 2px ${INK_DARK}, inset 0 0 0 4px #fff` } : {}),
+    };
+    const hasRoom = rect.width >= 64 && rect.height >= 28;
+    const content = (
+        <>
+            {segment.isFloor && <span aria-hidden="true" data-testid="risk-map-floor-outline" className="pointer-events-none absolute inset-[3px] rounded-[2px] border-[1.5px] border-dashed border-current" />}
+            {hasRoom && (
+                <>
+                    {isFirst && <span className="block truncate font-mono text-[10.5px] font-semibold leading-tight">{labelOf(leaf)}</span>}
+                    <span className="block whitespace-nowrap text-[10px] opacity-85">
+                        {kind === 'area' && area ? `${LABEL[area.risk]} · ` : ''}
+                        {files}
+                    </span>
+                </>
+            )}
+        </>
+    );
+    const shared = {
+        'data-testid': 'risk-map-segment',
+        'data-kind': kind,
+        'data-files': segment.files,
+        'data-node': leaf.id,
+        'data-floor': segment.isFloor,
+        'data-segment': segmentKey,
+        'aria-label': `${directory}: ${meaning}, ${files}`,
+        style,
+        onMouseEnter: () => onHover({ rect, lines: [directory, files, meaning] }),
+        className: 'absolute overflow-hidden rounded-[3px] px-1.5 py-1 text-left',
+    };
+
+    return kind === 'area' && area ? (
+        <button
+            type="button"
+            {...shared}
+            tabIndex={tabIndex}
+            aria-pressed={isSelected}
+            onFocus={() => {
+                onFocusSegment(segmentKey);
+                onHover({ rect, lines: [directory, files, meaning] });
+            }}
+            onBlur={() => onHover(null)}
+            onClick={() => onSelectArea(area.index)}
+            className={`${shared.className} cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent`}
+        >
+            {content}
+        </button>
+    ) : (
+        <div role="img" {...shared}>
+            {content}
+        </div>
+    );
+});
 
 export function RepositoryMap({
     map,
@@ -118,6 +220,7 @@ export function RepositoryMap({
     pinLabel,
     selectedArea,
     onSelectArea,
+    commitSha,
     onOpenAreas,
 }: {
     map: RiskMap | null;
@@ -126,13 +229,14 @@ export function RepositoryMap({
     pinLabel?: string | null;
     selectedArea: number | null;
     onSelectArea: (index: number) => void;
+    commitSha: string | null;
     onOpenAreas: () => void;
 }) {
     if (!map || !map.available) {
-        return <MapNotice reason={map ? map.reason : 'unreachable'} onOpenAreas={onOpenAreas} />;
+        return <MapNotice reason={map ? map.reason : 'unreachable'} commitSha={commitSha} onOpenAreas={onOpenAreas} />;
     }
 
-    return <AvailableMap map={map} areas={areas} pins={pins} pinLabel={pinLabel ?? null} selectedArea={selectedArea} onSelectArea={onSelectArea} />;
+    return <AvailableMap map={map} areas={areas} pins={pins} pinLabel={pinLabel ?? null} selectedArea={selectedArea} onSelectArea={onSelectArea} onOpenAreas={onOpenAreas} />;
 }
 
 function AvailableMap({
@@ -142,6 +246,7 @@ function AvailableMap({
     pinLabel,
     selectedArea,
     onSelectArea,
+    onOpenAreas,
 }: {
     map: Extract<RiskMap, { available: true }>;
     areas: RiskArea[];
@@ -149,10 +254,12 @@ function AvailableMap({
     pinLabel: string | null;
     selectedArea: number | null;
     onSelectArea: (index: number) => void;
+    onOpenAreas: () => void;
 }) {
     const canvasRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
     const [hover, setHover] = useState<Hover | null>(null);
+    const [focusKey, setFocusKey] = useState<string | null>(null);
 
     useLayoutEffect(() => {
         const canvas = canvasRef.current;
@@ -174,6 +281,7 @@ function AvailableMap({
         const byRisk = new Map<Risk, number>();
         let noArea = 0;
         let hasFloor = false;
+        let hasAreaWithFloor = false;
         const visit = (nodes: RiskMapNode[]): void => {
             for (const node of nodes) {
                 for (const segment of node.segments ?? []) {
@@ -181,22 +289,44 @@ function AvailableMap({
                     const area = segment.area === null ? undefined : areaByIndex.get(segment.area);
                     if (kind === 'area' && area) {
                         byRisk.set(area.risk, (byRisk.get(area.risk) ?? 0) + segment.files);
-                    } else if (kind === 'floor') {
-                        hasFloor = true;
+                        hasAreaWithFloor ||= segment.isFloor;
                     } else if (kind === 'none') {
                         noArea += segment.files;
                     }
-                    if (segment.isFloor) {
-                        hasFloor = true;
-                    }
+                    hasFloor ||= segment.isFloor;
                 }
                 visit(node.children);
             }
         };
         visit(map.tree);
 
-        return { byRisk, noArea, hasFloor };
+        return { byRisk, noArea, hasFloor, hasAreaWithFloor };
     }, [map.tree, areaByIndex]);
+
+    const readingOrder = useMemo(
+        () =>
+            layout.leaves
+                .flatMap((leaf) => leaf.segments.filter(({ rect, segment }) => rect.width >= 1 && rect.height >= 1 && kindOf(segment) === 'area').map(({ segment, rect }) => ({ key: segmentKeyOf(leaf.node, segment), area: segment.area, rect })))
+                .sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x),
+        [layout],
+    );
+    const tabStop = readingOrder.some((entry) => entry.key === focusKey) ? focusKey : (readingOrder.find((entry) => entry.area === selectedArea) ?? readingOrder[0])?.key;
+
+    const onCanvasKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+        const current = readingOrder.findIndex((entry) => entry.key === (event.target as HTMLElement).dataset.segment);
+        if (current === -1 || readingOrder.length === 0) {
+            return;
+        }
+        const last = readingOrder.length - 1;
+        const target = { ArrowRight: Math.min(current + 1, last), ArrowDown: Math.min(current + 1, last), ArrowLeft: Math.max(current - 1, 0), ArrowUp: Math.max(current - 1, 0), Home: 0, End: last }[event.key];
+        if (target === undefined) {
+            return;
+        }
+        event.preventDefault();
+        const next = readingOrder[target].key;
+        setFocusKey(next);
+        canvasRef.current?.querySelector<HTMLElement>(`[data-segment="${CSS.escape(next)}"]`)?.focus();
+    };
 
     const placedPins = useMemo(() => {
         const seen = new Map<string, number>();
@@ -210,9 +340,9 @@ function AvailableMap({
             const position = seen.get(node.id) ?? 0;
             seen.set(node.id, position + 1);
 
-            return [{ file, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 + position * 18 }];
+            return [{ file, x: Math.min(Math.max(rect.x + rect.width / 2, 7), Math.max(7, size.width - 7)), y: Math.min(Math.max(rect.y + rect.height / 2 + position * 18, 7), Math.max(7, size.height - 7)) }];
         });
-    }, [pins, map.tree, layout]);
+    }, [pins, map.tree, layout, size.width, size.height]);
 
     const selected = selectedArea === null ? null : (areaByIndex.get(selectedArea) ?? null);
 
@@ -248,7 +378,12 @@ function AvailableMap({
                         <small className="text-[11px] text-faint">{percentOf(map.uncheckedFiles, map.totalFiles)}</small>
                     </LegendItem>
                 )}
-                {shares.hasFloor && <LegendItem swatch={<Swatch isDashed style={{ backgroundColor: FLOOR_FILL }} />}>Always held</LegendItem>}
+                {shares.hasFloor && <LegendItem testId="risk-map-legend-floor" swatch={<Swatch isDashed style={{ backgroundColor: FLOOR_FILL }} />}>Always held</LegendItem>}
+                {shares.hasAreaWithFloor && (
+                    <LegendItem testId="risk-map-legend-area-floor" swatch={<Swatch isDashed style={{ backgroundColor: 'var(--risk-high)' }} />}>
+                        Area and always held
+                    </LegendItem>
+                )}
                 {pins.length > 0 && (
                     <LegendItem swatch={<i aria-hidden="true" className="size-2.5 flex-none rounded-full" style={{ backgroundColor: INK_DARK, boxShadow: '0 0 0 1.5px #fff' }} />}>
                         {pinLabel ?? 'Changed files'}
@@ -257,8 +392,20 @@ function AvailableMap({
             </div>
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="min-w-0 p-3">
+                    <a
+                        href="#areas"
+                        data-testid="risk-map-skip"
+                        onClick={(event) => {
+                            event.preventDefault();
+                            onOpenAreas();
+                        }}
+                        className="sr-only rounded-control bg-panel px-2 py-1 text-[12px] focus:not-sr-only focus:mb-2 focus:inline-block focus-visible:outline-2 focus-visible:outline-accent"
+                    >
+                        Skip to the Areas tab
+                    </a>
                     <div
                         ref={canvasRef}
+                        onKeyDown={onCanvasKeyDown}
                         data-testid="risk-map-canvas"
                         onMouseLeave={() => setHover(null)}
                         className="relative h-[420px] w-full sm:h-[560px]"
@@ -274,75 +421,33 @@ function AvailableMap({
                             leaf.segments
                                 .filter(({ rect }) => rect.width >= 1 && rect.height >= 1)
                                 .map(({ segment, rect, isFirst }) => {
-                                    const kind = kindOf(segment);
+                                    const key = segmentKeyOf(leaf.node, segment);
                                     const area = segment.area === null ? undefined : areaByIndex.get(segment.area);
-                                    const directory = directoryOf(leaf.node);
-                                    const fill: CSSProperties =
-                                        kind === 'area' && area
-                                            ? { backgroundColor: `var(--risk-${area.risk})`, color: INK[area.risk] }
-                                            : kind === 'unchecked'
-                                              ? { backgroundImage: UNCHECKED_FILL, boxShadow: 'inset 0 0 0 1px var(--risk-unknown)', color: 'var(--risk-unknown-ink)' }
-                                              : kind === 'floor'
-                                                ? { backgroundColor: FLOOR_FILL, color: '#fff' }
-                                                : { backgroundColor: 'var(--color-panel-2)', backgroundImage: NONE_FILL, color: 'var(--color-muted)' };
-                                    const meaning =
-                                        kind === 'area' && area ? `${area.name}, ${area.risk}` : kind === 'unchecked' ? 'could not check' : kind === 'floor' ? 'always held' : 'no area';
-                                    const description = `${directory}: ${meaning}, ${segment.files} ${segment.files === 1 ? 'file' : 'files'}`;
-                                    const isSelected = kind === 'area' && segment.area === selectedArea;
-                                    const style: CSSProperties = {
-                                        left: rect.x,
-                                        top: rect.y,
-                                        width: rect.width,
-                                        height: rect.height,
-                                        ...fill,
-                                        ...(isSelected ? { boxShadow: `inset 0 0 0 2px ${INK_DARK}, inset 0 0 0 4px #fff` } : {}),
-                                        ...(segment.isFloor && kind !== 'floor' ? { outline: '1.5px dashed currentColor', outlineOffset: -3 } : {}),
-                                    };
-                                    const hasRoom = rect.width >= 64 && rect.height >= 28;
-                                    const content = hasRoom && (
-                                        <>
-                                            {isFirst && <span className="block truncate font-mono text-[10.5px] font-semibold leading-tight">{labelOf(leaf.node)}</span>}
-                                            <span className="block whitespace-nowrap text-[10px] opacity-85">{segment.files.toLocaleString('en-US')} files</span>
-                                        </>
-                                    );
-                                    const shared = {
-                                        'data-testid': 'risk-map-segment',
-                                        'data-kind': kind,
-                                        'data-files': segment.files,
-                                        'data-node': leaf.node.id,
-                                        'aria-label': description,
-                                        style,
-                                        onMouseEnter: () => setHover({ rect, lines: [directory, `${segment.files.toLocaleString('en-US')} files`, meaning] }),
-                                        className: 'absolute overflow-hidden rounded-[3px] px-1.5 py-1 text-left',
-                                    };
-                                    const key = `${leaf.node.id}:${segment.area}:${segment.isFloor}:${segment.isUnchecked}`;
 
-                                    return kind === 'area' && area ? (
-                                        <button
+                                    return (
+                                        <SegmentBlock
                                             key={key}
-                                            type="button"
-                                            {...shared}
-                                            aria-pressed={isSelected}
-                                            onFocus={shared.onMouseEnter}
-                                            onBlur={() => setHover(null)}
-                                            onClick={() => onSelectArea(area.index)}
-                                            className={`${shared.className} cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent`}
-                                        >
-                                            {content}
-                                        </button>
-                                    ) : (
-                                        <div key={key} role="img" {...shared}>
-                                            {content}
-                                        </div>
+                                            leaf={leaf.node}
+                                            segment={segment}
+                                            rect={rect}
+                                            isFirst={isFirst}
+                                            area={area}
+                                            isSelected={kindOf(segment) === 'area' && segment.area === selectedArea}
+                                            tabIndex={key === tabStop ? 0 : -1}
+                                            segmentKey={key}
+                                            onSelectArea={onSelectArea}
+                                            onHover={setHover}
+                                            onFocusSegment={setFocusKey}
+                                        />
                                     );
                                 }),
                         )}
-                        {placedPins.map(({ file, x, y }) => {
+                        {placedPins.map(({ file, x, y }, position) => {
                             const isRight = x < size.width - 170;
 
                             return (
                                 <div
-                                    key={file.path}
+                                    key={`${file.path}:${position}`}
                                     data-testid="risk-map-pin"
                                     data-path={file.path}
                                     data-held={file.isHeld}

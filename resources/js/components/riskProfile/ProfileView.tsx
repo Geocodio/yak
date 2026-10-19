@@ -103,7 +103,8 @@ export function ProfileView({
                         areas={profile.areas}
                         pins={changeTestResult?.files ?? []}
                         pinLabel={changeTestResult ? (changeTestResult.kind === 'pr' ? `PR ${changeTestResult.label}` : changeTestResult.label) : null}
-                        selectedArea={selectedArea}
+                        selectedArea={profile.areas.some((area) => area.index === selectedArea) ? selectedArea : defaultAreaIndex(profile.areas)}
+                        commitSha={page.commitSha}
                         onSelectArea={setSelectedArea}
                         onOpenAreas={() => select('areas')}
                     />

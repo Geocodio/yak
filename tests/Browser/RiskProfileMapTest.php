@@ -82,7 +82,7 @@ it('opens an area in the side panel on click', function () {
         ->assertNoJavascriptErrors();
 });
 
-it('marks files whose area could not be checked as their own kind of block', function () {
+it('draws covered and uncovered files as different kinds of block', function () {
     $repository = Repository::factory()->create();
     fakeYakFiles(['risk-profile.yml' => riskMapProfileYaml()]);
     fakeRiskMapGitHub(riskMapPaths());
@@ -104,6 +104,7 @@ it('shows the notice and switches to the Areas tab when the map is unavailable',
 
     visit(route('repos.risk-profile.show', $repository))
         ->assertSee('The map is not available')
+        ->assertSee('GitHub returned only part of the file list for aaaaaaa, so Yak cannot place every file in an area. The Areas tab and the test helper still work.')
         ->assertMissing('[data-testid="risk-map-canvas"]')
         ->click('Open the Areas tab')
         ->assertVisible('[data-testid="risk-areas"]')
@@ -121,4 +122,71 @@ it('renders without horizontal scroll on a phone', function () {
         ->assertNoJavascriptErrors();
 
     expect($phone->script('document.documentElement.scrollWidth <= window.innerWidth'))->toBeTrue();
+});
+
+it('draws files under .yak with a dashed always-held outline and a legend entry', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskMapProfileYaml()]);
+    fakeRiskMapGitHub(riskMapPaths());
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('repos.risk-profile.show', $repository))
+        ->assertVisible('[data-testid="risk-map-legend-floor"]')
+        ->assertSee('Always held');
+
+    expect($page->script('document.querySelectorAll(\'[data-testid="risk-map-segment"][data-floor="true"] [data-testid="risk-map-floor-outline"]\').length'))->toBeGreaterThan(0)
+        ->and($page->script('getComputedStyle(document.querySelector(\'[data-testid="risk-map-floor-outline"]\')).borderTopStyle'))->toBe('dashed');
+});
+
+it('moves between blocks with the keyboard and opens the panel on Enter', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskMapProfileYaml()]);
+    fakeRiskMapGitHub(riskMapPaths());
+    $this->actingAs(User::factory()->create());
+
+    $page = visit(route('repos.risk-profile.show', $repository))
+        ->assertVisible('[data-testid="risk-map-canvas"]');
+
+    expect($page->script('document.querySelectorAll(\'button[data-testid="risk-map-segment"][tabindex="0"]\').length'))->toBe(1);
+
+    $page->script('document.querySelector(\'button[data-testid="risk-map-segment"][tabindex="0"]\').focus()');
+    $before = $page->script('document.activeElement.getAttribute("aria-label")');
+    $page->keys('[data-testid="risk-map-canvas"]', ['End']);
+    $after = $page->script('document.activeElement.getAttribute("aria-label")');
+    $page->keys('[data-testid="risk-map-canvas"]', ['Enter']);
+
+    expect($after)->not->toBe($before)
+        ->and($page->script('document.activeElement.getAttribute("aria-pressed")'))->toBe('true')
+        ->and($page->script('document.querySelector(\'[data-testid="risk-map-panel"]\').textContent.includes(' . json_encode(str_contains($after, 'Support') ? 'Small shared helpers.' : 'Every request passes through these.') . ')'))->toBeTrue();
+});
+
+it('marks files whose area could not be checked as held, not as covered', function () {
+    $repository = Repository::factory()->create();
+    $yaml = <<<'YAML'
+version: 1
+areas:
+  - name: Hostile glob
+    risk: high
+    paths: ["*a*a*a*a*a*a*a*a*a*a*a*a*b"]
+    symbols: []
+    rationale: Cannot be evaluated.
+    evidence: ["Synthetic"]
+unknowns: []
+YAML;
+    fakeYakFiles(['risk-profile.yml' => $yaml]);
+    fakeRiskMapGitHub([str_repeat('a', 60) . 'bc', 'README.md']);
+    $this->actingAs(User::factory()->create());
+    $jit = ini_get('pcre.jit');
+    ini_set('pcre.jit', '0');
+
+    try {
+        $page = visit(route('repos.risk-profile.show', $repository))
+            ->assertVisible('[data-testid="risk-map-canvas"]');
+        $kinds = $page->script('[...document.querySelectorAll(\'[data-testid="risk-map-segment"]\')].map((el) => el.dataset.kind).join(",")');
+        $legend = $page->script('!!document.querySelector(\'[data-testid="risk-map-legend-unchecked"]\')');
+    } finally {
+        ini_set('pcre.jit', $jit);
+    }
+
+    expect($kinds)->toContain('unchecked')->and($legend)->toBeTrue();
 });
