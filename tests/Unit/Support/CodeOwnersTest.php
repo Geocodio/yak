@@ -80,11 +80,13 @@ it('treats a PCRE failure as no match without throwing', function () {
     ini_set('pcre.jit', '0');
 
     try {
-        $owned = $owners->ownersFor(str_repeat('a/', 200) . 'z');
+        $owned = $owners->ownersFor(str_repeat('a/', 100) . str_repeat('b/', 100) . 'cx');
+        $lastError = preg_last_error();
     } finally {
         ini_set('pcre.backtrack_limit', (string) $backtrackLimit);
         ini_set('pcre.jit', (string) $jit);
     }
 
-    expect($owned)->toBe([]);
+    expect($lastError)->not->toBe(PREG_NO_ERROR)
+        ->and($owned)->toBe([]);
 });
