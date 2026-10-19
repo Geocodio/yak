@@ -8,7 +8,18 @@ import type { ChangeTestResult, Risk, RiskArea, RiskMap, RiskMapCoverageRow, Ris
 const RISK_ORDER: Risk[] = ['critical', 'high', 'unknown', 'medium', 'low'];
 
 const format = (count: number) => count.toLocaleString('en-US');
-const percent = (part: number, whole: number) => (whole === 0 ? 0 : Math.round((part / whole) * 100));
+/** Floors so a repository with any gap never reads as 100%, and shows "<1%" for a tiny non-zero share. */
+function percent(part: number, whole: number): string {
+    if (whole === 0 || part <= 0) {
+        return '0%';
+    }
+    if (part >= whole) {
+        return '100%';
+    }
+    const floored = Math.min(Math.floor((part / whole) * 100), 99);
+
+    return floored === 0 ? '<1%' : `${floored}%`;
+}
 
 type AvailableMap = Extract<RiskMap, { available: true }>;
 
@@ -46,7 +57,7 @@ function CoverageRow({ row, largest }: { row: RiskMapCoverageRow; largest: numbe
                 </div>
             </div>
             <span className="whitespace-nowrap text-muted">
-                {percent(row.coveredFiles, row.files)}% · {format(row.files)}
+                {percent(row.coveredFiles, row.files)} · {format(row.files)}
             </span>
         </li>
     );
@@ -59,7 +70,7 @@ function CoveragePanel({ map }: { map: AvailableMap }) {
         <Panel
             testId="risk-coverage"
             title="Coverage by directory"
-            description={`${percent(map.coveredFiles, map.totalFiles)}% of ${format(map.totalFiles)} files sit in an area. Bar length is file count.`}
+            description={`${percent(map.coveredFiles, map.totalFiles)} of ${format(map.totalFiles)} files sit in an area. Bar length is file count.`}
         >
             <ul className="space-y-1.5">
                 {map.coverage.map((row) => (
@@ -164,7 +175,7 @@ function AreaRow({ area, chip }: { area: RiskArea; chip: string | null }) {
     return (
         <li data-testid="risk-area-row" data-area={area.index} className="flex flex-wrap items-center gap-2 border-b border-hair px-3 py-1.5 text-[12.5px] last:border-b-0">
             <span className="min-w-0 flex-1 break-words">{area.name}</span>
-            {area.matchesNoFile && <span className="whitespace-nowrap rounded-control bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-text">Matches no files</span>}
+            {area.matchesNoFile && <span data-testid="risk-area-dead" className="whitespace-nowrap rounded-control bg-warn-soft px-1.5 py-0.5 text-[11px] font-medium text-text">Matches no files</span>}
             {chip && <ChangeChip>{chip}</ChangeChip>}
             <span className="text-[12px] text-muted">{area.matchesNoFile ? <span className="text-warn">Never matches</span> : <Owners owners={area.owners} />}</span>
         </li>
@@ -181,10 +192,10 @@ function AreaGroup({ risk, areas, totalFiles, changeTest }: { risk: Risk; areas:
         <section data-testid={`risk-group-${risk}`} aria-label={`${LABEL[risk]} areas`} className="space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-[12px]">
                 <RiskBadge risk={risk} />
-                <span className="font-medium">{pluralize(areas.length, 'area')}</span>
+                <h3 className="font-medium">{pluralize(areas.length, 'area')}</h3>
                 {totalFiles !== null && (
                     <span className="text-muted">
-                        {format(files)} files, {percent(files, totalFiles)}% of the repository
+                        {format(files)} files, {percent(files, totalFiles)} of the repository
                     </span>
                 )}
                 <span className="ml-auto text-muted">{held ? 'Changes are held for a co-owner' : 'Changes open as normal PRs'}</span>

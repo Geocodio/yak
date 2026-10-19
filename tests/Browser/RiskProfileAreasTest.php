@@ -95,3 +95,32 @@ it('hides coverage panels but keeps the list when the map is unavailable', funct
         ->assertDontSee('Biggest gaps')
         ->assertNoJavascriptErrors();
 });
+
+it('never rounds coverage up to 100% while a gap remains', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => areasTabProfileYaml()]);
+    fakeRiskMapGitHub([...array_map(fn ($i) => "app/Http/Middleware/M{$i}.php", range(1, 199)), 'README.md'], "app/Http/** @mhansen\n");
+    $this->actingAs(User::factory()->create());
+
+    visitAreasTab($repository)
+        ->assertSeeIn('[data-testid="risk-coverage"]', '99% of 200 files sit in an area.')
+        ->assertNoJavascriptErrors();
+});
+
+it('flags a dead low-risk area in its compact row and nests headings without skipping a level', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => areasTabProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+    $this->actingAs(User::factory()->create());
+
+    $page = visitAreasTab($repository)
+        ->assertSeeIn('[data-testid="risk-area-row"] [data-testid="risk-area-dead"]', 'Matches no files')
+        ->assertNoJavascriptErrors();
+
+    expect($page->script(<<<'JS'
+        [...document.querySelectorAll('[data-testid="risk-areas"] h2, [data-testid="risk-areas"] h3, [data-testid="risk-areas"] h4')].map((el) => el.tagName)
+    JS))->toContain('H3')
+        ->and($page->script(<<<'JS'
+        document.querySelectorAll('[data-testid="risk-group-high"] > div h3').length
+    JS))->toBe(1);
+});
