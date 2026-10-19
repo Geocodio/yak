@@ -21,12 +21,12 @@ it('counts coverage and folds files into depth-3 directories', function () {
         ->and($map['areaFiles'])->toBe([0, 2])
         ->and($map['areaPathFiles'][1])->toBe([1, 1])
         ->and($map['areaOwners'][1])->toBe(['@mhansen'])
-        ->and(collect($map['tree'])->pluck('id')->all())->toContain('app', "\0files", '.yak');
+        ->and(collect($map['tree'])->pluck('id')->all())->toContain('app', '/files:', '.yak');
 
     $app = collect($map['tree'])->firstWhere('id', 'app');
     $http = collect($app['children'])->firstWhere('id', 'app/Http');
-    expect(collect($http['children'])->pluck('id')->all())->toContain('app/Http/Middleware', "app/Http\0files");
-    $files = collect($http['children'])->firstWhere('id', "app/Http\0files");
+    expect(collect($http['children'])->pluck('id')->all())->toContain('app/Http/Middleware', '/files:app/Http');
+    $files = collect($http['children'])->firstWhere('id', '/files:app/Http');
     expect($files['paths'])->toBe(['app/Http']);
 });
 
@@ -42,7 +42,7 @@ it('folds small siblings into one other node that lists their paths', function (
 
     expect($src['children'])->toHaveCount(13)
         ->and($other['name'])->toBe('other')
-        ->and($other['id'])->toBe("src\0other")
+        ->and($other['id'])->toBe('/other:src')
         ->and($other['files'])->toBe(6)
         ->and($other['paths'])->toBe(['src/dir3', 'src/dir2', 'src/dir1'])
         ->and($other['pathCount'])->toBe(3)
@@ -141,7 +141,7 @@ it('folds top-level directories past twelve into an other node', function () {
     $map = RiskMapTree::build($files, []);
 
     expect($map['tree'])->toHaveCount(13)
-        ->and(collect($map['tree'])->last()['id'])->toBe("\0other")
+        ->and(collect($map['tree'])->last()['id'])->toBe('/other:')
         ->and($map['coverage'])->toHaveCount(13);
 });
 

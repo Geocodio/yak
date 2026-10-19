@@ -12,9 +12,13 @@ namespace App\Support;
  * Node shape: id, name, kind, files, paths, children, plus segments on leaves.
  * kind is "directory", "files" (loose files of a directory, or of the root
  * with paths [""]) or "other" (siblings past the twelfth, which also carry
- * pathCount; paths holds at most 50). Synthetic ids end in a NUL byte plus the
- * kind, so no repository path can collide with them. Consumers read the
- * directory a node stands for from paths, never from name or id.
+ * pathCount; paths holds at most 50). Synthetic ids start with "/" ("/files:app/Http",
+ * "/files:" for the root, "/other:src"), which no repository-relative path
+ * does, so they cannot collide with a directory id. Ids are opaque keys:
+ * consumers read kind and paths for meaning, never parse an id, and slug or
+ * escape it before using it in a data-testid or CSS selector. The root files
+ * node sorts before same-size directories except those whose names sort
+ * before "/" (such as ".yak").
  * Coverage rows split every file into covered, unchecked, floor or gap
  * (files = coveredFiles + uncheckedFiles + floorFiles + gap files). Gap rows
  * with isAggregate true stand for folded directories and have no single path.
@@ -107,7 +111,7 @@ final class RiskMapTree
             $nodes[] = self::node((string) $name, (string) $name, $dir);
         }
         if ($root['files'] !== []) {
-            $nodes[] = self::leaf("\0files", self::ROOT_FILES, 'files', [''], $root['files']);
+            $nodes[] = self::leaf('/files:', self::ROOT_FILES, 'files', [''], $root['files']);
         }
 
         return self::fold($nodes, '');
@@ -128,7 +132,7 @@ final class RiskMapTree
             $children[] = self::node("{$id}/{$childName}", (string) $childName, $child);
         }
         if ($dir['files'] !== []) {
-            $children[] = self::leaf("{$id}\0files", 'files', 'files', [$id], $dir['files']);
+            $children[] = self::leaf("/files:{$id}", 'files', 'files', [$id], $dir['files']);
         }
         $children = self::fold($children, $id);
 
@@ -209,7 +213,7 @@ final class RiskMapTree
         $allPaths = array_merge(...array_column($folded, 'paths'));
 
         $other = [
-            'id' => "{$parentId}\0other",
+            'id' => "/other:{$parentId}",
             'name' => 'other',
             'kind' => 'other',
             'files' => array_sum(array_column($folded, 'files')),
@@ -265,9 +269,11 @@ final class RiskMapTree
     private static function gaps(array $tree): array
     {
         $gaps = [];
-        $walk = function (array $node) use (&$walk, &$gaps): void {
+        $walk = function (array $node, string $parentPath) use (&$walk, &$gaps): void {
             if (! isset($node['segments'])) {
-                array_map($walk, $node['children']);
+                foreach ($node['children'] as $child) {
+                    $walk($child, $node['paths'][0]);
+                }
 
                 return;
             }
@@ -275,12 +281,14 @@ final class RiskMapTree
             if ($uncovered > 0) {
                 $isAggregate = $node['kind'] === 'other';
                 $path = $isAggregate
-                    ? ltrim(str_replace("\0other", ' (other)', $node['id']))
+                    ? ($parentPath === '' ? '(other)' : "{$parentPath} (other)")
                     : ($node['paths'][0] === '' ? self::ROOT_FILES : $node['paths'][0]);
                 $gaps[] = ['path' => $path, 'files' => $uncovered, 'isAggregate' => $isAggregate];
             }
         };
-        array_map($walk, $tree);
+        foreach ($tree as $node) {
+            $walk($node, '');
+        }
         usort($gaps, fn (array $a, array $b): int => [$b['files'], $a['path']] <=> [$a['files'], $b['path']]);
 
         return array_slice($gaps, 0, self::MAX_GAPS);
