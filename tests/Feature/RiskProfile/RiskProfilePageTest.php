@@ -13,9 +13,6 @@ use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
-// The page component arrives with the React page task; until then the props are tested alone.
-beforeEach(fn () => config()->set('inertia.testing.ensure_pages_exist', false));
-
 /**
  * Load the deferred risk profile prop and run assertions on it.
  */
