@@ -115,7 +115,7 @@ class RiskProfileChangeCheck
             }
         }
 
-        $paths = array_values(array_unique(array_merge(...array_map(fn (array $entry): array => array_values(array_filter($entry, fn (?string $path): bool => $path !== null && $path !== '')), $entries ?: [[]]))));
+        $paths = array_values(array_unique(array_merge(...array_map(fn (array $entry): array => array_filter($entry, fn (?string $path): bool => $path !== null && $path !== ''), $entries ?: [[]]))));
         $areas = array_values((array) ($profile['areas'] ?? []));
         $classified = $this->matcher->classify($paths, $areas, array_values(array_map('strval', (array) config('yak.pr_review.config_floor_paths'))), $codeOwners);
         $rank = array_flip(RiskProfileMatcher::RISK_ORDER);
