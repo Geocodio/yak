@@ -7,8 +7,9 @@ use App\Support\PathMatcher;
 
 /**
  * Places paths in risk areas the way the co-owner gate judges them. A file
- * takes its riskiest area. A glob that PCRE cannot evaluate is reported as
- * could not check and never counts as a match. One comparison and time
+ * takes its riskiest area. A glob or owner rule that PCRE cannot evaluate
+ * flags the file as unchecked, and an unchecked floor glob counts as the
+ * floor, so callers fail closed. One comparison and time
  * budget covers the whole run, since profile globs and CODEOWNERS come from
  * the repository.
  */
@@ -29,13 +30,18 @@ class RiskProfileMatcher
      * @param  list<string>  $paths
      * @param  list<array{name: string, risk: string, paths: list<string>}>  $areas
      * @param  list<string>  $floorPaths
-     * @return array{files: array<string, array{areas: list<int>, area: ?int, isFloor: bool, owners: list<string>, globHits: list<array{0: int, 1: int}>}>, isCapped: bool}
+     * @return array{files: array<string, array{areas: list<int>, area: ?int, isFloor: bool, owners: list<string>, isUnchecked: bool, globHits: list<array{0: int, 1: int}>}>, isCapped: bool}
      */
     public function classify(array $paths, array $areas, array $floorPaths, ?CodeOwners $codeOwners = null, bool $withGlobHits = false): array
     {
         $previousLimit = ini_set('pcre.backtrack_limit', self::BACKTRACK_LIMIT);
         $startedAt = hrtime(true);
         $comparisons = 0;
+        $isOverBudget = function (int $cost = 1) use (&$comparisons, $startedAt): bool {
+            $comparisons += $cost;
+
+            return $comparisons > $this->maxComparisons || hrtime(true) - $startedAt >= $this->seconds * 1e9;
+        };
         $files = [];
 
         try {
@@ -45,16 +51,27 @@ class RiskProfileMatcher
             $ownerCost = max(1, $codeOwners?->ruleCount() ?? 0);
 
             foreach ($paths as $path) {
+                if ($isOverBudget()) {
+                    return ['files' => $files, 'isCapped' => true];
+                }
+
+                $isUnchecked = false;
                 $matched = [];
                 $globHits = [];
 
                 foreach ($areaMatchers as $index => $matchers) {
                     foreach ($matchers as $globIndex => $matcher) {
-                        if (++$comparisons > $this->maxComparisons || hrtime(true) - $startedAt >= $this->seconds * 1e9) {
+                        if ($isOverBudget()) {
                             return ['files' => $files, 'isCapped' => true];
                         }
 
-                        if ($matcher($path) !== true) {
+                        $result = $matcher($path);
+
+                        if ($result === null) {
+                            $isUnchecked = true;
+                        }
+
+                        if ($result !== true) {
                             continue;
                         }
 
@@ -72,9 +89,15 @@ class RiskProfileMatcher
 
                 $isFloor = false;
                 foreach ($floorMatchers as $matcher) {
-                    $comparisons++;
-                    if ($matcher($path) === true) {
+                    if ($isOverBudget()) {
+                        return ['files' => $files, 'isCapped' => true];
+                    }
+
+                    $result = $matcher($path);
+
+                    if ($result !== false) {
                         $isFloor = true;
+                        $isUnchecked = $isUnchecked || $result === null;
 
                         break;
                     }
@@ -88,17 +111,27 @@ class RiskProfileMatcher
                 }
 
                 $owners = [];
-                if ($codeOwners !== null && ($riskiest !== null || $isFloor)) {
-                    $comparisons += $ownerCost;
+                if ($codeOwners !== null && ($riskiest !== null || $isFloor || $isUnchecked)) {
+                    if ($isOverBudget($ownerCost)) {
+                        return ['files' => $files, 'isCapped' => true];
+                    }
+
                     $owners = $codeOwners->ownersFor($path);
+
+                    if ($owners === null) {
+                        $owners = [];
+                        $isUnchecked = true;
+                    }
                 }
 
-                $files[$path] = ['areas' => $matched, 'area' => $riskiest, 'isFloor' => $isFloor, 'owners' => $owners, 'globHits' => $globHits];
+                $files[$path] = ['areas' => $matched, 'area' => $riskiest, 'isFloor' => $isFloor, 'owners' => $owners, 'isUnchecked' => $isUnchecked, 'globHits' => $globHits];
             }
 
             return ['files' => $files, 'isCapped' => false];
         } finally {
-            ini_set('pcre.backtrack_limit', (string) $previousLimit);
+            if ($previousLimit !== false) {
+                ini_set('pcre.backtrack_limit', $previousLimit);
+            }
         }
     }
 }

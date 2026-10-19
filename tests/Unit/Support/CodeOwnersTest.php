@@ -72,7 +72,7 @@ it('drops a pattern longer than 500 characters and keeps other rules', function 
         ->and($owners->ownersFor('b/c'))->toBe(['@ok']);
 });
 
-it('treats a PCRE failure as no match without throwing', function () {
+it('returns null instead of throwing when a rule cannot be evaluated', function () {
     $owners = CodeOwners::parse("**/a/**/b/**/c @x\n");
     $backtrackLimit = ini_get('pcre.backtrack_limit');
     $jit = ini_get('pcre.jit');
@@ -88,5 +88,5 @@ it('treats a PCRE failure as no match without throwing', function () {
     }
 
     expect($lastError)->not->toBe(PREG_NO_ERROR)
-        ->and($owned)->toBe([]);
+        ->and($owned)->toBeNull();
 });

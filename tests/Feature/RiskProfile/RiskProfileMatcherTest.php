@@ -35,24 +35,81 @@ it('adds CODEOWNERS owners for matched and floor files only', function () {
         ->and($result['files']['README.md']['owners'])->toBe([]);
 });
 
-it('does not count a glob PCRE cannot evaluate as a match', function () {
+it('flags a file unchecked when an area glob cannot be evaluated', function () {
+    $hostile = str_repeat('*a', 12) . '*b';
+    $areas = [
+        ['name' => 'Hostile', 'risk' => 'critical', 'paths' => [$hostile]],
+        ['name' => 'Everything', 'risk' => 'medium', 'paths' => ['**']],
+    ];
+    $path = str_repeat('a', 60) . 'bc';
+    $jit = ini_get('pcre.jit');
+    ini_set('pcre.jit', '0');
+
+    try {
+        $result = (new RiskProfileMatcher)->classify([$path], $areas, []);
+    } finally {
+        ini_set('pcre.jit', $jit);
+    }
+
+    expect($result['files'][$path])->toMatchArray(['areas' => [1], 'area' => 1, 'isUnchecked' => true])
+        ->and((new RiskProfileMatcher)->classify(['x.php'], $areas, [])['files']['x.php']['isUnchecked'])->toBeFalse();
+});
+
+it('leaves area null but unchecked when the only area glob cannot be evaluated', function () {
     $areas = [['name' => 'Hostile', 'risk' => 'high', 'paths' => [str_repeat('*a', 12) . '*b']]];
     $path = str_repeat('a', 60) . 'bc';
     $jit = ini_get('pcre.jit');
     ini_set('pcre.jit', '0');
 
     try {
-        $result = (new RiskProfileMatcher)->classify([$path], $areas, [str_repeat('*a', 12) . '*b']);
+        $result = (new RiskProfileMatcher)->classify([$path], $areas, []);
     } finally {
         ini_set('pcre.jit', $jit);
     }
 
-    expect($result['files'][$path])->toMatchArray(['areas' => [], 'area' => null, 'isFloor' => false]);
+    expect($result['files'][$path])->toMatchArray(['areas' => [], 'area' => null, 'isUnchecked' => true]);
+});
+
+it('treats a floor glob that cannot be evaluated as the floor and unchecked', function () {
+    $path = str_repeat('a', 60) . 'bc';
+    $jit = ini_get('pcre.jit');
+    ini_set('pcre.jit', '0');
+
+    try {
+        $result = (new RiskProfileMatcher)->classify([$path], [], [str_repeat('*a', 12) . '*b']);
+    } finally {
+        ini_set('pcre.jit', $jit);
+    }
+
+    expect($result['files'][$path])->toMatchArray(['isFloor' => true, 'isUnchecked' => true]);
+});
+
+it('flags a file unchecked when its owners cannot be resolved', function () {
+    $owners = CodeOwners::parse("**/a/**/b/**/c @x\n");
+    $path = str_repeat('a/', 100) . str_repeat('b/', 100) . 'cx';
+    $jit = ini_get('pcre.jit');
+    ini_set('pcre.jit', '0');
+
+    try {
+        $result = (new RiskProfileMatcher)->classify([$path], [['name' => 'All', 'risk' => 'high', 'paths' => ['**']]], [], $owners);
+    } finally {
+        ini_set('pcre.jit', $jit);
+    }
+
+    expect($result['files'][$path])->toMatchArray(['area' => 0, 'owners' => [], 'isUnchecked' => true]);
 });
 
 it('stops at the comparison budget', function () {
     $paths = array_map(fn (int $i): string => "src/file{$i}.php", range(1, 100));
     $result = (new RiskProfileMatcher(maxComparisons: 50))->classify($paths, matcherAreas(), []);
+
+    expect($result['isCapped'])->toBeTrue()
+        ->and(count($result['files']))->toBeLessThan(100);
+});
+
+it('stops at the comparison budget even with no areas', function () {
+    $paths = array_map(fn (int $i): string => "src/file{$i}.php", range(1, 100));
+    $result = (new RiskProfileMatcher(maxComparisons: 10))->classify($paths, [], []);
 
     expect($result['isCapped'])->toBeTrue()
         ->and(count($result['files']))->toBeLessThan(100);

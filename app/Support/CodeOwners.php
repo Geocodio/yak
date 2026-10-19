@@ -11,7 +11,9 @@ namespace App\Support;
  * with a wildcard does not recurse. A literal name or a trailing `/` covers a
  * directory and everything under it.
  * Owners are kept as written (`@login`, `@org/team`, email); resolving them
- * to Yak users happens elsewhere.
+ * to Yak users happens elsewhere. When a rule consulted before the winning
+ * match cannot be evaluated, the owners are unknown and ownersFor() returns
+ * null.
  */
 final readonly class CodeOwners
 {
@@ -62,11 +64,17 @@ final readonly class CodeOwners
         return new self($rules);
     }
 
-    /** @return list<string> */
-    public function ownersFor(string $path): array
+    /** @return ?list<string> null when a consulted rule could not be evaluated */
+    public function ownersFor(string $path): ?array
     {
         for ($index = count($this->rules) - 1; $index >= 0; $index--) {
-            if (preg_match($this->rules[$index]['regex'], $path) === 1) {
+            $result = preg_match($this->rules[$index]['regex'], $path);
+
+            if ($result === false) {
+                return null;
+            }
+
+            if ($result === 1) {
                 return $this->rules[$index]['owners'];
             }
         }
