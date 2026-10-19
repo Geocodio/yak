@@ -24,7 +24,7 @@ export function pluralize(count: number, noun: string): string {
     return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
-function Callout({ tone, icon, children }: { tone: keyof typeof SURFACE; icon: ReactNode; children: ReactNode }) {
+export function Callout({ tone, icon, children }: { tone: keyof typeof SURFACE; icon: ReactNode; children: ReactNode }) {
     return (
         <div role="status" className={`flex w-full items-start gap-3 rounded-card border border-hair p-4 text-left ${SURFACE[tone]}`}>
             <div className="mt-0.5 shrink-0">{icon}</div>

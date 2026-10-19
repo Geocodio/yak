@@ -3,6 +3,8 @@ import { Badge, Button, PageHeader } from '@geocodio/console-ui';
 import { ExternalLink, Lock, Pencil } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
+import { readAgo } from '@/components/riskProfile/ProfileBanners';
+import { ProfileView } from '@/components/riskProfile/ProfileView';
 import {
     EmptyState,
     FailedState,
@@ -62,17 +64,34 @@ function sourceLine(data: RiskProfilePage, branch: string): ReactNode {
 
     const changedIn = file?.changedIn ?? null;
     const sha = changedIn?.sha ?? file?.validCommitSha ?? null;
+    const changed = changedIn && (
+        <>changed{changedIn.pullRequest && <> in #{changedIn.pullRequest.number}</>} by {changedIn.authorName}, {shortDate(changedIn.date)}</>
+    );
+
+    if (data.readState === 'unreachable') {
+        const shown = data.commitSha ?? file?.validCommitSha;
+
+        return (
+            <>
+                Showing the version{shown && <> from <span className={code}>{shown.slice(0, 7)}</span></>} on {branch}, read {readAgo(data.readAt)}
+            </>
+        );
+    }
+
+    if (file?.error && file.validCommitSha) {
+        return (
+            <>
+                Showing the version from <span className={code}>{file.validCommitSha.slice(0, 7)}</span> on {branch}
+                {changed && <>, {changed}</>}
+            </>
+        );
+    }
 
     return (
         <>
             From <span className={code}>{FILE}</span> on {branch}
             {sha && <> · <span className={code}>{sha.slice(0, 7)}</span></>}
-            {changedIn && (
-                <>
-                    {' '}
-                    · changed{changedIn.pullRequest && <> in #{changedIn.pullRequest.number}</>} by {changedIn.authorName}, {shortDate(changedIn.date)}
-                </>
-            )}
+            {changed && <> · {changed}</>}
         </>
     );
 }
@@ -141,8 +160,7 @@ function Body({ data, repository }: { data: RiskProfilePage; repository: RiskPro
             body = <EmptyState repository={repository} />;
         }
     } else {
-        // Replaced by ProfileView.
-        body = <div data-testid="risk-profile-view" className="min-h-16" />;
+        body = <ProfileView page={data} repository={repository} />;
     }
 
     return body;
