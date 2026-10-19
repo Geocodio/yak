@@ -11,6 +11,7 @@ use App\Services\RiskProfileMatcher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
+use Tests\TestCase;
 
 // The page component arrives with the React page task; until then the props are tested alone.
 beforeEach(fn () => config()->set('inertia.testing.ensure_pages_exist', false));
@@ -18,7 +19,7 @@ beforeEach(fn () => config()->set('inertia.testing.ensure_pages_exist', false));
 /**
  * Load the deferred risk profile prop and run assertions on it.
  */
-function assertRiskProfile($testCase, Repository $repository, Closure $assertions): void
+function assertRiskProfile(TestCase $testCase, Repository $repository, Closure $assertions): void
 {
     $testCase->actingAs(User::factory()->create())->get(route('repos.risk-profile.show', $repository))
         ->assertInertia(fn (AssertableInertia $page) => $page
@@ -103,9 +104,7 @@ it('shows the notice when matching goes over the budget', function () {
 it('shows the profile without a map when GitHub is down and nothing is cached', function () {
     $repository = Repository::factory()->create();
     fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
-    configureFakeGitHubApp();
-    Http::fake(['api.github.com/repos/*/git/trees/*' => Http::response([], 503)]);
-    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+    fakeRiskMapGitHub(['app/Http/Kernel.php'], treeStatus: 503);
 
     assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload
         ->where('riskProfile.state', 'profile')
@@ -269,4 +268,50 @@ it('never writes to GitHub', function () {
 
 it('requires authentication', function () {
     $this->get(route('repos.risk-profile.show', Repository::factory()->create()))->assertRedirect();
+});
+
+it('encodes the default branch in the file links', function () {
+    $repository = Repository::factory()->create(['git_url' => 'https://github.com/o/r.git', 'default_branch' => 'release/v1#x']);
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+
+    assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload
+        ->where('riskProfile.file.blobUrl', 'https://github.com/o/r/blob/release/v1%23x/.yak/risk-profile.yml')
+        ->where('riskProfile.file.editUrl', 'https://github.com/o/r/edit/release/v1%23x/.yak/risk-profile.yml'));
+});
+
+it('reports an unreachable map for a database profile when GitHub was never read', function () {
+    $repository = Repository::factory()->create(['slug' => 'acme/api']);
+    $profile = [
+        'schema_version' => 1, 'repo' => 'acme/api', 'source_sha' => str_repeat('c', 40),
+        'areas' => [['name' => 'Billing', 'paths' => ['app/Billing/**'], 'symbols' => [], 'risk' => 'critical', 'rationale' => 'Money.', 'evidence' => ['Invoice.php']]],
+        'unknowns' => [],
+    ];
+    $profile['version'] = hash('sha256', json_encode([$profile['schema_version'], $profile['repo'], $profile['source_sha'], $profile['areas'], $profile['unknowns']]));
+    RiskProfile::factory()->approved()->create(['repo' => 'acme/api', 'version' => $profile['version'], 'profile' => $profile]);
+    bindConfigSnapshot(new ConfigSnapshot('unreachable', null, null, 'GitHub returned 503', []));
+
+    assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload
+        ->where('riskProfile.state', 'profile')
+        ->where('riskProfile.source', 'database')
+        ->where('riskProfile.commitSha', null)
+        ->where('riskProfile.map.available', false)
+        ->where('riskProfile.map.reason', 'unreachable')
+        ->where('riskProfile.profile.areas.0.files', null));
+});
+
+it('does not cache the map when the last change of the profile file could not be looked up', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    Http::fake(['api.github.com/repos/*/commits?path*' => Http::sequence()->push([], 503)->push([['sha' => str_repeat('b', 40), 'commit' => ['author' => ['name' => 'Ada', 'date' => '2026-10-09T10:00:00Z']]]])]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+
+    assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload
+        ->where('riskProfile.map.available', true)
+        ->where('riskProfile.file.changedIn', null));
+
+    assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload
+        ->where('riskProfile.map.available', true)
+        ->where('riskProfile.file.changedIn.sha', str_repeat('b', 40))
+        ->where('riskProfile.file.changedIn.authorName', 'Ada'));
 });

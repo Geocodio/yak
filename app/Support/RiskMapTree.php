@@ -22,6 +22,9 @@ namespace App\Support;
  * Coverage rows split every file into covered, unchecked, floor or gap
  * (files = coveredFiles + uncheckedFiles + floorFiles + gap files). Gap rows
  * with isAggregate true stand for folded directories and have no single path.
+ *
+ * @phpstan-type TreeSegment array{area: ?int, isFloor: bool, isUnchecked: bool, files: int}
+ * @phpstan-type TreeRow array{id: string, name: string, kind: 'directory'|'files'|'other', files: int, paths: list<string>, pathCount?: int, children: list<array<string, mixed>>, segments?: list<TreeSegment>}
  */
 final class RiskMapTree
 {
@@ -38,7 +41,7 @@ final class RiskMapTree
     /**
      * @param  array<string, array{areas: list<int>, area: ?int, isFloor: bool, owners: list<string>, isUnchecked?: bool, globHits?: list<array{0: int, 1: int}>}>  $files
      * @param  list<int>  $globCounts  globs per area
-     * @return array{totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<array<string, mixed>>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>, gaps: list<array{path: string, files: int, isAggregate: bool}>, areaFiles: list<int>, areaPathFiles: list<list<int>>, areaOwners: list<list<string>>}
+     * @return array{totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<TreeRow>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>, gaps: list<array{path: string, files: int, isAggregate: bool}>, areaFiles: list<int>, areaPathFiles: list<list<int>>, areaOwners: list<list<string>>}
      */
     public static function build(array $files, array $globCounts): array
     {
@@ -102,7 +105,7 @@ final class RiskMapTree
 
     /**
      * @param  array{dirs: array<string, mixed>, files: list<mixed>}  $root
-     * @return list<array<string, mixed>>
+     * @return list<TreeRow>
      */
     private static function topLevel(array $root): array
     {
@@ -119,7 +122,7 @@ final class RiskMapTree
 
     /**
      * @param  array{dirs: array<string, mixed>, files: list<mixed>}  $dir
-     * @return array<string, mixed>
+     * @return TreeRow
      */
     private static function node(string $id, string $name, array $dir): array
     {
@@ -147,9 +150,10 @@ final class RiskMapTree
     }
 
     /**
+     * @param  'directory'|'files'|'other'  $kind
      * @param  list<string>  $paths
      * @param  list<array<string, mixed>>  $files
-     * @return array<string, mixed>
+     * @return TreeRow
      */
     private static function leaf(string $id, string $name, string $kind, array $paths, array $files): array
     {
@@ -192,6 +196,10 @@ final class RiskMapTree
      *
      * @param  list<array<string, mixed>>  $nodes
      * @return list<array<string, mixed>>
+     */
+    /**
+     * @param  list<TreeRow>  $nodes
+     * @return list<TreeRow>
      */
     private static function fold(array $nodes, string $parentId): array
     {

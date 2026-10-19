@@ -253,11 +253,11 @@ YAML;
  *
  * @param  list<string>  $paths
  */
-function fakeRiskMapGitHub(array $paths, ?string $codeOwners = null, bool $isTruncated = false): void
+function fakeRiskMapGitHub(array $paths, ?string $codeOwners = null, bool $isTruncated = false, int $treeStatus = 200): void
 {
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + [
-        'api.github.com/repos/*/git/trees/*' => Http::response(['truncated' => $isTruncated, 'tree' => array_map(fn (string $path): array => ['path' => $path, 'type' => 'blob'], $paths)]),
+        'api.github.com/repos/*/git/trees/*' => Http::response(['truncated' => $isTruncated, 'tree' => array_map(fn (string $path): array => ['path' => $path, 'type' => 'blob'], $paths)], $treeStatus),
         'api.github.com/repos/*/contents/.github/CODEOWNERS*' => $codeOwners === null ? Http::response(['message' => 'Not Found'], 404) : Http::response($codeOwners),
         'api.github.com/repos/*/contents/*' => Http::response(['message' => 'Not Found'], 404),
         'api.github.com/repos/*/commits/*/pulls' => Http::response([['number' => 4801, 'title' => 'Add profile', 'html_url' => 'https://github.com/o/r/pull/4801', 'merged_at' => '2026-10-09T10:00:00Z']]),

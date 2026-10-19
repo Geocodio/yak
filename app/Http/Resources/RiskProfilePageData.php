@@ -27,7 +27,10 @@ use Illuminate\Support\Facades\Cache;
  *
  * @phpstan-type PullRequestRef array{number: int, title: string, url: string}
  * @phpstan-type ChangedIn array{sha: string, url: ?string, authorName: string, date: string, pullRequest: PullRequestRef|null}
- * @phpstan-type MapPayload array{available: true, totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<array<string, mixed>>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>, gaps: list<array{path: string, files: int, isAggregate: bool}>}|array{available: false, reason: 'truncated'|'too-large'|'unreachable'}
+ *
+ * @phpstan-import-type TreeRow from RiskMapTree
+ *
+ * @phpstan-type MapPayload array{available: true, totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<TreeRow>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>, gaps: list<array{path: string, files: int, isAggregate: bool}>}|array{available: false, reason: 'truncated'|'too-large'|'unreachable'}
  * @phpstan-type MapBundle array{map: MapPayload, areaFiles: list<int>, areaPathFiles: list<list<int>>, areaOwners: list<list<string>>, uncheckedFiles: int, changedIn: ChangedIn|null}
  */
 final class RiskProfilePageData
@@ -40,8 +43,8 @@ final class RiskProfilePageData
 
     /**
      * `map.tree`, `map.coverage` and `map.gaps` rows follow {@see RiskMapTree}.
-     * An area's `isUnchecked` files and a map's `uncheckedFiles` count files
-     * whose area, floor or owner check could not be evaluated.
+     * `map.uncheckedFiles` counts files whose area, floor or owner check could
+     * not be evaluated; tree segments flag them with `isUnchecked`.
      *
      * @return array{
      *     state: 'profile'|'empty'|'never-valid'|'unavailable',
@@ -66,14 +69,14 @@ final class RiskProfilePageData
      *         pullRequest: array{number: int, title: string, url: string, areas: ?int, unknowns: ?int}|null,
      *     }|null,
      *     profile: array{
-     *         gateMode: string,
+     *         gateMode: 'off'|'enforce',
      *         alwaysHeld: list<string>,
      *         riskCounts: array{critical: int, high: int, unknown: int, medium: int, low: int},
      *         unknowns: list<string>,
      *         areas: list<array{
      *             index: int,
      *             name: string,
-     *             risk: string,
+     *             risk: 'low'|'medium'|'high'|'critical'|'unknown',
      *             rationale: string,
      *             evidence: list<string>,
      *             symbols: list<string>,
@@ -83,9 +86,7 @@ final class RiskProfilePageData
      *             matchesNoFile: bool,
      *         }>,
      *     }|null,
-     *     map: array{available: true, totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<array<string, mixed>>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>, gaps: list<array{path: string, files: int, isAggregate: bool}>}
-     *         | array{available: false, reason: 'truncated'|'too-large'|'unreachable'}
-     *         | null,
+     *     map: MapPayload|null,
      * }
      */
     public static function from(Repository $repository, ConfigSnapshot $snapshot): array
@@ -110,7 +111,8 @@ final class RiskProfilePageData
         $file = $snapshot->file('risk-profile.yml');
         $hasValidFile = $file !== null && $file->validCommitSha !== null;
         $isNeverValid = $file !== null && $file->validCommitSha === null && $file->error !== null;
-        $profile = $isNeverValid ? null : self::effectiveProfile($repository);
+        $settings = new RepositorySettings($repository, $snapshot);
+        $profile = $isNeverValid ? null : self::profileFrom($settings, $repository);
 
         $state = match (true) {
             $hasValidFile && $profile !== null => 'profile',
@@ -142,16 +144,17 @@ final class RiskProfilePageData
             $result['file']['changedIn'] = $bundle['changedIn'];
         }
 
-        $result['profile'] = [
-            'gateMode' => (new RepositorySettings($repository, $snapshot))->coOwnerGateMode(),
-            'alwaysHeld' => array_values((array) config('yak.pr_review.config_floor_paths')),
-            'riskCounts' => self::riskCounts($areas),
-            'unknowns' => array_values(array_map('strval', $profile['unknowns'] ?? [])),
-            'areas' => self::areas($areas, $bundle),
+        return [
+            ...$result,
+            'profile' => [
+                'gateMode' => $settings->coOwnerGateMode() === 'enforce' ? 'enforce' : 'off',
+                'alwaysHeld' => array_values(array_map('strval', (array) config('yak.pr_review.config_floor_paths'))),
+                'riskCounts' => self::riskCounts($areas),
+                'unknowns' => array_values(array_map('strval', $profile['unknowns'] ?? [])),
+                'areas' => self::areas($areas, $bundle),
+            ],
+            'map' => $bundle['map'] ?? ['available' => false, 'reason' => 'unreachable'],
         ];
-        $result['map'] = $bundle['map'] ?? null;
-
-        return $result;
     }
 
     /**
@@ -162,7 +165,13 @@ final class RiskProfilePageData
      */
     public static function effectiveProfile(Repository $repository): ?array
     {
-        return $repository->settings()->riskProfile()
+        return self::profileFrom($repository->settings(), $repository);
+    }
+
+    /** @return array<string, mixed>|null */
+    private static function profileFrom(RepositorySettings $settings, Repository $repository): ?array
+    {
+        return $settings->riskProfile()
             ?? app(RepositoryRiskProfiles::class)->activeFromDatabase($repository->slug);
     }
 
@@ -189,7 +198,7 @@ final class RiskProfilePageData
     private static function file(Repository $repository, ConfigFile $file): array
     {
         $githubUrl = $repository->githubUrl();
-        $branch = $repository->default_branch;
+        $branch = implode('/', array_map('rawurlencode', explode('/', $repository->default_branch)));
 
         return [
             'validCommitSha' => $file->validCommitSha,
@@ -286,7 +295,8 @@ final class RiskProfilePageData
 
     /**
      * The computed map and its per-area counts, cached per commit and profile
-     * version. A map GitHub could not be reached for is never cached.
+     * version. Nothing is cached when GitHub could not be reached or the
+     * profile file's last change could not be looked up.
      *
      * @param  array<string, mixed>  $profile
      * @return MapBundle
@@ -303,7 +313,9 @@ final class RiskProfilePageData
 
         $bundle = self::computeBundle($repository, $profile, $commitSha, $hasFile);
 
-        if (($bundle['map']['reason'] ?? null) !== 'unreachable') {
+        $isChangedInMissing = $hasFile && $bundle['changedIn'] === null;
+
+        if (! $isChangedInMissing && ($bundle['map']['reason'] ?? null) !== 'unreachable') {
             Cache::put($key, $bundle, self::MAP_CACHE_SECONDS);
         }
 
@@ -416,7 +428,7 @@ final class RiskProfilePageData
     /**
      * @param  list<array<string, mixed>>  $areas
      * @param  MapBundle|null  $bundle
-     * @return list<array{index: int, name: string, risk: string, rationale: string, evidence: list<string>, symbols: list<string>, paths: list<array{glob: string, files: ?int}>, files: ?int, owners: list<string>, matchesNoFile: bool}>
+     * @return list<array{index: int, name: string, risk: 'low'|'medium'|'high'|'critical'|'unknown', rationale: string, evidence: list<string>, symbols: list<string>, paths: list<array{glob: string, files: ?int}>, files: ?int, owners: list<string>, matchesNoFile: bool}>
      */
     private static function areas(array $areas, ?array $bundle): array
     {
@@ -434,7 +446,13 @@ final class RiskProfilePageData
             $rows[] = [
                 'index' => $index,
                 'name' => (string) $area['name'],
-                'risk' => (string) $area['risk'],
+                'risk' => match ($area['risk']) {
+                    'critical' => 'critical',
+                    'high' => 'high',
+                    'medium' => 'medium',
+                    'low' => 'low',
+                    default => 'unknown',
+                },
                 'rationale' => (string) ($area['rationale'] ?? ''),
                 'evidence' => array_values(array_map('strval', $area['evidence'] ?? [])),
                 'symbols' => array_values(array_map('strval', $area['symbols'] ?? [])),
