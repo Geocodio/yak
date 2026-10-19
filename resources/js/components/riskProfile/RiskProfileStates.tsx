@@ -203,11 +203,28 @@ export function FailedState({ generation, repository }: { generation: RiskProfil
     );
 }
 
-export function NeverValidState({ file, repository }: { file: RiskProfileFile | null; repository: RiskProfileRepository }) {
+export function GenerationState({ generation, repository }: { generation: RiskProfileGeneration | null; repository: RiskProfileRepository }) {
+    if (generation?.status === 'running') {
+        return <GeneratingState generation={generation} />;
+    }
+
+    if (generation?.status === 'waiting') {
+        return <WaitingState generation={generation} />;
+    }
+
+    if (generation?.status === 'failed') {
+        return <FailedState generation={generation} repository={repository} />;
+    }
+
+    return null;
+}
+
+export function NeverValidState({ file, generation, repository }: { file: RiskProfileFile | null; generation: RiskProfileGeneration | null; repository: RiskProfileRepository }) {
     const lines = (file?.error ?? '').split('\n').filter((line) => line !== '');
 
     return (
         <div data-testid="risk-profile-never-valid" className="space-y-4">
+            <GenerationState generation={generation} repository={repository} />
             <Callout tone="fail" icon={<CircleAlert size={16} className="text-fail" />}>
                 <b>
                     <span className="font-mono">.yak/risk-profile.yml</span> has never been valid

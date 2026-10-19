@@ -226,3 +226,12 @@ it('returns the cap message for a PR at the 3,000-file listing cap', function ()
     ]);
     expect(runChangeCheck(Repository::factory()->create(), '12')['capMessage'])->toBe('GitHub lists at most 3,000 files for a PR, so Yak cannot see every file and would hold this change.');
 });
+
+it('shows files a budget-capped run could not classify as not checked', function () {
+    fakeChangeCheckPullRequest(9, [['filename' => 'a.php'], ['filename' => 'b.php']]);
+    app()->bind(RiskProfileMatcher::class, fn () => new RiskProfileMatcher(maxComparisons: 1));
+
+    $result = runChangeCheck(Repository::factory()->create(), '9');
+
+    expect(collect($result['files'])->every(fn (array $file): bool => $file['isUnchecked'] && $file['isHeld']))->toBeTrue();
+});

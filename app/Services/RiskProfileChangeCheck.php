@@ -47,10 +47,11 @@ class RiskProfileChangeCheck
     public function run(Repository $repository, string $input): array
     {
         $input = trim($input);
+        $settings = $repository->settings();
         $result = [
             'input' => $input, 'verdict' => 'invalid', 'kind' => null, 'label' => $input, 'url' => null, 'message' => null,
             'files' => [], 'heldAreas' => [], 'isFloorHeld' => false, 'asks' => [], 'capReason' => null, 'capMessage' => null, 'holdReason' => null,
-            'gateMode' => $repository->settings()->coOwnerGateMode() === 'enforce' ? 'enforce' : 'off',
+            'gateMode' => $settings->coOwnerGateMode() === 'enforce' ? 'enforce' : 'off',
         ];
 
         if (preg_match('/^#?(\d{1,9})$/', $input, $matches) === 1) {
@@ -64,7 +65,7 @@ class RiskProfileChangeCheck
             return [...$result, 'message' => self::INVALID];
         }
 
-        $profile = RiskProfilePageData::effectiveProfile($repository);
+        $profile = RiskProfilePageData::effectiveProfile($repository, $settings);
 
         if ($profile === null) {
             return [...$result, 'verdict' => 'no-profile', 'kind' => $kind];
@@ -99,7 +100,7 @@ class RiskProfileChangeCheck
                 $listingMessage = 'GitHub compares at most 300 files, so Yak cannot see every file and would hold this change.';
             }
 
-            $sha = app(RepositoryConfig::class)->snapshot($repository)->commitSha;
+            $sha = $settings->snapshot->commitSha;
             $codeOwners = $sha === null ? CodeOwners::empty() : RiskProfilePageData::codeOwners($repository, $sha);
         } catch (Throwable $exception) {
             report($exception);
@@ -137,7 +138,7 @@ class RiskProfileChangeCheck
             }
 
             $isFloor = (bool) array_filter($parts, fn (array $part): bool => $part['isFloor']);
-            $isUnchecked = (bool) array_filter($parts, fn (array $part): bool => $part['isUnchecked']);
+            $isUnchecked = (bool) array_filter($parts, fn (array $part): bool => $part['isUnchecked']) || ($classified['isCapped'] && $parts === []);
             $isHeld = $isFloor || $isUnchecked || ($areaIndex !== null && in_array($areas[$areaIndex]['risk'], RiskProfileMatcher::HELD_RISKS, true));
 
             if ($isHeld) {
@@ -172,8 +173,8 @@ class RiskProfileChangeCheck
         if ($isHeld && $heldAreas === []) {
             $holdReason = match (true) {
                 $isFloorHeld => "This change touches Yak's own config files, so Yak always holds it.",
-                $isUncheckedHeld => 'Yak could not check some files against the profile, so it would hold this change.',
-                default => $capMessage,
+                $capMessage !== null => $capMessage,
+                default => 'Yak could not check some files against the profile, so it would hold this change.',
             };
         }
 

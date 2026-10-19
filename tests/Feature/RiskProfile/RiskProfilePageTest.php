@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\RiskProfileMatcher;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
@@ -311,4 +313,24 @@ it('does not cache the map when the last change of the profile file could not be
         ->where('riskProfile.map.available', true)
         ->where('riskProfile.file.changedIn.sha', str_repeat('b', 40))
         ->where('riskProfile.file.changedIn.authorName', 'Ada'));
+});
+
+it('ignores an array change parameter', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    $this->actingAs(User::factory()->create())
+        ->get(route('repos.risk-profile.show', $repository) . '?change[]=x')
+        ->assertOk();
+});
+
+it('reports a failed tree fetch and degrades the map', function () {
+    Exceptions::fake();
+    configureFakeGitHubApp();
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/*/git/trees/*' => fn () => throw new ConnectionException('down')]);
+
+    assertRiskProfile($this, $repository, fn (AssertableInertia $reload) => $reload->where('riskProfile.state', 'profile'));
+
+    Exceptions::assertReported(ConnectionException::class);
 });

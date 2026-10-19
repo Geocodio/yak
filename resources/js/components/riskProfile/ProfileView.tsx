@@ -40,7 +40,7 @@ export function ProfileView({
         if (shouldFocus) {
             document.getElementById(`risk-tab-${next}`)?.focus();
         }
-        window.history.replaceState(null, '', next === 'areas' ? '#areas' : window.location.pathname + window.location.search);
+        window.history.replaceState(window.history.state, '', next === 'areas' ? '#areas' : window.location.pathname + window.location.search);
     }, []);
 
     const jumpToQuestions = useCallback(() => {
@@ -86,7 +86,7 @@ export function ProfileView({
                         type="button"
                         role="tab"
                         id={`risk-tab-${key}`}
-                        aria-controls={`risk-panel-${key}`}
+                        aria-controls={tab === key ? `risk-panel-${key}` : undefined}
                         tabIndex={tab === key ? 0 : -1}
                         aria-selected={tab === key}
                         data-testid={`risk-tab-${key}`}

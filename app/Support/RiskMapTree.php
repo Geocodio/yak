@@ -194,10 +194,6 @@ final class RiskMapTree
      * Sorts siblings largest first, keeps the largest twelve and folds the
      * rest into one leaf named "other" that lists every folded path.
      *
-     * @param  list<array<string, mixed>>  $nodes
-     * @return list<array<string, mixed>>
-     */
-    /**
      * @param  list<TreeRow>  $nodes
      * @return list<TreeRow>
      */

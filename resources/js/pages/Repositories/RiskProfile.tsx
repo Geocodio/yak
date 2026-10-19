@@ -150,7 +150,7 @@ function Body({ data, repository, changeTest }: { data: RiskProfilePage; reposit
     let body: ReactNode = null;
 
     if (data.state === 'never-valid') {
-        body = <NeverValidState file={data.file} repository={repository} />;
+        body = <NeverValidState file={data.file} generation={generation} repository={repository} />;
     } else if (data.state === 'empty') {
         if (generation?.status === 'running') {
             body = <GeneratingState generation={generation} />;

@@ -124,3 +124,16 @@ it('flags a dead low-risk area in its compact row and nests headings without ski
         document.querySelectorAll('[data-testid="risk-group-high"] > div h3').length
     JS))->toBe(1);
 });
+
+it('returns to the risk profile when going back from another page', function () {
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => areasTabProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php']);
+    $this->actingAs(User::factory()->create());
+
+    $page = visitAreasTab($repository)->assertSee('Areas, riskiest first');
+    $page->script("document.querySelector('a[href=\"" . route('tasks', absolute: false) . "\"]').click()");
+    $page->assertPathIs(route('tasks', absolute: false));
+    $page->script('window.history.back()');
+    $page->assertVisible('[data-testid="risk-tab-areas"]')->assertSee('Areas, riskiest first');
+});

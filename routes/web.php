@@ -98,6 +98,7 @@ Route::middleware(['auth'])->group(function () {
         ->where('repository', '.+');
     Route::get('repos/{repository}/risk-profile', RiskProfileController::class)
         ->name('repos.risk-profile.show')
+        ->middleware('throttle:30,1')
         ->where('repository', '.+');
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')

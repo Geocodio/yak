@@ -12,7 +12,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The read-only risk profile page. Nothing here writes to GitHub or the database.
+ * The read-only risk profile page. Writes nothing except the read-through config snapshot and the map cache.
  */
 class RiskProfileController extends Controller
 {
@@ -31,8 +31,8 @@ class RiskProfileController extends Controller
                 fn (): array => RiskProfilePageData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
                 'risk-profile',
             ),
-            'changeTest' => Inertia::optional(fn (): ?array => $request->filled('change')
-                ? app(RiskProfileChangeCheck::class)->run($repository, (string) $request->query('change'))
+            'changeTest' => Inertia::optional(fn (): ?array => is_string($change = $request->query('change')) && trim($change) !== ''
+                ? app(RiskProfileChangeCheck::class)->run($repository, $change)
                 : null),
         ]);
     }

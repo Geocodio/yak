@@ -297,3 +297,18 @@ it('shows a dash for coverage when the map is unavailable', function () {
         ->assertDontSee('% of files')
         ->assertNoJavascriptErrors();
 });
+
+it('shows the generation task on a never-valid profile', function () {
+    $repository = Repository::factory()->create();
+    $sha = str_repeat('d', 40);
+    $file = new ConfigFile('risk-profile.yml', null, "version: 9\n", null, 'version: required', $sha, null);
+    bindConfigSnapshot(new ConfigSnapshot('read', $sha, CarbonImmutable::now(), null, ['risk-profile.yml' => $file]));
+    fakeNoRiskProfilePullRequest();
+    YakTask::factory()->create(['repo' => $repository->slug, 'external_id' => 'risk-profile-b', 'status' => TaskStatus::Running, 'started_at' => now()->subMinutes(4)]);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.risk-profile.show', $repository))
+        ->assertSee('has never been valid')
+        ->assertSee('Task running')
+        ->assertNoJavascriptErrors();
+});

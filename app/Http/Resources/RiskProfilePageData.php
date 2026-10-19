@@ -163,9 +163,9 @@ final class RiskProfilePageData
      *
      * @return array<string, mixed>|null
      */
-    public static function effectiveProfile(Repository $repository): ?array
+    public static function effectiveProfile(Repository $repository, RepositorySettings $settings): ?array
     {
-        return self::profileFrom($repository->settings(), $repository);
+        return self::profileFrom($settings, $repository);
     }
 
     /** @return array<string, mixed>|null */
@@ -262,7 +262,9 @@ final class RiskProfilePageData
             $github = app(AppService::class);
             $installationId = (int) config('yak.channels.github.installation_id');
             $pullRequest = $github->findOpenPullRequestForBranch($installationId, $repository->github_full_name, self::DRAFT_BRANCH);
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return null;
         }
 
@@ -281,7 +283,8 @@ final class RiskProfilePageData
                 $areas = count($parsed['data']['areas'] ?? []);
                 $unknowns = count($parsed['data']['unknowns'] ?? []);
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
         }
 
         return [
@@ -358,7 +361,9 @@ final class RiskProfilePageData
             }
 
             $built = RiskMapTree::build($result['files'], array_map(fn (array $area): int => count($area['paths']), $areas));
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return $bundle;
         }
 
@@ -403,7 +408,9 @@ final class RiskProfilePageData
                 'date' => $commit['date'],
                 'pullRequest' => $github->findPullRequestForCommit($installationId, $repository->github_full_name, $commit['sha']),
             ];
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
+            report($exception);
+
             return null;
         }
     }
