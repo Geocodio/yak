@@ -1,9 +1,9 @@
 import type { Risk } from '@/types/riskProfile';
 
-const LABEL: Record<Risk, string> = { critical: 'Critical', high: 'High', unknown: 'Unknown', medium: 'Medium', low: 'Low' };
+export const LABEL: Record<Risk, string> = { critical: 'Critical', high: 'High', unknown: 'Unknown', medium: 'Medium', low: 'Low' };
 
 /** Text colour that clears 4.5:1 on each level's fill. */
-const INK: Record<Risk, string> = { critical: '#ffffff', high: '#1b1c1f', unknown: '#ffffff', medium: '#ffffff', low: '#1b1c1f' };
+export const INK: Record<Risk, string> = { critical: '#ffffff', high: '#1b1c1f', unknown: '#ffffff', medium: '#ffffff', low: '#1b1c1f' };
 
 export function RiskBadge({ risk }: { risk: Risk }) {
     return (

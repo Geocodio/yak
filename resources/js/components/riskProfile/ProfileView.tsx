@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { DeadAreasBanner, InvalidFileBanner, OpenQuestionsBanner, UnreachableBanner } from '@/components/riskProfile/ProfileBanners';
+import { defaultAreaIndex, RepositoryMap } from '@/components/riskProfile/RepositoryMap';
 import { StatTiles } from '@/components/riskProfile/StatTiles';
-import type { RiskProfilePage, RiskProfileRepository } from '@/types/riskProfile';
+import type { ChangeTestResult, RiskProfilePage, RiskProfileRepository } from '@/types/riskProfile';
 
 type Tab = 'map' | 'areas';
 
@@ -10,9 +11,20 @@ function tabFromHash(): Tab {
     return typeof window !== 'undefined' && window.location.hash.replace('#', '') === 'areas' ? 'areas' : 'map';
 }
 
-export function ProfileView({ page, repository, changeTest }: { page: RiskProfilePage; repository: RiskProfileRepository; changeTest?: ReactNode }) {
+export function ProfileView({
+    page,
+    repository,
+    changeTest,
+    changeTestResult = null,
+}: {
+    page: RiskProfilePage;
+    repository: RiskProfileRepository;
+    changeTest?: ReactNode;
+    changeTestResult?: ChangeTestResult | null;
+}) {
     const [tab, setTab] = useState<Tab>(tabFromHash);
     const profile = page.profile;
+    const [selectedArea, setSelectedArea] = useState<number | null>(() => defaultAreaIndex(page.profile?.areas ?? []));
 
     useEffect(() => {
         const onHashChange = () => setTab(tabFromHash());
@@ -84,7 +96,19 @@ export function ProfileView({ page, repository, changeTest }: { page: RiskProfil
                     </button>
                 ))}
             </div>
-            <div key={tab} role="tabpanel" id={`risk-panel-${tab}`} aria-labelledby={`risk-tab-${tab}`} data-testid={`risk-${tab}`} className="min-h-8" />
+            <div key={tab} role="tabpanel" id={`risk-panel-${tab}`} aria-labelledby={`risk-tab-${tab}`} data-testid={`risk-${tab}`} className="min-h-8">
+                {tab === 'map' && (
+                    <RepositoryMap
+                        map={page.map}
+                        areas={profile.areas}
+                        pins={changeTestResult?.files ?? []}
+                        pinLabel={changeTestResult ? (changeTestResult.kind === 'pr' ? `PR ${changeTestResult.label}` : changeTestResult.label) : null}
+                        selectedArea={selectedArea}
+                        onSelectArea={setSelectedArea}
+                        onOpenAreas={() => select('areas')}
+                    />
+                )}
+            </div>
         </div>
     );
 }
