@@ -26,7 +26,7 @@ class RepositoryActionController extends Controller
             if ($data['action'] === 'generate') {
                 $task = $profiles->generate($repository, 'dashboard');
 
-                return redirect()->route('tasks.show', $task)->with('success', 'Risk profile research queued. Review the draft in repository settings when it completes.');
+                return redirect()->route('tasks.show', $task)->with('success', 'Risk profile research queued. Yak opens a PR with .yak/risk-profile.yml when it finishes.');
             }
             if ($data['action'] === 'import') {
                 $content = json_decode($data['content'], true, 64, JSON_THROW_ON_ERROR);

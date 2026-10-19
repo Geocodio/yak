@@ -48,7 +48,9 @@ test('repository form rejects thresholds that weaken risk safeguards', function 
 });
 
 test('dashboard queues profile research without activating a profile', function () {
-    $this->post(route('repos.risk-profile', $this->repo), ['action' => 'generate'])->assertRedirect();
+    $this->post(route('repos.risk-profile', $this->repo), ['action' => 'generate'])
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Risk profile research queued. Yak opens a PR with .yak/risk-profile.yml when it finishes.');
     Queue::assertPushed(ResearchYakJob::class, fn ($job): bool => $job->task->source === 'dashboard');
     expect(app(RepositoryRiskProfiles::class)->active($this->repo->slug))->toBeNull();
 });

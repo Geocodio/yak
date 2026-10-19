@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 
@@ -66,4 +67,16 @@ test('dashboard pages have no javascript errors', function () {
     ]);
 
     $pages->assertNoJavaScriptErrors();
+});
+
+test('risk profile page has no accessibility issues', function () {
+    $this->actingAs(User::factory()->create());
+
+    $repository = Repository::factory()->create();
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php'], null);
+
+    $page = visit(route('repos.risk-profile.show', $repository));
+
+    $page->assertNoAccessibilityIssues();
 });
