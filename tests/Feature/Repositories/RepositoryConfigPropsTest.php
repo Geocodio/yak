@@ -11,19 +11,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia;
 
-function bindConfigSnapshot(ConfigSnapshot $snapshot): void
-{
-    app()->instance(RepositoryConfig::class, new class($snapshot) extends RepositoryConfig
-    {
-        public function __construct(private ConfigSnapshot $fixedSnapshot) {}
-
-        public function snapshot(Repository $repository): ConfigSnapshot
-        {
-            return $this->fixedSnapshot;
-        }
-    });
-}
-
 it('defers the .yak/ config prop on the edit page', function () {
     $user = User::factory()->create();
     $repository = Repository::factory()->create(['description' => 'db']);

@@ -25,6 +25,7 @@ use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
 use App\Http\Controllers\Repositories\RepositoryController;
+use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
 use App\Http\Controllers\SkillController;
@@ -94,6 +95,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('repos/github-detect', GitHubCiDetectController::class)->name('repos.github-detect');
     Route::get('repos/{repository}/edit', [RepositoryController::class, 'edit'])
         ->name('repos.edit')
+        ->where('repository', '.+');
+    Route::get('repos/{repository}/risk-profile', RiskProfileController::class)
+        ->name('repos.risk-profile.show')
         ->where('repository', '.+');
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')

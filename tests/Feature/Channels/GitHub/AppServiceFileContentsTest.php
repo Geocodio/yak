@@ -3,6 +3,7 @@
 use App\Channels\GitHub\AppService;
 use App\Services\RepositoryConfigParser;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -95,3 +96,21 @@ it('reports an oversize file as over the limit without parsing it', function (ar
     'with content length' => [['Content-Length' => (string) (2 * 1024 * 1024)]],
     'without content length' => [[]],
 ]);
+
+it('returns the latest commit that touched a path', function () {
+    Http::fake(fakeInstallationToken() + [
+        'api.github.com/repos/o/r/commits*' => Http::response([['sha' => str_repeat('b', 40), 'commit' => ['author' => ['name' => 'Ada', 'date' => '2026-10-09T10:00:00Z']]]]),
+    ]);
+
+    expect(app(AppService::class)->latestCommitForPath(99999, 'o/r', '.yak/risk-profile.yml', 'main'))
+        ->toBe(['sha' => str_repeat('b', 40), 'authorName' => 'Ada', 'date' => '2026-10-09T10:00:00Z']);
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'path=.yak%2Frisk-profile.yml')
+        && str_contains($request->url(), 'per_page=1') && str_contains($request->url(), 'sha=main'));
+});
+
+it('returns null when no commit touched the path and throws on a GitHub error', function () {
+    Http::fake(fakeInstallationToken() + ['api.github.com/repos/o/r/commits*' => Http::sequence()->push([])->push([], 503)]);
+
+    expect(app(AppService::class)->latestCommitForPath(99999, 'o/r', '.yak/risk-profile.yml', 'main'))->toBeNull();
+    app(AppService::class)->latestCommitForPath(99999, 'o/r', '.yak/risk-profile.yml', 'main');
+})->throws(RequestException::class);

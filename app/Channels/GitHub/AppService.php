@@ -672,6 +672,30 @@ class AppService
     }
 
     /**
+     * The newest commit at or before a ref that changed a path, or null when
+     * no commit did.
+     *
+     * @return array{sha: string, authorName: string, date: string}|null
+     */
+    public function latestCommitForPath(int $installationId, string $repoSlug, string $path, string $ref): ?array
+    {
+        $commit = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits", ['path' => $path, 'sha' => $ref, 'per_page' => 1])
+            ->throw()
+            ->json('0');
+
+        if (! is_array($commit)) {
+            return null;
+        }
+
+        return [
+            'sha' => (string) $commit['sha'],
+            'authorName' => (string) ($commit['commit']['author']['name'] ?? ''),
+            'date' => (string) ($commit['commit']['author']['date'] ?? ''),
+        ];
+    }
+
+    /**
      * Blob paths of a commit's full tree, or null when GitHub truncates the listing.
      *
      * @return list<string>|null
