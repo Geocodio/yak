@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { AreasTab } from '@/components/riskProfile/AreasTab';
+import { OpenQuestions } from '@/components/riskProfile/OpenQuestions';
 import { DeadAreasBanner, InvalidFileBanner, OpenQuestionsBanner, UnreachableBanner } from '@/components/riskProfile/ProfileBanners';
 import { defaultAreaIndex, RepositoryMap } from '@/components/riskProfile/RepositoryMap';
 import { StatTiles } from '@/components/riskProfile/StatTiles';
@@ -97,6 +99,12 @@ export function ProfileView({
                 ))}
             </div>
             <div key={tab} role="tabpanel" id={`risk-panel-${tab}`} aria-labelledby={`risk-tab-${tab}`} data-testid={`risk-${tab}`} className="min-h-8">
+                {tab === 'areas' && (
+                    <div className="space-y-4">
+                        <OpenQuestions unknowns={profile.unknowns} />
+                        <AreasTab page={page} changeTest={changeTestResult} />
+                    </div>
+                )}
                 {tab === 'map' && (
                     <RepositoryMap
                         map={page.map}
