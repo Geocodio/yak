@@ -365,17 +365,17 @@ function AvailableMap({
                 {RISKS.filter((risk) => (shares.byRisk.get(risk) ?? 0) > 0).map((risk) => (
                     <LegendItem key={risk} swatch={<Swatch style={{ backgroundColor: `var(--risk-${risk})` }} />}>
                         {LABEL[risk]}
-                        <small className="text-[11px] text-faint">{percentOf(shares.byRisk.get(risk) ?? 0, map.totalFiles)}</small>
+                        <small className="text-[11px] text-muted">{percentOf(shares.byRisk.get(risk) ?? 0, map.totalFiles)}</small>
                     </LegendItem>
                 ))}
                 <LegendItem swatch={<Swatch style={{ backgroundColor: 'var(--color-panel-2)', backgroundImage: NONE_FILL }} />}>
                     No area
-                    <small className="text-[11px] text-faint">{percentOf(shares.noArea, map.totalFiles)}</small>
+                    <small className="text-[11px] text-muted">{percentOf(shares.noArea, map.totalFiles)}</small>
                 </LegendItem>
                 {map.uncheckedFiles > 0 && (
                     <LegendItem testId="risk-map-legend-unchecked" swatch={<Swatch style={{ backgroundImage: UNCHECKED_FILL, boxShadow: 'inset 0 0 0 1px var(--risk-unknown)' }} />}>
                         Could not check
-                        <small className="text-[11px] text-faint">{percentOf(map.uncheckedFiles, map.totalFiles)}</small>
+                        <small className="text-[11px] text-muted">{percentOf(map.uncheckedFiles, map.totalFiles)}</small>
                     </LegendItem>
                 )}
                 {shares.hasFloor && <LegendItem testId="risk-map-legend-floor" swatch={<Swatch isDashed style={{ backgroundColor: FLOOR_FILL }} />}>Always held</LegendItem>}

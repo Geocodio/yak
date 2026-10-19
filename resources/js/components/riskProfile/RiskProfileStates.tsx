@@ -75,7 +75,7 @@ export function LoadingState({ branch }: { branch: string }) {
     return (
         <div data-testid="risk-profile-loading" role="status" aria-busy="true" className="space-y-4">
             <div className="flex items-start gap-3 rounded-card border border-hair bg-panel-2 p-4">
-                <RefreshCw size={16} className="mt-0.5 shrink-0 text-faint" />
+                <RefreshCw size={16} className="mt-0.5 shrink-0 text-muted" />
                 <div className="flex-1 space-y-2">
                     <div className="text-[13px] font-medium">Reading the file tree and risk profile from GitHub…</div>
                     <div className="font-mono text-[12px] text-muted">.yak/risk-profile.yml on {branch}</div>
@@ -97,7 +97,7 @@ export function EmptyState({ repository }: { repository: RiskProfileRepository }
         <Card testId="risk-profile-empty" icon={<ShieldCheck size={18} className="text-muted" />} title="No risk profile yet">
             <p className="text-[13px] text-muted">{WHAT_FOR}</p>
             <GenerateButton repository={repository} label="Generate risk profile" icon={<GitPullRequest size={13} />} />
-            <p className="text-[12px] text-faint">
+            <p className="text-[12px] text-muted">
                 Opens a PR with <span className="font-mono">.yak/risk-profile.yml</span> for review. Takes about ten minutes.
             </p>
             <ol className="mt-2 grid w-full gap-3 text-left text-[12px] text-muted md:grid-cols-3">
@@ -198,7 +198,7 @@ export function FailedState({ generation, repository }: { generation: RiskProfil
                     </ExternalLinkButton>
                 )}
             </div>
-            <p className="text-[12px] text-faint">A retry starts a new task and, when it succeeds, opens a new PR.</p>
+            <p className="text-[12px] text-muted">A retry starts a new task and, when it succeeds, opens a new PR.</p>
         </Card>
     );
 }
@@ -250,7 +250,7 @@ export function NeverValidState({ file, repository }: { file: RiskProfileFile | 
                     )}
                     <GenerateButton repository={repository} label="Generate a replacement" icon={<Sparkles size={13} />} />
                 </div>
-                <p className="text-[12px] text-faint">
+                <p className="text-[12px] text-muted">
                     A replacement opens a PR that overwrites <span className="font-mono">.yak/risk-profile.yml</span> for review.
                 </p>
             </Card>

@@ -94,7 +94,7 @@ export function ProfileView({
                         className={`flex h-6 items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] ${tab === key ? 'bg-panel font-medium text-text shadow-sm' : 'text-muted'}`}
                     >
                         {label}
-                        {count !== undefined && <small className="text-[11px] text-faint">{count}</small>}
+                        {count !== undefined && <small className="text-[11px] text-muted">{count}</small>}
                     </button>
                 ))}
             </div>

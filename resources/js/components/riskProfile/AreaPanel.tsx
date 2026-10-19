@@ -8,7 +8,7 @@ function initials(owner: string): string {
 }
 
 function Heading({ children }: { children: string }) {
-    return <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">{children}</div>;
+    return <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted">{children}</div>;
 }
 
 export function AreaPanel({ area }: { area: RiskArea | null }) {
@@ -34,7 +34,7 @@ export function AreaPanel({ area }: { area: RiskArea | null }) {
                     {area.paths.map(({ glob, files }) => (
                         <li key={glob} className="flex items-center gap-2 border-b border-hair px-2.5 py-1.5 font-mono text-[11px] last:border-b-0">
                             <span className="min-w-0 truncate">{glob}</span>
-                            {files !== null && <em className="ml-auto whitespace-nowrap font-sans text-[10.5px] not-italic text-faint">{files.toLocaleString('en-US')}</em>}
+                            {files !== null && <em className="ml-auto whitespace-nowrap font-sans text-[10.5px] not-italic text-muted">{files.toLocaleString('en-US')}</em>}
                         </li>
                     ))}
                 </ul>
@@ -57,7 +57,7 @@ export function AreaPanel({ area }: { area: RiskArea | null }) {
                 )}
             </div>
             {area.evidence.length === 0 ? (
-                <div className="text-[12px] text-faint">No evidence recorded</div>
+                <div className="text-[12px] text-muted">No evidence recorded</div>
             ) : (
                 <details data-testid="risk-map-evidence" className="group text-[12px] text-muted">
                     <summary className="flex cursor-pointer list-none items-center gap-1">

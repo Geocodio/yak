@@ -55,14 +55,14 @@ export function StatTiles({ profile, map }: { profile: RiskProfileDetail; map: R
                             <span className="rounded-[2px] bg-muted" style={{ flex: coverage.coveredFiles }} />
                             <span className="rounded-[2px] border border-hair bg-panel-2" style={{ flex: uncovered }} />
                         </div>
-                        <div className="mt-1.5 text-[11.5px] text-faint">
+                        <div className="mt-1.5 text-[11.5px] text-muted">
                             {coverage.coveredFiles.toLocaleString('en-US')} in an area, {uncovered.toLocaleString('en-US')} in none
                         </div>
                     </>
                 ) : (
                     <>
                         <Big value="–" />
-                        <div className="mt-2 text-[11.5px] text-faint">Needs the full file list</div>
+                        <div className="mt-2 text-[11.5px] text-muted">Needs the full file list</div>
                     </>
                 )}
             </Tile>

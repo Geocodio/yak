@@ -36,7 +36,7 @@ function FileList({ files }: { files: ChangeTestFile[] }) {
         <ul data-testid="change-test-files" className="mt-2 divide-y divide-hair rounded-card border border-hair bg-panel">
             {files.map((file) => (
                 <li key={file.path} data-testid="change-test-file" data-held={file.isHeld} className="flex flex-wrap items-center gap-2 px-3 py-1.5 text-[12.5px]">
-                    <CircleDot size={10} className={file.isHeld ? 'text-text' : 'text-faint'} aria-hidden />
+                    <CircleDot size={10} className={file.isHeld ? 'text-text' : 'text-muted'} aria-hidden />
                     <code className="min-w-0 flex-1 break-all font-mono text-[12px]">{file.path}</code>
                     <span className="flex items-center gap-1.5 text-muted">
                         {file.isFloor ? (
@@ -244,7 +244,7 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
                 ) : result && result.verdict !== 'invalid' ? (
                     <Result result={result} onRetry={() => request(result.input)} />
                 ) : (
-                    <p className="pt-6 text-[12.5px] leading-normal text-faint">
+                    <p className="pt-6 text-[12.5px] leading-normal text-muted">
                         The result appears here. It shows whether the change would be held and which areas it touches.
                     </p>
                 )}

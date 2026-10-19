@@ -77,7 +77,7 @@ function CoveragePanel({ map }: { map: AvailableMap }) {
                     <CoverageRow key={row.name} row={row} largest={largest} />
                 ))}
             </ul>
-            <p className="mt-3 flex flex-wrap gap-x-3 text-[11px] text-faint">
+            <p className="mt-3 flex flex-wrap gap-x-3 text-[11px] text-muted">
                 <span>Filled: in an area</span>
                 <span>Dark grey: always held</span>
                 <span>Tinted: could not check</span>
@@ -126,13 +126,13 @@ function GapsPanel({ map }: { map: AvailableMap }) {
 
 function Owners({ owners }: { owners: string[] }) {
     if (owners.length === 0) {
-        return <span className="text-faint">No CODEOWNERS entry</span>;
+        return <span className="text-muted">No CODEOWNERS entry</span>;
     }
 
     return (
         <span className="min-w-0 break-words">
             {owners.slice(0, 2).join(', ')}
-            {owners.length > 2 && <span className="text-faint"> +{owners.length - 2}</span>}
+            {owners.length > 2 && <span className="text-muted"> +{owners.length - 2}</span>}
         </span>
     );
 }
@@ -161,7 +161,7 @@ function AreaCard({ area, chip, isHit }: { area: RiskArea; chip: string | null; 
                     {area.paths.map(({ glob }) => (
                         <li key={glob} className="flex gap-2 font-mono text-[11px]">
                             <span className="min-w-0 truncate">{glob}</span>
-                            <em className="ml-auto font-sans not-italic text-faint">0</em>
+                            <em className="ml-auto font-sans not-italic text-muted">0</em>
                         </li>
                     ))}
                 </ul>

@@ -57,9 +57,11 @@ it('links the settings page to the risk profile page', function () {
 it('links the database draft block to the risk profile page', function () {
     $repository = Repository::factory()->create(['pr_review_enabled' => true]);
     fakeYakFiles([]);
+    fakeNoRiskProfilePullRequest();
     $this->actingAs(User::factory()->create());
 
     visit(route('repos.edit', $repository))
-        ->assertSee('Open risk profile')
+        ->click('Open risk profile')
+        ->assertPathIs('/repos/' . $repository->slug . '/risk-profile')
         ->assertNoJavascriptErrors();
 });

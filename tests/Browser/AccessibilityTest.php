@@ -73,10 +73,10 @@ test('risk profile page has no accessibility issues', function () {
     $this->actingAs(User::factory()->create());
 
     $repository = Repository::factory()->create();
-    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
-    fakeRiskMapGitHub(['app/Http/Kernel.php'], null);
+    fakeYakFiles(['risk-profile.yml' => riskMapProfileYaml()]);
+    fakeRiskMapGitHub(riskMapPaths());
 
     $page = visit(route('repos.risk-profile.show', $repository));
 
-    $page->assertNoAccessibilityIssues();
+    $page->assertVisible('[data-testid="risk-map-canvas"]')->assertNoAccessibilityIssues();
 });

@@ -296,3 +296,35 @@ function fakeNoRiskProfilePullRequest(): void
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + ['api.github.com/repos/*/pulls*' => Http::response([])]);
 }
+
+/** @return list<string> */
+function riskMapPaths(): array
+{
+    return array_merge(
+        array_map(fn ($i) => "app/Http/Middleware/M{$i}.php", range(1, 30)),
+        array_map(fn ($i) => "app/Support/S{$i}.php", range(1, 50)),
+        array_map(fn ($i) => "tests/Feature/T{$i}Test.php", range(1, 80)),
+        ['app/Http/Kernel.php', '.yak/config.yml', 'README.md'],
+    );
+}
+
+function riskMapProfileYaml(): string
+{
+    return <<<'YAML'
+version: 1
+areas:
+  - name: API middleware and HTTP kernel
+    risk: high
+    paths: ["app/Http/Middleware/**", "app/Http/Kernel.php"]
+    symbols: []
+    rationale: Every request passes through these.
+    evidence: ["Kernel registers global middleware"]
+  - name: Support helpers
+    risk: low
+    paths: ["app/Support/**"]
+    symbols: []
+    rationale: Small shared helpers.
+    evidence: ["Helpers only"]
+unknowns: []
+YAML;
+}
