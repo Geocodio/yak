@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\RiskProfilePageData;
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
+use App\Services\RiskProfileChangeCheck;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -14,7 +16,7 @@ use Inertia\Response;
  */
 class RiskProfileController extends Controller
 {
-    public function __invoke(Repository $repository): Response
+    public function __invoke(Request $request, Repository $repository): Response
     {
         return Inertia::render('Repositories/RiskProfile', [
             'repository' => fn (): array => [
@@ -29,6 +31,9 @@ class RiskProfileController extends Controller
                 fn (): array => RiskProfilePageData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
                 'risk-profile',
             ),
+            'changeTest' => Inertia::optional(fn (): ?array => $request->filled('change')
+                ? app(RiskProfileChangeCheck::class)->run($repository, (string) $request->query('change'))
+                : null),
         ]);
     }
 }

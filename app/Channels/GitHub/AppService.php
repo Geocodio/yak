@@ -1156,6 +1156,48 @@ GRAPHQL;
     }
 
     /**
+     * One pull request, or null when it does not exist. Any other failure
+     * throws, so an outage is not mistaken for a missing PR.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function getPullRequestOrFail(int $installationId, string $repoSlug, int $prNumber): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        return (array) $response->throw()->json();
+    }
+
+    /**
+     * The files a branch changes against a base, or null when either ref does
+     * not exist. GitHub returns at most 300 files.
+     *
+     * @return list<array{filename: string, previous_filename?: string}>|null
+     */
+    public function compareFilesOrFail(int $installationId, string $repoSlug, string $base, string $head): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get('https://api.github.com/repos/' . $repoSlug . '/compare/' . self::encodeRef($base) . '...' . self::encodeRef($head));
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        return array_values((array) $response->throw()->json('files'));
+    }
+
+    /** A ref for a URL path: every segment is percent-encoded and the slashes are too. */
+    public static function encodeRef(string $ref): string
+    {
+        return implode('%2F', array_map('rawurlencode', explode('/', $ref)));
+    }
+
+    /**
      * Every commit on a PR, oldest first. Used to count commits that
      * someone other than Yak pushed to a Yak branch before it merged.
      *
