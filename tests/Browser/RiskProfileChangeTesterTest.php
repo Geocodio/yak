@@ -87,7 +87,9 @@ it('reports a PR that is not found', function () {
     $repository = setUpChangeTester();
 
     testChange(visit(route('repos.risk-profile.show', $repository)), '#9999')
-        ->assertSee('PR #9999 was not found in Geocodio/geocodio.')
+        ->assertSee('PR #9999 was not found in Geocodio/geocodio')
+        ->assertSee('The number may be wrong, or the PR may belong to another repository.')
+        ->assertMissing('[data-testid="risk-map-pin"]')
         ->assertNoJavascriptErrors();
 });
 
@@ -97,6 +99,7 @@ it('reports a GitHub error and offers Try again', function () {
     $page = visit(route('repos.risk-profile.show', $repository));
     testChange($page, '77')
         ->assertSee('Could not read the change from GitHub. Try again.')
+        ->assertMissing('[data-testid="risk-map-pin"]')
         ->assertVisible('[data-testid="change-test-retry"]');
     $page->click('[data-testid="change-test-retry"]')
         ->assertSee('Could not read the change from GitHub. Try again.')
@@ -128,7 +131,7 @@ it('shows the loading state while the request is in flight', function () {
         ->assertSee('Testing…')
         ->assertSee('Fetching the files in #4790 from GitHub…')
         ->assertSee('Then matching each path against the areas on')
-        ->assertAttribute('[data-testid="change-test-submit"]', 'disabled', '')
+        ->assertAttribute('[data-testid="change-test-submit"]', 'aria-disabled', 'true')
         ->assertSee('Would be held')
         ->assertNoJavascriptErrors();
 });
@@ -165,5 +168,28 @@ it('restores the result from the query string and clears it', function () {
         ->click('[data-testid="change-test-clear"]')
         ->assertSee('The result appears here.')
         ->assertDontSee('Would be held:')
+        ->assertMissing('[data-testid="risk-map-pin"]')
         ->assertNoJavascriptErrors();
+});
+
+it('keeps focus in the input after a failed validation and describes it with the error', function () {
+    $repository = setUpChangeTester();
+
+    $page = visit(route('repos.risk-profile.show', $repository));
+    $page->click('[data-testid="change-test-submit"]')->assertSee('Enter a PR number or a branch name to test.');
+
+    expect($page->script('document.activeElement.getAttribute("data-testid")'))->toBe('change-test-input')
+        ->and($page->script('(() => { const input = document.querySelector(\'[data-testid="change-test-input"]\'); return input.getAttribute("aria-describedby").split(" ").includes(document.querySelector(\'[data-testid="change-test-error"]\').id); })()'))->toBeTrue()
+        ->and($page->script('document.querySelector(\'[data-testid="change-test-live"]\').getAttribute("role")'))->toBe('status');
+});
+
+it('keeps focus on the Test button while a request is in flight', function () {
+    $repository = setUpChangeTester([4790 => [['filename' => 'app/Http/Kernel.php']]]);
+
+    $page = visit(route('repos.risk-profile.show', $repository));
+    $page->script('(() => { const send = XMLHttpRequest.prototype.send; XMLHttpRequest.prototype.send = function (...args) { setTimeout(() => send.apply(this, args), 1000); }; const original = window.fetch; window.fetch = (...args) => new Promise((resolve) => setTimeout(() => resolve(original(...args)), 1000)); })()');
+    $page->fill('[data-testid="change-test-input"]', '4790')->click('[data-testid="change-test-submit"]')->assertSee('Testing…');
+
+    expect($page->script('document.activeElement.getAttribute("data-testid")'))->toBe('change-test-submit');
+    $page->assertSee('Would be held');
 });

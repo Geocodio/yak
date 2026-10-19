@@ -1,7 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Button, TextInput } from '@geocodio/console-ui';
 import { AlertTriangle, CircleDot, Play, RefreshCw } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { RiskBadge } from '@/components/riskProfile/RiskBadge';
 import type { ChangeTestFile, ChangeTestResult, Risk } from '@/types/riskProfile';
@@ -22,7 +22,7 @@ function labelFor(input: string): string {
     return /^#?\d+$/.test(input) ? `#${input.replace('#', '')}` : input;
 }
 
-function Callout({ role = 'status', tone, icon, children }: { role?: 'status' | 'alert'; tone: 'held' | 'plain'; icon: ReactNode; children: ReactNode }) {
+function Callout({ role, tone, icon, children }: { role?: 'alert'; tone: 'held' | 'plain'; icon: ReactNode; children: ReactNode }) {
     return (
         <div role={role} className={`flex items-start gap-2 rounded-card px-3 py-2.5 text-[12.5px] leading-snug ${tone === 'held' ? 'bg-warn-soft' : 'bg-panel-2'}`}>
             <span className="mt-0.5 flex-none text-muted">{icon}</span>
@@ -65,11 +65,18 @@ function Result({ result, onRetry }: { result: ChangeTestResult; onRetry: () => 
     }
 
     if (result.verdict === 'no-profile') {
-        return <Callout tone="plain" icon={<AlertTriangle size={14} />}><b>There is no profile to test against</b></Callout>;
+        return null;
     }
 
     if (result.verdict === 'not-found') {
-        return <Callout tone="plain" icon={<AlertTriangle size={14} />}><p>{result.message}</p></Callout>;
+        const [title, ...detail] = (result.message ?? '').split(/\.\s+/);
+
+        return (
+            <Callout tone="plain" icon={<AlertTriangle size={14} />}>
+                <p><b>{title}</b></p>
+                {detail.length > 0 && <p className="text-[12px] text-muted">{detail.join('. ')}</p>}
+            </Callout>
+        );
     }
 
     if (result.verdict === 'error') {
@@ -128,13 +135,22 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
     const [validationMessage, setValidationMessage] = useState<string | null>(null);
     const [pendingLabel, setPendingLabel] = useState<string | null>(null);
     const hasRestored = useRef(false);
+    const latestRequest = useRef(0);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const errorId = useId();
+    const helperId = useId();
 
     const request = (value: string) => {
+        const requestId = ++latestRequest.current;
         setPendingLabel(labelFor(value));
         router.reload({
             only: ['changeTest'],
             data: { change: value },
-            onFinish: () => setPendingLabel(null),
+            onFinish: () => {
+                if (requestId === latestRequest.current) {
+                    setPendingLabel(null);
+                }
+            },
         });
     };
 
@@ -154,8 +170,13 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
     const submit = () => {
         const value = input.trim();
 
+        if (pendingLabel !== null) {
+            return;
+        }
+
         if (!isValidChangeInput(value)) {
             setValidationMessage(EMPTY_MESSAGE);
+            inputRef.current?.focus();
 
             return;
         }
@@ -165,6 +186,8 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
     };
 
     const clear = () => {
+        latestRequest.current++;
+        setPendingLabel(null);
         setInput('');
         setValidationMessage(null);
         router.reload({ only: ['changeTest'], data: { change: undefined } });
@@ -184,7 +207,9 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
                 <h3 className="text-[13px] font-semibold">Test against a change</h3>
                 <div className="mt-2 flex items-center gap-2">
                     <TextInput
+                        ref={inputRef}
                         data-testid="change-test-input"
+                        aria-describedby={message ? `${errorId} ${helperId}` : helperId}
                         aria-label="PR number or branch"
                         aria-invalid={message !== null}
                         placeholder="PR or branch"
@@ -193,7 +218,7 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
                         onChange={(event) => setInput(event.target.value)}
                         className="min-w-0 flex-1"
                     />
-                    <Button type="submit" data-testid="change-test-submit" disabled={isBusy} icon={isBusy ? <RefreshCw size={13} /> : <Play size={13} />}>
+                    <Button type="submit" data-testid="change-test-submit" aria-disabled={isBusy} icon={isBusy ? <RefreshCw size={13} /> : <Play size={13} />}>
                         {isBusy ? 'Testing…' : 'Test'}
                     </Button>
                     <Button type="button" variant="tertiary" data-testid="change-test-clear" onClick={clear}>
@@ -201,14 +226,14 @@ export function ChangeTester({ result = null, branch }: { result?: ChangeTestRes
                     </Button>
                 </div>
                 {message && (
-                    <p data-testid="change-test-error" role="alert" className="mt-1.5 flex items-center gap-1 text-[12px] text-warn">
+                    <p id={errorId} data-testid="change-test-error" role="alert" className="mt-1.5 flex items-center gap-1 text-[12px] text-warn">
                         <AlertTriangle size={12} aria-hidden />
                         {message}
                     </p>
                 )}
-                <p className="mt-1.5 text-[12px] text-muted">A branch name or PR number. Reads the profile on {branch}. Nothing is saved.</p>
+                <p id={helperId} className="mt-1.5 text-[12px] text-muted">A branch name or PR number. Reads the profile on {branch}. Nothing is saved.</p>
             </form>
-            <div className="min-w-0">
+            <div role="status" aria-live="polite" data-testid="change-test-live" className="min-w-0">
                 {isBusy ? (
                     <div data-testid="change-test-loading">
                         <Callout tone="plain" icon={<RefreshCw size={14} />}>
