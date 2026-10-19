@@ -8,6 +8,16 @@ namespace App\Support;
  * children, so the payload stays small for large repositories. Files whose
  * area, floor or owner rule could not be evaluated are counted apart from
  * covered files and from gaps, since neither claim is known to be true.
+ *
+ * Node shape: id, name, kind, files, paths, children, plus segments on leaves.
+ * kind is "directory", "files" (loose files of a directory, or of the root
+ * with paths [""]) or "other" (siblings past the twelfth, which also carry
+ * pathCount; paths holds at most 50). Synthetic ids end in a NUL byte plus the
+ * kind, so no repository path can collide with them. Consumers read the
+ * directory a node stands for from paths, never from name or id.
+ * Coverage rows split every file into covered, unchecked, floor or gap
+ * (files = coveredFiles + uncheckedFiles + floorFiles + gap files). Gap rows
+ * with isAggregate true stand for folded directories and have no single path.
  */
 final class RiskMapTree
 {
@@ -17,12 +27,14 @@ final class RiskMapTree
 
     private const MAX_GAPS = 5;
 
+    private const MAX_OTHER_PATHS = 50;
+
     private const ROOT_FILES = 'root files';
 
     /**
      * @param  array<string, array{areas: list<int>, area: ?int, isFloor: bool, owners: list<string>, isUnchecked?: bool, globHits?: list<array{0: int, 1: int}>}>  $files
      * @param  list<int>  $globCounts  globs per area
-     * @return array{totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<array<string, mixed>>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int}>, gaps: list<array{path: string, files: int}>, areaFiles: list<int>, areaPathFiles: list<list<int>>, areaOwners: list<list<string>>}
+     * @return array{totalFiles: int, coveredFiles: int, uncheckedFiles: int, tree: list<array<string, mixed>>, coverage: list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>, gaps: list<array{path: string, files: int, isAggregate: bool}>, areaFiles: list<int>, areaPathFiles: list<list<int>>, areaOwners: list<list<string>>}
      */
     public static function build(array $files, array $globCounts): array
     {
@@ -95,7 +107,7 @@ final class RiskMapTree
             $nodes[] = self::node((string) $name, (string) $name, $dir);
         }
         if ($root['files'] !== []) {
-            $nodes[] = self::leaf(self::ROOT_FILES, self::ROOT_FILES, [], $root['files']);
+            $nodes[] = self::leaf("\0files", self::ROOT_FILES, 'files', [''], $root['files']);
         }
 
         return self::fold($nodes, '');
@@ -108,7 +120,7 @@ final class RiskMapTree
     private static function node(string $id, string $name, array $dir): array
     {
         if ($dir['dirs'] === []) {
-            return self::leaf($id, $name, [$id], $dir['files']);
+            return self::leaf($id, $name, 'directory', [$id], $dir['files']);
         }
 
         $children = [];
@@ -116,13 +128,14 @@ final class RiskMapTree
             $children[] = self::node("{$id}/{$childName}", (string) $childName, $child);
         }
         if ($dir['files'] !== []) {
-            $children[] = self::leaf("{$id}/files", 'files', [$id], $dir['files']);
+            $children[] = self::leaf("{$id}\0files", 'files', 'files', [$id], $dir['files']);
         }
         $children = self::fold($children, $id);
 
         return [
             'id' => $id,
             'name' => $name,
+            'kind' => 'directory',
             'files' => array_sum(array_column($children, 'files')),
             'paths' => [$id],
             'children' => $children,
@@ -134,7 +147,7 @@ final class RiskMapTree
      * @param  list<array<string, mixed>>  $files
      * @return array<string, mixed>
      */
-    private static function leaf(string $id, string $name, array $paths, array $files): array
+    private static function leaf(string $id, string $name, string $kind, array $paths, array $files): array
     {
         $counts = [];
         foreach ($files as $file) {
@@ -145,6 +158,7 @@ final class RiskMapTree
         return [
             'id' => $id,
             'name' => $name,
+            'kind' => $kind,
             'files' => count($files),
             'paths' => $paths,
             'children' => [],
@@ -192,11 +206,15 @@ final class RiskMapTree
             }
         }
 
+        $allPaths = array_merge(...array_column($folded, 'paths'));
+
         $other = [
-            'id' => $parentId === '' ? '(other)' : "{$parentId}/(other)",
+            'id' => "{$parentId}\0other",
             'name' => 'other',
+            'kind' => 'other',
             'files' => array_sum(array_column($folded, 'files')),
-            'paths' => array_merge(...array_column($folded, 'paths')),
+            'paths' => array_slice($allPaths, 0, self::MAX_OTHER_PATHS),
+            'pathCount' => count($allPaths),
             'children' => [],
             'segments' => self::segments($counts),
         ];
@@ -219,7 +237,7 @@ final class RiskMapTree
 
     /**
      * @param  list<array<string, mixed>>  $tree
-     * @return list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int}>
+     * @return list<array{name: string, files: int, coveredFiles: int, uncheckedFiles: int, floorFiles: int}>
      */
     private static function coverage(array $tree): array
     {
@@ -232,16 +250,17 @@ final class RiskMapTree
                 'files' => $node['files'],
                 'coveredFiles' => $sum(fn (array $s): bool => $s['area'] !== null && ! $s['isUnchecked']),
                 'uncheckedFiles' => $sum(fn (array $s): bool => $s['isUnchecked']),
+                'floorFiles' => $sum(fn (array $s): bool => $s['area'] === null && $s['isFloor'] && ! $s['isUnchecked']),
             ];
         }, $tree);
     }
 
     /**
      * Directories with the most files in no area. Floor and unchecked files
-     * are not gaps. A "files" leaf reports as its parent directory.
+     * are not gaps. A "files" leaf reports as its parent directory, and a folded "other" leaf is an aggregate.
      *
      * @param  list<array<string, mixed>>  $tree
-     * @return list<array{path: string, files: int}>
+     * @return list<array{path: string, files: int, isAggregate: bool}>
      */
     private static function gaps(array $tree): array
     {
@@ -254,12 +273,11 @@ final class RiskMapTree
             }
             $uncovered = array_sum(array_column(array_filter($node['segments'], fn (array $s): bool => $s['area'] === null && ! $s['isFloor'] && ! $s['isUnchecked']), 'files'));
             if ($uncovered > 0) {
-                $path = match (true) {
-                    $node['name'] === 'files' && str_contains($node['id'], '/') => dirname($node['id']),
-                    $node['name'] === 'other' => str_replace('/(other)', ' (other)', $node['id']),
-                    default => $node['id'],
-                };
-                $gaps[] = ['path' => $path, 'files' => $uncovered];
+                $isAggregate = $node['kind'] === 'other';
+                $path = $isAggregate
+                    ? ltrim(str_replace("\0other", ' (other)', $node['id']))
+                    : ($node['paths'][0] === '' ? self::ROOT_FILES : $node['paths'][0]);
+                $gaps[] = ['path' => $path, 'files' => $uncovered, 'isAggregate' => $isAggregate];
             }
         };
         array_map($walk, $tree);
