@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\TaskStatus;
 use App\Jobs\SendCoOwnerMessagesJob;
 use App\Models\CoOwnerRequest;
 use App\Services\CoOwner\CoOwnerDecisionException;
@@ -22,7 +23,7 @@ class SweepCoOwnerRequestsCommand extends Command
      */
     public function handle(CoOwnerDecisions $decisions): int
     {
-        $expired = CoOwnerRequest::where('status', CoOwnerRequestStatus::Pending)->where('expires_at', '<=', now())->get();
+        $expired = CoOwnerRequest::where('status', CoOwnerRequestStatus::Pending)->whereHas('task', fn ($query) => $query->where('status', TaskStatus::AwaitingCoOwner))->where('expires_at', '<=', now())->get();
 
         foreach ($expired as $request) {
             try {
@@ -33,6 +34,7 @@ class SweepCoOwnerRequestsCommand extends Command
         }
 
         $due = CoOwnerRequest::where('status', CoOwnerRequestStatus::Pending)
+            ->whereHas('task', fn ($query) => $query->where('status', TaskStatus::AwaitingCoOwner))
             ->whereNull('reminded_at')
             ->where('held_at', '<=', now()->subDays(self::REMINDER_AFTER_DAYS))
             ->get();

@@ -4,6 +4,7 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
 use App\Jobs\SendCoOwnerMessagesJob;
 use App\Models\CoOwnerRequest;
+use App\Models\YakTask;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Bus;
 
@@ -57,4 +58,14 @@ it('is scheduled hourly', function () {
     expect($events)->toHaveCount(1)
         ->and($events->first()->expression)->toBe('0 * * * *')
         ->and($events->first()->withoutOverlapping)->toBeTrue();
+});
+
+it('ignores a pending request whose task is no longer awaiting a co-owner', function () {
+    $request = CoOwnerRequest::factory()->create(['held_at' => now()->subDays(8), 'expires_at' => now()->subDay()]);
+    YakTask::whereKey($request->task_id)->update(['status' => TaskStatus::AwaitingCi]);
+
+    $this->artisan('yak:co-owner:sweep')->assertSuccessful();
+
+    expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::Pending)->and($request->fresh()->reminded_at)->toBeNull();
+    Bus::assertNotDispatched(SendCoOwnerMessagesJob::class);
 });

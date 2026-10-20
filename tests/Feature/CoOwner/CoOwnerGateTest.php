@@ -297,3 +297,22 @@ it('keeps the pending request when a concurrent run holds the task from a stale 
 
     Bus::assertDispatchedTimes(SendCoOwnerMessagesJob::class, 1);
 });
+
+it('closes the old pending request when a retry passes the gate', function () {
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Middleware/Authenticate.php')]) + ['*' => Http::response([])]);
+    $first = app(CoOwnerGate::class)->hold($this->task, $this->repository);
+    YakTask::whereKey($this->task->id)->update(['status' => TaskStatus::AwaitingCi]);
+    fakeYakFiles(['config.yml' => gateConfig('off'), 'risk-profile.yml' => riskProfileYaml()]);
+    $repository = Repository::find($this->repository->id);
+
+    expect(app(CoOwnerGate::class)->hold($this->task->fresh(), $repository))->toBeNull()
+        ->and($first->fresh()->status)->toBe(CoOwnerRequestStatus::Superseded);
+});
+
+it('leaves the pending request of a still-held task alone when the gate passes', function () {
+    $request = CoOwnerRequest::factory()->create();
+    fakeYakFiles(['config.yml' => gateConfig('off')]);
+
+    expect(app(CoOwnerGate::class)->hold($request->task, $this->repository))->toBeNull()
+        ->and($request->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+});

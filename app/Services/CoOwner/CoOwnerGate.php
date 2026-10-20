@@ -49,7 +49,7 @@ class CoOwnerGate
 
         try {
             if ($repository->settings()->coOwnerGateMode() !== 'enforce') {
-                return null;
+                return $this->passed($task);
             }
 
             $existing = $this->existingRequest($task);
@@ -60,7 +60,7 @@ class CoOwnerGate
             if ($isExempt) {
                 $outcome = $this->judgeExempt($task, $repository);
                 if ($outcome === null) {
-                    return null;
+                    return $this->passed($task);
                 }
 
                 return $this->createRequest($task, $repository, $outcome);
@@ -68,12 +68,12 @@ class CoOwnerGate
 
             $requester = $this->requesters->for($task);
             if ($requester !== null && $this->writeAccess->hasWriteAccess($repository, $requester)) {
-                return null;
+                return $this->passed($task);
             }
 
             $outcome = $this->judge($task, $repository);
             if ($outcome === null) {
-                return null;
+                return $this->passed($task);
             }
         } catch (Throwable $exception) {
             report($exception);
@@ -81,6 +81,27 @@ class CoOwnerGate
         }
 
         return $this->createRequest($task, $repository, $outcome);
+    }
+
+    /**
+     * The change passes the gate: a Pending request left over from an earlier hold is closed unless the task is still held.
+     */
+    private function passed(YakTask $task): null
+    {
+        if (! CoOwnerRequest::where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Pending)->exists()) {
+            return null;
+        }
+
+        DB::transaction(function () use ($task): void {
+            $locked = YakTask::whereKey($task->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status !== TaskStatus::AwaitingCoOwner) {
+                CoOwnerRequest::where('task_id', $locked->id)->where('status', CoOwnerRequestStatus::Pending)
+                    ->update(['status' => CoOwnerRequestStatus::Superseded, 'decided_at' => now()]);
+            }
+        });
+
+        return null;
     }
 
     private function isExempt(YakTask $task): bool
