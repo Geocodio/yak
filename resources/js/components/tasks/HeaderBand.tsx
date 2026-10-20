@@ -142,6 +142,7 @@ export function HeaderBand({
 
                     <Menu
                         trigger={<MoreHorizontal size={15} />}
+                        aria-label="More actions"
                         className="h-8 w-8 px-0"
                         align="end"
                         items={[

@@ -6,6 +6,8 @@
     "active": true
   },
   "redirect_url": "https://{{ yak_domain }}",
+  "callback_urls": ["https://{{ yak_domain }}/settings/github/callback"],
+  "request_oauth_on_install": false,
   "public": false,
   "default_permissions": {
     "contents": "write",

@@ -114,7 +114,30 @@ Path globs may contain letters, digits, `_`, `.`, `/`, `-`, `*` and `?`.
 
 ### The co-owner gate
 
-`co_owner_gate.mode` is parsed and stored today, and the stay-on-enforce rule above already applies to it. The gate itself, which holds risky changes until a code owner co-owns them, arrives in a later release. Setting `enforce` now does not hold any PR.
+```yaml
+co_owner_gate:
+  mode: enforce
+```
+
+`mode` is `off` (the default) or `enforce`. The repository page shows the gate's status: whether a risk profile is present, how many CODEOWNERS owners resolve to linked users with write access, and the fallback owner. If enforce is on but nobody can be asked, the page says so and held tasks stay held until an owner resolves.
+
+**What is held.** With enforce on, a Yak PR waits for a code owner when it touches an area rated `critical`, `high` or `unknown` in the risk profile, or any of Yak's own config files (`.yak/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`). System tasks (setup, review and research modes, Sentry and flaky-test tasks) skip the area check, but a change to a config file still holds them. A held task shows as "Needs co-owner" on the task list and does not open its PR until someone approves.
+
+**Who is asked.** Up to three people, in this order:
+
+1. The person who requested changes last, if there was a round.
+2. CODEOWNERS owners for the touched paths: GitHub logins, teams (expanded with the app's Organization Members read permission) and emails. Only owners who have linked their GitHub account in Yak and have write access to the repository count.
+3. The repository's default responsible user (the fallback owner).
+
+Write access means an admin, maintain or write role, or the push permission. Yak checks it live on GitHub and caches the answer for 10 minutes.
+
+**Linking GitHub.** Each person connects their account in **Settings > Profile**, in the "GitHub account" card. The operator setup is in [Channels](channels.md#user-sign-in-for-co-owners). Yak keeps only the GitHub id and login.
+
+**Acting on a hold.** Co-owners act from Slack (Approve, Reject, and for the requester Withdraw) or from the panel on the task page, which also lets them request changes with feedback. Approve opens the PR. Reject and Withdraw delete the branch. Request changes runs a follow-up task with the feedback.
+
+**Timing.** Yak reminds the asked people after 2 days. After 7 days the request expires and the task stops; the branch is kept.
+
+**After approval.** Follow-ups on an approved PR push without a new approval. When a follow-up reaches a new risky area, Yak comments on the PR to say so. On repositories where the gate is enforced, Yak never approves its own PRs.
 
 ## preview.yml
 
