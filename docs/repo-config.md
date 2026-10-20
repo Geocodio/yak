@@ -119,9 +119,9 @@ co_owner_gate:
   mode: enforce
 ```
 
-`mode` is `off` (the default) or `enforce`. The repository page shows the gate's status: whether a risk profile is present, how many CODEOWNERS owners resolve to linked users with write access, and the fallback owner. If enforce is on but nobody can be asked, the page says so and held tasks stay held until an owner resolves.
+`mode` is `off` (the default) or `enforce`. The repository page shows the gate's status: whether a risk profile is present, how many CODEOWNERS owners resolve to linked users with write access, and the fallback owner. If enforce is on but nobody can be asked, the page says so, and held changes wait for anyone with write access who has linked their GitHub account, who can approve from the task page.
 
-**What is held.** With enforce on, a Yak PR waits for a code owner when it touches an area rated `critical`, `high` or `unknown` in the risk profile, or any of Yak's own config files (`.yak/**`, `CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`). System tasks (setup, review and research modes, Sentry and flaky-test tasks) skip the area check, but a change to a config file still holds them. A held task shows as "Needs co-owner" on the task list and does not open its PR until someone approves.
+**What is held.** With enforce on, a Yak PR waits for a code owner when it touches an area rated `critical`, `high` or `unknown` in the risk profile, or any of Yak's own config files (`.yak/**`, CODEOWNERS in any standard location: `CODEOWNERS`, `.github/CODEOWNERS` or `docs/CODEOWNERS`, `AGENTS.md`, `CLAUDE.md`). System tasks (setup, review and research modes, Sentry and flaky-test tasks) skip the area check, but a change to a config file still holds them. A held task shows as "Needs co-owner" on the task list and does not open its PR until someone approves.
 
 **Who is asked.** Up to three people, in this order:
 
