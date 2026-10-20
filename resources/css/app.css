@@ -82,6 +82,15 @@
 }
 
 /*
+ * The typography plugin wraps inline code in literal backticks. The code
+ * styling already marks it, so the backticks only add noise.
+ */
+.prose :where(code):not(:where(pre code))::before,
+.prose :where(code):not(:where(pre code))::after {
+    content: none;
+}
+
+/*
  * Motion on touch screens. A tap shrinks the pressed control a little so it
  * answers before the next page arrives, and rows that join a list fade in
  * (`useRowEntrance` assigns the classes). Reduce Motion turns all of it off.

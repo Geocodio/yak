@@ -191,6 +191,22 @@ test('review context turn is built from context json', function () {
             ->where('thread.0.bodyHtml', fn (string $html) => str_contains($html, 'stabilizes the retry logic')));
 });
 
+test('review context points uploaded images at the dashboard proxy', function () {
+    $asset = 'f38ea4ee-97ce-48fc-a48e-a049c20f7cd4';
+    $task = YakTask::factory()->create([
+        'mode' => TaskMode::Review,
+        'context' => json_encode([
+            'pr_number' => 42,
+            'body' => "![Screenshot](https://github.com/user-attachments/assets/{$asset})",
+        ]),
+    ]);
+
+    $this->get(route('tasks.show', $task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('thread.0.bodyHtml', fn (string $html) => str_contains($html, 'src="' . route('tasks.pr-images.show', [$task, $asset]) . '"')
+                && ! str_contains($html, 'github.com/user-attachments')));
+});
+
 test('composer state is steering for a running task', function () {
     $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
 

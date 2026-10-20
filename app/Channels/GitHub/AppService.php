@@ -198,6 +198,26 @@ class AppService
     }
 
     /**
+     * Fetch a pull request's body as GitHub renders it. Images uploaded to a
+     * private repository appear there as signed `private-user-images` URLs
+     * that load without a GitHub session for about five minutes.
+     */
+    public function getPullRequestBodyHtml(int $installationId, string $repoSlug, int $prNumber): ?string
+    {
+        $token = $this->getInstallationToken($installationId);
+
+        $response = Http::withToken($token)
+            ->withHeaders(['Accept' => 'application/vnd.github.html+json'])
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        return $response->json('body_html');
+    }
+
+    /**
      * Fetch a repository's current GitHub identity.
      *
      * Accepts a possibly-stale `owner/name`: GitHub redirects requests for a

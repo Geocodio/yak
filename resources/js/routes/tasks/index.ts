@@ -3,6 +3,7 @@ import setupCard from './setup-card'
 import messages from './messages'
 import queuedMessages from './queued-messages'
 import clarificationAnswers from './clarification-answers'
+import prImages from './pr-images'
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
 * @see app/Http/Controllers/Tasks/StoreTaskController.php:20
@@ -466,6 +467,7 @@ const tasks = {
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),
     reRequestReview: Object.assign(reRequestReview, reRequestReview),
+    prImages: Object.assign(prImages, prImages),
 }
 
 export default tasks
