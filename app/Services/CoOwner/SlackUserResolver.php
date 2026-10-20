@@ -2,16 +2,20 @@
 
 namespace App\Services\CoOwner;
 
+use App\Channels\Slack\SenderPolicy;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 
 /**
  * Maps a Slack user id to a Yak user: the stored `slack_user_id` first, then
  * the Slack profile email (`users.info`, scope `users:read.email`), which also
- * stores the id on the match.
+ * stores the id on the match. Only full members of the configured workspace
+ * are linked: guests, Slack Connect strangers and deactivated users get null.
  */
 class SlackUserResolver
 {
+    public function __construct(private SenderPolicy $senderPolicy) {}
+
     public function userFor(string $slackUserId): ?User
     {
         $user = User::query()->where('slack_user_id', $slackUserId)->first();
@@ -33,7 +37,11 @@ class SlackUserResolver
         }
 
         $email = $response->json('user.profile.email');
-        if ($response->json('ok') !== true || ! is_string($email)) {
+        if ($response->json('ok') !== true || ! is_string($email) || $response->json('user.is_stranger') === true) {
+            return null;
+        }
+
+        if (! $this->senderPolicy->isAllowed($slackUserId)) {
             return null;
         }
 

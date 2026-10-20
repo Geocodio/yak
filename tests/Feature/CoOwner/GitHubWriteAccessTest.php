@@ -84,3 +84,15 @@ it('caches the answer for 10 minutes and forget clears it', function () {
     $access->check($this->repository, $this->user);
     Http::assertSentCount(7);
 });
+
+it('treats a vanished GitHub account as read', function () {
+    Http::fake(gitHubTokenFake() + ['api.github.com/user/4242' => Http::response([], 404)]);
+
+    expect(app(GitHubWriteAccess::class)->check($this->repository, $this->user))->toBe('read');
+});
+
+it('returns error on a 403 from the permission endpoint', function () {
+    fakePermission(403);
+
+    expect(app(GitHubWriteAccess::class)->check($this->repository, $this->user))->toBe('error');
+});

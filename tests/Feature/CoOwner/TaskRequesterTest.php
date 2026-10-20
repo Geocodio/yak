@@ -21,15 +21,9 @@ it('resolves the Slack user of a Slack task', function () {
     expect(app(TaskRequester::class)->for($task)?->is($user))->toBeTrue();
 });
 
-it('maps a GitHub task by author login to a linked user', function () {
-    $user = User::factory()->withGitHub(7, 'octo')->create();
+it('returns null for a GitHub task whose author matches a linked login', function () {
+    User::factory()->withGitHub(7, 'octo')->create();
     $task = YakTask::factory()->create(['source' => 'github', 'author_name' => 'octo', 'started_by_user_id' => null]);
-
-    expect(app(TaskRequester::class)->for($task)?->is($user))->toBeTrue();
-});
-
-it('returns null for a GitHub task whose author is not linked', function () {
-    $task = YakTask::factory()->create(['source' => 'github', 'author_name' => 'stranger', 'started_by_user_id' => null]);
 
     expect(app(TaskRequester::class)->for($task))->toBeNull();
 });

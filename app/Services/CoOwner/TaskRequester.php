@@ -10,6 +10,7 @@ class TaskRequester
 {
     public function __construct(private SlackUserResolver $slackUsers) {}
 
+    /** A conversation is judged by its original requester, so follow-ups inherit the root's user. */
     public function for(YakTask $task): ?User
     {
         if ($task->startedBy !== null) {
@@ -18,10 +19,6 @@ class TaskRequester
 
         if ($task->slack_user_id !== null && $task->slack_user_id !== '') {
             return $this->slackUsers->userFor($task->slack_user_id);
-        }
-
-        if ($task->source === 'github' && $task->author_name !== null && $task->author_name !== '') {
-            return User::query()->whereNotNull('github_id')->where('github_login', $task->author_name)->first();
         }
 
         return null;
