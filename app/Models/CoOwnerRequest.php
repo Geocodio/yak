@@ -28,6 +28,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonImmutable|null $reminded_at
  * @property CarbonImmutable $expires_at
  * @property CarbonImmutable|null $decided_at
+ * @property-read YakTask $task
+ * @property-read Repository $repository
+ * @property-read User|null $decidedBy
  */
 class CoOwnerRequest extends Model
 {
