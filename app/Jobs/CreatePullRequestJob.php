@@ -9,6 +9,7 @@ use App\Models\Artifact;
 use App\Models\Repository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
+use App\Services\CoOwner\CoOwnerGate;
 use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
@@ -92,6 +93,11 @@ class CreatePullRequestJob implements ShouldQueue
 
             $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number']);
 
+            return;
+        }
+
+        // A risky change waits for a co-owner; the PR opens once one approves.
+        if (app(CoOwnerGate::class)->hold($this->task, $repository) !== null) {
             return;
         }
 

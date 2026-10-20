@@ -238,6 +238,11 @@ class ProcessCIResultJob implements ShouldQueue
         CreatePullRequestJob::dispatchSync($this->task, $isLargeChange);
 
         $this->task->refresh();
+
+        if ($this->task->status === TaskStatus::AwaitingCoOwner) {
+            return;
+        }
+
         $prUrl = $this->task->pr_url ?? '';
 
         TaskLogger::info($this->task, 'PR created', ['pr_url' => $prUrl]);
