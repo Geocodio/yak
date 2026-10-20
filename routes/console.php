@@ -33,3 +33,4 @@ Schedule::job(SweepExpiredDeploymentsJob::class)->hourly()->name('deployments:sw
 Schedule::job(WatchdogStuckDeploymentsJob::class)->everyTenMinutes()->name('deployments:watchdog-stuck')->withoutOverlapping();
 Schedule::job(GarbageCollectTemplateSnapshotsJob::class)->hourly()->name('deployments:gc-template-snapshots')->withoutOverlapping();
 Schedule::job(BackfillOpenPrDeploymentsJob::class)->hourly()->name('deployments:backfill-open-prs')->withoutOverlapping();
+Schedule::command('yak:co-owner:sweep')->hourly()->withoutOverlapping();

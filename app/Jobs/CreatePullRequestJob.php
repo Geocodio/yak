@@ -109,6 +109,14 @@ class CreatePullRequestJob implements ShouldQueue
 
             $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number']);
 
+            $this->bestEffort(function () use ($gitHub, $repository, $installationId, $existing): void {
+                $headSha = $gitHub->getBranchHeadSha($installationId, $repository->github_full_name, (string) $this->task->branch_name);
+
+                if ($headSha !== null) {
+                    PostScopeWideningCommentJob::dispatch($this->task, (int) $existing['number'], $headSha);
+                }
+            });
+
             return;
         }
 
