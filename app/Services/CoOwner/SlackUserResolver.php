@@ -4,6 +4,7 @@ namespace App\Services\CoOwner;
 
 use App\Channels\Slack\SenderPolicy;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -11,6 +12,8 @@ use Illuminate\Support\Facades\Http;
  * the Slack profile email (`users.info`, scope `users:read.email`), which also
  * stores the id on the match. Only full members of the configured workspace
  * are linked: guests, Slack Connect strangers and deactivated users get null.
+ * A miss is remembered for 60 seconds so a Slack id with no Yak account does
+ * not cost a `users.info` call on every page render.
  */
 class SlackUserResolver
 {
@@ -21,6 +24,11 @@ class SlackUserResolver
         $user = User::query()->where('slack_user_id', $slackUserId)->first();
         if ($user !== null) {
             return $user;
+        }
+
+        $missKey = "slack-user-miss:{$slackUserId}";
+        if (Cache::has($missKey)) {
+            return null;
         }
 
         $token = (string) config('yak.channels.slack.bot_token');
@@ -37,16 +45,15 @@ class SlackUserResolver
         }
 
         $email = $response->json('user.profile.email');
-        if ($response->json('ok') !== true || ! is_string($email) || $response->json('user.is_stranger') === true) {
-            return null;
+        $user = null;
+        if ($response->json('ok') === true && is_string($email) && $response->json('user.is_stranger') !== true && $this->senderPolicy->isAllowed($slackUserId)) {
+            $user = User::findByEmail($email);
+            $user?->update(['slack_user_id' => $slackUserId]);
         }
 
-        if (! $this->senderPolicy->isAllowed($slackUserId)) {
-            return null;
+        if ($user === null) {
+            Cache::put($missKey, true, 60);
         }
-
-        $user = User::findByEmail($email);
-        $user?->update(['slack_user_id' => $slackUserId]);
 
         return $user;
     }

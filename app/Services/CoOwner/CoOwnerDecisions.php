@@ -119,6 +119,20 @@ class CoOwnerDecisions
     }
 
     /**
+     * A requester with no Yak account withdraws by the Slack identity the task was created from.
+     */
+    public function withdrawFromSlack(CoOwnerRequest $request, string $slackUserId): void
+    {
+        $task = YakTask::findOrFail($request->task_id);
+
+        if ($task->started_by_user_id !== null || $task->slack_user_id === null || $task->slack_user_id !== $slackUserId) {
+            throw CoOwnerDecisionException::notRequester();
+        }
+
+        $this->end($request, CoOwnerRequestStatus::Withdrawn, null);
+    }
+
+    /**
      * A stop in Linear ends the held conversation as a withdraw by the system.
      */
     public function withdrawForStop(YakTask $heldTask): void
@@ -202,7 +216,7 @@ class CoOwnerDecisions
                 throw CoOwnerDecisionException::alreadyResolved();
             }
 
-            $locked->update(['status' => $status, 'decided_by_user_id' => $by?->id, 'decided_at' => now()]);
+            $locked->update(['status' => $status, 'decided_by_user_id' => $by?->id, 'decided_by_login' => $by?->github_login, 'decided_at' => now()]);
             $request->setRawAttributes($locked->getAttributes(), true);
 
             $apply($task);
@@ -225,7 +239,7 @@ class CoOwnerDecisions
             $reverted = CoOwnerRequest::whereKey($request->id)
                 ->where('status', CoOwnerRequestStatus::Approved)
                 ->where('decided_by_user_id', $approver->id)
-                ->update(['status' => CoOwnerRequestStatus::Pending, 'decided_by_user_id' => null, 'decided_at' => null]);
+                ->update(['status' => CoOwnerRequestStatus::Pending, 'decided_by_user_id' => null, 'decided_by_login' => null, 'decided_at' => null]);
 
             if ($reverted > 0) {
                 YakTask::whereKey($task->id)->update(['responsible_user_id' => $previousResponsible[0], 'responsible_name' => $previousResponsible[1]]);

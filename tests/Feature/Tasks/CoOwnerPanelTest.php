@@ -283,3 +283,33 @@ it('shares no panel for a task without a request', function () {
 
     $this->get(route('tasks.show', $plain))->assertInertia(fn (Assert $page) => $page->where('coOwner', null)->where('progress.steps.5.label', 'Pull request'));
 });
+
+it('lists the asked people in the order they were asked', function () {
+    $second = User::factory()->create(['name' => 'Zed Zebra']);
+    $this->request->update(['asked_user_ids' => [$second->id, $this->viewer->id]]);
+
+    $this->get(route('tasks.show', $this->task))
+        ->assertInertia(fn (Assert $page) => $page->where('coOwner.asked', ['Zed Zebra', 'Mathias Hansen']));
+});
+
+it('looks up a Slack requester without a Yak account once across renders', function () {
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+    $this->task->update(['started_by_user_id' => null, 'slack_user_id' => 'UGHOSTREQ']);
+    Http::fake(['https://slack.com/api/*' => Http::response(['ok' => false, 'error' => 'user_not_found'])]);
+
+    $this->get(route('tasks.show', $this->task))->assertOk();
+    $this->get(route('tasks.show', $this->task))->assertOk();
+
+    expect(Http::recorded(fn ($request): bool => str_contains($request->url(), 'users.info')))->toHaveCount(1);
+});
+
+it('treats a viewer whose Slack id started the task as the requester without a lookup', function () {
+    $this->viewer->update(['slack_user_id' => 'UVIEW']);
+    $this->task->update(['started_by_user_id' => null, 'slack_user_id' => 'UVIEW']);
+    Http::swap(new Factory);
+    Http::fake(gitHubTokenFake() + ['api.github.com/*' => Http::response(['role_name' => 'write'])]);
+
+    $this->get(route('tasks.show', $this->task))
+        ->assertInertia(fn (Assert $page) => $page->where('coOwner.viewer.isRequester', true)->where('coOwner.requesterName', 'Mathias Hansen'));
+    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'slack.com'));
+});

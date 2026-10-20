@@ -213,3 +213,23 @@ it('keeps the clarification buttons working', function () {
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job): bool => $job->task->id === $task->id);
     Queue::assertNotPushed(ApplyCoOwnerDecisionJob::class);
 });
+
+it('lets a requester with no Yak account withdraw by their Slack identity', function () {
+    Bus::fake([SendCoOwnerMessagesJob::class, SendNotificationJob::class]);
+    $this->task->update(['started_by_user_id' => null, 'slack_user_id' => 'UGHOSTREQ']);
+
+    clickCoOwnerButton($this->secret, CoOwnerBlocks::WITHDRAW_ACTION_ID, (string) $this->request->id, 'UGHOSTREQ')->assertOk();
+
+    expect($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Withdrawn)
+        ->and($this->request->fresh()->decided_by_user_id)->toBeNull()
+        ->and($this->task->fresh()->status)->toBe(TaskStatus::Cancelled);
+});
+
+it('never names a placeholder when the requester is unknown', function () {
+    $this->task->update(['started_by_user_id' => null, 'slack_user_id' => 'UGHOSTREQ']);
+
+    clickCoOwnerButton($this->secret, CoOwnerBlocks::WITHDRAW_ACTION_ID, (string) $this->request->id, 'UAPPROVER')->assertOk();
+
+    expect(ephemeralSent('Only the person who asked for this change can withdraw it.'))->toBeTrue()
+        ->and($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+});

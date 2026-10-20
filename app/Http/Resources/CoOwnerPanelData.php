@@ -74,7 +74,8 @@ final class CoOwnerPanelData
         $repository = $request->repository;
         $statusByPath = collect($request->changed_files)->pluck('status', 'path');
         $isLinked = $viewer->hasLinkedGitHub();
-        $requester = app(TaskRequester::class)->for($heldTask);
+        $viewerIsSlackRequester = $viewer->slack_user_id !== null && $viewer->slack_user_id === $heldTask->slack_user_id;
+        $requester = $heldTask->startedBy ?? ($viewerIsSlackRequester ? $viewer : app(TaskRequester::class)->for($heldTask));
 
         return [
             'id' => $request->id,
@@ -99,7 +100,7 @@ final class CoOwnerPanelData
             ], $request->matched_areas)),
             'holdReasons' => array_values($request->hold_reasons),
             'stat' => ['additions' => $request->additions, 'deletions' => $request->deletions, 'files' => $request->file_count],
-            'asked' => array_values($request->askedUsers()->map(fn (User $user): string => $user->name)->all()),
+            'asked' => self::askedNames($request),
             'attempts' => array_values($request->ask_attempts),
             'fallbackOwner' => $repository->defaultResponsibleUser?->name,
             'viewer' => [
@@ -152,5 +153,15 @@ final class CoOwnerPanelData
         }
 
         return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function askedNames(CoOwnerRequest $request): array
+    {
+        $users = $request->askedUsers()->keyBy('id');
+
+        return array_values(array_filter(array_map(fn (int $id): ?string => $users->get($id)?->name, $request->asked_user_ids)));
     }
 }

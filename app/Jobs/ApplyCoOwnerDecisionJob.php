@@ -51,10 +51,14 @@ class ApplyCoOwnerDecisionJob implements ShouldQueue
         $user = $slackUsers->userFor($this->slackUserId);
 
         try {
+            if ($user === null && $this->action === CoOwnerBlocks::WITHDRAW_ACTION_ID) {
+                $decisions->withdrawFromSlack($request, $this->slackUserId);
+
+                return;
+            }
+
             if ($user === null) {
-                throw $this->action === CoOwnerBlocks::WITHDRAW_ACTION_ID
-                    ? CoOwnerDecisionException::notRequester()
-                    : CoOwnerDecisionException::notLinked();
+                throw CoOwnerDecisionException::notLinked();
             }
 
             match ($this->action) {
@@ -85,7 +89,7 @@ class ApplyCoOwnerDecisionJob implements ShouldQueue
             ),
             CoOwnerDecisionException::NOT_REQUESTER => $messenger->ephemeral(
                 $this->responseUrl,
-                'Only ' . SlackText::escape($this->firstName($requesters->for($request->task))) . ', who asked for this change, can withdraw it.',
+                $this->notRequesterText($requesters->for($request->task)),
             ),
             CoOwnerDecisionException::ACCESS_CHECK_FAILED => $messenger->ephemeral($this->responseUrl, GitHubWriteAccess::ACCESS_CHECK_FAILED_REASON),
             default => $messenger->ephemeral(
@@ -102,9 +106,13 @@ class ApplyCoOwnerDecisionJob implements ShouldQueue
         $messenger->resolved($request->fresh() ?? $request);
     }
 
-    private function firstName(?User $requester): string
+    private function notRequesterText(?User $requester): string
     {
-        return $requester === null ? 'the person' : explode(' ', trim($requester->name))[0];
+        $firstName = $requester === null ? '' : explode(' ', trim($requester->name))[0];
+
+        return $firstName === ''
+            ? 'Only the person who asked for this change can withdraw it.'
+            : 'Only ' . SlackText::escape($firstName) . ', who asked for this change, can withdraw it.';
     }
 
     /**

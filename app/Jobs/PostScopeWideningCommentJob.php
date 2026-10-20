@@ -120,7 +120,7 @@ class PostScopeWideningCommentJob implements ShouldQueue
      */
     private function body(CoOwnerRequest $request, array $result, array $newAreas): string
     {
-        $login = (string) $request->decided_by_login;
+        $login = (string) ($request->decided_by_login ?? $request->decidedBy?->github_login);
         $mention = preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\z/', $login) === 1 ? " @{$login}" : '';
         $areaList = implode(', ', array_map(fn (array $area): string => MarkdownText::inline($area['name']), $newAreas));
         $indexes = array_column($newAreas, 'index');

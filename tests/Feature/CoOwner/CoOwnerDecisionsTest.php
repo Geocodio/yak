@@ -2,6 +2,7 @@
 
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskStatus;
+use App\Jobs\PostScopeWideningCommentJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\SendCoOwnerMessagesJob;
 use App\Jobs\SendNotificationJob;
@@ -258,4 +259,30 @@ it('reverts a failed approval even when the task carries a stale PR URL', functi
     expect(fn () => app(CoOwnerDecisions::class)->approve($this->request, $this->approver))
         ->toThrow(fn (CoOwnerDecisionException $e) => $e->reason === 'github_failed');
     expect($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+});
+
+it('records the approver login so the scope-widening comment mentions them', function () {
+    $task = app(CoOwnerDecisions::class)->approve($this->request, $this->approver);
+
+    expect($this->request->fresh()->decided_by_login)->toBe('mhansen');
+
+    $this->request->update(['matched_areas' => [['name' => 'API middleware and HTTP kernel', 'risk' => 'high', 'rationale' => '', 'paths' => ['app/Http/Kernel.php']]]]);
+    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n", 'risk-profile.yml' => riskProfileYaml()]);
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/o/r/pulls/7/files*' => Http::response([['filename' => 'lib/legacy-shim/a.php', 'status' => 'modified']]),
+        '*' => Http::response([], 201),
+    ]);
+
+    PostScopeWideningCommentJob::dispatchSync($task, 7, 'abcdef0123456');
+
+    $bodies = Http::recorded(fn ($request) => str_ends_with($request->url(), '/issues/7/comments'))->map(fn ($pair) => $pair[0]['body'])->values()->all();
+    expect($bodies)->toHaveCount(1)->and($bodies[0])->toContain('Heads up @mhansen:');
+});
+
+it('clears the recorded login when a failed approval reverts', function () {
+    decisionFakes('write', ['api.github.com/repos/o/r/pulls' => Http::response(['message' => 'Validation Failed'], 422)]);
+
+    expect(fn () => app(CoOwnerDecisions::class)->approve($this->request, $this->approver))->toThrow(CoOwnerDecisionException::class);
+
+    expect($this->request->fresh()->decided_by_login)->toBeNull();
 });
