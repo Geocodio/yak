@@ -30,6 +30,11 @@ type Errors = {
     github_taken_login?: string;
 };
 
+/** A full page navigation: the connect route redirects off-site to GitHub. */
+function startLinking(): void {
+    window.location.assign(connect.url());
+}
+
 function LinkFailure({
     title,
     children,
@@ -57,9 +62,7 @@ function LinkFailure({
                     </code>
                 )}
             </div>
-            <a href={connect.url()}>
-                <Button>Try again</Button>
-            </a>
+            <Button onClick={startLinking}>Try again</Button>
         </div>
     );
 }
@@ -105,12 +108,9 @@ export function GitHubAccountCard({
                         Disconnect
                     </Button>
                 ) : (
-                    <a href={connect.url()}>
-                        <Button variant="primary">
-                            <GitHubMark />
-                            Connect GitHub
-                        </Button>
-                    </a>
+                    <Button variant="primary" icon={<GitHubMark />} onClick={startLinking}>
+                        Connect GitHub
+                    </Button>
                 )}
             </div>
 
