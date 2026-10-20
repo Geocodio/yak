@@ -8,6 +8,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Chooses the people Yak asks to co-own a held change: whoever requested
@@ -37,79 +38,95 @@ class CoOwnerResolver
     public function resolve(Repository $repository, YakTask $task, array $codeOwnerEntries): array
     {
         $requester = $this->requesters->for($task);
+        /** @var list<User> $users */
         $users = [];
         $attempts = [];
 
-        $add = function (array $candidates) use (&$users, $requester): bool {
-            foreach ($candidates as $candidate) {
-                $isRequester = $requester !== null && $candidate->is($requester);
-                $isDuplicate = collect($users)->contains(fn (User $user): bool => $user->is($candidate));
-                if (! $isRequester && ! $isDuplicate && count($users) < self::MAX_ASKED) {
-                    $users[] = $candidate;
-                }
+        $skipIds = function () use (&$users, $requester): array {
+            $ids = [];
+            foreach ($users as $user) {
+                $ids[] = $user->id;
+            }
+            if ($requester !== null) {
+                $ids[] = $requester->id;
             }
 
-            return count($users) >= self::MAX_ASKED;
+            return $ids;
+        };
+
+        $record = function (string $entry, string $kind, array $resolved) use (&$users, &$attempts): void {
+            if ($resolved['outcome'] !== 'asked') {
+                $attempts[] = ['entry' => $entry, 'kind' => $kind, 'outcome' => $resolved['outcome']];
+
+                return;
+            }
+
+            foreach ($resolved['users'] as $user) {
+                $users[] = $user;
+                $attempts[] = ['entry' => $entry, 'kind' => $kind, 'outcome' => 'asked'];
+            }
         };
 
         $changesRequester = $this->changesRequester($task);
         if ($changesRequester !== null) {
-            $outcome = $this->outcomeFor($repository, $changesRequester);
-            $attempts[] = ['entry' => $changesRequester->name, 'kind' => 'changes_requester', 'outcome' => $outcome];
-            if ($outcome === 'asked') {
-                $add([$changesRequester]);
-            }
+            $record($changesRequester->name, 'changes_requester', $this->classify($repository, 'changes_requester', [$changesRequester], $skipIds(), self::MAX_ASKED - count($users)));
         }
 
         foreach ($codeOwnerEntries as $entry) {
             if (count($users) >= self::MAX_ASKED) {
                 break;
             }
-            $resolved = $this->resolveEntry($repository, $entry);
-            $attempts[] = ['entry' => $entry, 'kind' => $resolved['kind'], 'outcome' => $resolved['outcome']];
-            $add($resolved['users']);
+            $resolved = $this->resolveEntry($repository, $entry, self::MAX_ASKED - count($users), $skipIds());
+            $record($entry, $resolved['kind'], $resolved);
         }
 
         $fallback = $repository->defaultResponsibleUser;
         if ($fallback !== null && count($users) < self::MAX_ASKED) {
-            $outcome = $this->outcomeFor($repository, $fallback);
-            $attempts[] = ['entry' => $fallback->name, 'kind' => 'fallback', 'outcome' => $outcome];
-            if ($outcome === 'asked') {
-                $add([$fallback]);
-            }
+            $record($fallback->name, 'fallback', $this->classify($repository, 'fallback', [$fallback], $skipIds(), self::MAX_ASKED - count($users)));
         }
 
         return ['users' => $users, 'attempts' => $attempts];
     }
 
     /**
-     * One CODEOWNERS entry: `@login`, `@org/team` or an email.
+     * One CODEOWNERS entry: `@login`, `@org/team` or an email. With a limit,
+     * access checks stop once that many users are found; users in $skipUserIds
+     * are never returned or checked. When every candidate is skipped the
+     * outcome is `asked` with no users, which callers do not record.
      *
+     * @param  list<int>  $skipUserIds
      * @return array{users: list<User>, kind: string, outcome: string}
      */
-    public function resolveEntry(Repository $repository, string $entry): array
+    public function resolveEntry(Repository $repository, string $entry, ?int $limit = null, array $skipUserIds = []): array
     {
         if (preg_match('/^@([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)$/', $entry, $matches) === 1) {
-            return $this->resolveTeam($repository, $entry, $matches[1], $matches[2]);
+            return $this->resolveTeam($repository, $matches[1], $matches[2], $limit, $skipUserIds);
         }
 
         if (preg_match('/^@[A-Za-z0-9_.-]+$/', $entry) === 1) {
-            $candidates = array_values(User::query()->whereNotNull('github_id')->where('github_login', substr($entry, 1))->get()->all());
+            $candidates = array_values(User::query()
+                ->whereNotNull('github_id')
+                ->whereRaw('lower(github_login) = ?', [mb_strtolower(substr($entry, 1))])
+                ->get()
+                ->all());
 
-            return $this->classify($repository, 'login', $candidates);
+            return $this->classify($repository, 'login', $candidates, $skipUserIds, $limit);
         }
 
         if (preg_match('/^[^@\s]+@[^@\s]+\.[^@\s]+$/', $entry) === 1) {
             $user = User::findByEmail($entry);
 
-            return $this->classify($repository, 'email', $user === null ? [] : [$user]);
+            return $this->classify($repository, 'email', $user === null ? [] : [$user], $skipUserIds, $limit);
         }
 
         return ['users' => [], 'kind' => 'login', 'outcome' => 'unknown'];
     }
 
-    /** @return array{users: list<User>, kind: string, outcome: string} */
-    private function resolveTeam(Repository $repository, string $entry, string $organization, string $team): array
+    /**
+     * @param  list<int>  $skipUserIds
+     * @return array{users: list<User>, kind: string, outcome: string}
+     */
+    private function resolveTeam(Repository $repository, string $organization, string $team, ?int $limit, array $skipUserIds): array
     {
         try {
             $logins = $this->github->listTeamMemberLogins((int) config('yak.channels.github.installation_id'), $organization, $team);
@@ -123,27 +140,46 @@ class CoOwnerResolver
             return ['users' => [], 'kind' => 'team', 'outcome' => 'team_skipped'];
         }
 
-        $candidates = array_values(User::query()
+        $members = array_map('mb_strtolower', array_slice($logins, 0, self::MAX_TEAM_MEMBERS_CHECKED));
+        $linked = User::query()
             ->whereNotNull('github_id')
-            ->whereIn('github_login', array_slice($logins, 0, self::MAX_TEAM_MEMBERS_CHECKED))
-            ->get()->all());
+            ->whereIn(DB::raw('lower(github_login)'), $members)
+            ->get()
+            ->keyBy(fn (User $user): string => mb_strtolower((string) $user->github_login));
 
-        return $this->classify($repository, 'team', $candidates);
+        $candidates = [];
+        foreach ($members as $login) {
+            $member = $linked->get($login);
+            if ($member instanceof User) {
+                $candidates[] = $member;
+            }
+        }
+
+        return $this->classify($repository, 'team', $candidates, $skipUserIds, $limit);
     }
 
     /**
      * @param  list<User>  $candidates
+     * @param  list<int>  $skipUserIds
      * @return array{users: list<User>, kind: string, outcome: string}
      */
-    private function classify(Repository $repository, string $kind, array $candidates): array
+    private function classify(Repository $repository, string $kind, array $candidates, array $skipUserIds, ?int $limit): array
     {
         if ($candidates === []) {
             return ['users' => [], 'kind' => $kind, 'outcome' => 'not_linked'];
         }
 
+        $candidates = array_values(array_filter($candidates, fn (User $user): bool => ! in_array($user->id, $skipUserIds, true)));
+        if ($candidates === [] || ($limit !== null && $limit <= 0)) {
+            return ['users' => [], 'kind' => $kind, 'outcome' => 'asked'];
+        }
+
         $users = [];
         $outcomes = [];
         foreach ($candidates as $candidate) {
+            if ($limit !== null && count($users) >= $limit) {
+                break;
+            }
             $outcome = $this->outcomeFor($repository, $candidate);
             $outcomes[] = $outcome;
             if ($outcome === 'asked') {
