@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Socialite\Facades\Socialite;
 
 function panelFakes(string $role = 'write', array $extra = []): void
 {
@@ -98,13 +99,24 @@ it('shares an unlinked viewer without calling GitHub', function () {
     Http::assertNothingSent();
 });
 
-it('shows the GitHub link error on the panel', function () {
+it('shows a failed GitHub link on the panel', function () {
     $this->withSession(['github_link_return' => "/tasks/{$this->task->id}"])
         ->followingRedirects()
         ->get(route('settings.github.callback', ['error' => 'access_denied']))
         ->assertInertia(fn (Assert $page) => $page
             ->component('Tasks/Show')
-            ->where('coOwner.linkError', 'GitHub did not connect. Try again.'));
+            ->where('coOwner.linkError', ['kind' => 'failed', 'code' => 'access_denied', 'ownerName' => null, 'ownerLogin' => null]));
+});
+
+it('shows a taken GitHub account on the panel', function () {
+    User::factory()->withGitHub(777, 'dana')->create(['name' => 'Dana Owner']);
+    Socialite::fake('github', (new Laravel\Socialite\Two\User)->map(['id' => 777, 'nickname' => 'dana', 'name' => 'Dana', 'token' => 'gho_x']));
+
+    $this->withSession(['github_link_return' => "/tasks/{$this->task->id}"])
+        ->followingRedirects()
+        ->get(route('settings.github.callback'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('coOwner.linkError', ['kind' => 'taken', 'code' => null, 'ownerName' => 'Dana Owner', 'ownerLogin' => 'dana']));
 });
 
 it('approves from the dashboard', function () {
@@ -212,7 +224,11 @@ it('resolves the latest request of a request-changes chain from the root', funct
     ]);
 
     $this->get(route('tasks.show', $this->task))
-        ->assertInertia(fn (Assert $page) => $page->where('coOwner.id', $latest->id)->where('composer.state', 'held'));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('coOwner.id', $latest->id)
+            ->where('composer.state', 'held')
+            ->where('progress.steps.5.label', 'Waiting for a co-owner')
+            ->where('progress.steps.5.current', true));
 
     $this->post(route('tasks.co-owner.approve', $this->task))->assertSessionHas('success');
 
@@ -229,6 +245,23 @@ it('explains an expired request and offers no retry', function () {
             ->where('task.nextSteps', 'The co-owner request expired after 7 days. Start a new task to try again.')
             ->where('actions.canRetry', false)
             ->where('coOwner.status', 'expired'));
+});
+
+it('explains an expired child request on the root page and offers no retry', function () {
+    $this->request->update(['status' => CoOwnerRequestStatus::ChangesRequested]);
+    $this->task->update(['status' => TaskStatus::Success]);
+    $followUp = YakTask::factory()->expired()->create([
+        'repo' => 'o-r', 'parent_task_id' => $this->task->id, 'source' => 'slack', 'branch_name' => 'yak/x',
+    ]);
+    CoOwnerRequest::factory()->create([
+        'task_id' => $followUp->id, 'root_task_id' => $this->task->id, 'repository_id' => $this->repository->id,
+        'status' => CoOwnerRequestStatus::Expired,
+    ]);
+
+    $this->get(route('tasks.show', $this->task))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('task.nextSteps', 'The co-owner request expired after 7 days. Start a new task to try again.')
+            ->where('actions.canRetry', false));
 });
 
 it('shares no panel for a task without a request', function () {

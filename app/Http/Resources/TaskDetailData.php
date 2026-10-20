@@ -67,6 +67,8 @@ final class TaskDetailData
     public static function build(YakTask $task, Request $request): array
     {
         $conversation = $task->conversation();
+        $head = $conversation->last() ?? $task;
+        $coOwnerRequest = CoOwnerPanelData::latestRequest($task);
         $focusedRun = self::resolveFocusedRun($conversation, $request->integer('run') ?: null);
         $attemptCount = max(1, (int) $focusedRun->attempts);
         $attempt = min(max(1, $request->integer('attempt') ?: $attemptCount), $attemptCount);
@@ -76,14 +78,14 @@ final class TaskDetailData
             : null;
 
         return [
-            'task' => self::task($task, $focusedRun, $attempt, $attemptCount),
+            'task' => self::task($task, $head, $coOwnerRequest, $focusedRun, $attempt, $attemptCount),
             'thread' => self::thread($task, $conversation),
             'runs' => self::runs($conversation),
             'attempts' => range(1, $attemptCount),
             'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
             'activity' => ActivityLogData::window($focusedRun, $attempt),
-            'progress' => ['steps' => self::progressSteps($task)],
-            'coOwner' => $request->user() !== null ? CoOwnerPanelData::for($task, $request->user()) : null,
+            'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
+            'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user()) : null,
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
             'deployment' => self::deployment($task),
@@ -91,7 +93,7 @@ final class TaskDetailData
             'composer' => self::composer($task, $conversation),
             'questions' => self::questions($conversation->last() ?? $task),
             'debug' => self::debug($task, $focusedRun),
-            'actions' => self::actions($task),
+            'actions' => self::actions($task, $head, $coOwnerRequest),
             'pollInterval' => in_array($task->status, self::FAST_POLL_STATUSES, true) ? 5000 : 15000,
             'transcriptLogId' => self::resolveTranscriptLogId($request, $conversation),
         ];
@@ -141,7 +143,7 @@ final class TaskDetailData
     /**
      * @return array<string, mixed>
      */
-    private static function task(YakTask $task, YakTask $focusedRun, int $attempt, int $attemptCount): array
+    private static function task(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest, YakTask $focusedRun, int $attempt, int $attemptCount): array
     {
         $isAnsweredFix = $task->mode === TaskMode::Fix
             && $task->status === TaskStatus::Success
@@ -172,7 +174,7 @@ final class TaskDetailData
             'duration' => self::formatDuration($task->duration_ms),
             'cost' => (float) $task->cost_usd > 0 ? '$' . number_format((float) $task->cost_usd, 2) : null,
             'branch' => $isAnsweredFix ? null : $task->branch_name,
-            'nextSteps' => self::nextSteps($task),
+            'nextSteps' => self::nextSteps($task, $head, $coOwnerRequest),
             'error' => $task->status === TaskStatus::Failed ? $task->error_log : null,
             'externalId' => $task->external_id,
             'pr' => $prState === null ? null : [
@@ -202,10 +204,10 @@ final class TaskDetailData
         return route('artifacts.viewer', ['task' => $artifact->yak_task_id, 'filename' => $artifact->filename]);
     }
 
-    private static function nextSteps(YakTask $task): ?string
+    private static function nextSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): ?string
     {
         /** @var TaskStatus $status */
-        $status = $task->status;
+        $status = $head->status;
         $isResearch = $task->mode === TaskMode::Research;
 
         return match ($status) {
@@ -219,7 +221,7 @@ final class TaskDetailData
                 $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
                 default => 'Task failed. Click Retry above, or mention Yak again with more context.',
             },
-            TaskStatus::Expired => self::hasExpiredCoOwnerRequest($task)
+            TaskStatus::Expired => $coOwnerRequest?->status === CoOwnerRequestStatus::Expired
                 ? 'The co-owner request expired after 7 days. Start a new task to try again.'
                 : 'No response within the clarification window. Mention Yak again to start over.',
             TaskStatus::Cancelled => $isResearch
@@ -227,11 +229,6 @@ final class TaskDetailData
                 : 'Task cancelled from the dashboard. Mention Yak again (or adjust the issue) to start over.',
             default => null,
         };
-    }
-
-    private static function hasExpiredCoOwnerRequest(YakTask $task): bool
-    {
-        return $task->coOwnerRequests()->latest('id')->first()?->status === CoOwnerRequestStatus::Expired;
     }
 
     /**
@@ -497,12 +494,12 @@ final class TaskDetailData
     /**
      * @return array<int, array{label: string, tooltip: string, done: bool, current: bool}>
      */
-    private static function progressSteps(YakTask $task): array
+    private static function progressSteps(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
     {
         /** @var TaskStatus $status */
-        $status = $task->status;
+        $status = $head->status;
 
-        $hasCoOwnerRequest = CoOwnerRequest::where('root_task_id', $task->rootTask()->id)->exists();
+        $hasCoOwnerRequest = $coOwnerRequest !== null;
         $waitingShift = $hasCoOwnerRequest ? 1 : 0;
 
         $reachedStep = match ($status) {
@@ -804,13 +801,13 @@ final class TaskDetailData
     /**
      * @return array{canRetry: bool, canCancel: bool, canRerunReview: bool, canRequestReview: bool, canRetryRender: bool, canReroute: bool, rerouteTargets: array<int, string>}
      */
-    private static function actions(YakTask $task): array
+    private static function actions(YakTask $task, YakTask $head, ?CoOwnerRequest $coOwnerRequest): array
     {
         /** @var TaskStatus $status */
-        $status = $task->status;
+        $status = $head->status;
 
         $canRetry = in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true)
-            && ! ($status === TaskStatus::Expired && self::hasExpiredCoOwnerRequest($task));
+            && ! ($status === TaskStatus::Expired && $coOwnerRequest?->status === CoOwnerRequestStatus::Expired);
         $canCancel = in_array($status, [
             TaskStatus::Pending,
             TaskStatus::Running,
