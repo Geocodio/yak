@@ -365,3 +365,20 @@ it('fails closed with an exception when a blocked glob cannot be evaluated', fun
         ini_set('pcre.backtrack_limit', $limit);
     }
 })->throws(RuntimeException::class, 'Could not evaluate glob');
+
+it('never approves its own PR on an enforced repository', function () {
+    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n"]);
+    $this->pr['user']['login'] = 'yak[bot]';
+
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+
+    expect($decision['event'])->not->toBe('APPROVE')->and($decision['event'])->toBe('COMMENT');
+});
+
+it('still approves other PRs on an enforced repository', function () {
+    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n"]);
+
+    $decision = app(ReviewApprovalPolicy::class)->evaluate($this->repo, cleanApprovalReview(), $this->metadata, $this->files);
+
+    expect($decision['event'])->toBe('APPROVE');
+});

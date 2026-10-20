@@ -12,6 +12,7 @@ import { PathExcludes } from '@/components/repositories/PathExcludes';
 import { SetupHistory } from '@/components/repositories/SetupHistory';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { ConfigSourceBadge, LockedField, LockedValue, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
+import { CoOwnerGateStatus, CoOwnerGateStatusSkeleton } from '@/components/repositories/CoOwnerGateStatus';
 import { YakConfigStrip, YakConfigStripSkeleton } from '@/components/repositories/YakConfigStrip';
 import { ReviewApprovalSettings } from '@/components/repositories/ReviewApprovalSettings';
 import type { ReviewPolicy } from '@/types/repositories';
@@ -28,6 +29,7 @@ import type {
     SandboxData,
     SetupHistoryRow,
     YakConfig,
+    CoOwnerGateStatus as CoOwnerGateStatusData,
 } from '@/types/repositories';
 
 type Props = PageProps<{
@@ -41,6 +43,7 @@ type Props = PageProps<{
     deleteBlockedReason: string | null;
     docsLinks: RepositoryDocsLinks;
     yakConfig?: YakConfig;
+    coOwnerGate?: CoOwnerGateStatusData | null;
 }>;
 
 type FormData = {
@@ -275,7 +278,7 @@ function LockedManifest({ manifest, fallback, config }: { manifest: Record<strin
     );
 }
 
-export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks, yakConfig }: Props) {
+export default function Form({ repository, options, manifest, sandbox, setupHistory, stats, canDelete, deleteBlockedReason, docsLinks, yakConfig, coOwnerGate }: Props) {
     const isEditing = repository !== null;
     const showManifest = isEditing && repository.deploymentsEnabled && manifest !== null;
 
@@ -710,6 +713,11 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                         ) : (
                             <PathExcludes value={form.data.path_excludes} defaults={options.defaultPathExcludes} onChange={(v) => form.setData('path_excludes', v)} />
                         ))}
+                        {isEditing && repository && (
+                            <Deferred data="coOwnerGate" fallback={<CoOwnerGateStatusSkeleton branch={repository.defaultBranch} />}>
+                                {coOwnerGate ? <CoOwnerGateStatus status={coOwnerGate} branch={repository.defaultBranch} /> : null}
+                            </Deferred>
+                        )}
                         {(isReadingConfig || isPrReviewEnabled) && (isReadingConfig ? (
                             <Skeleton className="h-48 w-full rounded-card" />
                         ) : (

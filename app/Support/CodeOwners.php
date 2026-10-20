@@ -82,6 +82,20 @@ final readonly class CodeOwners
         return [];
     }
 
+    /** @return list<string> every distinct owner entry, in file order */
+    public function owners(): array
+    {
+        $owners = [];
+
+        foreach ($this->rules as $rule) {
+            foreach ($rule['owners'] as $owner) {
+                $owners[$owner] = true;
+            }
+        }
+
+        return array_map('strval', array_keys($owners));
+    }
+
     public function ruleCount(): int
     {
         return count($this->rules);

@@ -14,6 +14,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\CoOwner\CoOwnerGateStatus;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
@@ -94,6 +95,10 @@ class RepositoryController extends Controller
             'yakConfig' => Inertia::defer(
                 fn () => YakConfigData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
                 'yak-config',
+            ),
+            'coOwnerGate' => Inertia::defer(
+                fn () => app(CoOwnerGateStatus::class)->for($repository),
+                'co-owner-gate',
             ),
         ]);
     }
