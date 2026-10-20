@@ -5,11 +5,13 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\CreatePullRequestJob;
 use App\Jobs\SendCoOwnerMessagesJob;
+use App\Jobs\SendNotificationJob;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\CoOwnerGate;
+use App\Services\CoOwner\CoOwnerResolver;
 use App\Services\CoOwner\GitHubWriteAccess;
 use App\Services\RiskProfileVerdict;
 use Illuminate\Support\Facades\Bus;
@@ -48,6 +50,7 @@ it('holds a change to a high area', function () {
         ->and(CoOwnerRequest::count())->toBe(1);
     Bus::assertDispatched(SendCoOwnerMessagesJob::class, fn ($job) => $job->event === 'held');
     Http::assertNotSent(fn ($r) => $r->method() === 'POST' && str_ends_with($r->url(), '/pulls'));
+    Bus::assertNotDispatched(SendNotificationJob::class);
 });
 
 it('does not open the PR or notify a result when the job holds', function () {
@@ -86,7 +89,7 @@ it('holds when the compare lists 300 files', function () {
 
     $request = app(CoOwnerGate::class)->hold($this->task, $this->repository);
 
-    expect($request->hold_reasons)->toBe(['capped_listing']);
+    expect($request->hold_reasons)->toBe(['listing']);
 });
 
 it('holds a change to .yak/config.yml even with no area', function () {
@@ -94,7 +97,7 @@ it('holds a change to .yak/config.yml even with no area', function () {
 
     $request = app(CoOwnerGate::class)->hold($this->task, $this->repository);
 
-    expect($request->hold_reasons)->toContain('config_floor')
+    expect($request->hold_reasons)->toContain('floor')
         ->and($request->matched_areas)->toBe([])
         ->and($request->changed_files[0]['isHeld'])->toBeTrue();
 });
@@ -135,7 +138,6 @@ it('opens the PR for exempt tasks', function (array $attributes) {
     'research' => [['mode' => TaskMode::Research]],
     'sentry' => [['source' => 'sentry']],
     'flaky-test' => [['source' => 'flaky-test']],
-    'risk profile' => [['external_id' => 'risk-profile-abc']],
 ]);
 
 it('opens the PR without a Co-owner line when the requester has write access', function () {
@@ -209,4 +211,52 @@ it('takes the existing-PR path for follow-ups without running the gate', functio
     expect(CoOwnerRequest::count())->toBe(0)
         ->and($this->task->fresh()->pr_number)->toBe(7);
     Http::assertNotSent(fn ($r) => str_contains($r->url(), '/compare/'));
+});
+
+it('gates a fix task whose external id starts with risk-profile-', function () {
+    $this->task->update(['external_id' => 'risk-profile-abc']);
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Kernel.php')]));
+
+    expect(app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository))->not->toBeNull();
+});
+
+it('holds an exempt task that touches a config floor path', function () {
+    $this->task->update(['source' => 'sentry']);
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('AGENTS.md')]));
+
+    $request = app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository);
+
+    expect($request->hold_reasons)->toBe(['floor']);
+});
+
+it('opens the PR for an exempt task that touches no floor path', function () {
+    $this->task->update(['source' => 'sentry']);
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Kernel.php')]));
+
+    expect(app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository))->toBeNull();
+});
+
+it('holds an exempt task when the compare fails', function () {
+    $this->task->update(['mode' => TaskMode::Research]);
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/o/r/compare/*' => Http::response([], 500)]);
+
+    expect(app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository)->hold_reasons)->toBe(['compare_failed']);
+});
+
+it('records an error attempt when the owners cannot be resolved', function () {
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Kernel.php')]));
+    $this->mock(CoOwnerResolver::class, fn ($mock) => $mock->shouldReceive('resolve')->andThrow(new RuntimeException('boom')));
+
+    $request = app(CoOwnerGate::class)->hold($this->task, $this->repository);
+
+    expect($request->ask_attempts)->toContain(['entry' => 'owners', 'kind' => 'codeowners', 'outcome' => 'error']);
+});
+
+it('dispatches the messages job once for a repeated hold', function () {
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Kernel.php')]));
+
+    app(CoOwnerGate::class)->hold($this->task, $this->repository);
+    app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository);
+
+    Bus::assertDispatchedTimes(SendCoOwnerMessagesJob::class, 1);
 });

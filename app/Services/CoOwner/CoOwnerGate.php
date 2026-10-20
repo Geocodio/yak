@@ -45,9 +45,7 @@ class CoOwnerGate
      */
     public function hold(YakTask $task, Repository $repository): ?CoOwnerRequest
     {
-        if ($this->isExempt($task)) {
-            return null;
-        }
+        $isExempt = $this->isExempt($task);
 
         try {
             if ($repository->settings()->coOwnerGateMode() !== 'enforce') {
@@ -57,6 +55,15 @@ class CoOwnerGate
             $existing = $this->existingRequest($task);
             if ($existing !== null) {
                 return $existing;
+            }
+
+            if ($isExempt) {
+                $outcome = $this->judgeExempt($task, $repository);
+                if ($outcome === null) {
+                    return null;
+                }
+
+                return $this->createRequest($task, $repository, $outcome);
             }
 
             $requester = $this->requesters->for($task);
@@ -79,8 +86,44 @@ class CoOwnerGate
     private function isExempt(YakTask $task): bool
     {
         return in_array($task->mode, [TaskMode::Setup, TaskMode::Review, TaskMode::Research], true)
-            || in_array($task->source, self::EXEMPT_SOURCES, true)
-            || str_starts_with((string) $task->external_id, 'risk-profile-');
+            || in_array($task->source, self::EXEMPT_SOURCES, true);
+    }
+
+    /**
+     * Exempt tasks skip the area and requester checks, but a change to the
+     * config floor paths is always held, and so is a compare that fails.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function judgeExempt(YakTask $task, Repository $repository): ?array
+    {
+        $changed = $this->compare($task, $repository);
+
+        if ($changed === null) {
+            return $this->outcome(['compare_failed'], true);
+        }
+
+        $verdict = $this->verdict->evaluate($changed, [], CodeOwners::empty(), self::LISTING_CAP, self::LISTING_MESSAGE);
+
+        if (! $verdict['isFloorHeld']) {
+            return null;
+        }
+
+        return $this->outcome(['floor'], true, changed: $changed, isHeldByPath: array_column($verdict['files'], 'isHeld', 'path'));
+    }
+
+    /**
+     * @return list<array<string, mixed>>|null null when the compare failed
+     */
+    private function compare(YakTask $task, Repository $repository): ?array
+    {
+        try {
+            return $this->github->compareFilesOrFail((int) config('yak.channels.github.installation_id'), (string) $repository->github_full_name, (string) $repository->default_branch, (string) $task->branch_name);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
     }
 
     private function existingRequest(YakTask $task): ?CoOwnerRequest
@@ -99,14 +142,7 @@ class CoOwnerGate
      */
     private function judge(YakTask $task, Repository $repository): ?array
     {
-        $installationId = (int) config('yak.channels.github.installation_id');
-
-        try {
-            $changed = $this->github->compareFilesOrFail($installationId, (string) $repository->github_full_name, (string) $repository->default_branch, (string) $task->branch_name);
-        } catch (Throwable $exception) {
-            report($exception);
-            $changed = null;
-        }
+        $changed = $this->compare($task, $repository);
 
         if ($changed === null) {
             return $this->outcome(['compare_failed'], true);
@@ -122,7 +158,9 @@ class CoOwnerGate
         $attempts = [];
         $sha = $settings->snapshot->commitSha;
         $codeOwners = CodeOwners::empty();
-        if ($sha !== null) {
+        if ($sha === null) {
+            $attempts[] = ['entry' => 'CODEOWNERS', 'kind' => 'codeowners', 'outcome' => 'error'];
+        } else {
             try {
                 $codeOwners = RiskProfilePageData::codeOwners($repository, $sha);
             } catch (Throwable $exception) {
@@ -139,9 +177,9 @@ class CoOwnerGate
         }
 
         $reasons = array_values(array_filter([
-            $verdict['isFloorHeld'] ? 'config_floor' : null,
-            $verdict['isUncheckedHeld'] ? 'unchecked_files' : null,
-            $verdict['capReason'] === null ? null : 'capped_' . $verdict['capReason'],
+            $verdict['isFloorHeld'] ? 'floor' : null,
+            $verdict['isUncheckedHeld'] ? 'unchecked' : null,
+            $verdict['capReason'],
         ]));
 
         $matchedAreas = [];
@@ -231,10 +269,12 @@ class CoOwnerGate
                 $attempts = [...$attempts, ...$resolved['attempts']];
             } catch (Throwable $exception) {
                 report($exception);
+                $attempts[] = ['entry' => 'owners', 'kind' => 'codeowners', 'outcome' => 'error'];
             }
         }
 
-        $request = DB::transaction(function () use ($task, $repository, $outcome, $users, $attempts): CoOwnerRequest {
+        $isCreated = false;
+        $request = DB::transaction(function () use ($task, $repository, $outcome, $users, $attempts, &$isCreated): CoOwnerRequest {
             $locked = YakTask::whereKey($task->id)->lockForUpdate()->firstOrFail();
             $existing = $this->existingRequest($locked);
 
@@ -242,6 +282,7 @@ class CoOwnerGate
                 return $existing;
             }
 
+            $isCreated = true;
             $files = $outcome['files'];
             $request = CoOwnerRequest::create([
                 'task_id' => $locked->id,
@@ -273,10 +314,12 @@ class CoOwnerGate
 
         $task->refresh();
 
-        try {
-            SendCoOwnerMessagesJob::dispatch($request, 'held');
-        } catch (Throwable $exception) {
-            report($exception);
+        if ($isCreated) {
+            try {
+                SendCoOwnerMessagesJob::dispatch($request, 'held');
+            } catch (Throwable $exception) {
+                report($exception);
+            }
         }
 
         return $request;
