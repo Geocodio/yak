@@ -19,6 +19,7 @@ use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
 use App\Support\MarkdownText;
 use App\Support\TaskTrigger;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -61,8 +62,12 @@ class CreatePullRequestJob implements ShouldQueue
 
         if ($existing !== null && $this->approvedRequest !== null) {
             // The approval opens no second PR; the existing one gets the label and reviewer.
-            $this->task->update(['pr_url' => $existing['html_url'] ?? null, 'pr_number' => $existing['number'] ?? null]);
-            $this->markCoOwned($gitHub, $repository, $installationId, (int) ($existing['number'] ?? 0));
+            if (! isset($existing['number'], $existing['html_url'])) {
+                throw new \RuntimeException('GitHub returned an existing PR without expected fields.');
+            }
+
+            $this->task->update(['pr_url' => $existing['html_url'], 'pr_number' => $existing['number']]);
+            $this->markCoOwned($gitHub, $repository, $installationId, (int) $existing['number']);
 
             return;
         }
@@ -146,11 +151,28 @@ class CreatePullRequestJob implements ShouldQueue
             $labels[] = 'yak-co-owned';
         }
 
+        $openedAt = now();
+
+        // An approved PR is already open, so its URL is saved before anything
+        // that can fail, and the follow-up calls are best effort.
+        if ($this->approvedRequest !== null) {
+            $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
+            $this->bestEffort(fn () => $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels));
+            $this->bestEffort(fn () => $this->recordOpened($prNumber, $openedAt));
+            $this->requestApproverReview($gitHub, $repository, $installationId, (int) $prNumber);
+
+            return;
+        }
+
         $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
 
-        $openedAt = now();
         $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
 
+        $this->recordOpened($prNumber, $openedAt);
+    }
+
+    private function recordOpened(mixed $prNumber, CarbonInterface $openedAt): void
+    {
         // Request-to-PR is the headline delivery latency on the Analytics page.
         Telemetry::record('pr.opened', [
             'pr_number' => (int) $prNumber,
@@ -159,9 +181,14 @@ class CreatePullRequestJob implements ShouldQueue
         ], task: $this->task, durationMs: $this->task->created_at !== null
             ? max(0, $openedAt->getTimestampMs() - $this->task->created_at->getTimestampMs())
             : null);
+    }
 
-        if ($this->approvedRequest !== null) {
-            $this->requestApproverReview($gitHub, $repository, $installationId, (int) $prNumber);
+    private function bestEffort(\Closure $call): void
+    {
+        try {
+            $call();
+        } catch (\Throwable $exception) {
+            Log::channel('yak')->warning('CreatePullRequestJob: a step after opening a co-owned PR failed', ['task_id' => $this->task->id, 'error' => $exception->getMessage()]);
         }
     }
 
@@ -171,11 +198,7 @@ class CreatePullRequestJob implements ShouldQueue
      */
     private function markCoOwned(GitHubAppService $gitHub, Repository $repository, int $installationId, int $prNumber): void
     {
-        try {
-            $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, ['yak-co-owned']);
-        } catch (\Throwable $exception) {
-            Log::channel('yak')->warning('CreatePullRequestJob: failed to label a co-owned PR', ['task_id' => $this->task->id, 'error' => $exception->getMessage()]);
-        }
+        $this->bestEffort(fn () => $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, ['yak-co-owned']));
 
         $this->requestApproverReview($gitHub, $repository, $installationId, $prNumber);
     }
@@ -300,7 +323,7 @@ class CreatePullRequestJob implements ShouldQueue
 
         foreach (['Started by' => $this->task->author_name, 'Responsible' => $this->task->responsible_name] as $label => $name) {
             if ($name !== null && trim($name) !== '') {
-                $parts[] = "**{$label}:** " . trim($name);
+                $parts[] = "**{$label}:** " . MarkdownText::inline($name);
             }
         }
 

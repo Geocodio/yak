@@ -349,3 +349,20 @@ it('ends a task held for a co-owner as a withdraw when prompted with a stop sign
     Bus::assertDispatched(SendCoOwnerMessagesJob::class, fn ($job) => $job->event === 'resolved');
     Http::assertSent(fn ($request): bool => $request->method() === 'DELETE' && str_contains($request->url(), '/git/refs/heads/yak/held'));
 });
+
+it('leaves a held task alone on a stop signal while its approval is in flight', function (): void {
+    Bus::fake();
+
+    $task = YakTask::factory()->awaitingCoOwner()->create(['source' => 'linear', 'linear_agent_session_id' => 'sess-flight']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'status' => CoOwnerRequestStatus::Approved]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-flight'],
+        'agentActivity' => ['signal' => 'stop'],
+    ], $this->secret)->assertSuccessful();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner);
+});

@@ -2,6 +2,7 @@
 
 namespace App\Channels\Linear;
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -384,7 +385,8 @@ class WebhookController extends Controller
                 return;
             } catch (CoOwnerDecisionException) {
                 // A decision landed first; only a task still held is cancelled here.
-                if ($task->refresh()->status !== TaskStatus::AwaitingCoOwner) {
+                if ($task->refresh()->status !== TaskStatus::AwaitingCoOwner
+                    || $task->coOwnerRequests()->where('status', CoOwnerRequestStatus::Approved)->exists()) {
                     return;
                 }
             }

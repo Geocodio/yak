@@ -13,6 +13,7 @@ use App\Services\CoOwner\CoOwnerDecisionException;
 use App\Services\CoOwner\CoOwnerDecisions;
 use App\Services\CoOwner\CoOwnerResolver;
 use App\Services\FollowUpTaskFactory;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
@@ -206,4 +207,46 @@ it('supersedes the open request when a thread reply starts a follow-up', functio
         ->and($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Superseded)
         ->and($this->task->fresh()->status)->toBe(TaskStatus::Success);
     Bus::assertDispatched(SendCoOwnerMessagesJob::class, fn ($job): bool => $job->event === 'resolved');
+});
+
+it('keeps the approval when a step after the PR opens throws', function () {
+    decisionFakes('write', ['api.github.com/repos/o/r/issues/*/labels' => fn () => throw new ConnectionException('boom')]);
+
+    $task = app(CoOwnerDecisions::class)->approve($this->request, $this->approver);
+
+    expect($task->status)->toBe(TaskStatus::Success)
+        ->and($task->pr_url)->toBe('https://github.com/o/r/pull/7')
+        ->and($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Approved);
+});
+
+it('does not revert a request another approver now holds', function () {
+    $other = User::factory()->withGitHub(5, 'other')->create();
+    $request = $this->request;
+    decisionFakes('write', ['api.github.com/repos/o/r/pulls' => function () use ($request, $other) {
+        CoOwnerRequest::whereKey($request->id)->update(['decided_by_user_id' => $other->id]);
+
+        return Http::response(['message' => 'nope'], 403);
+    }]);
+
+    expect(fn () => app(CoOwnerDecisions::class)->approve($this->request, $this->approver))
+        ->toThrow(fn (CoOwnerDecisionException $e) => $e->reason === 'github_failed');
+    expect($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Approved)
+        ->and($this->request->fresh()->decided_by_user_id)->toBe($other->id);
+});
+
+it('does not supersede a task whose approval is in flight', function () {
+    $this->request->update(['status' => CoOwnerRequestStatus::Approved]);
+
+    app(CoOwnerDecisions::class)->supersede($this->task);
+
+    expect($this->task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner)
+        ->and($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Approved);
+});
+
+it('escapes the responsible name in the PR body', function () {
+    $this->approver->update(['name' => 'Ann *Bold*']);
+
+    app(CoOwnerDecisions::class)->approve($this->request, $this->approver);
+
+    Http::assertSent(fn ($r): bool => $r->method() === 'POST' && str_ends_with($r->url(), '/pulls') && str_contains($r['body'], '**Responsible:** Ann \*Bold\*'));
 });

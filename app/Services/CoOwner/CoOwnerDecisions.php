@@ -57,11 +57,17 @@ class CoOwnerDecisions
             CreatePullRequestJob::dispatchSync($task, $isLargeChange, $request);
             $task->refresh();
         } catch (Throwable $exception) {
-            $this->revertApproval($request, $task, $approver, $previousResponsible);
+            // Once the PR is open (its URL is saved) the approval stands.
+            if (YakTask::whereKey($task->id)->value('pr_url') === null) {
+                $this->revertApproval($request, $task, $approver, $previousResponsible);
 
-            throw $exception instanceof RequestException
-                ? CoOwnerDecisionException::githubFailed($exception->response->status(), (string) ($exception->response->json('message') ?? $exception->getMessage()))
-                : CoOwnerDecisionException::githubFailed(null, $exception->getMessage());
+                throw $exception instanceof RequestException
+                    ? CoOwnerDecisionException::githubFailed($exception->response->status(), (string) ($exception->response->json('message') ?? $exception->getMessage()))
+                    : CoOwnerDecisionException::githubFailed(null, $exception->getMessage());
+            }
+
+            report($exception);
+            $task->refresh();
         }
 
         $this->finisher->finish($task, "Approved by {$approver->name}. ");
@@ -130,7 +136,7 @@ class CoOwnerDecisions
     public function expire(CoOwnerRequest $request): void
     {
         $this->claim($request, null, CoOwnerRequestStatus::Expired, function (YakTask $task): void {
-            $task->update(['status' => TaskStatus::Expired]);
+            $task->update(['status' => TaskStatus::Expired, 'completed_at' => now()]);
         });
 
         $this->announce($request);
@@ -148,6 +154,11 @@ class CoOwnerDecisions
             $task = YakTask::whereKey($heldTask->id)->lockForUpdate()->firstOrFail();
 
             if ($task->status !== TaskStatus::AwaitingCoOwner) {
+                return;
+            }
+
+            // An approval in flight finishes on its own; leave the task alone.
+            if (CoOwnerRequest::where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Approved)->exists()) {
                 return;
             }
 
@@ -251,7 +262,7 @@ class CoOwnerDecisions
     private function announce(CoOwnerRequest $request): void
     {
         try {
-            SendCoOwnerMessagesJob::dispatch($request->fresh() ?? $request, 'resolved');
+            SendCoOwnerMessagesJob::dispatch($request->fresh() ?? $request, 'resolved')->afterCommit();
         } catch (Throwable $exception) {
             report($exception);
         }
