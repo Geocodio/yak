@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CoOwnerRequestStatus $status
  * @property array<int, array{name: string, risk: string, rationale: string, paths: array<int, string>}> $matched_areas
  * @property array<int, string> $hold_reasons
- * @property array<int, array{path: string, previousPath: string|null, status: string, additions: int, deletions: int, isHeld: bool}> $changed_files
+ * @property array<int, array{path: string, previousPath: string|null, status: 'new'|'modified'|'removed'|'renamed', additions: int, deletions: int, isHeld: bool}> $changed_files
  * @property array<int, int> $asked_user_ids
  * @property array<int, array{entry: string, kind: string, outcome: string}> $ask_attempts
  * @property array<int, array{userId: int, channel: string, ts: string}> $direct_messages

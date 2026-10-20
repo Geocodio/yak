@@ -799,7 +799,6 @@ final class TaskDetailData
             TaskStatus::Running,
             TaskStatus::AwaitingClarification,
             TaskStatus::AwaitingCi,
-            TaskStatus::AwaitingCoOwner,
             TaskStatus::Retrying,
         ], true);
 

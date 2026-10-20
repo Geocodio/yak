@@ -43,6 +43,7 @@ it('renders a held task detail page and a session plan stage', function () {
     $props = TaskDetailData::build($task, Request::create('/'));
 
     expect($props['task']['status'])->toBe('awaiting_co_owner')
+        ->and(json_encode($props))->toContain('"canCancel":false')
         ->and(SessionPlanStage::forTask($task))->toBe(SessionPlanStage::AwaitingCi);
 
     $this->withoutVite()->actingAs(User::factory()->create())->get(route('tasks.show', $task))->assertOk();
