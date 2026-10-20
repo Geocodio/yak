@@ -1191,6 +1191,97 @@ GRAPHQL;
         return array_values((array) $response->throw()->json('files'));
     }
 
+    /**
+     * The collaborator's `role_name` on a repository. Null when GitHub has no
+     * such collaborator (404). Any other failure throws.
+     */
+    public function collaboratorRole(int $installationId, string $repoSlug, string $login): ?string
+    {
+        $permission = $this->collaboratorPermission($installationId, $repoSlug, $login);
+
+        return $permission === null ? null : (string) ($permission['role_name'] ?? '');
+    }
+
+    /**
+     * The collaborator permission payload (`role_name`, `user.permissions`),
+     * or null on 404. Any other failure throws.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function collaboratorPermission(int $installationId, string $repoSlug, string $login): ?array
+    {
+        $response = $this->installationClient($installationId)
+            ->get('https://api.github.com/repos/' . $repoSlug . '/collaborators/' . rawurlencode($login) . '/permission');
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        return (array) $response->throw()->json();
+    }
+
+    /** The current login for a GitHub user id, or null when the account is gone. */
+    public function loginForUserId(int $installationId, int $githubId): ?string
+    {
+        $response = $this->installationClient($installationId)->get('https://api.github.com/user/' . $githubId);
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        $login = $response->throw()->json('login');
+
+        return is_string($login) && $login !== '' ? $login : null;
+    }
+
+    /**
+     * Logins on a team, read page by page (at most 10 pages of 100). Null when
+     * the app cannot read members (403) or the team does not exist (404).
+     *
+     * @return list<string>|null
+     */
+    public function listTeamMemberLogins(int $installationId, string $org, string $team): ?array
+    {
+        $logins = [];
+
+        for ($page = 1; $page <= 10; $page++) {
+            $response = $this->installationClient($installationId)->get(
+                'https://api.github.com/orgs/' . rawurlencode($org) . '/teams/' . rawurlencode($team) . '/members',
+                ['per_page' => 100, 'page' => $page],
+            );
+
+            if (in_array($response->status(), [403, 404], true)) {
+                return null;
+            }
+
+            $members = (array) $response->throw()->json();
+            foreach ($members as $member) {
+                $logins[] = (string) $member['login'];
+            }
+
+            if (count($members) < 100) {
+                break;
+            }
+        }
+
+        return $logins;
+    }
+
+    /** Delete a branch. A branch that is already gone counts as deleted. */
+    public function deleteBranch(int $installationId, string $repoSlug, string $branch): bool
+    {
+        $encodedBranch = implode('/', array_map('rawurlencode', explode('/', $branch)));
+
+        $response = $this->installationClient($installationId)
+            ->delete('https://api.github.com/repos/' . $repoSlug . '/git/refs/heads/' . $encodedBranch);
+
+        if ($response->status() === 422 && str_contains((string) $response->json('message'), 'Reference does not exist')) {
+            return true;
+        }
+
+        return $response->throw()->status() === 204;
+    }
+
     /** A ref for a URL path: every segment is percent-encoded and the slashes are too. */
     public static function encodeRef(string $ref): string
     {
