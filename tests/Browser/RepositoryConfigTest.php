@@ -41,3 +41,27 @@ it('shows the open config PR waiting for review', function () {
         ->assertMissing('[data-testid="yak-config-migrate"]')
         ->assertNoJavascriptErrors();
 });
+
+it('links the settings page to the risk profile page', function () {
+    $repository = Repository::factory()->create(['pr_review_enabled' => true]);
+    fakeYakFiles(['risk-profile.yml' => riskProfileYaml()]);
+    fakeRiskMapGitHub(['app/Http/Kernel.php'], null);
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.edit', $repository))
+        ->click('Open risk profile')
+        ->assertPathIs('/repos/' . $repository->slug . '/risk-profile')
+        ->assertNoJavascriptErrors();
+});
+
+it('links the database draft block to the risk profile page', function () {
+    $repository = Repository::factory()->create(['pr_review_enabled' => true]);
+    fakeYakFiles([]);
+    fakeNoRiskProfilePullRequest();
+    $this->actingAs(User::factory()->create());
+
+    visit(route('repos.edit', $repository))
+        ->click('Open risk profile')
+        ->assertPathIs('/repos/' . $repository->slug . '/risk-profile')
+        ->assertNoJavascriptErrors();
+});

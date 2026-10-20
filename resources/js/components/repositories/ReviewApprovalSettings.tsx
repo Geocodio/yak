@@ -1,10 +1,11 @@
 import { Button, Field, Select, Textarea, TextInput } from '@geocodio/console-ui';
 import { Link, useForm } from '@inertiajs/react';
-import { TriangleAlert } from 'lucide-react';
+import { Map, TriangleAlert } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { ExpandableCodeField } from '@/components/editor/ExpandableCodeField';
 import { ToggleRow } from '@/components/repositories/ToggleRow';
 import { show as showPrompt } from '@/routes/prompts';
+import { show as showRiskProfile } from '@/routes/repos/risk-profile';
 import { ConfigSourceBadge, LockedField, ProposeChangeLink } from '@/components/repositories/ConfigSourceBadge';
 import type { RepositoryDetail, ReviewPolicy, YakConfig } from '@/types/repositories';
 
@@ -81,7 +82,7 @@ export function ReviewApprovalSettings({ value, onChange, errors, repository, ya
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-risk-profile')}>Edit risk profile prompt</Link>
             {' · '}
             <Link className="text-[12px] text-accent-text hover:underline" href={showPrompt.url('tasks-review')}>Edit PR review prompt</Link>
-            {yakConfig && repository && lockedRisk ? <LockedRiskProfile profile={lockedRisk} config={yakConfig} branch={repository.defaultBranch} /> : repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
+            {yakConfig && repository && lockedRisk ? <LockedRiskProfile profile={lockedRisk} config={yakConfig} branch={repository.defaultBranch} repositorySlug={repository.slug} /> : repository ? <RiskProfiles key={JSON.stringify(repository.riskProfiles)} repository={repository} /> : <p className="text-[12px] text-muted">Save the repository before generating a risk profile.</p>}
         </div>
     );
 }
@@ -119,7 +120,15 @@ function LockedPolicy({ policy, config }: { policy: ReviewPolicy; config: YakCon
     );
 }
 
-function LockedRiskProfile({ profile, config, branch }: { profile: NonNullable<YakConfig['values']['riskProfile']>; config: YakConfig; branch: string }) {
+function OpenRiskProfileLink({ repository }: { repository: string }) {
+    return (
+        <Link className="inline-flex items-center gap-1.5 text-[12px] text-accent-text hover:underline" href={showRiskProfile(repository)}>
+            <Map size={12} className="shrink-0" />Open risk profile
+        </Link>
+    );
+}
+
+function LockedRiskProfile({ profile, config, branch, repositorySlug }: { profile: NonNullable<YakConfig['values']['riskProfile']>; config: YakConfig; branch: string; repositorySlug: string }) {
     return (
         <div className="space-y-2 border-t border-hair pt-4" data-testid="locked-risk-profile">
             <h4 className="flex flex-wrap items-center gap-2 text-[13px] font-semibold">
@@ -131,7 +140,10 @@ function LockedRiskProfile({ profile, config, branch }: { profile: NonNullable<Y
                 Approved by merging into {branch}.{profile.commitSha ? <> In use since <span className="font-mono">{profile.commitSha.slice(0, 7)}</span>.</> : null}
             </p>
             {profile.unknowns > 0 && <p className="flex items-center gap-1.5 text-[12px] text-muted"><TriangleAlert size={12} className="shrink-0 text-warn" />Open questions block Yak's auto-approval until they are answered in the file.</p>}
-            <ProposeChangeLink config={config} fileName="risk-profile.yml" />
+            <div className="flex flex-wrap items-center gap-4">
+                <OpenRiskProfileLink repository={repositorySlug} />
+                <ProposeChangeLink config={config} fileName="risk-profile.yml" />
+            </div>
         </div>
     );
 }
@@ -150,6 +162,7 @@ function RiskProfiles({ repository }: { repository: RepositoryDetail }) {
     return (
         <div className="space-y-3 border-t border-hair pt-4">
             <h4 className="text-[13px] font-semibold">Repository risk profile</h4>
+            <OpenRiskProfileLink repository={repository.slug} />
             <p className="break-all text-[12px] text-muted">{active ? `Active: ${active.version}. Approved by ${active.approved_by} at ${active.approved_at}.` : 'No active profile. Generate and review a draft before enabling approvals.'}</p>
             {active && <details className="text-[12px] text-muted"><summary className="cursor-pointer">View active profile</summary><pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words">{JSON.stringify(active, null, 2)}</pre></details>}
             <Button type="button" pending={form.processing && form.data.action === 'generate'} disabled={form.processing} onClick={() => { form.setData('action', 'generate'); submit('generate'); }}>Generate draft with Claude</Button>

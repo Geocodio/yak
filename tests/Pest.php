@@ -178,3 +178,153 @@ function fakeGithubConfigPullRequestApi(int $pullRequestStatus = 201, array $ove
         'api.github.com/repos/acme/api/issues/12/labels' => Http::response([]),
     ]);
 }
+
+/**
+ * Serve a fixed snapshot to every RepositoryConfig::snapshot() call in a test.
+ */
+function bindConfigSnapshot(ConfigSnapshot $snapshot): void
+{
+    app()->instance(RepositoryConfig::class, new class($snapshot) extends RepositoryConfig
+    {
+        public function __construct(private ConfigSnapshot $fixedSnapshot) {}
+
+        public function snapshot(Repository $repository): ConfigSnapshot
+        {
+            return $this->fixedSnapshot;
+        }
+    });
+}
+
+/**
+ * Give the GitHub App a real signing key, an app id and an installation id,
+ * so AppService can mint installation tokens against Http::fake().
+ */
+function configureFakeGitHubApp(): void
+{
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '12345');
+    config()->set('yak.channels.github.private_key', $privateKey);
+    config()->set('yak.channels.github.installation_id', 99999);
+}
+
+/**
+ * The installation-token stub. Register it before any catch-all stub, or the
+ * token request gets the catch-all response.
+ *
+ * @return array<string, mixed>
+ */
+function gitHubTokenFake(): array
+{
+    return ['api.github.com/app/installations/*/access_tokens' => Http::response([
+        'token' => 'ghs_token',
+        'expires_at' => now()->addHour()->toIso8601String(),
+    ])];
+}
+
+/**
+ * A two-area risk profile: both areas are high, the second matches no file in
+ * the usual fake tree, and one question is open.
+ */
+function riskProfileYaml(): string
+{
+    return <<<'YAML'
+version: 1
+areas:
+  - name: API middleware and HTTP kernel
+    risk: high
+    paths: ["app/Http/Middleware/**", "app/Http/Kernel.php"]
+    symbols: []
+    rationale: Every request passes through these.
+    evidence: ["Kernel registers global middleware"]
+  - name: Legacy geocoder shim
+    risk: high
+    paths: ["lib/legacy-shim/**"]
+    symbols: []
+    rationale: Old code.
+    evidence: ["git log"]
+unknowns: ["Does launcher/ touch production credentials?"]
+YAML;
+}
+
+/**
+ * Fake the GitHub calls behind the risk map: the head tree, CODEOWNERS, the
+ * last commit of the profile file and the pull request that merged it.
+ *
+ * `$pullRequests` maps a PR number to its changed files, or to an HTTP status
+ * the PR answers with; `$branches` maps a branch name to its compare files.
+ * Any other PR or branch is not found.
+ *
+ * @param  list<string>  $paths
+ * @param  array<int, list<array<string, string>>|int>  $pullRequests
+ * @param  array<string, list<array<string, string>>>  $branches
+ */
+function fakeRiskMapGitHub(array $paths, ?string $codeOwners = null, bool $isTruncated = false, int $treeStatus = 200, array $pullRequests = [], array $branches = []): void
+{
+    $changeFakes = [];
+    foreach ($pullRequests as $number => $files) {
+        if (is_int($files)) {
+            $changeFakes["api.github.com/repos/*/pulls/{$number}*"] = Http::response(['message' => 'Error'], $files);
+
+            continue;
+        }
+        $changeFakes["api.github.com/repos/*/pulls/{$number}/files*"] = Http::response($files);
+        $changeFakes["api.github.com/repos/*/pulls/{$number}"] = Http::response(['number' => $number, 'html_url' => "https://github.com/o/r/pull/{$number}"]);
+    }
+    foreach ($branches as $branch => $files) {
+        $changeFakes['api.github.com/repos/*/compare/*...' . rawurlencode($branch) . '*'] = Http::response(['files' => $files]);
+    }
+    $changeFakes['api.github.com/repos/*/pulls/*'] = Http::response(['message' => 'Not Found'], 404);
+    $changeFakes['api.github.com/repos/*/compare/*'] = Http::response(['message' => 'Not Found'], 404);
+
+    configureFakeGitHubApp();
+    Http::fake(gitHubTokenFake() + $changeFakes + [
+        'api.github.com/repos/*/git/trees/*' => Http::response(['truncated' => $isTruncated, 'tree' => array_map(fn (string $path): array => ['path' => $path, 'type' => 'blob'], $paths)], $treeStatus),
+        'api.github.com/repos/*/contents/.github/CODEOWNERS*' => $codeOwners === null ? Http::response(['message' => 'Not Found'], 404) : fn () => Http::response($codeOwners),
+        'api.github.com/repos/*/contents/*' => Http::response(['message' => 'Not Found'], 404),
+        'api.github.com/repos/*/commits/*/pulls' => Http::response([['number' => 4801, 'title' => 'Add profile', 'html_url' => 'https://github.com/o/r/pull/4801', 'merged_at' => '2026-10-09T10:00:00Z']]),
+        'api.github.com/repos/*/commits*' => Http::response([['sha' => str_repeat('b', 40), 'commit' => ['author' => ['name' => 'Mathias Hansen', 'date' => '2026-10-09T10:00:00Z']]]]),
+        '*' => Http::response([], 500),
+    ]);
+}
+
+/**
+ * Fake a GitHub with no open pull request on any branch.
+ */
+function fakeNoRiskProfilePullRequest(): void
+{
+    configureFakeGitHubApp();
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/*/pulls*' => Http::response([])]);
+}
+
+/** @return list<string> */
+function riskMapPaths(): array
+{
+    return array_merge(
+        array_map(fn ($i) => "app/Http/Middleware/M{$i}.php", range(1, 30)),
+        array_map(fn ($i) => "app/Support/S{$i}.php", range(1, 50)),
+        array_map(fn ($i) => "tests/Feature/T{$i}Test.php", range(1, 80)),
+        ['app/Http/Kernel.php', '.yak/config.yml', 'README.md'],
+    );
+}
+
+function riskMapProfileYaml(): string
+{
+    return <<<'YAML'
+version: 1
+areas:
+  - name: API middleware and HTTP kernel
+    risk: high
+    paths: ["app/Http/Middleware/**", "app/Http/Kernel.php"]
+    symbols: []
+    rationale: Every request passes through these.
+    evidence: ["Kernel registers global middleware"]
+  - name: Support helpers
+    risk: low
+    paths: ["app/Support/**"]
+    symbols: []
+    rationale: Small shared helpers.
+    evidence: ["Helpers only"]
+unknowns: []
+YAML;
+}

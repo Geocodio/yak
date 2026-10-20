@@ -142,7 +142,7 @@ export function SidebarNav({ touch = false, onNavigate }: { touch?: boolean; onN
                         </span>
                         <div className="min-w-0 leading-tight">
                             <div className="truncate text-[12px] font-medium">{user.name}</div>
-                            <div className="truncate text-[11px] text-faint">{user.email}</div>
+                            <div className="truncate text-[11px] text-muted">{user.email}</div>
                         </div>
                     </div>
                 ) : null}
@@ -193,6 +193,7 @@ export function Sidebar() {
                     <button
                         type="button"
                         onClick={openNewTask}
+                        aria-label="New task"
                         className="flex h-6 w-6 items-center justify-center rounded-control text-muted hover:bg-panel-2 hover:text-body"
                     >
                         <Plus size={14} />
@@ -203,7 +204,7 @@ export function Sidebar() {
             <button
                 type="button"
                 onClick={openPalette}
-                className="mx-3 mb-3 flex h-7 items-center gap-2 rounded-control border border-hair bg-panel px-2 text-[12px] text-faint shadow-card hover:border-hair-strong"
+                className="mx-3 mb-3 flex h-7 items-center gap-2 rounded-control border border-hair bg-panel px-2 text-[12px] text-muted shadow-card hover:border-hair-strong"
             >
                 <Search size={13} />
                 <span className="flex-1 text-left">Search…</span>

@@ -46,7 +46,7 @@ function checkRunPosts(): array
     return Http::recorded(fn (Request $request): bool => str_ends_with($request->url(), '/check-runs'))->all();
 }
 
-function riskProfileYaml(string $glob = 'app/Billing/**'): string
+function configCheckProfileYaml(string $glob = 'app/Billing/**'): string
 {
     return <<<YAML
 version: 1
@@ -79,7 +79,7 @@ it('posts nothing when the pull request touches no .yak file', function () {
 
 it('fails with counts, annotations and the problems per file', function () {
     $config = "version: 1\nreview:\n  enabeld: true\n  approval:\n    mode: shadow\n    max_lines: 8000\n";
-    fakeConfigCheck(['config.yml' => $config, 'preview.yml' => "port: 80\nhealth_probe_path: /up\n", 'risk-profile.yml' => riskProfileYaml('app/Legacy/Import/**')]);
+    fakeConfigCheck(['config.yml' => $config, 'preview.yml' => "port: 80\nhealth_probe_path: /up\n", 'risk-profile.yml' => configCheckProfileYaml('app/Legacy/Import/**')]);
 
     $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
 
@@ -104,7 +104,7 @@ it('succeeds with a summary of what each file sets', function () {
     fakeConfigCheck([
         'config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\nreview:\n  approval:\n    mode: shadow\n",
         'preview.yml' => "port: 80\nhealth_probe_path: /up\n",
-        'risk-profile.yml' => riskProfileYaml('app/Billing/**'),
+        'risk-profile.yml' => configCheckProfileYaml('app/Billing/**'),
         'AGENTS.md' => str_repeat('a', 1240),
     ]);
 
@@ -122,7 +122,7 @@ it('succeeds with a summary of what each file sets', function () {
 });
 
 it('skips the glob check when GitHub truncates the tree', function () {
-    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml('app/Legacy/Import/**')], truncated: true);
+    fakeConfigCheck(['risk-profile.yml' => configCheckProfileYaml('app/Legacy/Import/**')], truncated: true);
 
     $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
 
@@ -171,7 +171,7 @@ it('throws when the pull request file listing fails', function (string $failingU
 ])->throws(RequestException::class);
 
 it('stops the glob check at the comparison cap', function () {
-    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml('app/Legacy/**')], tree: ['a', 'b', 'c', 'd', 'e']);
+    fakeConfigCheck(['risk-profile.yml' => configCheckProfileYaml('app/Legacy/**')], tree: ['a', 'b', 'c', 'd', 'e']);
 
     $payload = (new RepositoryConfigCheck(app(AppService::class), new RepositoryConfigParser, 3))->run($this->repository, 7, CHECK_SHA);
 
@@ -182,7 +182,7 @@ it('stops the glob check at the comparison cap', function () {
 
 it('does not report a glob PCRE cannot evaluate as matching no file', function () {
     $glob = str_repeat('*a', 12) . '*b';
-    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml($glob)], tree: [str_repeat('a', 60) . 'bc', 'docs/index.md']);
+    fakeConfigCheck(['risk-profile.yml' => configCheckProfileYaml($glob)], tree: [str_repeat('a', 60) . 'bc', 'docs/index.md']);
     $jit = ini_get('pcre.jit');
     $limit = ini_get('pcre.backtrack_limit');
     ini_set('pcre.jit', '0');
@@ -221,7 +221,7 @@ it('lists at most 30 problems per file in the summary', function () {
 });
 
 it('stops the glob check when the time budget runs out', function () {
-    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml('app/Legacy/**')]);
+    fakeConfigCheck(['risk-profile.yml' => configCheckProfileYaml('app/Legacy/**')]);
 
     $payload = (new RepositoryConfigCheck(app(AppService::class), new RepositoryConfigParser, globCheckSeconds: 0))->run($this->repository, 7, CHECK_SHA);
 
@@ -233,12 +233,12 @@ it('stops the glob check when the time budget runs out', function () {
 it('restores the pcre backtrack limit after the glob check, even when it throws', function () {
     ini_set('pcre.backtrack_limit', '777777');
 
-    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml()]);
+    fakeConfigCheck(['risk-profile.yml' => configCheckProfileYaml()]);
     app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
     expect(ini_get('pcre.backtrack_limit'))->toBe('777777');
 
     Http::fake(['api.github.com/repos/acme/api/git/trees/*' => Http::response([], 500)]);
-    fakeConfigCheck(['risk-profile.yml' => riskProfileYaml()]);
+    fakeConfigCheck(['risk-profile.yml' => configCheckProfileYaml()]);
     try {
         app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);
     } catch (Throwable) {
@@ -247,7 +247,7 @@ it('restores the pcre backtrack limit after the glob check, even when it throws'
 });
 
 it('escapes untrusted area names, globs and error keys in the summary', function () {
-    $yaml = str_replace(['name: Legacy importer', '"app/Billing/**"'], ['name: "Evil <!-- x\\n## Approved"', '"gone/**"'], riskProfileYaml('gone/**'));
+    $yaml = str_replace(['name: Legacy importer', '"app/Billing/**"'], ['name: "Evil <!-- x\\n## Approved"', '"gone/**"'], configCheckProfileYaml('gone/**'));
     fakeConfigCheck(['risk-profile.yml' => $yaml], ['.yak/risk-profile.yml']);
 
     $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, CHECK_SHA);

@@ -176,3 +176,43 @@ html #nprogress .bar {
 .prose .attachment-ref {
     cursor: pointer;
 }
+
+/*
+ * Risk levels on the risk profile page. Fills carry the level, `-ink` is the
+ * text colour on the panel, `-soft` tints a whole surface. The theme follows
+ * the OS, so dark values sit under the media query.
+ */
+:root {
+    --risk-critical: #c0262d;
+    --risk-critical-ink: #a31f26;
+    --risk-critical-soft: #c0262d1a;
+    --risk-high: #eb6834;
+    --risk-high-ink: #a85a10;
+    --risk-high-soft: #eb683424;
+    --risk-unknown: #4a3aa7;
+    --risk-unknown-ink: #4a3aa7;
+    --risk-unknown-soft: #4a3aa71a;
+    --risk-medium: #2572cc;
+    --risk-medium-ink: #1c5cab;
+    --risk-medium-soft: #2a78d61a;
+    --risk-low: #1a9e8f;
+    --risk-low-ink: #0f6f65;
+    --risk-low-soft: #1a9e8f1f;
+    --risk-none-hatch: #9598a14d;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --risk-critical-ink: #ff8086;
+        --risk-critical-soft: #c0262d34;
+        --risk-high-ink: #f59a5c;
+        --risk-high-soft: #eb683448;
+        --risk-unknown-ink: #b3a8f5;
+        --risk-unknown-soft: #4a3aa734;
+        --risk-medium-ink: #7ab2f2;
+        --risk-medium-soft: #2a78d634;
+        --risk-low-ink: #45cfbd;
+        --risk-low-soft: #1a9e8f3e;
+        --risk-none-hatch: #62666e66;
+    }
+}
