@@ -195,3 +195,43 @@ it('words the thread notes for rejected, changes requested and expired requests'
 
     expect(CoOwnerBlocks::threadResolved(heldRequest(['status' => CoOwnerRequestStatus::Approved])))->toBe([]);
 });
+
+it('explains a floor hold and an unchecked hold in the direct message without a risk level', function () {
+    $floor = heldRequest(['hold_reasons' => ['floor'], 'matched_areas' => []]);
+    $blocks = CoOwnerBlocks::directMessage($floor, User::factory()->create());
+    $text = allText($blocks);
+
+    expect($blocks[1]['text']['text'])->toBe("Yak finished a task for Jane and CI passed. It changes Yak's own config files, which always need a co-owner. Would you co-own it?");
+    expect($text)->toContain('*Why it is held*')->toContain('`app/new.php`')->not->toContain('rates unknown')->not->toContain('Matched area');
+
+    $unchecked = heldRequest(['hold_reasons' => ['unchecked'], 'matched_areas' => []]);
+    expect(CoOwnerBlocks::directMessage($unchecked, User::factory()->create())[1]['text']['text'])
+        ->toBe('Yak finished a task for Jane and CI passed. Yak could not check every changed file against the risk profile, so it holds the change to be safe. Would you co-own it?');
+});
+
+it('escapes and encodes a hostile branch name', function () {
+    $request = heldRequest([], ['branch_name' => 'yak/a<b>|c&d']);
+
+    $text = allText(CoOwnerBlocks::threadHeld($request));
+
+    expect($text)->toContain('CI passed on yak/a&lt;b&gt;|c&amp;d')
+        ->toContain('compare/main...yak/a%3Cb%3E%7Cc%26d')
+        ->not->toContain('yak/a<b>');
+});
+
+it('keeps a long rationale under the field limit and has no double space for an empty one', function () {
+    $long = heldRequest(['matched_areas' => [['name' => 'A', 'risk' => 'high', 'rationale' => str_repeat('x', 5000), 'paths' => []]]]);
+    $fields = CoOwnerBlocks::directMessage($long, User::factory()->create())[2]['fields'];
+    expect(mb_strlen($fields[1]['text']))->toBeLessThan(2000);
+
+    $empty = heldRequest(['matched_areas' => [['name' => 'A', 'risk' => 'high', 'rationale' => '', 'paths' => []]]]);
+    expect(CoOwnerBlocks::threadHeld($empty)[1]['text']['text'])->toContain('It touches A (high risk). Changes to areas');
+});
+
+it('falls back to a generic name and skips the PR button when data is missing', function () {
+    $request = heldRequest(['status' => CoOwnerRequestStatus::Rejected, 'decided_by_user_id' => null, 'decided_at' => now()->setTime(9, 0)]);
+    expect(CoOwnerBlocks::resolved($request, User::factory()->create())[0]['text']['text'])->toStartWith('Rejected by A co-owner at 9:00 AM');
+
+    $approved = heldRequest(['status' => CoOwnerRequestStatus::Approved, 'decided_by_user_id' => null, 'decided_at' => now()], ['pr_url' => null, 'pr_number' => 7]);
+    expect(actionIds(CoOwnerBlocks::resolved($approved, User::factory()->create())))->toBe([]);
+});

@@ -34,7 +34,7 @@ class CoOwnerBlocks
         return [
             self::section("*{$headline}*"),
             self::section($details . "\n\n" . $asked),
-            self::context("CI passed on {$branch}"),
+            self::context('CI passed on ' . SlackText::escape($branch)),
             ['type' => 'actions', 'elements' => [
                 self::linkButton('View changes', 'yak_link_view_changes', self::compareUrl($request)),
                 self::linkButton('Open task', 'yak_link_open_task', self::taskUrl($request)),
@@ -55,12 +55,10 @@ class CoOwnerBlocks
         $repository = $escape($request->repository->github_full_name);
         $areas = $request->matched_areas;
 
-        $details = match (true) {
-            $request->hold_reasons === ['floor'] => "It changes Yak's own config files, which always need a co-owner.",
-            $areas === [] => 'Yak could not check every changed file against the risk profile, so it holds the change to be safe.',
-            default => 'It touches ' . self::areaList($areas, $escape) . '. ' . $escape(self::riskiestArea($request)['rationale'] ?? '')
-                . " Changes to areas like this get a second person with write access to {$repository}, whoever asks for them.",
-        };
+        $rationale = $escape(self::riskiestArea($request)['rationale'] ?? '');
+        $details = self::holdSentence($request)
+            ?? 'It touches ' . self::areaList($areas, $escape) . '.' . ($rationale !== '' ? " {$rationale}" : '')
+                . " Changes to areas like this get a second person with write access to {$repository}, whoever asks for them.";
 
         $asked = $request->asked_user_ids === []
             ? "Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to {$repository} can approve from the task page."
@@ -77,14 +75,18 @@ class CoOwnerBlocks
         $requester = self::requesterName($request);
         $first = SlackText::escape(self::firstName($request));
         $repository = SlackText::escape($request->repository->github_full_name);
+        $holdSentence = self::holdSentence($request);
         $risk = self::riskiestArea($request)['risk'] ?? 'unknown';
+        $reason = $holdSentence ?? "It touches an area the {$repository} risk profile rates {$risk}, so a second person with write access takes a look before a PR opens.";
 
         return [
             ['type' => 'header', 'text' => ['type' => 'plain_text', 'text' => "{$requester} needs a co-owner for a change"]],
-            self::section("Yak finished a task for {$first} and CI passed. It touches an area the {$repository} risk profile rates {$risk}, so a second person with write access takes a look before a PR opens. Would you co-own it?"),
+            self::section("Yak finished a task for {$first} and CI passed. {$reason} Would you co-own it?"),
             ['type' => 'section', 'fields' => [
                 self::field('Task', self::taskLink($request)),
-                self::field('Matched area', self::matchedAreaText($request)),
+                $holdSentence !== null
+                    ? self::field('Why it is held', self::truncate($holdSentence . "\n" . self::heldFilesText($request)))
+                    : self::field('Matched area', self::truncate(self::matchedAreaText($request))),
                 self::field('Requested by', SlackText::escape($requester)),
                 self::field('Repository', $repository),
                 self::field('Changes', self::changesText($request)),
@@ -137,6 +139,7 @@ class CoOwnerBlocks
     public static function resolved(CoOwnerRequest $request, User $recipient): array
     {
         $name = $request->decidedBy !== null ? SlackText::escape($request->decidedBy->name) : null;
+        $nameOrFallback = $name ?? 'A co-owner';
         $time = self::time($request->decided_at ?? now(), 'g:i A');
         $first = SlackText::escape(self::firstName($request));
         $task = $request->task;
@@ -149,20 +152,22 @@ class CoOwnerBlocks
             $number = $task->pullRequestNumber();
             $isApprover = $request->decided_by_user_id === $recipient->id;
             $text = $isApprover
-                ? "Approved by {$name}. PR #{$number} opened, you're the responsible reviewer."
-                : "Approved by {$name}. PR #{$number} is open.";
+                ? "Approved by {$nameOrFallback}. PR #{$number} opened, you're the responsible reviewer."
+                : "Approved by {$nameOrFallback}. PR #{$number} is open.";
 
-            return [
-                self::section($text),
-                ['type' => 'actions', 'elements' => [self::linkButton("View PR #{$number}", 'yak_link_view_pr', (string) $task->pr_url)]],
-                self::context("Approved {$time} · {$first} has been told in the original thread"),
-            ];
+            $blocks = [self::section($text)];
+
+            if ($task->pr_url !== null && $task->pr_url !== '') {
+                $blocks[] = ['type' => 'actions', 'elements' => [self::linkButton("View PR #{$number}", 'yak_link_view_pr', $task->pr_url)]];
+            }
+
+            return [...$blocks, self::context("Approved {$time} · {$first} has been told in the original thread")];
         }
 
         return [self::section(match ($request->status) {
-            CoOwnerRequestStatus::Rejected => "Rejected by {$name} at {$time}. The branch was deleted and no PR was opened.",
+            CoOwnerRequestStatus::Rejected => "Rejected by {$nameOrFallback} at {$time}. The branch was deleted and no PR was opened.",
             CoOwnerRequestStatus::Withdrawn => ($name !== null ? "Withdrawn by {$name} at {$time}." : "Withdrawn at {$time}.") . ' No action needed. The branch was deleted and no PR was opened.',
-            CoOwnerRequestStatus::ChangesRequested => "{$name} requested changes at {$time}. Yak is running a follow-up and will ask again.",
+            CoOwnerRequestStatus::ChangesRequested => "{$nameOrFallback} requested changes at {$time}. Yak is running a follow-up and will ask again.",
             CoOwnerRequestStatus::Expired => "Expired. Nobody decided within 7 days, so the task was closed and no PR was opened. If you still want it, {$first} can ask Yak again in the thread.",
             default => 'Replaced by a newer run of this task. No action needed.',
         })];
@@ -261,8 +266,34 @@ class CoOwnerBlocks
                 fn (string $path): string => '`' . SlackText::escape($path) . '`' . (in_array($path, $newPaths, true) ? ' new' : '')
             )->implode("\n");
 
-            return trim(SlackText::escape($area['name']) . " ({$area['risk']})\n" . SlackText::escape($area['rationale']) . "\n{$paths}");
+            return trim(SlackText::escape($area['name']) . " ({$area['risk']})\n" . SlackText::escape(Str::limit($area['rationale'], 300)) . "\n{$paths}");
         })->implode("\n\n") ?: 'Files that could not be checked';
+    }
+
+    /**
+     * Keeps a field under Slack's 2000 character limit.
+     */
+    private static function truncate(string $text): string
+    {
+        return Str::limit($text, 1900);
+    }
+
+    private static function heldFilesText(CoOwnerRequest $request): string
+    {
+        return collect($request->changed_files)->where('isHeld', true)->take(10)
+            ->map(fn (array $file): string => '`' . SlackText::escape($file['path']) . '`')->implode("\n");
+    }
+
+    /**
+     * The reason for a hold that has no held area, or null when areas matched.
+     */
+    private static function holdSentence(CoOwnerRequest $request): ?string
+    {
+        return match (true) {
+            $request->hold_reasons === ['floor'] => "It changes Yak's own config files, which always need a co-owner.",
+            $request->matched_areas === [] => 'Yak could not check every changed file against the risk profile, so it holds the change to be safe.',
+            default => null,
+        };
     }
 
     private static function changesText(CoOwnerRequest $request): string
@@ -355,7 +386,10 @@ class CoOwnerBlocks
 
     private static function compareUrl(CoOwnerRequest $request): string
     {
-        return "https://github.com/{$request->repository->github_full_name}/compare/{$request->repository->default_branch}...{$request->task->branch_name}";
+        $encode = fn (string $ref): string => implode('/', array_map('rawurlencode', explode('/', $ref)));
+
+        return 'https://github.com/' . $encode($request->repository->github_full_name) . '/compare/'
+            . $encode($request->repository->default_branch) . '...' . $encode((string) $request->task->branch_name);
     }
 
     /**

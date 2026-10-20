@@ -78,12 +78,16 @@ class CoOwnerMessenger
      */
     public function ephemeral(string $responseUrl, string $text, array $blocks = []): void
     {
-        Http::post($responseUrl, array_filter([
-            'response_type' => 'ephemeral',
-            'replace_original' => false,
-            'text' => $text,
-            'blocks' => $blocks,
-        ], fn (mixed $value): bool => $value !== []));
+        try {
+            Http::post($responseUrl, array_filter([
+                'response_type' => 'ephemeral',
+                'replace_original' => false,
+                'text' => $text,
+                'blocks' => $blocks,
+            ], fn (mixed $value): bool => $value !== []));
+        } catch (Throwable $exception) {
+            Log::channel('yak')->warning('Co-owner ephemeral reply was not delivered', ['error' => $exception->getMessage()]);
+        }
     }
 
     /**
