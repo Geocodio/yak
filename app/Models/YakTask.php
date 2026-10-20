@@ -300,12 +300,13 @@ class YakTask extends Model
 
     /**
      * Whether a reply from the user can start a follow-up run: an open PR
-     * still takes commits, and a finished research task takes a follow-up
-     * question.
+     * still takes commits, a held change takes feedback, and a finished
+     * research task takes a follow-up question.
      */
     public function acceptsFollowUp(): bool
     {
         return $this->prIsOpen()
+            || $this->status === TaskStatus::AwaitingCoOwner
             || ($this->mode === TaskMode::Research && $this->status === TaskStatus::Success);
     }
 

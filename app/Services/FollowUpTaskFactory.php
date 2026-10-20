@@ -9,6 +9,7 @@ use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Models\TaskAttachment;
 use App\Models\YakTask;
+use App\Services\CoOwner\CoOwnerDecisions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -82,6 +83,11 @@ class FollowUpTaskFactory
                     'pending_steering_message_id' => null,
                     'context' => TaskAttachment::CONTEXT_REQUEST,
                 ]);
+            }
+
+            // Feedback on a held change closes its request; the held task rests as Success.
+            if ($head->status === TaskStatus::AwaitingCoOwner) {
+                app(CoOwnerDecisions::class)->supersede($head);
             }
 
             return $child;

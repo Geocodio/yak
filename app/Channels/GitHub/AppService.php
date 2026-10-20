@@ -248,6 +248,22 @@ class AppService
     }
 
     /**
+     * Open a pull request, throwing a RequestException on a non-2xx answer so
+     * the caller sees GitHub's status and message.
+     *
+     * @param  array<string, mixed>  $prData
+     * @return array<string, mixed>
+     */
+    public function openPullRequest(int $installationId, string $repoSlug, array $prData): array
+    {
+        /** @var array<string, mixed> */
+        return $this->installationClient($installationId)
+            ->post("https://api.github.com/repos/{$repoSlug}/pulls", $prData)
+            ->throw()
+            ->json();
+    }
+
+    /**
      * Return the first open PR whose head is the given branch, or null.
      * Used to keep PR creation idempotent — a follow-up pushes to an
      * existing branch, so a PR already exists.

@@ -6,6 +6,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\TaskMode;
 use App\Facades\Telemetry;
 use App\Models\Artifact;
+use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
@@ -16,6 +17,7 @@ use App\Services\PullRequestTitle;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
 use App\Services\WalkthroughPrSection;
+use App\Support\MarkdownText;
 use App\Support\TaskTrigger;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -33,6 +35,7 @@ class CreatePullRequestJob implements ShouldQueue
     public function __construct(
         public readonly YakTask $task,
         public readonly bool $isLargeChange = false,
+        public readonly ?CoOwnerRequest $approvedRequest = null,
     ) {
         $this->onQueue('default');
     }
@@ -55,6 +58,14 @@ class CreatePullRequestJob implements ShouldQueue
         // Detect it and post a summary comment instead of POSTing a new PR
         // (which GitHub rejects with 422).
         $existing = $gitHub->findOpenPullRequestForBranch($installationId, $repository->github_full_name, (string) $this->task->branch_name);
+
+        if ($existing !== null && $this->approvedRequest !== null) {
+            // The approval opens no second PR; the existing one gets the label and reviewer.
+            $this->task->update(['pr_url' => $existing['html_url'] ?? null, 'pr_number' => $existing['number'] ?? null]);
+            $this->markCoOwned($gitHub, $repository, $installationId, (int) ($existing['number'] ?? 0));
+
+            return;
+        }
 
         if ($existing !== null) {
             if (! isset($existing['number'], $existing['html_url'])) {
@@ -97,7 +108,7 @@ class CreatePullRequestJob implements ShouldQueue
         }
 
         // A risky change waits for a co-owner; the PR opens once one approves.
-        if (app(CoOwnerGate::class)->hold($this->task, $repository) !== null) {
+        if ($this->approvedRequest === null && app(CoOwnerGate::class)->hold($this->task, $repository) !== null) {
             return;
         }
 
@@ -106,12 +117,17 @@ class CreatePullRequestJob implements ShouldQueue
         $title = mb_convert_encoding($this->buildPrTitle(), 'UTF-8', 'UTF-8');
         $body = mb_convert_encoding($this->buildPrBody($signedUrls), 'UTF-8', 'UTF-8');
 
-        $prResponse = $gitHub->createPullRequest($installationId, $repository->github_full_name, [
+        $prData = [
             'title' => $title,
             'head' => $this->task->branch_name,
             'base' => $repository->default_branch,
             'body' => $body,
-        ]);
+        ];
+
+        // An approval needs GitHub's status and message when the PR is refused.
+        $prResponse = $this->approvedRequest !== null
+            ? $gitHub->openPullRequest($installationId, $repository->github_full_name, $prData)
+            : $gitHub->createPullRequest($installationId, $repository->github_full_name, $prData);
 
         if (! isset($prResponse['number'], $prResponse['html_url'])) {
             $error = $prResponse['message'] ?? json_encode($prResponse);
@@ -124,6 +140,10 @@ class CreatePullRequestJob implements ShouldQueue
         $labels = ['yak'];
         if ($this->isLargeChange) {
             $labels[] = 'yak-large-change';
+        }
+
+        if ($this->approvedRequest !== null) {
+            $labels[] = 'yak-co-owned';
         }
 
         $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
@@ -139,6 +159,57 @@ class CreatePullRequestJob implements ShouldQueue
         ], task: $this->task, durationMs: $this->task->created_at !== null
             ? max(0, $openedAt->getTimestampMs() - $this->task->created_at->getTimestampMs())
             : null);
+
+        if ($this->approvedRequest !== null) {
+            $this->requestApproverReview($gitHub, $repository, $installationId, (int) $prNumber);
+        }
+    }
+
+    /**
+     * Label the PR and ask the approver to review it. Both are best effort:
+     * the PR already exists, so a failure is logged and never thrown.
+     */
+    private function markCoOwned(GitHubAppService $gitHub, Repository $repository, int $installationId, int $prNumber): void
+    {
+        try {
+            $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, ['yak-co-owned']);
+        } catch (\Throwable $exception) {
+            Log::channel('yak')->warning('CreatePullRequestJob: failed to label a co-owned PR', ['task_id' => $this->task->id, 'error' => $exception->getMessage()]);
+        }
+
+        $this->requestApproverReview($gitHub, $repository, $installationId, $prNumber);
+    }
+
+    private function requestApproverReview(GitHubAppService $gitHub, Repository $repository, int $installationId, int $prNumber): void
+    {
+        $login = $this->approvedRequest?->decidedBy?->github_login;
+
+        if ($login === null || $login === '') {
+            return;
+        }
+
+        try {
+            $gitHub->requestReviewers($installationId, $repository->github_full_name, $prNumber, [$login]);
+        } catch (\Throwable $exception) {
+            Log::channel('yak')->warning('CreatePullRequestJob: failed to request the approver as reviewer', ['task_id' => $this->task->id, 'error' => $exception->getMessage()]);
+        }
+    }
+
+    /** The areas the approval covered, such as "API middleware (high) and HTTP kernel (high)". */
+    private function approvedAreas(CoOwnerRequest $request): string
+    {
+        $areas = array_map(
+            fn (array $area): string => MarkdownText::inline($area['name']) . " ({$area['risk']})",
+            $request->matched_areas,
+        );
+
+        if (count($areas) < 2) {
+            return $areas[0] ?? 'a held area';
+        }
+
+        $last = array_pop($areas);
+
+        return implode(', ', $areas) . ' and ' . $last;
     }
 
     private function buildPrTitle(): string
@@ -220,12 +291,22 @@ class CreatePullRequestJob implements ShouldQueue
             $parts[] = '';
         }
 
+        if ($this->approvedRequest !== null) {
+            $parts[] = 'CI passed before a co-owner approved this change.';
+            $parts[] = '';
+        }
+
         $parts[] = "**Source:** {$this->task->source}";
 
         foreach (['Started by' => $this->task->author_name, 'Responsible' => $this->task->responsible_name] as $label => $name) {
             if ($name !== null && trim($name) !== '') {
                 $parts[] = "**{$label}:** " . trim($name);
             }
+        }
+
+        if ($this->approvedRequest !== null) {
+            $approver = MarkdownText::inline((string) $this->approvedRequest->decidedBy?->name);
+            $parts[] = "**Co-owner:** {$approver}, approved because it touches " . $this->approvedAreas($this->approvedRequest);
         }
 
         $trigger = TaskTrigger::describe($this->task);

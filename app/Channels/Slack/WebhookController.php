@@ -435,6 +435,25 @@ class WebhookController extends Controller
             return response()->json(['ok' => true, 'handled' => 'clarification_reply']);
         }
 
+        $heldTask = YakTask::where('slack_channel', $channel)
+            ->where('slack_thread_ts', $threadTs)
+            ->where('status', TaskStatus::AwaitingCoOwner)
+            ->latest('id')
+            ->first();
+
+        if ($heldTask !== null) {
+            $text = (string) ($event['text'] ?? '');
+
+            if (trim($text) === '') {
+                return response()->json(['ok' => true]);
+            }
+
+            TaskLogger::info($heldTask, 'Follow-up received via Slack thread while held for a co-owner');
+            app(FollowUpTaskFactory::class)->create($heldTask, $text, 'slack', authorName: UserNameResolver::resolve((string) ($event['user'] ?? '')), slackFollowUpUserId: $event['user'] ?? null);
+
+            return response()->json(['ok' => true, 'handled' => 'follow_up']);
+        }
+
         $followUpTask = YakTask::where('slack_channel', $channel)
             ->where('slack_thread_ts', $threadTs)
             ->whereNotNull('pr_url')
