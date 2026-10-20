@@ -145,3 +145,25 @@ test('transitionTo returns the target state on valid transition', function () {
 
     expect($result)->toBe(TaskStatus::Running);
 });
+
+it('holds a task for a co-owner from running, awaiting ci and retrying', function () {
+    expect(TaskStatus::Running->canTransitionTo(TaskStatus::AwaitingCoOwner))->toBeTrue()
+        ->and(TaskStatus::AwaitingCi->canTransitionTo(TaskStatus::AwaitingCoOwner))->toBeTrue()
+        ->and(TaskStatus::Retrying->canTransitionTo(TaskStatus::AwaitingCoOwner))->toBeTrue()
+        ->and(TaskStatus::Pending->canTransitionTo(TaskStatus::AwaitingCoOwner))->toBeFalse();
+});
+
+it('resolves a held task to success, cancelled or expired', function () {
+    $targets = collect(TaskStatus::cases())
+        ->filter(fn (TaskStatus $status) => TaskStatus::AwaitingCoOwner->canTransitionTo($status))
+        ->map(fn (TaskStatus $status) => $status->value)
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($targets)->toBe(['cancelled', 'expired', 'success']);
+});
+
+it('counts a held task as active', function () {
+    expect(TaskStatus::activeValues())->toContain('awaiting_co_owner');
+});

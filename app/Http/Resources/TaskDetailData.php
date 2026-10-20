@@ -41,6 +41,7 @@ final class TaskDetailData
         TaskStatus::Running,
         TaskStatus::AwaitingClarification,
         TaskStatus::AwaitingCi,
+        TaskStatus::AwaitingCoOwner,
         TaskStatus::Retrying,
     ];
 
@@ -54,6 +55,7 @@ final class TaskDetailData
         TaskStatus::Running,
         TaskStatus::AwaitingClarification,
         TaskStatus::AwaitingCi,
+        TaskStatus::AwaitingCoOwner,
         TaskStatus::Retrying,
     ];
 
@@ -493,7 +495,7 @@ final class TaskDetailData
         $reachedStep = match ($status) {
             TaskStatus::Pending => 0,
             TaskStatus::Running, TaskStatus::AwaitingClarification, TaskStatus::Retrying => 2,
-            TaskStatus::AwaitingCi => 4,
+            TaskStatus::AwaitingCi, TaskStatus::AwaitingCoOwner => 4,
             TaskStatus::Success => 6,
             TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 : ($task->branch_name ? 3 : 2),
         };
@@ -797,6 +799,7 @@ final class TaskDetailData
             TaskStatus::Running,
             TaskStatus::AwaitingClarification,
             TaskStatus::AwaitingCi,
+            TaskStatus::AwaitingCoOwner,
             TaskStatus::Retrying,
         ], true);
 

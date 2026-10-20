@@ -151,6 +151,7 @@ export default function Show({
         task.status === 'pending' ||
         task.status === 'awaiting_clarification' ||
         task.status === 'awaiting_ci' ||
+        task.status === 'awaiting_co_owner' ||
         task.status === 'retrying';
     const progressPanel = isActiveStatus && <ProgressList steps={progress.steps} />;
     const progressStrip = isActiveStatus && <ProgressStrip steps={progress.steps} />;

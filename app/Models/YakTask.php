@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Events\TaskStatusChanged;
@@ -183,6 +184,22 @@ class YakTask extends Model
     public function hasCiRetryLeft(): bool
     {
         return $this->attempts - $this->attempts_at_manual_retry < (int) config('yak.max_attempts');
+    }
+
+    /**
+     * @return HasMany<CoOwnerRequest, $this>
+     */
+    public function coOwnerRequests(): HasMany
+    {
+        return $this->hasMany(CoOwnerRequest::class, 'task_id');
+    }
+
+    public function openCoOwnerRequest(): ?CoOwnerRequest
+    {
+        return $this->coOwnerRequests()
+            ->where('status', CoOwnerRequestStatus::Pending)
+            ->latest('id')
+            ->first();
     }
 
     /**

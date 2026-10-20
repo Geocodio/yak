@@ -29,7 +29,7 @@ enum SessionPlanStage: string
     {
         return match ($task->status) {
             TaskStatus::Pending, TaskStatus::Running, TaskStatus::AwaitingClarification => self::Working,
-            TaskStatus::AwaitingCi, TaskStatus::Retrying => self::AwaitingCi,
+            TaskStatus::AwaitingCi, TaskStatus::AwaitingCoOwner, TaskStatus::Retrying => self::AwaitingCi,
             TaskStatus::Success => $type === NotificationType::Result && $task->pr_url === null ? self::Answered : null,
             TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => self::Stopped,
         };

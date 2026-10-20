@@ -3,6 +3,7 @@ export type TaskStatus =
     | 'running'
     | 'awaiting_clarification'
     | 'awaiting_ci'
+    | 'awaiting_co_owner'
     | 'retrying'
     | 'success'
     | 'failed'
@@ -16,6 +17,7 @@ export const STATUS: Record<TaskStatus, { label: string; tone: Tone; live?: bool
     running: { label: 'Running', tone: 'info', live: true },
     awaiting_clarification: { label: 'Awaiting clarification', tone: 'warn' },
     awaiting_ci: { label: 'Awaiting CI', tone: 'info', live: true },
+    awaiting_co_owner: { label: 'Needs co-owner', tone: 'warn', live: true },
     retrying: { label: 'Retrying', tone: 'warn', live: true },
     success: { label: 'Done', tone: 'ok' },
     failed: { label: 'Failed', tone: 'fail' },

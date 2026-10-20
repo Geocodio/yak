@@ -36,4 +36,13 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    public function withGitHub(int $id = 4242, string $login = 'mhansen'): static
+    {
+        return $this->state(fn (): array => [
+            'github_id' => $id,
+            'github_login' => $login,
+            'github_linked_at' => now(),
+        ]);
+    }
 }
