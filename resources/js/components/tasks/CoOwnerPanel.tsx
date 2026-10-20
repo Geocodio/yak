@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, Textarea } from '@geocodio/console-ui';
 import { AlertTriangle, Check, ExternalLink, GitPullRequest, Link as LinkIcon, RefreshCw, UserX } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -89,9 +89,9 @@ function FinalState({ coOwner }: { coOwner: CoOwnerData }) {
             </div>
             <div className="flex justify-end rounded-b-card bg-app px-6 py-3.5">
                 {/* The New task dialog takes no prefilled description, so this opens it empty. */}
-                <Link href={tasksIndex.url({ query: { new: 1 } })} data-testid="co-owner-new-task">
-                    <Button variant="primary" tabIndex={-1}>Start a new task from this</Button>
-                </Link>
+                <Button variant="primary" onClick={() => router.visit(tasksIndex.url({ query: { new: 1 } }))} data-testid="co-owner-new-task">
+                    Start a new task from this
+                </Button>
             </div>
         </section>
     );
@@ -118,7 +118,7 @@ function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: C
     };
 
     const copyLink = () => {
-        void navigator.clipboard?.writeText(url).then(() => setCopied(true));
+        navigator.clipboard?.writeText(url).then(() => setCopied(true)).catch(() => undefined);
     };
 
     const holdSentence = coOwner.areas.length === 0 && coOwner.holdReasons.length > 0
@@ -211,7 +211,7 @@ function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: C
                             <Button onClick={() => run('withdraw', withdraw)} pending={action.isPending('withdraw')} disabled={action.busy}>Withdraw</Button>
                             <Button icon={<LinkIcon className="size-3.5" />} onClick={copyLink}>{copied ? 'Link copied' : 'Copy link to share'}</Button>
                             {coOwner.asked.length === 0 && repoUrl !== null && (
-                                <Link href={repoUrl}><Button tabIndex={-1}>Open repository page</Button></Link>
+                                <Button onClick={() => router.visit(repoUrl)}>Open repository page</Button>
                             )}
                         </>
                     ) : viewer.access !== 'read' || canApprove ? (
@@ -309,10 +309,15 @@ function AreaCards({ coOwner }: { coOwner: CoOwnerData }) {
 }
 
 function NobodyAsked({ coOwner }: { coOwner: CoOwnerData }) {
-    const rows: { label: string; text: string }[] = coOwner.attempts.map((attempt: CoOwnerAttempt) => ({
-        label: attemptLabel(attempt.kind),
-        text: `${attempt.entry}. ${OUTCOME_TEXT[attempt.outcome] ?? attempt.outcome}`,
-    }));
+    const rows: { label: string | null; text: string }[] = coOwner.attempts.map((attempt: CoOwnerAttempt) => {
+        if (attempt.kind === 'codeowners') {
+            return attempt.entry === 'owners'
+                ? { label: null, text: 'Yak could not resolve the owners.' }
+                : { label: 'CODEOWNERS', text: 'could not be read, so no owner was asked.' };
+        }
+
+        return { label: attemptLabel(attempt.kind), text: `${attempt.entry}. ${OUTCOME_TEXT[attempt.outcome] ?? attempt.outcome}` };
+    });
     if (!coOwner.attempts.some((attempt) => attempt.kind === 'fallback')) {
         rows.push({ label: 'Fallback owner', text: `None set for ${coOwner.repoName}.` });
     }
@@ -330,7 +335,8 @@ function NobodyAsked({ coOwner }: { coOwner: CoOwnerData }) {
                         <li key={index} className="flex items-start gap-2.5 text-[12.5px]">
                             <span aria-hidden className="mt-1.5 size-2 flex-none rounded-full bg-hair-strong" />
                             <span>
-                                <b>{row.label}</b> <span className="text-muted">{row.text}</span>
+                                {row.label !== null && <b>{row.label} </b>}
+                                <span className="text-muted">{row.text}</span>
                             </span>
                         </li>
                     ))}

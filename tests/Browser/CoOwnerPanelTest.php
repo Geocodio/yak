@@ -149,6 +149,22 @@ it('shows who Yak tried to ask when nobody resolves', function () {
         ->assertNoJavascriptErrors();
 });
 
+it('words the CODEOWNERS read and resolve failures plainly', function () {
+    $requester = User::factory()->create();
+    $request = heldCoOwnerRequest(['ask_attempts' => [
+        ['entry' => 'CODEOWNERS', 'kind' => 'codeowners', 'outcome' => 'error'],
+        ['entry' => 'owners', 'kind' => 'codeowners', 'outcome' => 'error'],
+    ]], $requester);
+    $this->actingAs($requester);
+
+    visit(route('tasks.show', $request->task_id))
+        ->assertSee('CODEOWNERS could not be read, so no owner was asked.')
+        ->assertSee('Yak could not resolve the owners.')
+        ->assertDontSee('CODEOWNERS CODEOWNERS')
+        ->assertDontSee('Yak could not check this one.')
+        ->assertNoJavascriptErrors();
+});
+
 it('shows the expired and withdrawn final states', function () {
     $viewer = User::factory()->create(['name' => 'Dana Whitfield']);
     $this->actingAs($viewer);
