@@ -19,7 +19,7 @@ export function TaskSummary({ task }: { task: TaskDetail }) {
     return (
         <div data-testid="task-summary">
             <div className="flex items-center gap-2">
-                <StatusPill tone={STATUS[task.status].tone} label={task.statusLabel} pulse={STATUS[task.status].live} />
+                <StatusPill tone={STATUS[task.status].tone} label={task.status === 'awaiting_co_owner' ? STATUS.awaiting_co_owner.label : task.statusLabel} pulse={STATUS[task.status].live} />
                 <span className="tnum text-[12px] text-faint">#{task.id}</span>
                 {task.attemptCount > 1 && (
                     <>

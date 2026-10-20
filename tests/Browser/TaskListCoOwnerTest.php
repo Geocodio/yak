@@ -9,14 +9,18 @@ it('shows the needs co-owner status and the asked person', function () {
     $mathias = User::factory()->create(['name' => 'Mathias Hansen']);
     $task = YakTask::factory()->awaitingCoOwner()->create(['description' => 'Add security headers']);
     CoOwnerRequest::factory()->create(['task_id' => $task->id, 'asked_user_ids' => [$mathias->id]]);
-    YakTask::factory()->success()->create();
+    $unrelated = YakTask::factory()->success()->create();
 
     visit('/tasks')
         ->assertSee('Needs co-owner')
         ->assertVisible('[data-testid="needs-co-owner-chip"]')
         ->assertSee('asked Mathias')
         ->click('[data-testid="needs-co-owner-chip"]')
+        ->waitForEvent('networkidle')
+        ->assertQueryStringHas('status', 'awaiting_co_owner')
         ->assertVisible('[data-testid="task-row-' . $task->id . '"]')
+        ->assertMissing('[data-testid="task-row-' . $unrelated->id . '"]')
+        ->assertAttribute('[data-testid="needs-co-owner-chip"]', 'aria-pressed', 'true')
         ->assertNoJavaScriptErrors();
 });
 

@@ -43,6 +43,8 @@ it('shows approve controls to a co-owner with write access', function () {
     $this->actingAs($viewer);
 
     visit(route('tasks.show', $request->task_id))
+        ->assertSee('Needs co-owner')
+        ->assertDontSee('awaiting co owner')
         ->assertSee('This change needs a co-owner')
         ->assertSee('A co-owner is a second person with write access to geocodio/geocodio.')
         ->assertSee('Matched area')
