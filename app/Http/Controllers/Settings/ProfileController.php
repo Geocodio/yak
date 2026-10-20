@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateDirectMessagesRequest;
 use App\Http\Requests\Settings\UpdateProfileRequest;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ class ProfileController extends Controller
                 'email' => $user->email,
                 'hasUnverifiedEmail' => $this->hasUnverifiedEmail($user),
                 'directMessagesEnabled' => $user->direct_messages_enabled,
+                'github' => $user->hasLinkedGitHub() ? [
+                    'login' => $user->github_login,
+                    'linkedAt' => Carbon::parse($user->github_linked_at)->toIso8601String(),
+                ] : null,
             ],
         ]);
     }

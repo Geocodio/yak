@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { Button, Dialog, Field, TextInput, Toggle } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
+import { GitHubAccountCard } from '@/components/settings/GitHubAccountCard';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
 import { destroy } from '@/routes/account';
@@ -106,6 +107,7 @@ export default function Profile({ profile }: Props) {
                         data-testid="direct-messages-toggle"
                     />
                 </Card>
+                <GitHubAccountCard github={profile.github} />
                 <Card className="flex flex-wrap items-center justify-between gap-y-2 border-fail/30">
                     <div>
                         <div className="text-[13px] font-medium">Delete account</div>
