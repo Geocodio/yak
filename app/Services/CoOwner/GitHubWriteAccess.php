@@ -20,7 +20,7 @@ class GitHubWriteAccess
 
     public function __construct(private AppService $github) {}
 
-    /** @return 'write'|'read'|'unlinked'|'error' */
+    /** One of 'write', 'read', 'unlinked' or 'error'. */
     public function check(Repository $repository, User $user): string
     {
         if (! $user->hasLinkedGitHub()) {
