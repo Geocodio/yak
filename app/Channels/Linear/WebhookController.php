@@ -2,6 +2,7 @@
 
 namespace App\Channels\Linear;
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
@@ -18,6 +19,8 @@ use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\ClarificationMessage;
+use App\Services\CoOwner\CoOwnerDecisionException;
+use App\Services\CoOwner\CoOwnerDecisions;
 use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\RepoDetector;
@@ -135,6 +138,7 @@ class WebhookController extends Controller
                 TaskStatus::AwaitingCi,
                 TaskStatus::AwaitingClarification,
                 TaskStatus::Retrying,
+                TaskStatus::AwaitingCoOwner,
             ];
 
             // Escape LIKE metacharacters as defense-in-depth (the regex above
@@ -157,7 +161,7 @@ class WebhookController extends Controller
                 });
 
             foreach ($tasks as $task) {
-                $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+                $this->cancelForStop($task);
                 TaskLogger::info($task, 'Cancelled — unassigned from the Linear issue');
                 Telemetry::feature('linear.unassigned_cancel', [], task: $task);
 
@@ -369,6 +373,29 @@ class WebhookController extends Controller
     }
 
     /**
+     * A stop ends the task. A held change goes through the co-owner
+     * decisions so its request, branch and messages are closed too.
+     */
+    private function cancelForStop(YakTask $task): void
+    {
+        if ($task->status === TaskStatus::AwaitingCoOwner) {
+            try {
+                app(CoOwnerDecisions::class)->withdrawForStop($task);
+
+                return;
+            } catch (CoOwnerDecisionException) {
+                // A decision landed first; only a task still held is cancelled here.
+                if ($task->refresh()->status !== TaskStatus::AwaitingCoOwner
+                    || $task->coOwnerRequests()->where('status', CoOwnerRequestStatus::Approved)->exists()) {
+                    return;
+                }
+            }
+        }
+
+        $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+    }
+
+    /**
      * Handle follow-up messages inside an existing agent session. Routes
      * the prompt to the correct handler based on task state:
      *
@@ -428,10 +455,11 @@ class WebhookController extends Controller
                 TaskStatus::AwaitingCi,
                 TaskStatus::AwaitingClarification,
                 TaskStatus::Retrying,
+                TaskStatus::AwaitingCoOwner,
             ];
 
             if (in_array($status, $cancellable, strict: true)) {
-                $task->update(['status' => TaskStatus::Cancelled, 'completed_at' => now()]);
+                $this->cancelForStop($task);
                 $this->notifyStarterOfOutsideCancel($task, $request, 'Stopped: someone stopped this session in Linear.');
             }
 

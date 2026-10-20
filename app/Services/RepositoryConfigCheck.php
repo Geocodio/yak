@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService;
+use App\Http\Resources\RiskProfilePageData;
 use App\Models\Repository;
+use App\Services\CoOwner\CoOwnerGateStatus;
+use App\Support\CodeOwners;
 use App\Support\Docs;
 use App\Support\MarkdownText;
 use App\Support\PathMatcher;
@@ -46,10 +49,12 @@ class RepositoryConfigCheck
         $installationId = (int) config('yak.channels.github.installation_id');
         $slug = $repository->github_full_name;
 
-        $changesYak = collect($this->github->listPullRequestFilesOrFail($installationId, $slug, $pullRequestNumber))
-            ->contains(fn (array $file): bool => str_starts_with((string) ($file['filename'] ?? ''), '.yak/'));
+        $filenames = collect($this->github->listPullRequestFilesOrFail($installationId, $slug, $pullRequestNumber))
+            ->map(fn (array $file): string => (string) ($file['filename'] ?? ''));
+        $changesYak = $filenames->contains(fn (string $filename): bool => str_starts_with($filename, '.yak/'));
+        $changesCodeOwners = $filenames->contains(fn (string $filename): bool => in_array($filename, CodeOwners::LOCATIONS, true));
 
-        if (! $changesYak) {
+        if (! $changesYak && ! $changesCodeOwners) {
             return null;
         }
 
@@ -171,6 +176,9 @@ class RepositoryConfigCheck
             }
         }
 
+        $hasGlobNotes = $notes !== [];
+        $notes = [...$notes, ...$this->coOwnerWarnings($repository, $pullRequestNumber, $headSha, $dataByFile['config.yml']['co_owner_gate']['mode'] ?? null)];
+
         $isValid = $failures === [];
         $hasNoFiles = $isValid && $contentByFile === [];
 
@@ -182,8 +190,9 @@ class RepositoryConfigCheck
             'output' => [
                 'title' => $hasNoFiles ? 'No .yak/ files in this commit' : ($isValid ? '.yak/ is valid' : $this->title($errorCounts, $deadAreaCount)),
                 'summary' => match (true) {
-                    $hasNoFiles => "This pull request's head commit has no `.yak/` files, so Yak has nothing to read from it. " . $this->link(),
-                    $isValid => $this->passingSummary($dataByFile, $contentByFile, $notes, $repository->default_branch),
+                    $hasNoFiles => "This pull request's head commit has no `.yak/` files, so Yak has nothing to read from it. " . $this->link()
+                        . implode('', array_map(fn (string $note): string => "\n\n{$note}", $notes)),
+                    $isValid => $this->passingSummary($dataByFile, $contentByFile, $notes, $repository->default_branch, $hasGlobNotes),
                     default => $this->failingSummary($failures, array_keys($dataByFile), $notes),
                 },
                 'annotations' => array_slice($annotations, 0, self::MAX_ANNOTATIONS),
@@ -193,6 +202,56 @@ class RepositoryConfigCheck
         $this->github->createCheckRun($installationId, $slug, $payload);
 
         return $payload;
+    }
+
+    /**
+     * Warnings about the CODEOWNERS file at the head commit. They never fail the check.
+     *
+     * @return list<string>
+     */
+    private function coOwnerWarnings(Repository $repository, int $pullRequestNumber, string $headSha, ?string $headMode): array
+    {
+        $status = app(CoOwnerGateStatus::class);
+
+        try {
+            $owners = $status->ownersFor($repository, RiskProfilePageData::codeOwners($repository, $headSha));
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return [];
+        }
+
+        $warnings = $this->isSameRepositoryPullRequest($repository, $pullRequestNumber)
+            ? array_map(
+                fn (string $entry): string => 'CODEOWNERS entry ' . MarkdownText::code($entry) . ' does not resolve to a linked Yak user with write access.',
+                array_values(array_filter($owners['unresolved'], fn (string $entry): bool => str_starts_with($entry, '@'))),
+            )
+            : [];
+        $mode = $headMode ?? $repository->settings()->coOwnerGateMode();
+
+        if ($mode === 'enforce' && $owners['resolvable'] === [] && ! ($status->fallbackOwner($repository)['resolves'] ?? false)) {
+            $warnings[] = 'co_owner_gate.mode is enforce, but no CODEOWNERS owner or fallback owner resolves, so held changes would wait for anyone with write access.';
+        }
+
+        return $warnings;
+    }
+
+    /**
+     * Per-entry warnings reveal which logins are linked Yak users with write
+     * access, so only a pull request from the base repository gets them. An
+     * unreadable pull request counts as a fork.
+     */
+    private function isSameRepositoryPullRequest(Repository $repository, int $pullRequestNumber): bool
+    {
+        try {
+            $pullRequest = $this->github->getPullRequestOrFail((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $pullRequestNumber);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $head = $pullRequest['head']['repo']['full_name'] ?? null;
+
+        return is_string($head) && strcasecmp($head, $repository->github_full_name) === 0;
     }
 
     /** @param array<string, int> $errorCounts */
@@ -251,7 +310,7 @@ class RepositoryConfigCheck
      * @param  array<string, string>  $contents
      * @param  list<string>  $notes
      */
-    private function passingSummary(array $data, array $contents, array $notes, string $defaultBranch): string
+    private function passingSummary(array $data, array $contents, array $notes, string $defaultBranch, bool $hasGlobNotes): string
     {
         $rows = [];
 
@@ -260,7 +319,7 @@ class RepositoryConfigCheck
                 'config.yml' => 'Valid. Co-owner gate: ' . $this->modeText($value['co_owner_gate']['mode'] ?? null) . '. Review approval: ' . $this->modeText($value['review']['approval']['mode'] ?? null) . '.',
                 'preview.yml' => "Valid. Port {$value['port']}, health probe " . MarkdownText::code((string) $value['health_probe_path']) . '.',
                 'risk-profile.yml' => 'Valid. ' . ($count = count($value['areas'] ?? [])) . ' ' . Str::plural('area', $count)
-                    . ($notes === [] ? ', every glob matches at least one file' : '')
+                    . (! $hasGlobNotes ? ', every glob matches at least one file' : '')
                     . ', ' . ($open = count($value['unknowns'] ?? [])) . ' open ' . Str::plural('question', $open) . '.',
                 'AGENTS.md' => 'Valid. ' . number_format(mb_strlen($contents[$file])) . ' characters.',
                 default => 'Valid.',

@@ -155,3 +155,13 @@ export type YakConfig = {
         riskProfile: { areas: number; unknowns: number; commitSha: string | null } | null;
     };
 };
+
+/** Mirrors the array shape returned by app/Services/CoOwner/CoOwnerGateStatus.php. */
+export type CoOwnerGateStatus = {
+    mode: string;
+    source: 'file' | 'database' | 'none';
+    profile: { path: string | null; areaCount: number } | null;
+    owners: { resolvable: string[]; total: number; resolvedEntries: number; teamsSkipped: string[] };
+    fallbackOwner: { name: string; resolves: boolean } | null;
+    appSettingsUrl: string | null;
+};

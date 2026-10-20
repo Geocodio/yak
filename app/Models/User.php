@@ -11,7 +11,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-#[Fillable(['name', 'email', 'password', 'slack_user_id', 'direct_messages_enabled'])]
+#[Fillable(['name', 'email', 'password', 'slack_user_id', 'direct_messages_enabled', 'github_id', 'github_login', 'github_linked_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -36,8 +36,14 @@ class User extends Authenticatable
             'has_seen_setup_card_at' => 'datetime',
             'has_seen_pr_review_intro_at' => 'datetime',
             'direct_messages_enabled' => 'boolean',
+            'github_linked_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function hasLinkedGitHub(): bool
+    {
+        return $this->github_id !== null;
     }
 
     /**

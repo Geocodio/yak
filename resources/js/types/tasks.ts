@@ -34,6 +34,7 @@ export type TaskRow = {
     createdAt: string | null;
     createdTooltip: string;
     followUps: FollowUpRow[];
+    askedFirstName: string | null;
 };
 
 export type TaskTab = 'tasks' | 'reviews' | 'setup';
@@ -42,6 +43,7 @@ export type TaskCounts = {
     tasks: number;
     reviews: number;
     setup: number;
+    needsCoOwner: number;
 };
 
 export type TaskFilters = {
@@ -255,7 +257,7 @@ export type FindingsData = {
 } | null;
 
 export type ComposerData = {
-    state: 'clarification' | 'questions' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
+    state: 'held' | 'clarification' | 'questions' | 'steering' | 'follow_up' | 'disabled_failed' | 'disabled_closed';
     placeholder: string;
     note: string | null;
     buttonLabel: string | null;

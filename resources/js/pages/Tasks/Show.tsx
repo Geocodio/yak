@@ -3,6 +3,7 @@ import { cn, Dialog } from '@geocodio/console-ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
+import { CoOwnerPanel } from '@/components/tasks/CoOwnerPanel';
 import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { Composer } from '@/components/tasks/Composer';
 import { DebugDetails } from '@/components/tasks/DebugDetails';
@@ -22,6 +23,7 @@ import { WalkthroughCard } from '@/components/tasks/WalkthroughCard';
 import { POLLED_PROPS, useActivityRows } from '@/components/tasks/useActivityRows';
 import { replaceTaskQuery } from '@/lib/taskQuery';
 import { useMediaQuery } from '@/lib/useMediaQuery';
+import type { CoOwnerData } from '@/types/coOwner';
 import type { PageProps } from '@/types/shared';
 import type {
     ActionsData,
@@ -58,6 +60,7 @@ type Props = PageProps<{
     findings: FindingsData;
     composer: ComposerData;
     questions: QuestionData[] | null;
+    coOwner: CoOwnerData | null;
     debug: DebugData;
     actions: ActionsData;
     pollInterval: number;
@@ -81,6 +84,7 @@ export default function Show({
     findings,
     composer,
     questions,
+    coOwner,
     debug,
     actions,
     pollInterval,
@@ -151,6 +155,7 @@ export default function Show({
         task.status === 'pending' ||
         task.status === 'awaiting_clarification' ||
         task.status === 'awaiting_ci' ||
+        task.status === 'awaiting_co_owner' ||
         task.status === 'retrying';
     const progressPanel = isActiveStatus && <ProgressList steps={progress.steps} />;
     const progressStrip = isActiveStatus && <ProgressStrip steps={progress.steps} />;
@@ -251,6 +256,12 @@ export default function Show({
                                 ))}
                             </div>
 
+                            {coOwner !== null && (
+                                <div className="mt-6 max-lg:pb-[calc(6rem+env(safe-area-inset-bottom))]">
+                                    <CoOwnerPanel taskId={task.id} coOwner={coOwner} repoUrl={task.repoUrl} />
+                                </div>
+                            )}
+
                             {hasQuestions && questions !== null && (
                                 <div className="mt-6 max-lg:pb-[calc(6rem+env(safe-area-inset-bottom))]">
                                     <QuestionsForm key={questions.map((question) => question.id).join(',')} taskId={task.id} questions={questions} />
@@ -259,7 +270,7 @@ export default function Show({
                         </div>
                     </div>
 
-                    {!hasQuestions && (
+                    {!hasQuestions && composer.state !== 'held' && (
                         <Composer
                             taskId={task.id}
                             composer={composer}

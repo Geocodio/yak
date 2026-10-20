@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Tasks;
 
 use App\Channels\ChannelRegistry;
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskRowData;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -19,6 +22,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Inertia\ScrollProp;
@@ -44,6 +48,7 @@ class TaskListController extends Controller
                 'tasks' => $this->scopedQuery('tasks')->whereNull('parent_task_id')->count(),
                 'reviews' => $this->scopedQuery('reviews')->whereNull('parent_task_id')->count(),
                 'setup' => $this->scopedQuery('setup')->whereNull('parent_task_id')->count(),
+                'needsCoOwner' => $this->scopedQuery('tasks')->whereNull('parent_task_id')->whereIn('id', $this->heldRootIds())->count(),
             ],
             'filters' => [
                 'status' => $status,
@@ -94,6 +99,7 @@ class TaskListController extends Controller
      *     createdAt: ?string,
      *     createdTooltip: string,
      *     followUps: array<int, array<string, mixed>>,
+     *     askedFirstName: ?string,
      * }>>
      */
     private function paginatedTasks(
@@ -111,7 +117,8 @@ class TaskListController extends Controller
         $tasks = $this->scopedQuery($tab)
             ->with('repository')
             ->whereNull('parent_task_id')
-            ->when($status !== '', fn (Builder $query) => $query->where('status', $status))
+            ->when($status === TaskStatus::AwaitingCoOwner->value, fn (Builder $query) => $query->whereIn('id', $this->heldRootIds()))
+            ->when($status !== '' && $status !== TaskStatus::AwaitingCoOwner->value, fn (Builder $query) => $query->where('status', $status))
             ->when($tab === 'tasks' && $source !== '', fn (Builder $query) => $query->where('source', $source))
             ->when($repo !== '', fn (Builder $query) => $query->where('repo', $repo))
             ->when($pr !== '', fn (Builder $query) => $this->applyPrFilter($query, $pr))
@@ -123,7 +130,10 @@ class TaskListController extends Controller
         $previewsByTask = $this->previewsByTask($tasks->items());
         $deploymentsByTask = $this->deploymentsByTask($tasks->items());
 
+        $askedFirstNames = $this->askedFirstNames($tasks->items());
+
         $tasks = $tasks->through(fn (YakTask $task): array => TaskRowData::from($task, [
+            'askedFirstName' => $askedFirstNames[$task->id] ?? null,
             'children' => $task->branch_name !== null
                 ? ($descendantsByBranch->get($task->branch_name) ?? collect())
                 : collect(),
@@ -134,6 +144,48 @@ class TaskListController extends Controller
         ]));
 
         return Inertia::scroll($tasks)->matchOn('data.id');
+    }
+
+    /**
+     * Root task ids with a pending co-owner request. The request can sit on
+     * a follow-up child, so the root's own status cannot find it.
+     *
+     * @return Builder<CoOwnerRequest>
+     */
+    private function heldRootIds(): Builder
+    {
+        return CoOwnerRequest::query()
+            ->where('status', CoOwnerRequestStatus::Pending)
+            ->select('root_task_id');
+    }
+
+    /**
+     * First name of the person asked first, keyed by root task id.
+     *
+     * @param  iterable<int, YakTask>  $tasks
+     * @return array<int, string>
+     */
+    private function askedFirstNames(iterable $tasks): array
+    {
+        $requests = CoOwnerRequest::query()
+            ->where('status', CoOwnerRequestStatus::Pending)
+            ->whereIn('root_task_id', collect($tasks)->pluck('id'))
+            ->orderBy('id')
+            ->get();
+
+        $users = User::query()->whereIn('id', $requests->map(fn (CoOwnerRequest $request) => $request->asked_user_ids[0] ?? null)->filter())->get()->keyBy('id');
+
+        $names = [];
+
+        foreach ($requests as $request) {
+            $user = $users->get($request->asked_user_ids[0] ?? 0);
+
+            if ($user !== null) {
+                $names[$request->root_task_id] = Str::before($user->name, ' ');
+            }
+        }
+
+        return $names;
     }
 
     /**

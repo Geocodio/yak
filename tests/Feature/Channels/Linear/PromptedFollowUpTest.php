@@ -1,16 +1,20 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendCoOwnerMessagesJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\CoOwnerRequest;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ClarificationMessage;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -321,4 +325,44 @@ it('tells the starter by DM when someone else stops the session', function (): v
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Cancelled
         && $job->directMessagesOnly === true);
+});
+
+it('ends a task held for a co-owner as a withdraw when prompted with a stop signal', function (): void {
+    Bus::fake();
+    configureFakeGitHubApp();
+    Http::swap(new HttpFactory);
+    Http::fake(gitHubTokenFake() + ['*' => Http::response([], 204)]);
+
+    $task = YakTask::factory()->awaitingCoOwner()->create(['source' => 'linear', 'linear_agent_session_id' => 'sess-held', 'branch_name' => 'yak/held']);
+    $request = CoOwnerRequest::factory()->create(['task_id' => $task->id]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-held'],
+        'agentActivity' => ['signal' => 'stop'],
+    ], $this->secret)->assertSuccessful();
+
+    expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::Withdrawn)
+        ->and($task->fresh()->status)->toBe(TaskStatus::Cancelled);
+    Bus::assertDispatched(SendCoOwnerMessagesJob::class, fn ($job) => $job->event === 'resolved');
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE' && str_contains($request->url(), '/git/refs/heads/yak/held'));
+});
+
+it('leaves a held task alone on a stop signal while its approval is in flight', function (): void {
+    Bus::fake();
+
+    $task = YakTask::factory()->awaitingCoOwner()->create(['source' => 'linear', 'linear_agent_session_id' => 'sess-flight']);
+    CoOwnerRequest::factory()->create(['task_id' => $task->id, 'status' => CoOwnerRequestStatus::Approved]);
+
+    postLinearPrompted([
+        'type' => 'AgentSessionEvent',
+        'action' => 'prompted',
+        'organizationId' => TEST_WORKSPACE_ID,
+        'agentSession' => ['id' => 'sess-flight'],
+        'agentActivity' => ['signal' => 'stop'],
+    ], $this->secret)->assertSuccessful();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner);
 });

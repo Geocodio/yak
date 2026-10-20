@@ -147,6 +147,25 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
     const hasActiveFilters = filters.status !== '' || filters.source !== '' || filters.repo !== '' || filters.pr !== '';
     const activeFilterCount = [filters.status, filters.source, filters.repo, filters.pr].filter((value) => value !== '').length;
 
+    const isHeldFilter = filters.status === 'awaiting_co_owner';
+    const needsCoOwnerChip =
+        filters.tab === 'tasks' && (counts.needsCoOwner > 0 || isHeldFilter) ? (
+            <button
+                type="button"
+                data-testid="needs-co-owner-chip"
+                aria-pressed={isHeldFilter}
+                onClick={() => navigate({ status: isHeldFilter ? '' : 'awaiting_co_owner' })}
+                className={cn(
+                    'flex h-7 items-center gap-1.5 rounded-pill border border-hair px-2.5 text-[12px] text-muted hover:text-body',
+                    isHeldFilter && 'bg-panel-2 text-body',
+                )}
+            >
+                <span className="h-1.5 w-1.5 rounded-full bg-warn" />
+                Needs co-owner
+                <span className="tnum text-[11px] text-faint">{counts.needsCoOwner}</span>
+            </button>
+        ) : null;
+
     const onSelectTab = (tab: TaskTab) => navigate({ tab, status: '', source: '', repo: '', pr: '' });
 
     return (
@@ -214,6 +233,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                             ]}
                         />
                     )}
+                    {needsCoOwnerChip}
                     {hasActiveFilters && (
                         <Button
                             variant="link"
@@ -254,6 +274,7 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                                 onSelect: () => navigate({ sort: option.sort, direction: option.direction }),
                             }))}
                         />
+                        {needsCoOwnerChip}
                         {hasActiveFilters && (
                             <Button variant="link" className="ml-auto text-[12px] text-muted" onClick={() => navigate({ status: '', source: '', repo: '', pr: '' })}>
                                 Clear
@@ -297,9 +318,21 @@ export default function Index({ tasks, counts, filters, setupCard, activeRepos, 
                         )}
                     </InfiniteScroll>
                 ) : (
-                    <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
-                        <p>No tasks yet. Yak picks up work from your configured channels.</p>
-                    </div>
+                    isHeldFilter ? (
+                        <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted" data-testid="no-co-owner-tasks">
+                            <p className="text-[15px] text-body">No tasks need a co-owner</p>
+                            <p className="max-w-md">
+                                Changes to sensitive areas show up here while they wait for a second person with write access. Nothing is held right now.
+                            </p>
+                            <Button variant="secondary" onClick={() => navigate({ status: '' })}>
+                                Clear filter
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-[13px] text-muted">
+                            <p>No tasks yet. Yak picks up work from your configured channels.</p>
+                        </div>
+                    )
                 )}
             </div>
 

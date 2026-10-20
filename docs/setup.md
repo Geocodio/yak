@@ -118,6 +118,8 @@ github_app_id: ""
 github_app_private_key: ""
 github_installation_id: ""
 github_webhook_secret: ""
+github_app_client_id: ""
+github_app_client_secret: ""
 
 # === Channels (leave blank to disable) ===
 

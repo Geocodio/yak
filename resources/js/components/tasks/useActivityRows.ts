@@ -27,6 +27,7 @@ export const POLLED_PROPS = [
     'questions',
     'debug',
     'actions',
+    'coOwner',
     'pollInterval',
     'activityTail',
 ] as const;

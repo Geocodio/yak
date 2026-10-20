@@ -53,6 +53,26 @@ If you already have a GitHub App and want to reuse it, fill in `github_app_id`, 
 | Members | Read (expand CODEOWNERS teams) |
 | Metadata | Read (default) |
 
+### User sign-in for co-owners
+
+The co-owner gate (see [Repository config](repo-config.md#the-co-owner-gate)) needs to know which GitHub account belongs to which Yak user. People link their account from **Settings > Profile**, in the "GitHub account" card, through the GitHub App's user authorization. Yak stores only the GitHub id and login, not a token.
+
+Setup:
+
+1. In the GitHub App settings, set the **Callback URL** to `https://<your-yak-domain>/settings/github/callback`. Apps created from Yak's manifest get this automatically. Leave "Request user authorization (OAuth) during installation" off.
+2. Under **Client secrets**, click **Generate a new client secret**. Copy it right away, GitHub shows it once.
+3. Copy the **Client ID** from the top of the same page.
+4. Set both values and re-run the playbook. In `ansible/vault/secrets.yml`:
+
+```yaml
+github_app_client_id: "Iv1.abc123"
+github_app_client_secret: "..."
+```
+
+The playbook writes them to the container environment as `YAK_GITHUB_APP_CLIENT_ID` and `YAK_GITHUB_APP_CLIENT_SECRET`. Outside Ansible, set those two variables directly (see `.env.example`).
+
+Without them the Connect GitHub button cannot complete, so nobody links an account and CODEOWNERS owners cannot be asked.
+
 ### Webhook Events
 
 The GitHub App subscribes to:

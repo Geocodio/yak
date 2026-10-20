@@ -35,6 +35,12 @@ return [
         'allowed_domains' => env('GOOGLE_OAUTH_ALLOWED_DOMAINS'),
     ],
 
+    'github' => [
+        'client_id' => env('YAK_GITHUB_APP_CLIENT_ID'),
+        'client_secret' => env('YAK_GITHUB_APP_CLIENT_SECRET'),
+        'redirect' => '/settings/github/callback',
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

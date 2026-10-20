@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AccountController;
+use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LinearConnectionController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\VideoThemeController;
@@ -13,6 +14,10 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('settings/profile/direct-messages', [ProfileController::class, 'updateDirectMessages'])->name('profile.direct-messages.update');
     Route::post('settings/profile/resend-verification', [ProfileController::class, 'resendVerification'])->name('verification.resend');
+
+    Route::get('settings/github/connect', [GitHubAccountController::class, 'connect'])->name('settings.github.connect');
+    Route::get('settings/github/callback', [GitHubAccountController::class, 'callback'])->name('settings.github.callback');
+    Route::delete('settings/github', [GitHubAccountController::class, 'disconnect'])->name('settings.github.disconnect');
 
     Route::delete('settings/account', [AccountController::class, 'destroy'])->name('account.destroy');
 

@@ -5,6 +5,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\CreatePullRequestJob;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
+use App\Jobs\SendCoOwnerMessagesJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Artifact;
 use App\Models\GitHubInstallationToken;
@@ -1243,4 +1244,43 @@ test('green path takes the large-change threshold from .yak/config.yml', functio
     (new ProcessCIResultJob($task, true))->handle();
 
     Bus::assertDispatched(CreatePullRequestJob::class, fn (CreatePullRequestJob $job) => $job->isLargeChange === true);
+});
+
+test('green path leaves a held task awaiting a co-owner', function () {
+    configureFakeGitHubApp();
+    fakeYakFiles(['config.yml' => "version: 1\nco_owner_gate:\n  mode: enforce\n", 'risk-profile.yml' => riskProfileYaml()]);
+    Bus::fake([SendNotificationJob::class, SendCoOwnerMessagesJob::class]);
+    Http::fake(gitHubTokenFake() + [
+        'api.github.com/repos/org/my-repo/compare/*' => Http::response(['files' => [['filename' => 'app/Http/Kernel.php', 'status' => 'modified', 'additions' => 1, 'deletions' => 0]]]),
+        '*' => Http::response([]),
+    ]);
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+    ]);
+    Repository::factory()->create(['slug' => 'org/my-repo', 'github_full_name' => 'org/my-repo', 'path' => '/home/yak/repos/my-repo', 'default_branch' => 'main']);
+    $task = YakTask::factory()->awaitingCi()->create(['repo' => 'org/my-repo', 'branch_name' => 'yak/FIX-1', 'source' => 'slack', 'started_by_user_id' => null]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    $task->refresh();
+    expect($task->status)->toBe(TaskStatus::AwaitingCoOwner)
+        ->and($task->completed_at)->toBeNull()
+        ->and(TaskLog::where('yak_task_id', $task->id)->where('message', 'PR created')->exists())->toBeFalse();
+    Bus::assertNotDispatched(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Result);
+});
+
+test('green path does not finish a task that still has no PR', function () {
+    Bus::fake([CreatePullRequestJob::class, SendNotificationJob::class]);
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+    ]);
+    Repository::factory()->create(['slug' => 'org/my-repo', 'path' => '/home/yak/repos/my-repo']);
+    $task = YakTask::factory()->awaitingCi()->create(['repo' => 'org/my-repo', 'branch_name' => 'yak/FIX-31', 'source' => 'manual', 'pr_url' => null]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Bus::assertNotDispatched(SendNotificationJob::class);
 });

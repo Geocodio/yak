@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import setupCard from './setup-card'
+import coOwner from './co-owner'
 import messages from './messages'
 import queuedMessages from './queued-messages'
 import clarificationAnswers from './clarification-answers'
@@ -463,6 +464,7 @@ const tasks = {
     rerunReview: Object.assign(rerunReview, rerunReview),
     retryRender: Object.assign(retryRender, retryRender),
     reroute: Object.assign(reroute, reroute),
+    coOwner: Object.assign(coOwner, coOwner),
     messages: Object.assign(messages, messages),
     queuedMessages: Object.assign(queuedMessages, queuedMessages),
     clarificationAnswers: Object.assign(clarificationAnswers, clarificationAnswers),

@@ -1,10 +1,13 @@
 <?php
 
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
+use App\Models\CoOwnerRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
@@ -312,4 +315,25 @@ it('records the Slack user who replied on the follow-up task', function () {
     $child = YakTask::where('parent_task_id', $task->id)->firstOrFail();
     expect($child->slack_user_id)->toBe('U_REQUESTER')
         ->and($child->slack_follow_up_user_id)->toBe('U_REPLY_USER');
+});
+
+it('a Slack thread reply on a task held for a co-owner starts a follow-up and supersedes the request', function () {
+    Queue::fake();
+
+    $held = YakTask::factory()->awaitingCoOwner()->create(['source' => 'slack', 'slack_channel' => 'C123', 'slack_thread_ts' => '111.222']);
+    $request = CoOwnerRequest::factory()->create(['task_id' => $held->id]);
+
+    $body = slackThreadReplyPayload('Please also add a test', 'C123', '111.222');
+    $headers = signSlackPayload($body, 'test-slack-signing-secret');
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful()->assertJson(['handled' => 'follow_up']);
+
+    expect($request->fresh()->status)->toBe(CoOwnerRequestStatus::Superseded)
+        ->and($held->fresh()->status)->toBe(TaskStatus::Success)
+        ->and(YakTask::where('parent_task_id', $held->id)->first()->source)->toBe('slack');
+    Queue::assertPushed(RunFollowUpJob::class);
 });

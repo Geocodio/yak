@@ -397,6 +397,34 @@ it('uses single active repo without clarification for slack', function () {
     Queue::assertPushed(RunYakJob::class);
 });
 
+it('starts a new run when @yak is mentioned in the thread of an expired co-owner task', function () {
+    $secret = enableSlackChannel();
+    Queue::fake();
+    Http::fake(['*' => Http::response(['ok' => true])]);
+
+    Repository::factory()->create(['slug' => 'only-repo']);
+    $expired = YakTask::factory()->create([
+        'source' => 'slack',
+        'repo' => 'only-repo',
+        'status' => TaskStatus::Expired,
+        'slack_channel' => 'C12345678',
+        'slack_thread_ts' => '1111.2222',
+    ]);
+
+    $body = slackMentionPayload('try this again', ['event' => ['thread_ts' => '1111.2222', 'ts' => '1111.3333']]);
+    $headers = signSlackPayload($body, $secret);
+
+    $this->call('POST', '/webhooks/slack', content: $body, server: [
+        'HTTP_X-Slack-Request-Timestamp' => $headers['X-Slack-Request-Timestamp'],
+        'HTTP_X-Slack-Signature' => $headers['X-Slack-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertJsonPath('handled', 'task_created');
+
+    $newTask = YakTask::where('id', '!=', $expired->id)->first();
+    expect($newTask->slack_thread_ts)->toBe('1111.2222');
+    Queue::assertPushed(RunYakJob::class);
+});
+
 /*
 |--------------------------------------------------------------------------
 | Acknowledgment

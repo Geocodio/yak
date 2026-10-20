@@ -5,6 +5,7 @@ namespace App\Channels\Slack;
 use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
+use App\Jobs\ApplyCoOwnerDecisionJob;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\RepoClarificationResolver;
@@ -17,8 +18,9 @@ use Illuminate\Support\Facades\Http;
 /**
  * Handles Slack's Interactivity & Shortcuts webhook — fires when a
  * user clicks a button inside one of Yak's messages. The only
- * interactive element we currently ship is clarification option
- * buttons: clicking one submits the clicked option through ClarificationAnswerSubmitter with the
+ * interactive elements are clarification option buttons and the co-owner
+ * gate's Approve, Reject and Withdraw buttons (queued, answered at once).
+ * Clicking a clarification button submits the clicked option through ClarificationAnswerSubmitter with the
  * selected option as the reply text, so the flow reaches Claude
  * identically to a thread-reply answer. Clicks from guests and Slack Connect
  * users in other organizations are ignored.
@@ -61,6 +63,18 @@ class InteractiveWebhookController extends Controller
         }
 
         $actionId = (string) ($action['action_id'] ?? '');
+
+        if (in_array($actionId, [CoOwnerBlocks::APPROVE_ACTION_ID, CoOwnerBlocks::REJECT_ACTION_ID, CoOwnerBlocks::WITHDRAW_ACTION_ID], true)) {
+            ApplyCoOwnerDecisionJob::dispatch(
+                (int) ($action['value'] ?? 0),
+                (string) ($payload['user']['id'] ?? ''),
+                $actionId,
+                (string) ($payload['response_url'] ?? ''),
+            );
+
+            return response()->json(['ok' => true]);
+        }
+
         if (! str_starts_with($actionId, BlockFormatter::CLARIFY_ACTION_ID)) {
             return response()->json(['ok' => true]);
         }

@@ -108,6 +108,11 @@ function TaskTableRow({ task, onPreview, entranceClass }: { task: TaskRow; onPre
                             ) : (
                                 <div className="mt-0.5 truncate font-mono text-[11px] text-faint">{task.externalId}</div>
                             ))}
+                        {task.askedFirstName && (
+                            <div className="mt-0.5 truncate text-[11px] text-faint" data-testid={`task-asked-${task.id}`}>
+                                asked {task.askedFirstName}
+                            </div>
+                        )}
                     </div>
                 </div>
                 {hasFollowUps && <NestedFollowUps items={task.followUps} />}

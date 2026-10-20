@@ -70,6 +70,16 @@ class YakTaskFactory extends Factory
         ]);
     }
 
+    public function awaitingCoOwner(): static
+    {
+        return $this->state(fn (): array => [
+            'status' => TaskStatus::AwaitingCoOwner,
+            'started_at' => now(),
+            'model_used' => 'opus',
+            'branch_name' => 'yak/' . fake()->slug(2),
+        ]);
+    }
+
     public function retrying(): static
     {
         return $this->state(fn (): array => [

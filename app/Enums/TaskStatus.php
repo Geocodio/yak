@@ -31,6 +31,7 @@ enum TaskStatus: string implements StateMachine
             self::AwaitingClarification->value,
             self::AwaitingCi->value,
             self::Retrying->value,
+            self::AwaitingCoOwner->value,
         ];
     }
 
@@ -41,6 +42,7 @@ enum TaskStatus: string implements StateMachine
         self::Pending,
         self::AwaitingCi,
         self::AwaitingClarification,
+        self::AwaitingCoOwner,
         self::Success,
         self::Failed,
         self::Cancelled,
@@ -50,11 +52,14 @@ enum TaskStatus: string implements StateMachine
     #[CanTransitionTo([self::Pending, self::Running, self::Expired, self::Cancelled])]
     case AwaitingClarification = 'awaiting_clarification';
 
-    #[CanTransitionTo([self::Success, self::Retrying, self::Failed, self::Cancelled])]
+    #[CanTransitionTo([self::AwaitingCoOwner, self::Success, self::Retrying, self::Failed, self::Cancelled])]
     case AwaitingCi = 'awaiting_ci';
 
-    #[CanTransitionTo([self::AwaitingCi, self::AwaitingClarification, self::Success, self::Failed, self::Cancelled])]
+    #[CanTransitionTo([self::AwaitingCi, self::AwaitingClarification, self::AwaitingCoOwner, self::Success, self::Failed, self::Cancelled])]
     case Retrying = 'retrying';
+
+    #[CanTransitionTo([self::Success, self::Cancelled, self::Expired])]
+    case AwaitingCoOwner = 'awaiting_co_owner';
 
     #[FinalState]
     case Success = 'success';

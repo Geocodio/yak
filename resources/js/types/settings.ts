@@ -3,6 +3,7 @@ export type ProfileData = {
     email: string;
     hasUnverifiedEmail: boolean;
     directMessagesEnabled: boolean;
+    github: { login: string; linkedAt: string } | null;
 };
 
 export type LinearConnectionData = {

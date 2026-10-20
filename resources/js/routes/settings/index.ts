@@ -1,4 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
+import github from './github'
 import linearCc9558 from './linear'
 import video6ca361 from './video'
 /**
@@ -90,6 +91,7 @@ video.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 const settings = {
+    github: Object.assign(github, github),
     linear: Object.assign(linear, linearCc9558),
     video: Object.assign(video, video6ca361),
 }

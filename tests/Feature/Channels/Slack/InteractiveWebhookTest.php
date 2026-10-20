@@ -6,46 +6,12 @@ use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Providers\ChannelServiceProvider;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
     InteractivityTracker::reset();
 });
-
-/**
- * Sign a Slack webhook payload using the v0:timestamp:body format.
- *
- * @return array{HTTP_X-Slack-Request-Timestamp: string, HTTP_X-Slack-Signature: string}
- */
-function signSlackInteractivePayload(string $body, string $secret): array
-{
-    $timestamp = (string) time();
-    $basestring = "v0:{$timestamp}:{$body}";
-    $signature = 'v0=' . hash_hmac('sha256', $basestring, $secret);
-
-    return [
-        'HTTP_X-Slack-Request-Timestamp' => $timestamp,
-        'HTTP_X-Slack-Signature' => $signature,
-        'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
-    ];
-}
-
-function enableSlackForInteractive(): string
-{
-    $secret = 'test-interactive-secret';
-
-    config()->set('yak.channels.slack', [
-        'driver' => 'slack',
-        'bot_token' => 'xoxb-test',
-        'signing_secret' => $secret,
-    ]);
-
-    (new ChannelServiceProvider(app()))->boot();
-
-    return $secret;
-}
 
 /**
  * Build a block_actions interaction payload body as Slack sends it:
