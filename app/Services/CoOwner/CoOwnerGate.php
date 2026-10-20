@@ -105,11 +105,17 @@ class CoOwnerGate
 
         $verdict = $this->verdict->evaluate($changed, [], CodeOwners::empty(), self::LISTING_CAP, self::LISTING_MESSAGE);
 
-        if (! $verdict['isFloorHeld']) {
+        if (! $verdict['isFloorHeld'] && ! $verdict['isUncheckedHeld'] && $verdict['capReason'] === null) {
             return null;
         }
 
-        return $this->outcome(['floor'], true, changed: $changed, isHeldByPath: array_column($verdict['files'], 'isHeld', 'path'));
+        $reasons = array_values(array_filter([
+            $verdict['isFloorHeld'] ? 'floor' : null,
+            $verdict['isUncheckedHeld'] ? 'unchecked' : null,
+            $verdict['capReason'],
+        ]));
+
+        return $this->outcome($reasons, true, changed: $changed, isHeldByPath: array_column($verdict['files'], 'isHeld', 'path'));
     }
 
     /**

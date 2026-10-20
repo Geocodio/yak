@@ -260,3 +260,10 @@ it('dispatches the messages job once for a repeated hold', function () {
 
     Bus::assertDispatchedTimes(SendCoOwnerMessagesJob::class, 1);
 });
+
+it('holds an exempt task whose compare lists 300 files', function () {
+    $this->task->update(['source' => 'sentry']);
+    Http::fake(gitHubTokenFake() + gateCompare(array_map(fn (int $i): array => gateFile("docs/f{$i}.md"), range(1, 300))));
+
+    expect(app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository)->hold_reasons)->toBe(['listing']);
+});
