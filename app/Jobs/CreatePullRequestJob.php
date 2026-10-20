@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\TaskMode;
 use App\Facades\Telemetry;
 use App\Models\Artifact;
@@ -110,6 +111,10 @@ class CreatePullRequestJob implements ShouldQueue
             $this->refreshOwnedSections($repository->github_full_name, (int) $existing['number']);
 
             $this->bestEffort(function () use ($gitHub, $repository, $installationId, $existing): void {
+                if (! CoOwnerRequest::where('root_task_id', $this->task->rootTask()->id)->where('status', CoOwnerRequestStatus::Approved)->exists()) {
+                    return;
+                }
+
                 $headSha = $gitHub->getBranchHeadSha($installationId, $repository->github_full_name, (string) $this->task->branch_name);
 
                 if ($headSha !== null) {

@@ -30,6 +30,14 @@ it('does not remind a request younger than two days', function () {
     Bus::assertNotDispatched(SendCoOwnerMessagesJob::class);
 });
 
+it('does not remind a decided request', function () {
+    CoOwnerRequest::factory()->create(['status' => CoOwnerRequestStatus::Approved, 'held_at' => now()->subDays(4)]);
+
+    $this->artisan('yak:co-owner:sweep')->assertSuccessful();
+
+    Bus::assertNotDispatched(SendCoOwnerMessagesJob::class);
+});
+
 it('expires after seven days and keeps the branch', function () {
     $request = CoOwnerRequest::factory()->create(['held_at' => now()->subDays(8), 'expires_at' => now()->subHour()]);
 

@@ -6,6 +6,7 @@ use App\Jobs\PostScopeWideningCommentJob;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\YakTask;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 
@@ -76,11 +77,12 @@ it('omits the mention when the approver login is not a GitHub login', function (
 });
 
 it('logs a warning and retries when the comment fails', function () {
-    Http::fake(gitHubTokenFake() + prFiles('lib/legacy-shim/a.php') + ['*' => Http::response([], 500)]);
+    Http::fake(gitHubTokenFake() + prFiles('lib/legacy-shim/a.php') + ['*' => Http::response(['message' => 'Resource not accessible by integration'], 403)]);
 
-    expect(fn () => PostScopeWideningCommentJob::dispatchSync($this->task, 7, 'abcdef0123456'))->toThrow(RuntimeException::class);
+    expect(fn () => PostScopeWideningCommentJob::dispatchSync($this->task, 7, 'abcdef0123456'))->toThrow(RequestException::class);
 
-    expect($this->task->logs()->where('level', 'warning')->where('message', 'like', 'Could not post the scope-widening comment on PR #7:%')->exists())->toBeTrue()
+    expect($this->task->logs()->where('level', 'warning')->pluck('message')->all())->toBe(['Could not post the scope-widening comment on PR #7: 403 Resource not accessible by integration. The PR is unchanged. Reviewers are not notified of the new files. Retrying in 5m (1 of 3).'])
+        ->and($this->task->logs()->where('message', 'Follow-up touches Legacy geocoder shim (high)')->exists())->toBeTrue()
         ->and($this->request->fresh()->notified_areas)->toBe([]);
 });
 
@@ -105,4 +107,15 @@ it('dispatches the scope check when a follow-up pushes to an existing PR', funct
     CreatePullRequestJob::dispatchSync($this->task);
 
     Bus::assertDispatched(PostScopeWideningCommentJob::class, fn ($job) => $job->prNumber === 7 && $job->headSha === 'abcdef0123456');
+});
+
+it('does not look up the head when the conversation has no approved request', function () {
+    $this->request->update(['status' => CoOwnerRequestStatus::Expired]);
+    Bus::fake([PostScopeWideningCommentJob::class]);
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/o/r/pulls?*' => Http::response([['number' => 7, 'html_url' => 'https://github.com/o/r/pull/7']])] + ['*' => Http::response([], 201)]);
+
+    CreatePullRequestJob::dispatchSync($this->task);
+
+    Bus::assertNotDispatched(PostScopeWideningCommentJob::class);
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/branches/'));
 });

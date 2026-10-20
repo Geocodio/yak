@@ -38,8 +38,14 @@ class SweepCoOwnerRequestsCommand extends Command
             ->get();
 
         foreach ($due as $request) {
-            $request->update(['reminded_at' => now()]);
-            SendCoOwnerMessagesJob::dispatch($request, 'reminder');
+            $isClaimed = CoOwnerRequest::whereKey($request->id)
+                ->where('status', CoOwnerRequestStatus::Pending)
+                ->whereNull('reminded_at')
+                ->update(['reminded_at' => now()]) === 1;
+
+            if ($isClaimed) {
+                SendCoOwnerMessagesJob::dispatch($request, 'reminder');
+            }
         }
 
         $this->components->info("Expired {$expired->count()} and reminded {$due->count()} co-owner request(s).");

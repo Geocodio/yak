@@ -62,6 +62,13 @@ class PostScopeWideningCommentJob implements ShouldQueue
             $areas = array_values((array) ($profile['areas'] ?? []));
             $result = $verdict->evaluate(array_values($changed), $areas, $this->codeOwners($repository, $settings->snapshot->commitSha), 300, '');
 
+            $covered = [...array_column($request->matched_areas, 'name'), ...$request->notified_areas];
+            foreach ($result['heldAreas'] as $area) {
+                if (! in_array($area['name'], $covered, true)) {
+                    TaskLogger::info($this->task, "Follow-up touches {$area['name']} ({$area['risk']})");
+                }
+            }
+
             DB::transaction(function () use ($github, $request, $repository, $result): void {
                 $locked = CoOwnerRequest::whereKey($request->id)->lockForUpdate()->firstOrFail();
                 $covered = [...array_column($locked->matched_areas, 'name'), ...$locked->notified_areas];
@@ -72,27 +79,21 @@ class PostScopeWideningCommentJob implements ShouldQueue
                 }
 
                 $names = array_column($newAreas, 'name');
-                foreach ($newAreas as $area) {
-                    TaskLogger::info($this->task, "Follow-up touches {$area['name']} ({$area['risk']})");
-                }
-
-                $isPosted = $github->commentOnPullRequest(
+                $github->commentOnPullRequestOrFail(
                     (int) config('yak.channels.github.installation_id'),
                     $repository->github_full_name,
                     $this->prNumber,
                     $this->body($locked, $result, $newAreas),
                 );
 
-                if (! $isPosted) {
-                    throw new \RuntimeException('GitHub rejected the comment');
-                }
-
                 $locked->update(['notified_areas' => [...$locked->notified_areas, ...$names]]);
             });
         } catch (Throwable $exception) {
-            $status = $exception instanceof RequestException ? $exception->response->status() . ' ' : '';
+            $detail = $exception instanceof RequestException
+                ? $exception->response->status() . ' ' . ($exception->response->json('message') ?? $exception->response->reason())
+                : $exception->getMessage();
             $retry = $this->attempts() < $this->tries ? " Retrying in 5m ({$this->attempts()} of {$this->tries})." : '';
-            TaskLogger::warning($this->task, "Could not post the scope-widening comment on PR #{$this->prNumber}: {$status}{$exception->getMessage()}. The PR is unchanged. Reviewers are not notified of the new files.{$retry}");
+            TaskLogger::warning($this->task, "Could not post the scope-widening comment on PR #{$this->prNumber}: {$detail}. The PR is unchanged. Reviewers are not notified of the new files.{$retry}");
 
             throw $exception;
         }
@@ -120,7 +121,7 @@ class PostScopeWideningCommentJob implements ShouldQueue
     private function body(CoOwnerRequest $request, array $result, array $newAreas): string
     {
         $login = (string) $request->decided_by_login;
-        $mention = preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/', $login) === 1 ? " @{$login}" : '';
+        $mention = preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\z/', $login) === 1 ? " @{$login}" : '';
         $areaList = implode(', ', array_map(fn (array $area): string => MarkdownText::inline($area['name']), $newAreas));
         $indexes = array_column($newAreas, 'index');
 

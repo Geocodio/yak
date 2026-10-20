@@ -306,6 +306,17 @@ class AppService
     }
 
     /**
+     * Like commentOnPullRequest, but a non-2xx response throws.
+     */
+    public function commentOnPullRequestOrFail(int $installationId, string $repoSlug, int $prNumber, string $body): void
+    {
+        Http::withToken($this->getInstallationToken($installationId))
+            ->withHeaders(['Accept' => 'application/vnd.github+json'])
+            ->post("https://api.github.com/repos/{$repoSlug}/issues/{$prNumber}/comments", ['body' => $body])
+            ->throw();
+    }
+
+    /**
      * Returns the id GitHub assigns to the reaction, or null when the call
      * fails, so a caller can remove the reaction again later.
      */
