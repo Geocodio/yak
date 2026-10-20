@@ -51,14 +51,16 @@ class CoOwnerDecisions
         });
 
         $request->refresh();
+        $previousPrUrl = $task->pr_url;
 
         try {
             $isLargeChange = $request->additions + $request->deletions > $repository->settings()->largeChangeLines();
             CreatePullRequestJob::dispatchSync($task, $isLargeChange, $request);
             $task->refresh();
         } catch (Throwable $exception) {
-            // Once the PR is open (its URL is saved) the approval stands.
-            if (YakTask::whereKey($task->id)->value('pr_url') === null) {
+            // The approval stands only when this call saved a new PR URL.
+            $currentPrUrl = YakTask::whereKey($task->id)->value('pr_url');
+            if ($currentPrUrl === null || $currentPrUrl === $previousPrUrl) {
                 $this->revertApproval($request, $task, $approver, $previousResponsible);
 
                 throw $exception instanceof RequestException

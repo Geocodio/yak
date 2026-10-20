@@ -250,3 +250,12 @@ it('escapes the responsible name in the PR body', function () {
 
     Http::assertSent(fn ($r): bool => $r->method() === 'POST' && str_ends_with($r->url(), '/pulls') && str_contains($r['body'], '**Responsible:** Ann \*Bold\*'));
 });
+
+it('reverts a failed approval even when the task carries a stale PR URL', function () {
+    $this->task->update(['pr_url' => 'https://github.com/o/r/pull/1', 'pr_number' => 1]);
+    decisionFakes('write', ['api.github.com/repos/o/r/pulls' => Http::response(['message' => 'nope'], 403)]);
+
+    expect(fn () => app(CoOwnerDecisions::class)->approve($this->request, $this->approver))
+        ->toThrow(fn (CoOwnerDecisionException $e) => $e->reason === 'github_failed');
+    expect($this->request->fresh()->status)->toBe(CoOwnerRequestStatus::Pending);
+});
