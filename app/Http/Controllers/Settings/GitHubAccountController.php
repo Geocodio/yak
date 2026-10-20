@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use GuzzleHttp\Exception\ClientException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\AbstractProvider;
+use Laravel\Socialite\Two\InvalidStateException;
 
 class GitHubAccountController extends Controller
 {
@@ -42,23 +45,35 @@ class GitHubAccountController extends Controller
             return redirect($destination)->withErrors(['github' => 'error=' . $request->string('error')]);
         }
 
-        $githubUser = Socialite::driver('github')->user();
-        $user = $this->authenticatedUser();
-
-        $owner = User::query()->where('github_id', $githubUser->getId())->where('id', '!=', $user->id)->first();
-
-        if ($owner !== null) {
-            return redirect($destination)->withErrors([
-                'github_taken' => $owner->name,
-                'github_taken_login' => (string) $owner->github_login,
-            ]);
+        try {
+            $githubUser = Socialite::driver('github')->user();
+        } catch (InvalidStateException|ClientException) {
+            return redirect($destination)->withErrors(['github' => 'error=invalid_state']);
         }
 
-        $user->forceFill([
-            'github_id' => $githubUser->getId(),
-            'github_login' => $githubUser->getNickname(),
-            'github_linked_at' => now(),
-        ])->save();
+        $user = $this->authenticatedUser();
+
+        $existingOwner = $this->owner($githubUser->getId(), $user);
+
+        if ($existingOwner !== null) {
+            return $this->takenResponse($destination, $existingOwner);
+        }
+
+        try {
+            $user->forceFill([
+                'github_id' => $githubUser->getId(),
+                'github_login' => $githubUser->getNickname(),
+                'github_linked_at' => now(),
+            ])->save();
+        } catch (UniqueConstraintViolationException $exception) {
+            $owner = $this->owner($githubUser->getId(), $user);
+
+            if ($owner === null) {
+                throw $exception;
+            }
+
+            return $this->takenResponse($destination, $owner);
+        }
 
         return redirect($destination)->with('success', "GitHub connected as {$user->github_login}.");
     }
@@ -72,6 +87,19 @@ class GitHubAccountController extends Controller
         ])->save();
 
         return redirect()->route('profile.edit')->with('success', 'GitHub disconnected.');
+    }
+
+    private function owner(mixed $githubId, User $user): ?User
+    {
+        return User::query()->where('github_id', $githubId)->where('id', '!=', $user->id)->first();
+    }
+
+    private function takenResponse(string $destination, User $owner): RedirectResponse
+    {
+        return redirect($destination)->withErrors([
+            'github_taken' => $owner->name,
+            'github_taken_login' => (string) $owner->github_login,
+        ]);
     }
 
     private function pullReturnPath(Request $request): string

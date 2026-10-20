@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Models\User;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\InvalidStateException;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
 function fakeGitHubUser(int $id = 4242, string $login = 'mhansen'): void
@@ -60,6 +61,7 @@ it('ignores an unsafe return url', function (string $return) {
     '/\\evil.example',
     '/%09/evil.example',
     '/%2F/evil.example',
+    '/%2F%2Fevil.example',
     'https://evil.example',
     'tasks/12',
     "/tasks/\n12",
@@ -131,4 +133,36 @@ it('passes the linked account to the profile page', function () {
 
     $this->actingAs(User::factory()->create());
     $this->get(route('profile.edit'))->assertInertia(fn ($page) => $page->where('profile.github', null));
+});
+
+it('reports a taken account when another user links it between the check and the save', function () {
+    $user = User::factory()->create();
+    User::factory()->create(['name' => 'Cory Mawhorter']);
+    fakeGitHubUser();
+    $this->actingAs($user);
+
+    // The racing user links the same GitHub id just before this user's save runs.
+    User::saving(function (User $saving) use ($user) {
+        if ($saving->is($user) && $saving->github_id !== null) {
+            User::query()->where('name', 'Cory Mawhorter')->update(['github_id' => 4242, 'github_login' => 'mhansen']);
+        }
+    });
+
+    $this->get(route('settings.github.callback'))
+        ->assertRedirect(route('profile.edit'))
+        ->assertSessionHasErrors(['github_taken' => 'Cory Mawhorter', 'github_taken_login' => 'mhansen']);
+
+    expect($user->fresh()->hasLinkedGitHub())->toBeFalse();
+});
+
+it('shows an error when GitHub sign-in state is invalid', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Socialite::shouldReceive('driver->user')->andThrow(new InvalidStateException);
+
+    $this->get(route('settings.github.callback'))
+        ->assertRedirect(route('profile.edit'))
+        ->assertSessionHasErrors(['github' => 'error=invalid_state']);
+
+    expect($user->fresh()->hasLinkedGitHub())->toBeFalse();
 });
