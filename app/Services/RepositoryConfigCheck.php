@@ -177,7 +177,7 @@ class RepositoryConfigCheck
         }
 
         $hasGlobNotes = $notes !== [];
-        $notes = [...$notes, ...$this->coOwnerWarnings($repository, $headSha, $dataByFile['config.yml']['co_owner_gate']['mode'] ?? null)];
+        $notes = [...$notes, ...$this->coOwnerWarnings($repository, $pullRequestNumber, $headSha, $dataByFile['config.yml']['co_owner_gate']['mode'] ?? null)];
 
         $isValid = $failures === [];
         $hasNoFiles = $isValid && $contentByFile === [];
@@ -209,7 +209,7 @@ class RepositoryConfigCheck
      *
      * @return list<string>
      */
-    private function coOwnerWarnings(Repository $repository, string $headSha, ?string $headMode): array
+    private function coOwnerWarnings(Repository $repository, int $pullRequestNumber, string $headSha, ?string $headMode): array
     {
         $status = app(CoOwnerGateStatus::class);
 
@@ -221,10 +221,12 @@ class RepositoryConfigCheck
             return [];
         }
 
-        $warnings = array_map(
-            fn (string $entry): string => 'CODEOWNERS entry ' . MarkdownText::code($entry) . ' does not resolve to a linked Yak user with write access.',
-            $owners['unresolved'],
-        );
+        $warnings = $this->isSameRepositoryPullRequest($repository, $pullRequestNumber)
+            ? array_map(
+                fn (string $entry): string => 'CODEOWNERS entry ' . MarkdownText::code($entry) . ' does not resolve to a linked Yak user with write access.',
+                array_values(array_filter($owners['unresolved'], fn (string $entry): bool => str_starts_with($entry, '@'))),
+            )
+            : [];
         $mode = $headMode ?? $repository->settings()->coOwnerGateMode();
 
         if ($mode === 'enforce' && $owners['resolvable'] === [] && ! ($status->fallbackOwner($repository)['resolves'] ?? false)) {
@@ -232,6 +234,24 @@ class RepositoryConfigCheck
         }
 
         return $warnings;
+    }
+
+    /**
+     * Per-entry warnings reveal which logins are linked Yak users with write
+     * access, so only a pull request from the base repository gets them. An
+     * unreadable pull request counts as a fork.
+     */
+    private function isSameRepositoryPullRequest(Repository $repository, int $pullRequestNumber): bool
+    {
+        try {
+            $pullRequest = $this->github->getPullRequestOrFail((int) config('yak.channels.github.installation_id'), $repository->github_full_name, $pullRequestNumber);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $head = $pullRequest['head']['repo']['full_name'] ?? null;
+
+        return is_string($head) && strcasecmp($head, $repository->github_full_name) === 0;
     }
 
     /** @param array<string, int> $errorCounts */

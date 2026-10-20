@@ -45,7 +45,7 @@ it('reports an enforced gate with resolvable owners and a fallback owner (frame 
     expect($status['mode'])->toBe('enforce')
         ->and($status['source'])->toBe('file')
         ->and($status['profile'])->toBe(['path' => '.yak/risk-profile.yml', 'areaCount' => 2])
-        ->and($status['owners'])->toBe(['resolvable' => ['Mathias Hansen', 'Cory Mawhorter', 'Dana Whitfield'], 'total' => 4, 'teamsSkipped' => []])
+        ->and($status['owners'])->toBe(['resolvable' => ['Mathias Hansen', 'Cory Mawhorter', 'Dana Whitfield'], 'total' => 4, 'resolvedEntries' => 3, 'teamsSkipped' => []])
         ->and($status['fallbackOwner'])->toBe(['name' => 'Dana Whitfield', 'resolves' => true]);
 });
 
@@ -56,7 +56,7 @@ it('reports an enforced gate where nobody can be asked (frame 13b)', function ()
     $status = app(CoOwnerGateStatus::class)->for($this->repository);
 
     expect($status['mode'])->toBe('enforce')
-        ->and($status['owners'])->toBe(['resolvable' => [], 'total' => 3, 'teamsSkipped' => []])
+        ->and($status['owners'])->toBe(['resolvable' => [], 'total' => 3, 'resolvedEntries' => 0, 'teamsSkipped' => []])
         ->and($status['fallbackOwner'])->toBeNull();
 });
 
@@ -68,7 +68,7 @@ it('reports skipped team entries (frame 13c)', function () {
 
     $status = app(CoOwnerGateStatus::class)->for($this->repository);
 
-    expect($status['owners'])->toBe(['resolvable' => ['Cory Mawhorter'], 'total' => 3, 'teamsSkipped' => ['@acme/platform', '@acme/backend']])
+    expect($status['owners'])->toBe(['resolvable' => ['Cory Mawhorter'], 'total' => 3, 'resolvedEntries' => 1, 'teamsSkipped' => ['@acme/platform', '@acme/backend']])
         ->and($status['fallbackOwner']['name'])->toBe('Dana Whitfield');
 });
 
@@ -92,4 +92,25 @@ it('serves the status from the cache for the same default-branch commit', functi
     app(CoOwnerGateStatus::class)->for($this->repository);
 
     expect(count(Http::recorded()))->toBe($recorded);
+});
+
+it('reads the fallback owner fresh even when the rest of the status is cached', function () {
+    fakeGateStatus('enforce', "* @ghost\n");
+
+    expect(app(CoOwnerGateStatus::class)->for($this->repository)['fallbackOwner'])->toBeNull();
+
+    $this->repository->update(['default_responsible_user_id' => gateStatusUser(3, 'dana', 'Dana Whitfield')->id]);
+
+    expect(app(CoOwnerGateStatus::class)->for($this->repository->fresh())['fallbackOwner'])->toBe(['name' => 'Dana Whitfield', 'resolves' => true]);
+});
+
+it('counts resolved entries, not users, against the total', function () {
+    gateStatusUser(1, 'a', 'A');
+    gateStatusUser(2, 'b', 'B');
+    Http::fake(['api.github.com/orgs/acme/teams/core/members*' => Http::response([['login' => 'a'], ['login' => 'b']])]);
+    fakeGateStatus('enforce', "* @acme/core\n");
+
+    $owners = app(CoOwnerGateStatus::class)->for($this->repository)['owners'];
+
+    expect($owners['resolvable'])->toHaveCount(2)->and($owners['total'])->toBe(1)->and($owners['resolvedEntries'])->toBe(1);
 });

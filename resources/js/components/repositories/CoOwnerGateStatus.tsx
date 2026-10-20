@@ -98,8 +98,8 @@ export function CoOwnerGateStatus({ status, branch }: { status: Status; branch: 
                         <div className="text-[13px] font-medium">{callout.title}</div>
                         <p className="text-[12px] text-muted">{callout.body}</p>
                     </div>
-                    {hasTeamsSkipped && !hasNoOneToAsk && (
-                        <a href={status.appSettingsUrl} target="_blank" rel="noopener noreferrer">
+                    {hasTeamsSkipped && status.appSettingsUrl && (
+                        <a href={status.appSettingsUrl ?? undefined} target="_blank" rel="noopener noreferrer">
                             <Button icon={<ExternalLink size={13} />}>GitHub App settings</Button>
                         </a>
                     )}
@@ -124,11 +124,11 @@ export function CoOwnerGateStatus({ status, branch }: { status: Status; branch: 
                     </Row>
                 ) : hasNoOneToAsk || resolvable === 0 ? (
                     <Row tone="warn" title="No owners resolve">
-                        {resolvable} of {owners.total} CODEOWNERS owners are linked users with write access.
+                        {owners.resolvedEntries} of {owners.total} CODEOWNERS owners are linked users with write access.
                     </Row>
                 ) : hasTeamsSkipped ? (
                     <Row tone="warn" title="Owners partly resolvable">
-                        {resolvable} of {owners.total} CODEOWNERS owners {resolvable === 1 ? 'resolves' : 'resolve'}: {ownerNames(owners.resolvable)}. {owners.teamsSkipped.length} {owners.teamsSkipped.length === 1 ? 'team' : 'teams'} skipped.
+                        {owners.resolvedEntries} of {owners.total} CODEOWNERS owners {owners.resolvedEntries === 1 ? 'resolves' : 'resolve'}: {ownerNames(owners.resolvable)}. {owners.teamsSkipped.length} {owners.teamsSkipped.length === 1 ? 'team' : 'teams'} skipped.
                     </Row>
                 ) : (
                     <Row tone="ok" title="Owners resolvable">

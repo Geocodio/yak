@@ -7,6 +7,7 @@ use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use App\Support\CodeOwners;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 /**
  * The read-only co-owner gate status shown on the repository page: the mode
@@ -28,33 +29,36 @@ class CoOwnerGateStatus
     ) {}
 
     /**
-     * @return array{mode: string, source: string, profile: ?array{path: ?string, areaCount: int}, owners: array{resolvable: list<string>, total: int, teamsSkipped: list<string>}, fallbackOwner: ?array{name: string, resolves: bool}, appSettingsUrl: string}
+     * @return array{mode: string, source: string, profile: ?array{path: ?string, areaCount: int}, owners: array{resolvable: list<string>, total: int, resolvedEntries: int, teamsSkipped: list<string>}, fallbackOwner: ?array{name: string, resolves: bool}, appSettingsUrl: ?string}
      */
     public function for(Repository $repository): array
     {
         $snapshot = $this->config->snapshot($repository);
         $sha = $snapshot->commitSha;
 
-        if ($sha === null) {
-            return $this->compute($repository, null);
-        }
+        $status = $sha === null
+            ? $this->compute($repository, null)
+            : Cache::remember(
+                "co-owner:gate-status:{$repository->id}:{$sha}",
+                now()->addMinutes(self::CACHE_MINUTES),
+                fn (): array => $this->compute($repository, $sha),
+            );
 
-        return Cache::remember(
-            "co-owner:gate-status:{$repository->id}:{$sha}",
-            now()->addMinutes(self::CACHE_MINUTES),
-            fn (): array => $this->compute($repository, $sha),
-        );
+        $status['fallbackOwner'] = $this->fallbackOwner($repository);
+
+        return $status;
     }
 
     /**
      * Resolves each distinct CODEOWNERS entry.
      *
-     * @return array{resolvable: list<string>, total: int, teamsSkipped: list<string>, unresolved: list<string>}
+     * @return array{resolvable: list<string>, total: int, resolvedEntries: int, teamsSkipped: list<string>, unresolved: list<string>}
      */
     public function ownersFor(Repository $repository, CodeOwners $codeOwners): array
     {
         $entries = array_slice($codeOwners->owners(), 0, self::MAX_ENTRIES);
         $names = [];
+        $resolvedEntries = 0;
         $teamsSkipped = [];
         $unresolved = [];
 
@@ -67,6 +71,8 @@ class CoOwnerGateStatus
 
             if ($resolved['users'] === []) {
                 $unresolved[] = $entry;
+            } else {
+                $resolvedEntries++;
             }
 
             if ($resolved['outcome'] === 'team_skipped') {
@@ -77,6 +83,7 @@ class CoOwnerGateStatus
         return [
             'resolvable' => array_values($names),
             'total' => count($entries),
+            'resolvedEntries' => $resolvedEntries,
             'teamsSkipped' => $teamsSkipped,
             'unresolved' => $unresolved,
         ];
@@ -94,7 +101,7 @@ class CoOwnerGateStatus
     }
 
     /**
-     * @return array{mode: string, source: string, profile: ?array{path: ?string, areaCount: int}, owners: array{resolvable: list<string>, total: int, teamsSkipped: list<string>}, fallbackOwner: ?array{name: string, resolves: bool}, appSettingsUrl: string}
+     * @return array{mode: string, source: string, profile: ?array{path: ?string, areaCount: int}, owners: array{resolvable: list<string>, total: int, resolvedEntries: int, teamsSkipped: list<string>}, fallbackOwner: ?array{name: string, resolves: bool}, appSettingsUrl: ?string}
      */
     private function compute(Repository $repository, ?string $sha): array
     {
@@ -102,7 +109,7 @@ class CoOwnerGateStatus
         $profile = RiskProfilePageData::effectiveProfile($repository, $settings);
         $isFile = $settings->riskProfile() !== null;
         $owners = $sha === null
-            ? ['resolvable' => [], 'total' => 0, 'teamsSkipped' => []]
+            ? ['resolvable' => [], 'total' => 0, 'resolvedEntries' => 0, 'teamsSkipped' => [], 'unresolved' => []]
             : $this->ownersFor($repository, RiskProfilePageData::codeOwners($repository, $sha));
         unset($owners['unresolved']);
 
@@ -114,9 +121,27 @@ class CoOwnerGateStatus
                 'areaCount' => count($profile['areas'] ?? []),
             ],
             'owners' => $owners,
-            'fallbackOwner' => $this->fallbackOwner($repository),
-            'appSettingsUrl' => 'https://github.com/organizations/' . explode('/', (string) $repository->github_full_name)[0]
-                . '/settings/installations/' . (int) config('yak.channels.github.installation_id'),
+            'fallbackOwner' => null,
+            'appSettingsUrl' => $this->appSettingsUrl($repository),
         ];
+    }
+
+    /** The installation settings page, or null when the owner type cannot be read. */
+    private function appSettingsUrl(Repository $repository): ?string
+    {
+        $owner = explode('/', (string) $repository->github_full_name)[0];
+        $installationId = (int) config('yak.channels.github.installation_id');
+
+        try {
+            $type = Http::get('https://api.github.com/users/' . rawurlencode($owner))->json('type');
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return match ($type) {
+            'Organization' => "https://github.com/organizations/{$owner}/settings/installations/{$installationId}",
+            'User' => "https://github.com/settings/installations/{$installationId}",
+            default => null,
+        };
     }
 }

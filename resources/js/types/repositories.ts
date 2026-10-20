@@ -161,7 +161,7 @@ export type CoOwnerGateStatus = {
     mode: string;
     source: 'file' | 'database' | 'none';
     profile: { path: string | null; areaCount: number } | null;
-    owners: { resolvable: string[]; total: number; teamsSkipped: string[] };
+    owners: { resolvable: string[]; total: number; resolvedEntries: number; teamsSkipped: string[] };
     fallbackOwner: { name: string; resolves: boolean } | null;
-    appSettingsUrl: string;
+    appSettingsUrl: string | null;
 };

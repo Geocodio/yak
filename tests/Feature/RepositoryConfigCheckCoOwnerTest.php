@@ -15,14 +15,15 @@ beforeEach(function () {
 });
 
 /** @param  list<string>  $changed */
-function fakeCoOwnerCheck(array $changed, ?string $codeOwners, string $mode = 'off'): void
+function fakeCoOwnerCheck(array $changed, ?string $codeOwners, string $mode = 'off', string $headRepository = 'acme/api', int $codeOwnersStatus = 200): void
 {
     configureFakeGitHubApp();
     Http::fake(gitHubTokenFake() + [
         'api.github.com/repos/acme/api/pulls/7/files*' => Http::response(array_map(fn (string $name): array => ['filename' => $name], $changed)),
+        'api.github.com/repos/acme/api/pulls/7' => Http::response(['head' => ['repo' => ['full_name' => $headRepository]]]),
         'api.github.com/repos/acme/api/check-runs' => Http::response(['id' => 5], 201),
         'api.github.com/repos/acme/api/contents/.yak/config.yml*' => Http::response("version: 1\nco_owner_gate:\n  mode: {$mode}\n"),
-        'api.github.com/repos/acme/api/contents/.github/CODEOWNERS*' => $codeOwners === null ? Http::response(['message' => 'Not Found'], 404) : Http::response($codeOwners),
+        'api.github.com/repos/acme/api/contents/.github/CODEOWNERS*' => $codeOwnersStatus !== 200 ? Http::response(['message' => 'Error'], $codeOwnersStatus) : ($codeOwners === null ? Http::response(['message' => 'Not Found'], 404) : Http::response($codeOwners)),
         'api.github.com/repos/acme/api/contents/*' => Http::response(['message' => 'Not Found'], 404),
     ]);
 }
@@ -71,4 +72,37 @@ it('still posts nothing for a pull request that touches neither', function () {
     fakeCoOwnerCheck(['app/Foo.php'], "* @ghost\n");
 
     expect(app(RepositoryConfigCheck::class)->run($this->repository, 7, str_repeat('a', 40)))->toBeNull();
+});
+
+it('gives a fork pull request no per-entry warning but keeps the aggregate one', function () {
+    fakeCoOwnerCheck(['.yak/config.yml'], "* @ghost\n", 'enforce', 'attacker/api');
+
+    $summary = app(RepositoryConfigCheck::class)->run($this->repository, 7, str_repeat('a', 40))['output']['summary'];
+
+    expect($summary)->not->toContain('`@ghost`')
+        ->and($summary)->toContain('co_owner_gate.mode is enforce, but');
+});
+
+it('never warns about an email entry', function () {
+    fakeCoOwnerCheck(['.yak/config.yml'], "* secret@example.com @ghost\n");
+
+    $summary = app(RepositoryConfigCheck::class)->run($this->repository, 7, str_repeat('a', 40))['output']['summary'];
+
+    expect($summary)->not->toContain('secret@example.com')->and($summary)->toContain('`@ghost`');
+});
+
+it('skips the warnings and still succeeds when CODEOWNERS cannot be fetched', function () {
+    fakeCoOwnerCheck(['.yak/config.yml'], null, 'off', 'acme/api', 500);
+
+    $payload = app(RepositoryConfigCheck::class)->run($this->repository, 7, str_repeat('a', 40));
+
+    expect($payload['conclusion'])->toBe('success')->and($payload['output']['summary'])->not->toContain('CODEOWNERS entry');
+});
+
+it('never echoes an entry with a backtick or pipe into the summary', function () {
+    fakeCoOwnerCheck(['.yak/config.yml'], "* a|b`c@example.com @ghost\n");
+
+    $summary = app(RepositoryConfigCheck::class)->run($this->repository, 7, str_repeat('a', 40))['output']['summary'];
+
+    expect($summary)->not->toContain('a|b')->and($summary)->not->toContain('b`c')->and($summary)->toContain('`@ghost`');
 });
