@@ -6,6 +6,7 @@ use App\Channels\ChannelRegistry;
 use App\Enums\CoOwnerRequestStatus;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TaskRowData;
 use App\Models\Artifact;
@@ -116,8 +117,8 @@ class TaskListController extends Controller
         $tasks = $this->scopedQuery($tab)
             ->with('repository')
             ->whereNull('parent_task_id')
-            ->when($status === 'awaiting_co_owner', fn (Builder $query) => $query->whereIn('id', $this->heldRootIds()))
-            ->when($status !== '' && $status !== 'awaiting_co_owner', fn (Builder $query) => $query->where('status', $status))
+            ->when($status === TaskStatus::AwaitingCoOwner->value, fn (Builder $query) => $query->whereIn('id', $this->heldRootIds()))
+            ->when($status !== '' && $status !== TaskStatus::AwaitingCoOwner->value, fn (Builder $query) => $query->where('status', $status))
             ->when($tab === 'tasks' && $source !== '', fn (Builder $query) => $query->where('source', $source))
             ->when($repo !== '', fn (Builder $query) => $query->where('repo', $repo))
             ->when($pr !== '', fn (Builder $query) => $this->applyPrFilter($query, $pr))

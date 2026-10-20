@@ -99,7 +99,7 @@ export function CoOwnerGateStatus({ status, branch }: { status: Status; branch: 
                         <p className="text-[12px] text-muted">{callout.body}</p>
                     </div>
                     {hasTeamsSkipped && status.appSettingsUrl && (
-                        <a href={status.appSettingsUrl ?? undefined} target="_blank" rel="noopener noreferrer">
+                        <a href={status.appSettingsUrl} target="_blank" rel="noopener noreferrer">
                             <Button icon={<ExternalLink size={13} />}>GitHub App settings</Button>
                         </a>
                     )}

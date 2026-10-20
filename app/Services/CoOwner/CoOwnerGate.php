@@ -134,13 +134,16 @@ class CoOwnerGate
 
     private function existingRequest(YakTask $task): ?CoOwnerRequest
     {
-        $request = CoOwnerRequest::where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Pending)->latest('id')->first();
-
-        if ($request === null && $task->status === TaskStatus::AwaitingCoOwner) {
-            $request = CoOwnerRequest::where('task_id', $task->id)->latest('id')->first();
+        if ($task->status === TaskStatus::AwaitingCoOwner) {
+            return CoOwnerRequest::where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Pending)->latest('id')->first()
+                ?? CoOwnerRequest::where('task_id', $task->id)->latest('id')->first();
         }
 
-        return $request;
+        // A Pending request on a task that is no longer held is stale: close it and judge the change afresh.
+        CoOwnerRequest::where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Pending)
+            ->update(['status' => CoOwnerRequestStatus::Superseded, 'decided_at' => now()]);
+
+        return null;
     }
 
     /**

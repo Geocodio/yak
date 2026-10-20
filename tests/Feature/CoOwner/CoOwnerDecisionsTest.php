@@ -81,7 +81,7 @@ it('only labels and requests the approver when the branch already has a PR', fun
 
     $task = app(CoOwnerDecisions::class)->approve($this->request, $this->approver);
 
-    expect($task->pr_number)->toBe(5);
+    expect($task->pr_number)->toBe(5)->and($task->pr_opened_at)->not->toBeNull();
     Http::assertNotSent(fn ($r): bool => $r->method() === 'POST' && str_ends_with($r->url(), '/pulls'));
     Http::assertSent(fn ($r): bool => str_ends_with($r->url(), '/issues/5/labels') && $r['labels'] === ['yak-co-owned']);
     Http::assertSent(fn ($r): bool => str_ends_with($r->url(), '/pulls/5/requested_reviewers'));

@@ -1269,3 +1269,18 @@ test('green path leaves a held task awaiting a co-owner', function () {
         ->and(TaskLog::where('yak_task_id', $task->id)->where('message', 'PR created')->exists())->toBeFalse();
     Bus::assertNotDispatched(SendNotificationJob::class, fn ($job) => $job->type === NotificationType::Result);
 });
+
+test('green path does not finish a task that still has no PR', function () {
+    Bus::fake([CreatePullRequestJob::class, SendNotificationJob::class]);
+    Process::fake([
+        '*git diff --name-only *' => Process::result(''),
+        '*git diff --stat *' => Process::result(' 1 file changed, 5 insertions(+)'),
+    ]);
+    Repository::factory()->create(['slug' => 'org/my-repo', 'path' => '/home/yak/repos/my-repo']);
+    $task = YakTask::factory()->awaitingCi()->create(['repo' => 'org/my-repo', 'branch_name' => 'yak/FIX-31', 'source' => 'manual', 'pr_url' => null]);
+
+    (new ProcessCIResultJob($task, true))->handle();
+
+    expect($task->fresh()->status)->toBe(TaskStatus::AwaitingCi);
+    Bus::assertNotDispatched(SendNotificationJob::class);
+});

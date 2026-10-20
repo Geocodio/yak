@@ -80,7 +80,7 @@ class CoOwnerBlocks
         $reason = $holdSentence ?? "It touches an area the {$repository} risk profile rates {$risk}, so a second person with write access takes a look before a PR opens.";
 
         return [
-            ['type' => 'header', 'text' => ['type' => 'plain_text', 'text' => "{$requester} needs a co-owner for a change"]],
+            ['type' => 'header', 'text' => ['type' => 'plain_text', 'text' => Str::limit($requester, 100) . ' needs a co-owner for a change']],
             self::section("Yak finished a task for {$first} and CI passed. {$reason} Would you co-own it?"),
             ['type' => 'section', 'fields' => [
                 self::field('Task', self::taskLink($request)),

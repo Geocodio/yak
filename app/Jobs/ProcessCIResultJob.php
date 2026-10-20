@@ -61,7 +61,7 @@ class ProcessCIResultJob implements ShouldQueue
         // For anything else, typically AwaitingCi or Running when PR creation
         // throws, flip to Failed so the UI stops displaying a misleading
         // transient state and the user can retry.
-        $settled = [TaskStatus::Success, TaskStatus::Cancelled, TaskStatus::Failed];
+        $settled = [TaskStatus::Success, TaskStatus::Cancelled, TaskStatus::Failed, TaskStatus::AwaitingCoOwner];
         if ($fresh === null || in_array($fresh->status, $settled, true)) {
             return;
         }
@@ -237,6 +237,12 @@ class ProcessCIResultJob implements ShouldQueue
         $this->task->refresh();
 
         if ($this->task->status === TaskStatus::AwaitingCoOwner) {
+            return;
+        }
+
+        if ($this->task->pr_url === null) {
+            Log::warning('No PR was opened after a green CI result', ['task_id' => $this->task->id]);
+
             return;
         }
 

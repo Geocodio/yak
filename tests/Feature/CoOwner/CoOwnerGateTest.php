@@ -267,3 +267,16 @@ it('holds an exempt task whose compare lists 300 files', function () {
 
     expect(app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository)->hold_reasons)->toBe(['listing']);
 });
+
+it('supersedes a stale pending request when the task is judged again after a retry', function () {
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Middleware/Authenticate.php')]) + ['*' => Http::response([])]);
+    $first = app(CoOwnerGate::class)->hold($this->task, $this->repository);
+    YakTask::whereKey($this->task->id)->update(['status' => TaskStatus::AwaitingCi]);
+
+    $second = app(CoOwnerGate::class)->hold($this->task->fresh(), $this->repository);
+
+    expect($second->id)->not->toBe($first->id)
+        ->and($first->fresh()->status)->toBe(CoOwnerRequestStatus::Superseded)
+        ->and($second->status)->toBe(CoOwnerRequestStatus::Pending)
+        ->and($this->task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner);
+});

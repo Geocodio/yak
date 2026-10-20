@@ -2,12 +2,12 @@
 
 namespace App\Services\CoOwner;
 
+use App\Channels\GitHub\AppService;
 use App\Http\Resources\RiskProfilePageData;
 use App\Models\Repository;
 use App\Services\RepositoryConfig;
 use App\Support\CodeOwners;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 
 /**
  * The read-only co-owner gate status shown on the repository page: the mode
@@ -26,6 +26,7 @@ class CoOwnerGateStatus
         private CoOwnerResolver $resolver,
         private GitHubWriteAccess $writeAccess,
         private RepositoryConfig $config,
+        private AppService $github,
     ) {}
 
     /**
@@ -133,7 +134,8 @@ class CoOwnerGateStatus
         $installationId = (int) config('yak.channels.github.installation_id');
 
         try {
-            $type = Http::get('https://api.github.com/users/' . rawurlencode($owner))->json('type');
+            $type = $this->github->installationClient($installationId)->timeout(5)
+                ->get("https://api.github.com/repos/{$repository->github_full_name}")->json('owner.type');
         } catch (\Throwable) {
             return null;
         }

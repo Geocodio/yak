@@ -37,7 +37,7 @@ function visitGateStatus(string $mode, string $codeOwners, ?User $fallback = nul
     $files = ['config.yml' => "version: 1\nco_owner_gate:\n  mode: {$mode}\n"];
     $files['risk-profile.yml'] = riskProfileYaml();
     fakeYakFiles($files);
-    Http::fake(['api.github.com/orgs/*' => Http::response([], 403), 'api.github.com/users/*' => Http::response(['type' => 'Organization'])]);
+    Http::fake(['api.github.com/orgs/*' => Http::response([], 403), 'api.github.com/repos/acme/api' => Http::response(['owner' => ['type' => 'Organization']])]);
     fakeRiskMapGitHub([], $codeOwners);
     test()->actingAs($viewer);
 

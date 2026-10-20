@@ -114,3 +114,14 @@ it('counts resolved entries, not users, against the total', function () {
 
     expect($owners['resolvable'])->toHaveCount(2)->and($owners['total'])->toBe(1)->and($owners['resolvedEntries'])->toBe(1);
 });
+
+it('reads the owner type from the authenticated repository call', function () {
+    configureFakeGitHubApp();
+    Http::fake(gitHubTokenFake() + ['api.github.com/repos/acme/api' => Http::response(['owner' => ['type' => 'Organization']])]);
+    fakeGateStatus('enforce', "* @acme/platform\n");
+
+    $status = app(CoOwnerGateStatus::class)->for($this->repository);
+
+    expect($status['appSettingsUrl'])->toBe('https://github.com/organizations/acme/settings/installations/99999');
+    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), '/users/acme'));
+});

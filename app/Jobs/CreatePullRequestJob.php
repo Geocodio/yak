@@ -67,7 +67,7 @@ class CreatePullRequestJob implements ShouldQueue
                 throw new \RuntimeException('GitHub returned an existing PR without expected fields.');
             }
 
-            $this->task->update(['pr_url' => $existing['html_url'], 'pr_number' => $existing['number']]);
+            $this->task->update(['pr_url' => $existing['html_url'], 'pr_number' => $existing['number'], 'pr_opened_at' => $this->task->pr_opened_at ?? now()]);
             $this->markCoOwned($gitHub, $repository, $installationId, (int) $existing['number']);
 
             return;

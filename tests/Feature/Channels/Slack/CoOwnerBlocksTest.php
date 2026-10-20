@@ -235,3 +235,11 @@ it('falls back to a generic name and skips the PR button when data is missing', 
     $approved = heldRequest(['status' => CoOwnerRequestStatus::Approved, 'decided_by_user_id' => null, 'decided_at' => now()], ['pr_url' => null, 'pr_number' => 7]);
     expect(actionIds(CoOwnerBlocks::resolved($approved, User::factory()->create())))->toBe([]);
 });
+
+it('keeps the direct message header within the Slack limit for a long requester name', function () {
+    $request = heldRequest([], ['author_name' => str_repeat('A', 300)]);
+
+    $header = CoOwnerBlocks::directMessage($request, User::factory()->create())[0]['text']['text'];
+
+    expect(mb_strlen($header))->toBeLessThanOrEqual(150)->and($header)->toEndWith(' needs a co-owner for a change');
+});
