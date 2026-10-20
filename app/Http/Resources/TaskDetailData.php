@@ -3,12 +3,14 @@
 namespace App\Http\Resources;
 
 use App\DataTransferObjects\ThreadEntry;
+use App\Enums\CoOwnerRequestStatus;
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
+use App\Models\CoOwnerRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\PrReview;
 use App\Models\Repository;
@@ -81,6 +83,7 @@ final class TaskDetailData
             'activitySummary' => ActivityLogData::summary($focusedRun, $attempt),
             'activity' => ActivityLogData::window($focusedRun, $attempt),
             'progress' => ['steps' => self::progressSteps($task)],
+            'coOwner' => $request->user() !== null ? CoOwnerPanelData::for($task, $request->user()) : null,
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
             'deployment' => self::deployment($task),
@@ -216,12 +219,19 @@ final class TaskDetailData
                 $isResearch => 'Research failed. Click Retry above, or adjust the issue and re-assign Yak.',
                 default => 'Task failed. Click Retry above, or mention Yak again with more context.',
             },
-            TaskStatus::Expired => 'No response within the clarification window. Mention Yak again to start over.',
+            TaskStatus::Expired => self::hasExpiredCoOwnerRequest($task)
+                ? 'The co-owner request expired after 7 days. Start a new task to try again.'
+                : 'No response within the clarification window. Mention Yak again to start over.',
             TaskStatus::Cancelled => $isResearch
                 ? 'Research cancelled from the dashboard. Re-assign Yak to start over.'
                 : 'Task cancelled from the dashboard. Mention Yak again (or adjust the issue) to start over.',
             default => null,
         };
+    }
+
+    private static function hasExpiredCoOwnerRequest(YakTask $task): bool
+    {
+        return $task->coOwnerRequests()->latest('id')->first()?->status === CoOwnerRequestStatus::Expired;
     }
 
     /**
@@ -492,12 +502,16 @@ final class TaskDetailData
         /** @var TaskStatus $status */
         $status = $task->status;
 
+        $hasCoOwnerRequest = CoOwnerRequest::where('root_task_id', $task->rootTask()->id)->exists();
+        $waitingShift = $hasCoOwnerRequest ? 1 : 0;
+
         $reachedStep = match ($status) {
             TaskStatus::Pending => 0,
             TaskStatus::Running, TaskStatus::AwaitingClarification, TaskStatus::Retrying => 2,
-            TaskStatus::AwaitingCi, TaskStatus::AwaitingCoOwner => 4,
-            TaskStatus::Success => 6,
-            TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 : ($task->branch_name ? 3 : 2),
+            TaskStatus::AwaitingCi => 4,
+            TaskStatus::AwaitingCoOwner => 4 + $waitingShift,
+            TaskStatus::Success => 6 + $waitingShift,
+            TaskStatus::Failed, TaskStatus::Expired, TaskStatus::Cancelled => $task->pr_url ? 5 + $waitingShift : ($task->branch_name ? 3 : 2),
         };
 
         $steps = [
@@ -506,6 +520,7 @@ final class TaskDetailData
             ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the fix.'],
             ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
             ['label' => 'CI passing', 'tooltip' => 'Waiting for CI to verify the changes.'],
+            ...($hasCoOwnerRequest ? [['label' => 'Waiting for a co-owner', 'tooltip' => 'A co-owner with write access has to approve before Yak opens the pull request.']] : []),
             ['label' => 'Pull request', 'tooltip' => 'Pull request opened for human review.'],
             ['label' => 'Done', 'tooltip' => 'Task complete.'],
         ];
@@ -676,6 +691,7 @@ final class TaskDetailData
         $status = $head->status;
 
         $state = match (true) {
+            $status === TaskStatus::AwaitingCoOwner => 'held',
             $status === TaskStatus::AwaitingClarification && $head->pendingClarificationQuestions() !== [] => 'questions',
             $status === TaskStatus::AwaitingClarification => 'clarification',
             in_array($status, [TaskStatus::Running, TaskStatus::AwaitingCi, TaskStatus::Retrying, TaskStatus::Pending], true) => 'steering',
@@ -687,7 +703,7 @@ final class TaskDetailData
         $retryActionLabel = $task->mode === TaskMode::Review ? 'Re-run review' : 'Retry';
 
         [$placeholder, $note] = match ($state) {
-            'questions' => ['', null],
+            'questions', 'held' => ['', null],
             'clarification' => ['Answer Yak…', null],
             'steering' => ['Message Yak while it works…', null],
             'follow_up' => [
@@ -793,7 +809,8 @@ final class TaskDetailData
         /** @var TaskStatus $status */
         $status = $task->status;
 
-        $canRetry = in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true);
+        $canRetry = in_array($status, [TaskStatus::Failed, TaskStatus::Expired], true)
+            && ! ($status === TaskStatus::Expired && self::hasExpiredCoOwnerRequest($task));
         $canCancel = in_array($status, [
             TaskStatus::Pending,
             TaskStatus::Running,

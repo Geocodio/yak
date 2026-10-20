@@ -384,7 +384,7 @@ class CoOwnerBlocks
         return '<' . self::taskUrl($request) . "|#{$request->task_id} {$title}>";
     }
 
-    private static function compareUrl(CoOwnerRequest $request): string
+    public static function compareUrl(CoOwnerRequest $request): string
     {
         $encode = fn (string $ref): string => implode('/', array_map('rawurlencode', explode('/', $ref)));
 
