@@ -7,6 +7,7 @@ import TaskMessageController from './TaskMessageController'
 import QueuedMessageController from './QueuedMessageController'
 import TaskClarificationAnswerController from './TaskClarificationAnswerController'
 import RequestReReviewController from './RequestReReviewController'
+import PullRequestImageController from './PullRequestImageController'
 
 const Tasks = {
     TaskListController: Object.assign(TaskListController, TaskListController),
@@ -18,6 +19,7 @@ const Tasks = {
     QueuedMessageController: Object.assign(QueuedMessageController, QueuedMessageController),
     TaskClarificationAnswerController: Object.assign(TaskClarificationAnswerController, TaskClarificationAnswerController),
     RequestReReviewController: Object.assign(RequestReReviewController, RequestReReviewController),
+    PullRequestImageController: Object.assign(PullRequestImageController, PullRequestImageController),
 }
 
 export default Tasks

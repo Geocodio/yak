@@ -302,6 +302,17 @@ final class TaskDetailData
         $title = $context['title'] ?? null;
         $body = $context['body'] ?? null;
 
+        // Uploads to a private repository only load with a github.com session,
+        // so they go through the dashboard's proxy.
+        if ($body !== null && $entry->run !== null) {
+            $run = $entry->run;
+            $body = preg_replace_callback(
+                '#https://github\.com/user-attachments/assets/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})#i',
+                fn (array $match): string => route('tasks.pr-images.show', [$run, $match[1]]),
+                (string) $body,
+            );
+        }
+
         $meta = collect([
             $prNumber !== null ? "PR #{$prNumber}" : 'Pull request',
             $author !== null ? "opened by {$author}" : null,
