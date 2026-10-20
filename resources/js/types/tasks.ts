@@ -34,6 +34,7 @@ export type TaskRow = {
     createdAt: string | null;
     createdTooltip: string;
     followUps: FollowUpRow[];
+    askedFirstName: string | null;
 };
 
 export type TaskTab = 'tasks' | 'reviews' | 'setup';
@@ -42,6 +43,7 @@ export type TaskCounts = {
     tasks: number;
     reviews: number;
     setup: number;
+    needsCoOwner: number;
 };
 
 export type TaskFilters = {

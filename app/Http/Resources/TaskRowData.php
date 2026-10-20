@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\TaskStatus;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -17,7 +18,7 @@ use Illuminate\Support\Str;
 final class TaskRowData
 {
     /**
-     * @param  array{children?: Collection<int, YakTask>, preview?: array{poster?: ?string, gif?: ?string}|null, deployment?: ?BranchDeployment}  $ctx
+     * @param  array{askedFirstName?: ?string, children?: Collection<int, YakTask>, preview?: array{poster?: ?string, gif?: ?string}|null, deployment?: ?BranchDeployment}  $ctx
      * @return array{
      *     id: int,
      *     status: string,
@@ -38,6 +39,7 @@ final class TaskRowData
      *     createdAt: ?string,
      *     createdTooltip: string,
      *     followUps: array<int, array<string, mixed>>,
+     *     askedFirstName: ?string,
      * }
      */
     public static function from(YakTask $task, array $ctx = []): array
@@ -83,6 +85,7 @@ final class TaskRowData
                 $task->updated_at?->format('M j, Y H:i') ?? '—',
                 self::formatDuration($task->duration_ms),
             ),
+            'askedFirstName' => $effective->status === TaskStatus::AwaitingCoOwner ? ($ctx['askedFirstName'] ?? null) : null,
             'followUps' => $children->map(fn (YakTask $child): array => [
                 'id' => $child->id,
                 'status' => $child->status->value,

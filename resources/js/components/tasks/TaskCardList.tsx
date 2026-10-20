@@ -85,6 +85,9 @@ function TaskCard({ task, entranceClass }: { task: TaskRow; entranceClass?: stri
                         <Globe size={14} />
                     </a>
                 )}
+                {task.askedFirstName && (
+                    <span data-testid="task-card-asked">asked {task.askedFirstName}</span>
+                )}
                 {task.cost && <span className="tnum">{task.cost}</span>}
                 {task.followUps.length > 0 && (
                     <Badge tone="neutral">
