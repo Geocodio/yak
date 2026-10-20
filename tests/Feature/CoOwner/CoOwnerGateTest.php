@@ -280,3 +280,20 @@ it('supersedes a stale pending request when the task is judged again after a ret
         ->and($second->status)->toBe(CoOwnerRequestStatus::Pending)
         ->and($this->task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner);
 });
+
+it('keeps the pending request when a concurrent run holds the task from a stale in-memory copy', function () {
+    Http::fake(gitHubTokenFake() + gateCompare([gateFile('app/Http/Middleware/Authenticate.php')]) + ['*' => Http::response([])]);
+    $staleTask = $this->task->fresh();
+    $first = app(CoOwnerGate::class)->hold($this->task, $this->repository);
+
+    expect($staleTask->status)->toBe(TaskStatus::AwaitingCi);
+
+    $second = app(CoOwnerGate::class)->hold($staleTask, $this->repository);
+
+    expect($second->id)->toBe($first->id)
+        ->and(CoOwnerRequest::where('task_id', $this->task->id)->count())->toBe(1)
+        ->and($first->fresh()->status)->toBe(CoOwnerRequestStatus::Pending)
+        ->and($this->task->fresh()->status)->toBe(TaskStatus::AwaitingCoOwner);
+
+    Bus::assertDispatchedTimes(SendCoOwnerMessagesJob::class, 1);
+});

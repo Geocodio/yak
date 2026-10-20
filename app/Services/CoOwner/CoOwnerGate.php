@@ -139,10 +139,6 @@ class CoOwnerGate
                 ?? CoOwnerRequest::where('task_id', $task->id)->latest('id')->first();
         }
 
-        // A Pending request on a task that is no longer held is stale: close it and judge the change afresh.
-        CoOwnerRequest::where('task_id', $task->id)->where('status', CoOwnerRequestStatus::Pending)
-            ->update(['status' => CoOwnerRequestStatus::Superseded, 'decided_at' => now()]);
-
         return null;
     }
 
@@ -290,6 +286,10 @@ class CoOwnerGate
             if ($existing !== null) {
                 return $existing;
             }
+
+            // A Pending request on a task that is no longer held is stale. The freshly locked status decides, so a concurrent run's new hold is never superseded.
+            CoOwnerRequest::where('task_id', $locked->id)->where('status', CoOwnerRequestStatus::Pending)
+                ->update(['status' => CoOwnerRequestStatus::Superseded, 'decided_at' => now()]);
 
             $isCreated = true;
             $files = $outcome['files'];

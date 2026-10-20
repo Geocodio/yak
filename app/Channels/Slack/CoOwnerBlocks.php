@@ -6,6 +6,7 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Models\CoOwnerRequest;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 /**
@@ -62,7 +63,7 @@ class CoOwnerBlocks
 
         $asked = $request->asked_user_ids === []
             ? "Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to {$repository} can approve from the task page."
-            : "I've asked " . self::joinWithAnd(array_map($escape, self::askedNames($request))) . ". Anyone with write access to {$repository} can pick it up, so feel free to share the task link.";
+            : "I've asked " . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ". Anyone with write access to {$repository} can pick it up, so feel free to share the task link.";
 
         return ['Your change is built and CI passed. It needs a co-owner before I open a PR.', $details, $asked];
     }
@@ -128,7 +129,7 @@ class CoOwnerBlocks
 
         $names = array_map(fn (string $name): string => $shouldEscape ? SlackText::escape($name) : $name, self::askedNames($request));
 
-        return 'Still waiting for a co-owner. I asked ' . self::joinWithAnd($names) . ' again. The request expires in 5 days.';
+        return 'Still waiting for a co-owner. I asked ' . Arr::join($names, ', ', ' and ') . ' again. The request expires in 5 days.';
     }
 
     /**
@@ -308,18 +309,7 @@ class CoOwnerBlocks
      */
     private static function areaList(array $areas, callable $escape): string
     {
-        return self::joinWithAnd(array_map(fn (array $area): string => $escape($area['name']) . " ({$area['risk']} risk)", $areas));
-    }
-
-    /**
-     * @param  array<int, string>  $items
-     */
-    private static function joinWithAnd(array $items): string
-    {
-        $items = array_values($items);
-        $last = array_pop($items);
-
-        return $items === [] ? (string) $last : implode(', ', $items) . ' and ' . $last;
+        return Arr::join(array_map(fn (array $area): string => $escape($area['name']) . " ({$area['risk']} risk)", $areas), ', ', ' and ');
     }
 
     /**

@@ -23,6 +23,7 @@ use App\Support\TaskTrigger;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
 class CreatePullRequestJob implements ShouldQueue
@@ -239,13 +240,7 @@ class CreatePullRequestJob implements ShouldQueue
             $request->matched_areas,
         );
 
-        if (count($areas) < 2) {
-            return $areas[0] ?? 'a held area';
-        }
-
-        $last = array_pop($areas);
-
-        return implode(', ', $areas) . ' and ' . $last;
+        return Arr::join($areas, ', ', ' and ') ?: 'a held area';
     }
 
     private function buildPrTitle(): string
