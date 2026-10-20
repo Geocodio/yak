@@ -264,6 +264,20 @@ it('explains an expired child request on the root page and offers no retry', fun
             ->where('actions.canRetry', false));
 });
 
+it('keeps the root status for a follow-up conversation without a request', function () {
+    $root = YakTask::factory()->create(['status' => TaskStatus::Success, 'repo' => 'o-r']);
+    YakTask::factory()->running()->create(['repo' => 'o-r', 'parent_task_id' => $root->id]);
+
+    $this->get(route('tasks.show', $root))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('coOwner', null)
+            ->where('progress.steps.6.label', 'Done')
+            ->where('progress.steps.6.current', true)
+            ->where('task.nextSteps', null)
+            ->where('actions.canCancel', false)
+            ->where('actions.canRetry', false));
+});
+
 it('shares no panel for a task without a request', function () {
     $plain = YakTask::factory()->create(['status' => TaskStatus::Success]);
 

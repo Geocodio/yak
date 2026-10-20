@@ -67,8 +67,9 @@ final class TaskDetailData
     public static function build(YakTask $task, Request $request): array
     {
         $conversation = $task->conversation();
-        $head = $conversation->last() ?? $task;
         $coOwnerRequest = CoOwnerPanelData::latestRequest($task);
+        // Only a gated conversation is judged by its head; others keep the root's status.
+        $head = $coOwnerRequest !== null ? ($conversation->last() ?? $task) : $task;
         $focusedRun = self::resolveFocusedRun($conversation, $request->integer('run') ?: null);
         $attemptCount = max(1, (int) $focusedRun->attempts);
         $attempt = min(max(1, $request->integer('attempt') ?: $attemptCount), $attemptCount);
