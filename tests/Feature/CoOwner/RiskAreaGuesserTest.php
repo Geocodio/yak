@@ -69,3 +69,11 @@ test('returns empty when the agent throws', function (): void {
 
     expect((new RiskAreaGuesser)->guess('login', riskAreas()))->toBe([]);
 });
+
+test('skips the agent for a blank request', function (): void {
+    Ai::fakeAgent(RiskAreaGuessAgent::class, [['areas' => [['name' => 'Auth', 'likelihood' => 90]]]]);
+
+    expect((new RiskAreaGuesser)->guess("  \n ", riskAreas()))->toBe([]);
+
+    RiskAreaGuessAgent::assertNeverPrompted();
+});

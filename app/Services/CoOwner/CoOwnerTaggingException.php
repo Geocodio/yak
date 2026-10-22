@@ -37,9 +37,9 @@ class CoOwnerTaggingException extends RuntimeException
         return new self(self::NO_WRITE_ACCESS, 'The co-owner has no write access to the repository.');
     }
 
-    public static function accessCheckFailed(): self
+    public static function accessCheckFailed(string $coOwnerName): self
     {
-        return new self(self::ACCESS_CHECK_FAILED, GitHubWriteAccess::ACCESS_CHECK_FAILED_REASON);
+        return new self(self::ACCESS_CHECK_FAILED, "Yak could not check {$coOwnerName}'s access on GitHub. Try again in a minute.");
     }
 
     public static function alreadyDecided(): self

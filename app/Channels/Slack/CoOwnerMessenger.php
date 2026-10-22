@@ -9,6 +9,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\EarlyWarningState;
+use App\Support\PersonName;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -100,7 +101,7 @@ class CoOwnerMessenger
         $warning = [
             'areas' => $stored['areas'],
             'repoName' => (string) $repository?->github_full_name,
-            'fallbackName' => $fallbackName === null ? null : explode(' ', trim($fallbackName))[0],
+            'fallbackName' => $fallbackName === null ? null : PersonName::first($fallbackName),
         ];
 
         $blocks = match ($stored['state']) {

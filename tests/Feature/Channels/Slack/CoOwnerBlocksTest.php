@@ -301,7 +301,7 @@ it('says who was tagged but had no write access, and who was asked instead', fun
     ]);
 
     expect(allText(CoOwnerBlocks::threadHeld($request)))
-        ->toContain('Tag &lt;Er&gt;, who you tagged, has no write access to acme/web now, so I asked Sam Lee instead.');
+        ->toContain('Tag &lt;Er&gt;, who you tagged, has no write access to acme/web now. I\'ve asked Sam Lee.');
 });
 
 it('says only that the tagged person has no write access when nobody else was asked', function () {

@@ -6,6 +6,7 @@ use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function grantAccess(Repository $repository, User $user, string $access = 'write'): void
@@ -157,4 +158,40 @@ it('returns no candidates once the notice is no longer pickable', function () {
 
     $this->actingAs($this->requester);
     expect(EarlyWarningData::candidates($this->task, $this->requester))->toBe([]);
+});
+
+it('returns the candidates to a partial reload asking for them', function () {
+    $writer = writeAccessCrowd($this);
+
+    $this->actingAs($this->requester);
+    $version = (string) $this->get(route('tasks.show', $this->task), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $this->get(route('tasks.show', $this->task), ['X-Inertia' => 'true', 'X-Inertia-Version' => $version, 'X-Inertia-Partial-Component' => 'Tasks/Show', 'X-Inertia-Partial-Data' => 'earlyWarningCandidates'])
+        ->assertOk()
+        ->assertJsonPath('props.earlyWarningCandidates.0', ['id' => $writer->id, 'name' => 'Wanda Writer']);
+});
+
+it('rewrites the Slack message after a dashboard pick or decline', function () {
+    $this->task->update(['source' => 'slack', 'early_warning' => [...$this->task->early_warning, 'slackChannel' => 'C1', 'slackTs' => '1.2']]);
+    config()->set('yak.channels.slack.bot_token', 'xoxb-test');
+    Http::fake(['slack.com/api/chat.update' => Http::response(['ok' => true])]);
+    $writer = User::factory()->withGitHub(1, 'a')->create(['name' => 'Wanda Writer']);
+    grantAccess($this->repository, $writer);
+
+    $this->actingAs($this->requester)->post(route('tasks.co-owner.tag', $this->task), ['user_id' => $writer->id])->assertSessionHasNoErrors();
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'chat.update') && $request['ts'] === '1.2'
+        && ! str_contains(json_encode($request['blocks']), 'users_select'));
+});
+
+it('names the picked person when their access cannot be checked', function () {
+    $writer = User::factory()->withGitHub(1, 'a')->create(['name' => 'Wanda Writer']);
+    Http::fake(['api.github.com/*' => Http::response([], 500)]);
+
+    $this->actingAs($this->requester)->post(route('tasks.co-owner.tag', $this->task), ['user_id' => $writer->id])
+        ->assertSessionHasErrors('earlyWarning');
+    expect(session('errors')->get('earlyWarning')[0])->toBe([
+        'reason' => 'access_check_failed',
+        'message' => "Yak could not check Wanda Writer's access on GitHub. Try again in a minute.",
+    ]);
 });

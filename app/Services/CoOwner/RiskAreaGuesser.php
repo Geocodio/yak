@@ -31,7 +31,7 @@ class RiskAreaGuesser
             fn (array $area): bool => in_array($area['risk'], RiskProfileMatcher::HELD_RISKS, true),
         ));
 
-        if ((string) config('ai.providers.anthropic.key') === '' || $held === []) {
+        if (trim($request) === '' || (string) config('ai.providers.anthropic.key') === '' || $held === []) {
             return [];
         }
 

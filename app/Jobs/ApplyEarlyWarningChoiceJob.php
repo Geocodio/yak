@@ -10,9 +10,9 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\CoOwnerTagging;
 use App\Services\CoOwner\CoOwnerTaggingException;
-use App\Services\CoOwner\GitHubWriteAccess;
 use App\Services\CoOwner\SlackUserResolver;
 use App\Services\CoOwner\TaskRequester;
+use App\Support\PersonName;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -95,7 +95,7 @@ class ApplyEarlyWarningChoiceJob implements ShouldQueue
             CoOwnerTaggingException::NO_WRITE_ACCESS => SlackText::escape($this->pickedName($coOwner))
                 . ' has no write access to ' . SlackText::escape((string) $root->repository?->github_full_name)
                 . '. Only people with write access can co-own a change.',
-            CoOwnerTaggingException::ACCESS_CHECK_FAILED => GitHubWriteAccess::ACCESS_CHECK_FAILED_REASON,
+            CoOwnerTaggingException::ACCESS_CHECK_FAILED => 'Yak could not check ' . SlackText::escape($this->pickedName($coOwner)) . "'s access on GitHub. Try again in a minute.",
             default => 'This request already moved on, so the pick was not saved.',
         };
 
@@ -111,7 +111,7 @@ class ApplyEarlyWarningChoiceJob implements ShouldQueue
 
     private function notRequesterText(?User $requester): string
     {
-        $firstName = $requester === null ? '' : explode(' ', trim($requester->name))[0];
+        $firstName = $requester === null ? '' : PersonName::first($requester->name);
 
         return $firstName === ''
             ? 'Only the person who asked for this change can pick the co-owner for this request.'

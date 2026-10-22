@@ -6,6 +6,7 @@ use App\Enums\CoOwnerRequestStatus;
 use App\Models\CoOwnerRequest;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Support\PersonName;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -178,8 +179,7 @@ class CoOwnerBlocks
 
         $skippedTag = collect($request->ask_attempts)->first(fn (array $attempt): bool => $attempt['kind'] === 'tagged' && $attempt['outcome'] === 'no_write_access');
         if ($skippedTag !== null) {
-            $instead = $request->asked_user_ids === [] ? '' : ', so I asked ' . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ' instead';
-            $asked = $escape($skippedTag['entry']) . ", who you tagged, has no write access to {$repository} now{$instead}. " . $asked;
+            $asked = $escape($skippedTag['entry']) . ", who you tagged, has no write access to {$repository} now. " . $asked;
         }
 
         return ['Your change is built and CI passed. It needs a co-owner before I open a PR.', $details, $asked];
@@ -466,7 +466,7 @@ class CoOwnerBlocks
 
     private static function firstName(CoOwnerRequest $request): string
     {
-        return Str::before(self::requesterName($request), ' ');
+        return PersonName::first(self::requesterName($request));
     }
 
     private static function heldSince(CoOwnerRequest $request): string

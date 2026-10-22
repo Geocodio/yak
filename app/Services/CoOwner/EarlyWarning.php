@@ -4,6 +4,7 @@ namespace App\Services\CoOwner;
 
 use App\Http\Resources\RiskProfilePageData;
 use App\Models\YakTask;
+use App\Support\PersonName;
 
 /**
  * Decides whether a new task deserves an early hint that a co-owner may need
@@ -64,7 +65,7 @@ class EarlyWarning
         return [
             'areas' => $areas,
             'repoName' => (string) $repository->github_full_name,
-            'fallbackName' => $fallbackName === null ? null : explode(' ', trim($fallbackName))[0],
+            'fallbackName' => $fallbackName === null ? null : PersonName::first($fallbackName),
         ];
     }
 }

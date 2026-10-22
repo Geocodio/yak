@@ -1,7 +1,7 @@
 import { Deferred, router, usePage } from '@inertiajs/react';
 import { Button, Combobox } from '@geocodio/console-ui';
 import { Check, TriangleAlert } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { decline, tag } from '@/routes/tasks/co-owner';
 import type { EarlyWarningCandidate, EarlyWarningData, EarlyWarningError } from '@/types/coOwner';
 
@@ -51,12 +51,27 @@ function Picker({ taskId, warning }: { taskId: number; warning: EarlyWarningData
     const [picked, setPicked] = useState<EarlyWarningCandidate | null>(null);
     const [lastAction, setLastAction] = useState<'pick' | 'decline' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    const error = readError((usePage().props.errors as Record<string, unknown>).earlyWarning);
+    const [error, setError] = useState<EarlyWarningError | null>(null);
+    const page = usePage();
+    const needsCandidates = page.props.earlyWarningCandidates === undefined && page.deferredProps?.['early-warning'] === undefined;
+
+    // The notice can arrive through a poll, which carries no deferred props, so the list is requested once here.
+    useEffect(() => {
+        if (needsCandidates) {
+            router.reload({ only: ['earlyWarningCandidates'], preserveErrors: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const send = (action: 'pick' | 'decline', url: string, data: Record<string, number>) => {
         setLastAction(action);
         setIsSaving(true);
-        router.post(url, data, { preserveScroll: true, onFinish: () => setIsSaving(false) });
+        router.post(url, data, {
+            preserveScroll: true,
+            onStart: () => setError(null),
+            onError: (errors) => setError(readError(errors.earlyWarning)),
+            onFinish: () => setIsSaving(false),
+        });
     };
     const save = (candidate: EarlyWarningCandidate) => {
         setPicked(candidate);

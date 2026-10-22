@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\CoOwner\GitHubWriteAccess;
 use App\Services\CoOwner\TaskRequester;
+use App\Support\PersonName;
 
 /**
  * The `earlyWarning` prop of `Tasks/Show` and its deferred candidate list. The
@@ -48,7 +49,7 @@ final class EarlyWarningData
             'areas' => array_values($warning['areas']),
             'state' => $state,
             'taggedName' => $state === 'tagged' ? $taggedName : null,
-            'fallbackName' => $fallbackName === null ? null : explode(' ', trim($fallbackName))[0],
+            'fallbackName' => $fallbackName === null ? null : PersonName::first($fallbackName),
             'repoName' => (string) $repository?->github_full_name,
             'canPick' => $state === 'shown' && self::isRequester($root, $viewer),
         ];

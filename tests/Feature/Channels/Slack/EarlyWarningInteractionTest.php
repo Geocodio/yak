@@ -200,7 +200,7 @@ it('refuses a pick when the access check fails', function () {
 
     clickEarlyWarning($this->secret, tagAction($this->task), 'URITA', 'UCASEY')->assertOk();
 
-    expect(earlyWarningEphemeral('Yak could not check your access on GitHub. Try again in a minute.'))->toBeTrue();
+    expect(earlyWarningEphemeral("Yak could not check Casey Owner's access on GitHub. Try again in a minute."))->toBeTrue();
 });
 
 it('refuses a pick once the task is held', function () {

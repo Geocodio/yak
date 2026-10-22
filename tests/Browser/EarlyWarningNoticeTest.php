@@ -72,6 +72,27 @@ it('shows the save failure with a retry when the pick is refused', function () {
         ->assertSee('Could not save your pick.')
         ->assertSee('Cory Mawhorter was not added, and Yak will ask the default co-owner if the change is held. Try again.')
         ->assertSee('Try again')
+        // The next poll resets Inertia's page errors, and the alert stays.
+        ->wait(16)
+        ->assertSee('Could not save your pick.')
+        ->assertNoJavascriptErrors();
+});
+
+it('loads the picker when the notice arrives through a poll', function () {
+    $requester = User::factory()->create();
+    $task = earlyWarningTask($requester);
+    $task->update(['early_warning' => null]);
+    $cory = User::factory()->withGitHub(11, 'cory')->create(['name' => 'Cory Mawhorter']);
+    setAccess($task, $cory, 'write');
+    $this->actingAs($requester);
+
+    $page = visit(route('tasks.show', $task))->assertNotPresent('[data-testid="early-warning"]');
+    $task->update(['early_warning' => ['areas' => [['name' => 'API response pipeline', 'risk' => 'high']], 'state' => 'shown']]);
+
+    $page->wait(16)
+        ->assertSee('Heads up: this will likely touch API response pipeline (high risk)')
+        ->assertPresent('[data-testid="early-warning-picker"] input[role="combobox"]')
+        ->assertDontSee('Checking who has write access')
         ->assertNoJavascriptErrors();
 });
 

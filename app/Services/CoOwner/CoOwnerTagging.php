@@ -38,7 +38,7 @@ class CoOwnerTagging
             'write' => null,
             'unlinked' => throw CoOwnerTaggingException::notLinked(),
             'read' => throw CoOwnerTaggingException::noWriteAccess(),
-            default => throw CoOwnerTaggingException::accessCheckFailed(),
+            default => throw CoOwnerTaggingException::accessCheckFailed($coOwner->name),
         };
 
         DB::transaction(function () use ($root, $coOwner, $actor): void {
