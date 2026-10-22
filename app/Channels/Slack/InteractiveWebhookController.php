@@ -6,6 +6,7 @@ use App\Enums\TaskStatus;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ApplyCoOwnerDecisionJob;
+use App\Jobs\ApplyEarlyWarningChoiceJob;
 use App\Models\YakTask;
 use App\Services\ClarificationAnswerSubmitter;
 use App\Services\RepoClarificationResolver;
@@ -19,7 +20,8 @@ use Illuminate\Support\Facades\Http;
  * Handles Slack's Interactivity & Shortcuts webhook — fires when a
  * user clicks a button inside one of Yak's messages. The only
  * interactive elements are clarification option buttons and the co-owner
- * gate's Approve, Reject and Withdraw buttons (queued, answered at once).
+ * gate's Approve, Reject and Withdraw buttons and the early warning's co-owner
+ * picker and decline button (all queued, answered at once).
  * Clicking a clarification button submits the clicked option through ClarificationAnswerSubmitter with the
  * selected option as the reply text, so the flow reaches Claude
  * identically to a thread-reply answer. Clicks from guests and Slack Connect
@@ -70,6 +72,24 @@ class InteractiveWebhookController extends Controller
                 (string) ($payload['user']['id'] ?? ''),
                 $actionId,
                 (string) ($payload['response_url'] ?? ''),
+            );
+
+            return response()->json(['ok' => true]);
+        }
+
+        $earlyWarningAction = CoOwnerBlocks::parseEarlyWarningAction($actionId);
+
+        if ($earlyWarningAction !== null) {
+            $isTag = $earlyWarningAction['kind'] === 'tag';
+
+            ApplyEarlyWarningChoiceJob::dispatch(
+                $earlyWarningAction['taskId'],
+                (string) ($payload['user']['id'] ?? ''),
+                $isTag ? CoOwnerBlocks::TAG_ACTION_PREFIX : CoOwnerBlocks::DECLINE_ACTION_PREFIX,
+                $isTag ? (string) ($action['selected_user'] ?? '') : null,
+                (string) ($payload['response_url'] ?? ''),
+                (string) ($payload['channel']['id'] ?? '') ?: null,
+                (string) ($payload['container']['message_ts'] ?? $payload['message']['ts'] ?? '') ?: null,
             );
 
             return response()->json(['ok' => true]);

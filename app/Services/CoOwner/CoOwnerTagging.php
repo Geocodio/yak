@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Services\CoOwner;
+
+use App\Enums\TaskStatus;
+use App\Models\CoOwnerRequest;
+use App\Models\User;
+use App\Models\YakTask;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Lets the requester tag a co-owner, or decline to, before the gate holds the
+ * change. Both run under a row lock on the conversation root and refuse once
+ * the conversation has a co-owner request or the head task is held or finished.
+ */
+class CoOwnerTagging
+{
+    public function __construct(
+        private TaskRequester $requesters,
+        private GitHubWriteAccess $writeAccess,
+        private SlackUserResolver $slackUsers,
+        private EarlyWarningState $state,
+    ) {}
+
+    /**
+     * @param  User|string  $actor  the acting Yak user, or their Slack user id when no Yak user maps to it
+     *
+     * @throws CoOwnerTaggingException
+     */
+    public function tag(YakTask $root, User $coOwner, User|string $actor): void
+    {
+        DB::transaction(function () use ($root, $coOwner, $actor): void {
+            $locked = $this->lockAndCheck($root, $actor);
+
+            $repository = $locked->repository;
+            $access = $repository === null ? 'error' : $this->writeAccess->check($repository, $coOwner);
+
+            match ($access) {
+                'write' => $this->state->tagged($locked, $coOwner),
+                'unlinked' => throw CoOwnerTaggingException::notLinked(),
+                'read' => throw CoOwnerTaggingException::noWriteAccess(),
+                default => throw CoOwnerTaggingException::accessCheckFailed(),
+            };
+        });
+    }
+
+    /**
+     * @param  User|string  $actor  the acting Yak user, or their Slack user id when no Yak user maps to it
+     *
+     * @throws CoOwnerTaggingException
+     */
+    public function decline(YakTask $root, User|string $actor): void
+    {
+        DB::transaction(function () use ($root, $actor): void {
+            $this->state->declined($this->lockAndCheck($root, $actor));
+        });
+    }
+
+    private function lockAndCheck(YakTask $root, User|string $actor): YakTask
+    {
+        $locked = YakTask::whereKey($root->id)->lockForUpdate()->firstOrFail();
+        $user = $actor instanceof User ? $actor : $this->slackUsers->userFor($actor);
+        $slackUserId = is_string($actor) ? $actor : $actor->slack_user_id;
+
+        if (! $this->requesters->isRequester($locked, $user, $slackUserId)) {
+            throw CoOwnerTaggingException::notRequester();
+        }
+
+        $conversation = $locked->conversation();
+        $head = $conversation->last();
+
+        if ($head === null
+            || $head->status === TaskStatus::AwaitingCoOwner
+            || $head->status->isFinal()
+            || CoOwnerRequest::whereIn('task_id', $conversation->pluck('id'))->exists()) {
+            throw CoOwnerTaggingException::alreadyDecided();
+        }
+
+        return $locked;
+    }
+}
