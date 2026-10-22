@@ -135,6 +135,10 @@ Write access means an admin, maintain or write role, or the push permission. Yak
 
 **Acting on a hold.** Co-owners act from Slack (Approve, Reject, and for the requester Withdraw) or from the panel on the task page, which also lets them request changes with feedback. Approve opens the PR. Reject and Withdraw delete the branch. Request changes runs a follow-up task with the feedback.
 
+**Early warning.** On an enforced repository, when someone without write access starts a task from Slack (a single repository), the dashboard or Linear, Yak makes a quick guess from the request, using a small Haiku agent that reads the risk profile, about which `critical`, `high` or `unknown` areas the change will likely touch. If there are any, it tells the requester right away that a co-owner will be needed: a Slack thread reply with a co-owner picker and "No thanks", a notice with a picker on the task page, or a message on Linear. The run never waits for a reply. The warning is a guess; the check at PR time is the actual rule. The picker lists only linked users with write access. A tagged co-owner is asked first if the change is held. If they have lost write access by then, Yak says so and asks others instead.
+
+There is no warning without a risk profile, for exempt tasks, for follow-ups, for multi-repository or clarification Slack requests, or when the requester already has write access.
+
 **Timing.** Yak reminds the asked people after 2 days. After 7 days the request expires and the task stops; the branch is kept.
 
 **After approval.** Follow-ups on an approved PR push without a new approval. When a follow-up reaches a new risky area, Yak comments on the PR to say so. On repositories where the gate is enforced, Yak never approves its own PRs.

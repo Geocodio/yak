@@ -111,3 +111,16 @@ test('repository page with the gate status has no accessibility issues', functio
 
     visit(route('repos.edit', $repository))->assertVisible('[data-testid="co-owner-gate-status"]')->assertNoAccessibilityIssues(0);
 });
+
+test('task page with the early warning notice has no accessibility issues', function () {
+    $requester = User::factory()->create();
+    $this->actingAs($requester);
+    $repository = Repository::factory()->create(['slug' => 'o-r', 'github_full_name' => 'acme/api']);
+    $task = YakTask::factory()->create([
+        'repo' => $repository->slug,
+        'started_by_user_id' => $requester->id,
+        'early_warning' => ['areas' => [['name' => 'API response pipeline', 'risk' => 'high']], 'state' => 'shown'],
+    ]);
+
+    visit(route('tasks.show', $task))->assertVisible('[data-testid="early-warning-picker"]')->assertNoAccessibilityIssues(0);
+});
