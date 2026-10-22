@@ -8,7 +8,7 @@ This page is for people working on Yak itself — fixing bugs in the Laravel app
 
 | Tool | Version | Notes |
 |---|---|---|
-| **PHP** | 8.4+ | With `pdo_mysql` extension |
+| **PHP** | 8.5+ | With `pdo_mysql` extension |
 | **Composer** | 2.x | `composer --version` to verify |
 | **Node** | 20+ | For building frontend assets and running Playwright |
 | **Docker** | 24+ | For MariaDB via docker-compose |

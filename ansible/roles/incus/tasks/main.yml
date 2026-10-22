@@ -295,6 +295,10 @@
       chmod 0644 /etc/apt/keyrings/githubcli-archive-keyring.gpg
       echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list
 
+      # PHP comes from ppa:ondrej/php: Ubuntu 24.04 only ships PHP 8.3.
+      apt-get install -y software-properties-common
+      add-apt-repository -y ppa:ondrej/php
+
       # Install everything. Categories:
       #   - Container/runtime: docker, nodejs, PHP CLI + extensions
       #   - Build essentials: build-essential, pkg-config, python3
@@ -309,7 +313,7 @@
       apt-get install -y \
         docker-ce docker-ce-cli containerd.io docker-compose-plugin \
         nodejs \
-        php8.3-cli php8.3-common php8.3-curl php8.3-mbstring php8.3-xml php8.3-zip php8.3-mysql php8.3-sqlite3 php8.3-gd php8.3-bcmath \
+        php8.5-cli php8.5-common php8.5-curl php8.5-mbstring php8.5-xml php8.5-zip php8.5-mysql php8.5-sqlite3 php8.5-gd php8.5-bcmath \
         build-essential pkg-config python3 python3-pip python3-venv \
         jq ripgrep vim less tree rsync xz-utils \
         dnsutils iputils-ping netcat-openbsd \
