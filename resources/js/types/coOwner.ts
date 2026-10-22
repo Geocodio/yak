@@ -51,3 +51,19 @@ export type CoOwnerData = {
 
 /** `errors.coOwner` after a refused decision. */
 export type CoOwnerDecisionError = { reason: string; status: number | null; message: string };
+
+/** Mirrors the `Notice` shape in app/Http/Resources/EarlyWarningData.php. */
+export type EarlyWarningData = {
+    areas: { name: string; risk: string }[];
+    state: 'shown' | 'tagged' | 'declined';
+    taggedName: string | null;
+    fallbackName: string | null;
+    repoName: string;
+    canPick: boolean;
+};
+
+/** An entry of the deferred `earlyWarningCandidates` prop, sent to the requester only. */
+export type EarlyWarningCandidate = { id: number; name: string };
+
+/** `errors.earlyWarning` after a refused pick or decline. */
+export type EarlyWarningError = { reason: string; message: string };

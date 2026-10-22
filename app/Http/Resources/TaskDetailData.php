@@ -87,6 +87,7 @@ final class TaskDetailData
             'activity' => ActivityLogData::window($focusedRun, $attempt),
             'progress' => ['steps' => self::progressSteps($task, $head, $coOwnerRequest)],
             'coOwner' => $request->user() !== null ? CoOwnerPanelData::forRequest($coOwnerRequest, $request->user()) : null,
+            'earlyWarning' => EarlyWarningData::forTask($task, $coOwnerRequest, $request->user()),
             'media' => self::latestMedia($conversation),
             'walkthrough' => self::walkthrough($task),
             'deployment' => self::deployment($task),
