@@ -159,6 +159,14 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-risk-area-guess' => [
+                'view' => 'prompts.agents.risk-area-guess',
+                'label' => 'Risk Area Guesser',
+                'description' => 'Instructions for the RiskAreaGuessAgent, which estimates how likely a request is to touch each held risk-profile area so a co-owner can be warned early. Areas at 60% or above are reported.',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'agents-task-intent' => [
                 'view' => 'prompts.agents.task-intent',
                 'label' => 'Task Intent Classifier',
