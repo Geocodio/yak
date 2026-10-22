@@ -279,3 +279,13 @@ it('parses the early warning action ids', function () {
         ->and(CoOwnerBlocks::parseEarlyWarningAction('yak_coowner_tag:x'))->toBeNull()
         ->and(CoOwnerBlocks::parseEarlyWarningAction('yak_coowner_approve'))->toBeNull();
 });
+
+it('words the tagged line without a name and caps a long area list', function () {
+    $warning = ['areas' => array_map(fn (int $i): array => ['name' => str_repeat('x', 100) . $i, 'risk' => 'h<i>'], range(1, 60)), 'repoName' => 'o/r', 'fallbackName' => null];
+
+    $tagged = CoOwnerBlocks::earlyWarningTagged($warning, '');
+
+    expect($tagged[0]['text']['text'])->toEndWith('Your co-owner will be asked if the change is held.')
+        ->toContain('h&lt;i&gt; risk')->toContain('…')
+        ->and(strlen($tagged[0]['text']['text']))->toBeLessThan(3000);
+});

@@ -84,7 +84,9 @@ class CoOwnerBlocks
      */
     public static function earlyWarningTagged(array $warning, string $coOwnerName): array
     {
-        return self::earlyWarningResolved($warning, '@' . SlackText::escape($coOwnerName) . ' will be asked if the change is held.');
+        $who = trim($coOwnerName) === '' ? 'Your co-owner' : '@' . SlackText::escape($coOwnerName);
+
+        return self::earlyWarningResolved($warning, "{$who} will be asked if the change is held.");
     }
 
     /**
@@ -108,9 +110,22 @@ class CoOwnerBlocks
     public static function earlyWarningText(array $warning, bool $shouldEscape = true): string
     {
         $escape = fn (string $text): string => $shouldEscape ? SlackText::escape($text) : $text;
-        $areas = Arr::join(array_map(fn (array $area): string => $escape($area['name']) . " ({$area['risk']} risk)", $warning['areas']), ', ', ' and ');
 
-        return "On it. Heads up: this will likely touch {$areas}, so it'll need a co-owner before I open a PR. Want to tag someone now? Anyone with write access to " . $escape($warning['repoName']) . ' can do it.';
+        return self::earlyWarningLead($warning, $shouldEscape) . ' Want to tag someone now? Anyone with write access to ' . $escape($warning['repoName']) . ' can do it.';
+    }
+
+    /**
+     * The first sentence group of the warning. The area list is capped so the
+     * section stays under Slack's 3000 character limit.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     */
+    public static function earlyWarningLead(array $warning, bool $shouldEscape = true): string
+    {
+        $escape = fn (string $text): string => $shouldEscape ? SlackText::escape($text) : $text;
+        $areas = Arr::join(array_map(fn (array $area): string => $escape($area['name']) . ' (' . $escape($area['risk']) . ' risk)', $warning['areas']), ', ', ' and ');
+
+        return 'On it. Heads up: this will likely touch ' . Str::limit($areas, 1500, '…') . ", so it'll need a co-owner before I open a PR.";
     }
 
     /**

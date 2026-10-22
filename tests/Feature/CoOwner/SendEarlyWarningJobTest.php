@@ -12,6 +12,7 @@ use App\Models\YakTask;
 use App\Services\CoOwner\RiskAreaGuesser;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -69,8 +70,7 @@ it('sends Linear a Progress notification', function () {
     SendEarlyWarningJob::dispatchSync($task);
 
     Bus::assertDispatched(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Progress
-        && str_contains($job->message, 'On it. Heads up: this will likely touch API middleware and HTTP kernel (high risk)')
-        && str_ends_with($job->message, 'You can tag someone on the task page.'));
+        && $job->message === "On it. Heads up: this will likely touch API middleware and HTTP kernel (high risk), so it'll need a co-owner before I open a PR. You can tag someone on the task page.");
     expect($task->fresh()->early_warning['state'])->toBe('shown');
 });
 
@@ -109,13 +109,13 @@ it('logs a Slack failure and does not throw', function () {
 });
 
 it('reports an unexpected failure instead of throwing', function () {
-    Http::fake(fn () => throw new RuntimeException('boom'));
+    Exceptions::fake();
     $task = warningJobFixture();
-    $task->repository->update(['github_full_name' => 'o/r']);
     app()->instance(RiskAreaGuesser::class, Mockery::mock(RiskAreaGuesser::class, fn ($mock) => $mock->shouldReceive('guess')->andThrow(new RuntimeException('boom'))));
 
     SendEarlyWarningJob::dispatchSync($task);
 
+    Exceptions::assertReported(fn (RuntimeException $exception) => $exception->getMessage() === 'boom');
     expect($task->fresh()->early_warning)->toBeNull();
 });
 
