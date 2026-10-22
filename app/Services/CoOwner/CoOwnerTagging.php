@@ -29,18 +29,20 @@ class CoOwnerTagging
      */
     public function tag(YakTask $root, User $coOwner, User|string $actor): void
     {
+        $this->check($root, $actor);
+
+        $repository = $root->repository;
+        $access = $repository === null ? 'error' : $this->writeAccess->check($repository, $coOwner);
+
+        match ($access) {
+            'write' => null,
+            'unlinked' => throw CoOwnerTaggingException::notLinked(),
+            'read' => throw CoOwnerTaggingException::noWriteAccess(),
+            default => throw CoOwnerTaggingException::accessCheckFailed(),
+        };
+
         DB::transaction(function () use ($root, $coOwner, $actor): void {
-            $locked = $this->lockAndCheck($root, $actor);
-
-            $repository = $locked->repository;
-            $access = $repository === null ? 'error' : $this->writeAccess->check($repository, $coOwner);
-
-            match ($access) {
-                'write' => $this->state->tagged($locked, $coOwner),
-                'unlinked' => throw CoOwnerTaggingException::notLinked(),
-                'read' => throw CoOwnerTaggingException::noWriteAccess(),
-                default => throw CoOwnerTaggingException::accessCheckFailed(),
-            };
+            $this->state->tagged($this->check($root, $actor, lock: true), $coOwner);
         });
     }
 
@@ -52,13 +54,15 @@ class CoOwnerTagging
     public function decline(YakTask $root, User|string $actor): void
     {
         DB::transaction(function () use ($root, $actor): void {
-            $this->state->declined($this->lockAndCheck($root, $actor));
+            $this->state->declined($this->check($root, $actor, lock: true));
         });
     }
 
-    private function lockAndCheck(YakTask $root, User|string $actor): YakTask
+    /** Refuses unless the actor is the requester and the conversation is still undecided. */
+    private function check(YakTask $root, User|string $actor, bool $lock = false): YakTask
     {
-        $locked = YakTask::whereKey($root->id)->lockForUpdate()->firstOrFail();
+        $query = YakTask::whereKey($root->id);
+        $locked = ($lock ? $query->lockForUpdate() : $query)->firstOrFail();
         $user = $actor instanceof User ? $actor : $this->slackUsers->userFor($actor);
         $slackUserId = is_string($actor) ? $actor : $actor->slack_user_id;
 

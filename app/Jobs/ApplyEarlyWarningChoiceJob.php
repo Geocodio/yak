@@ -53,10 +53,15 @@ class ApplyEarlyWarningChoiceJob implements ShouldQueue
         }
 
         $root = $task->rootTask();
-        $actor = $slackUsers->userFor($this->slackUserId) ?? $this->slackUserId;
+        $actingUser = $slackUsers->userFor($this->slackUserId);
+        $actor = $actingUser ?? $this->slackUserId;
         $coOwner = null;
 
         try {
+            if (! $requesters->isRequester($root, $actingUser, $this->slackUserId)) {
+                throw CoOwnerTaggingException::notRequester();
+            }
+
             if ($this->action === CoOwnerBlocks::DECLINE_ACTION_PREFIX) {
                 $tagging->decline($root, $actor);
             } else {
@@ -78,7 +83,7 @@ class ApplyEarlyWarningChoiceJob implements ShouldQueue
             return;
         }
 
-        $messenger->updateEarlyWarning($root, $this->channel, $this->messageTs);
+        $messenger->updateEarlyWarning($root->fresh() ?? $root, $this->channel, $this->messageTs);
     }
 
     private function refuse(CoOwnerTaggingException $exception, YakTask $root, ?User $coOwner, CoOwnerMessenger $messenger, TaskRequester $requesters): void

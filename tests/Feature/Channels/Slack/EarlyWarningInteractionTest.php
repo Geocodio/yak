@@ -121,7 +121,9 @@ it('stores a valid pick and updates the message in place', function () {
     $fresh = $this->task->fresh();
     expect($fresh->tagged_co_owner_user_id)->toBe($this->coOwner->id)
         ->and($fresh->early_warning['state'])->toBe('tagged');
-    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'chat.update') && $request['channel'] === 'C1' && $request['ts'] === '1.2');
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'chat.update') && $request['channel'] === 'C1' && $request['ts'] === '1.2'
+        && str_contains(json_encode($request['blocks']), '@Casey Owner will be asked if the change is held.')
+        && ! str_contains(json_encode($request['blocks']), 'users_select'));
 });
 
 it('replaces an earlier pick with a second one', function () {
@@ -137,7 +139,27 @@ it('records a decline and updates the message', function () {
     clickEarlyWarning($this->secret, CoOwnerBlocks::DECLINE_ACTION_PREFIX . $this->task->id, 'URITA')->assertOk();
 
     expect($this->task->fresh()->early_warning['state'])->toBe('declined');
-    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'chat.update'));
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), 'chat.update')
+        && str_contains(json_encode($request['blocks']), 'ask a co-owner if the change is held')
+        && ! str_contains(json_encode($request['blocks']), 'users_select'));
+});
+
+it('refuses a non-requester pick of a stranger without looking the stranger up', function () {
+    User::factory()->create(['name' => 'Nosy Parker', 'slack_user_id' => 'UNOSY']);
+
+    clickEarlyWarning($this->secret, tagAction($this->task), 'UNOSY', 'USTRANGER')->assertOk();
+
+    expect(earlyWarningEphemeral('Only Rita can pick the co-owner for this request.'))->toBeTrue();
+    Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'users.info') && $request['user'] === 'USTRANGER');
+});
+
+it('refuses a decline from someone who is not the requester', function () {
+    User::factory()->create(['name' => 'Nosy Parker', 'slack_user_id' => 'UNOSY']);
+
+    clickEarlyWarning($this->secret, CoOwnerBlocks::DECLINE_ACTION_PREFIX . $this->task->id, 'UNOSY')->assertOk();
+
+    expect(earlyWarningEphemeral('Only Rita can pick the co-owner for this request.'))->toBeTrue()
+        ->and($this->task->fresh()->early_warning['state'])->toBe('shown');
 });
 
 it('refuses a pick from someone who is not the requester', function () {
