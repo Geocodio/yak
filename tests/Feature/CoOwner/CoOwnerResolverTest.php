@@ -184,3 +184,58 @@ it('matches logins and team members regardless of case', function () {
 
     expect(coOwnerLogins($result))->toBe(['MixedCase', 'TeamMate']);
 });
+
+it('asks the tagged co-owner first', function () {
+    $tagged = coOwnerUser(1, 'tagged');
+    $reviewer = coOwnerUser(2, 'reviewer');
+    coOwnerUser(3, 'owner');
+    $this->task->update(['tagged_co_owner_user_id' => $tagged->id]);
+    CoOwnerRequest::factory()->create([
+        'task_id' => $this->task->id,
+        'repository_id' => $this->repository->id,
+        'status' => CoOwnerRequestStatus::ChangesRequested,
+        'decided_by_user_id' => $reviewer->id,
+        'decided_at' => now(),
+    ]);
+
+    $result = app(CoOwnerResolver::class)->resolve($this->repository, $this->task, ['@owner']);
+
+    expect(coOwnerLogins($result))->toBe(['tagged', 'reviewer', 'owner'])
+        ->and($result['attempts'][0]['kind'])->toBe('tagged');
+});
+
+it('skips a tagged co-owner without write access and asks the next owners', function () {
+    $tagged = coOwnerUser(1, 'tagged', 'read');
+    coOwnerUser(2, 'owner');
+    $this->task->update(['tagged_co_owner_user_id' => $tagged->id]);
+
+    $result = app(CoOwnerResolver::class)->resolve($this->repository, $this->task, ['@owner']);
+
+    expect(coOwnerLogins($result))->toBe(['owner'])
+        ->and($result['attempts'][0])->toBe(['entry' => $tagged->name, 'kind' => 'tagged', 'outcome' => 'no_write_access']);
+});
+
+it('asks a tagged co-owner who is also the fallback owner once', function () {
+    $tagged = coOwnerUser(1, 'tagged');
+    $this->repository->update(['default_responsible_user_id' => $tagged->id]);
+    $this->task->update(['tagged_co_owner_user_id' => $tagged->id]);
+
+    $result = app(CoOwnerResolver::class)->resolve($this->repository->fresh(), $this->task, []);
+
+    expect(coOwnerLogins($result))->toBe(['tagged']);
+});
+
+it('never asks the requester they tagged', function () {
+    $tagged = coOwnerUser(1, 'tagged');
+    $this->task->update(['tagged_co_owner_user_id' => $tagged->id, 'started_by_user_id' => $tagged->id]);
+
+    expect(coOwnerLogins(app(CoOwnerResolver::class)->resolve($this->repository, $this->task->fresh(), [])))->toBe([]);
+});
+
+it('applies the tag on the conversation root to a follow-up', function () {
+    $tagged = coOwnerUser(1, 'tagged');
+    $this->task->update(['tagged_co_owner_user_id' => $tagged->id]);
+    $followUp = YakTask::factory()->create(['repo' => $this->repository->slug, 'parent_task_id' => $this->task->id, 'started_by_user_id' => null]);
+
+    expect(coOwnerLogins(app(CoOwnerResolver::class)->resolve($this->repository, $followUp, [])))->toBe(['tagged']);
+});

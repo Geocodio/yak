@@ -176,6 +176,12 @@ class CoOwnerBlocks
             ? "Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to {$repository} can approve from the task page."
             : "I've asked " . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ". Anyone with write access to {$repository} can pick it up, so feel free to share the task link.";
 
+        $skippedTag = collect($request->ask_attempts)->first(fn (array $attempt): bool => $attempt['kind'] === 'tagged' && $attempt['outcome'] === 'no_write_access');
+        if ($skippedTag !== null) {
+            $instead = $request->asked_user_ids === [] ? '' : ', so I asked ' . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ' instead';
+            $asked = $escape($skippedTag['entry']) . ", who you tagged, has no write access to {$repository} now{$instead}. " . $asked;
+        }
+
         return ['Your change is built and CI passed. It needs a co-owner before I open a PR.', $details, $asked];
     }
 

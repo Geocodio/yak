@@ -11,13 +11,14 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Chooses the people Yak asks to co-own a held change: whoever requested
+ * Chooses the people Yak asks to co-own a held change: the co-owner tagged
+ * when the task was created, whoever requested
  * changes last, then the CODEOWNERS owners in the order given, then the
  * repository's fallback owner. Only linked users with write access count, the
  * requester is never asked, and at most three people are.
  *
  * @phpstan-type Outcome 'asked'|'not_linked'|'no_write_access'|'team_skipped'|'unknown'|'error'
- * @phpstan-type Kind 'changes_requester'|'login'|'team'|'email'|'fallback'
+ * @phpstan-type Kind 'tagged'|'changes_requester'|'login'|'team'|'email'|'fallback'
  */
 class CoOwnerResolver
 {
@@ -66,6 +67,11 @@ class CoOwnerResolver
                 $attempts[] = ['entry' => $entry, 'kind' => $kind, 'outcome' => 'asked'];
             }
         };
+
+        $tagged = $task->rootTask()->taggedCoOwner;
+        if ($tagged !== null) {
+            $record($tagged->name, 'tagged', $this->classify($repository, 'tagged', [$tagged], $skipIds(), self::MAX_ASKED - count($users)));
+        }
 
         $changesRequester = $this->changesRequester($task);
         if ($changesRequester !== null) {

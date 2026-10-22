@@ -24,7 +24,7 @@ const OUTCOME_TEXT: Record<string, string> = {
 };
 
 function attemptLabel(kind: string): string {
-    return kind === 'fallback' ? 'Fallback owner' : kind === 'changes_requester' ? 'Requested changes' : 'CODEOWNERS';
+    return kind === 'tagged' ? 'Tagged by the requester' : kind === 'fallback' ? 'Fallback owner' : kind === 'changes_requester' ? 'Requested changes' : 'CODEOWNERS';
 }
 
 function clock(iso: string): string {

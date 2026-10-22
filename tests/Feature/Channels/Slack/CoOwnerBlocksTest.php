@@ -289,3 +289,28 @@ it('words the tagged line without a name and caps a long area list', function ()
         ->toContain('h&lt;i&gt; risk')->toContain('…')
         ->and(strlen($tagged[0]['text']['text']))->toBeLessThan(3000);
 });
+
+it('says who was tagged but had no write access, and who was asked instead', function () {
+    $sam = User::factory()->create(['name' => 'Sam Lee']);
+    $request = heldRequest([
+        'asked_user_ids' => [$sam->id],
+        'ask_attempts' => [
+            ['entry' => 'Tag <Er>', 'kind' => 'tagged', 'outcome' => 'no_write_access'],
+            ['entry' => '@sam', 'kind' => 'login', 'outcome' => 'asked'],
+        ],
+    ]);
+
+    expect(allText(CoOwnerBlocks::threadHeld($request)))
+        ->toContain('Tag &lt;Er&gt;, who you tagged, has no write access to acme/web now, so I asked Sam Lee instead.');
+});
+
+it('says only that the tagged person has no write access when nobody else was asked', function () {
+    $request = heldRequest([
+        'asked_user_ids' => [],
+        'ask_attempts' => [['entry' => 'Tag Er', 'kind' => 'tagged', 'outcome' => 'no_write_access']],
+    ]);
+
+    expect(allText(CoOwnerBlocks::threadHeld($request)))
+        ->toContain('Tag Er, who you tagged, has no write access to acme/web now.')
+        ->not->toContain('so I asked');
+});
