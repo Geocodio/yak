@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Resources\EarlyWarningData;
 use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\User;
@@ -121,4 +122,39 @@ it('declines for the requester only', function () {
 
     $this->actingAs($this->requester)->post(route('tasks.co-owner.decline', $this->task))->assertSessionHasNoErrors();
     expect($this->task->fresh()->early_warning['state'])->toBe('declined');
+});
+
+it('stops polling the notice once a co-owner request exists', function () {
+    CoOwnerRequest::factory()->create(['task_id' => $this->task->id, 'repository_id' => $this->repository->id]);
+
+    $this->actingAs($this->requester);
+    $version = (string) $this->get(route('tasks.show', $this->task), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $this->get(route('tasks.show', $this->task), ['X-Inertia' => 'true', 'X-Inertia-Version' => $version, 'X-Inertia-Partial-Component' => 'Tasks/Show', 'X-Inertia-Partial-Data' => 'earlyWarning'])
+        ->assertOk()
+        ->assertJsonPath('props.earlyWarning', null);
+});
+
+it('scans at most 25 linked users and leaves the requester out', function () {
+    $this->requester->update(['github_id' => 999, 'github_login' => 'rita']);
+    grantAccess($this->repository, $this->requester);
+    foreach (range(1, 26) as $number) {
+        $user = User::factory()->withGitHub(100 + $number, "u{$number}")->create(['name' => sprintf('User %02d', $number)]);
+        grantAccess($this->repository, $user);
+    }
+
+    $this->actingAs($this->requester)->get(route('tasks.show', $this->task))
+        ->assertInertia(fn (Assert $page) => $page->loadDeferredProps('early-warning', fn (Assert $deferred) => $deferred
+            ->has('earlyWarningCandidates', 25)
+            ->where('earlyWarningCandidates.0.name', 'User 01')
+            ->where('earlyWarningCandidates.24.name', 'User 25')));
+});
+
+it('returns no candidates once the notice is no longer pickable', function () {
+    $this->task->update(['early_warning' => [...$this->task->early_warning, 'state' => 'declined']]);
+    $writer = User::factory()->withGitHub(1, 'a')->create();
+    grantAccess($this->repository, $writer);
+
+    $this->actingAs($this->requester);
+    expect(EarlyWarningData::candidates($this->task, $this->requester))->toBe([]);
 });

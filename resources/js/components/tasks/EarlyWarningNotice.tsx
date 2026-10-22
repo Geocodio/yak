@@ -49,14 +49,20 @@ function Outcome({ children }: { children: ReactNode }) {
 
 function Picker({ taskId, warning }: { taskId: number; warning: EarlyWarningData }) {
     const [picked, setPicked] = useState<EarlyWarningCandidate | null>(null);
+    const [lastAction, setLastAction] = useState<'pick' | 'decline' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const error = readError((usePage().props.errors as Record<string, unknown>).earlyWarning);
 
+    const send = (action: 'pick' | 'decline', url: string, data: Record<string, number>) => {
+        setLastAction(action);
+        setIsSaving(true);
+        router.post(url, data, { preserveScroll: true, onFinish: () => setIsSaving(false) });
+    };
     const save = (candidate: EarlyWarningCandidate) => {
         setPicked(candidate);
-        setIsSaving(true);
-        router.post(tag.url(taskId), { user_id: candidate.id }, { preserveScroll: true, onFinish: () => setIsSaving(false) });
+        send('pick', tag.url(taskId), { user_id: candidate.id });
     };
+    const skip = () => send('decline', decline.url(taskId), {});
 
     return (
         <div className="mt-3 flex flex-col gap-2">
@@ -67,23 +73,27 @@ function Picker({ taskId, warning }: { taskId: number; warning: EarlyWarningData
                 >
                     <CandidateCombobox disabled={isSaving} onPick={save} />
                 </Deferred>
-                <Button
-                    variant="tertiary"
-                    disabled={isSaving}
-                    onClick={() => router.post(decline.url(taskId), {}, { preserveScroll: true })}
-                    data-testid="early-warning-decline"
-                >
+                <Button variant="tertiary" disabled={isSaving} onClick={skip} data-testid="early-warning-decline">
                     {warning.fallbackName === null ? 'Ask later' : `Ask ${warning.fallbackName} later`}
                 </Button>
             </div>
-            {error !== null && picked !== null && (
+            {error !== null && !isSaving && lastAction !== null && (
                 <div role="alert" className="flex items-start gap-2 rounded-card bg-warn/10 p-3" data-testid="early-warning-error">
                     <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="flex flex-col gap-1">
-                        <b>Could not save your pick.</b>
-                        <span>{picked.name} was not added, and Yak will ask the default co-owner if the change is held. Try again.</span>
+                        {lastAction === 'pick' && picked !== null ? (
+                            <>
+                                <b>Could not save your pick.</b>
+                                <span>{picked.name} was not added, and Yak will ask the default co-owner if the change is held. Try again.</span>
+                            </>
+                        ) : (
+                            <>
+                                <b>Could not save your answer.</b>
+                                <span>{error.message}</span>
+                            </>
+                        )}
                         <div>
-                            <Button variant="secondary" onClick={() => save(picked)} data-testid="early-warning-retry">Try again</Button>
+                            <Button variant="secondary" onClick={() => (lastAction === 'pick' && picked !== null ? save(picked) : skip())} data-testid="early-warning-retry">Try again</Button>
                         </div>
                     </div>
                 </div>
@@ -106,6 +116,7 @@ function CandidateCombobox({ disabled, onPick }: { disabled: boolean; onPick: (c
                 options={candidates.map((candidate) => ({ value: String(candidate.id), label: `${candidate.name}, write access` }))}
                 value={value}
                 disabled={disabled}
+                aria-label="Co-owner"
                 placeholder="Pick a co-owner"
                 onChange={(next) => {
                     setValue(next);

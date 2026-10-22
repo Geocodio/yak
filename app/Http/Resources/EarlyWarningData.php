@@ -64,7 +64,8 @@ final class EarlyWarningData
     {
         $repository = $root->repository;
 
-        if ($viewer === null || $repository === null) {
+        // The page may have moved on (a tag, a decline or a held change) since it rendered.
+        if ($viewer === null || $repository === null || ! (self::forTask($root, CoOwnerPanelData::latestRequest($root), $viewer)['canPick'] ?? false)) {
             return [];
         }
 

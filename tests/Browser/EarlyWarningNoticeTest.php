@@ -86,3 +86,20 @@ it('shows a non-requester the text without the picker', function () {
         ->assertNotPresent('[data-testid="early-warning-picker"]')
         ->assertNoJavascriptErrors();
 });
+
+it('shows the answer failure with a retry when the decline is refused', function () {
+    $requester = User::factory()->create();
+    $task = earlyWarningTask($requester);
+    $this->actingAs($requester);
+
+    $page = visit(route('tasks.show', $task))->assertSee('Ask later');
+    // The task finishes elsewhere, so the decline is refused as already decided.
+    YakTask::whereKey($task->id)->update(['status' => 'success']);
+
+    $page->click('[data-testid="early-warning-decline"]')
+        ->assertSee('Could not save your answer.')
+        ->assertSee('This request already moved on.')
+        ->assertSee('Try again')
+        ->assertDontSee('Could not save your pick.')
+        ->assertNoJavascriptErrors();
+});
