@@ -52,6 +52,8 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $pr_state_checked_at
  * @property string|null $responsible_name
  * @property int|null $started_by_user_id
+ * @property int|null $tagged_co_owner_user_id
+ * @property array<string, mixed>|null $early_warning
  * @property int|null $responsible_user_id
  * @property string|null $slack_follow_up_user_id
  * @property CarbonImmutable|null $clarification_reminder_at
@@ -100,6 +102,7 @@ class YakTask extends Model
             'clarification_expires_at' => 'datetime',
             'clarification_reminder_at' => 'datetime',
             'screenshots' => 'json',
+            'early_warning' => 'array',
             'cost_usd' => 'decimal:4',
             'started_at' => 'datetime',
             'dispatched_at' => 'datetime',
@@ -162,6 +165,16 @@ class YakTask extends Model
     public function startedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'started_by_user_id');
+    }
+
+    /**
+     * The co-owner the requester tagged on this conversation's root task.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function taggedCoOwner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'tagged_co_owner_user_id');
     }
 
     /**

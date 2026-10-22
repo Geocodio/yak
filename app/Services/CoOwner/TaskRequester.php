@@ -23,4 +23,21 @@ class TaskRequester
 
         return null;
     }
+
+    /**
+     * Whether a viewer is the root's requester: the user who started it, else
+     * the Slack user who asked, else the user the requester maps to.
+     */
+    public function isRequester(YakTask $root, ?User $user, ?string $slackUserId): bool
+    {
+        if ($root->startedBy !== null) {
+            return $root->startedBy->is($user);
+        }
+
+        if ($slackUserId !== null && $slackUserId !== '' && $slackUserId === $root->slack_user_id) {
+            return true;
+        }
+
+        return $this->for($root)?->is($user) === true;
+    }
 }

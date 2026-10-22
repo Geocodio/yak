@@ -74,8 +74,7 @@ final class CoOwnerPanelData
         $repository = $request->repository;
         $statusByPath = collect($request->changed_files)->pluck('status', 'path');
         $isLinked = $viewer->hasLinkedGitHub();
-        $viewerIsSlackRequester = $viewer->slack_user_id !== null && $viewer->slack_user_id === $heldTask->slack_user_id;
-        $requester = $heldTask->startedBy ?? ($viewerIsSlackRequester ? $viewer : app(TaskRequester::class)->for($heldTask));
+        $requester = $heldTask->startedBy ?? app(TaskRequester::class)->for($heldTask);
 
         return [
             'id' => $request->id,
@@ -104,7 +103,7 @@ final class CoOwnerPanelData
             'attempts' => array_values($request->ask_attempts),
             'fallbackOwner' => $repository->defaultResponsibleUser?->name,
             'viewer' => [
-                'isRequester' => $requester?->is($viewer) === true,
+                'isRequester' => app(TaskRequester::class)->isRequester($heldTask, $viewer, $viewer->slack_user_id),
                 'isLinked' => $isLinked,
                 'login' => $viewer->github_login,
                 'access' => self::access($request, $repository, $viewer),
