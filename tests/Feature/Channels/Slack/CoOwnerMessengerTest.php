@@ -6,6 +6,7 @@ use App\Enums\NotificationType;
 use App\Jobs\SendCoOwnerMessagesJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\User;
+use App\Models\YakTask;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -136,4 +137,19 @@ it('runs the messenger for the event the job carries', function () {
     SendCoOwnerMessagesJob::dispatchSync($request, 'held');
 
     expect($request->refresh()->thread_message_ts)->toBe('100.1');
+});
+
+it('rewrites the early warning in place from the stored state', function () {
+    Http::fake(['slack.com/api/*' => Http::response(['ok' => true])]);
+    $task = YakTask::factory()->create(['early_warning' => [
+        'state' => 'declined', 'areas' => [['name' => 'Billing', 'risk' => 'critical']],
+        'slackChannel' => 'C9', 'slackTs' => '9.9', 'taggedAt' => null,
+    ]]);
+
+    app(CoOwnerMessenger::class)->updateEarlyWarning($task);
+    app(CoOwnerMessenger::class)->updateEarlyWarning($task, 'C1', '1.1');
+
+    Http::assertSent(fn (Request $sent) => str_ends_with($sent->url(), 'chat.update') && $sent['channel'] === 'C9' && $sent['ts'] === '9.9'
+        && str_contains($sent['blocks'][0]['text']['text'], 'if the change is held.') && count($sent['blocks']) === 2);
+    Http::assertSent(fn (Request $sent) => $sent['channel'] === 'C1' && $sent['ts'] === '1.1');
 });

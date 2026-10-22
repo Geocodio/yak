@@ -3,6 +3,7 @@
 use App\Enums\TaskMode;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendEarlyWarningJob;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -34,6 +35,7 @@ test('save creates a dashboard fix task and dispatches RunYakJob', function () {
         ->and($task->description)->toBe('Add a CSV export to the reports page');
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $j) => $j->task->is($task));
+    Queue::assertPushed(SendEarlyWarningJob::class, fn (SendEarlyWarningJob $j) => $j->task->is($task));
     Queue::assertNotPushed(ResearchYakJob::class);
 });
 

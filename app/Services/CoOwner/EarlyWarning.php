@@ -24,10 +24,12 @@ class EarlyWarning
     public function evaluate(YakTask $task): ?array
     {
         $repository = $task->repository;
+        $settings = $repository?->settings();
 
         if ($repository === null
+            || $settings === null
             || $task->parent_task_id !== null
-            || $repository->settings()->coOwnerGateMode() !== 'enforce'
+            || $settings->coOwnerGateMode() !== 'enforce'
             || $this->gate->isExempt($task)) {
             return null;
         }
@@ -37,7 +39,7 @@ class EarlyWarning
             return null;
         }
 
-        $profile = RiskProfilePageData::effectiveProfile($repository, $repository->settings());
+        $profile = RiskProfilePageData::effectiveProfile($repository, $settings);
         if ($profile === null) {
             return null;
         }

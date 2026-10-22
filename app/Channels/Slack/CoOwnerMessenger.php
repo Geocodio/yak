@@ -7,6 +7,8 @@ use App\Enums\NotificationType;
 use App\Jobs\SendNotificationJob;
 use App\Models\CoOwnerRequest;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\CoOwner\EarlyWarningState;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -34,6 +36,85 @@ class CoOwnerMessenger
         }
 
         $this->sendDirectMessages($request, fn (User $user): array => CoOwnerBlocks::directMessage($request, $user));
+    }
+
+    /**
+     * Tells the requester a co-owner will probably be needed. Slack tasks get
+     * a thread reply with controls, the dashboard shows the notice on the task
+     * page, and other sources get a Progress notification.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     */
+    public function earlyWarning(YakTask $task, array $warning): void
+    {
+        if ($task->source === 'dashboard') {
+            return;
+        }
+
+        if ($task->source !== 'slack') {
+            SendNotificationJob::dispatch(
+                $task,
+                NotificationType::Progress,
+                CoOwnerBlocks::earlyWarningText($warning, shouldEscape: false) . ' You can tag someone on the task page.',
+                personalize: false,
+            );
+
+            return;
+        }
+
+        if (! $task->slack_channel || ! $task->slack_thread_ts) {
+            return;
+        }
+
+        $blocks = CoOwnerBlocks::earlyWarning($task, $warning);
+        $response = $this->post('chat.postMessage', [
+            'channel' => $task->slack_channel,
+            'thread_ts' => $task->slack_thread_ts,
+            'text' => CoOwnerBlocks::fallbackText($blocks),
+            'blocks' => $blocks,
+        ], $task);
+
+        if (isset($response['ts'], $response['channel'])) {
+            app(EarlyWarningState::class)->setSlackMessage($task, (string) $response['channel'], (string) $response['ts']);
+        }
+    }
+
+    /**
+     * Rewrites the early warning message to match the stored state: the
+     * picked co-owner or the decline, with no controls. Uses the message
+     * the click came from when given, else the one stored on the root.
+     */
+    public function updateEarlyWarning(YakTask $task, ?string $channel = null, ?string $timestamp = null): void
+    {
+        $root = $task->rootTask();
+        $stored = $root->early_warning;
+        $channel ??= $stored['slackChannel'] ?? null;
+        $timestamp ??= $stored['slackTs'] ?? null;
+
+        if ($stored === null || $channel === null || $timestamp === null) {
+            return;
+        }
+
+        $repository = $root->repository;
+        $fallbackName = $repository?->defaultResponsibleUser?->name;
+        $warning = [
+            'areas' => $stored['areas'],
+            'repoName' => (string) $repository?->github_full_name,
+            'fallbackName' => $fallbackName === null ? null : explode(' ', trim($fallbackName))[0],
+        ];
+
+        $blocks = match ($stored['state']) {
+            'tagged' => CoOwnerBlocks::earlyWarningTagged($warning, (string) User::find($root->tagged_co_owner_user_id)?->name),
+            'declined' => CoOwnerBlocks::earlyWarningDeclined($warning),
+            default => CoOwnerBlocks::earlyWarning($root, $warning),
+        };
+
+        $this->post('chat.update', [
+            'channel' => $channel,
+            'ts' => $timestamp,
+            'text' => CoOwnerBlocks::fallbackText($blocks),
+            'blocks' => $blocks,
+        ], $task);
     }
 
     public function resolved(CoOwnerRequest $request): void
@@ -162,7 +243,7 @@ class CoOwnerMessenger
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>|null
      */
-    private function post(string $method, array $payload, CoOwnerRequest $request, ?User $recipient = null): ?array
+    private function post(string $method, array $payload, CoOwnerRequest|YakTask $subject, ?User $recipient = null): ?array
     {
         $token = (string) config('yak.channels.slack.bot_token');
 
@@ -183,7 +264,7 @@ class CoOwnerMessenger
         }
 
         Log::channel('yak')->warning('Co-owner Slack message was not delivered', [
-            'co_owner_request_id' => $request->id,
+            ($subject instanceof YakTask ? 'task_id' : 'co_owner_request_id') => $subject->id,
             'method' => $method,
             'user_id' => $recipient?->id,
             'error' => $error,
