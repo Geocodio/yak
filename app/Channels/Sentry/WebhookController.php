@@ -6,14 +6,17 @@ use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunYakJob;
+use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
+use App\Services\ObservationRecorder;
 use App\Services\RepoDetector;
 use App\Services\ResponsiblePersonResolver;
 use App\Services\TaskLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class WebhookController extends Controller
 {
@@ -85,6 +88,16 @@ class WebhookController extends Controller
             ->first();
 
         if ($existingTask !== null) {
+            ObservationRecorder::declined(
+                source: 'sentry',
+                kind: 'sentry.duplicate',
+                summary: "Sentry issue \"{$description->title}\" fired again, but task #{$existingTask->id} already covers it.",
+                repo: $resolvedSlug,
+                subject: $description->externalId,
+                referenceUrl: $description->metadata['sentry_issue_url'] ?: null,
+                task: $existingTask,
+            );
+
             return response()->json(['error' => 'duplicate'], 409);
         }
 
@@ -103,6 +116,16 @@ class WebhookController extends Controller
         TaskLogger::info($task, 'Task created', ['source' => 'sentry', 'repo' => $resolvedSlug]);
         app(AgentJobDispatcher::class)->dispatch($task, RunYakJob::class);
 
+        ObservationRecorder::acted(
+            source: 'sentry',
+            kind: 'sentry.task_created',
+            summary: "Sentry issue \"{$description->title}\" fired; opened task #{$task->id}.",
+            repo: $resolvedSlug,
+            subject: $description->externalId,
+            referenceUrl: $task->external_url,
+            task: $task,
+        );
+
         return response()->json(['ok' => true, 'task_id' => $task->id], 201);
     }
 
@@ -111,18 +134,39 @@ class WebhookController extends Controller
      *
      * Every rejection here is a deliberate no-op, but a silent one is
      * indistinguishable from a webhook that never arrived — which is how the
-     * Sentry channel sat idle unnoticed. The log line is the only trace.
+     * Sentry channel sat idle unnoticed. The log line and the observation are
+     * the trace.
      *
      * @param  list<string>  $tags
      */
     private function rejected(Request $request, string $reason, array $tags): JsonResponse
     {
+        $project = InputDriver::projectSlug($request);
+        $issueId = (string) $request->input('data.event.issue_id', '');
+
         Log::channel('yak')->debug('Sentry issue filtered', [
             'reason' => $reason,
-            'issue_id' => $request->input('data.event.issue_id'),
-            'project' => InputDriver::projectSlug($request),
+            'issue_id' => $issueId,
+            'project' => $project,
             'tag_keys' => $tags,
         ]);
+
+        $title = Str::limit((string) $request->input('data.event.title', ''), 100);
+        [$kind, $why] = match (true) {
+            $reason === 'csp_violation' => ['sentry.csp_violation', 'is a Content Security Policy report, which has no code fix'],
+            $reason === 'transient_error' => ['sentry.transient_error', 'is a transient infrastructure error'],
+            $reason === 'unknown_project' => ['sentry.unknown_project', "comes from Sentry project \"{$project}\", which is not linked to an active repository"],
+            default => ['sentry.missing_tag', 'lacks the required opt-in tag'],
+        };
+
+        ObservationRecorder::declined(
+            source: 'sentry',
+            kind: $kind,
+            summary: "Sentry issue \"{$title}\" {$why}, so Yak took no action.",
+            repo: Repository::where('sentry_project', $project)->where('is_active', true)->value('slug'),
+            subject: $issueId !== '' ? $issueId : null,
+            referenceUrl: preg_replace('#events/[^/]+/?$#', '', (string) $request->input('data.event.web_url', '')) ?: null,
+        );
 
         return response()->json(['ok' => true, 'filtered' => $reason]);
     }

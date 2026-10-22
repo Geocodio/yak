@@ -2,6 +2,7 @@ export type ObservationRow = {
     id: number;
     repo: string | null;
     source: string;
+    sourceLabel: string;
     kind: string;
     kindLabel: string;
     outcome: 'acted' | 'declined' | string;

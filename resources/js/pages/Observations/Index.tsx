@@ -1,6 +1,6 @@
 import { Head, InfiniteScroll, Link, router, usePoll } from '@inertiajs/react';
 import { Badge, cn, Menu, PageHeader, Spinner, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, Th, Tr } from '@geocodio/console-ui';
-import { ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronDown, ExternalLink, GitCommitHorizontal, TriangleAlert } from 'lucide-react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { useRowEntrance } from '@/lib/useRowEntrance';
 import { pollInfiniteScroll } from '@/lib/pollInfiniteScroll';
@@ -121,6 +121,7 @@ export default function Index({ observations, filters }: Props) {
                                 <Tr>
                                     <Th className="w-24">When</Th>
                                     <Th className="w-36">Outcome</Th>
+                                    <Th className="w-28">Source</Th>
                                     <Th className="w-44">Repository</Th>
                                     <Th>What happened</Th>
                                     <Th className="w-24" />
@@ -136,6 +137,12 @@ export default function Index({ observations, filters }: Props) {
                                             <Badge tone={observation.outcome === 'acted' ? 'ok' : 'neutral'}>
                                                 {observation.kindLabel}
                                             </Badge>
+                                        </StackedTd>
+                                        <StackedTd label="Source" className="md:whitespace-nowrap text-muted">
+                                            <span className="inline-flex items-center gap-1.5">
+                                                {observation.source === 'sentry' ? <TriangleAlert size={12} /> : <GitCommitHorizontal size={12} />}
+                                                {observation.sourceLabel}
+                                            </span>
                                         </StackedTd>
                                         <StackedTd label="Repository" className="truncate text-muted">
                                             {observation.repo ?? '—'}

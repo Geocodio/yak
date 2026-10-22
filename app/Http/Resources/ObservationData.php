@@ -16,6 +16,7 @@ final class ObservationData
      *     id: int,
      *     repo: ?string,
      *     source: string,
+     *     sourceLabel: string,
      *     kind: string,
      *     kindLabel: string,
      *     outcome: string,
@@ -35,6 +36,11 @@ final class ObservationData
             'id' => $observation->id,
             'repo' => $observation->repo,
             'source' => $observation->source,
+            'sourceLabel' => match ($observation->source) {
+                'flaky-test' => 'CI',
+                'sentry' => 'Sentry',
+                default => $observation->source,
+            },
             'kind' => $observation->kind,
             'kindLabel' => self::label($observation->kind),
             'outcome' => $observation->outcome,
@@ -64,6 +70,12 @@ final class ObservationData
             'flaky_test.already_claimed' => 'Already handled',
             'flaky_test.existing_pr' => 'PR already out',
             'flaky_test.no_commit' => 'No commit',
+            'sentry.task_created' => 'Task opened',
+            'sentry.duplicate' => 'Already handled',
+            'sentry.csp_violation' => 'CSP violation',
+            'sentry.transient_error' => 'Transient error',
+            'sentry.unknown_project' => 'Unmapped project',
+            'sentry.missing_tag' => 'Missing tag',
             default => $kind,
         };
     }

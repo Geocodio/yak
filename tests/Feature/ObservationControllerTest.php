@@ -64,6 +64,14 @@ test('names each kind in a human label', function () {
             ->where('observations.data.0.kindLabel', 'PR already out'));
 });
 
+test('names each source in a human label', function () {
+    Observation::factory()->create(['source' => 'sentry']);
+
+    $this->get(route('observations'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('observations.data.0.sourceLabel', 'Sentry'));
+});
+
 test('observations is served as a scroll/merge prop for infinite scroll', function () {
     Observation::factory()->count(51)->create();
 

@@ -2,6 +2,7 @@
 
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
+use App\Models\Observation;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -665,4 +666,92 @@ it('makes the repository default responsible user own Sentry tasks', function ()
         ->and($task->responsible_name)->toBe('Repo Owner')
         ->and($task->started_by_user_id)->toBeNull()
         ->and($task->responsible_user_id)->toBe($owner->id);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Observations
+|--------------------------------------------------------------------------
+*/
+
+it('records an observation when a Sentry alert opens a task', function () {
+    $secret = enableSentryChannel();
+    Queue::fake();
+
+    Repository::factory()->withSentry()->create(['slug' => 'my-app', 'sentry_project' => 'my-sentry-project']);
+
+    $body = sentryAlertPayload(['issueId' => '99100']);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => signSentryPayload($body, $secret),
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertStatus(201);
+
+    $observation = Observation::sole();
+    expect($observation->source)->toBe('sentry')
+        ->and($observation->kind)->toBe('sentry.task_created')
+        ->and($observation->outcome)->toBe(Observation::OUTCOME_ACTED)
+        ->and($observation->repo)->toBe('my-app')
+        ->and($observation->subject)->toBe('99100')
+        ->and($observation->yak_task_id)->toBe(YakTask::sole()->id);
+});
+
+it('records why a Sentry alert was dropped', function (array $overrides, string $kind, string $repo) {
+    $secret = enableSentryChannel();
+    Queue::fake();
+
+    Repository::factory()->withSentry()->create(['slug' => 'my-app', 'sentry_project' => 'my-sentry-project']);
+
+    $body = sentryAlertPayload(['issueId' => '99101'] + $overrides);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => signSentryPayload($body, $secret),
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $observation = Observation::sole();
+    expect($observation->kind)->toBe($kind)
+        ->and($observation->outcome)->toBe(Observation::OUTCOME_DECLINED)
+        ->and($observation->repo)->toBe($repo)
+        ->and($observation->subject)->toBe('99101')
+        ->and($observation->reference_url)->toBe('https://sentry.io/organizations/test-org/issues/99101/');
+})->with([
+    'csp violation' => [['culprit' => 'font-src'], 'sentry.csp_violation', 'my-app'],
+    'transient error' => [['title' => 'RedisException: went away'], 'sentry.transient_error', 'my-app'],
+]);
+
+it('records a Sentry alert from a project no repository is linked to', function () {
+    $secret = enableSentryChannel();
+    Queue::fake();
+
+    $body = sentryAlertPayload(['issueId' => '99103', 'projectSlug' => 'billing']);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => signSentryPayload($body, $secret),
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertSuccessful();
+
+    $observation = Observation::sole();
+    expect($observation->kind)->toBe('sentry.unknown_project')
+        ->and($observation->repo)->toBeNull()
+        ->and($observation->summary)->toContain('"billing"');
+});
+
+it('records a duplicate Sentry alert against the existing task', function () {
+    $secret = enableSentryChannel();
+    Queue::fake();
+
+    Repository::factory()->withSentry()->create(['slug' => 'my-app', 'sentry_project' => 'my-sentry-project']);
+    $existing = YakTask::factory()->create(['source' => 'sentry', 'external_id' => '99102', 'repo' => 'my-app']);
+
+    $body = sentryAlertPayload(['issueId' => '99102']);
+
+    $this->call('POST', '/webhooks/sentry', content: $body, server: [
+        'HTTP_Sentry-Hook-Signature' => signSentryPayload($body, $secret),
+        'CONTENT_TYPE' => 'application/json',
+    ])->assertStatus(409);
+
+    $observation = Observation::sole();
+    expect($observation->kind)->toBe('sentry.duplicate')
+        ->and($observation->yak_task_id)->toBe($existing->id);
 });
