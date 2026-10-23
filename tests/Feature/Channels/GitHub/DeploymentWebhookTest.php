@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DeploymentStatus;
 use App\Jobs\Deployments\DeployBranchJob;
 use App\Jobs\Deployments\DestroyDeploymentJob;
 use App\Jobs\Deployments\UpdateDeploymentJob;
@@ -143,6 +144,41 @@ it('pull_request.closed dispatches DestroyDeploymentJob', function () {
     ])->assertOk();
 
     Bus::assertDispatched(DestroyDeploymentJob::class, fn ($job) => $job->deploymentId === $deployment->id);
+});
+
+it('pull_request.closed during a teardown records the closed state without queuing another destroy', function () {
+    $repo = Repository::factory()->create([
+        'slug' => 'example-org/example-repo',
+        'is_active' => true,
+        'deployments_enabled' => true,
+    ]);
+    $deployment = BranchDeployment::factory()->for($repo)->create([
+        'branch_name' => 'feat/x',
+        'status' => DeploymentStatus::Destroying,
+        'pr_state' => 'open',
+    ]);
+
+    $payload = [
+        'action' => 'closed',
+        'number' => 1,
+        'pull_request' => [
+            'html_url' => 'https://github.com/example-org/example-repo/pull/1',
+            'number' => 1, 'state' => 'closed', 'merged' => false, 'draft' => false,
+            'user' => ['login' => 'dev'],
+            'head' => ['ref' => 'feat/x', 'sha' => 'abc'],
+            'base' => ['ref' => 'main', 'sha' => 'b'],
+        ],
+        'repository' => ['full_name' => 'example-org/example-repo'],
+    ];
+    $body = json_encode($payload);
+
+    $this->postJson('/webhooks/ci/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGitHubWebhook($body),
+    ])->assertOk();
+
+    expect($deployment->fresh()->pr_state)->toBe('closed');
+    Bus::assertNotDispatched(DestroyDeploymentJob::class);
 });
 
 it('delete event on a deployment branch dispatches DestroyDeploymentJob', function () {
