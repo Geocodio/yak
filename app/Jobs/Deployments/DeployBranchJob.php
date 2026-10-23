@@ -8,6 +8,7 @@ use App\Models\DeploymentLog;
 use App\Services\DeploymentContainerManager;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Str;
 
 class DeployBranchJob implements ShouldQueue
 {
@@ -23,6 +24,19 @@ class DeployBranchJob implements ShouldQueue
     public function handle(DeploymentContainerManager $manager): void
     {
         $deployment = BranchDeployment::findOrFail($this->deploymentId);
+
+        // A PR closed and reopened in quick succession queues this job while
+        // the teardown is still running. Wait for the teardown to finish, then
+        // bring the destroyed row back to Pending so it can deploy again.
+        if ($deployment->status === DeploymentStatus::Destroying) {
+            self::dispatch($deployment->id)->delay(now()->addSeconds(30));
+
+            return;
+        }
+
+        if ($deployment->status === DeploymentStatus::Destroyed) {
+            $this->resetForRedeploy($deployment);
+        }
 
         try {
             $deployment->status = DeploymentStatus::Starting;
@@ -48,5 +62,24 @@ class DeployBranchJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    /**
+     * Destroyed is a final state, so the reset bypasses the state machine with
+     * a raw update -- same pattern as DestroyDeploymentJob. The old container
+     * is gone, so the row gets a fresh container name and the current template.
+     */
+    private function resetForRedeploy(BranchDeployment $deployment): void
+    {
+        BranchDeployment::query()->where('id', $deployment->id)->update([
+            'status' => DeploymentStatus::Pending->value,
+            'container_name' => 'deploy-' . Str::lower((string) Str::ulid()),
+            'template_version' => max(1, $deployment->repository->current_template_version ?? 0),
+            'dirty' => false,
+            'failure_reason' => null,
+            'last_accessed_at' => null,
+        ]);
+
+        $deployment->refresh();
     }
 }

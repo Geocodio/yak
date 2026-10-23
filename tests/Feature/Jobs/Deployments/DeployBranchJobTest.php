@@ -4,6 +4,7 @@ use App\Enums\DeploymentStatus;
 use App\Jobs\Deployments\DeployBranchJob;
 use App\Models\BranchDeployment;
 use App\Services\DeploymentContainerManager;
+use Illuminate\Support\Facades\Queue;
 
 it('creates the container, starts it, checks out the sha, and marks running', function () {
     $deployment = BranchDeployment::factory()->create([
@@ -78,4 +79,41 @@ it('writes an error lifecycle log on failure', function () {
         ->first();
     expect($errorLog)->not->toBeNull();
     expect($errorLog->message)->toContain('template missing');
+});
+
+it('redeploys a destroyed deployment with a fresh container', function () {
+    $deployment = BranchDeployment::factory()->destroyed()->create([
+        'current_commit_sha' => 'abc123',
+        'failure_reason' => 'old failure',
+    ]);
+    $deployment->repository->update(['current_template_version' => 4]);
+    $oldContainerName = $deployment->container_name;
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldReceive('createFromTemplate')->once();
+    $manager->shouldReceive('start')->once()->with(Mockery::any(), 'abc123')->andReturn('10.0.0.10');
+
+    (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+
+    $fresh = $deployment->fresh();
+    expect($fresh->status)->toBe(DeploymentStatus::Running)
+        ->and($fresh->container_name)->not->toBe($oldContainerName)
+        ->and($fresh->template_version)->toBe(4)
+        ->and($fresh->failure_reason)->toBeNull();
+});
+
+it('waits for an in-flight teardown before deploying', function () {
+    Queue::fake();
+
+    $deployment = BranchDeployment::factory()->create(['status' => DeploymentStatus::Destroying]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldNotReceive('createFromTemplate');
+
+    (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+
+    expect($deployment->fresh()->status)->toBe(DeploymentStatus::Destroying);
+    Queue::assertPushed(DeployBranchJob::class, fn (DeployBranchJob $job) => $job->deploymentId === $deployment->id);
 });
