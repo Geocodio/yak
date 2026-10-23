@@ -104,7 +104,7 @@ class CoOwnerGate
         return null;
     }
 
-    private function isExempt(YakTask $task): bool
+    public function isExempt(YakTask $task): bool
     {
         return in_array($task->mode, [TaskMode::Setup, TaskMode::Review, TaskMode::Research], true)
             || in_array($task->source, self::EXEMPT_SOURCES, true);

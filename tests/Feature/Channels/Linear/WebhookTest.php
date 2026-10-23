@@ -6,6 +6,7 @@ use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\Repository;
@@ -154,6 +155,7 @@ it('creates a fix task when an AgentSessionEvent.created webhook arrives', funct
     expect($task->description)->toContain('Fix the broken auth flow');
 
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->id === $task->id);
+    Queue::assertPushed(SendEarlyWarningJob::class, fn (SendEarlyWarningJob $job) => $job->task->is($task));
 });
 
 it('posts an acknowledgment activity synchronously on pickup', function () {

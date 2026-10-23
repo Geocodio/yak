@@ -13,6 +13,7 @@ use App\Services\CoOwner\CoOwnerDecisions;
 use App\Services\CoOwner\GitHubWriteAccess;
 use App\Services\CoOwner\SlackUserResolver;
 use App\Services\CoOwner\TaskRequester;
+use App\Support\PersonName;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -108,7 +109,7 @@ class ApplyCoOwnerDecisionJob implements ShouldQueue
 
     private function notRequesterText(?User $requester): string
     {
-        $firstName = $requester === null ? '' : explode(' ', trim($requester->name))[0];
+        $firstName = $requester === null ? '' : PersonName::first($requester->name);
 
         return $firstName === ''
             ? 'Only the person who asked for this change can withdraw it.'

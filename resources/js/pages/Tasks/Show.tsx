@@ -3,6 +3,7 @@ import { cn, Dialog } from '@geocodio/console-ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ActivityLog } from '@/components/tasks/ActivityLog';
+import { EarlyWarningNotice } from '@/components/tasks/EarlyWarningNotice';
 import { CoOwnerPanel } from '@/components/tasks/CoOwnerPanel';
 import { QuestionsForm } from '@/components/tasks/QuestionsForm';
 import { Composer } from '@/components/tasks/Composer';
@@ -23,7 +24,7 @@ import { WalkthroughCard } from '@/components/tasks/WalkthroughCard';
 import { POLLED_PROPS, useActivityRows } from '@/components/tasks/useActivityRows';
 import { replaceTaskQuery } from '@/lib/taskQuery';
 import { useMediaQuery } from '@/lib/useMediaQuery';
-import type { CoOwnerData } from '@/types/coOwner';
+import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
 import type { PageProps } from '@/types/shared';
 import type {
     ActionsData,
@@ -61,6 +62,7 @@ type Props = PageProps<{
     composer: ComposerData;
     questions: QuestionData[] | null;
     coOwner: CoOwnerData | null;
+    earlyWarning: EarlyWarningData | null;
     debug: DebugData;
     actions: ActionsData;
     pollInterval: number;
@@ -85,6 +87,7 @@ export default function Show({
     composer,
     questions,
     coOwner,
+    earlyWarning,
     debug,
     actions,
     pollInterval,
@@ -254,6 +257,7 @@ export default function Show({
                                         onSelectClarificationOption={(option) => setComposerFill(option)}
                                     />
                                 ))}
+                                {earlyWarning !== null && <EarlyWarningNotice taskId={task.id} warning={earlyWarning} />}
                             </div>
 
                             {coOwner !== null && (

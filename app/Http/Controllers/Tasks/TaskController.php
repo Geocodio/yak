@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tasks;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ActivityLogData;
+use App\Http\Resources\EarlyWarningData;
 use App\Http\Resources\TaskDetailData;
 use App\Http\Resources\TranscriptData;
 use App\Models\TaskLog;
@@ -36,8 +37,15 @@ class TaskController extends Controller
             return $log !== null ? TranscriptData::entry($log) : null;
         };
 
+        // Candidates are computed for the requester only, and only while the notice is pickable.
+        $earlyWarning = $data['earlyWarning'];
+        $candidates = $earlyWarning !== null && $earlyWarning['canPick']
+            ? ['earlyWarningCandidates' => Inertia::defer(fn () => EarlyWarningData::candidates($task, $request->user()), 'early-warning')]
+            : [];
+
         return Inertia::render('Tasks/Show', [
             ...$data,
+            ...$candidates,
             'activityOlder' => Inertia::optional(fn () => $request->integer('before')
                 ? ActivityLogData::before($focusedRun, $attempt, $request->integer('before'))
                 : []),

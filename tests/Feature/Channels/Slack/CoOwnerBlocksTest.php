@@ -243,3 +243,74 @@ it('keeps the direct message header within the Slack limit for a long requester 
 
     expect(mb_strlen($header))->toBeLessThanOrEqual(150)->and($header)->toEndWith(' needs a co-owner for a change');
 });
+
+it('builds the early warning with a picker, a decline button and the guess context', function () {
+    $task = YakTask::factory()->create();
+    $warning = ['areas' => [['name' => 'API response pipeline', 'risk' => 'high'], ['name' => 'Billing', 'risk' => 'critical']], 'repoName' => 'acme/web', 'fallbackName' => 'Ada'];
+
+    $blocks = CoOwnerBlocks::earlyWarning($task, $warning);
+
+    expect($blocks[0]['text']['text'])->toBe("On it. Heads up: this will likely touch API response pipeline (high risk) and Billing (critical risk), so it'll need a co-owner before I open a PR. Want to tag someone now? Anyone with write access to acme/web can do it.")
+        ->and($blocks[1]['elements'][0])->toMatchArray(['type' => 'users_select', 'action_id' => "yak_coowner_tag:{$task->id}"])
+        ->and($blocks[1]['elements'][0]['placeholder']['text'])->toBe('Pick a co-owner')
+        ->and($blocks[1]['elements'][1]['text']['text'])->toBe('No thanks, ask Ada later')
+        ->and($blocks[1]['elements'][1]['action_id'])->toBe("yak_coowner_decline:{$task->id}")
+        ->and($blocks[2]['elements'][0]['text'])->toBe('Working on it now · this is a guess based on your request');
+    expect(CoOwnerBlocks::earlyWarning($task, [...$warning, 'fallbackName' => null])[1]['elements'][1]['text']['text'])->toBe('No thanks, ask later');
+});
+
+it('drops the controls once a co-owner is picked or the requester declines, escaping names', function () {
+    $warning = ['areas' => [['name' => 'A<b>', 'risk' => 'high']], 'repoName' => 'o/<r>', 'fallbackName' => 'Ada<x>'];
+
+    $tagged = CoOwnerBlocks::earlyWarningTagged($warning, 'Sam <Lee> & co');
+    $declined = CoOwnerBlocks::earlyWarningDeclined($warning);
+
+    expect($tagged)->toHaveCount(2)
+        ->and($tagged[0]['text']['text'])->toContain('A&lt;b&gt; (high risk)')->toContain('o/&lt;r&gt;')
+        ->toEndWith("\n\n@Sam &lt;Lee&gt; &amp; co will be asked if the change is held.")
+        ->and($tagged[1]['elements'][0]['text'])->toBe('Working on it now · this is a guess based on your request')
+        ->and($declined[0]['text']['text'])->toEndWith("\n\nYak will ask Ada&lt;x&gt; if the change is held.")
+        ->and(collect($declined)->pluck('type')->all())->toBe(['section', 'context']);
+});
+
+it('parses the early warning action ids', function () {
+    expect(CoOwnerBlocks::parseEarlyWarningAction('yak_coowner_tag:12'))->toBe(['kind' => 'tag', 'taskId' => 12])
+        ->and(CoOwnerBlocks::parseEarlyWarningAction('yak_coowner_decline:3'))->toBe(['kind' => 'decline', 'taskId' => 3])
+        ->and(CoOwnerBlocks::parseEarlyWarningAction('yak_coowner_tag:x'))->toBeNull()
+        ->and(CoOwnerBlocks::parseEarlyWarningAction('yak_coowner_approve'))->toBeNull();
+});
+
+it('words the tagged line without a name and caps a long area list', function () {
+    $warning = ['areas' => array_map(fn (int $i): array => ['name' => str_repeat('x', 100) . $i, 'risk' => 'h<i>'], range(1, 60)), 'repoName' => 'o/r', 'fallbackName' => null];
+
+    $tagged = CoOwnerBlocks::earlyWarningTagged($warning, '');
+
+    expect($tagged[0]['text']['text'])->toEndWith('Your co-owner will be asked if the change is held.')
+        ->toContain('h&lt;i&gt; risk')->toContain('…')
+        ->and(strlen($tagged[0]['text']['text']))->toBeLessThan(3000);
+});
+
+it('says who was tagged but had no write access, and who was asked instead', function () {
+    $sam = User::factory()->create(['name' => 'Sam Lee']);
+    $request = heldRequest([
+        'asked_user_ids' => [$sam->id],
+        'ask_attempts' => [
+            ['entry' => 'Tag <Er>', 'kind' => 'tagged', 'outcome' => 'no_write_access'],
+            ['entry' => '@sam', 'kind' => 'login', 'outcome' => 'asked'],
+        ],
+    ]);
+
+    expect(allText(CoOwnerBlocks::threadHeld($request)))
+        ->toContain('Tag &lt;Er&gt;, who you tagged, has no write access to acme/web now. I\'ve asked Sam Lee.');
+});
+
+it('says only that the tagged person has no write access when nobody else was asked', function () {
+    $request = heldRequest([
+        'asked_user_ids' => [],
+        'ask_attempts' => [['entry' => 'Tag Er', 'kind' => 'tagged', 'outcome' => 'no_write_access']],
+    ]);
+
+    expect(allText(CoOwnerBlocks::threadHeld($request)))
+        ->toContain('Tag Er, who you tagged, has no write access to acme/web now.')
+        ->not->toContain('so I asked');
+});

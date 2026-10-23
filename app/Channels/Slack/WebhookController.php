@@ -11,6 +11,7 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
@@ -255,6 +256,7 @@ class WebhookController extends Controller
         SendNotificationJob::dispatch($task, NotificationType::Acknowledgment, "Task: {$task->description}");
 
         $this->dispatchAgentJob($task);
+        SendEarlyWarningJob::dispatch($task);
 
         return response()->json(['ok' => true, 'handled' => 'task_created', 'task_id' => $task->id]);
     }

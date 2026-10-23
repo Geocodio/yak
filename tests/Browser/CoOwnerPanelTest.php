@@ -128,6 +128,9 @@ it('keeps the feedback draft when approve fails', function () {
         ->assertSee('403 Resource not accessible by integration')
         ->assertSee('Retry approve')
         ->assertValue('[data-testid="co-owner-feedback-text"]', 'Keep the headers in separate tasks')
+        // The next poll resets Inertia's page errors, and the alert stays.
+        ->wait(16)
+        ->assertSee('Could not open the PR.')
         ->assertNoJavascriptErrors();
 });
 

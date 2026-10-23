@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\StoreTaskRequest;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendEarlyWarningJob;
 use App\Models\TaskAttachment;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
@@ -49,6 +50,8 @@ class StoreTaskController extends Controller
         } else {
             $dispatcher->dispatch($task, RunYakJob::class);
         }
+
+        SendEarlyWarningJob::dispatch($task);
 
         return redirect()->route('tasks.show', $task)->with('success', 'Task created.');
     }

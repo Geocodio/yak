@@ -32,6 +32,7 @@ use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskAttachmentController;
 use App\Http\Controllers\Tasks\CoOwnerDecisionController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
+use App\Http\Controllers\Tasks\EarlyWarningController;
 use App\Http\Controllers\Tasks\PullRequestImageController;
 use App\Http\Controllers\Tasks\QueuedMessageController;
 use App\Http\Controllers\Tasks\RequestReReviewController;
@@ -83,6 +84,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/{task}/co-owner/reject', [CoOwnerDecisionController::class, 'reject'])->name('tasks.co-owner.reject');
     Route::post('tasks/{task}/co-owner/withdraw', [CoOwnerDecisionController::class, 'withdraw'])->name('tasks.co-owner.withdraw');
     Route::post('tasks/{task}/co-owner/check-access', [CoOwnerDecisionController::class, 'checkAccess'])->name('tasks.co-owner.check-access');
+    Route::post('tasks/{task}/co-owner/tag', [EarlyWarningController::class, 'tag'])->name('tasks.co-owner.tag');
+    Route::post('tasks/{task}/co-owner/decline', [EarlyWarningController::class, 'decline'])->name('tasks.co-owner.decline');
     Route::post('tasks/{task}/messages', [TaskMessageController::class, 'store'])->name('tasks.messages.store');
     Route::patch('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'update'])->whereNumber('message')->name('tasks.queued-messages.update');
     Route::delete('tasks/{task}/queued-messages/{message}', [QueuedMessageController::class, 'destroy'])->whereNumber('message')->name('tasks.queued-messages.destroy');

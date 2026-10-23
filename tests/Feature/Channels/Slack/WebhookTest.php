@@ -7,6 +7,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -395,6 +396,7 @@ it('uses single active repo without clarification for slack', function () {
     expect($task->repo)->toBe('only-repo');
 
     Queue::assertPushed(RunYakJob::class);
+    Queue::assertPushed(SendEarlyWarningJob::class, fn (SendEarlyWarningJob $job) => $job->task->is($task));
 });
 
 it('starts a new run when @yak is mentioned in the thread of an expired co-owner task', function () {

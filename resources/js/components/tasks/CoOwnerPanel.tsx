@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { Badge, Button, ConfirmDialog, Textarea } from '@geocodio/console-ui';
 import { AlertTriangle, Check, ExternalLink, GitPullRequest, Link as LinkIcon, RefreshCw, UserX } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
@@ -24,7 +24,7 @@ const OUTCOME_TEXT: Record<string, string> = {
 };
 
 function attemptLabel(kind: string): string {
-    return kind === 'fallback' ? 'Fallback owner' : kind === 'changes_requester' ? 'Requested changes' : 'CODEOWNERS';
+    return kind === 'tagged' ? 'Tagged by the requester' : kind === 'fallback' ? 'Fallback owner' : kind === 'changes_requester' ? 'Requested changes' : 'CODEOWNERS';
 }
 
 function clock(iso: string): string {
@@ -99,7 +99,7 @@ function FinalState({ coOwner }: { coOwner: CoOwnerData }) {
 
 function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: CoOwnerData; repoUrl: string | null }) {
     const action = useRouterAction();
-    const decisionError = readDecisionError((usePage().props.errors as Record<string, unknown>).coOwner);
+    const [decisionError, setDecisionError] = useState<CoOwnerDecisionError | null>(null);
     const [feedbackOpen, setFeedbackOpen] = useState(false);
     const [feedback, setFeedback] = useState('');
     const [rejectOpen, setRejectOpen] = useState(false);
@@ -114,7 +114,11 @@ function PendingPanel({ taskId, coOwner, repoUrl }: { taskId: number; coOwner: C
 
     const run = (key: string, post: typeof approve, data: Record<string, string> = {}, onSuccess?: () => void) => {
         setLastAction(key);
-        action.run(key, 'post', post.url(taskId), data, { onSuccess });
+        action.run(key, 'post', post.url(taskId), data, {
+            onStart: () => setDecisionError(null),
+            onError: (errors) => setDecisionError(readDecisionError(errors.coOwner)),
+            onSuccess,
+        });
     };
 
     const copyLink = () => {

@@ -259,6 +259,12 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'agents-risk-area-guess' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
             'agents-task-intent' => [
                 [
                     'label' => 'Static content',

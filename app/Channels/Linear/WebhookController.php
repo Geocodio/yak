@@ -12,6 +12,7 @@ use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
+use App\Jobs\SendEarlyWarningJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\LinearOauthConnection;
 use App\Models\User;
@@ -274,6 +275,7 @@ class WebhookController extends Controller
         $this->moveIssueToStartedState($task, (string) ($description->metadata['linear_issue_id'] ?? ''));
 
         $this->dispatchAgentJob($task);
+        SendEarlyWarningJob::dispatch($task);
 
         return response()->json(['ok' => true]);
     }

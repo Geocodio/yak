@@ -5,6 +5,8 @@ namespace App\Channels\Slack;
 use App\Enums\CoOwnerRequestStatus;
 use App\Models\CoOwnerRequest;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Support\PersonName;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -21,6 +23,12 @@ class CoOwnerBlocks
     public const string REJECT_ACTION_ID = 'yak_coowner_reject';
 
     public const string WITHDRAW_ACTION_ID = 'yak_coowner_withdraw';
+
+    public const string TAG_ACTION_PREFIX = 'yak_coowner_tag:';
+
+    public const string DECLINE_ACTION_PREFIX = 'yak_coowner_decline:';
+
+    private const string EARLY_WARNING_CONTEXT = 'Working on it now · this is a guess based on your request';
 
     private const array RISK_RANK = ['critical' => 4, 'high' => 3, 'unknown' => 2, 'medium' => 1, 'low' => 0];
 
@@ -46,6 +54,110 @@ class CoOwnerBlocks
     }
 
     /**
+     * The early warning thread reply with the co-owner picker and decline button.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     * @return list<array<string, mixed>>
+     */
+    public static function earlyWarning(YakTask $task, array $warning): array
+    {
+        $fallback = $warning['fallbackName'] === null ? 'No thanks, ask later' : 'No thanks, ask ' . $warning['fallbackName'] . ' later';
+
+        return [
+            self::section(self::earlyWarningText($warning)),
+            ['type' => 'actions', 'elements' => [
+                [
+                    'type' => 'users_select',
+                    'action_id' => self::TAG_ACTION_PREFIX . $task->id,
+                    'placeholder' => self::plain('Pick a co-owner'),
+                ],
+                ['type' => 'button', 'action_id' => self::DECLINE_ACTION_PREFIX . $task->id, 'value' => (string) $task->id, 'text' => self::plain(Str::limit($fallback, 70, ''))],
+            ]],
+            self::context(self::EARLY_WARNING_CONTEXT),
+        ];
+    }
+
+    /**
+     * The early warning after a co-owner was picked: no controls.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     * @return list<array<string, mixed>>
+     */
+    public static function earlyWarningTagged(array $warning, string $coOwnerName): array
+    {
+        $who = trim($coOwnerName) === '' ? 'Your co-owner' : '@' . SlackText::escape($coOwnerName);
+
+        return self::earlyWarningResolved($warning, "{$who} will be asked if the change is held.");
+    }
+
+    /**
+     * The early warning after the requester declined to tag anyone.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     * @return list<array<string, mixed>>
+     */
+    public static function earlyWarningDeclined(array $warning): array
+    {
+        $who = $warning['fallbackName'] === null ? 'a co-owner' : SlackText::escape($warning['fallbackName']);
+
+        return self::earlyWarningResolved($warning, "Yak will ask {$who} if the change is held.");
+    }
+
+    /**
+     * The first sentences of the warning, for Slack and for other channels' notifications.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     */
+    public static function earlyWarningText(array $warning, bool $shouldEscape = true): string
+    {
+        $escape = fn (string $text): string => $shouldEscape ? SlackText::escape($text) : $text;
+
+        return self::earlyWarningLead($warning, $shouldEscape) . ' Want to tag someone now? Anyone with write access to ' . $escape($warning['repoName']) . ' can do it.';
+    }
+
+    /**
+     * The first sentence group of the warning. The area list is capped so the
+     * section stays under Slack's 3000 character limit.
+     *
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     */
+    public static function earlyWarningLead(array $warning, bool $shouldEscape = true): string
+    {
+        $escape = fn (string $text): string => $shouldEscape ? SlackText::escape($text) : $text;
+        $areas = Arr::join(array_map(fn (array $area): string => $escape($area['name']) . ' (' . $escape($area['risk']) . ' risk)', $warning['areas']), ', ', ' and ');
+
+        return 'On it. Heads up: this will likely touch ' . Str::limit($areas, 1500, '…') . ", so it'll need a co-owner before I open a PR.";
+    }
+
+    /**
+     * Reads a button or picker action id of the early warning.
+     *
+     * @return array{kind: 'tag'|'decline', taskId: int}|null
+     */
+    public static function parseEarlyWarningAction(string $actionId): ?array
+    {
+        foreach (['tag' => self::TAG_ACTION_PREFIX, 'decline' => self::DECLINE_ACTION_PREFIX] as $kind => $prefix) {
+            if (str_starts_with($actionId, $prefix) && ctype_digit(substr($actionId, strlen($prefix)))) {
+                return ['kind' => $kind, 'taskId' => (int) substr($actionId, strlen($prefix))];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array{areas: list<array{name: string, risk: string}>, repoName: string, fallbackName: ?string}  $warning
+     * @return list<array<string, mixed>>
+     */
+    private static function earlyWarningResolved(array $warning, string $outcome): array
+    {
+        return [
+            self::section(self::earlyWarningText($warning) . "\n\n" . $outcome),
+            self::context(self::EARLY_WARNING_CONTEXT),
+        ];
+    }
+
+    /**
      * The three paragraphs of the held thread reply.
      *
      * @return array{0: string, 1: string, 2: string}
@@ -64,6 +176,11 @@ class CoOwnerBlocks
         $asked = $request->asked_user_ids === []
             ? "Nobody could be asked yet: no CODEOWNERS owner or fallback owner resolves to a linked user with write access. Anyone with write access to {$repository} can approve from the task page."
             : "I've asked " . Arr::join(array_map($escape, self::askedNames($request)), ', ', ' and ') . ". Anyone with write access to {$repository} can pick it up, so feel free to share the task link.";
+
+        $skippedTag = collect($request->ask_attempts)->first(fn (array $attempt): bool => $attempt['kind'] === 'tagged' && $attempt['outcome'] === 'no_write_access');
+        if ($skippedTag !== null) {
+            $asked = $escape($skippedTag['entry']) . ", who you tagged, has no write access to {$repository} now. " . $asked;
+        }
 
         return ['Your change is built and CI passed. It needs a co-owner before I open a PR.', $details, $asked];
     }
@@ -349,7 +466,7 @@ class CoOwnerBlocks
 
     private static function firstName(CoOwnerRequest $request): string
     {
-        return Str::before(self::requesterName($request), ' ');
+        return PersonName::first(self::requesterName($request));
     }
 
     private static function heldSince(CoOwnerRequest $request): string
