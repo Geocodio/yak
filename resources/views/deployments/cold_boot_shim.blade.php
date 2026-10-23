@@ -15,7 +15,12 @@
         <p class="tagline">Or ping whoever pushed this branch &mdash; they'll know what's up.</p>
     @else
         <h1>Waking up the preview</h1>
-        <div class="hostchip"><span class="dot"></span>{{ $deployment->hostname }}</div>
+        <div class="hostchip" title="{{ $deployment->hostname }}">
+            <span class="dot"></span>
+            <span class="repo">{{ $deployment->repository->name }}</span>
+            <span class="sep">/</span>
+            <span class="branch">{{ $deployment->branch_name }}</span>
+        </div>
         <div class="meter">
             <div class="track"><span></span></div>
             <div class="legend"><span>Usually under a minute</span><b id="elapsed" data-testid="elapsed">0:00</b></div>
@@ -37,7 +42,6 @@
             // sandbox (or the wake itself failed). Either way, reload
             // so the user sees the real response instead of this shim.
             (function () {
-                const deadline = Date.now() + 5 * 60 * 1000;
                 let inFlight = false;
                 async function probe() {
                     if (inFlight || document.hidden) return;
@@ -59,9 +63,7 @@
                     } finally {
                         inFlight = false;
                     }
-                    if (Date.now() < deadline) {
-                        setTimeout(probe, 2000);
-                    }
+                    setTimeout(probe, 2000);
                 }
                 setTimeout(probe, 2000);
             })();

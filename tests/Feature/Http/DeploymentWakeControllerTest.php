@@ -116,7 +116,10 @@ it('updates last_accessed_at on every successful call', function () {
 });
 
 it('renders the host chip and elapsed timer on the waking page', function () {
-    BranchDeployment::factory()->hibernated()->create(['hostname' => 'foo.yak.example.com']);
+    $deployment = BranchDeployment::factory()->hibernated()->create([
+        'hostname' => 'foo.yak.example.com',
+        'branch_name' => 'update-pricing-page-design',
+    ]);
 
     $waker = Mockery::mock(DeploymentWaker::class);
     $this->app->instance(DeploymentWaker::class, $waker);
@@ -126,7 +129,9 @@ it('renders the host chip and elapsed timer on the waking page', function () {
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com'])
         ->assertStatus(425)
         ->assertSee('Waking up the preview')
-        ->assertSee('class="hostchip"', false)
-        ->assertSee('foo.yak.example.com')
+        ->assertSee('class="hostchip" title="foo.yak.example.com"', false)
+        ->assertSee($deployment->repository->name)
+        ->assertSee('update-pricing-page-design')
+        ->assertSee('<noscript><meta http-equiv="refresh"', false)
         ->assertSee('data-testid="elapsed"', false);
 });

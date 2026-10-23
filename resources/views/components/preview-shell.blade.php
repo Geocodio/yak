@@ -13,11 +13,10 @@
     <title>{{ $title }} &mdash; Yak</title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     @if ($autoRefresh)
-        {{-- Fallback while the sandbox is warming. JS below polls more
-             aggressively and reloads the moment the wake endpoint stops
-             returning the shim — the meta-refresh just guarantees the
-             page recovers if JS is disabled or breaks. --}}
-        <meta http-equiv="refresh" content="15">
+        {{-- The page's JS polls and reloads the moment the wake endpoint
+             stops returning the shim. The meta-refresh covers browsers
+             without JS; with JS it would reset the elapsed timer. --}}
+        <noscript><meta http-equiv="refresh" content="15"></noscript>
     @endif
     <link rel="icon" href="{{ config('app.url') }}/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="{{ config('app.url') }}/favicon.ico" sizes="32x32">
@@ -141,7 +140,22 @@
             color: var(--yak-slate);
             margin: 4px 0 26px;
             max-width: 100%;
-            word-break: break-all;
+            min-width: 0;
+        }
+        .hostchip .repo {
+            flex-shrink: 0;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-weight: 500;
+        }
+        .hostchip .sep {
+            flex-shrink: 0;
+            color: color-mix(in srgb, var(--yak-slate) 45%, transparent);
+        }
+        .hostchip .branch {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .hostchip .dot {
             flex-shrink: 0;
