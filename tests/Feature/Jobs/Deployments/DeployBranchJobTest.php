@@ -85,8 +85,9 @@ it('redeploys a destroyed deployment with a fresh container', function () {
     $deployment = BranchDeployment::factory()->destroyed()->create([
         'current_commit_sha' => 'abc123',
         'failure_reason' => 'old failure',
+        'pr_state' => 'open',
     ]);
-    $deployment->repository->update(['current_template_version' => 4]);
+    $deployment->repository->update(['current_template_version' => 4, 'deployments_enabled' => true]);
     $oldContainerName = $deployment->container_name;
 
     $manager = Mockery::mock(DeploymentContainerManager::class);
@@ -106,7 +107,8 @@ it('redeploys a destroyed deployment with a fresh container', function () {
 it('waits for an in-flight teardown before deploying', function () {
     Queue::fake();
 
-    $deployment = BranchDeployment::factory()->create(['status' => DeploymentStatus::Destroying]);
+    $deployment = BranchDeployment::factory()->create(['status' => DeploymentStatus::Destroying, 'pr_state' => 'open']);
+    $deployment->repository->update(['deployments_enabled' => true]);
 
     $manager = Mockery::mock(DeploymentContainerManager::class);
     $this->app->instance(DeploymentContainerManager::class, $manager);
@@ -117,3 +119,22 @@ it('waits for an in-flight teardown before deploying', function () {
     expect($deployment->fresh()->status)->toBe(DeploymentStatus::Destroying);
     Queue::assertPushed(DeployBranchJob::class, fn (DeployBranchJob $job) => $job->deploymentId === $deployment->id);
 });
+
+it('leaves a destroyed deployment alone when the PR was closed again or deployments are off', function (string $prState, bool $deploymentsEnabled) {
+    Queue::fake();
+
+    $deployment = BranchDeployment::factory()->destroyed()->create(['pr_state' => $prState]);
+    $deployment->repository->update(['deployments_enabled' => $deploymentsEnabled]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $manager->shouldNotReceive('createFromTemplate');
+
+    (new DeployBranchJob($deployment->id))->handle(app(DeploymentContainerManager::class));
+
+    expect($deployment->fresh()->status)->toBe(DeploymentStatus::Destroyed);
+    Queue::assertNothingPushed();
+})->with([
+    'PR closed' => ['closed', true],
+    'deployments disabled' => ['open', false],
+]);

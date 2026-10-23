@@ -27,7 +27,14 @@ class DeployBranchJob implements ShouldQueue
 
         // A PR closed and reopened in quick succession queues this job while
         // the teardown is still running. Wait for the teardown to finish, then
-        // bring the destroyed row back to Pending so it can deploy again.
+        // bring the destroyed row back to Pending so it can deploy again --
+        // unless the PR was closed again or deployments were turned off.
+        $isTornDown = in_array($deployment->status, [DeploymentStatus::Destroying, DeploymentStatus::Destroyed], true);
+
+        if ($isTornDown && ! $this->shouldRedeploy($deployment)) {
+            return;
+        }
+
         if ($deployment->status === DeploymentStatus::Destroying) {
             self::dispatch($deployment->id)->delay(now()->addSeconds(30));
 
@@ -62,6 +69,11 @@ class DeployBranchJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    private function shouldRedeploy(BranchDeployment $deployment): bool
+    {
+        return $deployment->pr_state === 'open' && $deployment->repository->deployments_enabled;
     }
 
     /**

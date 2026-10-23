@@ -4,6 +4,7 @@ namespace App\Channels\GitHub;
 
 use App\Actions\EnqueuePrReview;
 use App\Actions\RecordPullRequestOutcome;
+use App\Enums\DeploymentStatus;
 use App\Http\Concerns\RecordsWebhookTelemetry;
 use App\Http\Concerns\VerifiesWebhookSignature;
 use App\Http\Controllers\Controller;
@@ -330,12 +331,16 @@ class WebhookController extends Controller
 
             $deployment = BranchDeployment::where('repository_id', $repo->id)
                 ->where('branch_name', $branch)
-                ->whereNotIn('status', ['destroying', 'destroyed'])
                 ->first();
 
             if ($deployment !== null) {
+                // pr_state is recorded even mid-teardown, so a redeploy queued
+                // by an earlier reopen sees that the PR is closed again.
                 $deployment->update(['pr_state' => $merged ? 'merged' : 'closed']);
-                DestroyDeploymentJob::dispatch($deployment->id);
+
+                if (! in_array($deployment->status, [DeploymentStatus::Destroying, DeploymentStatus::Destroyed], true)) {
+                    DestroyDeploymentJob::dispatch($deployment->id);
+                }
             }
         }
     }
