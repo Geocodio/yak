@@ -15,17 +15,19 @@ use Illuminate\Support\Str;
 /**
  * Serves an image from a review task's PR body. On a private repository a
  * `github.com/user-attachments/assets/{asset}` URL needs a browser session
- * on github.com, so the dashboard links here instead. GitHub's rendered PR
- * body holds a short-lived signed URL for each upload, which is fetched
- * with the app's token and streamed back.
+ * on github.com, so the dashboard links here instead. The task's stored PR
+ * body is rendered by GitHub with the app's token, which yields a
+ * short-lived signed URL for each upload, and the image is streamed back.
+ * Rendering the stored body keeps working after the author edits the PR
+ * and replaces its images.
  */
 class PullRequestImageController extends Controller
 {
     public function __invoke(YakTask $task, string $asset, AppService $github): Response
     {
         $context = json_decode((string) $task->context, true) ?: [];
-        $prNumber = (int) ($context['pr_number'] ?? 0);
-        abort_if($task->mode !== TaskMode::Review || $prNumber <= 0, 404);
+        $body = (string) ($context['body'] ?? '');
+        abort_if($task->mode !== TaskMode::Review || ! str_contains($body, $asset), 404);
 
         $repoFullName = Repository::where('slug', $task->repo)->value('github_full_name');
         abort_if($repoFullName === null, 404);
@@ -33,12 +35,12 @@ class PullRequestImageController extends Controller
         // The signed URLs expire after about five minutes, so the rendered
         // body is reused only briefly by the other images on the same page.
         $bodyHtml = Cache::remember(
-            "pr-body-html:{$repoFullName}:{$prNumber}",
+            "pr-body-html:{$task->id}",
             now()->addMinutes(3),
-            fn (): string => (string) $github->getPullRequestBodyHtml(
+            fn (): string => (string) $github->renderMarkdown(
                 (int) config('yak.channels.github.installation_id'),
                 $repoFullName,
-                $prNumber,
+                $body,
             ),
         );
 

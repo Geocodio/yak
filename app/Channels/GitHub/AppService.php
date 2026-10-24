@@ -198,23 +198,27 @@ class AppService
     }
 
     /**
-     * Fetch a pull request's body as GitHub renders it. Images uploaded to a
-     * private repository appear there as signed `private-user-images` URLs
-     * that load without a GitHub session for about five minutes.
+     * Render GitHub-flavoured Markdown in a repository's context. Images
+     * uploaded to a private repository appear in the result as signed
+     * `private-user-images` URLs that load without a GitHub session for
+     * about five minutes, including uploads no longer in the live PR body.
      */
-    public function getPullRequestBodyHtml(int $installationId, string $repoSlug, int $prNumber): ?string
+    public function renderMarkdown(int $installationId, string $repoSlug, string $markdown): ?string
     {
         $token = $this->getInstallationToken($installationId);
 
         $response = Http::withToken($token)
-            ->withHeaders(['Accept' => 'application/vnd.github.html+json'])
-            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}");
+            ->post('https://api.github.com/markdown', [
+                'text' => $markdown,
+                'mode' => 'gfm',
+                'context' => $repoSlug,
+            ]);
 
         if (! $response->successful()) {
             return null;
         }
 
-        return $response->json('body_html');
+        return $response->body();
     }
 
     /**

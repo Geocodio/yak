@@ -23,15 +23,18 @@ beforeEach(function () {
     $this->task = YakTask::factory()->create([
         'mode' => TaskMode::Review,
         'repo' => 'acme/app',
-        'context' => json_encode(['pr_number' => 42]),
+        'context' => json_encode([
+            'pr_number' => 42,
+            'body' => '![shot](https://github.com/user-attachments/assets/' . PR_IMAGE_ASSET . ')',
+        ]),
     ]);
 });
 
-test('streams the signed image from the rendered PR body', function () {
+test('streams the signed image from the rendered stored PR body', function () {
     $signedUrl = 'https://private-user-images.githubusercontent.com/1/2-' . PR_IMAGE_ASSET . '.png?jwt=abc&amp;x=1';
 
     Http::fake([
-        'api.github.com/repos/acme/app/pulls/42' => Http::response(['body_html' => '<p><img src="' . $signedUrl . '" alt="shot"></p>']),
+        'api.github.com/markdown' => Http::response('<p><img src="' . $signedUrl . '" alt="shot"></p>'),
         'private-user-images.githubusercontent.com/*' => Http::response('png-bytes', 200, ['Content-Type' => 'image/png']),
     ]);
 
@@ -40,12 +43,23 @@ test('streams the signed image from the rendered PR body', function () {
         ->assertHeader('Content-Type', 'image/png')
         ->assertContent('png-bytes');
 
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.github.com/markdown'
+        && $request['context'] === 'acme/app'
+        && str_contains($request['text'], PR_IMAGE_ASSET));
     Http::assertSent(fn ($request) => $request->url() === html_entity_decode($signedUrl));
 });
 
-test('returns 404 when the PR body has no such image', function () {
+test('returns 404 for an asset that is not in the stored PR body', function () {
+    Http::fake();
+
+    $this->get(route('tasks.pr-images.show', [$this->task, '00000000-0000-0000-0000-000000000000']))->assertNotFound();
+
+    Http::assertNothingSent();
+});
+
+test('returns 404 when the rendered body has no such image', function () {
     Http::fake([
-        'api.github.com/repos/acme/app/pulls/42' => Http::response(['body_html' => '<p>No images.</p>']),
+        'api.github.com/markdown' => Http::response('<p>No images.</p>'),
     ]);
 
     $this->get(route('tasks.pr-images.show', [$this->task, PR_IMAGE_ASSET]))->assertNotFound();
@@ -53,7 +67,7 @@ test('returns 404 when the PR body has no such image', function () {
 
 test('refuses a response that is not an image', function () {
     Http::fake([
-        'api.github.com/repos/acme/app/pulls/42' => Http::response(['body_html' => '<img src="https://private-user-images.githubusercontent.com/1/2-' . PR_IMAGE_ASSET . '.png?jwt=abc">']),
+        'api.github.com/markdown' => Http::response('<img src="https://private-user-images.githubusercontent.com/1/2-' . PR_IMAGE_ASSET . '.png?jwt=abc">'),
         'private-user-images.githubusercontent.com/*' => Http::response('<script>', 200, ['Content-Type' => 'text/html']),
     ]);
 
