@@ -315,7 +315,6 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         if ($manifest !== null) {
             $repository->preview_manifest = $manifest;
             $repository->save();
-            $this->openConfigPullRequest($repository, $manifest);
         }
 
         // Promote the setup container to a repo template with snapshot.
@@ -337,6 +336,12 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
         ]);
+
+        // The config PR opens only once the repository is ready, so the review
+        // its webhook queues finds a sandbox snapshot to run against.
+        if ($manifest !== null) {
+            $this->openConfigPullRequest($repository, $manifest);
+        }
 
         SendNotificationJob::dispatch($this->task, NotificationType::Result, "Repository {$repository->name} is set up. I can work on tasks there now.");
     }
