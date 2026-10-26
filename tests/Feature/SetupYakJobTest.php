@@ -807,6 +807,23 @@ test('setup opens a PR adding .yak/ files when the repository has none', functio
         && str_contains($request['body'], 'Yak already uses these values. Merging makes them reviewable here.'));
 });
 
+test('setup opens the config PR only after the repository is ready', function () {
+    $snapshotWhenPullRequestOpened = 'not opened';
+    Http::fake(function (Request $request) use (&$snapshotWhenPullRequestOpened) {
+        if ($request->method() === 'POST' && str_ends_with($request->url(), '/pulls')) {
+            $snapshotWhenPullRequestOpened = Repository::where('slug', 'cfg-repo')->value('sandbox_snapshot');
+        }
+
+        return null;
+    });
+    fakeYakFiles([]);
+    fakeGithubConfigPullRequestApi();
+
+    runSetupEmittingManifest();
+
+    expect($snapshotWhenPullRequestOpened)->not->toBeEmpty()->not->toBe('not opened');
+});
+
 test('setup opens no PR when .yak/ files already exist', function () {
     fakeYakFiles(['config.yml' => "version: 1\n"]);
     fakeGithubConfigPullRequestApi();
