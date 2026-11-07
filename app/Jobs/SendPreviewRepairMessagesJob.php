@@ -9,7 +9,7 @@ use Illuminate\Foundation\Queue\Queueable;
 
 /**
  * Sends a preview repair's messages off the path that triggered them: the
- * pull request opening, the reminder sweep, or the repair merging.
+ * pull request opening or the reminder sweep.
  */
 class SendPreviewRepairMessagesJob implements ShouldQueue
 {
@@ -21,7 +21,7 @@ class SendPreviewRepairMessagesJob implements ShouldQueue
     public array $backoff = [10, 60];
 
     /**
-     * @param  'repair_opened'|'verdict'|'reminder'|'rebuilt'  $event
+     * @param  'repair_opened'|'verdict'|'reminder'  $event
      */
     public function __construct(
         public int $previewRepairId,
@@ -42,7 +42,6 @@ class SendPreviewRepairMessagesJob implements ShouldQueue
             'repair_opened' => $messenger->repairOpened($previewRepair),
             'verdict' => $messenger->verdictReached($previewRepair),
             'reminder' => $messenger->reminder($previewRepair),
-            'rebuilt' => $messenger->rebuilt($previewRepair),
             default => null,
         };
     }

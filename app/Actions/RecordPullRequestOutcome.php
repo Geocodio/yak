@@ -3,8 +3,11 @@
 namespace App\Actions;
 
 use App\Facades\Telemetry;
+use App\Jobs\Deployments\ResolvePreviewRepairJob;
+use App\Models\PreviewRepair;
 use App\Models\PrReview;
 use App\Models\YakTask;
+use App\Services\PreviewRepair\PreviewFailureReporter;
 use DateTimeInterface;
 
 /**
@@ -63,9 +66,20 @@ class RecordPullRequestOutcome
             $review->update($updates);
         }
 
+        $root = $tasks->first();
+
+        // A merged preview repair fixes the previews it was opened for, so
+        // they are rebuilt, once, the first time the merge is recorded.
+        if ($merged && $root !== null && $root->source === PreviewFailureReporter::SOURCE && $stampedTaskIds->contains($root->id)) {
+            $previewRepairId = PreviewRepair::query()->where('yak_task_id', $root->id)->value('id');
+
+            if ($previewRepairId !== null) {
+                ResolvePreviewRepairJob::dispatch((int) $previewRepairId);
+            }
+        }
+
         // One outcome event per PR, on the task that opened it, only the
         // first time the outcome is recorded.
-        $root = $tasks->first();
         if ($root !== null && $stampedTaskIds->contains($root->id)) {
             $openedAt = $root->pr_opened_at ?? $root->completed_at ?? $root->created_at;
             $endedAt = $merged ? $mergedAt : $closedAt;

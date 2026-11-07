@@ -84,10 +84,13 @@ class PreviewRepairMessenger
         });
     }
 
-    public function rebuilt(PreviewRepair $previewRepair): void
+    /**
+     * @param  list<int>  $deploymentIds  the previews being rebuilt
+     */
+    public function rebuilt(PreviewRepair $previewRepair, array $deploymentIds): void
     {
-        $this->bestEffort(function () use ($previewRepair): void {
-            $attachments = $previewRepair->attachments()->with('deployment')->orderBy('id')->get();
+        $this->bestEffort(function () use ($previewRepair, $deploymentIds): void {
+            $attachments = $previewRepair->attachments()->with('deployment')->whereIn('branch_deployment_id', $deploymentIds)->orderBy('id')->get();
             $this->sendDirectMessages($previewRepair, $attachments, fn (array $deployments): array => PreviewRepairBlocks::rebuilt($previewRepair, $deployments), markNotified: false);
         });
     }

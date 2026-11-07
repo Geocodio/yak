@@ -130,9 +130,9 @@ class PreviewRepairBlocks
      */
     public static function rebuilt(PreviewRepair $previewRepair, array $deployments): array
     {
-        return self::message(self::previewsHeadline($deployments, 'is back', 'are back'), [
-            self::section('*' . self::escapedHeadline($deployments, 'is back', 'are back') . "*\n"
-                . 'The fix in ' . self::pullRequestLink($previewRepair) . ' merged and I rebuilt ' . (count($deployments) === 1 ? 'your preview.' : 'your previews.')),
+        return self::message(self::previewsHeadline($deployments, 'is rebuilding', 'are rebuilding'), [
+            self::section('*' . self::escapedHeadline($deployments, 'is rebuilding', 'are rebuilding') . "*\n"
+                . 'The fix in ' . self::pullRequestLink($previewRepair) . ' merged, so I am rebuilding ' . (count($deployments) === 1 ? 'your preview.' : 'your previews.')),
             self::actions(array_map(
                 fn (BranchDeployment $deployment): array => ['View the preview', 'preview_repair_view_preview_' . $deployment->id, route('deployments.show', $deployment)],
                 array_slice($deployments, 0, 5),
