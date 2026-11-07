@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Channels\GitHub\AppService;
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
+use Illuminate\Support\Str;
 
 class DeploymentGitHubSync
 {
@@ -73,7 +74,8 @@ class DeploymentGitHubSync
             state: $state,
             environmentUrl: $state === 'success' ? $environmentUrl : null,
             logUrl: null,
-            description: $newStatus === DeploymentStatus::Failed ? ($deployment->failure_reason ?? '') : '',
+            // GitHub rejects a status whose description is over 140 characters.
+            description: $newStatus === DeploymentStatus::Failed ? Str::limit((string) $deployment->failure_reason, 137) : '',
         );
 
         if ($newStatus === DeploymentStatus::Destroyed) {
