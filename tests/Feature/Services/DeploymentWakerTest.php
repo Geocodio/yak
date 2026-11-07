@@ -5,6 +5,7 @@ use App\Jobs\Deployments\WakeHibernatedDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Services\DeploymentContainerManager;
 use App\Services\DeploymentWaker;
+use App\Services\PreviewManifestResolver;
 use Illuminate\Support\Facades\Queue;
 
 it('returns ready with upstream for a running deployment', function () {
@@ -110,4 +111,21 @@ it('writes a lifecycle log when waking a hibernated deployment', function () {
     $log = $deployment->logs()->where('phase', 'lifecycle')->latest('id')->first();
     expect($log)->not->toBeNull();
     expect($log->message)->toContain('Waking');
+});
+
+it('serves on the port of the recipe the deployment last ran, without asking GitHub', function () {
+    $deployment = BranchDeployment::factory()->running()->create([
+        'pr_number' => 92,
+        'preview_manifest' => ['port' => 9100, 'health_probe_path' => '/up'],
+    ]);
+
+    $manager = Mockery::mock(DeploymentContainerManager::class);
+    $manager->shouldReceive('resolveContainerIp')->andReturn('10.0.0.5');
+    $this->app->instance(DeploymentContainerManager::class, $manager);
+    $resolver = Mockery::mock(PreviewManifestResolver::class);
+    $resolver->shouldNotReceive('for');
+    $resolver->shouldNotReceive('manifestFor');
+    $this->app->instance(PreviewManifestResolver::class, $resolver);
+
+    expect(app(DeploymentWaker::class)->ensureReady($deployment)['port'])->toBe(9100);
 });

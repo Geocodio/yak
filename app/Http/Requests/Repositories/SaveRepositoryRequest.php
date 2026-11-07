@@ -70,6 +70,7 @@ class SaveRepositoryRequest extends FormRequest
             'pr_review_policy.profile_max_age_days' => ['required_with:pr_review_policy', 'integer', 'between:1,90'],
             'apply_to_open_prs' => ['boolean'],
             'deployments_enabled' => ['boolean'],
+            'preview_repair_enabled' => ['sometimes', 'boolean'],
             'path_excludes' => ['nullable', 'array'],
             'path_excludes.*' => ['string', 'regex:#^[A-Za-z0-9_./*?\-]+$#'],
             'selected_github_repo' => ['nullable', 'string', 'max:255'],

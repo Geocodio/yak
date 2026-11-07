@@ -5,6 +5,7 @@ use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
 use App\Services\DeploymentContainerManager;
+use App\Services\PreviewManifestResolver;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -495,4 +496,20 @@ it('probes the port from .yak/preview.yml over the stored manifest', function ()
     app(DeploymentContainerManager::class)->start($deployment);
 
     Http::assertSent(fn ($request) => $request->url() === 'http://10.0.0.42:8080/up');
+});
+
+it('keeps the recipe a refresh ran on the deployment', function () {
+    Process::fake([
+        'incus exec * -- test -f /workspace/.yak/preview.sh' => Process::result(exitCode: 1),
+        'incus exec *' => Process::result(exitCode: 0),
+    ]);
+    config()->set('yak.channels.github.installation_id', 0);
+    $resolver = Mockery::mock(PreviewManifestResolver::class);
+    $resolver->shouldReceive('manifestFor')->with(Mockery::any(), 'sha123')->andReturn(['port' => 9100, 'checkout_refresh' => 'true']);
+    $this->app->instance(PreviewManifestResolver::class, $resolver);
+    $deployment = BranchDeployment::factory()->running()->create(['container_name' => 'deploy-snapshot']);
+
+    app(DeploymentContainerManager::class)->applyCheckoutRefresh($deployment, 'sha123');
+
+    expect($deployment->fresh()->preview_manifest)->toBe(['port' => 9100, 'checkout_refresh' => 'true']);
 });

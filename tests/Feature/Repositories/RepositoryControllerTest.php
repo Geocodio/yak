@@ -591,6 +591,32 @@ test('deployments_enabled toggle persists', function () {
     expect($repo->fresh()->deployments_enabled)->toBeTrue();
 });
 
+test('saves the preview repair switch', function () {
+    $repo = Repository::factory()->create(['deployments_enabled' => true]);
+
+    $this->patch(route('repos.update', $repo), array_merge(baseRepoPayload($repo), [
+        'deployments_enabled' => true,
+        'preview_repair_enabled' => false,
+    ]))->assertRedirect();
+
+    expect($repo->fresh()->preview_repair_enabled)->toBeFalse();
+});
+
+test('keeps the preview repair switch when the payload leaves it out', function () {
+    $repo = Repository::factory()->create(['preview_repair_enabled' => false]);
+
+    $this->patch(route('repos.update', $repo), baseRepoPayload($repo))->assertRedirect();
+
+    expect($repo->fresh()->preview_repair_enabled)->toBeFalse();
+});
+
+test('the settings page exposes the preview repair switch', function () {
+    $repo = Repository::factory()->create(['preview_repair_enabled' => false]);
+
+    $this->get(route('repos.edit', $repo))
+        ->assertInertia(fn (Assert $page) => $page->where('repository.previewRepairEnabled', false));
+});
+
 test('enabling pr review with apply_to_open_prs enqueues review tasks', function () {
     config(['yak.channels.github.installation_id' => 12345]);
     config(['yak.channels.github.app_bot_login' => 'yak-bot[bot]']);

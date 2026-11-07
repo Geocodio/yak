@@ -215,6 +215,7 @@ class RepositoryController extends Controller
             ...(isset($validated['pr_review_policy']) ? ['pr_review_policy' => $validated['pr_review_policy']] : []),
             'pr_review_path_excludes' => $validated['path_excludes'] ?? null,
             'deployments_enabled' => $validated['deployments_enabled'] ?? false,
+            ...(array_key_exists('preview_repair_enabled', $validated) ? ['preview_repair_enabled' => (bool) $validated['preview_repair_enabled']] : []),
         ];
     }
 
@@ -242,6 +243,7 @@ class RepositoryController extends Controller
             'riskProfiles' => app(RepositoryRiskProfiles::class)->forSettings($repository->slug),
             'riskProfileActionUrl' => route('repos.risk-profile', $repository),
             'deploymentsEnabled' => (bool) $repository->deployments_enabled,
+            'previewRepairEnabled' => (bool) $repository->preview_repair_enabled,
             'pathExcludes' => $repository->pr_review_path_excludes,
             'githubFullName' => $repository->github_full_name,
             'githubUrl' => $repository->githubUrl(),

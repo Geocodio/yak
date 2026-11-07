@@ -74,6 +74,14 @@ class PromptDefinitions
                 'type' => 'task',
                 'variables' => ['testClass', 'testMethod', 'failureOutput', 'buildUrl'],
             ],
+            'tasks-preview-repair' => [
+                'view' => 'prompts.tasks.preview-repair',
+                'label' => 'Preview Repair',
+                'description' => 'Sent when a branch preview fails to start. Gives Claude the failed step, its output and the preview recipe, asks it to decide whether the branch, the shared recipe or Yak is at fault, and to commit a fix only for a broken recipe.',
+                'category' => 'high_touch',
+                'type' => 'task',
+                'variables' => ['branchName', 'pullRequestNumber', 'headSha', 'phase', 'failingCommand', 'errorExcerpt', 'manifest'],
+            ],
             'tasks-setup' => [
                 'view' => 'prompts.tasks.setup',
                 'label' => 'Setup',

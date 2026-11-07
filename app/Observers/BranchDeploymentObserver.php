@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Enums\DeploymentStatus;
 use App\Facades\Telemetry;
+use App\Jobs\Deployments\ReportPreviewFailureJob;
 use App\Models\BranchDeployment;
 use App\Services\DeploymentGitHubSync;
 use Illuminate\Support\Facades\Log;
@@ -21,10 +22,19 @@ class BranchDeploymentObserver
         $original = $deployment->getOriginal('status');
         $from = $original instanceof DeploymentStatus ? $original : DeploymentStatus::tryFrom((string) $original);
 
-        // Duration is how long the previous status lasted, so time-to-ready
-        // (starting -> running) and time hibernated fall out of the same event.
-        $previousChange = $deployment->getOriginal('updated_at');
+        $this->statusChanged($deployment, $from, $deployment->getOriginal('updated_at'));
+    }
 
+    /**
+     * Records a status change and mirrors it to GitHub.
+     *
+     * Jobs that move a deployment past the state machine with a raw update
+     * call this directly, so their transitions are seen like any other.
+     * Duration is how long the previous status lasted, so time-to-ready
+     * (starting -> running) and time hibernated fall out of the same event.
+     */
+    public function statusChanged(BranchDeployment $deployment, ?DeploymentStatus $from, mixed $previousChange): void
+    {
         Telemetry::record('deployment.status_changed', [
             'from' => $from?->value,
             'to' => $deployment->status->value,
@@ -45,6 +55,17 @@ class BranchDeploymentObserver
                 'new_status' => $deployment->status->value,
                 'error' => $e->getMessage(),
             ]);
+        }
+
+        if ($deployment->status === DeploymentStatus::Failed) {
+            try {
+                ReportPreviewFailureJob::dispatch($deployment->id);
+            } catch (\Throwable $e) {
+                Log::warning('Preview failure report was not queued', [
+                    'deployment_id' => $deployment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 }

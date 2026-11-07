@@ -11,7 +11,9 @@ use Illuminate\Support\Facades\Cache;
 
 class DeploymentWaker
 {
-    public function __construct(private readonly DeploymentContainerManager $manager) {}
+    public function __construct(
+        private readonly DeploymentContainerManager $manager,
+    ) {}
 
     /**
      * Decide whether the deployment is ready for traffic right now.
@@ -97,6 +99,6 @@ class DeploymentWaker
 
     private function manifestPort(BranchDeployment $deployment): int
     {
-        return PreviewManifest::fromArray($deployment->repository->settings()->previewManifest())->port;
+        return PreviewManifest::fromArray($deployment->preview_manifest ?? $deployment->repository->settings()->previewManifest())->port;
     }
 }

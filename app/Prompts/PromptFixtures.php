@@ -148,6 +148,25 @@ class PromptFixtures
                     ],
                 ],
             ],
+            'tasks-preview-repair' => [
+                [
+                    'label' => 'Recipe builds a removed Dockerfile',
+                    'data' => [
+                        'branchName' => 'update-pricing-page-design',
+                        'pullRequestNumber' => 92,
+                        'headSha' => '4cd838f1e9e414d09ac1452aefabcc86d5cce58c',
+                        'phase' => 'refresh',
+                        'failingCommand' => '$ cd /workspace && docker build -t acme/site:main . && docker compose up -d --force-recreate web',
+                        'errorExcerpt' => "#1 [internal] load build definition from Dockerfile\nERROR: failed to build: failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory",
+                        'manifest' => [
+                            'port' => 8090,
+                            'health_probe_path' => '/up',
+                            'cold_start' => 'cd /workspace && docker compose up -d',
+                            'checkout_refresh' => 'cd /workspace && docker build -t acme/site:main . && docker compose up -d --force-recreate web',
+                        ],
+                    ],
+                ],
+            ],
             'tasks-setup' => [
                 [
                     'label' => 'Laravel project',

@@ -70,6 +70,7 @@ class YakPromptBuilder
         return match ($task->source) {
             'sentry' => self::sentryFixPrompt($metadata, $otherRepositories),
             'flaky-test' => self::flakyTestPrompt($metadata, $otherRepositories),
+            'preview-repair' => self::previewRepairPrompt($metadata),
             'linear' => self::linearFixPrompt($metadata, $task->description ?? '', $otherRepositories),
             'research' => self::researchPrompt($task->description ?? ''),
             'slack' => self::slackFixPrompt($task->description ?? '', $metadata, $otherRepositories),
@@ -239,6 +240,22 @@ class YakPromptBuilder
             'tests' => self::flakyTestEntries($metadata),
             'commitSha' => (string) ($metadata['commit_sha'] ?? ''),
             'otherRepositories' => $otherRepositories,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private static function previewRepairPrompt(array $metadata): string
+    {
+        return Prompts::render('tasks-preview-repair', [
+            'branchName' => (string) ($metadata['branch_name'] ?? ''),
+            'pullRequestNumber' => $metadata['pr_number'] ?? null,
+            'headSha' => (string) ($metadata['head_sha'] ?? ''),
+            'phase' => (string) ($metadata['phase'] ?? ''),
+            'failingCommand' => (string) ($metadata['failing_command'] ?? ''),
+            'errorExcerpt' => (string) ($metadata['error_excerpt'] ?? ''),
+            'manifest' => is_array($metadata['manifest'] ?? null) ? $metadata['manifest'] : [],
         ]);
     }
 

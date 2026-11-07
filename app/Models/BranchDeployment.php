@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $idle_timeout_minutes
  * @property CarbonImmutable|null $last_accessed_at
  * @property CarbonImmutable|null $public_share_expires_at
+ * @property array<string, mixed>|null $preview_manifest
  * @property-read Repository $repository
  */
 #[ObservedBy([BranchDeploymentObserver::class])]
@@ -59,6 +60,7 @@ class BranchDeployment extends Model
             'template_version' => 'integer',
             'pr_number' => 'integer',
             'dirty' => 'boolean',
+            'preview_manifest' => 'array',
             'long_lived' => 'boolean',
             'idle_timeout_minutes' => 'integer',
             'last_accessed_at' => 'datetime',
