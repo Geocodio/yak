@@ -26,7 +26,16 @@ class UpdateDeploymentJob implements ShouldQueue
 
         if ($deployment->status === DeploymentStatus::Running) {
             DeploymentLog::record($deployment, 'info', 'lifecycle', "Refreshing to {$this->commitSha}");
-            $manager->applyCheckoutRefresh($deployment, $this->commitSha);
+
+            // A failed refresh leaves the preview running on its previous
+            // commit, so it is reported here rather than through a status change.
+            try {
+                $manager->applyCheckoutRefresh($deployment, $this->commitSha);
+            } catch (\Throwable $e) {
+                ReportPreviewFailureJob::dispatch($deployment->id, $e->getMessage());
+
+                throw $e;
+            }
 
             return;
         }

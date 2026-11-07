@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Enums\DeploymentStatus;
 use App\Facades\Telemetry;
+use App\Jobs\Deployments\ReportPreviewFailureJob;
 use App\Models\BranchDeployment;
 use App\Services\DeploymentGitHubSync;
 use Illuminate\Support\Facades\Log;
@@ -54,6 +55,17 @@ class BranchDeploymentObserver
                 'new_status' => $deployment->status->value,
                 'error' => $e->getMessage(),
             ]);
+        }
+
+        if ($deployment->status === DeploymentStatus::Failed) {
+            try {
+                ReportPreviewFailureJob::dispatch($deployment->id);
+            } catch (\Throwable $e) {
+                Log::warning('Preview failure report was not queued', [
+                    'deployment_id' => $deployment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 }
