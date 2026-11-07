@@ -62,6 +62,7 @@ type FormData = {
     pr_review_policy: ReviewPolicy;
     apply_to_open_prs: boolean;
     deployments_enabled: boolean;
+    preview_repair_enabled: boolean;
     path_excludes: string[] | null;
     slug: string;
     path: string;
@@ -309,6 +310,7 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
         pr_review_policy: repository?.reviewPolicy ?? options.defaultReviewPolicy,
         apply_to_open_prs: true,
         deployments_enabled: repository?.deploymentsEnabled ?? false,
+        preview_repair_enabled: repository?.previewRepairEnabled ?? true,
         path_excludes: repository?.pathExcludes ?? null,
         slug: repository?.slug ?? '',
         path: repository?.path ?? '',
@@ -729,6 +731,14 @@ export default function Form({ repository, options, manifest, sandbox, setupHist
                                 description="Serve a preview deployment for every open PR branch on this repo, each in its own isolated container that hibernates when idle."
                                 checked={form.data.deployments_enabled}
                                 onChange={(v) => form.setData('deployments_enabled', v)}
+                            />
+                        )}
+                        {isEditing && form.data.deployments_enabled && (
+                            <ToggleRow
+                                label="Investigate failed previews"
+                                description="When a preview fails, Yak looks into it and opens a pull request if the shared preview setup is broken. It tells the PR author and posts in #feed-yak."
+                                checked={form.data.preview_repair_enabled}
+                                onChange={(v) => form.setData('preview_repair_enabled', v)}
                             />
                         )}
                     </Section>

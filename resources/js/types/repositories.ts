@@ -32,6 +32,7 @@ export type RepositoryDetail = {
     sentryProject: string | null;
     prReviewEnabled: boolean;
     deploymentsEnabled: boolean;
+    previewRepairEnabled: boolean;
     pathExcludes: string[] | null;
     githubFullName: string;
     githubUrl: string | null;
