@@ -8,10 +8,12 @@ use App\Enums\TaskMode;
 use App\Facades\Telemetry;
 use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
+use App\Models\PreviewRepair;
 use App\Models\Repository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\CoOwner\CoOwnerGate;
+use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\PullRequestBodySections;
 use App\Services\PullRequestBodyUpdater;
 use App\Services\PullRequestTitle;
@@ -187,6 +189,8 @@ class CreatePullRequestJob implements ShouldQueue
 
     private function recordOpened(mixed $prNumber, CarbonInterface $openedAt): void
     {
+        $this->announcePreviewRepair();
+
         // Request-to-PR is the headline delivery latency on the Analytics page.
         Telemetry::record('pr.opened', [
             'pr_number' => (int) $prNumber,
@@ -195,6 +199,23 @@ class CreatePullRequestJob implements ShouldQueue
         ], task: $this->task, durationMs: $this->task->created_at !== null
             ? max(0, $openedAt->getTimestampMs() - $this->task->created_at->getTimestampMs())
             : null);
+    }
+
+    /**
+     * A preview repair's pull request now exists, so the people whose
+     * previews it fixes can be told about it.
+     */
+    private function announcePreviewRepair(): void
+    {
+        if ($this->task->source !== PreviewFailureReporter::SOURCE) {
+            return;
+        }
+
+        $previewRepairId = PreviewRepair::query()->where('yak_task_id', $this->task->id)->value('id');
+
+        if ($previewRepairId !== null) {
+            SendPreviewRepairMessagesJob::dispatch((int) $previewRepairId, 'repair_opened');
+        }
     }
 
     private function bestEffort(\Closure $call): void

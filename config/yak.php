@@ -324,6 +324,11 @@ return [
             // Channel ID (e.g. "C0123ABCD") that receives health check alerts,
             // such as an expired Claude session. The bot must be a member.
             'alert_channel' => env('YAK_SLACK_ALERT_CHANNEL'),
+
+            // Channel ID that receives preview repair posts: a repair pull
+            // request opened, previews still failing, investigations paused.
+            // The bot must be a member. Blank skips the posts.
+            'feed_channel' => env('YAK_SLACK_FEED_CHANNEL', ''),
         ],
 
         'linear' => [

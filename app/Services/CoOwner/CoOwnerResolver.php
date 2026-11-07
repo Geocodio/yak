@@ -8,6 +8,7 @@ use App\Models\CoOwnerRequest;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\GitHubUserResolver;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -110,11 +111,7 @@ class CoOwnerResolver
         }
 
         if (preg_match('/^@[A-Za-z0-9_.-]+$/', $entry) === 1) {
-            $candidates = array_values(User::query()
-                ->whereNotNull('github_id')
-                ->whereRaw('lower(github_login) = ?', [mb_strtolower(substr($entry, 1))])
-                ->get()
-                ->all());
+            $candidates = app(GitHubUserResolver::class)->allByLogin(substr($entry, 1));
 
             return $this->classify($repository, 'login', $candidates, $skipUserIds, $limit);
         }
