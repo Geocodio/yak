@@ -67,6 +67,7 @@ class Repository extends Model
             'pr_review_path_excludes' => 'array',
             'pr_review_policy' => 'array',
             'deployments_enabled' => 'boolean',
+            'preview_repair_enabled' => 'boolean',
             'preview_manifest' => 'array',
             'preview_env_overrides' => 'array',
             'current_template_version' => 'integer',
@@ -201,5 +202,13 @@ class Repository extends Model
     public function branchDeployments(): HasMany
     {
         return $this->hasMany(BranchDeployment::class);
+    }
+
+    /**
+     * @return HasMany<PreviewRepair, $this>
+     */
+    public function previewRepairs(): HasMany
+    {
+        return $this->hasMany(PreviewRepair::class);
     }
 }
