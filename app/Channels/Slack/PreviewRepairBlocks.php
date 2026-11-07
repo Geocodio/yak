@@ -11,8 +11,8 @@ use App\Models\Repository;
  *
  * Every message is fixed copy. Branch names, the cause the investigation
  * wrote and command output are untrusted and go through SlackText::escape.
- * Each builder returns the plain headline (the notification text) and the
- * blocks.
+ * Each builder returns the headline, escaped for the notification text,
+ * and the blocks.
  */
 class PreviewRepairBlocks
 {
@@ -222,7 +222,7 @@ class PreviewRepairBlocks
      */
     private static function message(string $text, array $blocks): array
     {
-        return ['text' => $text, 'blocks' => array_values(array_filter($blocks))];
+        return ['text' => SlackText::escape($text), 'blocks' => array_values(array_filter($blocks))];
     }
 
     /**

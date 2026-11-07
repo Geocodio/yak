@@ -144,3 +144,12 @@ it('dispatches the repair message once the pull request exists', function () {
     Queue::assertPushed(SendPreviewRepairMessagesJob::class, fn (SendPreviewRepairMessagesJob $job) => $job->previewRepairId === $this->previewRepair->id
         && $job->event === 'repair_opened');
 });
+
+it('escapes the branch name in the notification text', function () {
+    $this->previewRepair->update(['verdict' => PreviewRepairVerdict::Branch, 'cause' => 'x']);
+    attachFailedPreview($this->previewRepair, '<!channel>');
+
+    app(PreviewRepairMessenger::class)->verdictReached($this->previewRepair);
+
+    expect(collect(slackPosts())->first()['text'])->not->toContain('<!channel>');
+});
