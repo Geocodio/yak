@@ -3,10 +3,12 @@
 namespace App\Jobs;
 
 use App\Agents\ClaudeCodeOutputParser;
+use App\Channels\Slack\PreviewRepairMessenger;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
+use App\Enums\PreviewRepairVerdict;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
@@ -24,10 +26,12 @@ use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
+use App\Models\PreviewRepair;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\ArtifactPersister;
 use App\Services\IncusSandboxManager;
+use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
@@ -369,6 +373,12 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
             $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
 
+            if ($this->task->source === PreviewFailureReporter::SOURCE && ! $this->acceptsPreviewRepairFix($result, $hasCommits)) {
+                $this->completeWithoutChanges($result, $recorder);
+
+                return;
+            }
+
             if (! $hasCommits) {
                 // Dirty tree + no commits means the agent edited files but
                 // forgot to `git add && git commit` before returning. Treat
@@ -384,19 +394,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 // Clean tree + no commits: the agent legitimately answered
                 // without writing code. Artifacts were already persisted
                 // in the main handle() flow above. Skip push + CI.
-                $recorder->noChanges();
-
-                $this->task->update([
-                    'status' => TaskStatus::Success,
-                    'completed_at' => now(),
-                    'result_summary' => $result->resultSummary,
-                    'model_used' => config('yak.default_model'),
-                ]);
-
-                TaskLogger::info($this->task, 'Answered without code changes');
-
-                $message = YakPersonality::generate(NotificationType::Result, $result->resultSummary);
-                SendNotificationJob::dispatch($this->task, NotificationType::Result, $message);
+                $this->completeWithoutChanges($result, $recorder);
 
                 return;
             }
@@ -428,6 +426,58 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
+    }
+
+    private function completeWithoutChanges(AgentRunResult $result, RunRecorder $recorder): void
+    {
+        $recorder->noChanges();
+
+        $this->task->update([
+            'status' => TaskStatus::Success,
+            'completed_at' => now(),
+            'result_summary' => $result->resultSummary,
+            'model_used' => config('yak.default_model'),
+        ]);
+
+        TaskLogger::info($this->task, 'Answered without code changes');
+
+        $message = YakPersonality::generate(NotificationType::Result, $result->resultSummary);
+        SendNotificationJob::dispatch($this->task, NotificationType::Result, $message);
+    }
+
+    /**
+     * Records a preview repair task's verdict and says whether its commits
+     * become a pull request.
+     *
+     * Only a broken shared recipe with a committed fix goes on to push. Any
+     * other verdict, a missing verdict, or a recipe verdict without commits
+     * ends here: commits made anyway stay unpushed, and the messenger tells
+     * the right people what the investigation found.
+     */
+    private function acceptsPreviewRepairFix(AgentRunResult $result, bool $hasCommits): bool
+    {
+        $parsed = ClaudeCodeOutputParser::extractPreviewRepairVerdict($result->resultSummary);
+        $verdict = $parsed['verdict'] === PreviewRepairVerdict::Recipe && ! $hasCommits
+            ? PreviewRepairVerdict::Unknown
+            : $parsed['verdict'];
+
+        $context = json_decode((string) $this->task->context, true);
+        $previewRepair = PreviewRepair::find(is_array($context) ? ($context['preview_repair_id'] ?? null) : null);
+        $previewRepair?->update(['verdict' => $verdict, 'cause' => $parsed['cause'] !== '' ? $parsed['cause'] : null]);
+
+        if ($verdict === PreviewRepairVerdict::Recipe) {
+            return true;
+        }
+
+        if ($hasCommits) {
+            TaskLogger::info($this->task, 'Dropped commits: the preview repair verdict is not a broken recipe', ['verdict' => $verdict->value]);
+        }
+
+        if ($previewRepair !== null) {
+            app(PreviewRepairMessenger::class)->verdictReached($previewRepair);
+        }
+
+        return false;
     }
 
     /**

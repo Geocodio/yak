@@ -5,6 +5,7 @@ namespace App\Agents;
 use App\DataTransferObjects\AgentRunResult;
 use App\DataTransferObjects\ClarificationQuestion;
 use App\DataTransferObjects\RunUsage;
+use App\Enums\PreviewRepairVerdict;
 
 class ClaudeCodeOutputParser
 {
@@ -60,6 +61,36 @@ class ClaudeCodeOutputParser
         $decoded = json_decode(trim($m[1]), true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Extract a preview repair task's verdict from a fenced preview_repair code block.
+     *
+     * A missing block, invalid JSON, or a verdict that is not one of recipe,
+     * branch, infrastructure or unknown counts as unknown, so a malformed
+     * answer never opens a pull request.
+     *
+     * @return array{verdict: PreviewRepairVerdict, cause: string, introduced_by: string|null}
+     */
+    public static function extractPreviewRepairVerdict(string $resultText): array
+    {
+        $decoded = preg_match('/```preview_repair\s*\n(.+?)\n```/s', $resultText, $m) === 1
+            ? json_decode(trim($m[1]), true)
+            : null;
+
+        $verdict = is_array($decoded) ? PreviewRepairVerdict::tryFrom((string) ($decoded['verdict'] ?? '')) : null;
+
+        if ($verdict === null || $verdict === PreviewRepairVerdict::Pending) {
+            return ['verdict' => PreviewRepairVerdict::Unknown, 'cause' => '', 'introduced_by' => null];
+        }
+
+        $introducedBy = $decoded['introduced_by'] ?? null;
+
+        return [
+            'verdict' => $verdict,
+            'cause' => trim((string) ($decoded['cause'] ?? '')),
+            'introduced_by' => is_string($introducedBy) && $introducedBy !== '' ? $introducedBy : null,
+        ];
     }
 
     /**

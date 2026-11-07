@@ -36,6 +36,11 @@ class TaskTrigger
                     array_values($context['tests'] ?? []),
                 ),
             ],
+            'preview-repair' => [
+                'label' => 'Failed preview of ' . ($context['branch_name'] ?? 'a branch'),
+                'url' => $task->external_url,
+                'lines' => ($context['error_excerpt'] ?? '') !== '' ? [['text' => (string) collect(explode("\n", (string) $context['error_excerpt']))->map(fn (string $line): string => trim($line))->filter()->last(), 'url' => null]] : [],
+            ],
             default => null,
         };
     }
