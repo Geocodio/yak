@@ -14,14 +14,16 @@
 
 # Redis holds the queue, so it writes every change to an append-only
 # file and refuses to evict keys: a restart or memory pressure must
-# never drop a queued job.
+# never drop a queued job. Queue payloads are serialized PHP that the
+# workers run, so Redis always requires a password: sandboxes share the
+# host's network path to the Docker bridge.
 - name: Run Redis container
   community.docker.docker_container:
     name: "{{ redis_container_name }}"
     image: "redis:7-alpine"
     state: started
     restart_policy: unless-stopped
-    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    command: redis-server --appendonly yes --maxmemory-policy noeviction --requirepass "{{ redis_password }}"
     volumes:
       - "{{ redis_data_path }}:/data"
     networks:

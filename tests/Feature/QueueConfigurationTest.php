@@ -22,6 +22,10 @@ test('database queue retry_after defaults above the longest job timeout', functi
     expect(config('queue.connections.database.retry_after'))->toBe(7800);
 });
 
+test('redis queue retry_after defaults above the longest job timeout', function () {
+    expect(config('queue.connections.redis.retry_after'))->toBe(7800);
+});
+
 /*
 |--------------------------------------------------------------------------
 | yak-claude Queue Jobs

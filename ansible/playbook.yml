@@ -64,6 +64,7 @@
           - google_oauth_client_id is defined and google_oauth_client_id | length > 0
           - google_oauth_client_secret is defined and google_oauth_client_secret | length > 0
           - google_oauth_allowed_domains is defined and google_oauth_allowed_domains | length > 0
+          - redis_password is defined and redis_password | length > 0
         fail_msg: "Required variables are missing. Check vault/secrets.yml."
       tags: always
 
