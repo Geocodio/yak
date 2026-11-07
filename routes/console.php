@@ -24,7 +24,7 @@ Schedule::command('yak:healthcheck')->everyFifteenMinutes();
 Schedule::command('yak:scan-ci')->everyTwoHours()->withoutOverlapping();
 Schedule::command('yak:observations:prune')->daily();
 Schedule::command('yak:telemetry:prune')->daily();
-Schedule::command('telemetry:flush')->everyMinute()->withoutOverlapping();
+Schedule::command('telemetry:flush')->everyMinute()->withoutOverlapping(5);
 Schedule::command('yak:reconcile-pr-state')->hourly()->withoutOverlapping();
 Schedule::command('yak:poll-drone-ci')->everyMinute()->withoutOverlapping();
 Schedule::job(PollPullRequestReactionsJob::class)->hourly()->name('poll-pr-reactions');

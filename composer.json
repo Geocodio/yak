@@ -11,10 +11,10 @@
     "require": {
         "php": "^8.3",
         "artisan-build/fat-enums": "^1.0",
-        "cboxdk/laravel-queue-metrics": "*",
-        "cboxdk/laravel-telemetry": "*",
+        "cboxdk/laravel-queue-metrics": "^3.5",
+        "cboxdk/laravel-telemetry": "^3.9",
         "cboxdk/laravel-telemetry-ui": "^3.5",
-        "cboxdk/system-metrics": "*",
+        "cboxdk/system-metrics": "^3.1",
         "inertiajs/inertia-laravel": "^3.3",
         "laravel/ai": "*",
         "laravel/fortify": "^1.34",

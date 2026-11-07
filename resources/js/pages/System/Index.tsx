@@ -333,7 +333,7 @@ export default function Index({ telemetryBase }: PageProps<SystemPageProps>) {
 
                         <Section
                             title="Queues"
-                            note="Redis queue, 11 workers under supervisord"
+                            note="Backlog, wait time and workers for each Redis queue"
                             testId="system-queues"
                         >
                             <div className="flex flex-col gap-3">

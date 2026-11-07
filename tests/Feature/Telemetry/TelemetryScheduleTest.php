@@ -7,5 +7,7 @@ it('flushes telemetry every minute', function () {
         ->first(fn ($event) => str_contains($event->command ?? '', 'telemetry:flush'));
 
     expect($event)->not->toBeNull()
-        ->and($event->expression)->toBe('* * * * *');
+        ->and($event->expression)->toBe('* * * * *')
+        ->and($event->withoutOverlapping)->toBeTrue()
+        ->and($event->expiresAt)->toBe(5);
 });

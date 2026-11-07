@@ -23,9 +23,7 @@ it('lets signed-in users read the telemetry api', function () {
 });
 
 it('blocks guests from the telemetry api', function () {
-    $status = $this->get('/telemetry-ui/api/v2/bootstrap')->getStatusCode();
-
-    expect($status)->not->toBe(200);
+    $this->get('/telemetry-ui/api/v2/bootstrap')->assertForbidden();
 });
 
 it('declares the panels the system page embeds', function (string $panel) {
