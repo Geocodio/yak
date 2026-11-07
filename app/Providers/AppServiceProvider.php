@@ -30,6 +30,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // spatie/laravel-prometheus (pulled in by laravel-queue-metrics) serves
+        // an unauthenticated /prometheus route by default. Yak exports metrics
+        // through laravel-telemetry instead, so the route stays off. This runs
+        // in register() because the route is added while that package boots.
+        config(['prometheus.enabled' => false]);
+
         $this->app->singleton(IncusSandboxManager::class);
 
         $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
