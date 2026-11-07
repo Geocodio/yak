@@ -6,6 +6,7 @@ use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\DeploymentStatus;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
+use App\Observers\BranchDeploymentObserver;
 use App\Services\DeploymentContainerManager;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -28,18 +29,14 @@ class RebuildDeploymentJob implements ShouldQueue
         $deployment = BranchDeployment::with('repository')->findOrFail($this->deploymentId);
 
         try {
-            BranchDeployment::query()->where('id', $deployment->id)->update(['status' => DeploymentStatus::Destroying->value]);
-            $deployment->refresh();
+            $this->transition($deployment, DeploymentStatus::Destroying);
 
             DeploymentLog::record($deployment, 'info', 'lifecycle', 'Destroying container for rebuild');
             $manager->destroy($deployment);
 
-            $deployment->template_version = (int) $deployment->repository->current_template_version;
-            BranchDeployment::query()->where('id', $deployment->id)->update([
-                'status' => DeploymentStatus::Starting->value,
-                'template_version' => $deployment->template_version,
+            $this->transition($deployment, DeploymentStatus::Starting, [
+                'template_version' => (int) $deployment->repository->current_template_version,
             ]);
-            $deployment->refresh();
 
             DeploymentLog::record($deployment, 'info', 'lifecycle', 'Cloning template snapshot v' . $deployment->template_version);
             $manager->createFromTemplate($deployment);
@@ -53,13 +50,30 @@ class RebuildDeploymentJob implements ShouldQueue
 
             DeploymentLog::record($deployment, 'info', 'lifecycle', 'Deployment ready');
         } catch (Throwable $e) {
-            BranchDeployment::query()->where('id', $deployment->id)->update([
-                'status' => DeploymentStatus::Failed->value,
+            $this->transition($deployment, DeploymentStatus::Failed, [
                 'failure_reason' => 'rebuild: ' . $e->getMessage(),
             ]);
             DeploymentLog::record($deployment, 'error', 'lifecycle', 'Rebuild failed: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Moves the deployment to a status with a raw update, because a rebuild
+     * passes through Destroying to Starting and Failed, which the state
+     * machine does not allow, then reports the change through the observer.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function transition(BranchDeployment $deployment, DeploymentStatus $status, array $attributes = []): void
+    {
+        $from = $deployment->status;
+        $previousChange = $deployment->updated_at;
+
+        BranchDeployment::query()->where('id', $deployment->id)->update(['status' => $status->value, ...$attributes]);
+        $deployment->refresh();
+
+        app(BranchDeploymentObserver::class)->statusChanged($deployment, $from, $previousChange);
     }
 
     /**
