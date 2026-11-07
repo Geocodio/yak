@@ -31,13 +31,10 @@ class PreviewRepairFactory extends Factory
 
     public function recipeWithOpenPullRequest(): static
     {
-        return $this->state(fn (array $attributes): array => [
+        return $this->state(fn (): array => [
             'verdict' => PreviewRepairVerdict::Recipe,
             'cause' => 'The recipe builds a Dockerfile the repository no longer has.',
-            'yak_task_id' => YakTask::factory()->success()->state([
-                'source' => 'preview-repair',
-                'repo' => is_int($attributes['repository_id']) ? Repository::find($attributes['repository_id'])?->slug : null,
-            ]),
+            'yak_task_id' => YakTask::factory()->success()->state(['source' => 'preview-repair']),
         ]);
     }
 
