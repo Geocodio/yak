@@ -80,7 +80,7 @@ export function TaskSummary({ task }: { task: TaskDetail }) {
             {task.trigger && (
                 <div className="mt-3 flex gap-3 text-[12px]" data-testid="task-trigger">
                     <span className="shrink-0 text-faint">Triggered by</span>
-                    <div className="min-w-0">
+                    <div className="min-w-0 wrap-break-word">
                         {task.trigger.url ? (
                             <a href={task.trigger.url} target="_blank" rel="noopener noreferrer" className="text-accent-text hover:underline">
                                 {task.trigger.label}
