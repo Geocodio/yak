@@ -2,7 +2,6 @@
 
 use App\Models\TaskRun;
 use App\Models\TelemetryEvent;
-use Illuminate\Support\Facades\DB;
 
 test('prune deletes events older than the retention window and keeps runs', function () {
     config(['yak.telemetry.retention_days' => 30]);
@@ -17,33 +16,6 @@ test('prune deletes events older than the retention window and keeps runs', func
 
     expect(TelemetryEvent::count())->toBe(1)
         ->and(TaskRun::count())->toBe(1);
-});
-
-test('queue sampling records one event per queue with depth and oldest age', function () {
-    $this->travelTo(now());
-
-    DB::table('jobs')->insert([
-        ['queue' => 'yak-claude', 'payload' => '{}', 'attempts' => 0, 'reserved_at' => null, 'available_at' => now()->subSeconds(90)->getTimestamp(), 'created_at' => now()->getTimestamp()],
-        ['queue' => 'yak-claude', 'payload' => '{}', 'attempts' => 0, 'reserved_at' => now()->getTimestamp(), 'available_at' => now()->getTimestamp(), 'created_at' => now()->getTimestamp()],
-        ['queue' => 'default', 'payload' => '{}', 'attempts' => 0, 'reserved_at' => null, 'available_at' => now()->getTimestamp(), 'created_at' => now()->getTimestamp()],
-    ]);
-
-    $this->artisan('yak:telemetry:sample-queues')->assertSuccessful();
-
-    $claude = TelemetryEvent::where('name', 'queue.sampled')->get()->firstWhere('properties.queue', 'yak-claude');
-
-    expect(TelemetryEvent::where('name', 'queue.sampled')->count())->toBe(2)
-        ->and($claude->value)->toBe(2.0)
-        ->and($claude->properties)->toMatchArray(['reserved' => 1, 'oldest_age_s' => 90]);
-});
-
-test('queue sampling is skipped when disabled', function () {
-    config(['yak.telemetry.queue_sampling' => false]);
-    DB::table('jobs')->insert(['queue' => 'default', 'payload' => '{}', 'attempts' => 0, 'available_at' => now()->getTimestamp(), 'created_at' => now()->getTimestamp()]);
-
-    $this->artisan('yak:telemetry:sample-queues')->assertSuccessful();
-
-    expect(TelemetryEvent::count())->toBe(0);
 });
 
 test('export writes runs as csv and events as json lines', function () {

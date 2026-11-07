@@ -34,7 +34,6 @@ test('analytics page renders with every section present', function () {
             ->has('features')
             ->has('webhooks.byChannel')
             ->has('reviews')
-            ->has('queues')
             ->has('explorer.rows'));
 });
 
@@ -119,14 +118,12 @@ test('stages, outliers, failures, kinds, tokens and tools are derived from task 
             ->where('tools.1.tool', 'Read'));
 });
 
-test('features, webhooks, queues and the explorer read the event stream', function () {
+test('features, webhooks and the explorer read the event stream', function () {
     TelemetryEvent::factory()->create(['name' => 'feature.used', 'source' => 'slack', 'properties' => ['feature' => 'follow_up']]);
     TelemetryEvent::factory()->create(['name' => 'feature.used', 'source' => 'github', 'properties' => ['feature' => 'follow_up']]);
     TelemetryEvent::factory()->create(['name' => 'feature.used', 'source' => 'dashboard', 'properties' => ['feature' => 'steering']]);
     TelemetryEvent::factory()->create(['name' => 'webhook.received', 'repo' => null, 'source' => 'sentry', 'properties' => ['channel' => 'sentry', 'outcome' => 'rejected', 'reason' => 'below_threshold']]);
     TelemetryEvent::factory()->create(['name' => 'webhook.received', 'repo' => null, 'source' => 'sentry', 'properties' => ['channel' => 'sentry', 'outcome' => 'accepted']]);
-    TelemetryEvent::factory()->create(['name' => 'queue.sampled', 'repo' => null, 'source' => null, 'value' => 3, 'properties' => ['queue' => 'yak-claude']]);
-    TelemetryEvent::factory()->create(['name' => 'queue.sampled', 'repo' => null, 'source' => null, 'value' => 7, 'properties' => ['queue' => 'yak-claude']]);
     TelemetryEvent::factory()->create(['name' => 'feature.used', 'occurred_at' => now()->subDays(60), 'properties' => ['feature' => 'old']]);
 
     $this->get('/analytics?event=feature.used')
@@ -139,11 +136,10 @@ test('features, webhooks, queues and the explorer read the event stream', functi
             ->where('webhooks.byChannel.0.accepted', 1)
             ->where('webhooks.byChannel.0.rejected', 1)
             ->where('webhooks.reasons.0.reason', 'below_threshold')
-            ->where('queues.series.0.key', 'yak-claude')
-            ->where('queues.series.0.values.0', 7)
+            ->missing('queues')
             ->has('explorer.rows', 3)
             ->where('explorer.rows.0.name', 'feature.used')
-            ->where('explorer.names', ['feature.used', 'queue.sampled', 'webhook.received']));
+            ->where('explorer.names', ['feature.used', 'webhook.received']));
 });
 
 test('review quality rolls up findings, reactions and resolution', function () {

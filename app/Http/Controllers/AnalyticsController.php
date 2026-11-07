@@ -56,7 +56,6 @@ class AnalyticsController extends Controller
             'features' => fn () => $report->features(),
             'webhooks' => fn () => $report->webhooks(),
             'reviews' => fn () => $report->reviews(),
-            'queues' => fn () => $report->queues(),
             'explorer' => fn () => $report->explorer($event),
         ]);
     }

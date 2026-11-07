@@ -129,11 +129,6 @@ export type ReviewSummary = {
     byCategory: { category: string; findings: number; thumbsUp: number; thumbsDown: number }[];
 };
 
-export type QueueSeries = {
-    hours: string[];
-    series: { key: string; values: number[] }[];
-};
-
 export type EventRow = {
     id: number;
     occurredAt: string;
@@ -164,6 +159,5 @@ export type AnalyticsPageProps = {
     features: FeatureRow[];
     webhooks: WebhookSummary;
     reviews: ReviewSummary;
-    queues: QueueSeries;
     explorer: EventExplorer;
 };

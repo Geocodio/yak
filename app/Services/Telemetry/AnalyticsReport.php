@@ -509,42 +509,6 @@ final class AnalyticsReport
     }
 
     /**
-     * Worker backlog: the deepest each queue got per hour.
-     *
-     * @return array{hours: array<int, string>, series: array<int, array{key: string, values: array<int, int>}>}
-     */
-    public function queues(): array
-    {
-        $samples = $this->eventsNamed('queue.sampled')->get(['occurred_at', 'value', 'properties']);
-
-        if ($samples->isEmpty()) {
-            return ['hours' => [], 'series' => []];
-        }
-
-        $byQueue = [];
-        $hours = [];
-
-        foreach ($samples as $sample) {
-            $hour = $sample->occurred_at->startOfHour()->toIso8601String();
-            $queue = (string) ($sample->properties['queue'] ?? 'default');
-            $hours[$hour] = true;
-            $byQueue[$queue][$hour] = max($byQueue[$queue][$hour] ?? 0, (int) $sample->value);
-        }
-
-        $hourKeys = array_keys($hours);
-        sort($hourKeys);
-        ksort($byQueue);
-
-        return [
-            'hours' => $hourKeys,
-            'series' => collect($byQueue)->map(fn (array $depths, string $queue): array => [
-                'key' => $queue,
-                'values' => array_map(fn (string $hour): int => $depths[$hour] ?? 0, $hourKeys),
-            ])->values()->all(),
-        ];
-    }
-
-    /**
      * Raw event explorer: the newest events, optionally one name only.
      *
      * @return array{names: array<int, string>, rows: array<int, array{id: int, occurredAt: string, name: string, repo: string|null, source: string|null, taskId: int|null, taskUrl: string|null, durationMs: int|null, value: float|null, properties: array<string, mixed>|null}>}
@@ -634,7 +598,7 @@ final class AnalyticsReport
             ->where('name', $name)
             ->whereBetween('occurred_at', [$this->start, $this->end]);
 
-        if (in_array($name, ['queue.sampled', 'webhook.received'], true)) {
+        if ($name === 'webhook.received') {
             return $query;
         }
 
