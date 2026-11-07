@@ -13,12 +13,12 @@ use App\Jobs\SetupYakJob;
 use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\HealthCheck\ClaudeAuthCheck;
+use App\Services\QueuedJobLocator;
 use App\Services\TaskLogger;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 #[Signature('yak:reap-lost-pending {--minutes=10 : Age threshold for dispatched_at before a Pending task is considered lost}')]
 #[Description('Re-dispatch Pending tasks whose queued job appears to have vanished')]
@@ -45,7 +45,7 @@ class ReapLostPendingCommand extends Command
      * context.
      *
      * Before assuming a candidate is actually lost, check the queue
-     * itself via the stored `queue_job_uuid`: if a `jobs` row still
+     * itself via the stored `queue_job_uuid`: if a queued job still
      * carries that uuid, the job is still queued or reserved by a worker
      * and re-dispatching would risk a duplicate run — change 0's atomic
      * claim makes that merely wasteful rather than destructive, but
@@ -109,11 +109,9 @@ class ReapLostPendingCommand extends Command
     }
 
     /**
-     * Checks the `jobs` table for a row still carrying this task's queue
-     * uuid — queued or reserved, either way still tracked by the queue.
-     * The uuid lives inside the JSON `payload` column, not a dedicated
-     * column, so this is a text search rather than an indexed lookup;
-     * the `jobs` table is small enough in practice for that to be fine.
+     * Checks the yak-claude queue, where every claiming agent job runs,
+     * for a job still carrying this task's queue uuid: pending, delayed
+     * or reserved, it is still tracked by the queue.
      *
      * A task with no `queue_job_uuid` (dispatch didn't go through the
      * queue at all, or lost a ShouldBeUnique race and never actually
@@ -128,9 +126,7 @@ class ReapLostPendingCommand extends Command
             return false;
         }
 
-        return DB::table('jobs')
-            ->where('payload', 'like', '%"uuid":"' . $uuid . '"%')
-            ->exists();
+        return app(QueuedJobLocator::class)->contains('yak-claude', $uuid);
     }
 
     /**

@@ -16,8 +16,8 @@ use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 
 #[Signature('yak:drain {--wait=300 : Minimum seconds to wait for a silent-but-in-flight task before forcing failure} {--max-wait=2700 : Hard ceiling in seconds — every in-flight task is force-failed once this is reached, regardless of activity} {--poll=5 : Polling interval in seconds}')]
@@ -227,10 +227,7 @@ class DrainForDeployCommand extends Command
 
     private function reservedWorkerCount(): int
     {
-        return (int) DB::table('jobs')
-            ->where('queue', self::CLAUDE_QUEUE)
-            ->whereNotNull('reserved_at')
-            ->count();
+        return Queue::reservedSize(self::CLAUDE_QUEUE);
     }
 
     /**

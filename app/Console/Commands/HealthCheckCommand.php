@@ -11,9 +11,9 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 
 #[Signature('yak:healthcheck')]
 #[Description('Run health checks and post to Slack on failure')]
@@ -124,7 +124,7 @@ class HealthCheckCommand extends Command
             $failures
         );
 
-        $held = DB::table('jobs')->where('queue', 'yak-claude')->count();
+        $held = Queue::size('yak-claude');
 
         $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines)
             . "\n\n*Agent jobs queued:* {$held}";
