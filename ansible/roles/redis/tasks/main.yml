@@ -1,0 +1,28 @@
+---
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: yak
+    state: present
+
+- name: Ensure Redis data directory exists
+  ansible.builtin.file:
+    path: "{{ redis_data_path }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+# Redis holds the queue, so it writes every change to an append-only
+# file and refuses to evict keys: a restart or memory pressure must
+# never drop a queued job.
+- name: Run Redis container
+  community.docker.docker_container:
+    name: "{{ redis_container_name }}"
+    image: "redis:7-alpine"
+    state: started
+    restart_policy: unless-stopped
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    volumes:
+      - "{{ redis_data_path }}:/data"
+    networks:
+      - name: yak

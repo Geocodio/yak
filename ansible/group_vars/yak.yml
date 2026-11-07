@@ -22,6 +22,8 @@ ufw_allowed_ports:
 
 mariadb_container_name: yak-mariadb
 mariadb_data_path: /home/yak/mariadb-data
+redis_container_name: yak-redis
+redis_data_path: /home/yak/redis-data
 
 # Incus sandbox settings
 # incus_zfs_device: /dev/sdb  # Uncomment and set to a dedicated disk for best performance

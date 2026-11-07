@@ -72,7 +72,9 @@ return [
             'driver' => 'redis',
             'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
             'queue' => env('REDIS_QUEUE', 'default'),
-            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
+            // Must exceed every job's `$timeout` (longest is SetupYakJob at 7200s),
+            // so a still-running job is never re-reserved and run a second time.
+            'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 7800),
             'block_for' => null,
             'after_commit' => false,
         ],

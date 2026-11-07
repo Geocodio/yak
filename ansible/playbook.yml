@@ -112,6 +112,11 @@
     - role: mariadb
       tags: [mariadb]
 
+    # Tagged yak-container so the standard deploy (`--tags yak-container`)
+    # starts Redis before the Yak container that depends on it.
+    - role: redis
+      tags: [redis, yak-container]
+
     - role: yak-container
       tags: [yak-container, yak-app, secrets]
 
