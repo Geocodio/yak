@@ -24,6 +24,10 @@ mariadb_container_name: yak-mariadb
 mariadb_data_path: /home/yak/mariadb-data
 redis_container_name: yak-redis
 redis_data_path: /home/yak/redis-data
+telemetryd_container_name: yak-telemetryd
+telemetryd_data_path: /home/yak/telemetryd-data
+telemetryd_image_tag: "0.72.2"
+telemetryd_disk_budget: "10GiB"
 
 # Incus sandbox settings
 # incus_zfs_device: /dev/sdb  # Uncomment and set to a dedicated disk for best performance

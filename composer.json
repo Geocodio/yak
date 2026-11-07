@@ -11,6 +11,8 @@
     "require": {
         "php": "^8.3",
         "artisan-build/fat-enums": "^1.0",
+        "cboxdk/laravel-telemetry": "*",
+        "cboxdk/system-metrics": "*",
         "inertiajs/inertia-laravel": "^3.3",
         "laravel/ai": "*",
         "laravel/fortify": "^1.34",

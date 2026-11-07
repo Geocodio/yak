@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "90e7fe49df069ab8442df7984196f272",
+    "content-hash": "e36bdeb805fcccf5c12f7eb39630498f",
     "packages": [
         {
             "name": "artisan-build/fat-enums",
@@ -275,6 +275,174 @@
                 }
             ],
             "time": "2024-02-09T16:56:22+00:00"
+        },
+        {
+            "name": "cboxdk/laravel-telemetry",
+            "version": "v3.9.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/cboxdk/laravel-telemetry.git",
+                "reference": "f291f7f5c3596f1ea230e9b19bdec514ffcfe9c0"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/cboxdk/laravel-telemetry/zipball/f291f7f5c3596f1ea230e9b19bdec514ffcfe9c0",
+                "reference": "f291f7f5c3596f1ea230e9b19bdec514ffcfe9c0",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/contracts": "^12.0|^13.0",
+                "illuminate/support": "^12.0|^13.0",
+                "php": "^8.3|^8.4|^8.5"
+            },
+            "require-dev": {
+                "cboxdk/system-metrics": "^3.0",
+                "larastan/larastan": "^3.0",
+                "laravel/ai": "^1.2",
+                "laravel/horizon": "^5.47",
+                "laravel/pennant": "^1.24",
+                "laravel/pint": "^1.14",
+                "laravel/reverb": "^1.10",
+                "livewire/livewire": "^3.0|^4.0",
+                "nunomaduro/collision": "^8.8",
+                "orchestra/testbench": "^10.0|^11.0",
+                "pestphp/pest": "^4.0",
+                "pestphp/pest-plugin-arch": "^4.0",
+                "pestphp/pest-plugin-laravel": "^4.0",
+                "phpstan/extension-installer": "^1.4",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-phpunit": "^2.0",
+                "predis/predis": "^2.3 || ^3.0"
+            },
+            "suggest": {
+                "cboxdk/system-metrics": "Host CPU/memory/load metrics via the built-in provider AND real per-request/per-job process footprint (peak RSS, CPU utilization) on spans.",
+                "ext-apcu": "Required when using the apcu metric store.",
+                "ext-cbox_telemetry": "Native runtime depth via cboxdk/telemetry-native (pie install cboxdk/telemetry-native): CPU profiles with a confidence figure, exact pdo.connect/curl.exec timing, GC counters, and crash records correlated to the trace the process died in.",
+                "ext-excimer": "CPU profiling for slow requests/jobs (telemetry.instrument.profiling) — a 'top functions by sample count' event, not a full pprof export. The fallback profiler: cbox_telemetry is used instead where both are installed.",
+                "ext-pdo_sqlite": "Required when using the sqlite metric store or spool (NativePHP mobile/desktop).",
+                "ext-redis": "Recommended when using the redis metric store (phpredis).",
+                "geoip2/geoip2": "Resolve geo.* from the IP for analytics (telemetry.analytics.geo) with a MaxMind GeoLite2 database, so the raw IP can be dropped.",
+                "laravel/ai": "OpenTelemetry GenAI spans and token/duration metrics for agent runs, model calls, tool calls and embeddings (^1.0).",
+                "laravel/horizon": "Supervisor/master state, long-wait detection, process restarts and OOM metrics when Horizon runs your queues.",
+                "laravel/pennant": "Feature flag check counters (feature.checks, feature.unknown).",
+                "laravel/reverb": "WebSocket message/channel/connection metrics when Reverb is your broadcasting server.",
+                "livewire/livewire": "Component lifecycle: mount/hydrate counters + render/update/call detail spans.",
+                "nativephp/mobile": "Screen views, time-on-screen and interaction spans for a NativePHP mobile app (^4.1 for the automatic half — earlier versions dispatch no screen lifecycle events)."
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "Telemetry": "Cbox\\Telemetry\\Facades\\Telemetry"
+                    },
+                    "providers": [
+                        "Cbox\\Telemetry\\TelemetryServiceProvider"
+                    ]
+                },
+                "branch-alias": {
+                    "dev-main": "2.3.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Cbox\\Telemetry\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Sylvester Damgaard",
+                    "email": "sn@cbox.dk",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Collector-free telemetry for Laravel: Prometheus metrics, OTLP traces and events. No C extension, no protobuf, no sidecar — metrics that actually work under FPM.",
+            "homepage": "https://github.com/cboxdk/laravel-telemetry",
+            "keywords": [
+                "Metrics",
+                "cbox",
+                "laravel",
+                "observability",
+                "opentelemetry",
+                "otlp",
+                "prometheus",
+                "telemetry",
+                "tracing"
+            ],
+            "support": {
+                "issues": "https://github.com/cboxdk/laravel-telemetry/issues",
+                "source": "https://github.com/cboxdk/laravel-telemetry"
+            },
+            "time": "2026-11-06T19:15:15+00:00"
+        },
+        {
+            "name": "cboxdk/system-metrics",
+            "version": "v3.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/cboxdk/system-metrics.git",
+                "reference": "b43eb005f487519ecb391c1e54dc638607d31c83"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/cboxdk/system-metrics/zipball/b43eb005f487519ecb391c1e54dc638607d31c83",
+                "reference": "b43eb005f487519ecb391c1e54dc638607d31c83",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.0",
+                "pestphp/pest": "^4.1",
+                "phpstan/phpstan": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Cbox\\SystemMetrics\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Sylvester Damgaard",
+                    "email": "sn@cbox.dk",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Peek into your low level system metrics with PHP",
+            "homepage": "https://github.com/cboxdk/system-metrics",
+            "keywords": [
+                "CPU",
+                "linux",
+                "macos",
+                "memory",
+                "monitoring",
+                "observability",
+                "performance",
+                "php",
+                "server-monitoring",
+                "system-metrics"
+            ],
+            "support": {
+                "docs": "https://github.com/cboxdk/system-metrics/blob/main/README.md",
+                "issues": "https://github.com/cboxdk/system-metrics/issues",
+                "source": "https://github.com/cboxdk/system-metrics"
+            },
+            "funding": [
+                {
+                    "url": "https://github.com/cboxdk",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-10-14T19:30:44+00:00"
         },
         {
             "name": "dasprid/enum",
