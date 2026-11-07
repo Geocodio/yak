@@ -74,6 +74,17 @@ it('writes failure state for Failed', function () {
     app(DeploymentGitHubSync::class)->sync($deployment, DeploymentStatus::Failed);
 });
 
+it('shortens a long failure reason to the 140 characters GitHub accepts', function () {
+    $deployment = BranchDeployment::factory()->failed(str_repeat('x', 200))->create(['github_deployment_id' => 987]);
+
+    $github = Mockery::mock(AppService::class);
+    $this->app->instance(AppService::class, $github);
+    $github->shouldReceive('createDeploymentStatus')->once()
+        ->with(42, Mockery::any(), 987, 'failure', Mockery::any(), Mockery::any(), Mockery::on(fn (string $description): bool => mb_strlen($description) <= 140));
+
+    app(DeploymentGitHubSync::class)->sync($deployment, DeploymentStatus::Failed);
+});
+
 it('is a no-op when github_deployment_id is null on non-starting states', function () {
     $deployment = BranchDeployment::factory()->destroyed()->create(['github_deployment_id' => null]);
 
