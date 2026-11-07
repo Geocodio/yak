@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Services\IncusSandboxManager;
+use App\Services\SandboxPoolUsage;
 use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Sinks\DatabaseSink;
 use App\Services\Telemetry\Sinks\NullSink;
@@ -57,6 +58,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        app(SandboxPoolUsage::class)->registerGauges();
 
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
