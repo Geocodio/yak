@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\EnqueuePrReview;
 use App\Agents\ClaudeCodeOutputParser;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
@@ -336,6 +337,8 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
         ]);
+
+        app(EnqueuePrReview::class)->releaseHeld($repository);
 
         // The config PR opens only once the repository is ready, so the review
         // its webhook queues finds a sandbox snapshot to run against.

@@ -1,6 +1,9 @@
 <?php
 
+use App\Actions\EnqueuePrReview;
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
+use App\Jobs\RunYakReviewJob;
 use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\YakTask;
@@ -407,4 +410,39 @@ it('dedups same PR + head SHA', function () {
     ])->assertOk();
 
     expect(YakTask::where('mode', TaskMode::Review)->count())->toBe(1);
+});
+
+it('holds a review for a PR opened while the repository is being set up, then runs it once setup completes', function () {
+    Bus::fake();
+
+    $repository = Repository::factory()->pendingSetup()->create([
+        'slug' => 'geocodio/api',
+        'is_active' => true,
+        'pr_review_enabled' => true,
+        'git_url' => 'https://github.com/geocodio/api.git',
+    ]);
+
+    $payload = [
+        'action' => 'opened',
+        'pull_request' => [
+            'html_url' => 'https://github.com/geocodio/api/pull/7',
+            'number' => 7, 'title' => '', 'body' => '',
+            'draft' => false, 'user' => ['login' => 'mathias'],
+            'head' => ['ref' => 'x', 'sha' => 'a'], 'base' => ['ref' => 'main', 'sha' => 'b'],
+        ],
+        'repository' => ['full_name' => 'geocodio/api'],
+    ];
+
+    $this->postJson('/webhooks/github', $payload, [
+        'X-GitHub-Event' => 'pull_request',
+        'X-Hub-Signature-256' => signGhPayload(json_encode($payload)),
+    ])->assertOk();
+
+    expect(YakTask::where('mode', TaskMode::Review)->sole()->status)->toBe(TaskStatus::Pending);
+    Bus::assertNotDispatched(RunYakReviewJob::class);
+
+    $repository->update(['setup_status' => 'ready', 'sandbox_snapshot' => 'yak-tpl-geocodio-api/ready']);
+    app(EnqueuePrReview::class)->releaseHeld($repository);
+
+    Bus::assertDispatched(RunYakReviewJob::class, 1);
 });

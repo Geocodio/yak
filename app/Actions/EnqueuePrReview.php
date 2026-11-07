@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\TaskJobResolver;
@@ -60,11 +61,35 @@ class EnqueuePrReview
     {
         $task = $this($repository, $prPayload, $reviewScope, $incrementalBaseSha);
 
-        if ($task !== null) {
+        if ($task !== null && ! $this->isAwaitingSetup($repository)) {
             TaskJobResolver::dispatch($task);
         }
 
         return $task;
+    }
+
+    /**
+     * Dispatches the reviews held back while the repository's setup ran.
+     * A Pending review that is already queued gets a second copy, which the
+     * atomic task claim discards.
+     */
+    public function releaseHeld(Repository $repository): void
+    {
+        YakTask::query()
+            ->where('mode', TaskMode::Review)
+            ->where('repo', $repository->slug)
+            ->where('status', TaskStatus::Pending)
+            ->each(fn (YakTask $task) => TaskJobResolver::dispatch($task));
+    }
+
+    /**
+     * A review queued while setup is building the sandbox has nothing to run
+     * against yet, so it waits for setup instead of being refused.
+     */
+    private function isAwaitingSetup(Repository $repository): bool
+    {
+        return empty($repository->sandbox_snapshot)
+            && in_array($repository->setup_status, ['pending', 'running'], true);
     }
 
     private function isDuplicate(string $prUrl, string $headSha): bool

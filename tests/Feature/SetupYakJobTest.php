@@ -9,6 +9,7 @@ use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
+use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
@@ -74,6 +75,24 @@ test('successful setup transitions task to success and repo to ready', function 
         ->and($task->completed_at)->not->toBeNull()
         ->and($repository->setup_status)->toBe('ready')
         ->and($repository->sandbox_snapshot)->not->toBeNull();
+});
+
+test('a finished setup dispatches the reviews held while it ran', function () {
+    Queue::fake();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 'sess_held', resultSummary: 'Done', costUsd: 1.0, numTurns: 1, durationMs: 1000, isError: false, rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->pendingSetup()->create(['slug' => 'held-repo']);
+    $review = YakTask::factory()->pending()->create(['repo' => 'held-repo', 'mode' => TaskMode::Review]);
+    $setup = YakTask::factory()->pending()->create(['repo' => 'held-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+
+    (new SetupYakJob($setup))->handle($fake);
+
+    Queue::assertPushed(RunYakReviewJob::class, fn (RunYakReviewJob $job): bool => $job->task->is($review));
 });
 
 test('re-running setup destroys the existing template first so the clone starts from yak-base', function () {
