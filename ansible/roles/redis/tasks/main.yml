@@ -12,19 +12,28 @@
     owner: root
     group: root
 
-# Redis holds the queue, so it writes every change to an append-only
-# file and refuses to evict keys: a restart or memory pressure must
-# never drop a queued job. Queue payloads are serialized PHP that the
-# workers run, so Redis always requires a password: sandboxes share the
-# host's network path to the Docker bridge.
+# The image starts as root, then runs Redis as the redis user (uid 999,
+# gid 1000), which must be able to read its config.
+- name: Write Redis config
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: "{{ redis_config_path }}"
+    mode: "0600"
+    owner: "999"
+    group: "1000"
+  register: redis_config
+
+# Settings and password live in the config file; see redis.conf.j2.
 - name: Run Redis container
   community.docker.docker_container:
     name: "{{ redis_container_name }}"
     image: "redis:7-alpine"
     state: started
+    restart: "{{ redis_config.changed }}"
     restart_policy: unless-stopped
-    command: redis-server --appendonly yes --maxmemory-policy noeviction --requirepass "{{ redis_password }}"
+    command: redis-server /usr/local/etc/redis/redis.conf
     volumes:
       - "{{ redis_data_path }}:/data"
+      - "{{ redis_config_path }}:/usr/local/etc/redis/redis.conf:ro"
     networks:
       - name: yak

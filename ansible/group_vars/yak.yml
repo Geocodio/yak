@@ -24,6 +24,8 @@ mariadb_container_name: yak-mariadb
 mariadb_data_path: /home/yak/mariadb-data
 redis_container_name: yak-redis
 redis_data_path: /home/yak/redis-data
+redis_config_path: /home/yak/redis.conf
+redis_maxmemory: 1gb
 telemetryd_container_name: yak-telemetryd
 telemetryd_data_path: /home/yak/telemetryd-data
 telemetryd_image_tag: "0.72.2"
