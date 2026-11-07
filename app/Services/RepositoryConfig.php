@@ -19,7 +19,10 @@ use Illuminate\Support\Facades\DB;
  * default branch clears it. Files are fetched again only when that SHA moves.
  * Each file's last valid version is stored, so a broken file, a GitHub outage
  * or a cache flush never falls back to defaults. Config is never read from a
- * task branch, so a change cannot edit the rules that judge it.
+ * task branch, so a change cannot edit the rules that judge it. The one
+ * exception is `preview.yml`, which only shapes a branch's own sandboxed
+ * preview: a pull request that changes it previews with its own copy (see
+ * PreviewManifestResolver).
  *
  * A failed read pauses further GitHub calls for a minute, and `forget()`
  * lifts the pause.

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\DataTransferObjects\PreviewManifest;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
@@ -26,7 +25,10 @@ class DeploymentContainerManager
     /** Ceiling for cheap metadata reads and config pokes. */
     private const QUERY_TIMEOUT = 30;
 
-    public function __construct(private IncusSandboxManager $sandbox) {}
+    public function __construct(
+        private IncusSandboxManager $sandbox,
+        private PreviewManifestResolver $manifests,
+    ) {}
 
     public function createFromTemplate(BranchDeployment $deployment): void
     {
@@ -60,7 +62,7 @@ class DeploymentContainerManager
     public function start(BranchDeployment $deployment, ?string $commitSha = null): string
     {
         $deployment->loadMissing('repository');
-        $manifest = PreviewManifest::fromArray($deployment->repository->settings()->previewManifest());
+        $manifest = $this->manifests->for($deployment);
 
         $result = Process::timeout(self::LIFECYCLE_TIMEOUT)->run("incus start {$deployment->container_name}");
 
@@ -119,7 +121,7 @@ class DeploymentContainerManager
     public function applyCheckoutRefresh(BranchDeployment $deployment, string $commitSha): void
     {
         $deployment->loadMissing('repository');
-        $manifest = PreviewManifest::fromArray($deployment->repository->settings()->previewManifest());
+        $manifest = $this->manifests->for($deployment);
         $workspace = IncusSandboxManager::workspacePath();
 
         // GitHub App installation tokens TTL out after ~1 hour, so the

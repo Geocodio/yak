@@ -6,6 +6,7 @@ use App\Enums\DeploymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
+use App\Services\PreviewManifestResolver;
 use App\Support\DeploymentPresentation;
 use App\Support\HibernationDuration;
 use App\Support\ReleaseBranch;
@@ -139,7 +140,7 @@ class DeploymentController extends Controller
      */
     private function manifestData(BranchDeployment $deployment): array
     {
-        $manifest = $deployment->repository->settings()->previewManifest() ?? [];
+        $manifest = app(PreviewManifestResolver::class)->manifestFor($deployment);
 
         return [
             'port' => (int) ($manifest['port'] ?? config('yak.deployments.default_port')),
