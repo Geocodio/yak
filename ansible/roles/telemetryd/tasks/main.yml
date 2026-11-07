@@ -21,6 +21,10 @@
     image: "ghcr.io/cboxdk/telemetryd:{{ telemetryd_image_tag }}"
     state: started
     restart_policy: unless-stopped
+    # telemetryd sizes its query limits from the memory it may use; without
+    # a limit it assumes the whole host, which it shares with MariaDB and
+    # the sandboxes.
+    memory: "{{ telemetryd_memory_limit }}"
     volumes:
       - "{{ telemetryd_data_path }}:/var/lib/telemetryd"
     env:

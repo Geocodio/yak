@@ -38,14 +38,15 @@ jobs:
         with:
           node-version: '22'
 
+      # Composer first: package.json installs @cboxdk/telemetry-ui from vendor/.
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
       - name: Install Node Dependencies
         run: npm i
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-
-      - name: Install Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
       - name: Copy Environment File
         run: cp .env.example .env

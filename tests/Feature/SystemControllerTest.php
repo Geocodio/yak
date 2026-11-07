@@ -28,8 +28,8 @@ it('blocks guests from the telemetry api', function () {
     expect($status)->not->toBe(200);
 });
 
-it('declares the sandbox pool panels', function () {
+it('declares the panels the system page embeds', function (string $panel) {
     $this->actingAs(User::factory()->create())
-        ->getJson('/telemetry-ui/api/v2/panels/yak-sandbox-pool-used')
+        ->getJson('/telemetry-ui/api/v2/panels/' . $panel)
         ->assertOk();
-});
+})->with(['yak-cpu-utilization', 'yak-memory-utilization', 'yak-app-disk-used', 'yak-app-disk-total', 'yak-sandbox-pool-used', 'yak-sandbox-pool-total']);

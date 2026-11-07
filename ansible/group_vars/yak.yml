@@ -28,6 +28,7 @@ telemetryd_container_name: yak-telemetryd
 telemetryd_data_path: /home/yak/telemetryd-data
 telemetryd_image_tag: "0.72.2"
 telemetryd_disk_budget: "10GiB"
+telemetryd_memory_limit: "1g"
 
 # Incus sandbox settings
 # incus_zfs_device: /dev/sdb  # Uncomment and set to a dedicated disk for best performance
