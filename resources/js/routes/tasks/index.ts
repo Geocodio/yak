@@ -7,7 +7,7 @@ import clarificationAnswers from './clarification-answers'
 import prImages from './pr-images'
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
-* @see app/Http/Controllers/Tasks/StoreTaskController.php:20
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:21
 * @route '/tasks'
 */
 export const store = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -22,7 +22,7 @@ store.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
-* @see app/Http/Controllers/Tasks/StoreTaskController.php:20
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:21
 * @route '/tasks'
 */
 store.url = (options?: RouteQueryOptions) => {
@@ -31,7 +31,7 @@ store.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\StoreTaskController::__invoke
-* @see app/Http/Controllers/Tasks/StoreTaskController.php:20
+* @see app/Http/Controllers/Tasks/StoreTaskController.php:21
 * @route '/tasks'
 */
 store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -41,7 +41,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:18
+* @see app/Http/Controllers/Tasks/TaskController.php:19
 * @route '/tasks/{task}'
 */
 export const show = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +56,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:18
+* @see app/Http/Controllers/Tasks/TaskController.php:19
 * @route '/tasks/{task}'
 */
 show.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -89,7 +89,7 @@ show.url = (args: { task: number | { id: number } } | [task: number | { id: numb
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:18
+* @see app/Http/Controllers/Tasks/TaskController.php:19
 * @route '/tasks/{task}'
 */
 show.get = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -99,7 +99,7 @@ show.get = (args: { task: number | { id: number } } | [task: number | { id: numb
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:18
+* @see app/Http/Controllers/Tasks/TaskController.php:19
 * @route '/tasks/{task}'
 */
 show.head = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

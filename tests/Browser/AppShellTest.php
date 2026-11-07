@@ -19,6 +19,7 @@ test('the app shell renders the sidebar nav and the command palette opens', func
         'Skills',
         'MCP servers',
         'Health',
+        'System',
         'Settings',
     ] as $label) {
         $page->assertSee($label);

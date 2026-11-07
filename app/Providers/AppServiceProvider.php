@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
+use App\Models\User;
 use App\Services\IncusSandboxManager;
 use App\Services\SandboxPoolUsage;
 use App\Services\Telemetry\Contracts\TelemetrySink;
@@ -13,9 +14,11 @@ use App\Services\Telemetry\Telemetry;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
+use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -60,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
 
         app(SandboxPoolUsage::class)->registerGauges();
+        $this->configureTelemetryUi();
 
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
@@ -89,6 +93,32 @@ class AppServiceProvider extends ServiceProvider
                 ->symbols()
                 ->uncompromised()
             : null,
+        );
+    }
+
+    /**
+     * Every signed-in user may read the System page's telemetry: sign-in
+     * is already limited to the allowed Google Workspace domains. The two
+     * sandbox pool panels chart the gauges SandboxPoolUsage publishes.
+     */
+    private function configureTelemetryUi(): void
+    {
+        Gate::define('viewTelemetryUi', fn (?User $user): bool => $user !== null);
+
+        TelemetryUi::metricPanel(
+            id: 'yak-sandbox-pool-used',
+            title: 'Sandbox pool used',
+            metric: 'yak_sandbox_pool_used_bytes',
+            page: 'system',
+            unit: 'bytes',
+        );
+
+        TelemetryUi::metricPanel(
+            id: 'yak-sandbox-pool-total',
+            title: 'Sandbox pool size',
+            metric: 'yak_sandbox_pool_total_bytes',
+            page: 'system',
+            unit: 'bytes',
         );
     }
 }
