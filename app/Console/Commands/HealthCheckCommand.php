@@ -124,7 +124,9 @@ class HealthCheckCommand extends Command
             $failures
         );
 
-        $held = Queue::size('yak-claude');
+        // The alert must still go out when the queue's own backend is the
+        // failure, so an unreadable count is reported, not thrown.
+        $held = rescue(fn (): int => Queue::size('yak-claude'), 'unknown', report: false);
 
         $text = ":warning: *Yak Health Check Failed*\n" . implode("\n", $lines)
             . "\n\n*Agent jobs queued:* {$held}";

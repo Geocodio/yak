@@ -14,6 +14,7 @@ class Registry
      */
     private const SYSTEM_CHECKS = [
         'queue-worker' => QueueWorkerCheck::class,
+        'redis' => RedisCheck::class,
         'last-task-completed' => LastTaskCompletedCheck::class,
         'video-render' => RenderHealthCheck::class,
         'voiceover' => VoiceoverHealthCheck::class,

@@ -8,6 +8,8 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
 
 /**
  * A single controllable check, swapped in for the real registry so a test
@@ -67,6 +69,8 @@ beforeEach(function () {
         'api.github.com/repos/*' => Http::response(['name' => 'repo']),
         'api.github.com/app/installations/*' => Http::response(['token' => 'ghs_test', 'expires_at' => now()->addHour()->toIso8601String()]),
     ]);
+
+    Redis::shouldReceive('connection->ping')->andReturn(true);
 
     // Disable channel healthchecks by default; individual tests enable Slack if needed
     config([
@@ -361,4 +365,29 @@ test('healthcheck command leaves out the claude runbook when claude auth is heal
 
     Http::assertSent(fn ($request) => str_contains($request['text'], 'Linear')
         && ! str_contains($request['text'], 'yak-claude-login'));
+});
+
+test('healthcheck command still posts to slack when the queue cannot be read', function () {
+    Process::fake([
+        'pgrep *' => Process::result(exitCode: 1),
+        '*claude *' => Process::result(output: 'claude v1.0.0'),
+    ]);
+
+    config([
+        'yak.channels.slack.bot_token' => 'xoxb-test-token',
+        'yak.channels.slack.signing_secret' => 'test-secret',
+    ]);
+
+    Http::fake([
+        'slack.com/api/auth.test' => Http::response(['ok' => true, 'team' => 'Yak', 'user' => 'yak-bot']),
+        'slack.com/api/chat.postMessage' => Http::response(['ok' => true]),
+    ]);
+
+    Queue::shouldReceive('size')->andThrow(new RedisException('Connection refused'));
+
+    $this->artisan('yak:healthcheck')->assertFailed();
+    $this->artisan('yak:healthcheck')->assertFailed();
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'chat.postMessage')
+        && str_contains($request['text'], 'Agent jobs queued:* unknown'));
 });

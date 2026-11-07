@@ -9,8 +9,10 @@
     path: "{{ telemetryd_data_path }}"
     state: directory
     mode: "0755"
-    owner: root
-    group: root
+    # The image runs as the telemetryd user (uid/gid 10001), which must be
+    # able to write its store and generated tokens here.
+    owner: "10001"
+    group: "10001"
 
 # Keeps Yak's metrics, traces and logs for the System page: OTLP in from
 # the Yak container, Prometheus/Loki/Tempo query APIs out. Reachable only
