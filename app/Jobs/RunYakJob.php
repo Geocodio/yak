@@ -462,7 +462,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             : $parsed['verdict'];
 
         $context = json_decode((string) $this->task->context, true);
-        $previewRepair = PreviewRepair::find(is_array($context) ? ($context['preview_repair_id'] ?? null) : null);
+        $previewRepairId = is_array($context) && is_int($context['preview_repair_id'] ?? null) ? $context['preview_repair_id'] : null;
+        $previewRepair = $previewRepairId !== null ? PreviewRepair::find($previewRepairId) : null;
         $previewRepair?->update(['verdict' => $verdict, 'cause' => $parsed['cause'] !== '' ? $parsed['cause'] : null]);
 
         if ($verdict === PreviewRepairVerdict::Recipe) {

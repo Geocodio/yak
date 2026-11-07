@@ -42,7 +42,6 @@ class SendPreviewRepairMessagesJob implements ShouldQueue
             'repair_opened' => $messenger->repairOpened($previewRepair),
             'verdict' => $messenger->verdictReached($previewRepair),
             'reminder' => $messenger->reminder($previewRepair),
-            default => null,
         };
     }
 }

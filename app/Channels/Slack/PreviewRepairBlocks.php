@@ -109,7 +109,6 @@ class PreviewRepairBlocks
     }
 
     /**
-     * @param  list<BranchDeployment>  $deployments
      * @return array{text: string, blocks: list<array<string, mixed>>}
      */
     public static function reminder(PreviewRepair $previewRepair, int $newFailureCount): array
@@ -217,7 +216,9 @@ class PreviewRepairBlocks
     }
 
     /**
-     * @param  list<array<string, mixed>>  $blocks
+     * Actions rows with no buttons arrive as null and are left out.
+     *
+     * @param  list<array<string, mixed>|null>  $blocks
      * @return array{text: string, blocks: list<array<string, mixed>>}
      */
     private static function message(string $text, array $blocks): array

@@ -34,7 +34,7 @@ final readonly class PreviewFailureFingerprint
         $reason = (string) preg_replace('/^(deploy|wake|rebuild): /', '', (string) ($exceptionMessage ?? $deployment->failure_reason));
 
         if ($failedCommand !== null) {
-            $phase = $failedCommand->phase;
+            $phase = $failedCommand->phase ?? 'lifecycle';
             $output = trim($failedCommand->output());
             $text = $output === '' ? $reason : implode("\n", array_slice(explode("\n", $output), -self::OUTPUT_LINES));
         } else {

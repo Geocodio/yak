@@ -10,7 +10,7 @@ use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\PreviewRepair\PreviewFailureReporter;
 use App\Services\PreviewRepair\PreviewRepairRecipients;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 

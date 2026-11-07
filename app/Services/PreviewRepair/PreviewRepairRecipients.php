@@ -8,6 +8,7 @@ use App\Models\PreviewRepair;
 use App\Models\PreviewRepairDeployment;
 use App\Models\User;
 use App\Services\GitHubUserResolver;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -26,10 +27,10 @@ class PreviewRepairRecipients
     ) {}
 
     /**
-     * @param  Collection<int, PreviewRepairDeployment>|null  $attachments  defaults to every attached preview
-     * @return Collection<int, array{user: User, deployments: list<BranchDeployment>}>
+     * @param  EloquentCollection<int, PreviewRepairDeployment>|null  $attachments  defaults to every attached preview
+     * @return Collection<int, array{user: User, deployments: non-empty-list<BranchDeployment>}>
      */
-    public function for(PreviewRepair $previewRepair, ?Collection $attachments = null): Collection
+    public function for(PreviewRepair $previewRepair, ?EloquentCollection $attachments = null): Collection
     {
         $attachments ??= $previewRepair->attachments()->with('deployment')->orderBy('id')->get();
         $fallback = $previewRepair->repository->defaultResponsibleUser;

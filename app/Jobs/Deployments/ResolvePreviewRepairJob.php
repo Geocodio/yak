@@ -41,11 +41,10 @@ class ResolvePreviewRepairJob implements ShouldQueue
             return;
         }
 
-        $failedDeploymentIds = $previewRepair->deployments()
-            ->where('status', DeploymentStatus::Failed->value)
-            ->pluck('branch_deployments.id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
+        $failedDeploymentIds = array_values(array_map(
+            intval(...),
+            $previewRepair->deployments()->where('status', DeploymentStatus::Failed->value)->pluck('branch_deployments.id')->all(),
+        ));
 
         foreach ($failedDeploymentIds as $deploymentId) {
             RebuildDeploymentJob::dispatch($deploymentId);

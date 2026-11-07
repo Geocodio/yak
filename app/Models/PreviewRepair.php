@@ -33,6 +33,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable $last_failed_at
  * @property CarbonImmutable|null $last_notified_at
  * @property CarbonImmutable|null $resolved_at
+ * @property CarbonImmutable $created_at
+ * @property-read Repository $repository
+ * @property-read YakTask|null $task
  */
 class PreviewRepair extends Model
 {
@@ -72,7 +75,7 @@ class PreviewRepair extends Model
     }
 
     /**
-     * @return BelongsToMany<BranchDeployment, $this>
+     * @return BelongsToMany<BranchDeployment, $this, PreviewRepairDeployment, 'pivot'>
      */
     public function deployments(): BelongsToMany
     {
