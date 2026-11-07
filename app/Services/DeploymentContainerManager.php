@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DataTransferObjects\PreviewManifest;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Exceptions\DeploymentStartTimeoutException;
 use App\Models\BranchDeployment;
@@ -62,7 +63,7 @@ class DeploymentContainerManager
     public function start(BranchDeployment $deployment, ?string $commitSha = null): string
     {
         $deployment->loadMissing('repository');
-        $manifest = $this->manifests->for($deployment);
+        $manifest = $this->resolveManifest($deployment, $commitSha);
 
         $result = Process::timeout(self::LIFECYCLE_TIMEOUT)->run("incus start {$deployment->container_name}");
 
@@ -95,6 +96,19 @@ class DeploymentContainerManager
         return $ip;
     }
 
+    /**
+     * Resolves the recipe for the commit being started or refreshed and keeps
+     * it on the deployment, so request-time readers (the waker, the dashboard)
+     * never resolve it themselves.
+     */
+    private function resolveManifest(BranchDeployment $deployment, ?string $commitSha): PreviewManifest
+    {
+        $manifest = $this->manifests->manifestFor($deployment, $commitSha);
+        $deployment->forceFill(['preview_manifest' => $manifest])->saveQuietly();
+
+        return PreviewManifest::fromArray($manifest);
+    }
+
     public function resolveContainerIp(string $containerName): string
     {
         $result = Process::timeout(self::QUERY_TIMEOUT)->run("incus list {$containerName} -c n,4 -f csv");
@@ -121,7 +135,7 @@ class DeploymentContainerManager
     public function applyCheckoutRefresh(BranchDeployment $deployment, string $commitSha): void
     {
         $deployment->loadMissing('repository');
-        $manifest = $this->manifests->for($deployment);
+        $manifest = $this->resolveManifest($deployment, $commitSha);
         $workspace = IncusSandboxManager::workspacePath();
 
         // GitHub App installation tokens TTL out after ~1 hour, so the

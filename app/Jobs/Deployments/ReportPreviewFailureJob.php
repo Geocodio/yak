@@ -20,6 +20,7 @@ class ReportPreviewFailureJob implements ShouldQueue
     public function __construct(
         public int $deploymentId,
         public ?string $exceptionMessage = null,
+        public ?string $commitSha = null,
     ) {
         $this->onQueue('yak-deployments');
     }
@@ -29,7 +30,7 @@ class ReportPreviewFailureJob implements ShouldQueue
         $deployment = BranchDeployment::with('repository')->find($this->deploymentId);
 
         if ($deployment !== null) {
-            $reporter->report($deployment, $this->exceptionMessage);
+            $reporter->report($deployment, $this->exceptionMessage, $this->commitSha);
         }
     }
 }

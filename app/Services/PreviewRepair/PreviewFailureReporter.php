@@ -39,8 +39,13 @@ class PreviewFailureReporter
         private readonly ResponsiblePersonResolver $responsiblePeople,
     ) {}
 
-    public function report(BranchDeployment $deployment, ?string $exceptionMessage = null): ?PreviewRepair
+    /**
+     * @param  string|null  $commitSha  the commit that failed; a failed refresh passes the commit it was moving to
+     */
+    public function report(BranchDeployment $deployment, ?string $exceptionMessage = null, ?string $commitSha = null): ?PreviewRepair
     {
+        $headSha = $commitSha ?? $deployment->current_commit_sha;
+
         $repository = $deployment->repository;
 
         if (! $repository->deployments_enabled || ! $repository->preview_repair_enabled) {
@@ -57,21 +62,25 @@ class PreviewFailureReporter
         $fingerprint = PreviewFailureFingerprint::for($deployment, $exceptionMessage);
         $capReached = false;
 
+        // Resolving the recipe can call GitHub, so it happens before the
+        // repository row is locked.
+        $manifest = $this->manifests->manifestFor($deployment, $headSha);
+
         /** @var array{0: PreviewRepair|null, 1: YakTask|null} $outcome */
-        $outcome = DB::transaction(function () use ($repository, $deployment, $fingerprint, $exceptionMessage, &$capReached): array {
+        $outcome = DB::transaction(function () use ($repository, $deployment, $fingerprint, $exceptionMessage, $headSha, $manifest, &$capReached): array {
             Repository::query()->whereKey($repository->id)->lockForUpdate()->first();
 
             $live = PreviewRepair::liveFor($repository, $fingerprint->hash);
 
             if ($live !== null) {
-                $this->attach($live, $deployment);
+                $this->attach($live, $deployment, $headSha);
                 $live->update(['last_failed_at' => now()]);
                 $this->decline($repository, $deployment, 'preview_repair.duplicate', "The preview for {$deployment->branch_name} failed for the same reason as repair #{$live->id}.");
 
                 return [$live, null];
             }
 
-            if ($this->wasInvestigated($deployment)) {
+            if ($this->wasInvestigated($deployment, $headSha)) {
                 $this->decline($repository, $deployment, 'preview_repair.already_investigated', "The preview for {$deployment->branch_name} was already investigated at this commit.");
 
                 return [null, null];
@@ -94,9 +103,9 @@ class PreviewFailureReporter
                 'last_failed_at' => now(),
             ]);
 
-            $task = $this->createTask($previewRepair, $deployment, $fingerprint, $exceptionMessage);
+            $task = $this->createTask($previewRepair, $deployment, $fingerprint, $exceptionMessage, $headSha, $manifest);
             $previewRepair->update(['yak_task_id' => $task->id]);
-            $this->attach($previewRepair, $deployment);
+            $this->attach($previewRepair, $deployment, $headSha);
 
             return [$previewRepair, $task];
         });
@@ -134,11 +143,11 @@ class PreviewFailureReporter
             ->exists();
     }
 
-    private function wasInvestigated(BranchDeployment $deployment): bool
+    private function wasInvestigated(BranchDeployment $deployment, ?string $headSha): bool
     {
-        return $deployment->current_commit_sha !== null && DB::table('preview_repair_deployments')
+        return $headSha !== null && DB::table('preview_repair_deployments')
             ->where('branch_deployment_id', $deployment->id)
-            ->where('head_sha', $deployment->current_commit_sha)
+            ->where('head_sha', $headSha)
             ->exists();
     }
 
@@ -151,14 +160,17 @@ class PreviewFailureReporter
             ->count();
     }
 
-    private function attach(PreviewRepair $previewRepair, BranchDeployment $deployment): void
+    private function attach(PreviewRepair $previewRepair, BranchDeployment $deployment, ?string $headSha): void
     {
         $previewRepair->deployments()->syncWithoutDetaching([
-            $deployment->id => ['head_sha' => $deployment->current_commit_sha, 'failed_at' => now()],
+            $deployment->id => ['head_sha' => $headSha, 'failed_at' => now()],
         ]);
     }
 
-    private function createTask(PreviewRepair $previewRepair, BranchDeployment $deployment, PreviewFailureFingerprint $fingerprint, ?string $exceptionMessage): YakTask
+    /**
+     * @param  array<string, mixed>  $manifest
+     */
+    private function createTask(PreviewRepair $previewRepair, BranchDeployment $deployment, PreviewFailureFingerprint $fingerprint, ?string $exceptionMessage, ?string $headSha, array $manifest): YakTask
     {
         $slug = $deployment->repository->slug;
         $failingCommand = $deployment->logs()->where('level', 'error')->where('phase', $fingerprint->phase)->latest('id')->value('message');
@@ -174,12 +186,12 @@ class PreviewFailureReporter
                 'deployment_id' => $deployment->id,
                 'branch_name' => $deployment->branch_name,
                 'pr_number' => $deployment->pr_number,
-                'head_sha' => $deployment->current_commit_sha,
+                'head_sha' => $headSha,
                 'phase' => $fingerprint->phase,
                 'failure_reason' => $exceptionMessage ?? $deployment->failure_reason,
                 'error_excerpt' => $fingerprint->excerpt,
                 'failing_command' => $failingCommand,
-                'manifest' => $this->manifests->manifestFor($deployment),
+                'manifest' => $manifest,
                 'template_version' => $deployment->template_version,
             ]),
             'mode' => 'fix',

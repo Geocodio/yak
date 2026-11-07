@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\DataTransferObjects\PreviewManifest;
 use App\Enums\DeploymentStatus;
 use App\Jobs\Deployments\WakeHibernatedDeploymentJob;
 use App\Models\BranchDeployment;
@@ -12,7 +13,6 @@ class DeploymentWaker
 {
     public function __construct(
         private readonly DeploymentContainerManager $manager,
-        private readonly PreviewManifestResolver $manifests,
     ) {}
 
     /**
@@ -99,6 +99,6 @@ class DeploymentWaker
 
     private function manifestPort(BranchDeployment $deployment): int
     {
-        return $this->manifests->for($deployment)->port;
+        return PreviewManifest::fromArray($deployment->preview_manifest ?? $deployment->repository->settings()->previewManifest())->port;
     }
 }

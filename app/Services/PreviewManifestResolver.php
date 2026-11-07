@@ -25,19 +25,23 @@ class PreviewManifestResolver
         private readonly RepositoryConfigParser $parser,
     ) {}
 
-    public function for(BranchDeployment $deployment): PreviewManifest
+    /**
+     * @param  string|null  $commitSha  the commit being previewed; defaults to the deployment's current commit
+     */
+    public function for(BranchDeployment $deployment, ?string $commitSha = null): PreviewManifest
     {
-        return PreviewManifest::fromArray($this->manifestFor($deployment));
+        return PreviewManifest::fromArray($this->manifestFor($deployment, $commitSha));
     }
 
     /**
+     * @param  string|null  $commitSha  the commit being previewed; defaults to the deployment's current commit
      * @return array<string, mixed>
      */
-    public function manifestFor(BranchDeployment $deployment): array
+    public function manifestFor(BranchDeployment $deployment, ?string $commitSha = null): array
     {
         $deployment->loadMissing('repository');
 
-        return $this->branchManifest($deployment)
+        return $this->branchManifest($deployment, $commitSha ?? (string) $deployment->current_commit_sha)
             ?? $deployment->repository->settings()->previewManifest()
             ?? [];
     }
@@ -45,10 +49,9 @@ class PreviewManifestResolver
     /**
      * @return array<string, mixed>|null
      */
-    private function branchManifest(BranchDeployment $deployment): ?array
+    private function branchManifest(BranchDeployment $deployment, string $commitSha): ?array
     {
         $installationId = (int) config('yak.channels.github.installation_id');
-        $commitSha = (string) $deployment->current_commit_sha;
 
         if ($deployment->pr_number === null || $installationId === 0 || $commitSha === '') {
             return null;
@@ -80,7 +83,7 @@ class PreviewManifestResolver
     {
         $slug = (string) $deployment->repository->github_full_name;
 
-        $changesManifest = collect($this->github->listPullRequestFiles($installationId, $slug, (int) $deployment->pr_number))
+        $changesManifest = collect($this->github->listPullRequestFilesOrFail($installationId, $slug, (int) $deployment->pr_number))
             ->contains(fn (array $file): bool => ($file['filename'] ?? null) === self::PATH && ($file['status'] ?? null) !== 'removed');
 
         if (! $changesManifest) {

@@ -11,7 +11,9 @@ use App\Models\PreviewRepair;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\DeploymentContainerManager;
+use App\Services\PreviewManifestResolver;
 use App\Services\PreviewRepair\PreviewFailureReporter;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -128,6 +130,44 @@ it('reports a failed refresh of a running preview', function () {
     expect(fn () => (new UpdateDeploymentJob($deployment->id, 'newsha'))->handle($manager))->toThrow(RuntimeException::class);
 
     Queue::assertPushed(ReportPreviewFailureJob::class, fn (ReportPreviewFailureJob $job) => $job->deploymentId === $deployment->id
-        && str_contains((string) $job->exceptionMessage, 'exit 1'));
+        && str_contains((string) $job->exceptionMessage, 'exit 1')
+        && $job->commitSha === 'newsha');
     expect($deployment->fresh()->status)->toBe(DeploymentStatus::Running);
+});
+
+it('records a failed refresh under the commit being refreshed to', function () {
+    $deployment = BranchDeployment::factory()->for($this->repository)->running()->create(['current_commit_sha' => 'oldsha']);
+
+    $repair = app(PreviewFailureReporter::class)->report($deployment, 'Command failed (phase=refresh): exit 1', 'newsha');
+
+    expect(json_decode($repair->task->context, true)['head_sha'])->toBe('newsha')
+        ->and($repair->deployments->first()->pivot->head_sha)->toBe('newsha');
+});
+
+it('investigates a new refresh failure on a later commit of the same preview', function () {
+    $deployment = BranchDeployment::factory()->for($this->repository)->running()->create(['current_commit_sha' => 'oldsha']);
+    $reporter = app(PreviewFailureReporter::class);
+    $first = $reporter->report($deployment, 'Command failed (phase=refresh): first cause', 'secondsha');
+    YakTask::query()->whereKey($first->yak_task_id)->update(['status' => 'success']);
+    $first->update(['verdict' => 'branch']);
+
+    $second = $reporter->report($deployment->fresh(), 'Command failed (phase=refresh): other cause', 'thirdsha');
+
+    expect($second)->not->toBeNull()->and($second->id)->not->toBe($first->id);
+});
+
+it('resolves the preview recipe before locking the repository', function () {
+    $resolver = Mockery::mock(PreviewManifestResolver::class);
+    $transactionLevels = [];
+    $resolver->shouldReceive('manifestFor')->andReturnUsing(function () use (&$transactionLevels) {
+        $transactionLevels[] = DB::transactionLevel();
+
+        return ['port' => 8090];
+    });
+    $this->app->instance(PreviewManifestResolver::class, $resolver);
+    $baseLevel = DB::transactionLevel();
+
+    app(PreviewFailureReporter::class)->report(failedPreview($this->repository));
+
+    expect($transactionLevels)->toBe([$baseLevel]);
 });

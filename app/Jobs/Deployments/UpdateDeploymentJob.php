@@ -32,7 +32,7 @@ class UpdateDeploymentJob implements ShouldQueue
             try {
                 $manager->applyCheckoutRefresh($deployment, $this->commitSha);
             } catch (\Throwable $e) {
-                ReportPreviewFailureJob::dispatch($deployment->id, $e->getMessage());
+                ReportPreviewFailureJob::dispatch($deployment->id, $e->getMessage(), $this->commitSha);
 
                 throw $e;
             }
