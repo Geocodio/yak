@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zip \
     bcmath \
     pcntl \
+    sockets \
     intl \
     && pecl install redis \
     && docker-php-ext-enable redis \

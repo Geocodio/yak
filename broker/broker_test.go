@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,23 +15,43 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+type fakeRedeemer struct {
+	mu         sync.Mutex
+	references map[string]Credential
+	redeemed   []string
+}
+
+func (f *fakeRedeemer) Redeem(_ context.Context, reference string) (Credential, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.redeemed = append(f.redeemed, reference)
+	credential, ok := f.references[reference]
+	if !ok {
+		return Credential{}, errors.New("unknown reference")
+	}
+	delete(f.references, reference)
+	return credential, nil
+}
+
 type harness struct {
-	redis   *redis.Client
-	spawner *fakeSpawner
+	redis    *redis.Client
+	spawner  *fakeSpawner
+	redeemer *fakeRedeemer
 }
 
 func newHarness(t *testing.T, prepare ...func(*harness)) *harness {
 	t.Helper()
 	server := miniredis.RunT(t)
 	h := &harness{
-		redis:   redis.NewClient(&redis.Options{Addr: server.Addr()}),
-		spawner: &fakeSpawner{},
+		redis:    redis.NewClient(&redis.Options{Addr: server.Addr()}),
+		spawner:  &fakeSpawner{},
+		redeemer: &fakeRedeemer{references: map[string]Credential{}},
 	}
 	for _, fn := range prepare {
 		fn(h)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	broker := New(h.redis, h.spawner, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	broker := New(h.redis, h.spawner, h.redeemer, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	done := make(chan struct{})
 	go func() { _ = broker.Run(ctx); close(done) }()
 	t.Cleanup(func() {

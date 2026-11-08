@@ -105,6 +105,8 @@
       - "/etc/yak/github-app.pem:/etc/yak/github-app.pem:ro"
       - "{{ yak_home }}/mcp-config.json:/home/yak/mcp-config.json:ro"
       - "{{ yak_home }}/.docker:/home/yak/.docker:ro"
+      # The app serves the broker's credential socket in this directory.
+      - "{{ yak_credentials_path }}:{{ yak_credentials_path }}"
       # Bind the whole Incus state dir, not just the unix.socket file.
       # Socket files pin the inode, so any Incus daemon restart on the
       # host (new inode) would leave the container stuck referencing a

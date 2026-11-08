@@ -2,14 +2,14 @@
 
 namespace App\Services\Threads;
 
-use App\Enums\ClaudeAccountKind;
 use App\Enums\RunnerState;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 
 /**
- * Writes runner commands to a thread's broker stream. The credential travels
- * only inside the start_runner command and is never logged.
+ * Writes runner commands to a thread's broker stream. The stream carries a
+ * one-time credential reference, never the credential, which the broker
+ * redeems over the credential socket.
  */
 class ThreadCommands
 {
@@ -17,7 +17,7 @@ class ThreadCommands
 
     private const WORKING_DIRECTORY = '/workspace';
 
-    public function __construct(private readonly ThreadStreams $streams) {}
+    public function __construct(private readonly ThreadStreams $streams, private readonly CredentialReferences $credentials) {}
 
     public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt): void
     {
@@ -26,6 +26,7 @@ class ThreadCommands
             'container' => $thread->sandbox_container,
             'uid' => self::SANDBOX_USER_ID,
             'cwd' => self::WORKING_DIRECTORY,
+            'credential_reference' => $this->credentials->issue($account),
             'start' => [
                 'type' => 'start',
                 'model' => $thread->model,
@@ -37,10 +38,6 @@ class ThreadCommands
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => $resumeSessionId,
                 'claudeConfigDir' => $thread->claude_config_dir,
-                'credential' => [
-                    'type' => $account->kind === ClaudeAccountKind::ApiKey ? 'api_key' : 'oauth_token',
-                    'value' => $account->secret,
-                ],
             ],
         ]);
 

@@ -4,8 +4,12 @@ After=network-online.target docker.service incus.service
 Wants=network-online.target
 
 [Service]
-# Runs as root because it spawns runners with `incus exec`.
-User=root
+# An unprivileged user in incus-admin: enough for `incus exec`, and the only
+# user the app's credential socket admits.
+User={{ yak_broker_user }}
+Group={{ yak_broker_user }}
+Environment=HOME=/var/lib/yak-broker
+NoNewPrivileges=true
 EnvironmentFile=/etc/yak/broker.env
 ExecStart=/usr/local/bin/yak-broker
 Restart=always

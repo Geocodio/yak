@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -103,7 +105,7 @@ func (s *fakeSpawner) killedContainers() []string {
 	return append([]string(nil), s.killed...)
 }
 
-const startLine = `{"type":"start","credential":{"type":"oauth_token","value":"secret-token"}}`
+const startLine = `{"type":"start","model":"m"}`
 
 func TestStartRunnerWritesStartLineFirst(t *testing.T) {
 	h := newHarness(t)
@@ -120,6 +122,48 @@ func TestStartRunnerWritesStartLineFirst(t *testing.T) {
 	}
 	if lines[1] != `{"type":"user","uuid":"u1","text":"hi"}` {
 		t.Fatalf("second stdin line = %s", lines[1])
+	}
+}
+
+func TestStartRunnerRedeemsTheReferenceIntoTheStartLine(t *testing.T) {
+	h := newHarness(t)
+	h.redeemer.references["ref-1"] = Credential{Type: "oauth_token", Value: "secret-token"}
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","credential_reference":"ref-1","start":`+startLine+`}`)
+
+	waitFor(t, func() bool {
+		process := h.spawner.process(0)
+		return process != nil && len(process.stdin.Lines()) == 1
+	})
+	var start map[string]any
+	if err := json.Unmarshal([]byte(h.spawner.process(0).stdin.Lines()[0]), &start); err != nil {
+		t.Fatal(err)
+	}
+	credential, _ := start["credential"].(map[string]any)
+	if credential["type"] != "oauth_token" || credential["value"] != "secret-token" || start["model"] != "m" {
+		t.Fatalf("start line = %v", start)
+	}
+	if len(h.redeemer.references) != 0 {
+		t.Fatal("the reference was not consumed")
+	}
+	// The credential reached neither Redis stream.
+	for _, key := range []string{"threads:1:in", "threads:1:out"} {
+		entries, _ := h.redis.XRange(context.Background(), key, "-", "+").Result()
+		for _, entry := range entries {
+			if strings.Contains(fmt.Sprint(entry.Values), "secret-token") {
+				t.Fatalf("credential found in %s", key)
+			}
+		}
+	}
+}
+
+func TestStartRunnerFailsWhenTheReferenceCannotBeRedeemed(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","credential_reference":"missing","start":`+startLine+`}`)
+	h.out("threads:1", func(entries []map[string]any) bool {
+		return countLines(entries, `"event":"runner_exited","generation":1,"exit_code":-1`) == 1
+	})
+	if h.spawner.startCount() != 0 {
+		t.Fatal("a runner started without a credential")
 	}
 }
 

@@ -20,7 +20,11 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	if err := New(client, IncusSpawner{}, logger).Run(ctx); err != nil {
+	socket := os.Getenv("YAK_BROKER_CREDENTIAL_SOCKET")
+	if socket == "" {
+		socket = "/var/lib/yak/credentials/redeem.sock"
+	}
+	if err := New(client, IncusSpawner{}, SocketRedeemer{Path: socket}, logger).Run(ctx); err != nil {
 		logger.Error("broker stopped", "error", err)
 		os.Exit(1)
 	}

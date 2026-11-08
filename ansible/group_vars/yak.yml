@@ -50,5 +50,15 @@ yak_sandbox_runc_version: ""
 # meaning: the minimum patience for a task that's gone silent.
 yak_drain_max_wait_seconds: 2700
 
+# The pipe broker runs as this unprivileged system user. The Yak app serves the
+# credential socket to it alone: the directory is group-owned by the broker's group
+# and the app checks the connecting uid against yak_broker_uid.
+yak_broker_user: yak-broker
+yak_broker_uid: 991
+yak_broker_gid: 991
+yak_credentials_path: /var/lib/yak/credentials
+# www-data inside the Yak container.
+yak_container_www_data_uid: 33
+
 redis_container_name: yak-redis
 redis_data_path: /home/yak/redis-data

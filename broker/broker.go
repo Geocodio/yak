@@ -26,10 +26,12 @@ type command struct {
 	UID       int             `json:"uid"`
 	Cwd       string          `json:"cwd"`
 	Start     json.RawMessage `json:"start"`
-	UUID      string          `json:"uuid"`
-	Text      string          `json:"text"`
-	Priority  string          `json:"priority"`
-	Model     string          `json:"model"`
+	// CredentialReference is a one-time reference the broker redeems for the credential.
+	CredentialReference string `json:"credential_reference"`
+	UUID                string `json:"uuid"`
+	Text                string `json:"text"`
+	Priority            string `json:"priority"`
+	Model               string `json:"model"`
 }
 
 type userMessage struct {
@@ -53,6 +55,7 @@ type channelState struct {
 type Broker struct {
 	redis    *redis.Client
 	spawner  Spawner
+	redeemer Redeemer
 	logger   *slog.Logger
 	consumer string
 
@@ -61,9 +64,9 @@ type Broker struct {
 	wg       sync.WaitGroup
 }
 
-func New(client *redis.Client, spawner Spawner, logger *slog.Logger) *Broker {
+func New(client *redis.Client, spawner Spawner, redeemer Redeemer, logger *slog.Logger) *Broker {
 	hostname, _ := os.Hostname()
-	return &Broker{redis: client, spawner: spawner, logger: logger, consumer: hostname, channels: map[string]*channelState{}}
+	return &Broker{redis: client, spawner: spawner, redeemer: redeemer, logger: logger, consumer: hostname, channels: map[string]*channelState{}}
 }
 
 // Run serves until the context ends, then kills every runner (their pipes
@@ -215,13 +218,16 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 	if err := b.spawner.KillRunners(ctx, state.container); err != nil {
 		b.logger.Warn("kill before start failed", "channel", state.name, "error", err)
 	}
+	start, err := b.startLine(ctx, cmd)
+	if err != nil {
+		b.logger.Error("build start line failed", "channel", state.name, "error", err)
+		b.failStart(state)
+		return
+	}
 	process, err := b.spawner.Start(ctx, state.container, cmd.UID, cmd.Cwd)
 	if err != nil {
 		b.logger.Error("start runner failed", "channel", state.name, "error", err)
-		b.emit(state, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":-1}`, state.generation+1))
-		state.mu.Lock()
-		state.generation++
-		state.mu.Unlock()
+		b.failStart(state)
 		return
 	}
 	state.mu.Lock()
@@ -230,7 +236,9 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 	state.process = process
 	state.mu.Unlock()
 
-	if _, err := process.Stdin().Write(append(cmd.Start, '\n')); err != nil {
+	_, err = process.Stdin().Write(append(start, '\n'))
+	clear(start)
+	if err != nil {
 		b.logger.Warn("write start line failed", "channel", state.name, "error", err)
 	}
 	b.wg.Add(1)
@@ -238,6 +246,36 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 		defer b.wg.Done()
 		b.pump(state, process, generation)
 	}()
+}
+
+// failStart reports a runner that could not be started as an exit of the generation it would have had.
+func (b *Broker) failStart(state *channelState) {
+	b.emit(state, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":-1}`, state.generation+1))
+	state.mu.Lock()
+	state.generation++
+	state.mu.Unlock()
+}
+
+// startLine returns the runner's start line. When the command carries a credential reference,
+// the redeemed credential is merged in here, in memory only: it never touches Redis.
+func (b *Broker) startLine(ctx context.Context, cmd command) ([]byte, error) {
+	if cmd.CredentialReference == "" {
+		return append([]byte(nil), cmd.Start...), nil
+	}
+	credential, err := b.redeemer.Redeem(ctx, cmd.CredentialReference)
+	if err != nil {
+		return nil, err
+	}
+	var start map[string]json.RawMessage
+	if err := json.Unmarshal(cmd.Start, &start); err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(credential)
+	if err != nil {
+		return nil, err
+	}
+	start["credential"] = encoded
+	return json.Marshal(start)
 }
 
 // pump copies runner stdout to the out stream, then reports the exit.

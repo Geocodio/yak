@@ -30,6 +30,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Runner Credentials
+    |--------------------------------------------------------------------------
+    |
+    | A runner's credential never goes through Redis. The driver stores it under
+    | a one-time reference (60 s, in a store that is not Redis) and the pipe
+    | broker redeems the reference over a Unix socket the app serves. Only the
+    | broker's uid may redeem; leave the uid empty to serve no socket.
+    |
+    */
+
+    'credential_reference_store' => env('YAK_CREDENTIAL_REFERENCE_STORE', 'database'),
+
+    'credential_socket' => [
+        'path' => env('YAK_CREDENTIAL_SOCKET', '/var/lib/yak/credentials/redeem.sock'),
+        'allowed_uid' => env('YAK_CREDENTIAL_SOCKET_UID') === null ? null : (int) env('YAK_CREDENTIAL_SOCKET_UID'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Message Attachments
     |--------------------------------------------------------------------------
     |
