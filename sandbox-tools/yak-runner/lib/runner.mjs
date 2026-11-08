@@ -2,20 +2,17 @@
 // stdin:  {type:'start',...} first, then user | interrupt | set_model | end.
 // stdout: every SDK message unchanged, plus {type:'runner', event} lifecycle lines.
 import readline from 'node:readline';
-import { spawn as nodeSpawn } from 'node:child_process';
 
 const PASSTHROUGH_VARIABLES = ['PATH', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'SHELL', 'USER', 'LOGNAME', 'GH_TOKEN'];
 // Passthrough variables whose values must never reach the output. The agent can read these
 // (it needs GH_TOKEN for git and gh), so redaction here is defence in depth only.
 const SENSITIVE_PASSTHROUGH_VARIABLES = ['GH_TOKEN'];
-// The credential reaches the CLI on this inherited descriptor, never in its environment: a
-// drained socket leaves nothing for /proc/<pid>/environ or the agent's tool processes to read.
-const CREDENTIAL_DESCRIPTOR = 3;
 const DELTA_FIELDS = ['text', 'thinking', 'partial_json'];
 const STREAM_IDLE_TIMEOUT_MS = '1800000';
 
 // The SDK replaces the child environment with options.env, so this is the whole environment
-// the agent sees. It names the credential descriptor but never carries the credential itself.
+// the agent sees. The CLI authenticates with the thread's placeholder against the host's auth
+// proxy, which swaps in the real credential. No real credential exists inside the sandbox.
 export function buildChildEnvironment(start, processEnvironment) {
   const environment = {};
   for (const name of PASSTHROUGH_VARIABLES) {
@@ -25,29 +22,18 @@ export function buildChildEnvironment(start, processEnvironment) {
   environment.CLAUDE_CONFIG_DIR = start.claudeConfigDir;
   environment.CLAUDE_STREAM_IDLE_TIMEOUT_MS = STREAM_IDLE_TIMEOUT_MS;
   environment.CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS = STREAM_IDLE_TIMEOUT_MS;
-  if (start.credential?.type === 'api_key') environment.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR = String(CREDENTIAL_DESCRIPTOR);
-  else if (start.credential?.type === 'oauth_token') environment.CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR = String(CREDENTIAL_DESCRIPTOR);
+  environment.ANTHROPIC_BASE_URL = start.anthropicBaseUrl;
+  environment.CLAUDE_CODE_OAUTH_TOKEN = start.placeholder;
+  environment.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = '1';
   return environment;
 }
 
-export function sensitiveValues(start, processEnvironment) {
-  const values = [start.credential?.value];
-  for (const name of SENSITIVE_PASSTHROUGH_VARIABLES) values.push(processEnvironment[name]);
+export function sensitiveValues(processEnvironment) {
+  const values = SENSITIVE_PASSTHROUGH_VARIABLES.map((name) => processEnvironment[name]);
   return values.filter((value) => typeof value === 'string' && value !== '');
 }
 
-// Starts the claude CLI with the credential on descriptor 3 (a socket the CLI reads once and closes).
-export function spawnWithCredential(credential, spawn) {
-  return ({ command, args, cwd, env, signal }) => {
-    const child = spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'ignore', 'pipe'], windowsHide: true });
-    const channel = child.stdio[CREDENTIAL_DESCRIPTOR];
-    channel.on('error', () => {});
-    channel.end(credential.value + '\n');
-    return child;
-  };
-}
-
-function buildOptions(start, environment, spawn) {
+function buildOptions(start, environment) {
   const options = {
     cwd: start.cwd || '/workspace',
     model: start.model,
@@ -60,14 +46,13 @@ function buildOptions(start, environment, spawn) {
   if (start.appendSystemPrompt) {
     options.systemPrompt = { type: 'preset', preset: 'claude_code', append: start.appendSystemPrompt };
   }
-  if (start.credential?.value) options.spawnClaudeCodeProcess = spawnWithCredential(start.credential, spawn);
   if (start.resume) options.resume = start.resume;
   if (start.mcpServers) options.mcpServers = start.mcpServers;
   if (start.additionalDirectories) options.additionalDirectories = start.additionalDirectories;
   return options;
 }
 
-export function createRunner({ query, input, output, exit, environment = process.env, spawn = nodeSpawn }) {
+export function createRunner({ query, input, output, exit, environment = process.env }) {
   const queue = [];
   let wake = null;
   let ended = false;
@@ -128,8 +113,8 @@ export function createRunner({ query, input, output, exit, environment = process
   }
 
   async function run(start) {
-    secrets = sensitiveValues(start, environment);
-    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment, spawn) });
+    secrets = sensitiveValues(environment);
+    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment) });
     runnerLine('started', { pid: process.pid });
     let sawResult = false;
     try {
@@ -175,6 +160,7 @@ export function createRunner({ query, input, output, exit, environment = process
     try { command = JSON.parse(line); } catch { runnerLine('bad_line', { length: line.length }); return; }
     if (!started) {
       if (command.type !== 'start') { runnerLine('error', { error: 'first line must be start' }); exit(2); return; }
+      if (typeof command.placeholder !== 'string' || typeof command.anthropicBaseUrl !== 'string') { runnerLine('error', { error: 'start requires placeholder and anthropicBaseUrl' }); exit(2); return; }
       started = true;
       run(command).then(() => exit(0), (error) => { runnerLine('error', { error: describe(error) }); exit(1); });
       return;

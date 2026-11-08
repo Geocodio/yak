@@ -8,7 +8,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Services\Threads\CredentialReferences;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\ThreadTurns;
 use Tests\Support\FakeThreadStreams;
@@ -74,7 +74,7 @@ it('restarts the runner with resume after a switch', function () {
     $commands = $this->streams->commandsFor($this->thread->channel());
     expect(array_column($commands, 'type'))->toBe(['kill', 'start_runner', 'turn'])
         ->and($commands[1]['start']['resume'])->toBe('session-4')
-        ->and(app(CredentialReferences::class)->redeem($commands[1]['credential_reference'])['value'])->toBe($mine->secret)
+        ->and(app(AuthProxyPlaceholders::class)->resolve($commands[1]['start']['placeholder'])['value'])->toBe($mine->secret)
         ->and($this->thread->fresh()->runner_claude_account_id)->toBe($mine->id);
 });
 

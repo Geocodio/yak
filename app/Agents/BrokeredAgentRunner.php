@@ -8,7 +8,7 @@ use App\DataTransferObjects\AgentRunResult;
 use App\Exceptions\ClaudeAuthException;
 use App\Models\ClaudeAccount;
 use App\Services\IncusSandboxManager;
-use App\Services\Threads\CredentialReferences;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\TurnResult;
 use App\Services\Threads\TurnTracker;
@@ -28,7 +28,7 @@ class BrokeredAgentRunner implements AgentRunner
 
     public function __construct(
         private readonly ThreadStreams $streams,
-        private readonly CredentialReferences $credentials,
+        private readonly AuthProxyPlaceholders $placeholders,
         private readonly int $exitWaitSeconds = 30,
     ) {}
 
@@ -42,10 +42,11 @@ class BrokeredAgentRunner implements AgentRunner
         }
 
         $channel = 'oneshot:' . Str::uuid();
+        $placeholder = $this->placeholders->issueForContainer((string) $request->containerName, $account);
         $this->streams->register($channel);
 
         try {
-            $this->streams->command($channel, $this->startRunnerCommand($request, $account));
+            $this->streams->command($channel, $this->startRunnerCommand($request, $placeholder));
             $this->streams->command($channel, ['type' => 'turn', 'uuid' => $turnUuid = (string) Str::uuid(), 'text' => $request->prompt]);
 
             $handler = new StreamEventHandler($task);
@@ -96,20 +97,21 @@ class BrokeredAgentRunner implements AgentRunner
             );
         } finally {
             $this->streams->unregister($channel);
+            $this->streams->delete($channel);
+            $this->placeholders->revoke($placeholder);
         }
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function startRunnerCommand(AgentRunRequest $request, ClaudeAccount $account): array
+    private function startRunnerCommand(AgentRunRequest $request, string $placeholder): array
     {
         return [
             'type' => 'start_runner',
             'container' => $request->containerName,
             'uid' => self::SANDBOX_USER_ID,
             'cwd' => IncusSandboxManager::workspacePath(),
-            'credential_reference' => $this->credentials->issue($account),
             'start' => [
                 'type' => 'start',
                 'model' => $request->model,
@@ -121,6 +123,8 @@ class BrokeredAgentRunner implements AgentRunner
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => null,
                 'claudeConfigDir' => self::CLAUDE_CONFIG_DIRECTORY,
+                'placeholder' => $placeholder,
+                'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
             ],
         ];
     }

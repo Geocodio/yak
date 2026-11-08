@@ -7,7 +7,7 @@ use RuntimeException;
 use Socket;
 
 /**
- * Serves credential references on a Unix socket. The socket file is reachable
+ * Serves the credential behind an auth proxy placeholder on a Unix socket. The socket file is reachable
  * only by the broker's group, and every connection is also checked against the
  * broker's uid with the kernel's peer credentials (SCM_CREDENTIALS), which the
  * peer cannot forge. One request line `{"reference": "..."}` gets one reply line:
@@ -22,7 +22,7 @@ class CredentialSocketServer
     /**
      * @param  (Closure(Socket): ?int)|null  $peerUidOverride  replaces the kernel's answer; tests only
      */
-    public function __construct(private readonly CredentialReferences $references, private readonly ?Closure $peerUidOverride = null) {}
+    public function __construct(private readonly AuthProxyPlaceholders $placeholders, private readonly ?Closure $peerUidOverride = null) {}
 
     public function listen(string $path, int $allowedUid, int $mode = 0660): void
     {
@@ -39,6 +39,11 @@ class CredentialSocketServer
             }
         } finally {
             umask($previousMask);
+        }
+
+        // Set before any peer connects, so the kernel attaches the peer's credentials to its first message.
+        if (defined('SO_PASSCRED')) {
+            socket_set_option($listener, SOL_SOCKET, SO_PASSCRED, 1);
         }
 
         chmod($path, $mode);
@@ -101,10 +106,11 @@ class CredentialSocketServer
             return;
         }
 
-        $reference = json_decode(trim($request), true)['reference'] ?? null;
-        $credential = is_string($reference) ? $this->references->redeem($reference) : null;
+        $decoded = json_decode(trim($request), true);
+        $placeholder = is_array($decoded) ? ($decoded['placeholder'] ?? null) : null;
+        $credential = is_string($placeholder) ? $this->placeholders->resolve($placeholder) : null;
 
-        $this->reply($connection, $credential ?? ['error' => 'unknown or expired reference']);
+        $this->reply($connection, $credential ?? ['error' => 'unknown or revoked placeholder']);
     }
 
     /**

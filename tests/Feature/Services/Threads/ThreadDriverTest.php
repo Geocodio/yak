@@ -15,6 +15,7 @@ use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\TurnResult;
@@ -374,4 +375,18 @@ it('keeps redispatching completions when one thread cannot be restarted', functi
     app(ThreadDriver::class)->tick();
 
     expect($lost->fresh()->completion_dispatched_at)->not->toBeNull();
+});
+
+it('revokes the proxy placeholder when the current runner exits', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $account = ClaudeAccount::factory()->create();
+    $this->thread->forceFill(['claude_account_id' => $account->id, 'sandbox_container' => 'yak-thread-1'])->save();
+    $this->run->forceFill(['restart_count' => ThreadDriver::MAX_RESTARTS])->save();
+    $placeholders = app(AuthProxyPlaceholders::class);
+    $placeholder = $placeholders->issueForThread($this->thread, $account);
+
+    app(ThreadDriver::class)->handle(runnerExit());
+
+    expect($placeholders->resolve($placeholder))->toBeNull();
 });

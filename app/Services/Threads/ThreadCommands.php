@@ -7,9 +7,9 @@ use App\Models\ClaudeAccount;
 use App\Models\Thread;
 
 /**
- * Writes runner commands to a thread's broker stream. The stream carries a
- * one-time credential reference, never the credential, which the broker
- * redeems over the credential socket.
+ * Writes runner commands to a thread's broker stream. The stream carries the
+ * thread's auth proxy placeholder, never a credential: the proxy swaps the
+ * real token in on the host.
  */
 class ThreadCommands
 {
@@ -17,7 +17,7 @@ class ThreadCommands
 
     private const WORKING_DIRECTORY = '/workspace';
 
-    public function __construct(private readonly ThreadStreams $streams, private readonly CredentialReferences $credentials) {}
+    public function __construct(private readonly ThreadStreams $streams, private readonly AuthProxyPlaceholders $placeholders) {}
 
     public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt): void
     {
@@ -26,7 +26,6 @@ class ThreadCommands
             'container' => $thread->sandbox_container,
             'uid' => self::SANDBOX_USER_ID,
             'cwd' => self::WORKING_DIRECTORY,
-            'credential_reference' => $this->credentials->issue($account),
             'start' => [
                 'type' => 'start',
                 'model' => $thread->model,
@@ -38,6 +37,8 @@ class ThreadCommands
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => $resumeSessionId,
                 'claudeConfigDir' => $thread->claude_config_dir,
+                'placeholder' => $this->placeholders->issueForThread($thread, $account),
+                'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),
             ],
         ]);
 
@@ -81,7 +82,16 @@ class ThreadCommands
 
     public function kill(Thread $thread): void
     {
+        $this->revokePlaceholder($thread);
         $this->send($thread, ['type' => 'kill']);
+    }
+
+    /**
+     * The runner that held the thread's placeholder is gone; the proxy stops serving it.
+     */
+    public function revokePlaceholder(Thread $thread): void
+    {
+        $this->placeholders->revokeForThread($thread);
     }
 
     /**

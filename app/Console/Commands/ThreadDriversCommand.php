@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\DataTransferObjects\StreamEntry;
-use App\Services\Threads\CredentialReferences;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\CredentialSocketServer;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadStreams;
@@ -20,14 +20,14 @@ class ThreadDriversCommand extends Command
 
     private bool $shouldStop = false;
 
-    public function handle(ThreadStreams $streams, ThreadDriver $driver, CredentialReferences $references): int
+    public function handle(ThreadStreams $streams, ThreadDriver $driver, AuthProxyPlaceholders $placeholders): int
     {
         $this->trap([SIGTERM, SIGINT], function (int $signal): void {
             $this->shouldStop = true;
         });
         // A stable name: after a crash the restarted driver reads its own unacknowledged entries again.
         $consumer = gethostname() . '-thread-drivers';
-        $credentialServer = $this->credentialServer($references);
+        $credentialServer = $this->credentialServer($placeholders);
 
         do {
             $credentialServer?->serve(0);
@@ -105,7 +105,7 @@ class ThreadDriversCommand extends Command
      * The broker redeems credential references here; without the broker's uid
      * configured no socket is served and no runner can start.
      */
-    private function credentialServer(CredentialReferences $references): ?CredentialSocketServer
+    private function credentialServer(AuthProxyPlaceholders $placeholders): ?CredentialSocketServer
     {
         $path = config('yak.credential_socket.path');
         $uid = config('yak.credential_socket.allowed_uid');
@@ -114,7 +114,7 @@ class ThreadDriversCommand extends Command
             return null;
         }
 
-        $server = new CredentialSocketServer($references);
+        $server = new CredentialSocketServer($placeholders);
         $server->listen($path, $uid);
 
         return $server;

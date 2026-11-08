@@ -1,9 +1,16 @@
 <?php
 
+use App\Enums\RunnerState;
+use App\Enums\TurnState;
 use App\Models\ClaudeAccount;
+use App\Models\TaskRun;
+use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
+use App\Services\Threads\ThreadStreams;
 use Illuminate\Support\Facades\Process;
 use Inertia\Testing\AssertableInertia as Assert;
+use Tests\Support\FakeThreadStreams;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -101,4 +108,20 @@ it('lets a system account admin manage system accounts', function () {
     $this->delete(route('settings.claude-accounts.destroy', $system))->assertRedirect();
 
     expect(ClaudeAccount::query()->whereNull('owner_user_id')->count())->toBe(1);
+});
+
+it('stops a resting runner that holds a removed account but leaves a working one alone', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id]);
+    $resting = Thread::factory()->paused()->create(['claude_account_id' => $account->id, 'runner_claude_account_id' => $account->id, 'runner_state' => RunnerState::Idle]);
+    $working = Thread::factory()->paused()->create(['claude_account_id' => $account->id, 'runner_claude_account_id' => $account->id, 'runner_state' => RunnerState::Busy]);
+    $task = YakTask::factory()->running()->create(['thread_id' => $working->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $working->id, 'turn_state' => TurnState::Running]);
+
+    $this->delete(route('settings.claude-accounts.destroy', $account))->assertRedirect();
+
+    expect(array_column($streams->commandsFor($resting->channel()), 'type'))->toBe(['kill'])
+        ->and($resting->fresh()->runner_state)->toBe(RunnerState::None)
+        ->and($streams->commandsFor($working->channel()))->toBe([]);
 });

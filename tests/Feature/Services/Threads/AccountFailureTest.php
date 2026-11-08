@@ -16,7 +16,7 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
-use App\Services\Threads\CredentialReferences;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\ThreadTurns;
@@ -148,7 +148,7 @@ it('keeps an unattended thread on its Yak account after a person replies', funct
     expect($run->claude_account_id)->toBe($system->id)
         ->and($run->driver_user_id)->toBe($this->driverUser->id)
         ->and($this->thread->fresh()->claude_account_id)->toBe($system->id)
-        ->and(app(CredentialReferences::class)->redeem($this->streams->commandsFor($this->thread->channel())[0]['credential_reference'])['value'])->toBe($system->secret)
+        ->and(app(AuthProxyPlaceholders::class)->resolve($this->streams->commandsFor($this->thread->channel())[0]['start']['placeholder'])['value'])->toBe($system->secret)
         ->and($system->fresh()->last_used_at)->not->toBeNull()
         ->and($personal->fresh()->last_used_at)->toBeNull();
 });

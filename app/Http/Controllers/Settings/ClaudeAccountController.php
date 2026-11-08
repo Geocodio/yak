@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Settings;
 
 use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
+use App\Enums\RunnerState;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\RotateClaudeAccountRequest;
 use App\Http\Requests\Settings\StoreClaudeAccountRequest;
 use App\Http\Requests\Settings\UpdateClaudeAccountRequest;
 use App\Http\Resources\ClaudeAccountData;
 use App\Models\ClaudeAccount;
+use App\Models\Thread;
 use App\Services\ClaudeAccounts\ClaudeAccountValidator;
+use App\Services\Threads\ThreadCommands;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -89,9 +92,20 @@ class ClaudeAccountController extends Controller
         return redirect()->route('settings.claude-accounts');
     }
 
-    public function destroy(Request $request, ClaudeAccount $account): RedirectResponse
+    public function destroy(Request $request, ClaudeAccount $account, ThreadCommands $commands): RedirectResponse
     {
         $this->authorizeAccount($request, $account);
+
+        // A resting runner of this account would otherwise stay warm on a secret that no longer exists.
+        Thread::query()
+            ->where('runner_claude_account_id', $account->id)
+            ->where('runner_state', '!=', RunnerState::None)
+            ->get()
+            ->filter(fn (Thread $thread): bool => $thread->runningTurn() === null)
+            ->each(function (Thread $thread) use ($commands): void {
+                $commands->kill($thread);
+                $thread->forceFill(['runner_state' => RunnerState::None])->save();
+            });
 
         $account->delete();
 

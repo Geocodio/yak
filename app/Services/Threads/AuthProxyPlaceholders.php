@@ -4,59 +4,152 @@ namespace App\Services\Threads;
 
 use App\Enums\ClaudeAccountKind;
 use App\Models\ClaudeAccount;
+use App\Models\Thread;
 use Illuminate\Cache\Repository;
-use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Str;
 
 /**
- * One-time references to a runner credential. The credential itself never goes
- * through Redis: the thread driver stores it here, encrypted, under a random
- * reference that expires after a minute, and the broker redeems the reference
- * over the credential socket. A redeemed reference is gone.
+ * Placeholders for the auth proxy. A sandbox only ever holds a placeholder
+ * (`yakph-` plus 32 random bytes); the proxy asks the Yak app for the real
+ * credential behind it over the credential socket and keeps it in memory.
+ *
+ * A thread or one-shot placeholder names the account and the sandbox it is
+ * bound to, and is revoked when its runner ends. A validation placeholder
+ * carries the pasted secret itself, encrypted, for a few minutes, and is bound
+ * to the host that validates the account. No real credential is written to
+ * Redis or to a sandbox.
  */
-class CredentialReferences
+class AuthProxyPlaceholders
 {
-    public const TIME_TO_LIVE_SECONDS = 60;
+    public const PREFIX = 'yakph-';
 
-    public function issue(ClaudeAccount $account): string
+    public const VALIDATION_TTL_SECONDS = 300;
+
+    /** Longer than any runner lives: an idle sandbox stops after minutes and a turn is capped. */
+    private const BOUND_TTL_SECONDS = 172_800;
+
+    public function issueForThread(Thread $thread, ClaudeAccount $account): string
     {
-        $reference = Str::random(64);
-        $credential = [
-            'type' => $account->kind === ClaudeAccountKind::ApiKey ? 'api_key' : 'oauth_token',
-            'value' => $account->secret,
-        ];
+        $this->revokeForThread($thread);
 
-        $this->store()->put($this->key($reference), Crypt::encryptString(json_encode($credential, JSON_THROW_ON_ERROR)), self::TIME_TO_LIVE_SECONDS);
+        $placeholder = $this->newPlaceholder();
+        $hash = $this->hash($placeholder);
 
-        return $reference;
+        $this->store()->put($this->key($hash), ['account_id' => $account->id, 'thread_id' => $thread->id], self::BOUND_TTL_SECONDS);
+        $this->store()->put($this->threadKey($thread->id), $hash, self::BOUND_TTL_SECONDS);
+
+        return $placeholder;
     }
 
     /**
-     * @return array{type: string, value: string}|null
+     * For a run that belongs to no thread: bound to the job's own container.
      */
-    public function redeem(string $reference): ?array
+    public function issueForContainer(string $container, ClaudeAccount $account): string
     {
-        $key = $this->key($reference);
+        $placeholder = $this->newPlaceholder();
 
-        // The lock makes get-then-forget atomic, so two redemptions cannot both win.
-        $provider = $this->store()->getStore();
-        $encrypted = $provider instanceof LockProvider
-            ? $provider->lock('lock:' . $key, 5)->block(2, fn (): mixed => $this->store()->pull($key))
-            : $this->store()->pull($key);
+        $this->store()->put($this->key($this->hash($placeholder)), ['account_id' => $account->id, 'container' => $container], self::BOUND_TTL_SECONDS);
 
-        if (! is_string($encrypted)) {
+        return $placeholder;
+    }
+
+    public function issueForValidation(ClaudeAccountKind $kind, string $secret): string
+    {
+        $placeholder = $this->newPlaceholder();
+        $credential = ['type' => $kind === ClaudeAccountKind::ApiKey ? 'api_key' : 'oauth_token', 'value' => $secret];
+
+        $this->store()->put($this->key($this->hash($placeholder)), ['encrypted' => Crypt::encryptString(json_encode($credential, JSON_THROW_ON_ERROR))], self::VALIDATION_TTL_SECONDS);
+
+        return $placeholder;
+    }
+
+    public function revoke(string $placeholder): void
+    {
+        $this->store()->forget($this->key($this->hash($placeholder)));
+    }
+
+    public function revokeForThread(Thread $thread): void
+    {
+        $hash = $this->store()->pull($this->threadKey($thread->id));
+
+        if (is_string($hash)) {
+            $this->store()->forget($this->key($hash));
+        }
+    }
+
+    /**
+     * What the proxy needs to serve a placeholder: the real credential and
+     * where the placeholder may be used from. Null when the placeholder is
+     * unknown, revoked or its account or sandbox is gone.
+     *
+     * @return array{type: string, value: string, container?: string, host?: true}|null
+     */
+    public function resolve(string $placeholder): ?array
+    {
+        if (! str_starts_with($placeholder, self::PREFIX)) {
             return null;
         }
 
-        /** @var array{type: string, value: string} */
-        return json_decode(Crypt::decryptString($encrypted), true, flags: JSON_THROW_ON_ERROR);
+        $binding = $this->store()->get($this->key($this->hash($placeholder)));
+
+        if (! is_array($binding)) {
+            return null;
+        }
+
+        if (isset($binding['encrypted'])) {
+            /** @var array{type: string, value: string} $credential */
+            $credential = json_decode(Crypt::decryptString($binding['encrypted']), true, flags: JSON_THROW_ON_ERROR);
+
+            return $credential + ['host' => true];
+        }
+
+        $account = ClaudeAccount::query()->find($binding['account_id']);
+        $container = $this->containerOf($binding);
+
+        if ($account === null || $container === null) {
+            return null;
+        }
+
+        return [
+            'type' => $account->kind === ClaudeAccountKind::ApiKey ? 'api_key' : 'oauth_token',
+            'value' => $account->secret,
+            'container' => $container,
+        ];
     }
 
-    private function key(string $reference): string
+    /**
+     * @param  array<string, mixed>  $binding
+     */
+    private function containerOf(array $binding): ?string
     {
-        return 'credential-reference:' . hash('sha256', $reference);
+        if (isset($binding['container'])) {
+            return (string) $binding['container'];
+        }
+
+        $thread = Thread::query()->find($binding['thread_id'] ?? 0);
+
+        return $thread?->isOpen() === true && $thread->sandbox_container !== null ? $thread->sandbox_container : null;
+    }
+
+    private function newPlaceholder(): string
+    {
+        return self::PREFIX . bin2hex(random_bytes(32));
+    }
+
+    private function hash(string $placeholder): string
+    {
+        return hash('sha256', $placeholder);
+    }
+
+    private function key(string $hash): string
+    {
+        return 'auth-proxy-placeholder:' . $hash;
+    }
+
+    private function threadKey(int $threadId): string
+    {
+        return 'auth-proxy-thread:' . $threadId;
     }
 
     private function store(): Repository

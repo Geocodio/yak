@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"sync"
@@ -70,6 +71,15 @@ func (s *fakeSpawner) Start(_ context.Context, container string, _ int, _ string
 	return process, nil
 }
 
+type fakeAddresses map[string]string
+
+func (f fakeAddresses) ContainerAddress(_ context.Context, container string) (string, error) {
+	if address, ok := f[container]; ok {
+		return address, nil
+	}
+	return "", errors.New("unknown container")
+}
+
 func (s *fakeSpawner) KillRunners(_ context.Context, container string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -127,10 +137,9 @@ func TestStartRunnerWritesStartLineFirst(t *testing.T) {
 	}
 }
 
-func TestStartRunnerRedeemsTheReferenceIntoTheStartLine(t *testing.T) {
+func TestStartRunnerPassesThePlaceholderAndNoCredential(t *testing.T) {
 	h := newHarness(t)
-	h.redeemer.references["ref-1"] = Credential{Type: "oauth_token", Value: "secret-token"}
-	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","credential_reference":"ref-1","start":`+startLine+`}`)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{"type":"start","placeholder":"yakph-abc","anthropicBaseUrl":"http://10.0.0.1:8787"}}`)
 
 	waitFor(t, func() bool {
 		process := h.spawner.process(0)
@@ -140,32 +149,57 @@ func TestStartRunnerRedeemsTheReferenceIntoTheStartLine(t *testing.T) {
 	if err := json.Unmarshal([]byte(h.spawner.process(0).stdin.Lines()[0]), &start); err != nil {
 		t.Fatal(err)
 	}
-	credential, _ := start["credential"].(map[string]any)
-	if credential["type"] != "oauth_token" || credential["value"] != "secret-token" || start["model"] != "m" {
+	if start["placeholder"] != "yakph-abc" {
 		t.Fatalf("start line = %v", start)
 	}
-	if len(h.redeemer.references) != 0 {
-		t.Fatal("the reference was not consumed")
-	}
-	// The credential reached neither Redis stream.
-	for _, key := range []string{"threads:1:in", "threads:1:out"} {
-		entries, _ := h.redis.XRange(context.Background(), key, "-", "+").Result()
-		for _, entry := range entries {
-			if strings.Contains(fmt.Sprint(entry.Values), "secret-token") {
-				t.Fatalf("credential found in %s", key)
-			}
-		}
+	if _, present := start["credential"]; present {
+		t.Fatal("a credential reached the runner")
 	}
 }
 
-func TestStartRunnerFailsWhenTheReferenceCannotBeRedeemed(t *testing.T) {
-	h := newHarness(t)
-	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","credential_reference":"missing","start":`+startLine+`}`)
-	h.out("threads:1", func(entries []map[string]any) bool {
-		return countLines(entries, `"event":"runner_exited","generation":1,"exit_code":-1`) == 1
+func TestRunnerExitRevokesThePlaceholder(t *testing.T) {
+	source := &fakeSource{credentials: map[string]Credential{"yakph-abc": {Type: "oauth_token", Value: "real", Container: "c1"}}}
+	h := newHarness(t, func(h *harness) {
+		h.proxy, _ = NewAuthProxy(source, fakeAddresses{"c1": "10.0.0.5"}, mustURL("http://127.0.0.1:1"), nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+		h.proxy.cache["yakph-abc"] = &binding{credential: Credential{Type: "oauth_token", Value: "real"}, address: "10.0.0.5", expires: time.Now().Add(time.Hour)}
 	})
-	if h.spawner.startCount() != 0 {
-		t.Fatal("a runner started without a credential")
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{"type":"start","placeholder":"yakph-abc"}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+
+	h.spawner.process(0).Exit(0)
+
+	waitFor(t, func() bool {
+		h.proxy.mu.Lock()
+		defer h.proxy.mu.Unlock()
+		return len(h.proxy.cache) == 0
+	})
+}
+
+func TestForgottenChannelStreamsAreDeleted(t *testing.T) {
+	h := newHarness(t)
+	h.command("oneshot:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.spawner.process(0).Emit(`{"type":"assistant"}`)
+	h.out("oneshot:1", func(entries []map[string]any) bool { return countLines(entries, "assistant") == 1 })
+
+	h.redis.SRem(context.Background(), "broker:channels", "oneshot:1")
+
+	waitFor(t, func() bool {
+		exists, _ := h.redis.Exists(context.Background(), "oneshot:1:out", "oneshot:1:in").Result()
+		return exists == 0
+	})
+}
+
+func TestOutStreamIsCapped(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.spawner.process(0).Emit(`{"type":"assistant"}`)
+	h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, "assistant") == 1 })
+	// miniredis reports the trim settings as it stores them; the entry list stays small and ordered.
+	length, _ := h.redis.XLen(context.Background(), "threads:1:out").Result()
+	if length == 0 || length > outStreamMaxLength {
+		t.Fatalf("length = %d", length)
 	}
 }
 

@@ -11,7 +11,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use App\Services\Threads\CredentialReferences;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadStreams;
 use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeAgentRunner;
@@ -20,7 +20,7 @@ use Tests\Support\FakeThreadStreams;
 beforeEach(function () {
     $this->streams = new FakeThreadStreams;
     $this->app->instance(ThreadStreams::class, $this->streams);
-    $this->runner = new BrokeredAgentRunner($this->streams, app(CredentialReferences::class), exitWaitSeconds: 0);
+    $this->runner = new BrokeredAgentRunner($this->streams, app(AuthProxyPlaceholders::class), exitWaitSeconds: 0);
     $this->task = YakTask::factory()->running()->create();
     $this->account = ClaudeAccount::factory()->system()->create();
 });
@@ -61,7 +61,8 @@ it('runs one turn and ends the runner', function () {
     expect($channel)->toStartWith('oneshot:')
         ->and(array_column($commands, 'type'))->toBe(['start_runner', 'turn', 'end'])
         ->and($commands[0]['container'])->toBe('yak-review-1')
-        ->and($commands[0]['credential_reference'])->toBeString()
+        ->and($commands[0]['start']['placeholder'])->toStartWith('yakph-')
+        ->and($commands[0])->not->toHaveKey('credential_reference')
         ->and($commands[1]['text'])->toBe('Review this pull request');
 });
 

@@ -4,24 +4,31 @@ namespace App\Services\ClaudeAccounts;
 
 use App\DataTransferObjects\AccountValidation;
 use App\Enums\ClaudeAccountKind;
+use App\Services\Threads\AuthProxyPlaceholders;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Throwable;
 
 /**
- * Proves a pasted credential works by running one Haiku turn on the host with
- * an environment that holds only that credential and throwaway directories.
+ * Proves a pasted credential works by running one Haiku turn on the host in
+ * throwaway directories. The turn goes through the auth proxy like any
+ * sandbox's would: the environment holds a validation placeholder, and the
+ * proxy swaps the pasted secret in, so the secret is never in a process
+ * environment.
  */
 class ClaudeAccountValidator
 {
+    public function __construct(private readonly AuthProxyPlaceholders $placeholders) {}
+
     public function validate(ClaudeAccountKind $kind, string $secret): AccountValidation
     {
         $homeDirectory = $this->makeTemporaryDirectory();
         $configDirectory = $this->makeTemporaryDirectory();
+        $placeholder = $this->placeholders->issueForValidation($kind, $secret);
 
         try {
             $result = Process::timeout(120)
-                ->env($this->environment($kind, $secret, $homeDirectory, $configDirectory))
+                ->env($this->environment($placeholder, $homeDirectory, $configDirectory))
                 ->run(['claude', '-p', '--model', 'haiku', '--max-turns', '1', '--output-format', 'json', 'Reply with OK']);
 
             if ($result->failed()) {
@@ -38,6 +45,7 @@ class ClaudeAccountValidator
         } catch (Throwable $exception) {
             return new AccountValidation(false, $this->describeFailure($exception->getMessage(), $secret));
         } finally {
+            $this->placeholders->revoke($placeholder);
             File::deleteDirectory($homeDirectory);
             File::deleteDirectory($configDirectory);
         }
@@ -49,7 +57,7 @@ class ClaudeAccountValidator
      *
      * @return array<string, string|false>
      */
-    private function environment(ClaudeAccountKind $kind, string $secret, string $homeDirectory, string $configDirectory): array
+    private function environment(string $placeholder, string $homeDirectory, string $configDirectory): array
     {
         $cleared = array_fill_keys(array_keys(getenv()), false);
 
@@ -58,7 +66,9 @@ class ClaudeAccountValidator
             'PATH' => (string) getenv('PATH'),
             'HOME' => $homeDirectory,
             'CLAUDE_CONFIG_DIR' => $configDirectory,
-            $kind === ClaudeAccountKind::ApiKey ? 'ANTHROPIC_API_KEY' : 'CLAUDE_CODE_OAUTH_TOKEN' => $secret,
+            'ANTHROPIC_BASE_URL' => (string) config('yak.threads.auth_proxy_url'),
+            'CLAUDE_CODE_OAUTH_TOKEN' => $placeholder,
+            'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC' => '1',
         ];
     }
 

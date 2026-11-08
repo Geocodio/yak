@@ -36,20 +36,20 @@ func serveOnce(t *testing.T, reply string) (path string, requests chan string) {
 	return path, requests
 }
 
-func TestSocketRedeemerReturnsTheCredential(t *testing.T) {
-	path, requests := serveOnce(t, `{"type":"api_key","value":"key-1"}`)
-	credential, err := SocketRedeemer{Path: path}.Redeem(context.Background(), "ref-1")
-	if err != nil || credential.Type != "api_key" || credential.Value != "key-1" {
+func TestSocketSourceReturnsTheCredential(t *testing.T) {
+	path, requests := serveOnce(t, `{"type":"api_key","value":"key-1","container":"c1"}`)
+	credential, err := SocketCredentialSource{Path: path}.Lookup(context.Background(), "yakph-1")
+	if err != nil || credential.Type != "api_key" || credential.Value != "key-1" || credential.Container != "c1" {
 		t.Fatalf("credential = %v, err = %v", credential, err)
 	}
-	if got := <-requests; got != "{\"reference\":\"ref-1\"}\n" {
+	if got := <-requests; got != "{\"placeholder\":\"yakph-1\"}\n" {
 		t.Fatalf("request = %q", got)
 	}
 }
 
-func TestSocketRedeemerReportsRefusals(t *testing.T) {
+func TestSocketSourceReportsRefusals(t *testing.T) {
 	path, _ := serveOnce(t, `{"error":"expired"}`)
-	if _, err := (SocketRedeemer{Path: path}).Redeem(context.Background(), "ref-1"); err == nil {
+	if _, err := (SocketCredentialSource{Path: path}).Lookup(context.Background(), "yakph-1"); err == nil {
 		t.Fatal("a refusal was accepted")
 	}
 }

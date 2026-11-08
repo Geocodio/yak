@@ -57,6 +57,10 @@ yak_broker_user: yak-broker
 yak_broker_uid: 991
 yak_broker_gid: 991
 yak_credentials_path: /var/lib/yak/credentials
+# The auth proxy inside yak-broker listens on the Incus sandbox bridge address. Sandboxes reach
+# the Anthropic API only through it; the Yak container calls it to validate pasted accounts.
+yak_auth_proxy_address: 10.100.0.1:8787
+yak_auth_proxy_host_cidrs: 172.16.0.0/12
 # www-data inside the Yak container.
 yak_container_www_data_uid: 33
 

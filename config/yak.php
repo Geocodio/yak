@@ -576,6 +576,9 @@ return [
         // Days the session store keeps files of closed threads.
         'session_retention_days' => 30,
 
+        // Where sandboxes (and account validation) reach the Anthropic API: the auth proxy in yak-broker.
+        'auth_proxy_url' => env('YAK_AUTH_PROXY_URL', 'http://10.100.0.1:8787'),
+
         'runner_path' => '/opt/yak-runner/runner.mjs',
         'sandbox_uid' => 1001,
 

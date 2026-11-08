@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os/exec"
@@ -105,4 +106,40 @@ func readLines(reader io.Reader, emit func(line []byte)) {
 			return
 		}
 	}
+}
+
+// ContainerAddress returns the container's IPv4 address on its bridge.
+func (IncusSpawner) ContainerAddress(ctx context.Context, container string) (string, error) {
+	out, err := exec.CommandContext(ctx, "incus", "query", "/1.0/instances/"+container+"/state").Output()
+	if err != nil {
+		return "", fmt.Errorf("read state of %s: %w", container, err)
+	}
+	return firstGlobalIPv4(out)
+}
+
+// firstGlobalIPv4 picks the first global IPv4 address of any interface in an Incus instance state.
+func firstGlobalIPv4(state []byte) (string, error) {
+	var parsed struct {
+		Network map[string]struct {
+			Addresses []struct {
+				Family  string `json:"family"`
+				Address string `json:"address"`
+				Scope   string `json:"scope"`
+			} `json:"addresses"`
+		} `json:"network"`
+	}
+	if err := json.Unmarshal(state, &parsed); err != nil {
+		return "", err
+	}
+	for name, network := range parsed.Network {
+		if name == "lo" {
+			continue
+		}
+		for _, address := range network.Addresses {
+			if address.Family == "inet" && address.Scope == "global" {
+				return address.Address, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no global IPv4 address")
 }

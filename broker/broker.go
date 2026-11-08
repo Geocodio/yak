@@ -19,6 +19,9 @@ const (
 	heartbeatKey  = "broker:alive"
 	containersKey = "broker:containers"
 	groupName     = "broker"
+	// outStreamMaxLength caps a channel's out stream even when nobody acknowledges it.
+	outStreamMaxLength = 200000
+	forgetWait         = 30 * time.Second
 )
 
 type command struct {
@@ -27,12 +30,10 @@ type command struct {
 	UID       int             `json:"uid"`
 	Cwd       string          `json:"cwd"`
 	Start     json.RawMessage `json:"start"`
-	// CredentialReference is a one-time reference the broker redeems for the credential.
-	CredentialReference string `json:"credential_reference"`
-	UUID                string `json:"uuid"`
-	Text                string `json:"text"`
-	Priority            string `json:"priority"`
-	Model               string `json:"model"`
+	UUID      string          `json:"uuid"`
+	Text      string          `json:"text"`
+	Priority  string          `json:"priority"`
+	Model     string          `json:"model"`
 }
 
 type userMessage struct {
@@ -45,18 +46,20 @@ type userMessage struct {
 // channelState is the broker's view of one channel. mu orders sequence
 // assignment together with the XADD so entries land in sequence order.
 type channelState struct {
-	name       string
-	mu         sync.Mutex
-	container  string
-	generation int
-	sequence   int
-	process    Process
+	name      string
+	mu        sync.Mutex
+	container string
+	// placeholder is the auth proxy placeholder of the current runner, revoked when it ends.
+	placeholder string
+	generation  int
+	sequence    int
+	process     Process
 }
 
 type Broker struct {
 	redis    *redis.Client
 	spawner  Spawner
-	redeemer Redeemer
+	proxy    *AuthProxy
 	logger   *slog.Logger
 	consumer string
 
@@ -65,9 +68,10 @@ type Broker struct {
 	wg       sync.WaitGroup
 }
 
-func New(client *redis.Client, spawner Spawner, redeemer Redeemer, logger *slog.Logger) *Broker {
+// New builds a broker. The proxy may be nil, in which case no placeholder is ever revoked here.
+func New(client *redis.Client, spawner Spawner, proxy *AuthProxy, logger *slog.Logger) *Broker {
 	hostname, _ := os.Hostname()
-	return &Broker{redis: client, spawner: spawner, redeemer: redeemer, logger: logger, consumer: hostname, channels: map[string]*channelState{}}
+	return &Broker{redis: client, spawner: spawner, proxy: proxy, logger: logger, consumer: hostname, channels: map[string]*channelState{}}
 }
 
 // Run serves until the context ends, then kills every runner (their pipes
@@ -222,12 +226,26 @@ func (b *Broker) readCommands(ctx context.Context, state *channelState) {
 	}
 }
 
-// forget drops a channel that PHP removed from the live set.
+// forget drops a channel that PHP removed from the live set. Once its runner has
+// exited, the channel's streams are deleted: a finished channel keeps no transcript in Redis.
 func (b *Broker) forget(ctx context.Context, state *channelState) {
 	b.kill(ctx, state)
 	b.mu.Lock()
 	delete(b.channels, state.name)
 	b.mu.Unlock()
+
+	for deadline := time.Now().Add(forgetWait); time.Now().Before(deadline) && ctx.Err() == nil; time.Sleep(50 * time.Millisecond) {
+		state.mu.Lock()
+		running := state.process != nil
+		state.mu.Unlock()
+		if !running {
+			break
+		}
+	}
+	if err := b.redis.Del(context.Background(), state.name+":in", state.name+":out", state.name+":dead").Err(); err != nil {
+		b.logger.Warn("delete channel streams failed", "channel", state.name, "error", err)
+	}
+	b.redis.HDel(context.Background(), containersKey, state.name)
 }
 
 func (b *Broker) handle(ctx context.Context, state *channelState, message redis.XMessage) {
@@ -255,12 +273,7 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 	if err := b.spawner.KillRunners(ctx, state.container); err != nil {
 		b.logger.Warn("kill before start failed", "channel", state.name, "error", err)
 	}
-	start, err := b.startLine(ctx, cmd)
-	if err != nil {
-		b.logger.Error("build start line failed", "channel", state.name, "error", err)
-		b.failStart(state)
-		return
-	}
+	start := append([]byte(nil), cmd.Start...)
 	process, err := b.spawner.Start(ctx, state.container, cmd.UID, cmd.Cwd)
 	if err != nil {
 		b.logger.Error("start runner failed", "channel", state.name, "error", err)
@@ -271,10 +284,10 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 	state.generation++
 	generation := state.generation
 	state.process = process
+	state.placeholder = placeholderOf(cmd.Start)
 	state.mu.Unlock()
 
 	_, err = process.Stdin().Write(append(start, '\n'))
-	clear(start)
 	if err != nil {
 		b.logger.Warn("write start line failed", "channel", state.name, "error", err)
 	}
@@ -293,26 +306,22 @@ func (b *Broker) failStart(state *channelState) {
 	state.mu.Unlock()
 }
 
-// startLine returns the runner's start line. When the command carries a credential reference,
-// the redeemed credential is merged in here, in memory only: it never touches Redis.
-func (b *Broker) startLine(ctx context.Context, cmd command) ([]byte, error) {
-	if cmd.CredentialReference == "" {
-		return append([]byte(nil), cmd.Start...), nil
+// placeholderOf reads the auth proxy placeholder out of a start line.
+func placeholderOf(start json.RawMessage) string {
+	var line struct {
+		Placeholder string `json:"placeholder"`
 	}
-	credential, err := b.redeemer.Redeem(ctx, cmd.CredentialReference)
-	if err != nil {
-		return nil, err
-	}
-	var start map[string]json.RawMessage
-	if err := json.Unmarshal(cmd.Start, &start); err != nil {
-		return nil, err
-	}
-	encoded, err := json.Marshal(credential)
-	if err != nil {
-		return nil, err
-	}
-	start["credential"] = encoded
-	return json.Marshal(start)
+	_ = json.Unmarshal(start, &line)
+	return line.Placeholder
+}
+
+// revoke forgets the proxy's cached credential of the runner that just ended or was killed.
+func (b *Broker) revoke(state *channelState) {
+	state.mu.Lock()
+	placeholder := state.placeholder
+	state.placeholder = ""
+	state.mu.Unlock()
+	b.proxy.Revoke(placeholder)
 }
 
 // pump copies runner stdout to the out stream, then reports the exit.
@@ -321,10 +330,14 @@ func (b *Broker) pump(state *channelState, process Process, generation int) {
 	code, _ := process.Wait()
 	b.emitLine(state, generation, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":%d}`, generation, code), true)
 	state.mu.Lock()
-	if state.process == process {
+	ended := state.process == process
+	if ended {
 		state.process = nil
 	}
 	state.mu.Unlock()
+	if ended {
+		b.revoke(state)
+	}
 }
 
 func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command) {
@@ -371,6 +384,7 @@ func (b *Broker) kill(ctx context.Context, state *channelState) {
 	if process == nil || state.container == "" {
 		return
 	}
+	b.revoke(state)
 	if err := b.spawner.KillRunners(ctx, state.container); err != nil {
 		b.logger.Warn("kill failed", "channel", state.name, "error", err)
 	}
@@ -410,7 +424,7 @@ func (b *Broker) emitLine(state *channelState, generation int, line string, from
 	if fromBroker {
 		values["origin"] = "broker"
 	}
-	err := b.redis.XAdd(context.Background(), &redis.XAddArgs{Stream: state.name + ":out", Values: values}).Err()
+	err := b.redis.XAdd(context.Background(), &redis.XAddArgs{Stream: state.name + ":out", Values: values, MaxLen: outStreamMaxLength, Approx: true}).Err()
 	if err != nil {
 		b.logger.Error("append out entry failed", "channel", state.name, "error", err)
 	}

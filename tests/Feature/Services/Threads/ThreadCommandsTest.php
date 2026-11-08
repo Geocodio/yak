@@ -4,7 +4,7 @@ use App\Enums\RunnerState;
 use App\Enums\ThreadSessionKind;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
-use App\Services\Threads\CredentialReferences;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadStreams;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +23,7 @@ it('registers the channel before the first command', function () {
     expect($this->streams->events)->toBe(['register:threads:' . $this->thread->id, 'command:turn']);
 });
 
-it('puts a one-time reference, never the credential, inside start_runner', function () {
+it('puts a placeholder, never the credential, inside start_runner', function () {
     $commands = app(ThreadCommands::class);
     $commands->startRunner($this->thread, $this->account, null, 'prompt');
     $commands->turn($this->thread, 'u1', 'hello');
@@ -38,7 +38,11 @@ it('puts a one-time reference, never the credential, inside start_runner', funct
     expect(array_column($sent, 'type'))->toBe(['start_runner', 'turn', 'steer', 'interrupt', 'set_model', 'end', 'kill']);
     expect(json_encode($sent[0]))->not->toContain('sk-ant-secret-value')
         ->and($sent[0]['start'])->not->toHaveKey('credential')
-        ->and(app(CredentialReferences::class)->redeem($sent[0]['credential_reference']))->toBe(['type' => 'oauth_token', 'value' => 'sk-ant-secret-value']);
+        ->and($sent[0])->not->toHaveKey('credential_reference')
+        ->and($sent[0]['start']['placeholder'])->toStartWith('yakph-')
+        ->and($sent[0]['start']['anthropicBaseUrl'])->toBe(config('yak.threads.auth_proxy_url'))
+        // kill revokes the placeholder, so the proxy stops serving it.
+        ->and(app(AuthProxyPlaceholders::class)->resolve($sent[0]['start']['placeholder']))->toBeNull();
     expect($sent[0]['container'])->toBe($this->thread->sandbox_container);
     expect($sent[2]['priority'])->toBe('now');
 

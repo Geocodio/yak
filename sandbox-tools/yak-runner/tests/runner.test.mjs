@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { buildChildEnvironment, createRunner, spawnWithCredential } from '../lib/runner.mjs';
+import { buildChildEnvironment, createRunner } from '../lib/runner.mjs';
 
-const SECRET = 'sk-ant-secret-credential';
+const SECRET = 'ghp_secret_passthrough_value';
+const PLACEHOLDER = 'yakph-0123456789abcdef';
+const BASE_URL = 'http://10.0.0.1:8787';
 
-function harness({ messages = [], throwAfter = null, environment = {} } = {}) {
+function harness({ messages = [], throwAfter = null, environment = { GH_TOKEN: SECRET } } = {}) {
   const input = new PassThrough();
   const written = [];
   const output = { write: (chunk) => written.push(chunk) };
@@ -41,7 +43,8 @@ const start = (extra = {}) => ({
   model: 'claude-haiku-4-5',
   cwd: '/workspace',
   claudeConfigDir: '/home/yak/.claude-thread',
-  credential: { type: 'oauth_token', value: SECRET },
+  placeholder: PLACEHOLDER,
+  anthropicBaseUrl: BASE_URL,
   ...extra,
 });
 
@@ -68,20 +71,24 @@ test('it builds the child environment from scratch', () => {
   assert.equal(environment.CLAUDE_CONFIG_DIR, '/home/yak/.claude-thread');
   assert.equal(environment.CLAUDE_STREAM_IDLE_TIMEOUT_MS, '1800000');
   assert.equal(environment.CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS, '1800000');
-  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, undefined);
-  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR, '3');
-  assert.equal(JSON.stringify(environment).includes(SECRET), false);
+  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, PLACEHOLDER);
+  assert.equal(environment.ANTHROPIC_BASE_URL, BASE_URL);
+  assert.equal(environment.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, '1');
+  assert.equal(Object.keys(environment).some((name) => name.endsWith('_FILE_DESCRIPTOR')), false);
 });
 
-test('it names the api key descriptor for an api_key credential', () => {
-  const environment = buildChildEnvironment(
-    start({ credential: { type: 'api_key', value: 'key-1' } }),
-    { ANTHROPIC_API_KEY: 'inherited', CLAUDE_CODE_OAUTH_TOKEN: 'inherited-oauth' },
-  );
+test('it authenticates every account kind with the placeholder and never with a key', () => {
+  const environment = buildChildEnvironment(start(), { ANTHROPIC_API_KEY: 'inherited', CLAUDE_CODE_OAUTH_TOKEN: 'inherited-oauth', CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR: '3' });
   assert.equal(environment.ANTHROPIC_API_KEY, undefined);
-  assert.equal(environment.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR, '3');
-  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, undefined);
-  assert.equal(JSON.stringify(environment).includes('key-1'), false);
+  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, PLACEHOLDER);
+  assert.equal(environment.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR, undefined);
+});
+
+test('it requires a placeholder and a base url in start', async () => {
+  const run = harness();
+  run.send({ type: 'start', model: 'm', cwd: '/w', claudeConfigDir: '/c' });
+  assert.equal(await run.exited, 2);
+  assert.equal(run.lines()[0].event, 'error');
 });
 
 test('it never passes budget or turn limits to the SDK', async () => {
@@ -150,7 +157,7 @@ test('it reports an error and exits 1 when the SDK throws before a result', asyn
   assert.equal(run.lines().at(-1).event, 'error');
 });
 
-test('it never writes the credential to stdout', async () => {
+test('it never writes the passthrough token to stdout', async () => {
   const run = harness({ messages: [{ type: 'assistant', text: 'ok' }], throwAfter: `failed with ${SECRET}` });
   run.send(start());
   await run.exited;
@@ -159,34 +166,22 @@ test('it never writes the credential to stdout', async () => {
 
 test('it reports only the length of a line that does not parse', async () => {
   const run = harness();
-  const garbled = `{"type":"start","credential":{"value":"${SECRET}"} oops`;
+  const garbled = `{"type":"start","token":"${SECRET}"} oops`;
   run.input.write(garbled + '\n');
   await run.tick();
   const [line] = run.lines();
   assert.equal(line.event, 'bad_line');
   assert.equal(line.length, garbled.length);
-  assert.equal(JSON.stringify(line).includes('sk-ant'), false);
+  assert.equal(JSON.stringify(line).includes('ghp_'), false);
   assert.equal('line' in line, false);
   run.input.end();
 });
 
-test('it hands the credential to the CLI on descriptor 3 and not in its environment', () => {
-  const channel = new PassThrough();
-  const calls = [];
-  const fakeSpawn = (command, args, options) => { calls.push({ command, args, options }); return { stdio: [null, null, null, channel] }; };
-  const environment = buildChildEnvironment(start(), {});
-  spawnWithCredential(start().credential, fakeSpawn)({ command: 'claude', args: ['-p'], cwd: '/w', env: environment, signal: undefined });
-  assert.deepEqual(calls[0].options.stdio, ['pipe', 'pipe', 'ignore', 'pipe']);
-  assert.equal(JSON.stringify(calls[0]).includes(SECRET), false);
-  assert.equal(channel.read().toString(), SECRET + '\n');
-  assert.equal(channel.writableEnded, true);
-});
-
-test('it passes spawnClaudeCodeProcess to the SDK only with a credential', async () => {
+test('it does not hand the CLI a spawn hook', async () => {
   const run = harness();
   run.send(start());
   await run.tick();
-  assert.equal(typeof run.calls.options.spawnClaudeCodeProcess, 'function');
+  assert.equal('spawnClaudeCodeProcess' in run.calls.options, false);
   run.release();
   run.send({ type: 'end' });
   await run.exited;

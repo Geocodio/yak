@@ -2,7 +2,8 @@
 
 use App\Enums\ClaudeAccountKind;
 use App\Models\ClaudeAccount;
-use App\Services\Threads\CredentialReferences;
+use App\Models\Thread;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\CredentialSocketServer;
 
 beforeEach(function () {
@@ -14,10 +15,10 @@ afterEach(function () {
     @unlink($this->path);
 });
 
-function redeemOverSocket(CredentialSocketServer $server, string $path, string $reference): array
+function redeemOverSocket(CredentialSocketServer $server, string $path, string $placeholder): array
 {
     $client = stream_socket_client('unix://' . $path, $errorCode, $errorMessage, 2);
-    fwrite($client, json_encode(['reference' => $reference]) . "\n");
+    fwrite($client, json_encode(['placeholder' => $placeholder]) . "\n");
     $server->serve(500_000);
     $reply = json_decode((string) fgets($client), true);
     fclose($client);
@@ -25,30 +26,35 @@ function redeemOverSocket(CredentialSocketServer $server, string $path, string $
     return $reply;
 }
 
-it('returns the credential to the allowed peer once', function () {
-    $server = new CredentialSocketServer(app(CredentialReferences::class), fn () => 4242);
+it('returns the credential and its container to the allowed peer until the placeholder is revoked', function () {
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => 4242);
     $server->listen($this->path, 4242);
-    $reference = app(CredentialReferences::class)->issue($this->account);
+    $thread = Thread::factory()->create(['sandbox_container' => 'yak-thread-3']);
+    $placeholder = app(AuthProxyPlaceholders::class)->issueForThread($thread, $this->account);
 
-    expect(redeemOverSocket($server, $this->path, $reference))->toBe(['type' => 'oauth_token', 'value' => 'sk-ant-secret-value'])
-        ->and(redeemOverSocket($server, $this->path, $reference))->toHaveKey('error');
+    expect(redeemOverSocket($server, $this->path, $placeholder))->toBe(['type' => 'oauth_token', 'value' => 'sk-ant-secret-value', 'container' => 'yak-thread-3'])
+        ->and(redeemOverSocket($server, $this->path, $placeholder))->toHaveKey('value');
+
+    app(AuthProxyPlaceholders::class)->revokeForThread($thread);
+
+    expect(redeemOverSocket($server, $this->path, $placeholder))->toHaveKey('error');
 
     $server->close();
 });
 
-it('refuses a peer with another uid and leaves the reference unredeemed', function () {
-    $server = new CredentialSocketServer(app(CredentialReferences::class), fn () => 1000);
+it('refuses a peer with another uid and reveals nothing', function () {
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => 1000);
     $server->listen($this->path, 4242);
-    $reference = app(CredentialReferences::class)->issue($this->account);
+    $thread = Thread::factory()->create(['sandbox_container' => 'yak-thread-3']);
+    $placeholder = app(AuthProxyPlaceholders::class)->issueForThread($thread, $this->account);
 
-    expect(redeemOverSocket($server, $this->path, $reference))->toBe(['error' => 'forbidden'])
-        ->and(app(CredentialReferences::class)->redeem($reference))->not->toBeNull();
+    expect(redeemOverSocket($server, $this->path, $placeholder))->toBe(['error' => 'forbidden']);
 
     $server->close();
 });
 
 it('refuses a peer whose uid the kernel did not report', function () {
-    $server = new CredentialSocketServer(app(CredentialReferences::class), fn () => null);
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => null);
     $server->listen($this->path, 4242);
 
     expect(redeemOverSocket($server, $this->path, 'x'))->toBe(['error' => 'forbidden']);
@@ -57,7 +63,7 @@ it('refuses a peer whose uid the kernel did not report', function () {
 });
 
 it('makes the socket file readable and writable by its group only', function () {
-    $server = new CredentialSocketServer(app(CredentialReferences::class), fn () => 4242);
+    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => 4242);
     $server->listen($this->path, 4242);
 
     expect(substr(sprintf('%o', fileperms($this->path)), -4))->toBe('0660');

@@ -225,6 +225,7 @@ class ThreadDriver
 
         if ($event === 'runner_exited') {
             $thread->forceFill(['runner_state' => RunnerState::None])->save();
+            $this->commands->revokePlaceholder($thread);
             $events[] = new RunnerExited($thread, $entry->generation, isset($line['exit_code']) ? (int) $line['exit_code'] : null);
         } elseif ($event === 'no_runner') {
             // Only a command this turn is still waiting on can have been refused.
