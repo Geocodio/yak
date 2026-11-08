@@ -111,7 +111,7 @@ export function createRunner({ query, input, output, exit, environment = process
   lines.on('line', (line) => {
     if (!line.trim()) return;
     let command;
-    try { command = JSON.parse(line); } catch { runnerLine('bad_line', { line: line.slice(0, 200) }); return; }
+    try { command = JSON.parse(line); } catch { runnerLine('bad_line', { length: line.length }); return; }
     if (!started) {
       if (command.type !== 'start') { runnerLine('error', { error: 'first line must be start' }); exit(2); return; }
       started = true;
