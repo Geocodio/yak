@@ -8,6 +8,7 @@ use App\Jobs\FinishRunYakTurnJob;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -69,7 +70,7 @@ it('ignores a turn the runaway guard stopped', function () {
 
 it('gives the claim back when the queue push fails so the work is sent again', function () {
     $run = turnFor($this->task);
-    $this->mock(Illuminate\Contracts\Bus\Dispatcher::class)->shouldReceive('dispatch')->andThrow(new RuntimeException('queue down'));
+    $this->mock(Dispatcher::class)->shouldReceive('dispatch')->andThrow(new RuntimeException('queue down'));
 
     expect(fn () => event(new TurnCompleted($run)))->toThrow(RuntimeException::class);
 
