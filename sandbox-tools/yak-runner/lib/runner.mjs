@@ -1,6 +1,7 @@
 // Yak SDK runner: JSON lines on stdin, one JSON line per SDK message on stdout.
 // stdin:  {type:'start',...} first, then user | interrupt | set_model | end.
 // stdout: every SDK message unchanged, plus {type:'runner', event} lifecycle lines.
+import { readFileSync } from 'node:fs';
 import readline from 'node:readline';
 
 const PASSTHROUGH_VARIABLES = ['PATH', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'SHELL', 'USER', 'LOGNAME', 'GH_TOKEN'];
@@ -48,6 +49,8 @@ function buildOptions(start, environment) {
   }
   if (start.resume) options.resume = start.resume;
   if (start.mcpServers) options.mcpServers = start.mcpServers;
+  // The MCP servers may hold secrets, so the start line carries only the path of a file in the sandbox.
+  if (start.mcpConfigPath) options.mcpServers = JSON.parse(readFileSync(start.mcpConfigPath, 'utf8')).mcpServers ?? {};
   if (start.additionalDirectories) options.additionalDirectories = start.additionalDirectories;
   return options;
 }

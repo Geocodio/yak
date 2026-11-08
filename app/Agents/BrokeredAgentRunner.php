@@ -119,7 +119,7 @@ class BrokeredAgentRunner implements AgentRunner
                 'permissionMode' => 'bypassPermissions',
                 'cwd' => IncusSandboxManager::workspacePath(),
                 'additionalDirectories' => [],
-                'mcpServers' => (object) $this->mcpServers($request->mcpConfigPath),
+                'mcpConfigPath' => $this->sandboxMcpConfigPath($request->mcpConfigPath),
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => null,
                 'claudeConfigDir' => self::CLAUDE_CONFIG_DIRECTORY,
@@ -147,16 +147,11 @@ class BrokeredAgentRunner implements AgentRunner
     }
 
     /**
-     * @return array<string, mixed>
+     * The sandbox gets the MCP config as a file when it is created, so the start line, which goes
+     * through Redis, carries only where to find it and never the servers' secrets.
      */
-    private function mcpServers(?string $path): array
+    private function sandboxMcpConfigPath(?string $hostPath): ?string
     {
-        if ($path === null || ! is_file($path)) {
-            return [];
-        }
-
-        $data = json_decode((string) file_get_contents($path), true);
-
-        return is_array($data) && is_array($data['mcpServers'] ?? null) ? $data['mcpServers'] : [];
+        return $hostPath !== null && is_file($hostPath) ? IncusSandboxManager::SANDBOX_MCP_CONFIG_PATH : null;
     }
 }

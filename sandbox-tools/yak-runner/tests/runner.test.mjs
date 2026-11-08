@@ -1,5 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { buildChildEnvironment, createRunner } from '../lib/runner.mjs';
 
@@ -104,6 +107,18 @@ test('it never passes budget or turn limits to the SDK', async () => {
   assert.deepEqual(options.systemPrompt, { type: 'preset', preset: 'claude_code', append: 'extra' });
   assert.deepEqual(options.settingSources, ['project']);
   assert.deepEqual(options.additionalDirectories, ['/x']);
+  run.release();
+  run.send({ type: 'end' });
+  await run.exited;
+});
+
+test('it reads mcp servers from the file named in start', async () => {
+  const path = join(mkdtempSync(join(tmpdir(), 'mcp-')), 'mcp-config.json');
+  writeFileSync(path, JSON.stringify({ mcpServers: { linear: { command: 'x' } } }));
+  const run = harness();
+  run.send(start({ mcpConfigPath: path }));
+  await run.tick();
+  assert.deepEqual(run.calls.options.mcpServers, { linear: { command: 'x' } });
   run.release();
   run.send({ type: 'end' });
   await run.exited;

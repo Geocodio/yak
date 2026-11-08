@@ -25,6 +25,8 @@ use RuntimeException;
  */
 class IncusSandboxManager
 {
+    public const SANDBOX_MCP_CONFIG_PATH = '/home/yak/mcp-config.json';
+
     /**
      * Wall-clock ceiling for incus commands that move real data — `copy`,
      * `snapshot create`, `config device add`. Cloning a fully provisioned
@@ -993,7 +995,7 @@ class IncusSandboxManager
         }
 
         Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
-            'incus file push %s %s/home/yak/mcp-config.json',
+            'incus file push %s %s' . self::SANDBOX_MCP_CONFIG_PATH,
             escapeshellarg($mcpConfigPath),
             escapeshellarg($containerName),
         ));

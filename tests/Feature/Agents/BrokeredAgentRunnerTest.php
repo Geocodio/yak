@@ -66,6 +66,24 @@ it('runs one turn and ends the runner', function () {
         ->and($commands[1]['text'])->toBe('Review this pull request');
 });
 
+it('sends the path of the mcp config instead of the servers', function () {
+    $path = tempnam(sys_get_temp_dir(), 'mcp');
+    file_put_contents($path, json_encode(['mcpServers' => ['linear' => ['headers' => ['Authorization' => 'Bearer super-secret']]]]));
+    $this->streams->onCommand = fn (string $channel, array $command) => $command['type'] === 'turn' ? finishTurnOn($this->streams, $channel) : null;
+
+    $this->runner->run(new AgentRunRequest(
+        prompt: 'p', systemPrompt: 's', containerName: 'yak-review-1', timeoutSeconds: 5, maxTurns: 10,
+        model: 'sonnet', task: $this->task, account: $this->account, mcpConfigPath: $path,
+    ));
+
+    $start = $this->streams->commandsFor($this->streams->registeredEver[0])[0]['start'];
+    unlink($path);
+
+    expect($start['mcpConfigPath'])->toBe('/home/yak/mcp-config.json')
+        ->and($start)->not->toHaveKey('mcpServers')
+        ->and(json_encode($start))->not->toContain('super-secret');
+});
+
 it('returns the result summary and cost', function () {
     $this->streams->onCommand = fn (string $channel, array $command) => $command['type'] === 'turn' ? finishTurnOn($this->streams, $channel, 'Looks fine', 0.42) : null;
 
