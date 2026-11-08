@@ -140,6 +140,7 @@ final class AgentJobHarness
             $sandbox = Mockery::mock(ThreadSandbox::class);
             $sandbox->shouldReceive('ensureAwake')->andReturn('task-thread');
             $sandbox->shouldReceive('startingTurn')->andReturnUsing(fn ($thread, \Closure $startTurn) => $startTurn());
+            $sandbox->shouldReceive('holdingSandbox')->andReturnUsing(fn ($thread, \Closure $work) => $work());
             $sandbox->shouldReceive('pause');
             app()->instance(ThreadSandbox::class, $sandbox);
             app()->instance('agent-harness-thread-sandbox', true);

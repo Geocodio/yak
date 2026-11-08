@@ -73,9 +73,12 @@ abstract class FinishThreadTurnJob implements ShouldQueue
 
             $result = TurnResult::toAgentRunResult($run);
             $recorder->recordOutcome($result);
-            $container = $threadSandbox->ensureAwake($run->thread, $repository);
 
-            $this->finishTurn($repository, $result, $sandbox, $container, $recorder);
+            $threadSandbox->holdingSandbox($run->thread, function () use ($run, $repository, $result, $sandbox, $threadSandbox, $recorder): void {
+                $container = $threadSandbox->ensureAwake($run->thread, $repository);
+
+                $this->finishTurn($repository, $result, $sandbox, $container, $recorder);
+            });
 
             // A wrong-repository verdict sends the task back to intake; its next run starts a thread in the right repo.
             if ($this->task->refresh()->repo === 'unknown') {

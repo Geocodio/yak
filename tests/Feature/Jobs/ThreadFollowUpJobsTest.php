@@ -47,6 +47,7 @@ beforeEach(function () {
     $this->threadSandbox = Mockery::mock(ThreadSandbox::class);
     $this->threadSandbox->shouldReceive('ensureAwake')->andReturn('yak-thread-1');
     $this->threadSandbox->shouldReceive('startingTurn')->andReturnUsing(fn ($thread, Closure $startTurn) => $startTurn());
+    $this->threadSandbox->shouldReceive('holdingSandbox')->andReturnUsing(fn ($thread, Closure $work) => $work());
     $this->threadSandbox->shouldReceive('pause')->byDefault();
     $this->app->instance(ThreadSandbox::class, $this->threadSandbox);
 
@@ -211,6 +212,7 @@ it('waits for a free sandbox instead of failing when none is available', functio
     $this->threadSandbox = Mockery::mock(ThreadSandbox::class);
     $this->threadSandbox->shouldReceive('ensureAwake')->andThrow(new SandboxCapacityReached);
     $this->threadSandbox->shouldReceive('startingTurn')->andReturnUsing(fn ($thread, Closure $startTurn) => $startTurn());
+    $this->threadSandbox->shouldReceive('holdingSandbox')->andReturnUsing(fn ($thread, Closure $work) => $work());
     $this->app->instance(ThreadSandbox::class, $this->threadSandbox);
     $task = rootThreadTaskOn($this->thread, ['status' => TaskStatus::Retrying]);
 

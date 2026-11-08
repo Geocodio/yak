@@ -10,17 +10,21 @@ use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
+use App\Jobs\PauseThreadSandboxJob;
 use App\Models\ClaudeAccount;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
+use App\Services\SessionStore\SessionSync;
 use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\TurnResult;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeThreadStreams;
 
 beforeEach(function () {
@@ -88,11 +92,24 @@ it('completes a turn once and fires TurnCompleted once', function () {
     Event::assertNotDispatched(TurnFailed::class);
 });
 
-it('pauses the sandbox once the turn ends', function () {
-    Process::fake(['*' => Process::result()]);
-    $this->thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+it('hands the pause to a worker once the turn ends', function () {
+    Queue::fake();
 
     driveThread($this->thread, threadTurnLines());
+
+    Queue::assertPushed(PauseThreadSandboxJob::class, fn (PauseThreadSandboxJob $job) => $job->threadId === $this->thread->id);
+    Queue::assertPushed(PauseThreadSandboxJob::class, 1);
+});
+
+it('syncs the session files and pauses the sandbox in the worker', function () {
+    Process::fake(['*' => Process::result()]);
+    $this->thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+    $this->run->forceFill(['turn_state' => TurnState::Completed])->save();
+    $sync = Mockery::mock(SessionSync::class);
+    $sync->shouldReceive('syncFromSandbox')->once();
+    $this->app->instance(SessionSync::class, $sync);
+
+    (new PauseThreadSandboxJob($this->thread->id))->handle(app(ThreadSandbox::class));
 
     expect($this->thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
     Process::assertRan("incus pause '{$this->thread->sandbox_container}'");

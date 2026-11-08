@@ -104,7 +104,7 @@ class AuthProxyPlaceholders
             return $credential + ['host' => true];
         }
 
-        $account = ClaudeAccount::query()->find($binding['account_id']);
+        $account = ClaudeAccount::query()->find((int) $binding['account_id']);
         $container = $this->containerOf($binding);
 
         if ($account === null || $container === null) {
@@ -127,7 +127,7 @@ class AuthProxyPlaceholders
             return (string) $binding['container'];
         }
 
-        $thread = Thread::query()->find($binding['thread_id'] ?? 0);
+        $thread = Thread::query()->find((int) ($binding['thread_id'] ?? 0));
 
         return $thread?->isOpen() === true && $thread->sandbox_container !== null ? $thread->sandbox_container : null;
     }

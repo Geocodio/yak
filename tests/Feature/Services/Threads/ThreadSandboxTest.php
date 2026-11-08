@@ -165,3 +165,20 @@ it('releases the start lock after the turn is written', function () {
 
     expect($sandbox->startingTurn($thread, fn () => 'again'))->toBe('again');
 });
+
+it('keeps the sandbox awake while after-turn work holds it', function () {
+    fakeIncus();
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'sandbox_container' => 'yak-thread-5']);
+    $sandbox = app(ThreadSandbox::class);
+
+    $sandbox->holdingSandbox($thread, function () use ($sandbox, $thread) {
+        $sandbox->pause($thread, syncSessions: true);
+    });
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
+    Process::assertNotRan(fn ($p) => str_contains((string) $p->command, 'incus pause'));
+
+    $sandbox->pause($thread);
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
+});

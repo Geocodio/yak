@@ -12,13 +12,13 @@ use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
-use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
 use App\Events\RunnerExited;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
+use App\Jobs\PauseThreadSandboxJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
@@ -62,7 +62,7 @@ class ThreadDriver
     /** @var list<int> threads whose turn completed or failed, paused after the commit */
     private array $finishedThreads = [];
 
-    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands, private readonly ThreadSandbox $sandbox, private readonly AccountFailureClassifier $classifier) {}
+    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands, private readonly AccountFailureClassifier $classifier) {}
 
     public function handle(StreamEntry $entry): void
     {
@@ -696,19 +696,17 @@ class ThreadDriver
         SendNotificationJob::dispatch($task, NotificationType::Error, $message, personalize: false, directMessagesOnly: $recipients !== [], directRecipients: $recipients);
     }
 
+    /**
+     * Hands each finished thread's session sync and pause to a worker, so this
+     * loop goes on serving every thread's output meanwhile.
+     */
     private function pauseFinishedThreads(): void
     {
         $finished = array_unique($this->finishedThreads);
         $this->finishedThreads = [];
 
         foreach ($finished as $threadId) {
-            $thread = Thread::query()->findOrFail($threadId);
-
-            if ($thread->sandbox_state === ThreadSandboxState::Running && $thread->runningTurn() === null) {
-                $this->sandbox->syncSessions($thread, (string) $thread->sandbox_container);
-            }
-
-            $this->sandbox->pause($thread);
+            PauseThreadSandboxJob::dispatch($threadId);
         }
     }
 

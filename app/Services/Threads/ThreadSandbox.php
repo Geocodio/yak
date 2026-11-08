@@ -124,13 +124,15 @@ class ThreadSandbox
     }
 
     /**
-     * Pauses the sandbox between turns. A thread with a turn in flight stays awake.
+     * Pauses the sandbox between turns, after uploading the session files when
+     * asked. A thread with a turn in flight, or one that is being started or
+     * finished, stays awake.
      */
-    public function pause(Thread $thread): void
+    public function pause(Thread $thread, bool $syncSessions = false): void
     {
         $lock = $this->turnLock($thread);
 
-        // A turn is being started: the sandbox stays awake and the turn pauses it when it ends.
+        // A turn is being started or finished: the sandbox stays awake and that work pauses it when it ends.
         if (! $lock->get()) {
             return;
         }
@@ -142,11 +144,29 @@ class ThreadSandbox
                 return;
             }
 
+            if ($syncSessions) {
+                $this->syncSessions($thread, (string) $thread->sandbox_container);
+            }
+
             $this->sandboxes->pause((string) $thread->sandbox_container);
             $this->record($thread, ThreadSandboxState::Paused);
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Holds the thread's turn lock while the after-turn work uses the sandbox, so no pause,
+     * stop or new turn touches the working tree under it.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $work
+     * @return T
+     */
+    public function holdingSandbox(Thread $thread, Closure $work): mixed
+    {
+        return $this->turnLock($thread)->block(300, $work);
     }
 
     /**
