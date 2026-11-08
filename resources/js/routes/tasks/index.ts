@@ -1,5 +1,6 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import setupCard from './setup-card'
+import thread from './thread'
 import coOwner from './co-owner'
 import messages from './messages'
 import queuedMessages from './queued-messages'
@@ -41,7 +42,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 export const show = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -56,7 +57,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -89,7 +90,7 @@ show.url = (args: { task: string | number | { id: string | number } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.get = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -99,7 +100,7 @@ show.get = (args: { task: string | number | { id: string | number } } | [task: s
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskController::show
-* @see app/Http/Controllers/Tasks/TaskController.php:19
+* @see app/Http/Controllers/Tasks/TaskController.php:20
 * @route '/tasks/{task}'
 */
 show.head = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -162,6 +163,64 @@ retry.url = (args: { task: string | number | { id: string | number } } | [task: 
 */
 retry.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: retry.url(args, options),
+    method: 'post',
+})
+
+/**
+* @see \App\Http\Controllers\Tasks\ContinueTurnController::__invoke
+* @see app/Http/Controllers/Tasks/ContinueTurnController.php:20
+* @route '/tasks/{task}/continue'
+*/
+export const continueMethod = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: continueMethod.url(args, options),
+    method: 'post',
+})
+
+continueMethod.definition = {
+    methods: ["post"],
+    url: '/tasks/{task}/continue',
+} satisfies RouteDefinition<["post"]>
+
+/**
+* @see \App\Http\Controllers\Tasks\ContinueTurnController::__invoke
+* @see app/Http/Controllers/Tasks/ContinueTurnController.php:20
+* @route '/tasks/{task}/continue'
+*/
+continueMethod.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { task: args }
+    }
+
+    if (typeof args === 'object' && !Array.isArray(args) && 'id' in args) {
+        args = { task: args.id }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            task: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    const parsedArgs = {
+        task: typeof args.task === 'object'
+        ? args.task.id
+        : args.task,
+    }
+
+    return continueMethod.definition.url
+            .replace('{task}', parsedArgs.task.toString())
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Tasks\ContinueTurnController::__invoke
+* @see app/Http/Controllers/Tasks/ContinueTurnController.php:20
+* @route '/tasks/{task}/continue'
+*/
+continueMethod.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+    url: continueMethod.url(args, options),
     method: 'post',
 })
 
@@ -460,6 +519,8 @@ const tasks = {
     setupCard: Object.assign(setupCard, setupCard),
     show: Object.assign(show, show),
     retry: Object.assign(retry, retry),
+    continue: Object.assign(continueMethod, continueMethod),
+    thread: Object.assign(thread, thread),
     cancel: Object.assign(cancel, cancel),
     rerunReview: Object.assign(rerunReview, rerunReview),
     retryRender: Object.assign(retryRender, retryRender),

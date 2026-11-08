@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\ActivityLogData;
 use App\Http\Resources\EarlyWarningData;
 use App\Http\Resources\TaskDetailData;
+use App\Http\Resources\ThreadPanelData;
 use App\Http\Resources\TranscriptData;
 use App\Models\TaskLog;
 use App\Models\YakTask;
@@ -46,6 +47,7 @@ class TaskController extends Controller
         return Inertia::render('Tasks/Show', [
             ...$data,
             ...$candidates,
+            'threadPanel' => ThreadPanelData::forTask($task, $request->user()),
             'activityOlder' => Inertia::optional(fn () => $request->integer('before')
                 ? ActivityLogData::before($focusedRun, $attempt, $request->integer('before'))
                 : []),

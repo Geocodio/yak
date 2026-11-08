@@ -457,6 +457,8 @@ final class TaskDetailData
             'meta' => $meta,
             'bodyHtml' => $bodyHtml,
             'live' => $entry->isLive,
+            'followUpResult' => $entry->run?->thread_id !== null
+                && $entry->run->runs()->where('result_count', '>', 1)->exists(),
             'superseded' => $superseded,
             'error' => $entry->error !== null ? Str::limit($entry->error, 400) : null,
             'links' => $links,

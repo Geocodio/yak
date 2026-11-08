@@ -15,6 +15,7 @@ export const ACTIVITY_ROW_CAP = 2000;
 export const POLLED_PROPS = [
     'task',
     'earlyWarning',
+    'threadPanel',
     'thread',
     'runs',
     'attempts',

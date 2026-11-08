@@ -162,6 +162,8 @@ export type ThreadEntryData = {
     expiresIn?: string | null;
     superseded?: boolean;
     live?: boolean;
+    /** The turn produced a second result, shown as a follow-up rather than an error. */
+    followUpResult?: boolean;
     error?: string | null;
     links?: { label: string; url: string }[];
     media?: MediaItem[];

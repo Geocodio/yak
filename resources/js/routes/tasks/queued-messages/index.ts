@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::update
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
+* @see app/Http/Controllers/Tasks/QueuedMessageController.php:21
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 export const update = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::update
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
+* @see app/Http/Controllers/Tasks/QueuedMessageController.php:21
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 update.url = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions) => {
@@ -44,7 +44,7 @@ update.url = (args: { task: string | number | { id: string | number }, message: 
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::update
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
+* @see app/Http/Controllers/Tasks/QueuedMessageController.php:21
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 update.patch = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -54,7 +54,7 @@ update.patch = (args: { task: string | number | { id: string | number }, message
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::destroy
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
+* @see app/Http/Controllers/Tasks/QueuedMessageController.php:48
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 export const destroy = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -69,7 +69,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::destroy
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
+* @see app/Http/Controllers/Tasks/QueuedMessageController.php:48
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 destroy.url = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions) => {
@@ -97,7 +97,7 @@ destroy.url = (args: { task: string | number | { id: string | number }, message:
 
 /**
 * @see \App\Http\Controllers\Tasks\QueuedMessageController::destroy
-* @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
+* @see app/Http/Controllers/Tasks/QueuedMessageController.php:48
 * @route '/tasks/{task}/queued-messages/{message}'
 */
 destroy.delete = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({

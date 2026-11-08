@@ -14,6 +14,12 @@ export function latestQueued(messages: QueuedMessage[]): QueuedMessage | undefin
     return messages.reduce<QueuedMessage | undefined>((newest, message) => (newest && newest.id > message.id ? newest : message), undefined);
 }
 
+/** What happened to a steered message the thread's runner already has; absorbed ones leave the list and show in the thread. */
+const STEERING_STATE_LABELS: Partial<Record<QueuedMessage['steeringState'], string>> = {
+    delivered: 'Delivered',
+    queued_until_step_finishes: 'Queued until the current step finishes',
+};
+
 const SOURCE_LABELS: Record<string, string> = { slack: 'Slack', linear: 'Linear', github_review: 'GitHub' };
 
 /**
@@ -88,6 +94,11 @@ export function QueuedMessages({
                         <span className="min-w-0 flex-1 truncate text-body" title={message.text}>
                             {message.text.split('\n')[0]}
                         </span>
+                        {message.mode === 'steer' && STEERING_STATE_LABELS[message.steeringState] && (
+                            <span className="shrink-0 text-[11px] text-muted" data-testid={`queued-message-state-${message.id}`}>
+                                {STEERING_STATE_LABELS[message.steeringState]}
+                            </span>
+                        )}
                         {source && <span className="shrink-0 text-[11px] text-faint">via {source}</span>}
                         {message.attachments.length > 0 && (
                             <span className="inline-flex shrink-0 items-center gap-0.5 text-[11px] text-faint" aria-label={`${message.attachments.length} attached`}>

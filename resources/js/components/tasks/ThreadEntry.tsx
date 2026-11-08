@@ -172,7 +172,14 @@ export function ThreadEntry({
                         Working…
                     </div>
                 ) : (
-                    <Prose html={entry.bodyHtml} />
+                    <>
+                        {entry.followUpResult && (
+                            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-faint" data-testid="follow-up-result">
+                                Follow-up in this turn
+                            </p>
+                        )}
+                        <Prose html={entry.bodyHtml} />
+                    </>
                 )}
                 {entry.error && <p className="mt-2 text-[12px] text-fail">{entry.error}</p>}
                 {findings && <FindingsBlock findings={findings} />}

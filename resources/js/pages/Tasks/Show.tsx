@@ -15,6 +15,7 @@ import { LogEntrySheet } from '@/components/tasks/LogEntrySheet';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { ProgressList } from '@/components/tasks/ProgressList';
 import { ProgressStrip } from '@/components/tasks/ProgressStrip';
+import { ThreadPanel } from '@/components/tasks/ThreadPanel';
 import { TaskSummary } from '@/components/tasks/TaskSummary';
 import { TaskTabs, type TaskTab } from '@/components/tasks/TaskTabs';
 import { ThreadEntry } from '@/components/tasks/ThreadEntry';
@@ -26,6 +27,7 @@ import { replaceTaskQuery } from '@/lib/taskQuery';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { CoOwnerData, EarlyWarningData } from '@/types/coOwner';
 import type { PageProps } from '@/types/shared';
+import type { ThreadPanelData } from '@/types/threads';
 import type {
     ActionsData,
     ActivityData,
@@ -63,6 +65,7 @@ type Props = PageProps<{
     questions: QuestionData[] | null;
     coOwner: CoOwnerData | null;
     earlyWarning: EarlyWarningData | null;
+    threadPanel: ThreadPanelData | null;
     debug: DebugData;
     actions: ActionsData;
     pollInterval: number;
@@ -88,6 +91,7 @@ export default function Show({
     questions,
     coOwner,
     earlyWarning,
+    threadPanel,
     debug,
     actions,
     pollInterval,
@@ -257,6 +261,7 @@ export default function Show({
                                         onSelectClarificationOption={(option) => setComposerFill(option)}
                                     />
                                 ))}
+                                {threadPanel !== null && <ThreadPanel taskId={task.id} panel={threadPanel} />}
                                 {earlyWarning !== null && <EarlyWarningNotice taskId={task.id} warning={earlyWarning} />}
                             </div>
 
