@@ -28,6 +28,7 @@ use App\Models\PrReview;
 use App\Models\PrReviewComment;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use App\Services\IncusSandboxManager;
 use App\Services\PriorFindingsHydrator;
 use App\Services\PriorFindingsRollup;
@@ -171,6 +172,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 resumeSessionId: null,
                 mcpConfigPath: config('yak.mcp_config_path'),
                 task: $this->task,
+                account: app(ClaudeAccountResolver::class)->systemAccountFor($repository->slug),
             );
 
             $recorder->agentStarted($request);

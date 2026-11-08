@@ -10,6 +10,12 @@ class FakeThreadStreams extends ThreadStreams
     /** @var array<string, true> */
     public array $registered = [];
 
+    /** @var list<string> every channel ever registered, in order */
+    public array $registeredEver = [];
+
+    /** @var (\Closure(string, array<string, mixed>): void)|null called after each command is recorded */
+    public ?\Closure $onCommand = null;
+
     /** @var array<string, list<array<string, mixed>>> */
     private array $commands = [];
 
@@ -31,6 +37,7 @@ class FakeThreadStreams extends ThreadStreams
     public function register(string $channel): void
     {
         $this->registered[$channel] = true;
+        $this->registeredEver[] = $channel;
         $this->events[] = 'register:' . $channel;
     }
 
@@ -48,6 +55,10 @@ class FakeThreadStreams extends ThreadStreams
     {
         $this->commands[$channel][] = $command;
         $this->events[] = 'command:' . $command['type'];
+
+        if ($this->onCommand !== null) {
+            ($this->onCommand)($channel, $command);
+        }
 
         return (string) count($this->commands[$channel]) . '-0';
     }

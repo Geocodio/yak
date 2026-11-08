@@ -2,6 +2,7 @@
 
 namespace App\DataTransferObjects;
 
+use App\Models\ClaudeAccount;
 use App\Models\TaskAttachment;
 use App\Models\YakTask;
 
@@ -22,6 +23,7 @@ final readonly class AgentRunRequest
         public ?string $mcpConfigPath = null,
         public ?YakTask $task = null,
         public array $attachments = [],
+        public ?ClaudeAccount $account = null,
     ) {}
 
     public function isResume(): bool
@@ -47,6 +49,7 @@ final readonly class AgentRunRequest
             mcpConfigPath: $this->mcpConfigPath,
             task: $this->task,
             attachments: $this->attachments,
+            account: $this->account,
         );
     }
 
@@ -67,6 +70,7 @@ final readonly class AgentRunRequest
             resumeSessionId: $this->resumeSessionId,
             mcpConfigPath: $this->mcpConfigPath,
             task: $this->task,
+            account: $this->account,
         );
     }
 }

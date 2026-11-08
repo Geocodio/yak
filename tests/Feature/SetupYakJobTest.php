@@ -12,6 +12,7 @@ use App\Jobs\Middleware\PausesDuringDrain;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
+use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\User;
 use App\Models\YakTask;
@@ -881,4 +882,21 @@ test('a hostile health probe path stays in one table cell of the setup PR', func
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && str_ends_with($request->url(), '/pulls')
         && str_contains($request['body'], "| `.yak/preview.yml` | Port 3000, health probe `/a'b\\|c d`, start and refresh commands |"));
+});
+
+test('setup runs on the repository unattended account', function () {
+    $account = ClaudeAccount::factory()->system()->create();
+    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
+        sessionId: 's', resultSummary: 'ok', costUsd: 0, numTurns: 1, durationMs: 1, isError: false, rawOutput: '{}',
+    ));
+    $this->app->instance(AgentRunner::class, $fake);
+    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+    Process::fake(['*' => Process::result('')]);
+
+    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo', 'setup_status' => 'pending', 'unattended_claude_account_id' => $account->id]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'mode' => TaskMode::Setup, 'source' => 'dashboard']);
+
+    (new SetupYakJob($task))->handle($fake);
+
+    expect($fake->lastCall()->account?->is($account))->toBeTrue();
 });

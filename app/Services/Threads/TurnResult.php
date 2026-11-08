@@ -14,16 +14,22 @@ final class TurnResult
 {
     public static function toAgentRunResult(TaskRun $run): AgentRunResult
     {
-        $event = $run->last_result_event;
+        return self::fromEvent($run->last_result_event, (int) $run->assistant_messages, (int) $run->agent_ms, (float) $run->cost_usd);
+    }
 
+    /**
+     * @param  array<string, mixed>|mixed  $event  the last `result` line of the turn
+     */
+    public static function fromEvent(mixed $event, int $assistantMessages, int $durationMs, float $costUsd): AgentRunResult
+    {
         if (! is_array($event)) {
             return AgentRunResult::failure('The runner ended the turn without a result', '{}');
         }
 
-        $event['num_turns'] = (int) $run->assistant_messages;
-        $event['duration_ms'] = (int) $run->agent_ms;
+        $event['num_turns'] = $assistantMessages;
+        $event['duration_ms'] = $durationMs;
 
         return ClaudeCodeOutputParser::parse(json_encode($event, JSON_THROW_ON_ERROR))
-            ->withIncrementalCost((float) $run->cost_usd);
+            ->withIncrementalCost($costUsd);
     }
 }

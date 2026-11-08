@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Agents\BrokeredAgentRunner;
 use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
 use App\Services\IncusSandboxManager;
@@ -27,7 +28,9 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(IncusSandboxManager::class);
 
-        $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
+        $this->app->bind(AgentRunner::class, fn () => config('yak.threads.enabled')
+            ? app(BrokeredAgentRunner::class)
+            : new SandboxedAgentRunner(app(IncusSandboxManager::class)));
 
         // VideoRenderer's constructor takes a primitive `string $videoDir`
         // which Laravel's container can't auto-resolve; without a binding,
