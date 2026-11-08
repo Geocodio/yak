@@ -26,11 +26,21 @@ final readonly class AgentRunResult
         public ?string $wrongRepositoryReason = null,
         public ?string $suggestedRepository = null,
         public array $clarificationQuestions = [],
+        public ?float $sessionCostTotalUsd = null,
     ) {}
 
     public function needsClarification(): bool
     {
         return $this->clarificationQuestions !== [];
+    }
+
+    /**
+     * Keeps the CLI's cumulative session total and sets costUsd to this
+     * run's own share of it.
+     */
+    public function withIncrementalCost(float $costUsd): self
+    {
+        return $this->copy(['sessionCostTotalUsd' => $this->costUsd, 'costUsd' => $costUsd]);
     }
 
     public function withStderr(string $stderr): self

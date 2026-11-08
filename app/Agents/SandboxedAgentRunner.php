@@ -13,6 +13,7 @@ use App\Models\YakTask;
 use App\Services\AiPricing;
 use App\Services\ClaudeAuthDetector;
 use App\Services\IncusSandboxManager;
+use App\Services\SessionCost;
 use App\Services\TaskAttachmentStager;
 use App\Services\TaskLogger;
 use Illuminate\Support\Facades\Log;
@@ -380,8 +381,12 @@ class SandboxedAgentRunner implements AgentRunner
                 'total_cost_usd' => $resultEvent['total_cost_usd'] ?? null,
             ]);
 
-            return ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR))
+            $parsed = ClaudeCodeOutputParser::parse(json_encode($resultEvent, JSON_THROW_ON_ERROR))
                 ->withStderr($outcome->stderr);
+
+            return $parsed->withIncrementalCost(
+                SessionCost::incremental($request->resumeSessionId ?? $parsed->sessionId, $parsed->costUsd),
+            );
         }
 
         if ($outcome->stderr !== '') {

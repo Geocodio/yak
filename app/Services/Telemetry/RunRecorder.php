@@ -158,6 +158,7 @@ final class RunRecorder
         $this->pending['agent_finished_at'] = now();
         $this->pending['session_id'] = $result->sessionId !== '' ? $result->sessionId : null;
         $this->pending['cost_usd'] = $result->costUsd;
+        $this->pending['session_cost_total_usd'] = $result->sessionCostTotalUsd;
         $this->pending['num_turns'] = $result->numTurns;
         $this->pending['synthesized_result'] = $result->synthesized;
         $this->pending['stale_session_retry'] = $result->staleSessionRetry;
