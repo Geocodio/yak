@@ -32,7 +32,7 @@ class SessionSync
     public function syncFromSandbox(Thread $thread, string $container): void
     {
         $directory = $this->projectDirectory($thread);
-        $sizes = $this->waitUntilQuiet($container, $directory);
+        $sizes = $this->withinLimits($thread, $this->waitUntilQuiet($container, $directory));
 
         foreach ($sizes as $relPath => $size) {
             $sessionId = $this->sessionIdOf($relPath);
@@ -45,8 +45,8 @@ class SessionSync
 
             match ($mode) {
                 'append' => $this->uploadAppended($thread, $container, $directory, $sessionId, $relPath, $size),
-                'whole' => $this->store->putWhole($thread->id, $sessionId, $relPath, $this->readFrom($container, "{$directory}/{$relPath}", 0)),
-                'immutable' => $this->uploadImmutable($thread, $container, $directory, $sessionId, $relPath),
+                'whole' => $this->store->putWhole($thread->id, $sessionId, $relPath, $this->readFrom($container, "{$directory}/{$relPath}", 0, $size)),
+                'immutable' => $this->uploadImmutable($thread, $container, $directory, $sessionId, $relPath, $size),
                 default => null,
             };
         }
@@ -113,6 +113,50 @@ class SessionSync
     }
 
     /**
+     * Drops files that are too large, that would take the thread past its byte budget, or that
+     * exceed the file count, using the listed sizes, and notes what was left out on the thread.
+     *
+     * @param  array<string, int>  $sizes
+     * @return array<string, int>
+     */
+    private function withinLimits(Thread $thread, array $sizes): array
+    {
+        $maxFile = (int) config('yak.threads.session_file_max_bytes');
+        $maxThread = (int) config('yak.threads.session_thread_max_bytes');
+        $maxFiles = (int) config('yak.threads.session_max_files');
+        $kept = [];
+        $skipped = [];
+        $total = 0;
+
+        foreach ($sizes as $relPath => $size) {
+            if ($this->store->modeFor($relPath) === null) {
+                continue;
+            }
+
+            if (count($kept) >= $maxFiles || $size > $maxFile || $total + $size > $maxThread) {
+                $skipped[] = $relPath;
+
+                continue;
+            }
+
+            $kept[$relPath] = $size;
+            $total += $size;
+        }
+
+        if ($skipped !== []) {
+            Log::channel('yak')->warning('Session files over the store limits were not synced', ['thread_id' => $thread->id, 'rel_paths' => array_slice($skipped, 0, 20), 'count' => count($skipped)]);
+        }
+
+        $warning = $skipped === [] ? null : substr(count($skipped) . ' session file(s) over the store limits were not synced: ' . implode(', ', $skipped), 0, 500);
+
+        if ($thread->session_sync_warning !== $warning) {
+            $thread->forceFill(['session_sync_warning' => $warning])->saveQuietly();
+        }
+
+        return $kept;
+    }
+
+    /**
      * @return array<string, int> size by path relative to the project directory
      */
     private function waitUntilQuiet(string $container, string $directory): array
@@ -155,8 +199,10 @@ class SessionSync
     private function uploadAppended(Thread $thread, string $container, string $directory, string $sessionId, string $relPath, int $size): void
     {
         $path = "{$directory}/{$relPath}";
+        $chunkBytes = (int) config('yak.threads.session_chunk_bytes');
+        $conflicts = 0;
 
-        for ($attempt = 0; $attempt < 2; $attempt++) {
+        while (true) {
             $stored = $this->store->length($thread->id, $sessionId, $relPath);
 
             if ($size <= $stored) {
@@ -164,8 +210,8 @@ class SessionSync
             }
 
             $tailStart = max(0, $stored - self::TAIL_BYTES);
-            $bytes = $this->readFrom($container, $path, $tailStart);
             $tailLength = $stored - $tailStart;
+            $bytes = $this->readFrom($container, $path, $tailStart, $tailLength + $chunkBytes);
 
             if (strlen($bytes) <= $tailLength) {
                 return;
@@ -176,15 +222,29 @@ class SessionSync
 
             $outcome = $this->store->append($thread->id, $sessionId, $relPath, $stored, $chunk, hash('sha256', $chunk), hash('sha256', $tail));
 
+            if ($outcome->status === 200 && $outcome->length > $stored) {
+                continue;
+            }
+
             if ($outcome->status === 200) {
-                return;
+                // No complete line in the chunk: read a bigger one, up to the file limit.
+                if ($chunkBytes >= (int) config('yak.threads.session_file_max_bytes')) {
+                    return;
+                }
+                $chunkBytes *= 2;
+
+                continue;
+            }
+
+            if (++$conflicts >= 2) {
+                break;
             }
         }
 
         Log::channel('yak')->warning('Session file upload kept conflicting with the store', ['thread_id' => $thread->id, 'rel_path' => $relPath]);
     }
 
-    private function uploadImmutable(Thread $thread, string $container, string $directory, string $sessionId, string $relPath): void
+    private function uploadImmutable(Thread $thread, string $container, string $directory, string $sessionId, string $relPath, int $size): void
     {
         $known = SessionFile::query()
             ->where(['thread_id' => $thread->id, 'session_id' => $sessionId, 'rel_path' => $relPath])
@@ -192,7 +252,7 @@ class SessionSync
             ->exists();
 
         if (! $known) {
-            $this->store->putImmutable($thread->id, $sessionId, $relPath, $this->readFrom($container, "{$directory}/{$relPath}", 0));
+            $this->store->putImmutable($thread->id, $sessionId, $relPath, $this->readFrom($container, "{$directory}/{$relPath}", 0, $size));
         }
     }
 
@@ -207,11 +267,12 @@ class SessionSync
     }
 
     /**
-     * Reads a sandbox file from a zero-based byte offset to its end.
+     * Reads a sandbox file from a zero-based byte offset, at most $length bytes (to its end when null).
      */
-    private function readFrom(string $container, string $path, int $offset): string
+    private function readFrom(string $container, string $path, int $offset, ?int $length = null): string
     {
-        $result = $this->sandboxes->run($container, 'tail -c +' . ($offset + 1) . ' ' . escapeshellarg($path), timeout: 60);
+        $command = 'tail -c +' . ($offset + 1) . ' ' . escapeshellarg($path) . ($length === null ? '' : ' | head -c ' . $length);
+        $result = $this->sandboxes->run($container, $command, timeout: 60);
 
         if (! $result->successful()) {
             throw new RuntimeException("Reading {$path} from {$container} failed: " . $result->errorOutput());

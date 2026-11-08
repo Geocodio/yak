@@ -585,6 +585,12 @@ return [
         // Milliseconds the sync daemon waits for a session file to go quiet.
         'sync_quiet_ms' => 500,
 
+        // Limits on what a sandbox may put into the session store.
+        'session_file_max_bytes' => 64 * 1024 * 1024,
+        'session_thread_max_bytes' => 512 * 1024 * 1024,
+        'session_max_files' => 2000,
+        'session_chunk_bytes' => 8 * 1024 * 1024,
+
         // Production points this at the persistent /data volume.
         'session_store_path' => env('YAK_SESSION_STORE_PATH', storage_path('app/session-store')),
     ],

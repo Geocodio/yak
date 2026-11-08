@@ -63,7 +63,12 @@ function fakeSandboxFiles(array &$files): void
                 continue;
             }
             if (preg_match('/tail -c \+(\d+)/', $command, $matches)) {
-                return Process::result(output: substr($bytes, (int) $matches[1] - 1));
+                $output = substr($bytes, (int) $matches[1] - 1);
+                if (preg_match('/head -c (\d+)/', $command, $limit)) {
+                    $output = substr($output, 0, (int) $limit[1]);
+                }
+
+                return Process::result(output: $output);
             }
             if (str_contains($command, 'sha256sum')) {
                 return Process::result(output: hash('sha256', $bytes) . "  {$path}\n");
@@ -212,4 +217,52 @@ it('deletes session files after the retention window', function () {
 
     expect(SessionFile::query()->where('thread_id', $old->id)->exists())->toBeFalse()
         ->and(SessionFile::query()->where('thread_id', $recent->id)->exists())->toBeTrue();
+});
+
+it('uploads a large append-only file in bounded chunks', function () {
+    config()->set('yak.threads.session_chunk_bytes', 38);
+    $content = '';
+    foreach (range(1, 12) as $number) {
+        $padded = sprintf('%02d', $number);
+        $content .= "{\"uuid\":\"line-{$padded}\"}\n";
+    }
+    $this->files = ['0a1b2c3d-1111-4222-8333-444455556666.jsonl' => $content];
+    fakeSandboxFiles($this->files);
+
+    app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
+
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($content);
+    Process::assertRan(fn ($process) => str_contains((string) $process->command, 'head -c'));
+});
+
+it('skips files over the limits and marks the thread', function () {
+    config()->set('yak.threads.session_file_max_bytes', 100);
+    config()->set('yak.threads.session_thread_max_bytes', 150);
+    $small = "{\"uuid\":\"a\"}\n";
+    $this->files = [
+        '0a1b2c3d-1111-4222-8333-444455556666.jsonl' => $small,
+        '0a1b2c3d-1111-4222-8333-444455556666/tool-results/big.txt' => str_repeat('x', 100) . "\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/tool-results/ok.txt' => str_repeat('y', 99) . "\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/tool-results/over-budget.txt' => str_repeat('z', 99) . "\n",
+    ];
+    fakeSandboxFiles($this->files);
+
+    app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
+
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($small)
+        ->and($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/ok.txt'))->toBe(str_repeat('y', 99) . "\n")
+        ->and($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/big.txt'))->toBe('')
+        ->and($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/over-budget.txt'))->toBe('')
+        ->and($this->thread->fresh()->session_sync_warning)->toContain('big.txt')->toContain('over-budget.txt');
+});
+
+it('caps the number of files', function () {
+    config()->set('yak.threads.session_max_files', 1);
+    $this->files = ['0a1b2c3d-1111-4222-8333-444455556666/tool-results/a.txt' => 'a', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/b.txt' => 'b'];
+    fakeSandboxFiles($this->files);
+
+    app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
+
+    expect($this->store->files($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666'))->toHaveCount(1)
+        ->and($this->thread->fresh()->session_sync_warning)->toContain('b.txt');
 });
