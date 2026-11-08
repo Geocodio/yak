@@ -152,3 +152,16 @@ test('it never writes the credential to stdout', async () => {
   await run.exited;
   assert.equal(run.written.join('').includes(SECRET), false);
 });
+
+test('it reports only the length of a line that does not parse', async () => {
+  const run = harness();
+  const garbled = `{"type":"start","credential":{"value":"${SECRET}"} oops`;
+  run.input.write(garbled + '\n');
+  await run.tick();
+  const [line] = run.lines();
+  assert.equal(line.event, 'bad_line');
+  assert.equal(line.length, garbled.length);
+  assert.equal(JSON.stringify(line).includes('sk-ant'), false);
+  assert.equal('line' in line, false);
+  run.input.end();
+});
