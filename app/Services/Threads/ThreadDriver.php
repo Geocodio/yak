@@ -37,6 +37,12 @@ use Illuminate\Support\Facades\DB;
  */
 class ThreadDriver
 {
+    /** Automatic runner restarts allowed within one turn; the next loss fails the turn. */
+    public const MAX_RESTARTS = 3;
+
+    /** Seconds to wait before the first, second and third restart. */
+    private const RESTART_BACKOFF_SECONDS = [0, 5, 30];
+
     /**
      * One log handler per running turn. A driver restart starts a fresh
      * handler, so its tool and assistant counters restart from that point.
@@ -55,6 +61,9 @@ class ThreadDriver
 
     /** @var list<array{0: int, 1: int, 2: ThreadBlockReason}> thread id, turn id and reason of each turn an account failure ended, acted on after the commit */
     private array $blockedTurns = [];
+
+    /** @var list<int> threads whose turn was abandoned after too many restarts, their runner killed after the commit */
+    private array $abandonedThreads = [];
 
     /** @var list<int> threads whose turn completed or failed, paused after the commit */
     private array $finishedThreads = [];
@@ -80,11 +89,18 @@ class ThreadDriver
 
         $this->dispatchAll($events);
 
-        foreach (array_unique($this->lostRunners) as $lostThreadId) {
-            $this->recovery->recover(Thread::query()->findOrFail($lostThreadId));
+        $lost = array_unique($this->lostRunners);
+        $this->lostRunners = [];
+
+        foreach ($lost as $lostThreadId) {
+            $this->restartIfDue($lostThreadId);
         }
 
-        $this->lostRunners = [];
+        foreach (array_unique($this->abandonedThreads) as $abandonedThreadId) {
+            $this->commands->kill(Thread::query()->findOrFail($abandonedThreadId));
+        }
+
+        $this->abandonedThreads = [];
         $this->afterGuardStops();
         $this->afterAccountFailures();
         $this->pauseFinishedThreads();
@@ -98,6 +114,7 @@ class ThreadDriver
     {
         $this->guardRunningTurns();
         $this->sendWaitingSteers();
+        $this->restartWaitingRunners();
 
         TaskRun::query()
             ->whereNotNull('thread_id')
@@ -161,9 +178,9 @@ class ThreadDriver
     }
 
     /**
-     * A lost runner during a turn is recovered after the commit; with no turn
-     * running the thread only forgets the runner. An exit from a runner older
-     * than the current one is stale and changes nothing.
+     * A lost runner during a turn is restarted after the commit, after a backoff
+     * and at most MAX_RESTARTS times; with no turn running the thread only forgets
+     * the runner. A signal from a runner other than the current one is stale.
      *
      * @param  array<string, mixed>  $line
      * @param  list<object>  $events
@@ -172,35 +189,138 @@ class ThreadDriver
     {
         $event = $line['event'] ?? null;
 
-        if ($event === 'runner_exited') {
-            $generation = $entry->generation;
+        if (! in_array($event, ['runner_exited', 'no_runner', 'broker_started'], true) || ! $this->isCurrentRunnerSignal($thread, $entry->generation)) {
+            return;
+        }
 
-            if ($generation < $thread->runner_generation) {
+        $run = $thread->runningTurn();
+
+        if ($event === 'runner_exited') {
+            $thread->forceFill(['runner_state' => RunnerState::None])->save();
+            $events[] = new RunnerExited($thread, $entry->generation, isset($line['exit_code']) ? (int) $line['exit_code'] : null);
+        } elseif ($event === 'no_runner') {
+            // Only a command this turn is still waiting on can have been refused.
+            $uuid = $line['uuid'] ?? null;
+
+            if ($run === null || ! is_string($uuid) || ! $this->isOutstanding($run, $uuid)) {
                 return;
             }
-
-            $thread->forceFill(['runner_state' => RunnerState::None])->save();
-            $events[] = new RunnerExited($thread, $generation, isset($line['exit_code']) ? (int) $line['exit_code'] : null);
+        } elseif ($thread->runner_state === RunnerState::Starting) {
+            return;
         }
 
-        $lost = match ($event) {
-            'runner_exited', 'no_runner' => true,
-            'broker_started' => $thread->runner_state !== RunnerState::Starting,
-            default => false,
-        };
-
-        $lostRun = $lost ? $thread->runningTurn() : null;
-
-        if ($lostRun !== null) {
-            // The new runner never saw these; recovery sends them again with their uuids.
-            PendingSteeringMessage::query()
-                ->where('task_run_id', $lostRun->id)
-                ->whereNull('absorbed_at')
-                ->update(['sent_at' => null, 'delivered_at' => null]);
-            $this->lostRunners[] = $thread->id;
-        } elseif ($lost && $event === 'broker_started') {
+        if ($run === null) {
             $thread->forceFill(['runner_state' => RunnerState::None])->save();
+
+            return;
         }
+
+        $this->scheduleRestart($thread, $run, $events);
+    }
+
+    /**
+     * A signal about the runner that is current. While a start is pending the
+     * old runner's exit is expected, so only a newer generation counts.
+     */
+    private function isCurrentRunnerSignal(Thread $thread, int $generation): bool
+    {
+        return $thread->runner_state === RunnerState::Starting
+            ? $generation > $thread->runner_generation
+            : $generation >= $thread->runner_generation;
+    }
+
+    private function isOutstanding(TaskRun $run, string $uuid): bool
+    {
+        $state = $run->command_states?->get($uuid);
+
+        return $state !== null && ! in_array($state, [CommandState::Completed, CommandState::Cancelled], true);
+    }
+
+    /**
+     * @param  list<object>  $events
+     */
+    private function scheduleRestart(Thread $thread, TaskRun $run, array &$events): void
+    {
+        // A restart is already waiting for this loss; further signals about it add nothing.
+        if ($run->restart_due_at !== null) {
+            return;
+        }
+
+        $restarts = $run->restart_count + 1;
+
+        if ($restarts > self::MAX_RESTARTS) {
+            $this->abandonTurn($thread, $run, $events);
+
+            return;
+        }
+
+        $run->forceFill([
+            'restart_count' => $restarts,
+            'restart_due_at' => now()->addSeconds(self::RESTART_BACKOFF_SECONDS[$restarts - 1]),
+        ])->save();
+
+        // The new runner never saw these; recovery sends them again with their uuids.
+        PendingSteeringMessage::query()
+            ->where('task_run_id', $run->id)
+            ->whereNull('absorbed_at')
+            ->update(['sent_at' => null, 'delivered_at' => null]);
+        $this->lostRunners[] = $thread->id;
+    }
+
+    /**
+     * The runner keeps dying: fail the turn and release the lock instead of restarting forever.
+     *
+     * @param  list<object>  $events
+     */
+    private function abandonTurn(Thread $thread, TaskRun $run, array &$events): void
+    {
+        $run->forceFill(['turn_state' => TurnState::Failed, 'agent_finished_at' => now(), 'restart_due_at' => null])->save();
+        unset($this->handlers[$run->id]);
+
+        $thread->forceFill(['runner_state' => RunnerState::None] + ($thread->lock_turn_id === $run->id ? [
+            'lock_holder' => ThreadLockHolder::None,
+            'lock_turn_id' => null,
+            'lock_acquired_at' => null,
+        ] : []))->save();
+
+        $this->abandonedThreads[] = $thread->id;
+        $this->finishedThreads[] = $thread->id;
+        $events[] = new TurnFailed($run);
+    }
+
+    /**
+     * Restarts the runner of a turn whose backoff has passed. The claim is a
+     * conditional update, so a restart happens once however many callers race.
+     */
+    private function restartIfDue(int $threadId): void
+    {
+        $thread = Thread::query()->findOrFail($threadId);
+        $run = $thread->runningTurn();
+
+        if ($run === null) {
+            return;
+        }
+
+        $claimed = TaskRun::query()
+            ->whereKey($run->id)
+            ->whereNotNull('restart_due_at')
+            ->where('restart_due_at', '<=', now())
+            ->update(['restart_due_at' => null]);
+
+        if ($claimed === 1) {
+            $this->recovery->recover($thread);
+        }
+    }
+
+    private function restartWaitingRunners(): void
+    {
+        TaskRun::query()
+            ->whereNotNull('thread_id')
+            ->where('turn_state', TurnState::Running)
+            ->whereNotNull('restart_due_at')
+            ->pluck('thread_id')
+            ->unique()
+            ->each(fn (int $threadId) => $this->restartIfDue($threadId));
     }
 
     /**

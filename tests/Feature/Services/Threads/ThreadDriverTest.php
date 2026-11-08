@@ -246,3 +246,89 @@ it('keeps a lock that belongs to another turn when this turn finishes', function
         ->and($this->thread->fresh()->lock_turn_id)->toBe($other->id)
         ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::Sandbox);
 });
+
+function runnerExit(int $generation = 1, bool $fromBroker = true): StreamEntry
+{
+    static $counter = 5000;
+    $counter++;
+
+    return new StreamEntry(test()->thread->channel(), $counter . '-0', $generation, $counter, ['type' => 'broker', 'event' => 'runner_exited', 'exit_code' => 1], $fromBroker);
+}
+
+it('counts restarts on the turn and waits before the second one', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id])->save();
+
+    app(ThreadDriver::class)->handle(runnerExit());
+    expect($this->run->fresh()->restart_count)->toBe(1)
+        ->and(array_column($streams->commandsFor($this->thread->channel()), 'type'))->toBe(['kill', 'start_runner', 'turn']);
+
+    // The new runner comes up, then dies again: the second restart waits for its backoff.
+    app(ThreadDriver::class)->handle(threadEntry($this->thread, ['type' => 'runner', 'event' => 'started'], generation: 2));
+    app(ThreadDriver::class)->handle(runnerExit(2));
+
+    expect($this->run->fresh()->restart_count)->toBe(2)
+        ->and($this->run->fresh()->restart_due_at)->not->toBeNull()
+        ->and($streams->commandsFor($this->thread->channel()))->toHaveCount(3);
+
+    $this->travel(6)->seconds();
+    app(ThreadDriver::class)->tick();
+
+    expect($streams->commandsFor($this->thread->channel()))->toHaveCount(6)
+        ->and($this->run->fresh()->restart_due_at)->toBeNull();
+});
+
+it('fails the turn and releases the lock past the restart cap', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id])->save();
+    $this->run->forceFill(['restart_count' => ThreadDriver::MAX_RESTARTS])->save();
+
+    app(ThreadDriver::class)->handle(runnerExit());
+
+    expect($this->run->fresh()->turn_state)->toBe(TurnState::Failed)
+        ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::None)
+        ->and($this->thread->fresh()->lock_turn_id)->toBeNull()
+        ->and(array_column($streams->commandsFor($this->thread->channel()), 'type'))->toBe(['kill']);
+    Event::assertDispatched(TurnFailed::class, 1);
+});
+
+it('does not restart twice for the same loss', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id])->save();
+    $this->run->forceFill(['restart_count' => 1, 'restart_due_at' => now()->addSeconds(5)])->save();
+
+    app(ThreadDriver::class)->handle(runnerExit());
+
+    expect($this->run->fresh()->restart_count)->toBe(1)
+        ->and($streams->commandsFor($this->thread->channel()))->toBe([]);
+});
+
+it('ignores a no_runner for a uuid the turn is not waiting on', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id])->save();
+
+    app(ThreadDriver::class)->handle(new StreamEntry($this->thread->channel(), '6001-0', 1, 6001, ['type' => 'broker', 'event' => 'no_runner', 'uuid' => 'someone-elses'], true));
+    app(ThreadDriver::class)->handle(new StreamEntry($this->thread->channel(), '6002-0', 1, 6002, ['type' => 'broker', 'event' => 'no_runner'], true));
+
+    expect($streams->commandsFor($this->thread->channel()))->toBe([])
+        ->and($this->run->fresh()->restart_count)->toBe(0);
+
+    app(ThreadDriver::class)->handle(new StreamEntry($this->thread->channel(), '6003-0', 1, 6003, ['type' => 'broker', 'event' => 'no_runner', 'uuid' => 'prompt-1'], true));
+
+    expect($this->run->fresh()->restart_count)->toBe(1);
+});
+
+it('ignores a runner exit from an older generation', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['runner_generation' => 2])->save();
+
+    app(ThreadDriver::class)->handle(runnerExit(1));
+
+    expect($streams->commandsFor($this->thread->channel()))->toBe([])
+        ->and($this->run->fresh()->restart_count)->toBe(0);
+});

@@ -29,6 +29,8 @@ use Illuminate\Support\Collection;
  * @property CarbonImmutable|null $agent_started_at
  * @property CarbonImmutable|null $agent_finished_at
  * @property CarbonImmutable|null $finished_at
+ * @property int $restart_count automatic runner restarts during this turn
+ * @property CarbonImmutable|null $restart_due_at when the next restart is due; null when none is waiting
  * @property array<string, mixed>|null $last_result_event
  * @property array<string, int>|null $stages
  * @property array<string, array<string, int|float>>|null $model_usage
@@ -67,6 +69,7 @@ class TaskRun extends Model
             'command_states' => AsEnumCollection::of(CommandState::class),
             'awaiting_background_result' => 'boolean',
             'restarted' => 'boolean',
+            'restart_due_at' => 'datetime',
             'last_result_event' => 'json',
             'turn_cost_usd_by_session' => 'json',
             'completion_dispatched_at' => 'datetime',

@@ -127,7 +127,7 @@ it('never drops a steer when the runner is gone', function () {
     $uuid = $message->fresh()->uuid;
     $before = count($this->streams->commandsFor($this->thread->channel()));
 
-    app(ThreadDriver::class)->handle(new StreamEntry($this->thread->channel(), '2000-0', 1, 2000, ['type' => 'broker', 'event' => 'no_runner'], true));
+    app(ThreadDriver::class)->handle(new StreamEntry($this->thread->channel(), '2000-0', 1, 2000, ['type' => 'broker', 'event' => 'no_runner', 'uuid' => $uuid], true));
 
     $steers = array_values(array_filter(array_slice($this->streams->commandsFor($this->thread->channel()), $before), fn (array $command) => $command['type'] === 'steer'));
     expect($steers)->toHaveCount(1)
