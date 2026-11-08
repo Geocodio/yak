@@ -211,3 +211,38 @@ it('uses the generation the broker stamped, never one inside the line', function
     expect($streams->commandsFor($this->thread->channel()))->toBe([])
         ->and($this->thread->fresh()->runner_state)->toBe(RunnerState::Busy);
 });
+
+it('ignores agent output from an older runner generation', function () {
+    $this->thread->forceFill(['runner_generation' => 2])->save();
+
+    foreach (threadTurnLines() as $line) {
+        app(ThreadDriver::class)->handle(threadEntry($this->thread, $line, generation: 1));
+    }
+
+    expect($this->run->fresh()->turn_state)->toBe(TurnState::Running)
+        ->and(TaskLog::query()->where('yak_task_id', $this->task->id)->count())->toBe(0);
+    Event::assertNotDispatched(TurnCompleted::class);
+});
+
+it('does not let an older runner start line become current', function () {
+    $this->thread->forceFill(['runner_generation' => 3])->save();
+
+    app(ThreadDriver::class)->handle(threadEntry($this->thread, ['type' => 'runner', 'event' => 'started'], generation: 2));
+
+    expect($this->thread->fresh()->runner_generation)->toBe(3);
+});
+
+it('keeps a lock that belongs to another turn when this turn finishes', function () {
+    $other = TaskRun::factory()->create([
+        'yak_task_id' => $this->task->id,
+        'thread_id' => $this->thread->id,
+        'turn_state' => TurnState::Completed,
+    ]);
+    $this->thread->forceFill(['lock_turn_id' => $other->id])->save();
+
+    driveThread($this->thread, threadTurnLines());
+
+    expect($this->run->fresh()->turn_state)->toBe(TurnState::Completed)
+        ->and($this->thread->fresh()->lock_turn_id)->toBe($other->id)
+        ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::Sandbox);
+});

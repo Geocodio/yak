@@ -34,6 +34,7 @@ class ThreadFactory extends Factory
             'sandbox_state' => ThreadSandboxState::Paused,
             'sandbox_state_changed_at' => now(),
             'runner_state' => RunnerState::Idle,
+            'runner_generation' => 1,
         ]);
     }
 

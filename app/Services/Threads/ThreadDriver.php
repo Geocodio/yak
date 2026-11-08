@@ -129,8 +129,16 @@ class ThreadDriver
 
         $run = $thread->runningTurn();
 
+        // Output of a runner that is not the current one must not touch the current turn.
+        // The `started` line is how a new generation becomes current.
+        $isStarted = $type === 'runner' && ($line['event'] ?? null) === 'started';
+
+        if ($isStarted ? $entry->generation < $thread->runner_generation : $entry->generation !== $thread->runner_generation) {
+            return;
+        }
+
         if ($type === 'runner') {
-            if (($line['event'] ?? null) === 'started') {
+            if ($isStarted) {
                 $thread->forceFill([
                     'runner_state' => $run === null ? RunnerState::Idle : RunnerState::Busy,
                     'runner_started_at' => now(),
@@ -303,6 +311,13 @@ class ThreadDriver
             ]);
 
         unset($this->handlers[$run->id]);
+
+        // Only the transition that ended this turn releases the lock, and only
+        // while the lock still belongs to it; a newer turn's lock stays.
+        if ($changed === 0 || $thread->lock_turn_id !== $run->id) {
+            return;
+        }
+
         $thread->forceFill([
             'lock_holder' => ThreadLockHolder::None,
             'lock_turn_id' => null,
@@ -311,10 +326,7 @@ class ThreadDriver
         ])->save();
 
         $this->finishedThreads[] = $thread->id;
-
-        if ($changed > 0) {
-            $events[] = $this->completionEvent($run->fresh() ?? $run);
-        }
+        $events[] = $this->completionEvent($run->fresh() ?? $run);
     }
 
     /**
