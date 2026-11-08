@@ -126,28 +126,34 @@ class SessionSync
         $maxFiles = (int) config('yak.threads.session_max_files');
         $kept = [];
         $skipped = [];
-        $total = 0;
+        $stored = SessionFile::query()->where('thread_id', $thread->id)->pluck('length', 'rel_path');
+        $total = (int) $stored->sum();
+        $count = $stored->count();
 
         foreach ($sizes as $relPath => $size) {
-            if ($this->store->modeFor($relPath) === null) {
+            if (! $this->store->isValidPath($this->sessionIdOf($relPath), $relPath)) {
                 continue;
             }
 
-            if (count($kept) >= $maxFiles || $size > $maxFile || $total + $size > $maxThread) {
+            $isNew = ! $stored->has($relPath);
+            $added = $isNew ? $size : max(0, $size - (int) $stored->get($relPath));
+
+            if (($isNew && $count >= $maxFiles) || $size > $maxFile || $total + $added > $maxThread) {
                 $skipped[] = $relPath;
 
                 continue;
             }
 
             $kept[$relPath] = $size;
-            $total += $size;
+            $total += $added;
+            $count += $isNew ? 1 : 0;
         }
 
         if ($skipped !== []) {
             Log::channel('yak')->warning('Session files over the store limits were not synced', ['thread_id' => $thread->id, 'rel_paths' => array_slice($skipped, 0, 20), 'count' => count($skipped)]);
         }
 
-        $warning = $skipped === [] ? null : substr(count($skipped) . ' session file(s) over the store limits were not synced: ' . implode(', ', $skipped), 0, 500);
+        $warning = $skipped === [] ? null : mb_strcut(count($skipped) . ' session file(s) over the store limits were not synced: ' . implode(', ', $skipped), 0, 500);
 
         if ($thread->session_sync_warning !== $warning) {
             $thread->forceFill(['session_sync_warning' => $warning])->saveQuietly();

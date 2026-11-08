@@ -266,3 +266,34 @@ it('caps the number of files', function () {
     expect($this->store->files($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666'))->toHaveCount(1)
         ->and($this->thread->fresh()->session_sync_warning)->toContain('b.txt');
 });
+
+it('counts what the thread already has stored against its budget', function () {
+    config()->set('yak.threads.session_thread_max_bytes', 250);
+    $this->store->putImmutable($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/gone.txt', str_repeat('g', 99) . "\n");
+    $this->store->putImmutable($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/old.txt', str_repeat('o', 99) . "\n");
+    $this->files = [
+        '0a1b2c3d-1111-4222-8333-444455556666/tool-results/old.txt' => str_repeat('o', 99) . "\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/tool-results/new.txt' => str_repeat('n', 99) . "\n",
+    ];
+    fakeSandboxFiles($this->files);
+
+    app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
+
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/new.txt'))->toBe('')
+        ->and($this->thread->fresh()->session_sync_warning)->toContain('new.txt')->not->toContain('old.txt');
+});
+
+it('keeps the warning valid when paths are not ASCII', function () {
+    config()->set('yak.threads.session_file_max_bytes', 1);
+    $this->files = [];
+    foreach (range(1, 80) as $number) {
+        $this->files['0a1b2c3d-1111-4222-8333-444455556666/tool-results/' . str_repeat('é', 5) . "-{$number}.txt"] = "xx\n";
+    }
+    $this->files['0a1b2c3d-1111-4222-8333-444455556666/tool-results/ok-skipped.txt'] = "xx\n";
+    fakeSandboxFiles($this->files);
+
+    app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
+
+    $warning = $this->thread->fresh()->session_sync_warning;
+    expect($warning)->toContain('ok-skipped.txt')->and(mb_check_encoding((string) $warning, 'UTF-8'))->toBeTrue();
+});
