@@ -9,6 +9,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\Deployments\RebuildRepositoryDeploymentsJob;
 use App\Models\BranchDeployment;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Log;
@@ -70,13 +71,128 @@ class IncusSandboxManager
             $this->destroy($containerName);
         }
 
+        $this->provision($containerName, $repository, fn () => $this->configureClaudeMount($containerName), ['task_id' => $task->id]);
+
+        return $containerName;
+    }
+
+    /**
+     * Create the sandbox of a thread, cloned from the repo's snapshot. The
+     * host's .claude directory is not mounted: the thread keeps its own
+     * claude config dir and only the credentials and user settings come in.
+     */
+    public function createForThread(Thread $thread, Repository $repository): string
+    {
+        $containerName = "yak-thread-{$thread->id}";
+
+        if ($this->containerExists($containerName)) {
+            Log::channel('yak')->warning('Reclaiming stale thread sandbox before create', [
+                'container' => $containerName,
+                'thread_id' => $thread->id,
+            ]);
+            $this->destroy($containerName);
+        }
+
+        $this->provision(
+            $containerName,
+            $repository,
+            fn () => $this->configureThreadClaudeConfig($containerName, $thread->claude_config_dir),
+            ['thread_id' => $thread->id],
+        );
+
+        $this->run($containerName, 'mkdir -p ' . escapeshellarg($thread->claude_config_dir) . ' && chown yak:yak ' . escapeshellarg($thread->claude_config_dir), timeout: 10, asRoot: true);
+
+        return $containerName;
+    }
+
+    public function pause(string $containerName): void
+    {
+        $this->exec('incus pause ' . escapeshellarg($containerName), self::QUERY_TIMEOUT);
+    }
+
+    public function resume(string $containerName): void
+    {
+        $this->exec('incus resume ' . escapeshellarg($containerName), self::QUERY_TIMEOUT);
+    }
+
+    public function start(string $containerName): void
+    {
+        $this->exec('incus start ' . escapeshellarg($containerName));
+        $this->waitForReady($containerName);
+    }
+
+    /**
+     * Stops a container, forcing it when the clean shutdown fails or runs out of time.
+     */
+    public function stop(string $containerName, int $timeoutSeconds): void
+    {
+        $name = escapeshellarg($containerName);
+        $result = Process::timeout($timeoutSeconds + 15)->run("incus stop {$name} --timeout {$timeoutSeconds}");
+
+        if ($result->exitCode() !== 0) {
+            $this->exec("incus stop {$name} --force", self::STOP_TIMEOUT);
+        }
+    }
+
+    /**
+     * The container's incus status, lowercased (running, frozen, stopped), or
+     * 'none' when it does not exist.
+     */
+    public function state(string $containerName): string
+    {
+        $result = Process::timeout(self::QUERY_TIMEOUT)->run('incus list ' . escapeshellarg('^' . $containerName . '$') . ' --format csv -c s');
+        $state = strtolower(trim($result->output()));
+
+        return $result->exitCode() === 0 && $state !== '' ? $state : 'none';
+    }
+
+    /**
+     * Mounts the host's live credentials file and read-only user config into
+     * the thread's own config dir. Must precede `incus start`: raw.idmap is
+     * only applied when the container boots.
+     */
+    public function configureThreadClaudeConfig(string $containerName, string $configDir): void
+    {
+        $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
+
+        $this->configureClaudeIdmap($containerName, $source);
+
+        $mounts = [
+            'claude-credentials' => ['.credentials.json', false],
+            'claude-settings' => ['settings.json', true],
+            'claude-memory' => ['CLAUDE.md', true],
+            'claude-plugins' => ['plugins', true],
+            'claude-skills' => ['skills', true],
+        ];
+
+        foreach ($mounts as $device => [$relative, $readOnly]) {
+            if (! file_exists("{$source}/{$relative}")) {
+                continue;
+            }
+
+            $this->exec(sprintf(
+                'incus config device add %s %s disk source=%s path=%s%s',
+                escapeshellarg($containerName),
+                $device,
+                escapeshellarg("{$source}/{$relative}"),
+                escapeshellarg("{$configDir}/{$relative}"),
+                $readOnly ? ' readonly=true' : '',
+            ));
+        }
+    }
+
+    /**
+     * @param  callable(): void  $mountClaudeConfig
+     * @param  array<string, int>  $logContext
+     */
+    private function provision(string $containerName, Repository $repository, callable $mountClaudeConfig, array $logContext): void
+    {
         $source = $this->resolveSource($repository);
 
         Log::channel('yak')->info('Creating sandbox container', [
             'container' => $containerName,
             'source' => $source,
-            'task_id' => $task->id,
-        ]);
+        ] + $logContext);
 
         // Clone from snapshot (instant with ZFS CoW)
         $this->exec("incus copy {$source} {$containerName}");
@@ -89,9 +205,9 @@ class IncusSandboxManager
         // any the agent spawns — sees them.
         $this->configureEnvironment($containerName);
 
-        // Share the host Claude config directory. Must precede `incus start`:
+        // Mount the host Claude config. Must precede `incus start`:
         // raw.idmap is only applied when the container boots.
-        $this->configureClaudeMount($containerName);
+        $mountClaudeConfig();
 
         // Start the container
         $this->exec("incus start {$containerName}");
@@ -125,10 +241,7 @@ class IncusSandboxManager
 
         Log::channel('yak')->info('Sandbox container ready', [
             'container' => $containerName,
-            'task_id' => $task->id,
-        ]);
-
-        return $containerName;
+        ] + $logContext);
     }
 
     /**
@@ -791,22 +904,7 @@ class IncusSandboxManager
     {
         $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
 
-        // fileowner() can return false on a stat failure even when is_dir()
-        // is true; (int) false is 0, which would idmap the container's yak
-        // user onto host root. Only trust it when it actually resolved.
-        $owner = is_dir($source) ? fileowner($source) : false;
-
-        $hostUid = is_int($owner)
-            ? $owner
-            : (int) config('yak.sandbox.claude_host_uid', 33);
-
-        $sandboxUid = (int) config('yak.sandbox.claude_sandbox_uid', 1001);
-
-        $this->exec(sprintf(
-            'incus config set %s raw.idmap %s',
-            escapeshellarg($containerName),
-            escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
-        ));
+        $this->configureClaudeIdmap($containerName, $source);
 
         // Idempotent: a sandbox cloned from a template that was poisoned by
         // an earlier build of this feature (see promoteToTemplate()) may
@@ -822,6 +920,29 @@ class IncusSandboxManager
             escapeshellarg($containerName),
             escapeshellarg($source),
             escapeshellarg($source),
+        ));
+    }
+
+    /**
+     * Maps the container's yak user onto the owner of the host Claude config.
+     */
+    private function configureClaudeIdmap(string $containerName, string $source): void
+    {
+        // fileowner() can return false on a stat failure even when is_dir()
+        // is true; (int) false is 0, which would idmap the container's yak
+        // user onto host root. Only trust it when it actually resolved.
+        $owner = is_dir($source) ? fileowner($source) : false;
+
+        $hostUid = is_int($owner)
+            ? $owner
+            : (int) config('yak.sandbox.claude_host_uid', 33);
+
+        $sandboxUid = (int) config('yak.sandbox.claude_sandbox_uid', 1001);
+
+        $this->exec(sprintf(
+            'incus config set %s raw.idmap %s',
+            escapeshellarg($containerName),
+            escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
         ));
     }
 

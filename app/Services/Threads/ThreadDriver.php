@@ -48,7 +48,10 @@ class ThreadDriver
     /** @var list<array{0: int, 1: string}> thread id and message of each turn the guard stopped, acted on after the commit */
     private array $stoppedTurns = [];
 
-    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands) {}
+    /** @var list<int> threads whose turn completed or failed, paused after the commit */
+    private array $finishedThreads = [];
+
+    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands, private readonly ThreadSandbox $sandbox) {}
 
     public function handle(StreamEntry $entry): void
     {
@@ -75,6 +78,7 @@ class ThreadDriver
 
         $this->lostRunners = [];
         $this->afterGuardStops();
+        $this->pauseFinishedThreads();
     }
 
     /**
@@ -283,6 +287,8 @@ class ThreadDriver
             'runner_state' => RunnerState::Idle,
         ])->save();
 
+        $this->finishedThreads[] = $thread->id;
+
         if ($changed > 0) {
             $events[] = $this->completionEvent($run->fresh() ?? $run);
         }
@@ -362,6 +368,16 @@ class ThreadDriver
 
         $this->stoppedTurns[] = [$thread->id, $this->guard->message($run, $reason)];
         $events[] = new TurnFailed($run);
+    }
+
+    private function pauseFinishedThreads(): void
+    {
+        $finished = array_unique($this->finishedThreads);
+        $this->finishedThreads = [];
+
+        foreach ($finished as $threadId) {
+            $this->sandbox->pause(Thread::query()->findOrFail($threadId));
+        }
     }
 
     private function afterGuardStops(): void

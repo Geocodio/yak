@@ -3,6 +3,7 @@
 use App\DataTransferObjects\StreamEntry;
 use App\Enums\RunnerState;
 use App\Enums\ThreadLockHolder;
+use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
@@ -17,6 +18,7 @@ use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\TurnResult;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Process;
 use Tests\Support\FakeThreadStreams;
 
 beforeEach(function () {
@@ -82,6 +84,16 @@ it('completes a turn once and fires TurnCompleted once', function () {
         ->and($run->completion_dispatched_at)->not->toBeNull();
     Event::assertDispatchedTimes(TurnCompleted::class, 1);
     Event::assertNotDispatched(TurnFailed::class);
+});
+
+it('pauses the sandbox once the turn ends', function () {
+    Process::fake(['*' => Process::result()]);
+    $this->thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+
+    driveThread($this->thread, threadTurnLines());
+
+    expect($this->thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
+    Process::assertRan("incus pause '{$this->thread->sandbox_container}'");
 });
 
 it('fails a turn whose last result is an error', function () {
