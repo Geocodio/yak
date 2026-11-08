@@ -77,7 +77,7 @@ it('forces the stop after the timeout', function () {
 
     app(ThreadSandbox::class)->stop($thread);
 
-    Sleep::assertSleptTimes(5);
+    Sleep::assertSlept(fn ($duration): bool => $duration->totalSeconds === 1.0, 5);
     Process::assertRan(fn ($p) => str_contains((string) $p->command, '--force'));
     expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
 });

@@ -6,11 +6,12 @@ use App\Enums\ThreadSessionKind;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\SessionStore\SessionSync;
 use Illuminate\Support\Facades\DB;
 
 class ThreadFactory
 {
-    public function __construct(private readonly ClaudeAccountResolver $resolver) {}
+    public function __construct(private readonly ClaudeAccountResolver $resolver, private readonly SessionSync $sessionSync) {}
 
     /**
      * The thread a task belongs to: a root task starts one, a follow-up
@@ -51,6 +52,7 @@ class ThreadFactory
 
             if ($root->session_id !== null) {
                 $thread->sessions()->create(['session_id' => $root->session_id, 'kind' => ThreadSessionKind::Main]);
+                $this->sessionSync->seedFromLegacyTranscript($thread, $root->session_id);
             }
 
             $root->forceFill(['thread_id' => $thread->id])->save();

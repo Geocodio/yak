@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
+use App\Models\SessionFile;
 use App\Models\Thread;
+use App\Services\SessionStore\SessionStore;
 use App\Services\Threads\ThreadCloser;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Console\Attributes\Description;
@@ -16,7 +18,7 @@ use Illuminate\Console\Command;
 #[Description('Stop idle thread sandboxes, close finished or idle threads and release turns waiting for a sandbox')]
 class ThreadSandboxesCommand extends Command
 {
-    public function handle(ThreadSandbox $sandbox, ThreadCloser $closer): int
+    public function handle(ThreadSandbox $sandbox, ThreadCloser $closer, SessionStore $sessionStore): int
     {
         Thread::query()
             ->where('status', ThreadStatus::Open)
@@ -46,6 +48,15 @@ class ThreadSandboxesCommand extends Command
                     $closer->close($thread, 'finished');
                 }
             });
+
+        SessionFile::query()
+            ->whereIn('thread_id', Thread::query()
+                ->where('status', ThreadStatus::Closed)
+                ->where('closed_at', '<=', now()->subDays((int) config('yak.threads.session_retention_days')))
+                ->select('id'))
+            ->distinct()
+            ->pluck('thread_id')
+            ->each(fn (int $threadId) => $sessionStore->deleteThread($threadId));
 
         $awake = Thread::query()
             ->whereIn('sandbox_state', [ThreadSandboxState::Starting, ThreadSandboxState::Running, ThreadSandboxState::Paused])

@@ -10,7 +10,10 @@ use App\Exceptions\SandboxCapacityReached;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\IncusSandboxManager;
+use App\Services\SessionStore\SessionSync;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
+use Throwable;
 
 /**
  * Moves a thread's sandbox between none, running, paused and stopped, and
@@ -21,6 +24,7 @@ class ThreadSandbox
     public function __construct(
         private readonly IncusSandboxManager $sandboxes,
         private readonly ThreadCommands $commands,
+        private readonly SessionSync $sessionSync,
     ) {}
 
     /**
@@ -60,6 +64,7 @@ class ThreadSandbox
             $container = $this->sandboxes->createForThread($thread, $repository);
             $thread->forceFill(['sandbox_container' => $container]);
             $this->checkoutThreadBranch($thread, $container);
+            $this->sessionSync->restoreIntoSandbox($thread, $container);
         }
 
         // Neither path leaves a runner behind; the turn starts one with resume.
@@ -115,6 +120,7 @@ class ThreadSandbox
             }
         }
 
+        $this->syncSessions($thread, $container);
         $this->sandboxes->stop($container, $timeout);
         $thread->refresh()->forceFill(['runner_state' => RunnerState::None]);
         $this->record($thread, ThreadSandboxState::Stopped);
@@ -128,6 +134,11 @@ class ThreadSandbox
             return;
         }
 
+        if ($thread->sandbox_state === ThreadSandboxState::Paused) {
+            $this->sandboxes->resume($container);
+        }
+
+        $this->syncSessions($thread, $container);
         $this->record($thread, ThreadSandboxState::Destroying);
         $this->commands->kill($thread);
         $this->sandboxes->destroy($container);
@@ -173,6 +184,20 @@ class ThreadSandbox
             $thread->forceFill(['blocked_reason' => ThreadBlockReason::WaitingForSandbox])->save();
 
             throw new SandboxCapacityReached("Thread {$thread->id} cannot wake: {$awake} sandboxes are already awake.");
+        }
+    }
+
+    /**
+     * Uploads the session files before the container goes away. A failed
+     * upload is logged and does not block the stop or destroy: a stopped
+     * container keeps its disk, and a thread must always be able to close.
+     */
+    public function syncSessions(Thread $thread, string $container): void
+    {
+        try {
+            $this->sessionSync->syncFromSandbox($thread, $container);
+        } catch (Throwable $exception) {
+            Log::channel('yak')->warning('Session sync failed', ['thread_id' => $thread->id, 'error' => $exception->getMessage()]);
         }
     }
 

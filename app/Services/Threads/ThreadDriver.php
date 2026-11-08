@@ -12,6 +12,7 @@ use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
+use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
 use App\Events\RunnerExited;
@@ -621,7 +622,13 @@ class ThreadDriver
         $this->finishedThreads = [];
 
         foreach ($finished as $threadId) {
-            $this->sandbox->pause(Thread::query()->findOrFail($threadId));
+            $thread = Thread::query()->findOrFail($threadId);
+
+            if ($thread->sandbox_state === ThreadSandboxState::Running && $thread->runningTurn() === null) {
+                $this->sandbox->syncSessions($thread, (string) $thread->sandbox_container);
+            }
+
+            $this->sandbox->pause($thread);
         }
     }
 
