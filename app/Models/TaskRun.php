@@ -29,6 +29,7 @@ use Illuminate\Support\Collection;
  * @property CarbonImmutable|null $agent_started_at
  * @property CarbonImmutable|null $agent_finished_at
  * @property CarbonImmutable|null $finished_at
+ * @property array<string, mixed>|null $last_result_event
  * @property array<string, int>|null $stages
  * @property array<string, array<string, int|float>>|null $model_usage
  * @property array<string, array{calls: int, errors: int, ms: int}>|null $tool_breakdown

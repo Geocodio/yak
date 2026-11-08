@@ -35,6 +35,8 @@ fi
 # Pre-create log files so supervisor doesn't create them as root
 touch /app/storage/logs/yak-claude-worker.log \
       /app/storage/logs/yak-claude-worker-error.log \
+      /app/storage/logs/yak-thread-drivers.log \
+      /app/storage/logs/yak-thread-drivers-error.log \
       /app/storage/logs/default-worker.log \
       /app/storage/logs/scheduler.log \
       /app/storage/logs/yak.log
