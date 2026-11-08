@@ -2,19 +2,17 @@
 
 namespace App\Jobs;
 
-use App\Agents\ClaudeCodeOutputParser;
-use App\Channels\Slack\PreviewRepairMessenger;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
-use App\Enums\PreviewRepairVerdict;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
+use App\Exceptions\SandboxCapacityReached;
 use App\GitOperations;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
+use App\Jobs\Concerns\FinishesAgentRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\HandlesWrongRepository;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
@@ -25,32 +23,32 @@ use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
-use App\Models\DailyCost;
-use App\Models\PreviewRepair;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\ArtifactPersister;
 use App\Services\IncusSandboxManager;
-use App\Services\PreviewRepair\PreviewFailureReporter;
-use App\Services\SandboxArtifactCollector;
+use App\Services\TaskAttachmentStager;
 use App\Services\TaskLogger;
-use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
-use App\Services\YakPersonality;
+use App\Services\Threads\ThreadFactory;
+use App\Services\Threads\ThreadSandbox;
+use App\Services\Threads\ThreadTurns;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
 class RunYakJob implements ShouldBeUnique, ShouldQueue
 {
     use AsksClarifyingQuestions;
     use ClaimsTask;
+    use FinishesAgentRuns;
     use HandlesAgentJobFailure;
     use HandlesWrongRepository;
+    use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
@@ -168,23 +166,19 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         $resuming = $this->resumingWithAnswers();
+
+        if (config('yak.threads.enabled')) {
+            $this->announceStart($resuming);
+            $this->startThreadTurn($repository, $resuming);
+
+            return;
+        }
+
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
         $recorder = RunRecorder::start($this->task, TaskRunKind::Initial, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
-        TaskLogger::info($this->task, 'Picked up by worker', ['attempt' => $this->task->attempts + 1]);
-
-        // One-shot "starting work" progress message on the first
-        // attempt, gated by yak.emit_start_progress. Closes the silent
-        // gap between ack and first push (can be several minutes for
-        // research tasks). Skipped on retries to avoid re-notifying.
-        if (! $resuming && (int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
-            SendNotificationJob::dispatch(
-                $this->task,
-                NotificationType::Progress,
-                "Starting on `{$this->task->repo}` — exploring the codebase now.",
-            );
-        }
+        $this->announceStart($resuming);
 
         try {
             // Create isolated sandbox container (instant CoW clone from snapshot)
@@ -221,49 +215,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
             $recorder->agentFinished($result);
             $this->consumeAnswers();
 
-            if ($result->isError) {
-                TaskMetricsAccumulator::record($this->task, $result);
-
-                $errorMessage = $result->failureMessage();
-
-                Log::channel('yak')->error('Agent error details', [
-                    'task_id' => $this->task->id,
-                    'error' => $errorMessage,
-                    'num_turns' => $result->numTurns,
-                    'cost_usd' => $result->costUsd,
-                    'duration_ms' => $result->durationMs,
-                ]);
-
-                $this->handleError($errorMessage);
-
-                return;
-            }
-
-            TaskLogger::info($this->task, 'Assessment complete');
-
-            if ($result->wrongRepository && $this->handleWrongRepository($repository, $result)) {
-                return;
-            }
-
-            if ($this->askIfNeeded($result)) {
-                return;
-            }
-
-            // Questions ignored at the round limit must not reach the PR body or reply.
-            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
-
-            // Pull .yak-artifacts/ out of the sandbox…
-            SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
-
-            // …then immediately turn the files into Artifact DB rows and
-            // dispatch RenderVideoJob. This used to happen only after CI
-            // went green (inside ProcessCIResultJob), which meant the
-            // walkthrough video + screenshots weren't visible on the task
-            // page until the full Drone build finished, and Remotion
-            // rendering sat idle instead of running in parallel with CI.
-            ArtifactPersister::persist($this->task);
-
-            $this->handleSuccess($repository, $result, $sandbox, $containerName, $recorder);
+            $this->finishAgentResult($repository, $result, $sandbox, $containerName, $recorder);
         } catch (ClaudeAuthException $e) {
             Log::error('RunYakJob auth failure', [
                 'task_id' => $this->task->id,
@@ -291,6 +243,81 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
             $recorder->finish();
         }
+    }
+
+    private function announceStart(bool $resuming): void
+    {
+        TaskLogger::info($this->task, 'Picked up by worker', ['attempt' => $this->task->attempts + 1]);
+
+        // One-shot "starting work" progress message on the first
+        // attempt, gated by yak.emit_start_progress. Closes the silent
+        // gap between ack and first push (can be several minutes for
+        // research tasks). Skipped on retries to avoid re-notifying.
+        if (! $resuming && (int) $this->task->attempts === 1 && (bool) config('yak.emit_start_progress', true)) {
+            SendNotificationJob::dispatch(
+                $this->task,
+                NotificationType::Progress,
+                "Starting on `{$this->task->repo}` — exploring the codebase now.",
+            );
+        }
+    }
+
+    /**
+     * Wakes the thread's sandbox, prepares the branch and writes the turn.
+     * The job ends here; the driver reports the turn's end and
+     * DispatchAfterTurnWork queues FinishRunYakTurnJob for the rest.
+     */
+    private function startThreadTurn(Repository $repository, bool $resuming): void
+    {
+        try {
+            $thread = app(ThreadFactory::class)->forTask($this->task);
+            $container = app(ThreadSandbox::class)->ensureAwake($thread, $repository);
+            $sandbox = app(IncusSandboxManager::class);
+
+            if ($this->task->branch_name === null) {
+                $this->prepareBranch($sandbox, $container, $repository);
+            } elseif (! $this->isOnBranch($sandbox, $container, $this->task->branch_name)) {
+                $this->prepareExistingBranch($sandbox, $container, $repository, $this->task->branch_name);
+            }
+
+            $prompt = $this->promptFor(fn (): string => $this->assemblePrompt());
+            $attachments = (new TaskAttachmentStager($sandbox))->stage($container, $this->task->attachments->all());
+
+            if ($attachments !== '') {
+                $prompt = rtrim($prompt) . "\n\n" . $attachments;
+            }
+
+            $run = app(ThreadTurns::class)->start(
+                $this->task,
+                $resuming ? TaskRunKind::Clarification : TaskRunKind::Initial,
+                $prompt,
+                YakPromptBuilder::systemPrompt($this->task),
+                $this->task->started_by_user_id,
+                $container,
+            );
+
+            if ($run === null) {
+                $this->handleError('The thread is blocked: ' . ($thread->refresh()->blocked_reason->value ?? 'no usable Claude account') . '.');
+
+                return;
+            }
+
+            $this->consumeAnswers();
+        } catch (SandboxCapacityReached) {
+            // Every awake sandbox is busy: wait for a slot instead of failing the task.
+            $this->task->update(['status' => TaskStatus::Pending]);
+            $this->release(60);
+        } catch (\Throwable $e) {
+            Log::error('RunYakJob could not start its turn', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
+            $this->handleError($e->getMessage());
+        }
+    }
+
+    private function isOnBranch(IncusSandboxManager $sandbox, string $container, string $branch): bool
+    {
+        $head = $sandbox->run($container, 'cd ' . IncusSandboxManager::workspacePath() . ' && git rev-parse --abbrev-ref HEAD', timeout: 10);
+
+        return trim($head->output()) === $branch;
     }
 
     private function prepareBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): void
@@ -353,177 +380,5 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         return [];
-    }
-
-    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName, RunRecorder $recorder): void
-    {
-        TaskMetricsAccumulator::record($this->task, $result);
-        DailyCost::accumulate($result->costUsd);
-
-        $workspacePath = IncusSandboxManager::workspacePath();
-
-        if ($this->task->branch_name !== null) {
-            // Safety check: verify not on default branch
-            $branchResult = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse --abbrev-ref HEAD", timeout: 10);
-            $currentBranch = trim($branchResult->output());
-
-            if ($currentBranch === $repository->default_branch) {
-                throw new \RuntimeException("Sandbox is on the default branch '{$currentBranch}'. Refusing to push.");
-            }
-
-            $hasCommits = GitOperations::hasNewCommits($sandbox, $containerName, $workspacePath, $repository->default_branch);
-
-            if ($this->task->source === PreviewFailureReporter::SOURCE && ! $this->acceptsPreviewRepairFix($result, $hasCommits)) {
-                $this->completeWithoutChanges($result, $recorder);
-
-                return;
-            }
-
-            if (! $hasCommits) {
-                // Dirty tree + no commits means the agent edited files but
-                // forgot to `git add && git commit` before returning. Treat
-                // as a real failure so the retry path (RetryYakJob) picks it
-                // up with a clearer hint — otherwise the work silently
-                // disappears and the task claims success.
-                if (GitOperations::hasUncommittedChanges($sandbox, $containerName, $workspacePath)) {
-                    throw new \RuntimeException(
-                        'Agent finished with uncommitted changes — run `git add -A && git commit` before returning.'
-                    );
-                }
-
-                // Clean tree + no commits: the agent legitimately answered
-                // without writing code. Artifacts were already persisted
-                // in the main handle() flow above. Skip push + CI.
-                $this->completeWithoutChanges($result, $recorder);
-
-                return;
-            }
-
-            $recorder->gitStats(GitOperations::changeStats($sandbox, $containerName, $workspacePath, "origin/{$repository->default_branch}"));
-
-            $this->task->update($this->postAgentUpdate($repository, $result));
-
-            // Refresh the baked-in credential helper — the agent may have run
-            // long enough for the token fetched during prepareBranch() to
-            // expire, which would surface as a 401 on push.
-            $sandbox->injectGitCredentials($containerName);
-
-            $pushResult = $sandbox->run($containerName, "cd {$workspacePath} && git push origin {$this->task->branch_name}", timeout: 60);
-
-            if ($pushResult->exitCode() !== 0) {
-                throw new \RuntimeException("Git push failed in sandbox: {$pushResult->errorOutput()}");
-            }
-
-            $recorder->mark('post_agent');
-            TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
-        } else {
-            $this->task->update($this->postAgentUpdate($repository, $result));
-        }
-
-        if ($repository->settings()->ciSystem() === 'none') {
-            ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
-        } else {
-            $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
-            SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
-        }
-    }
-
-    private function completeWithoutChanges(AgentRunResult $result, RunRecorder $recorder): void
-    {
-        $recorder->noChanges();
-
-        $this->task->update([
-            'status' => TaskStatus::Success,
-            'completed_at' => now(),
-            'result_summary' => $result->resultSummary,
-            'model_used' => config('yak.default_model'),
-        ]);
-
-        TaskLogger::info($this->task, 'Answered without code changes');
-
-        $message = YakPersonality::generate(NotificationType::Result, $result->resultSummary);
-        SendNotificationJob::dispatch($this->task, NotificationType::Result, $message);
-    }
-
-    /**
-     * Records a preview repair task's verdict and says whether its commits
-     * become a pull request.
-     *
-     * Only a broken shared recipe with a committed fix goes on to push. Any
-     * other verdict, a missing verdict, or a recipe verdict without commits
-     * ends here: commits made anyway stay unpushed, and the messenger tells
-     * the right people what the investigation found.
-     */
-    private function acceptsPreviewRepairFix(AgentRunResult $result, bool $hasCommits): bool
-    {
-        $parsed = ClaudeCodeOutputParser::extractPreviewRepairVerdict($result->resultSummary);
-        $verdict = $parsed['verdict'] === PreviewRepairVerdict::Recipe && ! $hasCommits
-            ? PreviewRepairVerdict::Unknown
-            : $parsed['verdict'];
-
-        $context = json_decode((string) $this->task->context, true);
-        $previewRepairId = is_array($context) && is_int($context['preview_repair_id'] ?? null) ? $context['preview_repair_id'] : null;
-        $previewRepair = $previewRepairId !== null ? PreviewRepair::find($previewRepairId) : null;
-        $previewRepair?->update(['verdict' => $verdict, 'cause' => $parsed['cause'] !== '' ? $parsed['cause'] : null]);
-
-        if ($verdict === PreviewRepairVerdict::Recipe) {
-            return true;
-        }
-
-        if ($hasCommits) {
-            TaskLogger::info($this->task, 'Dropped commits: the preview repair verdict is not a broken recipe', ['verdict' => $verdict->value]);
-        }
-
-        if ($previewRepair !== null) {
-            app(PreviewRepairMessenger::class)->verdictReached($previewRepair);
-        }
-
-        return false;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function postAgentUpdate(Repository $repository, AgentRunResult $result): array
-    {
-        $update = [
-            'result_summary' => $result->resultSummary,
-            'model_used' => config('yak.default_model'),
-        ];
-
-        // For repos with real CI, park the task in AwaitingCi until the
-        // webhook/poll flips it. For ci_system=none there's nothing to wait
-        // for; leave the status as Running so ProcessCIResultJob can move
-        // straight to Success — and, if PR creation blows up, the failed()
-        // recovery path moves it to Failed instead of stranding it in a
-        // misleading "awaiting_ci" state on a repo with no CI.
-        if ($repository->settings()->ciSystem() !== 'none') {
-            $update['status'] = TaskStatus::AwaitingCi;
-        }
-
-        return $update;
-    }
-
-    private function handleError(string $errorMessage): void
-    {
-        // Don't overwrite a task that's already terminal — cancelled
-        // mid-run, force-failed by a deploy drain with an accurate
-        // reason, or finalised by a parallel path. Overwriting it here
-        // would replace that reason with whatever this run's own error
-        // happened to be (often just the abnormal-termination artifact of
-        // whatever interrupted it).
-        if ($this->taskIsTerminal($this->task->fresh())) {
-            return;
-        }
-
-        $this->task->update([
-            'status' => TaskStatus::Failed,
-            'error_log' => $errorMessage,
-            'completed_at' => now(),
-        ]);
-
-        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
-
-        $this->notifySourceOfFailure($errorMessage);
     }
 }

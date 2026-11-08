@@ -102,6 +102,15 @@ final class RunRecorder
         }
     }
 
+    /**
+     * A recorder over a turn row the thread driver already wrote. It adds the
+     * outcome and git stats after the turn; the driver's timing columns stay.
+     */
+    public static function forTurn(TaskRun $run): self
+    {
+        return new self(Telemetry::enabled() ? $run : null);
+    }
+
     public function id(): ?int
     {
         return $this->run?->id;
@@ -192,6 +201,14 @@ final class RunRecorder
             }
         }
 
+        $this->recordOutcome($result);
+    }
+
+    /**
+     * Sets the outcome the run ends with from what the agent returned.
+     */
+    public function recordOutcome(AgentRunResult $result): void
+    {
         if ($result->isError) {
             $this->outcome = TaskRunOutcome::Error;
             $this->pending['error_subtype'] = $result->failureCategory();
