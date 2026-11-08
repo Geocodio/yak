@@ -20,7 +20,7 @@ beforeEach(function () {
 
 afterEach(function () {
     if (isset($this->redis, $this->channel)) {
-        $this->redis->del($this->channel . ':in', $this->channel . ':out');
+        $this->redis->del($this->channel . ':in', $this->channel . ':out', $this->channel . ':dead');
         $this->streams->unregister($this->channel);
     }
 });
@@ -72,4 +72,52 @@ it('reads one-shot entries after an id without a group', function () {
 
     expect($entries)->toHaveCount(1)
         ->and($this->streams->readOnce($this->channel, $entries[0]->id, 50))->toBe([]);
+});
+
+it('marks entries from the broker by the origin field only', function () {
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '1', 'line' => '{"type":"broker"}']);
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '2', 'line' => '{"type":"broker"}', 'origin' => 'broker']);
+
+    $entries = $this->streams->read([$this->channel], 'consumer-a', 50, 10);
+
+    expect($entries[0]->fromBroker)->toBeFalse()
+        ->and($entries[1]->fromBroker)->toBeTrue();
+});
+
+it('moves a malformed entry to the dead letters instead of returning it', function () {
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => 'x', 'sequence' => '1', 'line' => 'not json']);
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '2', 'line' => '{"type":"system"}']);
+
+    $entries = $this->streams->read([$this->channel], 'consumer-a', 50, 10);
+
+    expect($entries)->toHaveCount(1)
+        ->and($entries[0]->sequence)->toBe(2)
+        ->and($this->redis->xLen($this->channel . ':dead'))->toBe(1)
+        ->and($this->redis->xLen($this->channel . ':out'))->toBe(1);
+});
+
+it('dead-letters an entry after counting failures and removes it from the out stream', function () {
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '1', 'line' => '{"type":"system"}']);
+    $entry = $this->streams->read([$this->channel], 'consumer-a', 50, 10)[0];
+
+    expect($this->streams->recordFailure($entry))->toBe(1)
+        ->and($this->streams->recordFailure($entry))->toBe(2);
+
+    $this->streams->deadLetter($entry, 'boom');
+
+    $dead = $this->redis->xRange($this->channel . ':dead', '-', '+');
+    expect(array_values($dead)[0]['reason'])->toBe('boom')
+        ->and($this->redis->xLen($this->channel . ':out'))->toBe(0)
+        ->and($this->streams->read([$this->channel], 'consumer-a', 50, 10))->toBe([])
+        ->and($this->streams->recordFailure($entry))->toBe(1);
+    $this->redis->hDel('broker:attempts', $this->channel . '|' . $entry->id);
+});
+
+it('claims entries a crashed consumer left behind', function () {
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '1', 'line' => '{"type":"system"}']);
+    $this->streams->read([$this->channel], 'dead-consumer', 50, 10);
+    $this->streams->claimIdleMilliseconds = 300;
+    usleep(500_000);
+
+    expect($this->streams->read([$this->channel], 'new-consumer', 50, 10))->toHaveCount(1);
 });

@@ -107,6 +107,36 @@ class ThreadDriver
     }
 
     /**
+     * Fails the running turn of the thread an entry belongs to. Used when an
+     * entry cannot be handled after repeated attempts: only that thread's turn
+     * ends, and its lock is released.
+     */
+    public function failTurnOf(StreamEntry $entry): void
+    {
+        $threadId = (int) substr($entry->channel, strlen('threads:'));
+        /** @var list<object> $events */
+        $events = [];
+
+        DB::transaction(function () use ($threadId, &$events): void {
+            $thread = Thread::query()->lockForUpdate()->find($threadId);
+            $run = $thread?->runningTurn();
+
+            if ($thread !== null && $run !== null) {
+                $this->abandonTurn($thread, $run, $events);
+            }
+        });
+
+        $this->dispatchAll($events);
+
+        foreach (array_unique($this->abandonedThreads) as $abandonedThreadId) {
+            $this->commands->kill(Thread::query()->findOrFail($abandonedThreadId));
+        }
+
+        $this->abandonedThreads = [];
+        $this->pauseFinishedThreads();
+    }
+
+    /**
      * Stops running turns past their wall-clock limit, then sends the event
      * of every finished turn whose event never went out.
      */

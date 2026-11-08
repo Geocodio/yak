@@ -332,3 +332,15 @@ it('ignores a runner exit from an older generation', function () {
     expect($streams->commandsFor($this->thread->channel()))->toBe([])
         ->and($this->run->fresh()->restart_count)->toBe(0);
 });
+
+it('fails the turn of a thread whose entry cannot be handled, and releases its lock', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+
+    app(ThreadDriver::class)->failTurnOf(threadEntry($this->thread, ['type' => 'poison']));
+
+    expect($this->run->fresh()->turn_state)->toBe(TurnState::Failed)
+        ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::None)
+        ->and(array_column($streams->commandsFor($this->thread->channel()), 'type'))->toBe(['kill']);
+    Event::assertDispatched(TurnFailed::class, 1);
+});

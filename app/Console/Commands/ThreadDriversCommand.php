@@ -2,14 +2,18 @@
 
 namespace App\Console\Commands;
 
+use App\DataTransferObjects\StreamEntry;
 use App\Services\Threads\CredentialReferences;
 use App\Services\Threads\CredentialSocketServer;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadStreams;
 use Illuminate\Console\Command;
+use Throwable;
 
 class ThreadDriversCommand extends Command
 {
+    private const MAX_ATTEMPTS = 3;
+
     protected $signature = 'yak:thread-drivers {--once : Run a single read and tick, then exit}';
 
     protected $description = 'Consume the broker output streams and drive thread turns';
@@ -21,7 +25,8 @@ class ThreadDriversCommand extends Command
         $this->trap([SIGTERM, SIGINT], function (int $signal): void {
             $this->shouldStop = true;
         });
-        $consumer = gethostname() . '-' . getmypid();
+        // A stable name: after a crash the restarted driver reads its own unacknowledged entries again.
+        $consumer = gethostname() . '-thread-drivers';
         $credentialServer = $this->credentialServer($references);
 
         do {
@@ -29,15 +34,18 @@ class ThreadDriversCommand extends Command
             $channels = $streams->channels('threads:');
 
             foreach ($streams->read($channels, $consumer, 200, 100) as $entry) {
-                $driver->handle($entry);
-                $streams->ack($entry);
+                $this->process($entry, $streams, $driver);
 
                 if ($this->shouldStop) {
                     return self::SUCCESS;
                 }
             }
 
-            $driver->tick();
+            try {
+                $driver->tick();
+            } catch (Throwable $exception) {
+                report($exception);
+            }
 
             if ($channels === [] && ! $this->option('once')) {
                 $credentialServer === null ? usleep(500_000) : $credentialServer->serve(500_000);
@@ -47,6 +55,36 @@ class ThreadDriversCommand extends Command
         $credentialServer?->close();
 
         return self::SUCCESS;
+    }
+
+    /**
+     * One entry never blocks the others: a failure is reported and the entry
+     * stays pending to be tried again, and after MAX_ATTEMPTS it moves to the
+     * dead-letter stream and only its thread's turn fails.
+     */
+    private function process(StreamEntry $entry, ThreadStreams $streams, ThreadDriver $driver): void
+    {
+        try {
+            $driver->handle($entry);
+            $streams->ack($entry);
+        } catch (Throwable $exception) {
+            report($exception);
+            $attempts = $streams->recordFailure($entry);
+
+            if ($attempts < self::MAX_ATTEMPTS) {
+                usleep($attempts * 100_000);
+
+                return;
+            }
+
+            $streams->deadLetter($entry, $exception::class . ': ' . $exception->getMessage());
+
+            try {
+                $driver->failTurnOf($entry);
+            } catch (Throwable $inner) {
+                report($inner);
+            }
+        }
     }
 
     /**

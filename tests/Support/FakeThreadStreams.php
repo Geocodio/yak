@@ -19,6 +19,12 @@ class FakeThreadStreams extends ThreadStreams
     /** @var array<string, true> */
     private array $acked = [];
 
+    /** @var array<string, int> */
+    private array $failures = [];
+
+    /** @var list<array{0: StreamEntry, 1: string}> */
+    public array $deadLettered = [];
+
     /** @var list<string> every register and command in order, as "register:channel" or "command:type" */
     public array $events = [];
 
@@ -63,6 +69,17 @@ class FakeThreadStreams extends ThreadStreams
 
     public function ack(StreamEntry $entry): void
     {
+        $this->acked[$entry->channel . '|' . $entry->id] = true;
+    }
+
+    public function recordFailure(StreamEntry $entry): int
+    {
+        return $this->failures[$entry->channel . '|' . $entry->id] = ($this->failures[$entry->channel . '|' . $entry->id] ?? 0) + 1;
+    }
+
+    public function deadLetter(StreamEntry $entry, string $reason): void
+    {
+        $this->deadLettered[] = [$entry, $reason];
         $this->acked[$entry->channel . '|' . $entry->id] = true;
     }
 

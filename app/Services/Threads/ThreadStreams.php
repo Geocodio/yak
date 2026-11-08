@@ -15,6 +15,11 @@ class ThreadStreams
 
     private const GROUP = 'drivers';
 
+    private const ATTEMPTS_KEY = 'broker:attempts';
+
+    /** Entries another consumer left pending this long are claimed by this one. */
+    public int $claimIdleMilliseconds = 60_000;
+
     public function register(string $channel): void
     {
         $this->client()->sAdd(self::CHANNEL_SET, $channel);
@@ -66,6 +71,8 @@ class ThreadStreams
             $client->xGroup('CREATE', $channel . ':out', self::GROUP, '0', true);
         }
 
+        $this->claimAbandoned($channels, $consumer, $count);
+
         foreach (['0', '>'] as $position) {
             $streams = array_fill_keys(array_map(fn (string $channel): string => $channel . ':out', $channels), $position);
             $reply = $position === '>'
@@ -84,6 +91,31 @@ class ThreadStreams
     public function ack(StreamEntry $entry): void
     {
         $this->client()->xAck($entry->channel . ':out', self::GROUP, [$entry->id]);
+        $this->client()->hDel(self::ATTEMPTS_KEY, $this->attemptKey($entry));
+    }
+
+    /**
+     * Counts one failed handling of an entry and returns how many have failed.
+     * The count lives in Redis so it survives a driver restart.
+     */
+    public function recordFailure(StreamEntry $entry): int
+    {
+        return (int) $this->client()->hIncrBy(self::ATTEMPTS_KEY, $this->attemptKey($entry), 1);
+    }
+
+    /**
+     * Moves an entry that keeps failing to the channel's dead-letter stream and
+     * takes it out of the out stream, so it blocks nothing.
+     */
+    public function deadLetter(StreamEntry $entry, string $reason): void
+    {
+        $this->moveToDeadLetters($entry->channel, $entry->id, [
+            'generation' => (string) $entry->generation,
+            'sequence' => (string) $entry->sequence,
+            'line' => json_encode($entry->line),
+            'origin' => $entry->fromBroker ? 'broker' : '',
+        ], $reason);
+        $this->client()->hDel(self::ATTEMPTS_KEY, $this->attemptKey($entry));
     }
 
     /**
@@ -94,6 +126,53 @@ class ThreadStreams
     public function readOnce(string $channel, string $afterId, int $blockMilliseconds): array
     {
         return $this->entries($this->client()->xRead([$channel . ':out' => $afterId], 100, $blockMilliseconds));
+    }
+
+    /**
+     * @param  list<string>  $channels
+     */
+    private function claimAbandoned(array $channels, string $consumer, int $count): void
+    {
+        foreach ($channels as $channel) {
+            try {
+                $this->client()->xAutoClaim($channel . ':out', self::GROUP, $consumer, $this->claimIdleMilliseconds, '0-0', $count);
+            } catch (\RedisException) {
+                // XAUTOCLAIM needs Redis 6.2; without it, entries stay with their consumer.
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $fields
+     */
+    private function moveToDeadLetters(string $channel, string $id, array $fields, string $reason): void
+    {
+        $client = $this->client();
+        $client->xAdd($channel . ':dead', '*', ['entry_id' => $id, 'reason' => substr($reason, 0, 500), 'failed_at' => (string) time()] + $fields, 1000, true);
+        $client->xAck($channel . ':out', self::GROUP, [$id]);
+        $client->xDel($channel . ':out', [$id]);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $fields
+     * @return array<string, string>
+     */
+    private function scalarFields(array $fields): array
+    {
+        $scalars = [];
+
+        foreach ($fields as $name => $value) {
+            if (is_scalar($value)) {
+                $scalars[(string) $name] = (string) $value;
+            }
+        }
+
+        return $scalars;
+    }
+
+    private function attemptKey(StreamEntry $entry): string
+    {
+        return $entry->channel . '|' . $entry->id;
     }
 
     /**
@@ -115,12 +194,21 @@ class ThreadStreams
             $channel = substr((string) $stream, 0, -strlen(':out'));
 
             foreach ($messages as $id => $fields) {
+                $line = is_string($fields['line'] ?? null) ? json_decode($fields['line'], true) : null;
+
+                // An entry that is not a JSON object with numeric generation and sequence can never be handled.
+                if (! is_array($line) || ! ctype_digit((string) ($fields['generation'] ?? '')) || ! ctype_digit((string) ($fields['sequence'] ?? ''))) {
+                    $this->moveToDeadLetters($channel, (string) $id, $this->scalarFields((array) $fields), 'malformed entry');
+
+                    continue;
+                }
+
                 $entries[] = new StreamEntry(
                     $channel,
                     (string) $id,
-                    (int) ($fields['generation'] ?? 0),
-                    (int) ($fields['sequence'] ?? 0),
-                    json_decode((string) ($fields['line'] ?? '{}'), true) ?: [],
+                    (int) $fields['generation'],
+                    (int) $fields['sequence'],
+                    $line,
                     ($fields['origin'] ?? null) === 'broker',
                 );
             }
