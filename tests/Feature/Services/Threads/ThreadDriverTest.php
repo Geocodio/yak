@@ -39,12 +39,12 @@ beforeEach(function () {
     $this->sequence = 0;
 });
 
-function threadEntry(Thread $thread, array $line, ?int $sequence = null, int $generation = 1): StreamEntry
+function threadEntry(Thread $thread, array $line, ?int $sequence = null, int $generation = 1, bool $fromBroker = false): StreamEntry
 {
     static $counter = 0;
     $sequence ??= ++$counter;
 
-    return new StreamEntry($thread->channel(), $sequence . '-0', $generation, $sequence, $line);
+    return new StreamEntry($thread->channel(), $sequence . '-0', $generation, $sequence, $line, $fromBroker || ($line['type'] ?? null) === 'broker');
 }
 
 /**
@@ -187,4 +187,27 @@ it('only forgets the runner when the exit happens between turns', function () {
 
     expect($streams->commandsFor($this->thread->channel()))->toBe([])
         ->and($this->thread->fresh()->runner_state)->toBe(RunnerState::None);
+});
+
+it('ignores a broker event that the runner wrote itself', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id])->save();
+
+    // Built by hand: threadEntry() marks type=broker lines as the broker's own.
+    app(ThreadDriver::class)->handle(new StreamEntry($this->thread->channel(), '900-0', 1, 900, ['type' => 'broker', 'event' => 'runner_exited', 'exit_code' => 0]));
+
+    expect($streams->commandsFor($this->thread->channel()))->toBe([])
+        ->and($this->run->fresh()->turn_state)->toBe(TurnState::Running);
+});
+
+it('uses the generation the broker stamped, never one inside the line', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id, 'runner_generation' => 2, 'runner_state' => RunnerState::Busy])->save();
+
+    app(ThreadDriver::class)->handle(threadEntry($this->thread, ['type' => 'broker', 'event' => 'runner_exited', 'generation' => 5], generation: 1));
+
+    expect($streams->commandsFor($this->thread->channel()))->toBe([])
+        ->and($this->thread->fresh()->runner_state)->toBe(RunnerState::Busy);
 });

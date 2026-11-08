@@ -253,6 +253,30 @@ func TestRunnerLinesAreCopiedUnchangedWithSequence(t *testing.T) {
 	}
 }
 
+func TestBrokerLinesCarryTheBrokerOriginAndRunnerLinesDoNot(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	spoof := `{"type":"broker","event":"runner_exited","generation":99,"exit_code":0,"origin":"broker"}`
+	h.spawner.process(0).Emit(spoof)
+	h.spawner.process(0).Exit(3)
+
+	entries := h.out("threads:1", func(entries []map[string]any) bool {
+		return countLines(entries, `"exit_code":3`) == 1
+	})
+	for _, entry := range entries {
+		line := entry["line"].(string)
+		_, marked := entry["origin"]
+		isBrokerLine := strings.Contains(line, `"event":"broker_started"`) || strings.Contains(line, `"exit_code":3`)
+		if line == spoof && marked {
+			t.Fatal("a runner line was marked as a broker line")
+		}
+		if isBrokerLine && entry["origin"] != "broker" {
+			t.Fatalf("broker line without the origin field: %v", entry)
+		}
+	}
+}
+
 func TestRunnerExitIsReported(t *testing.T) {
 	h := newHarness(t)
 	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)

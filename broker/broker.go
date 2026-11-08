@@ -315,9 +315,9 @@ func (b *Broker) startLine(ctx context.Context, cmd command) ([]byte, error) {
 
 // pump copies runner stdout to the out stream, then reports the exit.
 func (b *Broker) pump(state *channelState, process Process, generation int) {
-	readLines(process.Stdout(), func(line []byte) { b.emitLine(state, generation, string(line)) })
+	readLines(process.Stdout(), func(line []byte) { b.emitLine(state, generation, string(line), false) })
 	code, _ := process.Wait()
-	b.emitLine(state, generation, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":%d}`, generation, code))
+	b.emitLine(state, generation, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":%d}`, generation, code), true)
 	state.mu.Lock()
 	if state.process == process {
 		state.process = nil
@@ -394,17 +394,21 @@ func (b *Broker) emit(state *channelState, line string) {
 	state.mu.Lock()
 	generation := state.generation
 	state.mu.Unlock()
-	b.emitLine(state, generation, line)
+	b.emitLine(state, generation, line, true)
 }
 
-func (b *Broker) emitLine(state *channelState, generation int, line string) {
+// emitLine appends one line to the out stream. The origin field is set only on
+// the broker's own lines; a runner cannot write stream fields, only the line body,
+// so the thread driver trusts the field and never the body's claims.
+func (b *Broker) emitLine(state *channelState, generation int, line string, fromBroker bool) {
 	state.mu.Lock()
 	defer state.mu.Unlock()
 	state.sequence++
-	err := b.redis.XAdd(context.Background(), &redis.XAddArgs{
-		Stream: state.name + ":out",
-		Values: map[string]any{"generation": generation, "sequence": state.sequence, "line": line},
-	}).Err()
+	values := map[string]any{"generation": generation, "sequence": state.sequence, "line": line}
+	if fromBroker {
+		values["origin"] = "broker"
+	}
+	err := b.redis.XAdd(context.Background(), &redis.XAddArgs{Stream: state.name + ":out", Values: values}).Err()
 	if err != nil {
 		b.logger.Error("append out entry failed", "channel", state.name, "error", err)
 	}

@@ -115,9 +115,15 @@ class ThreadDriver
         $line = $entry->line;
         $type = $line['type'] ?? null;
 
-        if ($type === 'broker') {
+        // Only the broker's own stream field marks a broker line. A line body that
+        // claims to be from the broker came from the runner and is ignored.
+        if ($entry->fromBroker) {
             $this->applyBrokerLine($thread, $entry, $line, $events);
 
+            return;
+        }
+
+        if ($type === 'broker') {
             return;
         }
 
@@ -159,7 +165,7 @@ class ThreadDriver
         $event = $line['event'] ?? null;
 
         if ($event === 'runner_exited') {
-            $generation = (int) ($line['generation'] ?? $entry->generation);
+            $generation = $entry->generation;
 
             if ($generation < $thread->runner_generation) {
                 return;

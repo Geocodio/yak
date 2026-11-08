@@ -85,10 +85,10 @@ class FakeThreadStreams extends ThreadStreams
     /**
      * @param  array<string, mixed>  $line
      */
-    public function pushOutbound(string $channel, array $line, int $generation = 1): void
+    public function pushOutbound(string $channel, array $line, int $generation = 1, bool $fromBroker = false): void
     {
         $sequence = count($this->outbound[$channel] ?? []) + 1;
-        $this->outbound[$channel][] = new StreamEntry($channel, $sequence . '-0', $generation, $sequence, $line);
+        $this->outbound[$channel][] = new StreamEntry($channel, $sequence . '-0', $generation, $sequence, $line, $fromBroker);
     }
 
     private function compare(string $left, string $right): int

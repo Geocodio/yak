@@ -121,6 +121,7 @@ class ThreadStreams
                     (int) ($fields['generation'] ?? 0),
                     (int) ($fields['sequence'] ?? 0),
                     json_decode((string) ($fields['line'] ?? '{}'), true) ?: [],
+                    ($fields['origin'] ?? null) === 'broker',
                 );
             }
         }
