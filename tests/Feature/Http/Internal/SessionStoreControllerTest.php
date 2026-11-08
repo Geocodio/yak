@@ -16,8 +16,8 @@ afterEach(fn () => File::deleteDirectory($this->root));
 function appendPayload(int $offset, string $chunk): array
 {
     return [
-        'session_id' => 's1',
-        'rel_path' => 's1.jsonl',
+        'session_id' => '0a1b2c3d-1111-4222-8333-444455556666',
+        'rel_path' => '0a1b2c3d-1111-4222-8333-444455556666.jsonl',
         'offset' => $offset,
         'chunk' => base64_encode($chunk),
         'chunk_sha256' => hash('sha256', $chunk),
@@ -56,7 +56,7 @@ it('appends and reports the length', function () {
         ->assertOk()->assertJson(['length' => 2]);
 
     $this->withToken($this->token)
-        ->getJson("/internal/session-store/{$this->thread->id}/length?session_id=s1&rel_path=s1.jsonl")
+        ->getJson("/internal/session-store/{$this->thread->id}/length?session_id=0a1b2c3d-1111-4222-8333-444455556666&rel_path=0a1b2c3d-1111-4222-8333-444455556666.jsonl")
         ->assertOk()->assertJson(['length' => 2]);
 });
 
@@ -68,9 +68,9 @@ it('answers 409 with the stored length on a gap', function () {
 
 it('stores whole and immutable files', function () {
     $this->withToken($this->token)
-        ->putJson("/internal/session-store/{$this->thread->id}/file", ['session_id' => 's1', 'rel_path' => 's1/tool-results/y.txt', 'content' => base64_encode('x')])
+        ->putJson("/internal/session-store/{$this->thread->id}/file", ['session_id' => '0a1b2c3d-1111-4222-8333-444455556666', 'rel_path' => '0a1b2c3d-1111-4222-8333-444455556666/tool-results/y.txt', 'content' => base64_encode('x')])
         ->assertOk()->assertJson(['stored' => true]);
     $this->withToken($this->token)
-        ->putJson("/internal/session-store/{$this->thread->id}/file", ['session_id' => 's1', 'rel_path' => 's1/tool-results/y.txt', 'content' => base64_encode('z')])
+        ->putJson("/internal/session-store/{$this->thread->id}/file", ['session_id' => '0a1b2c3d-1111-4222-8333-444455556666', 'rel_path' => '0a1b2c3d-1111-4222-8333-444455556666/tool-results/y.txt', 'content' => base64_encode('z')])
         ->assertOk()->assertJson(['stored' => false]);
 });

@@ -28,6 +28,7 @@ class SessionStore
         if (! hash_equals(hash('sha256', $chunk), strtolower($chunkSha256))) {
             throw new InvalidArgumentException('chunk_sha256 does not match the chunk.');
         }
+        $this->assertValidPath($sessionId, $relPath);
         if ($this->modeFor($relPath) !== 'append') {
             throw new InvalidArgumentException("{$relPath} is not an append-only file.");
         }
@@ -72,6 +73,7 @@ class SessionStore
      */
     public function checkpoint(int $threadId, string $sessionId, string $relPath, string $wholeSha256): bool
     {
+        $this->assertValidPath($sessionId, $relPath);
         $file = SessionFile::query()
             ->where(['thread_id' => $threadId, 'session_id' => $sessionId, 'rel_path' => $relPath])
             ->first();
@@ -96,6 +98,7 @@ class SessionStore
 
     public function putWhole(int $threadId, string $sessionId, string $relPath, string $content): void
     {
+        $this->assertValidPath($sessionId, $relPath);
         if ($this->modeFor($relPath) !== 'whole') {
             throw new InvalidArgumentException("{$relPath} is not a whole-file path.");
         }
@@ -113,6 +116,7 @@ class SessionStore
      */
     public function putImmutable(int $threadId, string $sessionId, string $relPath, string $content): bool
     {
+        $this->assertValidPath($sessionId, $relPath);
         if ($this->modeFor($relPath) !== 'immutable') {
             throw new InvalidArgumentException("{$relPath} is not an immutable path.");
         }
@@ -131,6 +135,8 @@ class SessionStore
 
     public function length(int $threadId, string $sessionId, string $relPath): int
     {
+        $this->assertValidPath($sessionId, $relPath);
+
         return (int) SessionFile::query()
             ->where(['thread_id' => $threadId, 'session_id' => $sessionId, 'rel_path' => $relPath])
             ->value('length');
@@ -138,6 +144,7 @@ class SessionStore
 
     public function read(int $threadId, string $sessionId, string $relPath): string
     {
+        $this->assertValidPath($sessionId, $relPath);
         $file = SessionFile::query()
             ->where(['thread_id' => $threadId, 'session_id' => $sessionId, 'rel_path' => $relPath])
             ->first();
@@ -162,6 +169,33 @@ class SessionStore
         File::deleteDirectory($this->basePath() . '/' . $threadId);
     }
 
+    /**
+     * A session file is <sid>.jsonl, <sid>/subagents/<name>.jsonl|.meta.json or <sid>/tool-results/<path>,
+     * where <sid> is a UUID and no segment is "." or "..".
+     */
+    public function isValidPath(string $sessionId, string $relPath): bool
+    {
+        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $sessionId) !== 1) {
+            return false;
+        }
+
+        $name = '[A-Za-z0-9_][A-Za-z0-9._-]*';
+        $id = preg_quote($sessionId, '/');
+        $shapes = [
+            "/^{$id}\\.jsonl$/",
+            "/^{$id}\\/subagents\\/{$name}\\.(jsonl|meta\\.json)$/",
+            "/^{$id}\\/tool-results\\/({$name}\\/)*{$name}$/",
+        ];
+
+        foreach ($shapes as $shape) {
+            if (preg_match($shape, $relPath) === 1 && ! str_contains($relPath, '..')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function modeFor(string $relPath): ?string
     {
         return match (true) {
@@ -170,6 +204,13 @@ class SessionStore
             str_ends_with($relPath, '.jsonl') => 'append',
             default => null,
         };
+    }
+
+    private function assertValidPath(string $sessionId, string $relPath): void
+    {
+        if (! $this->isValidPath($sessionId, $relPath)) {
+            throw new InvalidArgumentException("{$relPath} is not a valid session file for session {$sessionId}.");
+        }
     }
 
     private function basePath(): string
@@ -187,7 +228,7 @@ class SessionStore
 
     private function writeSegment(SessionFile $file, int $offset, string $bytes): void
     {
-        $directory = $this->basePath() . '/' . $file->thread_id . '/' . sha1($file->session_id . $file->rel_path);
+        $directory = $this->basePath() . '/' . $file->thread_id . '/' . $file->id;
         File::ensureDirectoryExists($directory, 0700);
         $path = "{$directory}/{$offset}.seg";
         $temporaryPath = "{$path}.tmp";

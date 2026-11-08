@@ -55,6 +55,8 @@ class SessionStoreController extends Controller
             'rel_path' => ['required', 'string', 'max:500'],
         ]);
 
+        abort_unless($this->store->isValidPath($data['session_id'], $data['rel_path']), 422, 'Invalid session file path.');
+
         return response()->json(['length' => $this->store->length($thread->id, $data['session_id'], $data['rel_path'])]);
     }
 
@@ -65,6 +67,8 @@ class SessionStoreController extends Controller
             'rel_path' => ['required', 'string', 'max:500'],
             'sha256' => ['required', 'string', 'size:64'],
         ]);
+
+        abort_unless($this->store->isValidPath($data['session_id'], $data['rel_path']), 422, 'Invalid session file path.');
 
         $matched = $this->store->checkpoint($thread->id, $data['session_id'], $data['rel_path'], $data['sha256']);
 

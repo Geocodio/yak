@@ -35,8 +35,13 @@ class SessionSync
         $sizes = $this->waitUntilQuiet($container, $directory);
 
         foreach ($sizes as $relPath => $size) {
-            $mode = $this->store->modeFor($relPath);
             $sessionId = $this->sessionIdOf($relPath);
+
+            if (! $this->store->isValidPath($sessionId, $relPath)) {
+                continue;
+            }
+
+            $mode = $this->store->modeFor($relPath);
 
             match ($mode) {
                 'append' => $this->uploadAppended($thread, $container, $directory, $sessionId, $relPath, $size),
@@ -47,7 +52,7 @@ class SessionSync
         }
 
         foreach ($sizes as $relPath => $size) {
-            if ($this->store->modeFor($relPath) === 'append') {
+            if ($this->store->isValidPath($this->sessionIdOf($relPath), $relPath) && $this->store->modeFor($relPath) === 'append') {
                 $this->checkpoint($thread, $container, $directory, $this->sessionIdOf($relPath), $relPath);
             }
         }
@@ -93,7 +98,7 @@ class SessionSync
     {
         $path = IncusSandboxManager::sessionTranscriptDir() . '/' . $sessionId . '.jsonl';
 
-        if (! is_file($path)) {
+        if (! $this->store->isValidPath($sessionId, "{$sessionId}.jsonl") || ! is_file($path)) {
             return false;
         }
 

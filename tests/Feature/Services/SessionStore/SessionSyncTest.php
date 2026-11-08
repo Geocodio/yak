@@ -77,43 +77,43 @@ function fakeSandboxFiles(array &$files): void
 it('uploads only new bytes after each turn', function () {
     $first = "{\"uuid\":\"a\"}\n";
     $second = "{\"uuid\":\"b\",\"parentUuid\":\"a\"}\n";
-    $this->files = ['s1.jsonl' => $first];
+    $this->files = ['0a1b2c3d-1111-4222-8333-444455556666.jsonl' => $first];
     fakeSandboxFiles($this->files);
 
     app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
-    expect($this->store->read($this->thread->id, 's1', 's1.jsonl'))->toBe($first);
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($first);
 
-    $this->files['s1.jsonl'] .= $second;
+    $this->files['0a1b2c3d-1111-4222-8333-444455556666.jsonl'] .= $second;
     app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
 
-    expect($this->store->read($this->thread->id, 's1', 's1.jsonl'))->toBe($first . $second)
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($first . $second)
         ->and(SessionFile::query()->firstOrFail()->checkpoint_sha256)->toBe(hash('sha256', $first . $second))
         ->and(SessionFile::query()->firstOrFail()->segments)->toHaveCount(2);
 });
 
 it('uploads subagent files, meta files and tool results', function () {
     $this->files = [
-        's1.jsonl' => "{\"uuid\":\"a\"}\n",
-        's1/subagents/agent-x.jsonl' => "{\"uuid\":\"x\"}\n",
-        's1/subagents/agent-x.meta.json' => "{\"type\":\"explore\"}\n",
-        's1/tool-results/y.txt' => "big output\n",
-        's1/notes.bin' => 'ignored',
+        '0a1b2c3d-1111-4222-8333-444455556666.jsonl' => "{\"uuid\":\"a\"}\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/subagents/agent-x.jsonl' => "{\"uuid\":\"x\"}\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/subagents/agent-x.meta.json' => "{\"type\":\"explore\"}\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/tool-results/y.txt' => "big output\n",
+        '0a1b2c3d-1111-4222-8333-444455556666/notes.bin' => 'ignored',
     ];
     fakeSandboxFiles($this->files);
 
     app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
 
-    expect($this->store->read($this->thread->id, 's1', 's1/subagents/agent-x.jsonl'))->toBe("{\"uuid\":\"x\"}\n")
-        ->and($this->store->read($this->thread->id, 's1', 's1/subagents/agent-x.meta.json'))->toBe("{\"type\":\"explore\"}\n")
-        ->and($this->store->read($this->thread->id, 's1', 's1/tool-results/y.txt'))->toBe("big output\n")
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/subagents/agent-x.jsonl'))->toBe("{\"uuid\":\"x\"}\n")
+        ->and($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/subagents/agent-x.meta.json'))->toBe("{\"type\":\"explore\"}\n")
+        ->and($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/y.txt'))->toBe("big output\n")
         ->and(SessionFile::query()->count())->toBe(4);
 });
 
 it('recovers once from a gap by re-reading from the stored length', function () {
     $line = "{\"uuid\":\"a\"}\n";
-    $this->files = ['s1.jsonl' => $line . "{\"uuid\":\"b\"}\n"];
+    $this->files = ['0a1b2c3d-1111-4222-8333-444455556666.jsonl' => $line . "{\"uuid\":\"b\"}\n"];
     fakeSandboxFiles($this->files);
-    $this->store->append($this->thread->id, 's1', 's1.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
+    $this->store->append($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
 
     $calls = 0;
     $real = $this->store;
@@ -126,35 +126,35 @@ it('recovers once from a gap by re-reading from the stored length', function () 
     app(SessionSync::class)->syncFromSandbox($this->thread, 'yak-thread-1');
 
     expect($calls)->toBe(2);
-    expect($this->store->read($this->thread->id, 's1', 's1.jsonl'))->toBe($this->files['s1.jsonl']);
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($this->files['0a1b2c3d-1111-4222-8333-444455556666.jsonl']);
 });
 
 it('syncs before a stop and before a destroy', function () {
-    $this->files = ['s1.jsonl' => "{\"uuid\":\"a\"}\n"];
+    $this->files = ['0a1b2c3d-1111-4222-8333-444455556666.jsonl' => "{\"uuid\":\"a\"}\n"];
     fakeSandboxFiles($this->files);
     $this->thread->forceFill(['sandbox_state' => ThreadSandboxState::Paused])->save();
 
     app(ThreadSandbox::class)->stop($this->thread->fresh());
-    expect($this->store->read($this->thread->id, 's1', 's1.jsonl'))->toBe($this->files['s1.jsonl']);
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($this->files['0a1b2c3d-1111-4222-8333-444455556666.jsonl']);
 
-    $this->files['s1.jsonl'] .= "{\"uuid\":\"b\"}\n";
+    $this->files['0a1b2c3d-1111-4222-8333-444455556666.jsonl'] .= "{\"uuid\":\"b\"}\n";
     $this->thread->refresh()->forceFill(['sandbox_state' => ThreadSandboxState::Stopped])->save();
     app(ThreadSandbox::class)->destroy($this->thread->fresh());
 
-    expect($this->store->read($this->thread->id, 's1', 's1.jsonl'))->toBe($this->files['s1.jsonl']);
+    expect($this->store->read($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl'))->toBe($this->files['0a1b2c3d-1111-4222-8333-444455556666.jsonl']);
 });
 
 it('restores every session file into a fresh sandbox', function () {
     $line = "{\"uuid\":\"a\"}\n";
-    $this->store->append($this->thread->id, 's1', 's1.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
-    $this->store->putWhole($this->thread->id, 's1', 's1/subagents/a.meta.json', "{}\n");
-    $this->store->putImmutable($this->thread->id, 's1', 's1/tool-results/y.txt', "out\n");
+    $this->store->append($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
+    $this->store->putWhole($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/subagents/a.meta.json', "{}\n");
+    $this->store->putImmutable($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666/tool-results/y.txt', "out\n");
     Process::fake();
 
     app(SessionSync::class)->restoreIntoSandbox($this->thread, 'yak-thread-1');
 
     $directory = '/home/yak/.claude/projects/-workspace';
-    foreach (['s1.jsonl' => $line, 's1/subagents/a.meta.json' => "{}\n", 's1/tool-results/y.txt' => "out\n"] as $path => $content) {
+    foreach (['0a1b2c3d-1111-4222-8333-444455556666.jsonl' => $line, '0a1b2c3d-1111-4222-8333-444455556666/subagents/a.meta.json' => "{}\n", '0a1b2c3d-1111-4222-8333-444455556666/tool-results/y.txt' => "out\n"] as $path => $content) {
         Process::assertRan(fn ($process) => str_contains((string) $process->command, "{$directory}/{$path}") && $process->input === $content);
     }
     Process::assertRan(fn ($process) => str_contains((string) $process->command, 'chown -R yak:yak'));
@@ -162,7 +162,7 @@ it('restores every session file into a fresh sandbox', function () {
 
 it('restores into a sandbox created for a destroyed thread', function () {
     $line = "{\"uuid\":\"a\"}\n";
-    $this->store->append($this->thread->id, 's1', 's1.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
+    $this->store->append($this->thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
     $this->thread->forceFill(['sandbox_state' => ThreadSandboxState::Destroyed])->save();
     Process::fake([
         'incus info *' => Process::result(exitCode: 1),
@@ -176,21 +176,21 @@ it('restores into a sandbox created for a destroyed thread', function () {
 
     app(ThreadSandbox::class)->ensureAwake($this->thread, Repository::factory()->create());
 
-    Process::assertRan(fn ($process) => str_contains((string) $process->command, '/projects/-workspace/s1.jsonl') && $process->input === $line);
+    Process::assertRan(fn ($process) => str_contains((string) $process->command, '/projects/-workspace/0a1b2c3d-1111-4222-8333-444455556666.jsonl') && $process->input === $line);
     File::deleteDirectory($source);
 });
 
 it('seeds a thread from the legacy host transcript', function () {
     $line = "{\"uuid\":\"a\"}\n";
-    File::put("{$this->legacy}/old-session.jsonl", $line);
-    $task = YakTask::factory()->create(['session_id' => 'old-session']);
+    File::put("{$this->legacy}/0a1b2c3d-1111-4222-8333-555555556666.jsonl", $line);
+    $task = YakTask::factory()->create(['session_id' => '0a1b2c3d-1111-4222-8333-555555556666']);
 
     $thread = app(ThreadFactory::class)->forTask($task);
 
-    expect($this->store->read($thread->id, 'old-session', 'old-session.jsonl'))->toBe($line);
+    expect($this->store->read($thread->id, '0a1b2c3d-1111-4222-8333-555555556666', '0a1b2c3d-1111-4222-8333-555555556666.jsonl'))->toBe($line);
 
     // Importing again changes nothing.
-    expect(app(SessionSync::class)->seedFromLegacyTranscript($thread, 'old-session'))->toBeTrue()
+    expect(app(SessionSync::class)->seedFromLegacyTranscript($thread, '0a1b2c3d-1111-4222-8333-555555556666'))->toBeTrue()
         ->and(SessionFile::query()->where('thread_id', $thread->id)->firstOrFail()->length)->toBe(strlen($line));
 });
 
@@ -205,7 +205,7 @@ it('deletes session files after the retention window', function () {
     $old = Thread::factory()->create(['status' => ThreadStatus::Closed, 'closed_at' => now()->subDays(31)]);
     $recent = Thread::factory()->create(['status' => ThreadStatus::Closed, 'closed_at' => now()->subDays(5)]);
     foreach ([$old, $recent] as $thread) {
-        $this->store->append($thread->id, 's1', 's1.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
+        $this->store->append($thread->id, '0a1b2c3d-1111-4222-8333-444455556666', '0a1b2c3d-1111-4222-8333-444455556666.jsonl', 0, $line, hash('sha256', $line), hash('sha256', ''));
     }
 
     $this->artisan('yak:thread-sandboxes')->assertSuccessful();
