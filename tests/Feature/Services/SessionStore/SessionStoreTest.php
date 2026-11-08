@@ -126,6 +126,16 @@ it('indexes entries by session and uuid', function () {
     expect($entry->parent_uuid)->toBe('a')->and($entry->offset)->toBe(strlen("{\"uuid\":\"a\",\"parentUuid\":null}\n"));
 });
 
+it('keeps entries with the same uuid in different threads', function () {
+    $other = Thread::factory()->create();
+    $line = "{\"uuid\":\"a\",\"parentUuid\":null}\n";
+
+    appendBytes($this->store, $this->thread->id, 0, $line);
+    appendBytes($this->store, $other->id, 0, $line);
+
+    expect(SessionEntry::query()->where('uuid', 'a')->count())->toBe(2);
+});
+
 it("deletes a thread's files", function () {
     appendBytes($this->store, $this->thread->id, 0, "one\n");
 

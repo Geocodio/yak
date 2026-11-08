@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('offset');
             $table->timestamps();
 
-            $table->unique(['session_id', 'uuid']);
+            $table->unique(['session_file_id', 'uuid']);
             $table->index('parent_uuid');
         });
     }
