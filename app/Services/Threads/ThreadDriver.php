@@ -36,6 +36,11 @@ class ThreadDriver
      */
     private array $handlers = [];
 
+    /** @var list<int> threads whose runner was lost while a turn ran, recovered after the commit */
+    private array $lostRunners = [];
+
+    public function __construct(private readonly RunnerRecovery $recovery) {}
+
     public function handle(StreamEntry $entry): void
     {
         $threadId = (int) substr($entry->channel, strlen('threads:'));
@@ -54,6 +59,12 @@ class ThreadDriver
         });
 
         $this->dispatchAll($events);
+
+        foreach (array_unique($this->lostRunners) as $lostThreadId) {
+            $this->recovery->recover(Thread::query()->findOrFail($lostThreadId));
+        }
+
+        $this->lostRunners = [];
     }
 
     /**
@@ -78,10 +89,7 @@ class ThreadDriver
         $type = $line['type'] ?? null;
 
         if ($type === 'broker') {
-            if (($line['event'] ?? null) === 'runner_exited') {
-                $thread->forceFill(['runner_state' => RunnerState::None])->save();
-                $events[] = new RunnerExited($thread, (int) ($line['generation'] ?? $entry->generation), isset($line['exit_code']) ? (int) $line['exit_code'] : null);
-            }
+            $this->applyBrokerLine($thread, $entry, $line, $events);
 
             return;
         }
@@ -109,6 +117,42 @@ class ThreadDriver
         }
 
         $this->applyToTurn($thread, $run, $line, $events);
+    }
+
+    /**
+     * A lost runner during a turn is recovered after the commit; with no turn
+     * running the thread only forgets the runner. An exit from a runner older
+     * than the current one is stale and changes nothing.
+     *
+     * @param  array<string, mixed>  $line
+     * @param  list<object>  $events
+     */
+    private function applyBrokerLine(Thread $thread, StreamEntry $entry, array $line, array &$events): void
+    {
+        $event = $line['event'] ?? null;
+
+        if ($event === 'runner_exited') {
+            $generation = (int) ($line['generation'] ?? $entry->generation);
+
+            if ($generation < $thread->runner_generation) {
+                return;
+            }
+
+            $thread->forceFill(['runner_state' => RunnerState::None])->save();
+            $events[] = new RunnerExited($thread, $generation, isset($line['exit_code']) ? (int) $line['exit_code'] : null);
+        }
+
+        $lost = match ($event) {
+            'runner_exited', 'no_runner' => true,
+            'broker_started' => $thread->runner_state !== RunnerState::Starting,
+            default => false,
+        };
+
+        if ($lost && $thread->runningTurn() !== null) {
+            $this->lostRunners[] = $thread->id;
+        } elseif ($lost && $event === 'broker_started') {
+            $thread->forceFill(['runner_state' => RunnerState::None])->save();
+        }
     }
 
     /**

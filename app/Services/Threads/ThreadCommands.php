@@ -44,7 +44,11 @@ class ThreadCommands
             ],
         ]);
 
-        $thread->forceFill(['runner_state' => RunnerState::Starting])->save();
+        $thread->forceFill([
+            'runner_state' => RunnerState::Starting,
+            'runner_model' => $thread->model,
+            'append_system_prompt' => $appendSystemPrompt,
+        ])->save();
     }
 
     public function turn(Thread $thread, string $uuid, string $text): void
@@ -68,6 +72,8 @@ class ThreadCommands
     public function setModel(Thread $thread, string $model): void
     {
         $this->send($thread, ['type' => 'set_model', 'model' => $model]);
+
+        $thread->forceFill(['runner_model' => $model])->save();
     }
 
     public function end(Thread $thread): void

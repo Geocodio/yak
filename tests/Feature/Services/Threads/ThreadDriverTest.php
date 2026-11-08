@@ -1,19 +1,23 @@
 <?php
 
 use App\DataTransferObjects\StreamEntry;
+use App\Enums\RunnerState;
 use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
+use App\Models\ClaudeAccount;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadStreams;
 use App\Services\Threads\TurnResult;
 use Illuminate\Support\Facades\Event;
+use Tests\Support\FakeThreadStreams;
 
 beforeEach(function () {
     Event::fake([TurnStarted::class, TurnCompleted::class, TurnFailed::class]);
@@ -149,4 +153,26 @@ it('TurnResult rebuilds the agent result from the last result event', function (
         ->and($result->numTurns)->toBe(1)
         ->and($result->durationMs)->toBe(4000)
         ->and($result->isError)->toBeFalse();
+});
+
+it('recovers a running turn when the runner exits', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => ClaudeAccount::factory()->create()->id])->save();
+
+    driveThread($this->thread, [['type' => 'broker', 'event' => 'runner_exited', 'generation' => 0, 'exit_code' => 1]]);
+
+    expect(array_column($streams->commandsFor($this->thread->channel()), 'type'))->toBe(['kill', 'start_runner', 'turn'])
+        ->and($this->run->fresh()->restarted)->toBeTrue();
+});
+
+it('only forgets the runner when the exit happens between turns', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->run->forceFill(['turn_state' => TurnState::Completed])->save();
+
+    driveThread($this->thread, [['type' => 'broker', 'event' => 'runner_exited', 'generation' => 0, 'exit_code' => 0]]);
+
+    expect($streams->commandsFor($this->thread->channel()))->toBe([])
+        ->and($this->thread->fresh()->runner_state)->toBe(RunnerState::None);
 });
