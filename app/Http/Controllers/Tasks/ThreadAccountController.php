@@ -33,6 +33,7 @@ class ThreadAccountController extends Controller
             'claude_account_id' => $account->id,
             'account_switched_by_user_id' => $request->user()?->id,
             'account_switched_at' => now(),
+            'blocked_until' => null,
             'blocked_reason' => in_array($thread->blocked_reason, [ThreadBlockReason::InvalidToken, ThreadBlockReason::UsageLimit, ThreadBlockReason::NoValidAccount], true)
                 ? null
                 : $thread->blocked_reason,

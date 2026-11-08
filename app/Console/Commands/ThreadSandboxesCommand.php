@@ -58,6 +58,11 @@ class ThreadSandboxesCommand extends Command
             ->pluck('thread_id')
             ->each(fn (int $threadId) => $sessionStore->deleteThread($threadId));
 
+        Thread::query()
+            ->where('blocked_reason', ThreadBlockReason::UsageLimit)
+            ->where('blocked_until', '<=', now())
+            ->update(['blocked_reason' => null, 'blocked_until' => null]);
+
         $awake = Thread::query()
             ->whereIn('sandbox_state', [ThreadSandboxState::Starting, ThreadSandboxState::Running, ThreadSandboxState::Paused])
             ->count();

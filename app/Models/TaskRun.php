@@ -32,6 +32,7 @@ use Illuminate\Support\Collection;
  * @property int $restart_count automatic runner restarts during this turn
  * @property CarbonImmutable|null $restart_due_at when the next restart is due; null when none is waiting
  * @property array<string, mixed>|null $last_result_event
+ * @property array{runner?: string, notice?: string}|null $pending_effects runner command and notification still owed after the turn ended abnormally
  * @property array<string, int>|null $stages
  * @property array<string, array<string, int|float>>|null $model_usage
  * @property array<string, array{calls: int, errors: int, ms: int}>|null $tool_breakdown
@@ -74,6 +75,7 @@ class TaskRun extends Model
             'last_result_event' => 'json',
             'turn_cost_usd_by_session' => 'json',
             'completion_dispatched_at' => 'datetime',
+            'pending_effects' => 'json',
         ];
     }
 

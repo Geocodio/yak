@@ -32,6 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $lock_acquired_at
  * @property CarbonImmutable|null $last_activity_at
  * @property CarbonImmutable|null $closed_at
+ * @property CarbonImmutable|null $blocked_until when a usage limit resets
  */
 class Thread extends Model
 {
@@ -67,6 +68,7 @@ class Thread extends Model
             'lock_acquired_at' => 'datetime',
             'last_activity_at' => 'datetime',
             'closed_at' => 'datetime',
+            'blocked_until' => 'datetime',
         ];
     }
 

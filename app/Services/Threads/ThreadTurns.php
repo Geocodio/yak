@@ -59,8 +59,8 @@ class ThreadTurns
                 return null;
             }
 
-            if (in_array($thread->blocked_reason, [ThreadBlockReason::InvalidToken, ThreadBlockReason::NoValidAccount], true)) {
-                $thread->forceFill(['blocked_reason' => null]);
+            if (in_array($thread->blocked_reason, [ThreadBlockReason::InvalidToken, ThreadBlockReason::NoValidAccount, ThreadBlockReason::UsageLimit], true)) {
+                $thread->forceFill(['blocked_reason' => null, 'blocked_until' => null]);
             }
 
             $account->forceFill(['last_used_at' => now()])->save();
@@ -132,7 +132,7 @@ class ThreadTurns
     }
 
     /**
-     * A usage limit stays until someone switches the account or it clears. A
+     * A usage limit stays until someone switches the account or the window resets. A
      * missing or rejected account blocks for as long as it is unusable, so a
      * re-validated token unblocks its threads by itself.
      */
@@ -142,7 +142,7 @@ class ThreadTurns
             $account === null => ThreadBlockReason::NoValidAccount,
             $account->status === ClaudeAccountStatus::Invalid => ThreadBlockReason::InvalidToken,
             ! $account->isUsable() => ThreadBlockReason::NoValidAccount,
-            $thread->blocked_reason === ThreadBlockReason::UsageLimit => ThreadBlockReason::UsageLimit,
+            $thread->blocked_reason === ThreadBlockReason::UsageLimit && $thread->blocked_until?->isFuture() === true => ThreadBlockReason::UsageLimit,
             default => null,
         };
     }

@@ -2,6 +2,7 @@
 
 use App\DataTransferObjects\StreamEntry;
 use App\Enums\RunnerState;
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
@@ -343,4 +344,34 @@ it('fails the turn of a thread whose entry cannot be handled, and releases its l
         ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::None)
         ->and(array_column($streams->commandsFor($this->thread->channel()), 'type'))->toBe(['kill']);
     Event::assertDispatched(TurnFailed::class, 1);
+});
+
+it('fails the turn instead of throwing when the account is gone at restart time', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $this->thread->forceFill(['claude_account_id' => null])->save();
+    $this->run->forceFill(['restart_due_at' => now()->subSecond(), 'restart_count' => 1])->save();
+
+    app(ThreadDriver::class)->tick();
+
+    expect($this->run->fresh()->turn_state)->toBe(TurnState::Failed)
+        ->and($this->thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::NoValidAccount)
+        ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::None);
+});
+
+it('keeps redispatching completions when one thread cannot be restarted', function () {
+    $this->thread->forceFill(['claude_account_id' => null])->save();
+    $this->run->forceFill(['restart_due_at' => now()->subSecond()])->save();
+    $other = Thread::factory()->paused()->create();
+    $otherTask = YakTask::factory()->running()->create(['thread_id' => $other->id]);
+    $lost = TaskRun::factory()->create([
+        'yak_task_id' => $otherTask->id,
+        'thread_id' => $other->id,
+        'turn_state' => TurnState::Completed,
+        'completion_dispatched_at' => null,
+    ]);
+
+    app(ThreadDriver::class)->tick();
+
+    expect($lost->fresh()->completion_dispatched_at)->not->toBeNull();
 });

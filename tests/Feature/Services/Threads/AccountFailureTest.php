@@ -73,7 +73,9 @@ it('marks the account invalid and blocks the thread', function () {
         ->and($this->thread->fresh()->blocked_reason)->toBe(ThreadBlockReason::InvalidToken)
         ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::None)
         ->and($this->run->fresh()->turn_state)->toBe(TurnState::Failed)
-        ->and(array_column($this->streams->commandsFor($this->thread->channel()), 'type'))->toBe(['interrupt']);
+        ->and(array_column($this->streams->commandsFor($this->thread->channel()), 'type'))->toBe(['kill'])
+        ->and($this->thread->fresh()->runner_state)->toBe(RunnerState::None)
+        ->and($this->run->fresh()->pending_effects)->toBeNull();
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->directRecipients[0]->is($this->owner)
         && str_contains($job->message, 'Work token')
@@ -81,7 +83,13 @@ it('marks the account invalid and blocks the thread', function () {
     expect(TaskLog::query()->where('yak_task_id', $this->task->id)->where('metadata->synthetic_error', true)->count())->toBe(0);
 });
 
+function rejectedRateLimitEvent(int $resetsAt): array
+{
+    return ['type' => 'rate_limit_event', 'rate_limit_info' => ['status' => 'rejected', 'resetsAt' => $resetsAt, 'rateLimitType' => 'five_hour']];
+}
+
 it('notifies the account owner and the driver on a usage limit', function () {
+    feed($this->thread, rejectedRateLimitEvent(now()->addHours(3)->timestamp));
     feed($this->thread, failureLine('rate_limit'));
     feed($this->thread, ['type' => 'result', 'is_error' => true, 'api_error_status' => 429, 'result' => 'limit']);
 
@@ -150,4 +158,42 @@ it('hides synthetic error entries from the dashboard', function () {
 
     expect(TaskLog::query()->where('yak_task_id', $this->task->id)->where('metadata->synthetic_error', true)->count())->toBe(1)
         ->and(ActivityLogData::summary($this->task, 1)['entries'])->toBe(0);
+});
+
+it('fails the turn without a sticky block on a 429 with no rejected rate limit', function () {
+    feed($this->thread, failureLine('rate_limit'));
+
+    expect($this->thread->fresh()->blocked_reason)->toBeNull()
+        ->and($this->run->fresh()->turn_state)->toBe(TurnState::Failed)
+        ->and($this->thread->fresh()->lock_holder)->toBe(ThreadLockHolder::None);
+    Queue::assertNotPushed(SendNotificationJob::class);
+});
+
+it('continues a usage-limited thread once the reset time has passed', function () {
+    feed($this->thread, rejectedRateLimitEvent(now()->addHour()->timestamp));
+    feed($this->thread, failureLine('rate_limit'));
+    $this->thread->forceFill(['runner_state' => RunnerState::None])->save();
+
+    expect(app(ThreadTurns::class)->start($this->task, TaskRunKind::FollowUp, 'again', 'rules', null, 'c1'))->toBeNull();
+
+    $this->travel(2)->hours();
+
+    expect(app(ThreadTurns::class)->start($this->task, TaskRunKind::FollowUp, 'again', 'rules', null, 'c1'))->not->toBeNull()
+        ->and($this->thread->fresh()->blocked_reason)->toBeNull();
+});
+
+it('sends the owed interrupt and notification on the next tick when the driver died after the commit', function () {
+    feed($this->thread, rejectedRateLimitEvent(now()->addHours(3)->timestamp));
+    $this->run->refresh();
+    $this->run->forceFill(['pending_effects' => ['runner' => 'interrupt', 'notice' => 'usage_limit']])->save();
+    Queue::fake();
+
+    app(ThreadDriver::class)->tick();
+
+    expect(array_column($this->streams->commandsFor($this->thread->channel()), 'type'))->toContain('interrupt')
+        ->and($this->run->fresh()->pending_effects)->toBeNull();
+    Queue::assertPushed(SendNotificationJob::class, 1);
+
+    app(ThreadDriver::class)->tick();
+    Queue::assertPushed(SendNotificationJob::class, 1);
 });
