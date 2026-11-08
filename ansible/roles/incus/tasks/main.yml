@@ -208,6 +208,17 @@
     - { key: "fs.inotify.max_user_instances", value: "8192" }
     - { key: "fs.inotify.max_user_watches", value: "1048576" }
 
+# The runner hands the Claude credential to the CLI on an inherited descriptor, so
+# the token lives only in that process's memory. With Yama scope 1 a process can only
+# ptrace its own descendants, so the agent's tool processes cannot read the memory of
+# the claude process or the runner above them.
+- name: Stop sandbox processes from tracing their ancestors
+  ansible.posix.sysctl:
+    name: kernel.yama.ptrace_scope
+    value: "1"
+    sysctl_set: true
+    reload: true
+
 - name: Check if base template exists at current version
   # The marker file is versioned: bumping `yak_sandbox_base_version` makes
   # this test fail even if `yak-base` already exists, which forces a
