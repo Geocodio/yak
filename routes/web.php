@@ -13,6 +13,7 @@ use App\Http\Controllers\Deployments\ShareLinkController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Internal\DeploymentStatusController;
 use App\Http\Controllers\Internal\DeploymentWakeController;
+use App\Http\Controllers\Internal\SessionStoreController;
 use App\Http\Controllers\MarketplaceController;
 use App\Http\Controllers\ObservationController;
 use App\Http\Controllers\PromptController;
@@ -281,5 +282,15 @@ Route::get('/deployments/auth-bounce', AuthBounceController::class)
 Route::middleware(['restrict-to-ingress', 'auth'])
     ->get('/internal/deployments/status', DeploymentStatusController::class)
     ->name('deployments.status');
+
+Route::middleware('session-store-token')
+    ->prefix('/internal/session-store/{thread}')
+    ->name('session-store.')
+    ->group(function () {
+        Route::post('append', [SessionStoreController::class, 'append'])->name('append');
+        Route::get('length', [SessionStoreController::class, 'length'])->name('length');
+        Route::post('checkpoint', [SessionStoreController::class, 'checkpoint'])->name('checkpoint');
+        Route::put('file', [SessionStoreController::class, 'file'])->name('file');
+    });
 
 require __DIR__ . '/settings.php';
