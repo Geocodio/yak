@@ -259,3 +259,18 @@ func TestProxyNeverLogsOrReturnsTheRealToken(t *testing.T) {
 		t.Fatal("the real token reached the response")
 	}
 }
+
+func TestSandboxAddressIgnoresDockerInterfaces(t *testing.T) {
+	state := `{"network":{"docker0":{"addresses":[{"family":"inet","address":"172.17.0.1","scope":"global"}]},
+		"eth0":{"addresses":[{"family":"inet6","address":"fd42::5","scope":"global"},{"family":"inet","address":"10.100.0.7","scope":"global"}]},
+		"lo":{"addresses":[{"family":"inet","address":"127.0.0.1","scope":"local"}]}}}`
+	for range 20 {
+		address, err := firstGlobalIPv4([]byte(state))
+		if err != nil || address != "10.100.0.7" {
+			t.Fatalf("address = %q, err = %v", address, err)
+		}
+	}
+	if _, err := firstGlobalIPv4([]byte(`{"network":{"docker0":{"addresses":[{"family":"inet","address":"172.17.0.1","scope":"global"}]}}}`)); err == nil {
+		t.Fatal("a sandbox without eth0 got an address")
+	}
+}

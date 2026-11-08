@@ -117,7 +117,11 @@ func (IncusSpawner) ContainerAddress(ctx context.Context, container string) (str
 	return firstGlobalIPv4(out)
 }
 
-// firstGlobalIPv4 picks the first global IPv4 address of any interface in an Incus instance state.
+// sandboxInterface is the NIC the default Incus profile gives every sandbox. A sandbox that runs
+// Docker has further interfaces (docker0, veth pairs) whose addresses are not its bridge address.
+const sandboxInterface = "eth0"
+
+// firstGlobalIPv4 returns the sandbox NIC's global IPv4 address from an Incus instance state.
 func firstGlobalIPv4(state []byte) (string, error) {
 	var parsed struct {
 		Network map[string]struct {
@@ -131,15 +135,10 @@ func firstGlobalIPv4(state []byte) (string, error) {
 	if err := json.Unmarshal(state, &parsed); err != nil {
 		return "", err
 	}
-	for name, network := range parsed.Network {
-		if name == "lo" {
-			continue
-		}
-		for _, address := range network.Addresses {
-			if address.Family == "inet" && address.Scope == "global" {
-				return address.Address, nil
-			}
+	for _, address := range parsed.Network[sandboxInterface].Addresses {
+		if address.Family == "inet" && address.Scope == "global" {
+			return address.Address, nil
 		}
 	}
-	return "", fmt.Errorf("no global IPv4 address")
+	return "", fmt.Errorf("no global IPv4 address on %s", sandboxInterface)
 }

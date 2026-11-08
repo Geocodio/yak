@@ -163,6 +163,20 @@
   when: profile_eth0_check.rc != 0
   changed_when: true
 
+# The auth proxy binds a placeholder to the address its sandbox owns. On a bridged NIC a sandbox
+# can otherwise add another sandbox's address and claim it with ARP (verified on a test host),
+# so address and MAC filtering stay on for every sandbox. Running sandboxes pick it up on restart.
+- name: Check if the sandbox network device filters addresses
+  ansible.builtin.command: incus profile device get default eth0 security.ipv4_filtering
+  register: profile_filtering_check
+  changed_when: false
+  failed_when: false
+
+- name: Stop sandboxes from spoofing each other's addresses
+  ansible.builtin.command: incus profile device set default eth0 security.mac_filtering=true security.ipv4_filtering=true
+  when: profile_filtering_check.stdout | trim != 'true'
+  changed_when: true
+
 - name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
