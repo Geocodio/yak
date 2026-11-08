@@ -61,4 +61,8 @@ yak_credentials_path: /var/lib/yak/credentials
 yak_container_www_data_uid: 33
 
 redis_container_name: yak-redis
-redis_data_path: /home/yak/redis-data
+# Thread streams are persisted here (appendonly), so the directory is root-owned
+# parent + 0700 for the container's redis user; never a user's home directory.
+redis_data_path: /var/lib/yak/redis
+# uid of the redis user inside the redis:7 image.
+redis_container_uid: 999

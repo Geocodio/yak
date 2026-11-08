@@ -4,13 +4,44 @@
     name: yak
     state: present
 
-- name: Ensure Redis data directory exists
+- name: Ensure /var/lib/yak exists
   ansible.builtin.file:
-    path: "{{ redis_data_path }}"
+    path: /var/lib/yak
     state: directory
     mode: "0755"
     owner: root
     group: root
+
+# The append-only file holds thread stream contents, so only the container's
+# redis user may read it.
+- name: Ensure Redis data directory exists
+  ansible.builtin.file:
+    path: "{{ redis_data_path }}"
+    state: directory
+    mode: "0700"
+    owner: "{{ redis_container_uid }}"
+    group: "{{ redis_container_uid }}"
+
+# Earlier installs kept the data world-readable under the yak user's home.
+- name: Check for Redis data in the old location
+  ansible.builtin.stat:
+    path: /home/yak/redis-data
+  register: old_redis_data
+
+- name: Move Redis data out of the old location
+  when: old_redis_data.stat.exists
+  block:
+    - name: Stop Redis before moving its data
+      community.docker.docker_container:
+        name: "{{ redis_container_name }}"
+        state: stopped
+
+    - name: Move the data
+      ansible.builtin.shell: |
+        cp -a /home/yak/redis-data/. {{ redis_data_path }}/ &&
+        chown -R {{ redis_container_uid }}:{{ redis_container_uid }} {{ redis_data_path }} &&
+        rm -rf /home/yak/redis-data
+      changed_when: true
 
 # Thread streams live here, so the append-only file has to survive restarts.
 - name: Run Redis container
