@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -78,12 +79,13 @@ func NewAuthProxy(source CredentialSource, addresses AddressResolver, upstream *
 }
 
 func (p *AuthProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodHead && r.URL.Path == "/api/hello" {
-		p.forward(w, r, nil, "")
+	route, ok := matchRoute(r)
+	if !ok {
+		deny(w, http.StatusNotFound, "path not allowed")
 		return
 	}
-	if r.URL.Path != "/v1/messages" && !strings.HasPrefix(r.URL.Path, "/v1/messages/") {
-		deny(w, http.StatusNotFound, "path not allowed")
+	if route == "HEAD /api/hello" {
+		p.forward(w, r, nil, "", "/api/hello")
 		return
 	}
 	placeholder := bearerToken(r)
@@ -97,7 +99,7 @@ func (p *AuthProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		deny(w, status, reason)
 		return
 	}
-	p.forward(w, r, credential, placeholder)
+	p.forward(w, r, credential, placeholder, strings.TrimPrefix(route, "POST "))
 }
 
 // authorize returns the credential for a placeholder used from the given source address.
@@ -169,10 +171,12 @@ type forwarded struct {
 	placeholder string
 }
 
-func (p *AuthProxy) forward(w http.ResponseWriter, r *http.Request, credential *Credential, placeholder string) {
+func (p *AuthProxy) forward(w http.ResponseWriter, r *http.Request, credential *Credential, placeholder, path string) {
 	outgoing := r.Clone(context.WithValue(r.Context(), contextKey{}, forwarded{placeholder: placeholder}))
 	outgoing.URL.Scheme = p.upstream.Scheme
 	outgoing.URL.Host = p.upstream.Host
+	outgoing.URL.Path = path
+	outgoing.URL.RawPath = ""
 	outgoing.Host = p.upstream.Host
 	outgoing.RequestURI = ""
 	outgoing.Header.Del("Authorization")
@@ -201,6 +205,26 @@ func (p *AuthProxy) afterResponse(response *http.Response) error {
 		}
 	}
 	return nil
+}
+
+// allowedRoutes are the only method and path pairs the CLI needs.
+var allowedRoutes = map[string]bool{
+	"POST /v1/messages":              true,
+	"POST /v1/messages/count_tokens": true,
+	"HEAD /api/hello":                true,
+}
+
+// matchRoute returns the allowlist key for a request, or false when the method and path are not
+// allowed or the path is not already in canonical form.
+func matchRoute(r *http.Request) (string, bool) {
+	escaped := r.URL.EscapedPath()
+	lowered := strings.ToLower(escaped)
+	if escaped != path.Clean(escaped) || strings.Contains(escaped, "..") || strings.Contains(escaped, "//") ||
+		strings.Contains(lowered, "%2e") || strings.Contains(lowered, "%2f") {
+		return "", false
+	}
+	key := r.Method + " " + r.URL.Path
+	return key, allowedRoutes[key]
 }
 
 func bearerToken(r *http.Request) string {

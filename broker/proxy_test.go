@@ -181,10 +181,13 @@ func TestProxyRefusesUnknownAndMissingPlaceholders(t *testing.T) {
 func TestProxyAllowsOnlyTheCLIsPaths(t *testing.T) {
 	h := newProxyHarness(t, oauthCredential(), map[string]string{"c1": "10.100.0.5"})
 
-	for _, path := range []string{"/v1/models", "/v1/organizations/x", "/api/oauth/profile", "/v1/messagesx", "/"} {
+	for _, path := range []string{"/v1/models", "/v1/organizations/x", "/api/oauth/profile", "/v1/messagesx", "/", "/v1/messages/", "/v1/messages/../models", "/v1/messages/%2e%2e/models", "/v1/messages%2Fcount_tokens", "//v1/messages", "/v1//messages", "/v1/messages/count_tokens/x"} {
 		if status := h.do(t, http.MethodPost, path, "Bearer yakph-1", "10.100.0.5").StatusCode; status != http.StatusNotFound {
 			t.Fatalf("%s: status = %d", path, status)
 		}
+	}
+	if status := h.do(t, http.MethodGet, "/v1/messages", "Bearer yakph-1", "10.100.0.5").StatusCode; status != http.StatusNotFound {
+		t.Fatalf("GET status = %d", status)
 	}
 	if status := h.do(t, http.MethodPost, "/v1/messages/count_tokens", "Bearer yakph-1", "10.100.0.5").StatusCode; status != http.StatusOK {
 		t.Fatalf("count_tokens status = %d", status)
