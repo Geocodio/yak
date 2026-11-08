@@ -294,6 +294,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 YakPromptBuilder::systemPrompt($this->task),
                 $this->task->started_by_user_id,
                 $container,
+                // A fresh run (a dashboard Retry before CI, say) starts over; only a clarification answer continues the session.
+                startsNewSession: ! $resuming && $thread->activeSession() !== null,
             );
 
             if ($run === null) {

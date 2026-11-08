@@ -29,6 +29,9 @@ class ThreadTurns
      * its account cannot be used; the thread's blocked_reason says why. A
      * thread never moves to another account on its own.
      *
+     * With $startsNewSession the runner is restarted without a resume id and
+     * the turn's first session becomes a new main session of the thread.
+     *
      * With $continuesStoppedTurn the thread must have no running turn, a free
      * lock and a latest turn that the runaway guard stopped; that check runs
      * under the same row lock that takes the thread lock, so two requests
@@ -36,11 +39,11 @@ class ThreadTurns
      *
      * @throws NoTurnToContinue
      */
-    public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName, bool $continuesStoppedTurn = false): ?TaskRun
+    public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName, bool $continuesStoppedTurn = false, bool $startsNewSession = false): ?TaskRun
     {
         $promptUuid = (string) Str::uuid();
 
-        $started = DB::transaction(function () use ($task, $kind, $prompt, $driverUserId, $containerName, $promptUuid, $continuesStoppedTurn): ?array {
+        $started = DB::transaction(function () use ($task, $kind, $prompt, $driverUserId, $containerName, $promptUuid, $continuesStoppedTurn, $startsNewSession): ?array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
 
             if ($continuesStoppedTurn && ! $this->canContinue($thread)) {
@@ -77,6 +80,7 @@ class ThreadTurns
                 'prompt_uuid' => $promptUuid,
                 'command_states' => [$promptUuid => 'sent'],
                 'prompt' => $prompt,
+                'starts_new_session' => $startsNewSession,
             ]);
 
             $thread->forceFill([
@@ -96,7 +100,14 @@ class ThreadTurns
 
         [$thread, $run, $account] = $started;
 
-        if ($thread->runner_state === RunnerState::None) {
+        if ($startsNewSession) {
+            // The runner starts without a resume id, so the first init line opens a new session.
+            if ($thread->runner_state !== RunnerState::None) {
+                $this->commands->kill($thread);
+            }
+
+            $this->commands->startRunner($thread, $account, null, $systemPrompt);
+        } elseif ($thread->runner_state === RunnerState::None) {
             $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, $systemPrompt);
         } elseif ($thread->runner_claude_account_id !== null && $thread->runner_claude_account_id !== $account->id) {
             // The runner holds the old account's credential, so a switch restarts it on the same session.

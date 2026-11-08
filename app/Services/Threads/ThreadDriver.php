@@ -672,13 +672,15 @@ class ThreadDriver
     {
         if ($thread->sessions()->where('session_id', $sessionId)->doesntExist()) {
             $latest = $thread->sessions()->orderByDesc('id')->first();
+            $startsOver = $latest === null || $run?->starts_new_session === true;
 
             // The init line carries no parent, so a new id after the first one
-            // can only be the fresh session a /clear starts.
+            // is either the fresh session a /clear starts or the one a turn
+            // asked for by starting without a resume id.
             $thread->sessions()->create([
                 'session_id' => $sessionId,
-                'parent_session_id' => $latest?->session_id,
-                'kind' => $latest === null ? ThreadSessionKind::Main : ThreadSessionKind::Clear,
+                'parent_session_id' => $startsOver ? null : $latest->session_id,
+                'kind' => $startsOver ? ThreadSessionKind::Main : ThreadSessionKind::Clear,
             ]);
         }
 

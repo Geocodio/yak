@@ -41,6 +41,47 @@ trait ResumesAgentOnExistingBranch
     }
 
     /**
+     * Puts the thread's working tree on the branch's pushed head, so what the
+     * agent works on is what the remote has: the tree carries no leftovers of
+     * an earlier turn, and a thread that last sat on another branch (research
+     * on the default branch, say) ends up on this one. A branch the remote
+     * never received is created from the default branch.
+     */
+    protected function prepareThreadBranch(
+        IncusSandboxManager $sandbox,
+        string $containerName,
+        Repository $repository,
+        string $branchName,
+    ): void {
+        $workspacePath = IncusSandboxManager::workspacePath();
+
+        $sandbox->configureGitIdentity($containerName);
+        $sandbox->injectGitCredentials($containerName);
+
+        $lookup = $sandbox->run($containerName, "cd {$workspacePath} && git ls-remote --exit-code --heads origin " . escapeshellarg($branchName), timeout: 30);
+
+        if ($lookup->exitCode() === 0) {
+            $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
+            $this->resetToPushedHead($sandbox, $containerName, $branchName);
+
+            return;
+        }
+
+        $this->prepareExistingBranch($sandbox, $containerName, $repository, $branchName);
+    }
+
+    protected function resetToPushedHead(IncusSandboxManager $sandbox, string $containerName, string $branchName): void
+    {
+        $workspacePath = IncusSandboxManager::workspacePath();
+        $escapedBranch = escapeshellarg($branchName);
+
+        $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$escapedBranch}", timeout: 60);
+        $sandbox->run($containerName, "cd {$workspacePath} && git checkout -f {$escapedBranch}", timeout: 30);
+        $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard " . escapeshellarg("origin/{$branchName}"), timeout: 30);
+        $sandbox->run($containerName, "cd {$workspacePath} && git clean -fd", timeout: 30);
+    }
+
+    /**
      * Refuse-to-push-on-default-branch safety check, refresh the credential
      * helper (the token may have expired during a long run), then force-push
      * with lease.

@@ -2,40 +2,35 @@
 
 namespace App\Jobs;
 
-use App\Agents\ClaudeCodeOutputParser;
-use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
-use App\DataTransferObjects\AgentRunResult;
-use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
-use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
+use App\Jobs\Concerns\FinishesResearchFollowUpRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ReportsResearchToSource;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
+use App\Jobs\Concerns\StartsThreadTurns;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
-use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskLogger;
-use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
-use App\Services\YakPersonality;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -48,11 +43,14 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
 {
     use AsksClarifyingQuestions;
     use ClaimsTask;
+    use FinishesResearchFollowUpRuns;
     use HandlesAgentJobFailure;
+    use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
     use ReportsResearchToSource;
     use RetriesWithoutStaleSession;
+    use StartsThreadTurns;
 
     /** Where the previous report sits in the sandbox for the agent to read. */
     private const PREVIOUS_REPORT_PATH = '.yak-artifacts/previous-research.html';
@@ -141,9 +139,35 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
 
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
-        $recorder = RunRecorder::start($this->task, TaskRunKind::FollowUp, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         TaskLogger::info($this->task, 'Picked up by worker — research follow-up');
+
+        if (config('yak.threads.enabled')) {
+            // Research is read-only, so the thread's working tree is left as it is.
+            $hasPreviousReport = false;
+
+            $started = $this->startThreadTurn(
+                $repository,
+                TaskRunKind::FollowUp,
+                fn (): string => $this->promptFor(fn (): string => YakPromptBuilder::researchFollowUpPrompt(
+                    (string) $this->task->description,
+                    $this->previousSummary(),
+                    $hasPreviousReport,
+                )),
+                function (IncusSandboxManager $threadSandbox, string $container) use (&$hasPreviousReport): void {
+                    $hasPreviousReport = $this->stagePreviousReport($threadSandbox, $container);
+                },
+                $this->task->attachments->all(),
+            );
+
+            if ($started) {
+                $this->consumeAnswers();
+            }
+
+            return;
+        }
+
+        $recorder = RunRecorder::start($this->task, TaskRunKind::FollowUp, self::class, $this->task->dispatched_at ?? $this->queuedAt);
 
         try {
             $containerName = $sandbox->create($this->task, $repository);
@@ -183,21 +207,7 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
             $recorder->agentFinished($result);
             $this->consumeAnswers();
 
-            if ($result->isError) {
-                TaskMetricsAccumulator::record($this->task, $result);
-                $this->handleError($result->failureMessage());
-
-                return;
-            }
-
-            if ($this->askIfNeeded($result)) {
-                return;
-            }
-
-            // Questions ignored at the round limit must not reach the output.
-            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
-
-            $this->handleSuccess($result, $sandbox, $containerName);
+            $this->finishResearchFollowUpResult($result, $sandbox, $containerName);
             $recorder->mark('post_agent');
         } catch (ClaudeAuthException $e) {
             Log::error('ResearchFollowUpJob auth failure', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
@@ -252,63 +262,5 @@ class ResearchFollowUpJob implements ShouldBeUnique, ShouldQueue
         $sandbox->run($containerName, 'chown -R yak:yak ' . escapeshellarg(dirname($remotePath)), timeout: 10, asRoot: true);
 
         return true;
-    }
-
-    private function handleSuccess(AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $summary = $result->resultSummary;
-
-        TaskMetricsAccumulator::record($this->task, $result);
-        DailyCost::accumulate($result->costUsd);
-
-        $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
-        $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
-
-        $this->task->update([
-            'status' => TaskStatus::Success,
-            'result_summary' => $summary,
-            'model_used' => config('yak.default_model'),
-            'completed_at' => now(),
-        ]);
-
-        TaskLogger::info($this->task, 'Task completed');
-
-        // The link is appended after the personality rewrite so the agent
-        // cannot paraphrase it away.
-        $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
-
-        if ($artifactUrl !== null) {
-            $notificationMessage .= "\n\n📑 **[View revised research report]({$artifactUrl})**";
-        }
-
-        $this->reportResult($notificationMessage);
-
-        if ($this->task->source === 'linear') {
-            if ($artifactUrl !== null) {
-                app(LinearNotificationDriver::class)->createIssueAttachment(
-                    $this->task,
-                    title: 'Revised research report',
-                    url: $artifactUrl,
-                    subtitle: 'Detailed findings from Yak · HTML',
-                );
-            }
-        }
-    }
-
-    private function handleError(string $errorMessage): void
-    {
-        if ($this->taskIsTerminal($this->task->fresh())) {
-            return;
-        }
-
-        TaskLogger::error($this->task, 'Research follow-up failed', ['error' => $errorMessage]);
-
-        $this->task->update([
-            'status' => TaskStatus::Failed,
-            'error_log' => $errorMessage,
-            'completed_at' => now(),
-        ]);
-
-        $this->notifySourceOfFailure($errorMessage);
     }
 }

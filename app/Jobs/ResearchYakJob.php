@@ -2,60 +2,53 @@
 
 namespace App\Jobs;
 
-use App\Agents\ClaudeCodeOutputParser;
-use App\Channels\Linear\NotificationDriver as LinearNotificationDriver;
 use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunRequest;
-use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
+use App\Jobs\Concerns\FinishesResearchRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ReportsResearchToSource;
 use App\Jobs\Concerns\RetriesWithoutStaleSession;
+use App\Jobs\Concerns\StartsThreadTurns;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
-use App\Models\Artifact;
-use App\Models\DailyCost;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\YakTask;
-use App\Services\ArtifactPersister;
-use App\Services\ConfigPullRequests;
 use App\Services\IncusSandboxManager;
 use App\Services\PromptResolver;
-use App\Services\RepositoryConfig;
-use App\Services\RepositoryRiskProfiles;
-use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
-use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
-use App\Services\YakConfigFiles;
-use App\Services\YakPersonality;
-use App\Support\MarkdownText;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
 class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 {
     use AsksClarifyingQuestions;
     use ClaimsTask;
+    use FinishesResearchRuns;
     use HandlesAgentJobFailure;
+    use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
     use ReportsResearchToSource;
     use RetriesWithoutStaleSession;
+    use StartsThreadTurns;
 
     public int $timeout = 3600;
 
@@ -154,6 +147,66 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         $this->notifySourceOfFailure($message);
     }
 
+    /**
+     * Puts the working tree on the latest default branch and returns whether
+     * the task drafts a risk profile, which records the revision it read.
+     */
+    private function syncDefaultBranch(IncusSandboxManager $sandbox, string $containerName, Repository $repository): bool
+    {
+        // Ensure we're on the default branch with latest code. The
+        // sandbox snapshot was taken whenever Setup last ran, so we
+        // must fetch + reset to origin to pick up commits merged
+        // since then — otherwise the agent reads stale source.
+        $workspacePath = IncusSandboxManager::workspacePath();
+        $sandbox->injectGitCredentials($containerName);
+        $fetch = $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
+        $checkout = $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
+        $reset = $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard origin/{$repository->default_branch}", timeout: 30);
+        $context = json_decode((string) $this->task->context, true) ?: [];
+        $riskProfile = ($context['risk_profile_draft'] ?? false) === true;
+        if ($riskProfile) {
+            $sha = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse HEAD", timeout: 30);
+            if ($fetch->exitCode() !== 0 || $checkout->exitCode() !== 0 || $reset->exitCode() !== 0 || $sha->exitCode() !== 0) {
+                throw new \RuntimeException('Could not establish the risk profile source revision.');
+            }
+            $context['risk_profile_source_sha'] = trim($sha->output());
+            if (preg_match('/^[a-f0-9]{40,64}$/', $context['risk_profile_source_sha']) !== 1) {
+                throw new \RuntimeException('Risk profile source revision is not a commit SHA.');
+            }
+            $this->task->update(['context' => json_encode($context)]);
+        }
+
+        return $riskProfile;
+    }
+
+    /**
+     * Research is read-only, so a turn on a thread that has already worked
+     * leaves the tree as it is. A thread with no turns yet has nothing to
+     * disturb and starts from the latest default branch; so does a risk
+     * profile draft, which records the revision it read.
+     */
+    private function startResearchTurn(Repository $repository): void
+    {
+        $context = json_decode((string) $this->task->context, true) ?: [];
+        $riskProfile = ($context['risk_profile_draft'] ?? false) === true;
+
+        $started = $this->startThreadTurn(
+            $repository,
+            TaskRunKind::Research,
+            fn (): string => $this->promptFor(fn (): string => $riskProfile ? app(PromptResolver::class)->render('tasks-risk-profile') : YakPromptBuilder::taskPrompt($this->task)),
+            function (IncusSandboxManager $sandbox, string $container, Thread $thread) use ($repository, $riskProfile): void {
+                if ($riskProfile || $thread->turns()->doesntExist()) {
+                    $this->syncDefaultBranch($sandbox, $container, $repository);
+                }
+            },
+            $this->task->attachments->all(),
+        );
+
+        if ($started) {
+            $this->consumeAnswers();
+        }
+    }
+
     private function runResearch(AgentRunner $agent): void
     {
         $repository = Repository::where('slug', $this->task->repo)->first();
@@ -175,8 +228,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         $resuming = $this->resumingWithAnswers();
         $sandbox = app(IncusSandboxManager::class);
         $containerName = null;
-        $recorder = RunRecorder::start($this->task, TaskRunKind::Research, self::class, $this->task->dispatched_at ?? $this->queuedAt);
-
         TaskLogger::info($this->task, 'Picked up by worker — research');
 
         // One-shot "starting research" progress on first attempt,
@@ -190,34 +241,21 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             );
         }
 
+        if (config('yak.threads.enabled')) {
+            $this->startResearchTurn($repository);
+
+            return;
+        }
+
+        $recorder = RunRecorder::start($this->task, TaskRunKind::Research, self::class, $this->task->dispatched_at ?? $this->queuedAt);
+
         try {
             // Create sandbox from repo snapshot
             $containerName = $sandbox->create($this->task, $repository);
             $recorder->mark('sandbox_create');
             TaskLogger::info($this->task, 'Sandbox created for research', ['container' => $containerName]);
 
-            // Ensure we're on the default branch with latest code. The
-            // sandbox snapshot was taken whenever Setup last ran, so we
-            // must fetch + reset to origin to pick up commits merged
-            // since then — otherwise the agent reads stale source.
-            $workspacePath = IncusSandboxManager::workspacePath();
-            $sandbox->injectGitCredentials($containerName);
-            $fetch = $sandbox->run($containerName, "cd {$workspacePath} && git fetch origin {$repository->default_branch}", timeout: 60);
-            $checkout = $sandbox->run($containerName, "cd {$workspacePath} && git checkout {$repository->default_branch}", timeout: 30);
-            $reset = $sandbox->run($containerName, "cd {$workspacePath} && git reset --hard origin/{$repository->default_branch}", timeout: 30);
-            $context = json_decode((string) $this->task->context, true) ?: [];
-            $riskProfile = ($context['risk_profile_draft'] ?? false) === true;
-            if ($riskProfile) {
-                $sha = $sandbox->run($containerName, "cd {$workspacePath} && git rev-parse HEAD", timeout: 30);
-                if ($fetch->exitCode() !== 0 || $checkout->exitCode() !== 0 || $reset->exitCode() !== 0 || $sha->exitCode() !== 0) {
-                    throw new \RuntimeException('Could not establish the risk profile source revision.');
-                }
-                $context['risk_profile_source_sha'] = trim($sha->output());
-                if (preg_match('/^[a-f0-9]{40,64}$/', $context['risk_profile_source_sha']) !== 1) {
-                    throw new \RuntimeException('Risk profile source revision is not a commit SHA.');
-                }
-                $this->task->update(['context' => json_encode($context)]);
-            }
+            $riskProfile = $this->syncDefaultBranch($sandbox, $containerName, $repository);
             if ($resuming) {
                 $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
             }
@@ -242,21 +280,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             $this->consumeAnswers();
             $recorder->agentFinished($result);
 
-            if ($result->isError) {
-                TaskMetricsAccumulator::record($this->task, $result);
-                $this->handleError($result->failureMessage());
-
-                return;
-            }
-
-            if ($this->askIfNeeded($result)) {
-                return;
-            }
-
-            // Questions ignored at the round limit must not reach the output.
-            $result = $result->withResultSummary(ClaudeCodeOutputParser::stripClarificationBlock($result->resultSummary));
-
-            $this->handleSuccess($repository, $result, $sandbox, $containerName);
+            $this->finishResearchResult($repository, $result, $sandbox, $containerName);
             $recorder->mark('post_agent');
         } catch (ClaudeAuthException $e) {
             Log::error('ResearchYakJob auth failure', [
@@ -286,175 +310,5 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 
             $recorder->finish();
         }
-    }
-
-    /**
-     * Opens or updates the PR carrying the drafted profile as `.yak/risk-profile.yml`,
-     * only after a clean read of GitHub. The database draft is already saved, so a
-     * failure is reported in the returned summary text and never loses the work.
-     *
-     * @param  array<string, mixed>  $profile
-     */
-    private function openRiskProfilePullRequest(Repository $repository, array $profile): string
-    {
-        try {
-            $snapshot = app(RepositoryConfig::class)->snapshot($repository);
-
-            if ($snapshot->state !== 'read') {
-                return "\n\nNo risk profile PR was opened: Yak could not read `.yak/` from GitHub. Generate the profile again once it is reachable.";
-            }
-
-            $current = $repository->settings()->riskProfile();
-            $currentRisks = array_column($current['areas'] ?? [], 'risk', 'name');
-            $changes = [];
-            foreach ($profile['areas'] as $area) {
-                $old = $currentRisks[$area['name']] ?? null;
-                if ($old === null) {
-                    $changes[$area['name']] = "New, **{$area['risk']}**";
-                } elseif ($old !== $area['risk']) {
-                    $changes[$area['name']] = "{$old} to **{$area['risk']}**";
-                }
-            }
-            foreach (array_diff(array_keys($currentRisks), array_column($profile['areas'], 'name')) as $name) {
-                $changes[$name] = 'Removed';
-            }
-
-            $body = view('pull-requests.risk-profile', [
-                'shortSha' => substr((string) $profile['source_sha'], 0, 7),
-                'changes' => $changes,
-                'unknownCount' => count($profile['unknowns']),
-            ])->render();
-            $title = $current === null ? 'Add Yak risk profile' : 'Update Yak risk profile';
-
-            $pullRequest = app(ConfigPullRequests::class)->open(
-                $repository, 'yak/risk-profile',
-                ['.yak/risk-profile.yml' => app(YakConfigFiles::class)->riskProfile($profile)],
-                $title, $body, $title, true,
-            );
-            TaskLogger::info($this->task, 'Opened risk profile PR', ['url' => $pullRequest['url']]);
-
-            return "\n\nRisk profile PR: " . $pullRequest['url'];
-        } catch (\Throwable $e) {
-            TaskLogger::warning($this->task, 'Could not open the risk profile PR: ' . $e->getMessage());
-
-            return "\n\nCould not open the risk profile PR: " . MarkdownText::inline($e->getMessage());
-        }
-    }
-
-    private function handleSuccess(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $containerName): void
-    {
-        $summary = $result->resultSummary;
-
-        TaskMetricsAccumulator::record($this->task, $result);
-        DailyCost::accumulate($result->costUsd);
-
-        $context = json_decode((string) $this->task->context, true) ?: [];
-        if (($context['risk_profile_draft'] ?? false) === true) {
-            // A rejected draft must not discard the run: the agent output is
-            // the only copy of the work, and a human needs it to correct the
-            // JSON and re-import it. No draft is stored, so nothing can be
-            // approved from a malformed profile either way.
-            try {
-                $profile = app(RepositoryRiskProfiles::class)->draft(
-                    $repository->slug, (string) ($context['risk_profile_source_sha'] ?? ''), $summary,
-                );
-                $summary .= "\n\nDraft risk profile: " . $profile['version'] . "\nHuman review and explicit activation required.";
-                TaskLogger::info($this->task, 'Risk profile draft saved', [
-                    'version' => $profile['version'], 'source_sha' => $profile['source_sha'],
-                ]);
-                $summary .= $this->openRiskProfilePullRequest($repository, $profile);
-            } catch (\Throwable $e) {
-                $summary .= "\n\nNo draft risk profile was saved: " . $e->getMessage()
-                    . "\nCorrect the JSON above and import it with `php artisan yak:risk-profile "
-                    . $repository->slug . ' --import=<file.json>`.';
-                TaskLogger::error($this->task, 'Risk profile draft rejected', [
-                    'error' => $e->getMessage(),
-                    'raw_output' => mb_substr($result->resultSummary, 0, 10000),
-                ]);
-            }
-        }
-
-        $artifact = $this->collectHtmlArtifact($sandbox, $containerName);
-        $artifactUrl = $artifact !== null ? $this->viewerUrl($artifact) : null;
-
-        // A research run can record a walkthrough. Its shot clips only exist
-        // inside the sandbox, and the persister hands them to the renderer.
-        SandboxArtifactCollector::collect($sandbox, $containerName, $this->task);
-        $hasWalkthrough = collect(ArtifactPersister::persist($this->task))->contains('type', 'video');
-        $taskUrl = route('tasks.show', $this->task);
-
-        $this->task->update([
-            'status' => TaskStatus::Success,
-            'result_summary' => $summary,
-            'model_used' => config('yak.default_model'),
-            'completed_at' => now(),
-        ]);
-
-        TaskLogger::info($this->task, 'Task completed');
-
-        // Generate the personality message from the summary only. If
-        // we pipe the URL through the agent it sometimes paraphrases
-        // the findings link into prose ("check out the link!") and
-        // drops the actual URL — which is exactly what the user sees.
-        // Append the URL ourselves after the rewrite so it's always
-        // front-and-center.
-        //
-        // When there's no artifact the task was a pure Q&A, so drop
-        // the "Research complete:" prefix — it reads oddly for a
-        // short factual answer.
-        if ($artifact !== null) {
-            $notificationMessage = YakPersonality::generate(NotificationType::Result, "Research complete: {$summary}");
-            $notificationMessage .= "\n\n📑 **[View research report]({$artifactUrl})**";
-        } else {
-            $notificationMessage = YakPersonality::generate(NotificationType::Result, $summary);
-        }
-
-        if ($hasWalkthrough) {
-            $notificationMessage .= "\n\n🎬 **[Watch the walkthrough]({$taskUrl})** (ready once it finishes rendering)";
-        }
-
-        $this->reportResult($notificationMessage);
-
-        if ($this->task->source === 'linear') {
-            // Mirror the viewer URL onto the Linear issue itself so the
-            // research report stays findable long after the agent
-            // session wraps up.
-            if ($artifact !== null && $artifactUrl !== null) {
-                app(LinearNotificationDriver::class)->createIssueAttachment(
-                    $this->task,
-                    title: 'Research report',
-                    url: $artifactUrl,
-                    subtitle: 'Detailed findings from Yak · HTML',
-                );
-            }
-
-            if ($hasWalkthrough) {
-                app(LinearNotificationDriver::class)->createIssueAttachment(
-                    $this->task,
-                    title: 'Walkthrough video',
-                    url: $taskUrl,
-                    subtitle: 'Recorded by Yak',
-                );
-            }
-        }
-    }
-
-    private function handleError(string $errorMessage): void
-    {
-        // Don't overwrite a task that's already terminal — see
-        // RunYakJob::handleError() for the full reasoning.
-        if ($this->taskIsTerminal($this->task->fresh())) {
-            return;
-        }
-
-        TaskLogger::error($this->task, 'Task failed', ['error' => $errorMessage]);
-
-        $this->task->update([
-            'status' => TaskStatus::Failed,
-            'error_log' => $errorMessage,
-            'completed_at' => now(),
-        ]);
-
-        $this->notifySourceOfFailure($errorMessage);
     }
 }

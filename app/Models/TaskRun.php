@@ -69,6 +69,7 @@ class TaskRun extends Model
             'command_states' => AsEnumCollection::of(CommandState::class),
             'awaiting_background_result' => 'boolean',
             'restarted' => 'boolean',
+            'starts_new_session' => 'boolean',
             'restart_due_at' => 'datetime',
             'last_result_event' => 'json',
             'turn_cost_usd_by_session' => 'json',
