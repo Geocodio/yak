@@ -124,3 +124,31 @@ it('continues with a new turn with fresh limits', function () {
         ->and($new->driver_user_id)->toBe($user->id);
     expect(collect($this->streams->commandsFor($this->thread->channel()))->last()['text'])->toBe('Continue from where you stopped.');
 });
+
+it('does not continue when a turn is already running or the lock is held', function () {
+    $this->thread->forceFill(['sandbox_container' => 'yak-thread-1'])->save();
+    $this->run->forceFill(['assistant_messages' => 3])->save();
+    driveAssistantLines($this->thread, 1);
+    $user = User::factory()->create();
+
+    // The check happens under the thread's row lock, so a second request that finds the
+    // first one's turn running or its lock held is refused.
+    $this->actingAs($user)->post(route('tasks.continue', $this->task))->assertSessionHas('success');
+    $before = $this->thread->turns()->count();
+
+    $this->actingAs($user)->post(route('tasks.continue', $this->task))->assertSessionHas('error', 'There is no stopped turn to continue.');
+
+    expect($this->thread->turns()->count())->toBe($before);
+});
+
+it('refuses to continue while the thread lock is held by someone else', function () {
+    $this->thread->forceFill(['sandbox_container' => 'yak-thread-1'])->save();
+    $this->run->forceFill(['assistant_messages' => 3])->save();
+    driveAssistantLines($this->thread, 1);
+    Thread::query()->whereKey($this->thread->id)->update(['lock_holder' => ThreadLockHolder::Sandbox->value]);
+    $before = $this->thread->turns()->count();
+
+    $this->actingAs(User::factory()->create())->post(route('tasks.continue', $this->task))->assertSessionHas('error');
+
+    expect($this->thread->turns()->count())->toBe($before);
+});

@@ -8,6 +8,7 @@ use App\Enums\TaskRunKind;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\TurnState;
+use App\Exceptions\NoTurnToContinue;
 use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -27,13 +28,25 @@ class ThreadTurns
      * Returns null, with no runner command sent, when the thread is blocked or
      * its account cannot be used; the thread's blocked_reason says why. A
      * thread never moves to another account on its own.
+     *
+     * With $continuesStoppedTurn the thread must have no running turn, a free
+     * lock and a latest turn that the runaway guard stopped; that check runs
+     * under the same row lock that takes the thread lock, so two requests
+     * cannot both continue. Otherwise NoTurnToContinue is thrown.
+     *
+     * @throws NoTurnToContinue
      */
-    public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName): ?TaskRun
+    public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName, bool $continuesStoppedTurn = false): ?TaskRun
     {
         $promptUuid = (string) Str::uuid();
 
-        $started = DB::transaction(function () use ($task, $kind, $prompt, $driverUserId, $containerName, $promptUuid): ?array {
+        $started = DB::transaction(function () use ($task, $kind, $prompt, $driverUserId, $containerName, $promptUuid, $continuesStoppedTurn): ?array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
+
+            if ($continuesStoppedTurn && ! $this->canContinue($thread)) {
+                throw new NoTurnToContinue;
+            }
+
             $account = ClaudeAccount::query()->find($thread->claude_account_id);
             $blockedReason = $this->blockedReason($thread, $account);
 
@@ -98,6 +111,13 @@ class ThreadTurns
         $run->forceFill(['turn_state' => TurnState::Running])->save();
 
         return $run;
+    }
+
+    private function canContinue(Thread $thread): bool
+    {
+        return $thread->runningTurn() === null
+            && $thread->lock_holder === ThreadLockHolder::None
+            && $thread->turns()->latest('id')->first()?->turn_state === TurnState::StoppedByGuard;
     }
 
     /**
