@@ -1,0 +1,35 @@
+---
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: yak
+    state: present
+
+- name: Ensure Redis data directory exists
+  ansible.builtin.file:
+    path: "{{ redis_data_path }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+# Thread streams live here, so the append-only file has to survive restarts.
+- name: Run Redis container
+  community.docker.docker_container:
+    name: "{{ redis_container_name }}"
+    image: "redis:7"
+    state: started
+    restart_policy: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --requirepass
+      - "{{ redis_password }}"
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - "{{ redis_data_path }}:/data"
+    networks:
+      - name: yak

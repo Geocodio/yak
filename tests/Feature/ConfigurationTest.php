@@ -140,3 +140,7 @@ it('keeps the sandbox base version in step with Ansible', function () {
 
     expect((int) $matches[1])->toBe(config('yak.sandbox.base_version'));
 });
+
+it('ships the redis extension in the image', function () {
+    expect(file_get_contents(base_path('Dockerfile')))->toContain('docker-php-ext-enable redis');
+});

@@ -49,3 +49,6 @@ yak_sandbox_runc_version: ""
 # to this long rather than destroy live work. --wait keeps its shorter
 # meaning: the minimum patience for a task that's gone silent.
 yak_drain_max_wait_seconds: 2700
+
+redis_container_name: yak-redis
+redis_data_path: /home/yak/redis-data

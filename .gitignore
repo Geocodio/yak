@@ -43,3 +43,4 @@ tests/Fixtures/*.webm
 
 # Pest browser test failure screenshots
 tests/Browser/Screenshots
+/broker/dist

@@ -109,8 +109,14 @@
     - role: incus
       tags: [incus, sandbox]
 
+    - role: yak-broker
+      tags: [yak-broker, sandbox]
+
     - role: mariadb
       tags: [mariadb]
+
+    - role: redis
+      tags: [redis, yak-app, secrets]
 
     - role: yak-container
       tags: [yak-container, yak-app, secrets]

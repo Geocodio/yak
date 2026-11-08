@@ -1,0 +1,17 @@
+[Unit]
+Description=Yak pipe broker
+After=network-online.target docker.service incus.service
+Wants=network-online.target
+
+[Service]
+# Runs as root because it spawns runners with `incus exec`.
+User=root
+EnvironmentFile=/etc/yak/broker.env
+ExecStart=/usr/local/bin/yak-broker
+Restart=always
+RestartSec=2
+KillMode=mixed
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

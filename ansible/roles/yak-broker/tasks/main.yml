@@ -1,0 +1,49 @@
+---
+- name: Build the broker on the controller
+  ansible.builtin.command:
+    cmd: go build -o {{ playbook_dir }}/../broker/dist/yak-broker .
+    chdir: "{{ playbook_dir }}/../broker"
+  environment:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  run_once: true
+
+- name: Install the broker binary
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../broker/dist/yak-broker"
+    dest: /usr/local/bin/yak-broker
+    mode: "0755"
+    owner: root
+    group: root
+  notify: Restart yak-broker
+
+- name: Write the broker environment
+  ansible.builtin.template:
+    src: broker.env.j2
+    dest: /etc/yak/broker.env
+    mode: "0600"
+    owner: root
+    group: root
+  notify: Restart yak-broker
+
+- name: Install the broker unit
+  ansible.builtin.template:
+    src: yak-broker.service.j2
+    dest: /etc/systemd/system/yak-broker.service
+    mode: "0644"
+    owner: root
+    group: root
+  notify:
+    - Reload systemd
+    - Restart yak-broker
+
+- name: Enable and start the broker
+  ansible.builtin.systemd:
+    name: yak-broker
+    enabled: true
+    state: started
+    daemon_reload: true

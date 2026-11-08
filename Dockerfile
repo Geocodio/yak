@@ -37,7 +37,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bcmath \
     pcntl \
     intl \
-    && rm -rf /var/lib/apt/lists/*
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && rm -rf /var/lib/apt/lists/* /tmp/pear
 
 ENV CHROME_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
