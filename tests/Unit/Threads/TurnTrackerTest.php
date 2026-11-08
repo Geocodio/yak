@@ -123,7 +123,7 @@ it('waits for the autonomous result after a background task finishes', function 
     $tracker->observe(threadBackgroundTasks(0));
 
     expect($tracker->isEnded())->toBeFalse()
-        ->and($tracker->attributes()['awaiting_background_result'])->toBeTrue();
+        ->and($tracker->attributes()['pending_background_results'])->toBe(1);
 
     $tracker->observe(threadResult());
 
@@ -205,4 +205,39 @@ it('round-trips through attributes', function () {
 
     expect($restoredMidTurn->isEnded())->toBeFalse()
         ->and($restoredMidTurn->attributes())->toBe($midTurn->attributes());
+});
+
+it('waits for a subagent the model backgrounded on its own', function (int $run) {
+    $tracker = new TurnTracker;
+    $endedBeforeLastResult = false;
+    $results = 0;
+
+    foreach (file(base_path("tests/Fixtures/threads/own-background-subagent-{$run}.jsonl"), FILE_IGNORE_NEW_LINES) as $row) {
+        $line = json_decode(explode("\t", $row, 2)[1], true);
+
+        if (isset($line['_driver_sent'])) {
+            if (isset($line['uuid'])) {
+                $tracker->track($line['uuid']);
+            }
+
+            continue;
+        }
+
+        $tracker->observe($line);
+        $results += ($line['type'] ?? null) === 'result' ? 1 : 0;
+        $endedBeforeLastResult = $endedBeforeLastResult || ($tracker->isEnded() && $results < 5);
+    }
+
+    expect($endedBeforeLastResult)->toBeFalse()
+        ->and($tracker->results())->toHaveCount(5)
+        ->and($tracker->isEnded())->toBeTrue();
+})->with([1, 2, 3, 4, 5]);
+
+it('ends once with one answer after a sandbox pause lands in a tool call', function () {
+    // The paused Bash call hit its wall-clock timeout on resume and moved to the background.
+    [$tracker] = replayThreadFixture('pause-during-tool');
+
+    expect($tracker->isEnded())->toBeTrue()
+        ->and($tracker->results())->toHaveCount(1)
+        ->and($tracker->results()[0]['result'])->toBe('FINISHED');
 });

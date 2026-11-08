@@ -70,11 +70,22 @@ func (IncusSpawner) Start(_ context.Context, container string, uid int, cwd stri
 	return &incusProcess{cmd: cmd, stdin: stdin, stdout: stdout}, nil
 }
 
-// KillRunners kills every runner session in the container. The bracketed
-// pattern keeps pgrep from matching the shell that runs it.
+// killRunnersScript kills every runner together with all its descendants and its
+// session. The agent's tool processes (a Bash call, its children) run in sessions of
+// their own, so the session kill alone would leave them running as orphans. The
+// bracketed pattern keeps pgrep from matching the shell that runs the script.
+const killRunnersScript = `descendants() { for child in $(pgrep -P "$1"); do echo "$child"; descendants "$child"; done; }
+for pid in $(pgrep -f '[/]opt/yak-runner/runner.mjs'); do
+  session="$(ps -o sid= -p "$pid" | tr -d ' ')"
+  family="$pid $(descendants "$pid")"
+  kill -KILL $family 2>/dev/null
+  if [ -n "$session" ]; then pkill -KILL -s "$session"; fi
+done
+true`
+
+// KillRunners kills every runner in the container, its session and every process below it.
 func (IncusSpawner) KillRunners(ctx context.Context, container string) error {
-	script := `for pid in $(pgrep -f '[/]opt/yak-runner/runner.mjs'); do pkill -KILL -s "$(ps -o sid= -p "$pid" | tr -d ' ')"; done; true`
-	out, err := exec.CommandContext(ctx, "incus", "exec", container, "--", "sh", "-c", script).CombinedOutput()
+	out, err := exec.CommandContext(ctx, "incus", "exec", container, "--", "sh", "-c", killRunnersScript).CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("kill runners in %s: %w: %s", container, err, strings.TrimSpace(string(out)))
 	}

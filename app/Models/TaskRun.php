@@ -67,7 +67,7 @@ class TaskRun extends Model
             'cost_usd' => 'decimal:4',
             'turn_state' => TurnState::class,
             'command_states' => AsEnumCollection::of(CommandState::class),
-            'awaiting_background_result' => 'boolean',
+            'pending_background_results' => 'integer',
             'restarted' => 'boolean',
             'starts_new_session' => 'boolean',
             'restart_due_at' => 'datetime',

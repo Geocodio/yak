@@ -9,7 +9,9 @@ use App\Models\TaskRun;
 /**
  * Decides when a turn is over from the runner's lines. A turn ends only when
  * every command uuid is terminal, no background task is running, no autonomous
- * result is still expected after one finished, and at least one result came in.
+ * result is still expected, and at least one result came in. Every background
+ * task that finishes wakes the model for one more result of its own, and that
+ * result can arrive after the task count already reached zero.
  */
 final class TurnTracker
 {
@@ -18,7 +20,7 @@ final class TurnTracker
 
     private int $backgroundTaskCount = 0;
 
-    private bool $awaitingBackgroundResult = false;
+    private int $pendingBackgroundResults = 0;
 
     private int $resultCount = 0;
 
@@ -66,7 +68,7 @@ final class TurnTracker
         }
 
         $tracker->backgroundTaskCount = (int) $run->background_task_count;
-        $tracker->awaitingBackgroundResult = (bool) $run->awaiting_background_result;
+        $tracker->pendingBackgroundResults = (int) $run->pending_background_results;
         $tracker->resultCount = (int) $run->result_count;
         /** @var array<string, mixed>|null $lastResult */
         $lastResult = $run->last_result_event;
@@ -99,9 +101,7 @@ final class TurnTracker
         if ($type === 'system' && ($line['subtype'] ?? null) === 'background_tasks_changed') {
             $count = count($line['tasks'] ?? []);
 
-            if ($this->backgroundTaskCount > 0 && $count === 0) {
-                $this->awaitingBackgroundResult = true;
-            }
+            $this->pendingBackgroundResults += max(0, $this->backgroundTaskCount - $count);
 
             $this->backgroundTaskCount = $count;
         }
@@ -111,9 +111,7 @@ final class TurnTracker
             $this->lastResult = $line;
             $this->results[] = $line;
 
-            if ($this->backgroundTaskCount === 0) {
-                $this->awaitingBackgroundResult = false;
-            }
+            $this->pendingBackgroundResults = max(0, $this->pendingBackgroundResults - 1);
 
             $this->addCost($line);
         }
@@ -123,7 +121,7 @@ final class TurnTracker
 
     public function isEnded(): bool
     {
-        if ($this->resultCount === 0 || $this->backgroundTaskCount > 0 || $this->awaitingBackgroundResult) {
+        if ($this->resultCount === 0 || $this->backgroundTaskCount > 0 || $this->pendingBackgroundResults > 0) {
             return false;
         }
 
@@ -195,7 +193,7 @@ final class TurnTracker
         return [
             'command_states' => array_map(fn (CommandState $state): string => $state->value, $this->states),
             'background_task_count' => $this->backgroundTaskCount,
-            'awaiting_background_result' => $this->awaitingBackgroundResult,
+            'pending_background_results' => $this->pendingBackgroundResults,
             'result_count' => $this->resultCount,
             'last_result_event' => $this->lastResult,
             'turn_cost_usd_by_session' => $this->costBySession,

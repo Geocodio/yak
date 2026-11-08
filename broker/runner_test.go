@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeProcess struct {
@@ -343,4 +345,38 @@ func TestLongLinesAreNotTruncated(t *testing.T) {
 		return false
 	})
 	_ = entries
+}
+
+func TestKillRunnersScriptKillsToolProcessesInTheirOwnSession(t *testing.T) {
+	if _, err := exec.LookPath("perl"); err != nil {
+		t.Skip("perl is required for the decoy runner")
+	}
+	// The decoy has the runner's path in its argv and starts a child in a new session,
+	// the way the CLI starts a Bash tool process.
+	decoy := exec.Command("perl", "-e", `use POSIX; if (!fork) { POSIX::setsid(); exec "sleep", "300.7" } sleep 300;`, "/opt/yak-runner/runner.mjs")
+	if err := decoy.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go decoy.Wait()
+	t.Cleanup(func() { exec.Command("pkill", "-KILL", "-f", "sleep 300.7").Run() })
+
+	waitFor := func(running bool) bool {
+		for i := 0; i < 50; i++ {
+			if (exec.Command("pgrep", "-f", "sleep 300.7").Run() == nil) == running {
+				return true
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		return false
+	}
+	if !waitFor(true) {
+		t.Fatal("tool process did not start")
+	}
+
+	if err := exec.Command("sh", "-c", killRunnersScript).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !waitFor(false) {
+		t.Fatal("tool process survived the kill")
+	}
 }
