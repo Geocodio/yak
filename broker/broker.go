@@ -136,7 +136,7 @@ func (b *Broker) watch(ctx context.Context, name string, groupStart string) *cha
 		b.logger.Warn("create group failed", "channel", name, "error", err)
 	}
 	if groupStart == "$" {
-		_ = b.redis.XGroupSetID(ctx, in, groupName, "$").Err()
+		b.skipBacklog(ctx, in)
 	}
 
 	state := &channelState{name: name}
@@ -155,6 +155,44 @@ func (b *Broker) watch(ctx context.Context, name string, groupStart string) *cha
 		b.readCommands(ctx, state)
 	}()
 	return state
+}
+
+// skipBacklog moves the group past every command already in the stream and
+// deletes those commands. The group moves to the last existing id, not to
+// "$", so a command written during startup is neither skipped nor left behind.
+func (b *Broker) skipBacklog(ctx context.Context, in string) {
+	last, err := b.redis.XRevRangeN(ctx, in, "+", "-", 1).Result()
+	if err != nil || len(last) == 0 {
+		if err != nil {
+			b.logger.Warn("read backlog failed", "stream", in, "error", err)
+		}
+		return
+	}
+	if err := b.redis.XGroupSetID(ctx, in, groupName, last[0].ID).Err(); err != nil {
+		b.logger.Warn("move group past backlog failed", "stream", in, "error", err)
+	}
+	entries, err := b.redis.XRange(ctx, in, "-", last[0].ID).Result()
+	if err != nil {
+		b.logger.Warn("list backlog failed", "stream", in, "error", err)
+		return
+	}
+	for _, entry := range entries {
+		if err := b.redis.XDel(ctx, in, entry.ID).Err(); err != nil {
+			b.logger.Warn("delete skipped entry failed", "stream", in, "id", entry.ID, "error", err)
+		}
+	}
+}
+
+// finish acknowledges and deletes a processed inbound entry. Entries never
+// outlive their processing, whether or not they parsed.
+func (b *Broker) finish(ctx context.Context, state *channelState, id string) {
+	in := state.name + ":in"
+	if err := b.redis.XAck(ctx, in, groupName, id).Err(); err != nil {
+		b.logger.Warn("ack failed", "channel", state.name, "id", id, "error", err)
+	}
+	if err := b.redis.XDel(ctx, in, id).Err(); err != nil {
+		b.logger.Warn("delete failed", "channel", state.name, "id", id, "error", err)
+	}
 }
 
 func (b *Broker) readCommands(ctx context.Context, state *channelState) {
@@ -195,18 +233,15 @@ func (b *Broker) handle(ctx context.Context, state *channelState, message redis.
 	var cmd command
 	if err := json.Unmarshal([]byte(raw), &cmd); err != nil {
 		b.logger.Warn("bad command", "channel", state.name, "error", err)
-		b.redis.XAck(ctx, state.name+":in", groupName, message.ID)
+		b.finish(ctx, state, message.ID)
 		return
 	}
-	in := state.name + ":in"
 	if cmd.Type == "start_runner" {
-		// The entry carries a credential, so it is deleted before anything else.
-		b.redis.XDel(ctx, in, message.ID)
 		b.startRunner(ctx, state, cmd)
 	} else {
 		b.dispatch(ctx, state, cmd)
 	}
-	b.redis.XAck(ctx, in, groupName, message.ID)
+	b.finish(ctx, state, message.ID)
 }
 
 func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd command) {

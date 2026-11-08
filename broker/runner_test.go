@@ -183,6 +183,37 @@ func TestStartRunnerEntryIsDeleted(t *testing.T) {
 	}
 }
 
+func TestEveryProcessedEntryIsDeletedAndAcked(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	h.command("threads:1", `{"type":"turn","uuid":"u1","text":"hi"}`)
+	h.command("threads:1", `not json at all`)
+	h.command("threads:1", `{"type":"mystery"}`)
+	waitFor(t, func() bool {
+		length, _ := h.redis.XLen(context.Background(), "threads:1:in").Result()
+		pending, _ := h.redis.XPending(context.Background(), "threads:1:in", groupName).Result()
+		return length == 0 && pending.Count == 0
+	})
+}
+
+func TestStartupDeletesTheSkippedBacklog(t *testing.T) {
+	h := newHarness(t, func(h *harness) {
+		h.redis.SAdd(context.Background(), "broker:channels", "threads:1")
+		h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+		h.command("threads:1", `{"type":"turn","uuid":"old","text":"hi"}`)
+	})
+	waitFor(t, func() bool {
+		length, _ := h.redis.XLen(context.Background(), "threads:1:in").Result()
+		return length == 0
+	})
+	if h.spawner.startCount() != 0 {
+		t.Fatal("a skipped command ran")
+	}
+	// A command written after startup is still processed.
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+}
+
 func TestRunnerLinesAreCopiedUnchangedWithSequence(t *testing.T) {
 	h := newHarness(t)
 	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
