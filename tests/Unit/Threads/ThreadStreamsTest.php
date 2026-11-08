@@ -113,6 +113,16 @@ it('dead-letters an entry after counting failures and removes it from the out st
     $this->redis->hDel('broker:attempts', $this->channel . '|' . $entry->id);
 });
 
+it('dead-letters an entry whose line cannot be re-encoded', function () {
+    $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '1', 'line' => '{"n":1e999}']);
+    $entry = $this->streams->read([$this->channel], 'consumer-a', 50, 10)[0];
+
+    $this->streams->deadLetter($entry, 'boom');
+
+    expect($this->redis->xLen($this->channel . ':dead'))->toBe(1)
+        ->and($this->redis->xLen($this->channel . ':out'))->toBe(0);
+});
+
 it('claims entries a crashed consumer left behind', function () {
     $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => '1', 'line' => '{"type":"system"}']);
     $this->streams->read([$this->channel], 'dead-consumer', 50, 10);

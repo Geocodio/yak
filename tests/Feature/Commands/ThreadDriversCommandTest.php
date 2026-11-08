@@ -77,6 +77,27 @@ it('moves an entry that keeps failing to the dead letters and fails only its tur
         ->and($streams->read([$thread->channel()], 'c', 0, 10))->toHaveCount(0);
 });
 
+it('acknowledges an entry even when dead-lettering it fails', function () {
+    $streams = Mockery::mock(FakeThreadStreams::class)->makePartial();
+    $this->app->instance(ThreadStreams::class, $streams);
+    $thread = Thread::factory()->create();
+    $streams->register($thread->channel());
+    $streams->pushOutbound($thread->channel(), ['type' => 'poison']);
+    $streams->shouldReceive('deadLetter')->andThrow(new RuntimeException('encode'));
+
+    $driver = Mockery::mock(ThreadDriver::class);
+    $driver->shouldReceive('handle')->times(3)->andThrow(new RuntimeException('boom'));
+    $driver->shouldReceive('tick');
+    $driver->shouldReceive('failTurnOf')->once();
+    $this->app->instance(ThreadDriver::class, $driver);
+
+    foreach (range(1, 3) as $ignored) {
+        $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
+    }
+
+    expect($streams->read([$thread->channel()], 'c', 0, 10))->toHaveCount(0);
+});
+
 it('holds back later entries of a channel while an earlier one is pending', function () {
     $streams = new FakeThreadStreams;
     $this->app->instance(ThreadStreams::class, $streams);

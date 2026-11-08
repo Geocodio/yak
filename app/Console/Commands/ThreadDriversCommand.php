@@ -83,7 +83,13 @@ class ThreadDriversCommand extends Command
                 return false;
             }
 
-            $streams->deadLetter($entry, $exception::class . ': ' . $exception->getMessage());
+            try {
+                $streams->deadLetter($entry, $exception::class . ': ' . $exception->getMessage());
+            } catch (Throwable $deadLetterFailure) {
+                // The entry must still leave the out stream, or it would be claimed and fail forever.
+                report($deadLetterFailure);
+                $streams->ack($entry);
+            }
 
             try {
                 $driver->failTurnOf($entry);
