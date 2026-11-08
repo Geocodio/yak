@@ -2,13 +2,17 @@
 
 namespace App\Models;
 
+use App\Enums\CommandState;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskRunOutcome;
+use App\Enums\TurnState;
 use Carbon\CarbonImmutable;
 use Database\Factories\TaskRunFactory;
+use Illuminate\Database\Eloquent\Casts\AsEnumCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 /**
  * One row per agent invocation: the timing of every stage, what the CLI
@@ -18,6 +22,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property TaskRunKind $kind
  * @property TaskRunOutcome|null $outcome
+ * @property TurnState|null $turn_state
+ * @property Collection<string, CommandState>|null $command_states
  * @property CarbonImmutable|null $dispatched_at
  * @property CarbonImmutable $started_at
  * @property CarbonImmutable|null $agent_started_at
@@ -56,6 +62,13 @@ class TaskRun extends Model
             'tool_breakdown' => 'json',
             'api_retry_breakdown' => 'json',
             'cost_usd' => 'decimal:4',
+            'turn_state' => TurnState::class,
+            'command_states' => AsEnumCollection::of(CommandState::class),
+            'awaiting_background_result' => 'boolean',
+            'restarted' => 'boolean',
+            'last_result_event' => 'json',
+            'turn_cost_usd_by_session' => 'json',
+            'completion_dispatched_at' => 'datetime',
         ];
     }
 
@@ -65,5 +78,13 @@ class TaskRun extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(YakTask::class, 'yak_task_id');
+    }
+
+    /**
+     * @return BelongsTo<Thread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(Thread::class);
     }
 }

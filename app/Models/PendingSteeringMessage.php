@@ -26,6 +26,9 @@ class PendingSteeringMessage extends Model
     {
         return [
             'mode' => SteeringMode::class,
+            'sent_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'absorbed_at' => 'datetime',
         ];
     }
 

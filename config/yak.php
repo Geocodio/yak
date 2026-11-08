@@ -529,4 +529,49 @@ return [
         'reconcile_pr_state' => (bool) env('YAK_TELEMETRY_RECONCILE_PR_STATE', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Threads
+    |--------------------------------------------------------------------------
+    |
+    | Long-lived conversations that keep one sandbox and one Agent SDK runner
+    | across turns. Off until the cutover release removes the CLI path.
+    |
+    */
+
+    'threads' => [
+        'enabled' => (bool) env('YAK_THREADS_ENABLED', false),
+
+        // Days a closed thread's sandbox is kept before it is destroyed.
+        'destroy_days' => 30,
+
+        // Hard cap on one turn's wall-clock time.
+        'turn_wall_clock_minutes' => 120,
+
+        // Minutes a paused sandbox waits before its runner is stopped.
+        'pause_to_stop_minutes' => 30,
+
+        // Most sandboxes that may be awake (running or paused) at once.
+        'awake_cap' => 8,
+
+        // Minutes a freshly paused sandbox is protected from eviction.
+        'eviction_grace_minutes' => 10,
+
+        // Seconds a runner gets to exit after an end command.
+        'stop_timeout_seconds' => 30,
+
+        // Days the session store keeps files of closed threads.
+        'session_retention_days' => 30,
+
+        'runner_path' => '/opt/yak-runner/runner.mjs',
+        'sandbox_uid' => 1001,
+
+        // Milliseconds the sync daemon waits for a session file to go quiet.
+        'sync_quiet_ms' => 500,
+
+        // Production points this at the persistent /data volume.
+        'session_store_path' => env('YAK_SESSION_STORE_PATH', storage_path('app/session-store')),
+        'session_store_api_token' => env('YAK_SESSION_STORE_API_TOKEN'),
+    ],
+
 ];

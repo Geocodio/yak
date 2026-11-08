@@ -285,6 +285,14 @@ class YakTask extends Model
     }
 
     /**
+     * @return BelongsTo<Thread, $this>
+     */
+    public function thread(): BelongsTo
+    {
+        return $this->belongsTo(Thread::class);
+    }
+
+    /**
      * @return BelongsTo<YakTask, $this>
      */
     public function parent(): BelongsTo
