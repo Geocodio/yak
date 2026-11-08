@@ -9,6 +9,7 @@ use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\TurnState;
 use App\Exceptions\NoTurnToContinue;
+use App\Exceptions\ThreadBusy;
 use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -38,6 +39,7 @@ class ThreadTurns
      * cannot both continue. Otherwise NoTurnToContinue is thrown.
      *
      * @throws NoTurnToContinue
+     * @throws ThreadBusy when the thread already runs a turn
      */
     public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName, bool $continuesStoppedTurn = false, bool $startsNewSession = false): ?TaskRun
     {
@@ -48,6 +50,11 @@ class ThreadTurns
 
             if ($continuesStoppedTurn && ! $this->canContinue($thread)) {
                 throw new NoTurnToContinue;
+            }
+
+            // The lock is taken under this row lock, so two starts can never both pass this check.
+            if ($thread->runningTurn() !== null || $thread->lock_holder !== ThreadLockHolder::None) {
+                throw new ThreadBusy("Thread {$thread->id} already runs a turn.");
             }
 
             $account = ClaudeAccount::query()->find($thread->claude_account_id);

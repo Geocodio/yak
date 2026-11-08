@@ -48,8 +48,9 @@ it('resumes the active session when starting a runner', function () {
 });
 
 it('only sets the model on a live runner', function () {
-    startTurn($this->thread, $this->task);
-    $this->thread->forceFill(['runner_state' => RunnerState::Idle, 'model' => 'sonnet'])->save();
+    $first = startTurn($this->thread, $this->task);
+    $first->forceFill(['turn_state' => TurnState::Completed])->save();
+    Thread::query()->whereKey($this->thread->id)->update(['runner_state' => RunnerState::Idle->value, 'model' => 'sonnet', 'lock_holder' => ThreadLockHolder::None->value, 'lock_turn_id' => null]);
 
     startTurn($this->thread->fresh(), $this->task);
 

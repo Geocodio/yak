@@ -4,6 +4,7 @@ use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Exceptions\SandboxCapacityReached;
+use App\Exceptions\ThreadBusy;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -128,4 +129,39 @@ it('refuses to wake past the awake cap', function () {
     expect(fn () => app(ThreadSandbox::class)->ensureAwake($thread, $this->repository))->toThrow(SandboxCapacityReached::class);
     expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
     Process::assertNotRan(fn ($p) => str_contains((string) $p->command, 'incus start'));
+});
+
+it('refuses to start a turn on a thread that already runs one', function () {
+    $thread = Thread::factory()->paused()->create();
+    $task = YakTask::factory()->running()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'turn_state' => TurnState::Running]);
+    $started = false;
+
+    expect(fn () => app(ThreadSandbox::class)->startingTurn($thread, function () use (&$started) {
+        $started = true;
+    }))->toThrow(ThreadBusy::class);
+    expect($started)->toBeFalse();
+});
+
+it('never stops or pauses a sandbox while a turn is being started on it', function () {
+    fakeIncus();
+    $thread = Thread::factory()->paused()->create();
+    $sandbox = app(ThreadSandbox::class);
+
+    $sandbox->startingTurn($thread, function () use ($sandbox, $thread) {
+        $sandbox->stop($thread);
+        $sandbox->pause($thread);
+    });
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused);
+    Process::assertNotRan(fn ($p) => str_contains((string) $p->command, 'incus stop') || str_contains((string) $p->command, 'incus pause'));
+});
+
+it('releases the start lock after the turn is written', function () {
+    $thread = Thread::factory()->paused()->create();
+    $sandbox = app(ThreadSandbox::class);
+
+    $sandbox->startingTurn($thread, fn () => null);
+
+    expect($sandbox->startingTurn($thread, fn () => 'again'))->toBe('again');
 });

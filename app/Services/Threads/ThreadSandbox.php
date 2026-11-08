@@ -5,12 +5,17 @@ namespace App\Services\Threads;
 use App\DataTransferObjects\PreviewManifest;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSandboxState;
 use App\Exceptions\SandboxCapacityReached;
+use App\Exceptions\ThreadBusy;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\IncusSandboxManager;
 use App\Services\SessionStore\SessionSync;
+use Closure;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
 use Throwable;
@@ -26,6 +31,45 @@ class ThreadSandbox
         private readonly ThreadCommands $commands,
         private readonly SessionSync $sessionSync,
     ) {}
+
+    /**
+     * Runs the before-turn work (wake, prepare the tree, start the turn) as the
+     * only holder of the thread's turn lock. The same lock guards pausing and
+     * stopping, so a sandbox is never frozen or stopped under a turn that is
+     * about to start. A thread that already runs a turn is never started twice.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $startTurn
+     * @return T
+     *
+     * @throws ThreadBusy
+     */
+    public function startingTurn(Thread $thread, Closure $startTurn): mixed
+    {
+        $lock = $this->turnLock($thread);
+
+        if (! $lock->get()) {
+            throw new ThreadBusy("Thread {$thread->id} is starting a turn or stopping its sandbox.");
+        }
+
+        try {
+            $current = $thread->fresh() ?? $thread;
+
+            if ($current->runningTurn() !== null || $current->lock_holder !== ThreadLockHolder::None) {
+                throw new ThreadBusy("Thread {$thread->id} already runs a turn.");
+            }
+
+            return $startTurn();
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function turnLock(Thread $thread): Lock
+    {
+        return Cache::lock('thread-turn:' . $thread->id, 1800);
+    }
 
     /**
      * Returns the thread's container, awake and ready for a turn.
@@ -84,12 +128,25 @@ class ThreadSandbox
      */
     public function pause(Thread $thread): void
     {
-        if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->runningTurn() !== null) {
+        $lock = $this->turnLock($thread);
+
+        // A turn is being started: the sandbox stays awake and the turn pauses it when it ends.
+        if (! $lock->get()) {
             return;
         }
 
-        $this->sandboxes->pause((string) $thread->sandbox_container);
-        $this->record($thread, ThreadSandboxState::Paused);
+        try {
+            $thread->refresh();
+
+            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->runningTurn() !== null) {
+                return;
+            }
+
+            $this->sandboxes->pause((string) $thread->sandbox_container);
+            $this->record($thread, ThreadSandboxState::Paused);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
@@ -99,10 +156,26 @@ class ThreadSandbox
      */
     public function stop(Thread $thread): void
     {
-        if (! in_array($thread->sandbox_state, [ThreadSandboxState::Running, ThreadSandboxState::Paused], true) || $thread->runningTurn() !== null) {
+        $lock = $this->turnLock($thread);
+
+        // A turn is being started on this thread; try again on the next sweep.
+        if (! $lock->get()) {
             return;
         }
 
+        try {
+            $thread->refresh();
+
+            if (in_array($thread->sandbox_state, [ThreadSandboxState::Running, ThreadSandboxState::Paused], true) && $thread->runningTurn() === null) {
+                $this->stopLocked($thread);
+            }
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function stopLocked(Thread $thread): void
+    {
         $container = (string) $thread->sandbox_container;
         $timeout = (int) config('yak.threads.stop_timeout_seconds');
 

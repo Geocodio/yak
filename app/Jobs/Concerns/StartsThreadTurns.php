@@ -5,6 +5,7 @@ namespace App\Jobs\Concerns;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\SandboxCapacityReached;
+use App\Exceptions\ThreadBusy;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\Thread;
@@ -49,39 +50,48 @@ trait StartsThreadTurns
     ): bool {
         try {
             $thread = app(ThreadFactory::class)->forTask($this->task);
-            $container = app(ThreadSandbox::class)->ensureAwake($thread, $repository);
-            $sandbox = app(IncusSandboxManager::class);
 
-            $prepareTree($sandbox, $container, $thread);
-            $prompt = $promptFor();
+            return app(ThreadSandbox::class)->startingTurn($thread, function () use ($thread, $repository, $kind, $promptFor, $prepareTree, $attachments, $startsNewSession): bool {
+                $container = app(ThreadSandbox::class)->ensureAwake($thread, $repository);
+                $sandbox = app(IncusSandboxManager::class);
 
-            $staged = (new TaskAttachmentStager($sandbox))->stage($container, collect($attachments)->all());
+                $prepareTree($sandbox, $container, $thread);
+                $prompt = $promptFor();
 
-            if ($staged !== '') {
-                $prompt = rtrim($prompt) . "\n\n" . $staged;
-            }
+                $staged = (new TaskAttachmentStager($sandbox))->stage($container, collect($attachments)->all());
 
-            $run = app(ThreadTurns::class)->start(
-                $this->task,
-                $kind,
-                $prompt,
-                YakPromptBuilder::systemPrompt($this->task),
-                $this->task->started_by_user_id,
-                $container,
-                startsNewSession: $startsNewSession,
-            );
+                if ($staged !== '') {
+                    $prompt = rtrim($prompt) . "\n\n" . $staged;
+                }
 
-            if ($run === null) {
-                $this->handleError('The thread is blocked: ' . ($thread->refresh()->blocked_reason->value ?? 'no usable Claude account') . '.');
+                $run = app(ThreadTurns::class)->start(
+                    $this->task,
+                    $kind,
+                    $prompt,
+                    YakPromptBuilder::systemPrompt($this->task),
+                    $this->task->started_by_user_id,
+                    $container,
+                    startsNewSession: $startsNewSession,
+                );
 
-                return false;
-            }
+                if ($run === null) {
+                    $this->handleError('The thread is blocked: ' . ($thread->refresh()->blocked_reason->value ?? 'no usable Claude account') . '.');
 
-            return true;
+                    return false;
+                }
+
+                return true;
+            });
         } catch (SandboxCapacityReached) {
             // Every awake sandbox is busy: wait for a slot instead of failing the task.
             $this->task->update(['status' => $statusWhileWaiting]);
             $this->release(60);
+
+            return false;
+        } catch (ThreadBusy) {
+            // Another turn is starting or running on this thread: wait for it instead of working on the same tree.
+            $this->task->update(['status' => $statusWhileWaiting]);
+            $this->release(30);
 
             return false;
         } catch (\Throwable $e) {

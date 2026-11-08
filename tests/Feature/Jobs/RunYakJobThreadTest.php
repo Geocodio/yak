@@ -34,6 +34,7 @@ beforeEach(function () {
 
     $this->threadSandbox = Mockery::mock(ThreadSandbox::class);
     $this->threadSandbox->shouldReceive('ensureAwake')->andReturn('yak-thread-1');
+    $this->threadSandbox->shouldReceive('startingTurn')->andReturnUsing(fn ($thread, Closure $startTurn) => $startTurn());
     $this->threadSandbox->shouldReceive('pause')->byDefault();
     $this->app->instance(ThreadSandbox::class, $this->threadSandbox);
 

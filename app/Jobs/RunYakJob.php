@@ -6,6 +6,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
 use App\Exceptions\SandboxCapacityReached;
+use App\Exceptions\ThreadBusy;
 use App\GitOperations;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
@@ -187,44 +188,50 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
     {
         try {
             $thread = app(ThreadFactory::class)->forTask($this->task);
-            $container = app(ThreadSandbox::class)->ensureAwake($thread, $repository);
-            $sandbox = app(IncusSandboxManager::class);
 
-            if ($this->task->branch_name === null) {
-                $this->prepareBranch($sandbox, $container, $repository);
-            } elseif (! $this->isOnBranch($sandbox, $container, $this->task->branch_name)) {
-                $this->prepareExistingBranch($sandbox, $container, $repository, $this->task->branch_name);
-            }
+            app(ThreadSandbox::class)->startingTurn($thread, function () use ($thread, $repository, $resuming): void {
+                $container = app(ThreadSandbox::class)->ensureAwake($thread, $repository);
+                $sandbox = app(IncusSandboxManager::class);
 
-            $prompt = $this->promptFor(fn (): string => $this->assemblePrompt());
-            $attachments = (new TaskAttachmentStager($sandbox))->stage($container, $this->task->attachments->all());
+                if ($this->task->branch_name === null) {
+                    $this->prepareBranch($sandbox, $container, $repository);
+                } elseif (! $this->isOnBranch($sandbox, $container, $this->task->branch_name)) {
+                    $this->prepareExistingBranch($sandbox, $container, $repository, $this->task->branch_name);
+                }
 
-            if ($attachments !== '') {
-                $prompt = rtrim($prompt) . "\n\n" . $attachments;
-            }
+                $prompt = $this->promptFor(fn (): string => $this->assemblePrompt());
+                $attachments = (new TaskAttachmentStager($sandbox))->stage($container, $this->task->attachments->all());
 
-            $run = app(ThreadTurns::class)->start(
-                $this->task,
-                $resuming ? TaskRunKind::Clarification : TaskRunKind::Initial,
-                $prompt,
-                YakPromptBuilder::systemPrompt($this->task),
-                $this->task->started_by_user_id,
-                $container,
-                // A fresh run (a dashboard Retry before CI, say) starts over; only a clarification answer continues the session.
-                startsNewSession: ! $resuming && $thread->activeSession() !== null,
-            );
+                if ($attachments !== '') {
+                    $prompt = rtrim($prompt) . "\n\n" . $attachments;
+                }
 
-            if ($run === null) {
-                $this->handleError('The thread is blocked: ' . ($thread->refresh()->blocked_reason->value ?? 'no usable Claude account') . '.');
+                $run = app(ThreadTurns::class)->start(
+                    $this->task,
+                    $resuming ? TaskRunKind::Clarification : TaskRunKind::Initial,
+                    $prompt,
+                    YakPromptBuilder::systemPrompt($this->task),
+                    $this->task->started_by_user_id,
+                    $container,
+                    // A fresh run (a dashboard Retry before CI, say) starts over; only a clarification answer continues the session.
+                    startsNewSession: ! $resuming && $thread->activeSession() !== null,
+                );
 
-                return;
-            }
+                if ($run === null) {
+                    $this->handleError('The thread is blocked: ' . ($thread->refresh()->blocked_reason->value ?? 'no usable Claude account') . '.');
 
-            $this->consumeAnswers();
+                    return;
+                }
+
+                $this->consumeAnswers();
+            });
         } catch (SandboxCapacityReached) {
             // Every awake sandbox is busy: wait for a slot instead of failing the task.
             $this->task->update(['status' => TaskStatus::Pending]);
             $this->release(60);
+        } catch (ThreadBusy) {
+            $this->task->update(['status' => TaskStatus::Pending]);
+            $this->release(30);
         } catch (\Throwable $e) {
             Log::error('RunYakJob could not start its turn', ['task_id' => $this->task->id, 'error' => $e->getMessage()]);
             $this->handleError($e->getMessage());

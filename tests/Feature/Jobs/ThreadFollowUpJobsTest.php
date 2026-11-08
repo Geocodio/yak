@@ -46,6 +46,7 @@ beforeEach(function () {
 
     $this->threadSandbox = Mockery::mock(ThreadSandbox::class);
     $this->threadSandbox->shouldReceive('ensureAwake')->andReturn('yak-thread-1');
+    $this->threadSandbox->shouldReceive('startingTurn')->andReturnUsing(fn ($thread, Closure $startTurn) => $startTurn());
     $this->threadSandbox->shouldReceive('pause')->byDefault();
     $this->app->instance(ThreadSandbox::class, $this->threadSandbox);
 
@@ -179,7 +180,8 @@ it('research runs without touching the working tree', function () {
 
     $research = YakTask::factory()->pending()->create(['repo' => 'thread-repo', 'mode' => TaskMode::Research, 'source' => 'slack', 'thread_id' => $this->thread->id]);
     $this->sandbox->commands = [];
-    $this->thread->update(['lock_holder' => 'none', 'lock_turn_id' => null]);
+    Thread::query()->whereKey($this->thread->id)->update(['lock_holder' => 'none', 'lock_turn_id' => null]);
+    $this->thread->turns()->update(['turn_state' => TurnState::Completed]);
 
     (new ResearchYakJob($research))->handle(new FakeAgentRunner);
 
@@ -208,6 +210,7 @@ it('a code task after research checks out its branch', function () {
 it('waits for a free sandbox instead of failing when none is available', function () {
     $this->threadSandbox = Mockery::mock(ThreadSandbox::class);
     $this->threadSandbox->shouldReceive('ensureAwake')->andThrow(new SandboxCapacityReached);
+    $this->threadSandbox->shouldReceive('startingTurn')->andReturnUsing(fn ($thread, Closure $startTurn) => $startTurn());
     $this->app->instance(ThreadSandbox::class, $this->threadSandbox);
     $task = rootThreadTaskOn($this->thread, ['status' => TaskStatus::Retrying]);
 
