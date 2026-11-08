@@ -2,13 +2,20 @@
 // stdin:  {type:'start',...} first, then user | interrupt | set_model | end.
 // stdout: every SDK message unchanged, plus {type:'runner', event} lifecycle lines.
 import readline from 'node:readline';
-import { randomUUID } from 'node:crypto';
+import { spawn as nodeSpawn } from 'node:child_process';
 
 const PASSTHROUGH_VARIABLES = ['PATH', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'SHELL', 'USER', 'LOGNAME', 'GH_TOKEN'];
+// Passthrough variables whose values must never reach the output. The agent can read these
+// (it needs GH_TOKEN for git and gh), so redaction here is defence in depth only.
+const SENSITIVE_PASSTHROUGH_VARIABLES = ['GH_TOKEN'];
+// The credential reaches the CLI on this inherited descriptor, never in its environment: a
+// drained socket leaves nothing for /proc/<pid>/environ or the agent's tool processes to read.
+const CREDENTIAL_DESCRIPTOR = 3;
+const DELTA_FIELDS = ['text', 'thinking', 'partial_json'];
 const STREAM_IDLE_TIMEOUT_MS = '1800000';
 
 // The SDK replaces the child environment with options.env, so this is the whole environment
-// the agent sees. Exactly one credential variable is set, from the start line.
+// the agent sees. It names the credential descriptor but never carries the credential itself.
 export function buildChildEnvironment(start, processEnvironment) {
   const environment = {};
   for (const name of PASSTHROUGH_VARIABLES) {
@@ -18,12 +25,29 @@ export function buildChildEnvironment(start, processEnvironment) {
   environment.CLAUDE_CONFIG_DIR = start.claudeConfigDir;
   environment.CLAUDE_STREAM_IDLE_TIMEOUT_MS = STREAM_IDLE_TIMEOUT_MS;
   environment.CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS = STREAM_IDLE_TIMEOUT_MS;
-  if (start.credential?.type === 'api_key') environment.ANTHROPIC_API_KEY = start.credential.value;
-  else if (start.credential?.type === 'oauth_token') environment.CLAUDE_CODE_OAUTH_TOKEN = start.credential.value;
+  if (start.credential?.type === 'api_key') environment.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR = String(CREDENTIAL_DESCRIPTOR);
+  else if (start.credential?.type === 'oauth_token') environment.CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR = String(CREDENTIAL_DESCRIPTOR);
   return environment;
 }
 
-function buildOptions(start, environment) {
+export function sensitiveValues(start, processEnvironment) {
+  const values = [start.credential?.value];
+  for (const name of SENSITIVE_PASSTHROUGH_VARIABLES) values.push(processEnvironment[name]);
+  return values.filter((value) => typeof value === 'string' && value !== '');
+}
+
+// Starts the claude CLI with the credential on descriptor 3 (a socket the CLI reads once and closes).
+export function spawnWithCredential(credential, spawn) {
+  return ({ command, args, cwd, env, signal }) => {
+    const child = spawn(command, args, { cwd, env, signal, stdio: ['pipe', 'pipe', 'ignore', 'pipe'], windowsHide: true });
+    const channel = child.stdio[CREDENTIAL_DESCRIPTOR];
+    channel.on('error', () => {});
+    channel.end(credential.value + '\n');
+    return child;
+  };
+}
+
+function buildOptions(start, environment, spawn) {
   const options = {
     cwd: start.cwd || '/workspace',
     model: start.model,
@@ -36,24 +60,61 @@ function buildOptions(start, environment) {
   if (start.appendSystemPrompt) {
     options.systemPrompt = { type: 'preset', preset: 'claude_code', append: start.appendSystemPrompt };
   }
+  if (start.credential?.value) options.spawnClaudeCodeProcess = spawnWithCredential(start.credential, spawn);
   if (start.resume) options.resume = start.resume;
   if (start.mcpServers) options.mcpServers = start.mcpServers;
   if (start.additionalDirectories) options.additionalDirectories = start.additionalDirectories;
   return options;
 }
 
-export function createRunner({ query, input, output, exit, environment = process.env }) {
+export function createRunner({ query, input, output, exit, environment = process.env, spawn = nodeSpawn }) {
   const queue = [];
   let wake = null;
   let ended = false;
   let activeQuery = null;
-  let secret = null;
+  let secrets = [];
+  // Text withheld from partial deltas because it could be the start of a secret, by block and field.
+  const held = new Map();
 
   const wakeUp = () => { const resolve = wake; wake = null; resolve?.(); };
+  const redact = (text) => secrets.reduce((result, secret) => result.split(secret).join('[redacted]'), text);
+  const write = (object) => output.write(redact(JSON.stringify(object)) + '\n');
+
+  // A secret can be split across streamed deltas, so the longest tail of a delta that is the
+  // start of a secret is held back until the next delta shows whether it completes one.
+  const heldTail = (text) => {
+    for (let length = Math.min(text.length, Math.max(...secrets.map((secret) => secret.length - 1))); length > 0; length--) {
+      const tail = text.slice(-length);
+      if (secrets.some((secret) => secret.startsWith(tail))) return length;
+    }
+    return 0;
+  };
+  const withholdDelta = (message) => {
+    const { index, delta } = message.event;
+    const field = DELTA_FIELDS.find((name) => typeof delta?.[name] === 'string');
+    if (!field) return message;
+    const key = `${index}:${field}`;
+    const text = redact((held.get(key)?.text ?? '') + delta[field]);
+    const keep = heldTail(text);
+    held.set(key, { text: text.slice(text.length - keep), type: delta.type });
+    return { ...message, event: { ...message.event, delta: { ...delta, [field]: text.slice(0, text.length - keep) } } };
+  };
+  const flushHeld = (message, index) => {
+    for (const [key, { text, type }] of [...held]) {
+      const [heldIndex, field] = key.split(':');
+      if (index !== undefined && Number(heldIndex) !== index) continue;
+      held.delete(key);
+      if (text) write({ ...message, event: { type: 'content_block_delta', index: Number(heldIndex), delta: { type, [field]: text } } });
+    }
+  };
   const emit = (object) => {
-    let line = JSON.stringify(object);
-    if (secret) line = line.split(secret).join('[redacted]');
-    output.write(line + '\n');
+    if (secrets.length && object.type === 'stream_event') {
+      const eventType = object.event?.type;
+      if (eventType === 'content_block_delta') { write(withholdDelta(object)); return; }
+      if (eventType === 'content_block_stop') flushHeld(object, object.event.index);
+      else if (eventType === 'message_stop') flushHeld(object);
+    }
+    write(object);
   };
   const runnerLine = (event, extra = {}) => emit({ type: 'runner', event, ...extra });
   const describe = (error) => String(error?.stack || error?.message || error);
@@ -67,8 +128,8 @@ export function createRunner({ query, input, output, exit, environment = process
   }
 
   async function run(start) {
-    secret = start.credential?.value || null;
-    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment) });
+    secrets = sensitiveValues(start, environment);
+    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment, spawn) });
     runnerLine('started', { pid: process.pid });
     let sawResult = false;
     try {

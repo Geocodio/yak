@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
-import { buildChildEnvironment, createRunner } from '../lib/runner.mjs';
+import { buildChildEnvironment, createRunner, spawnWithCredential } from '../lib/runner.mjs';
 
 const SECRET = 'sk-ant-secret-credential';
 
@@ -68,16 +68,20 @@ test('it builds the child environment from scratch', () => {
   assert.equal(environment.CLAUDE_CONFIG_DIR, '/home/yak/.claude-thread');
   assert.equal(environment.CLAUDE_STREAM_IDLE_TIMEOUT_MS, '1800000');
   assert.equal(environment.CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS, '1800000');
-  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, SECRET);
+  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, undefined);
+  assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR, '3');
+  assert.equal(JSON.stringify(environment).includes(SECRET), false);
 });
 
-test('it sets the api key from an api_key credential', () => {
+test('it names the api key descriptor for an api_key credential', () => {
   const environment = buildChildEnvironment(
     start({ credential: { type: 'api_key', value: 'key-1' } }),
     { ANTHROPIC_API_KEY: 'inherited', CLAUDE_CODE_OAUTH_TOKEN: 'inherited-oauth' },
   );
-  assert.equal(environment.ANTHROPIC_API_KEY, 'key-1');
+  assert.equal(environment.ANTHROPIC_API_KEY, undefined);
+  assert.equal(environment.CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR, '3');
   assert.equal(environment.CLAUDE_CODE_OAUTH_TOKEN, undefined);
+  assert.equal(JSON.stringify(environment).includes('key-1'), false);
 });
 
 test('it never passes budget or turn limits to the SDK', async () => {
@@ -164,4 +168,54 @@ test('it reports only the length of a line that does not parse', async () => {
   assert.equal(JSON.stringify(line).includes('sk-ant'), false);
   assert.equal('line' in line, false);
   run.input.end();
+});
+
+test('it hands the credential to the CLI on descriptor 3 and not in its environment', () => {
+  const channel = new PassThrough();
+  const calls = [];
+  const fakeSpawn = (command, args, options) => { calls.push({ command, args, options }); return { stdio: [null, null, null, channel] }; };
+  const environment = buildChildEnvironment(start(), {});
+  spawnWithCredential(start().credential, fakeSpawn)({ command: 'claude', args: ['-p'], cwd: '/w', env: environment, signal: undefined });
+  assert.deepEqual(calls[0].options.stdio, ['pipe', 'pipe', 'ignore', 'pipe']);
+  assert.equal(JSON.stringify(calls[0]).includes(SECRET), false);
+  assert.equal(channel.read().toString(), SECRET + '\n');
+  assert.equal(channel.writableEnded, true);
+});
+
+test('it passes spawnClaudeCodeProcess to the SDK only with a credential', async () => {
+  const run = harness();
+  run.send(start());
+  await run.tick();
+  assert.equal(typeof run.calls.options.spawnClaudeCodeProcess, 'function');
+  run.release();
+  run.send({ type: 'end' });
+  await run.exited;
+});
+
+test('it redacts GH_TOKEN wherever it appears in output', async () => {
+  const run = harness({ environment: { GH_TOKEN: 'ghp_passthrough_secret' }, messages: [{ type: 'assistant', text: 'token ghp_passthrough_secret here' }] });
+  run.send(start());
+  await run.tick();
+  assert.equal(run.written.join('').includes('ghp_passthrough_secret'), false);
+  assert.match(run.written.join(''), /token \[redacted\] here/);
+  run.release();
+  run.send({ type: 'end' });
+  await run.exited;
+});
+
+test('it redacts a secret split across partial deltas without delaying other text', async () => {
+  const delta = (index, text) => ({ type: 'stream_event', event: { type: 'content_block_delta', index, delta: { type: 'text_delta', text } } });
+  const stop = (index) => ({ type: 'stream_event', event: { type: 'content_block_stop', index } });
+  const half = SECRET.length >> 1;
+  const run = harness({ messages: [delta(0, 'key is '), delta(0, SECRET.slice(0, half)), delta(0, SECRET.slice(half) + ' done'), delta(1, SECRET.slice(0, 4)), stop(1)] });
+  run.send(start());
+  await run.tick();
+  const text = run.lines().filter((line) => line.type === 'stream_event').map((line) => line.event.delta?.text ?? '').join('|');
+  assert.equal(text.includes(SECRET), false);
+  assert.equal(run.written.join('').includes(SECRET.slice(0, half)), false);
+  assert.match(text, /^key is \|\|\[redacted\] done\|/);
+  assert.match(text, new RegExp(SECRET.slice(0, 4) + '\\|$'));
+  run.release();
+  run.send({ type: 'end' });
+  await run.exited;
 });
