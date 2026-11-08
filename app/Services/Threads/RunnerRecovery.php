@@ -42,22 +42,6 @@ class RunnerRecovery
         $promptUuid = (string) $run->prompt_uuid;
         $promptStarted = $this->hasStarted($states[$promptUuid] ?? null);
 
-        $steers = PendingSteeringMessage::query()
-            ->where('task_run_id', $run->id)
-            ->whereNotNull('uuid')
-            ->whereNull('absorbed_at')
-            ->orderBy('id')
-            ->get();
-
-        foreach ($steers as $steer) {
-            $steerUuid = (string) $steer->uuid;
-
-            if (! $this->hasStarted($states[$steerUuid] ?? null)) {
-                $this->commands->steer($thread, $steerUuid, $steer->text, $steer->priority);
-                $steer->forceFill(['sent_at' => now()])->save();
-            }
-        }
-
         // The old runner will never finish commands it had started, so they
         // are closed here; the continuation or the re-sent commands carry on.
         foreach ($states as $uuid => $state) {
@@ -74,6 +58,23 @@ class RunnerRecovery
             $this->commands->turn($thread, $promptUuid, (string) $run->prompt);
         }
 
+        // The prompt goes first so the steers reach the model in the order they were sent.
+        $steers = PendingSteeringMessage::query()
+            ->where('task_run_id', $run->id)
+            ->whereNotNull('uuid')
+            ->whereNull('absorbed_at')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($steers as $steer) {
+            $steerUuid = (string) $steer->uuid;
+
+            if (! $this->hasStarted($states[$steerUuid] ?? null)) {
+                $this->commands->steer($thread, $steerUuid, $steer->text, $steer->priority);
+                $steer->forceFill(['sent_at' => now()])->save();
+            }
+        }
+
         $this->save($run, $states);
     }
 
@@ -82,7 +83,8 @@ class RunnerRecovery
      */
     private function save(TaskRun $run, array $states): void
     {
-        $run->forceFill(['command_states' => $states, 'restarted' => true])->save();
+        // A fresh runner never reports the old runner's background tasks, so none can still be pending.
+        $run->forceFill(['command_states' => $states, 'restarted' => true, 'background_task_count' => 0, 'pending_background_results' => 0])->save();
     }
 
     private function hasStarted(?string $state): bool

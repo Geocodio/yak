@@ -108,3 +108,14 @@ it("only resets an idle thread's runner state", function () {
     expect($this->thread->fresh()->runner_state)->toBe(RunnerState::None)
         ->and(recoveryCommands())->toBe([]);
 });
+
+it('clears background tasks the dead runner owned and sends the prompt before the steers', function () {
+    $run = runningRun(['prompt-1' => 'sent', 'steer-a' => 'sent'], ['background_task_count' => 2, 'pending_background_results' => 1]);
+    steer($run, 'steer-a', 'first');
+
+    app(RunnerRecovery::class)->recover($this->thread);
+
+    expect(array_column(recoveryCommands(), 'type'))->toBe(['kill', 'start_runner', 'turn', 'steer'])
+        ->and($run->fresh()->background_task_count)->toBe(0)
+        ->and($run->fresh()->pending_background_results)->toBe(0);
+});
