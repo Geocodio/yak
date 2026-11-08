@@ -46,8 +46,17 @@ class DispatchAfterTurnWork
             ->whereNull('completion_dispatched_at')
             ->update(['completion_dispatched_at' => now()]);
 
-        if ($claimed === 1) {
+        if ($claimed !== 1) {
+            return;
+        }
+
+        try {
             $finisher::dispatch($run->id);
+        } catch (\Throwable $exception) {
+            // The claim is given back so tick() sends the event again instead of the work being lost.
+            TaskRun::query()->whereKey($run->id)->update(['completion_dispatched_at' => null]);
+
+            throw $exception;
         }
     }
 
