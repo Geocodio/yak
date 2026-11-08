@@ -1,4 +1,12 @@
 ---
+- name: Ensure /etc/yak directory exists
+  ansible.builtin.file:
+    path: /etc/yak
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
 - name: Build the broker on the controller
   ansible.builtin.command:
     cmd: go build -o {{ playbook_dir }}/../broker/dist/yak-broker .
