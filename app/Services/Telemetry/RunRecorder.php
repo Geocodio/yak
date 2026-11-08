@@ -170,7 +170,6 @@ final class RunRecorder
         $this->pending['session_cost_total_usd'] = $result->sessionCostTotalUsd;
         $this->pending['num_turns'] = $result->numTurns;
         $this->pending['synthesized_result'] = $result->synthesized;
-        $this->pending['stale_session_retry'] = $result->staleSessionRetry;
         $this->pending['permission_denials'] = $result->permissionDenials;
 
         if ($result->usage !== null) {

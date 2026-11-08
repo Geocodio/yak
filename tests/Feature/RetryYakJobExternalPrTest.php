@@ -20,7 +20,7 @@ it('refuses to retry a task on a human-authored PR', function () {
         'repo' => 'web', 'status' => TaskStatus::Retrying, 'branch_name' => 'feature/warnings', 'targets_external_pr' => true,
     ]);
 
-    (new RetryYakJob($task, null))->handle($agent);
+    runAgentJob(new RetryYakJob($task, null), $agent);
 
     expect($sandbox->createdContainers)->toBe([])
         ->and($task->fresh()->status)->toBe(TaskStatus::Failed);

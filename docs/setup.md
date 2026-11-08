@@ -319,15 +319,17 @@ Total time: about 10 minutes.
 
 ### 6. Log In To Claude Code (on the server)
 
-This is the first step that runs **on the Yak server itself**, not your local machine. Claude Code CLI authenticates against a Max subscription, not an API key. After provisioning completes, the playbook prints instructions — SSH into the server and run:
+This is the first step that runs **on the Yak server itself**, not your local machine. After provisioning completes, the playbook prints instructions — SSH into the server and run:
 
 ```bash
 docker exec -it yak claude login
 ```
 
-Follow the browser-based OAuth flow. The session token persists in the mounted `/home/yak/.claude` volume and survives container restarts.
+Follow the browser-based OAuth flow. The session persists in the mounted `/home/yak/.claude` volume and survives container restarts. Yak uses it for MCP server logins and the skills page.
 
-The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the CLI subscription auth.
+Agent runs use Claude accounts instead. Run `claude setup-token` on a machine logged in to the Max subscription, then add the token in Settings → Claude accounts as the global system account.
+
+The routing layer (Laravel AI) uses the `ANTHROPIC_API_KEY` from vault for Haiku/Sonnet API calls — separate from the Claude accounts agent runs use.
 
 ### 7. Add Your Repositories (in your browser)
 

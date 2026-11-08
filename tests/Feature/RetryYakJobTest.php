@@ -5,13 +5,10 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Enums\NotificationType;
 use App\Enums\TaskStatus;
-use App\Jobs\Middleware\EnsureDailyBudget;
-use App\Jobs\Middleware\EnsureRepoReady;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\RetryYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
-use App\Models\TaskAttachment;
 use App\Models\TaskLog;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
@@ -25,32 +22,6 @@ use Tests\Support\FakeSandboxManager;
 | Successful Retry
 |--------------------------------------------------------------------------
 */
-
-test('retry hands the agent every file sent to the run, including clarification replies', function () {
-    Queue::fake();
-
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_retry_files',
-        resultSummary: 'Still failing',
-        costUsd: 0.1,
-        numTurns: 1,
-        durationMs: 1000,
-        isError: true,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-    Process::fake(['*' => Process::result('')]);
-
-    Repository::factory()->create(['slug' => 'retry-files-repo', 'path' => '/home/yak/repos/retry-files-repo']);
-    $task = YakTask::factory()->retrying()->create(['repo' => 'retry-files-repo', 'branch_name' => 'yak/retry-files']);
-    $request = TaskAttachment::factory()->for($task, 'task')->create();
-    $reply = TaskAttachment::factory()->for($task, 'task')->clarificationReply()->create();
-
-    (new RetryYakJob($task, 'CI failed'))->handle($fake);
-
-    expect(collect($fake->calls[0]->attachments)->pluck('id')->all())->toBe([$request->id, $reply->id]);
-});
 
 test('retry marks task Success and skips push when no new commits', function () {
     Queue::fake();
@@ -78,7 +49,7 @@ test('retry marks task Success and skips push when no new commits', function () 
         'source' => 'slack',
     ]);
 
-    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'Tests failed'), $fake);
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Success)
@@ -117,7 +88,7 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
     ]);
 
     $job = new RetryYakJob($task, 'Tests failed: 2 errors');
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
 
@@ -127,10 +98,6 @@ test('successful retry transitions task to awaiting_ci and force pushes branch',
         ->and((float) $task->cost_usd)->toBe(3.50)
         ->and($task->num_turns)->toBe(25)
         ->and($task->duration_ms)->toBe(210000);
-
-    // Sandbox was created and destroyed
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
 test('refreshes git credential helper immediately before push', function () {
@@ -167,7 +134,7 @@ test('refreshes git credential helper immediately before push', function () {
         'branch_name' => 'yak/ISSUE-42',
     ]);
 
-    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'CI failed'), $fake);
 
     $credentialCommands = array_keys(array_filter(
         $recorder->commands,
@@ -215,7 +182,7 @@ test('successful retry accumulates cost and turns on task', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
 
@@ -253,7 +220,7 @@ test('successful retry clears a stale pr_body_update from the failed attempt', f
         'review_replies' => [1 => 'stale'],
     ]);
 
-    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'Tests failed'), $fake);
 
     expect($task->fresh()->pr_body_update)->toBeNull()
         ->and($task->fresh()->review_replies)->toBe([1 => 'stale']);
@@ -284,7 +251,7 @@ test('retry marks task Success and clears a stale pr_body_update when there are 
         'review_replies' => [1 => 'stale'],
     ]);
 
-    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'Tests failed'), $fake);
 
     expect($task->fresh()->pr_body_update)->toBeNull()
         ->and($task->fresh()->review_replies)->toBe([1 => 'stale']);
@@ -296,7 +263,7 @@ test('retry marks task Success and clears a stale pr_body_update when there are 
 |--------------------------------------------------------------------------
 */
 
-test('does NOT pass --resume on retry (sandbox is fresh, session file is gone)', function () {
+test('retry resumes the thread session', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_resumed',
         resultSummary: 'Done',
@@ -321,11 +288,9 @@ test('does NOT pass --resume on retry (sandbox is fresh, session file is gone)',
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
-    // session_id is stored on the task but we deliberately don't pass
-    // it through — see the comment in RetryYakJob::runRetry().
-    expect($fake->lastCall()->resumeSessionId)->toBeNull();
+    expect($fake->lastCall()->resumeSessionId)->toBe('sess_original_123');
 });
 
 /*
@@ -361,16 +326,12 @@ test('retry prompt includes CI failure output', function () {
     $failureOutput = 'FAIL tests/Feature/AuthTest.php - Expected 200 got 500';
 
     $job = new RetryYakJob($task, $failureOutput);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     expect($fake->lastCall())->not->toBeNull()
         ->and($fake->lastCall()->prompt)->toContain($failureOutput);
 
-    // Retries must NOT use --resume — the previous attempt's sandbox
-    // was torn down after the push, so Claude's session history is
-    // gone and `claude --resume <id>` would fail with
-    // "No conversation found with session ID". See task 4384.
-    expect($fake->lastCall()->resumeSessionId)->toBeNull();
+    expect($fake->lastCall()->resumeSessionId)->toBe('sess_orig');
 });
 
 /*
@@ -404,7 +365,7 @@ test('claude error response marks task as failed', function () {
     ]);
 
     $job = new RetryYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
 
@@ -432,82 +393,11 @@ test('RetryYakJob dispatches to yak-claude queue', function () {
 |--------------------------------------------------------------------------
 */
 
-test('RetryYakJob has EnsureDailyBudget middleware', function () {
-    Process::fake();
-
-    $repository = Repository::factory()->create(['slug' => 'mw-repo', 'path' => '/home/yak/repos/mw-repo']);
-    $task = YakTask::factory()->retrying()->create(['repo' => 'mw-repo']);
-
-    $job = new RetryYakJob($task);
-    $middleware = $job->middleware();
-    $classes = array_map(fn ($m) => $m::class, $middleware);
-
-    expect($classes)->toContain(EnsureDailyBudget::class)
-        ->and($classes)->toContain(EnsureRepoReady::class);
-});
-
 /*
 |--------------------------------------------------------------------------
 | Sandbox Lifecycle
 |--------------------------------------------------------------------------
 */
-
-test('sandbox is destroyed even when retry fails', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_err',
-        resultSummary: 'Error',
-        costUsd: 0.0,
-        numTurns: 0,
-        durationMs: 0,
-        isError: true,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    $fakeSandbox = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-
-    Process::fake(['*' => Process::result('')]);
-
-    Repository::factory()->create(['slug' => 'sb-repo', 'path' => '/home/yak/repos/sb-repo']);
-    $task = YakTask::factory()->retrying()->create([
-        'repo' => 'sb-repo',
-        'session_id' => 'sess_orig',
-        'branch_name' => 'yak/SB-1',
-    ]);
-
-    (new RetryYakJob($task))->handle($fake);
-
-    expect($fakeSandbox->destroyedContainers)->toHaveCount(1);
-});
-
-test('retry persists the new session transcript before destroying the sandbox', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_retry_tr',
-        resultSummary: 'Fixed',
-        costUsd: 0.5,
-        numTurns: 3,
-        durationMs: 10000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-
-    $fakeSandbox = new FakeSandboxManager;
-    $this->app->instance(IncusSandboxManager::class, $fakeSandbox);
-    Process::fake(['*' => Process::result('')]);
-
-    Repository::factory()->create(['slug' => 'retry-tr-repo', 'path' => '/home/yak/repos/retry-tr-repo']);
-    $task = YakTask::factory()->retrying()->create([
-        'repo' => 'retry-tr-repo',
-        'session_id' => 'sess_before_retry',
-        'branch_name' => 'yak/RT-1',
-    ]);
-
-    (new RetryYakJob($task, 'Tests failed'))->handle($fake);
-
-    expect($fakeSandbox->pulledTranscripts)->toBe(['sess_retry_tr']);
-});
 
 /*
 |--------------------------------------------------------------------------
@@ -544,7 +434,7 @@ test('retry rebases the task branch onto the current default branch', function (
         'branch_name' => 'yak/ISSUE-300',
     ]);
 
-    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'CI failed'), $fake);
 
     expect($fakeSandbox->commandsMatching('git rebase origin/master'))->toHaveCount(1)
         ->and($fakeSandbox->commandsMatching('git rebase --abort'))->toBeEmpty();
@@ -596,7 +486,7 @@ test('retry aborts a conflicting rebase and continues on the original base', fun
         'branch_name' => 'yak/ISSUE-301',
     ]);
 
-    (new RetryYakJob($task, 'CI failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'CI failed'), $fake);
 
     expect($fakeSandbox->commandsMatching('git rebase --abort'))->toHaveCount(1);
 

@@ -21,8 +21,6 @@ class FinishRunYakTurnJob extends FinishThreadTurnJob
     use HandlesWrongRepository;
     use NotifiesSourceOfFailure;
 
-    public ?string $staleSessionFallbackPrompt = null;
-
     protected function finishTurn(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $container, RunRecorder $recorder): void
     {
         $this->finishAgentResult($repository, $result, $sandbox, $container, $recorder);

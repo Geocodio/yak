@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Pest\Browser\Api\AwaitableWebpage;
+use Tests\Support\AgentJobHarness;
 use Tests\TestCase;
 
 /*
@@ -361,4 +362,13 @@ function enableSlackForInteractive(): string
     (new ChannelServiceProvider(app()))->boot();
 
     return $secret;
+}
+
+/**
+ * Runs a task job and the work after its turn, answering the turn from the
+ * fake agent runner's queue.
+ */
+function runAgentJob(object $job, mixed $agent): void
+{
+    AgentJobHarness::run($job, $agent);
 }

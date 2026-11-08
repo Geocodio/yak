@@ -9,41 +9,27 @@ Claude Code receives three distinct prompt inputs on every task. Each one lives 
 | Layer | Where it lives | Scope | Who maintains it |
 |---|---|---|---|
 | **`CLAUDE.md`** | Root of the target repo | Per-repo conventions, test patterns, do-not-touch lists | The team that owns that repo |
-| **`--append-system-prompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself — the "Yak persona" |
-| **`-p` prompt** | Assembled from Blade templates (with optional DB overrides) per task | Task description, source-specific context, instructions | Yak assembles at runtime from source + template |
+| **`appendSystemPrompt`** | Yak's runtime (assembled by `YakPromptBuilder`) | Operating rules, commit format, scope limits, visual capture, if-stuck behavior. Same for every task. | Yak itself — the "Yak persona" |
+| **Task prompt** | Assembled from Blade templates (with optional DB overrides) per task | Task description, source-specific context, instructions | Yak assembles at runtime from source + template |
 
-These stack: `CLAUDE.md` is loaded by Claude Code itself from the repo, the system prompt is appended to Claude's built-in prompt via `--append-system-prompt`, and the `-p` prompt is the task-specific instructions.
+These stack: `CLAUDE.md` is loaded by Claude Code itself from the repo, the system prompt is appended to Claude's built-in prompt through the runner's `appendSystemPrompt` option, and the task prompt is the task-specific instructions.
 
 > **Every prompt — both the system prompt and the task prompts — can be tweaked live from the dashboard at `/prompts` without a redeploy.** See [Editing prompts in the dashboard](#editing-prompts-in-the-dashboard) below.
 
-## CLI Invocation
+## Runner Invocation
 
-The CLI command is built by `SandboxedAgentRunner` (the `AgentRunner` implementation in `app/Agents/`) and executed inside the task's Incus sandbox via `incus exec`:
+The pipe broker starts `yak-runner` (the Agent SDK) inside the task's thread sandbox. `BrokeredAgentRunner` (in `app/Agents/`) runs one-shot jobs the same way. Each turn is a `turn` command on the thread's Redis stream, and the `start` command carries these options:
 
-```bash
-claude -p "$TASK_PROMPT" \
-    --dangerously-skip-permissions \
-    --output-format stream-json --verbose \
-    --model opus \
-    --max-turns 300 \
-    --max-budget-usd 5.00 \
-    --append-system-prompt "$YAK_SYSTEM_PROMPT" \
-    --mcp-config /home/yak/mcp-config.json
-```
-
-| Flag | Why |
+| Option | Why |
 |---|---|
-| `--dangerously-skip-permissions` | Each task runs in an isolated Incus sandbox. The sandbox is the boundary. |
-| `--output-format stream-json` | Incremental events streamed back to the task log in real time (falls back to `json` when the caller doesn't need streaming). |
-| `--model opus` | Implementation always uses Opus. Configurable via `YAK_DEFAULT_MODEL`. |
-| `--max-turns 300` | Large enough to cover long read → plan → edit → test → fix → commit loops, including retries. Configurable via `YAK_MAX_TURNS`. |
-| `--max-budget-usd 5.00` | Per-task runaway guardrail. Configurable via `YAK_MAX_BUDGET_PER_TASK`. |
-| `--append-system-prompt` | Yak persona. Appends, doesn't replace Claude's built-in prompt. |
-| `--mcp-config` | Context7 and GitHub always; Linear and Sentry conditionally |
+| `permissionMode: bypassPermissions` | Each task runs in an isolated Incus sandbox. The sandbox is the boundary. |
+| `model` | Chosen per thread or repo; defaults to Opus via `YAK_DEFAULT_MODEL`. |
+| `maxTurns` | Large enough to cover long read, plan, edit, test, fix and commit loops. Configurable via `YAK_MAX_TURNS`. |
+| `appendSystemPrompt` | Yak persona. Appends, doesn't replace Claude's built-in prompt. |
+| `mcpServers` | Context7 and GitHub always; Linear and Sentry conditionally |
+| `resume` | Continues the thread's earlier session, for retries and clarification replies. See [Architecture → Session Continuity](architecture.md#session-continuity). |
 
-Retries and clarification replies add `--resume $session_id` to continue the original session — see [Architecture → Session Continuity](architecture.md#session-continuity).
-
-The command runs inside the sandbox container as the unprivileged `yak` user. App secrets (`DB_PASSWORD`, `APP_KEY`, etc.) live only in the yak app container and are never present in the sandbox's environment.
+Yak sets no cost limit on a run. The runner executes in the sandbox as the unprivileged `yak` user. App secrets (`DB_PASSWORD`, `APP_KEY`, etc.) live only in the yak app container and are never present in the sandbox's environment.
 
 ## Model Selection
 
@@ -303,7 +289,7 @@ generic. The user will pick one and you'll resume from here.
 4. Commit
 ```
 
-### Clarification Reply (via `--resume`)
+### Clarification Reply (same thread)
 
 ```
 The user chose option {n}: "{option_text}"
@@ -311,7 +297,7 @@ The user chose option {n}: "{option_text}"
 Proceed with this interpretation. Implement the fix, test, and commit.
 ```
 
-### Retry (via `--resume`)
+### Retry (same thread)
 
 ```
 CI failed after your previous push. Here's the failure output:

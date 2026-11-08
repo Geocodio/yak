@@ -49,7 +49,7 @@ function runExternal(YakTask $task, FakeSandboxManager $sandbox, string $summary
     app()->instance(AgentRunner::class, $agent);
     app()->instance(IncusSandboxManager::class, $sandbox);
 
-    (new RunFollowUpJob($task))->handle($agent);
+    runAgentJob(new RunFollowUpJob($task), $agent);
 }
 
 it('pushes without force or rebase when the branch has not moved, and links the commit', function () {
@@ -140,7 +140,7 @@ it('does not send a second error notification on a Claude auth failure', functio
     app()->instance(IncusSandboxManager::class, new FakeSandboxManager);
     $task = externalTask();
 
-    (new RunFollowUpJob($task))->handle($agent);
+    runAgentJob(new RunFollowUpJob($task), $agent);
 
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertNotPushed(SendNotificationJob::class);
@@ -212,7 +212,7 @@ it('parks instead of replying when the agent asks a question', function () {
     app()->instance(AgentRunner::class, $agent);
     app()->instance(IncusSandboxManager::class, $sandbox);
 
-    (new RunFollowUpJob($task))->handle($agent);
+    runAgentJob(new RunFollowUpJob($task), $agent);
 
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($sandbox->commandsMatching('git push'))->toBe([]);

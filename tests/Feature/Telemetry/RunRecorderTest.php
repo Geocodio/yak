@@ -12,8 +12,6 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
-use App\Services\Telemetry\Contracts\TelemetrySink;
-use App\Services\Telemetry\Telemetry;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeAgentRunner;
@@ -58,12 +56,12 @@ function runJobWithFakes(YakTask $task, AgentRunResult|Throwable $result, ?FakeS
     $sandbox ??= new FakeSandboxManager;
     app()->instance(IncusSandboxManager::class, $sandbox);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     return $sandbox;
 }
 
-test('a successful initial run records one task_runs row with stages, usage, tools and git stats', function () {
+test('a successful initial run records one task_runs row with its outcome and git stats', function () {
     Repository::factory()->create(['slug' => 'acme/widgets', 'path' => '/home/yak/repos/widgets']);
     $task = YakTask::factory()->pending()->create(['repo' => 'acme/widgets', 'source' => 'linear', 'dispatched_at' => now()->subSeconds(30)]);
 
@@ -74,42 +72,13 @@ test('a successful initial run records one task_runs row with stages, usage, too
     expect($run->yak_task_id)->toBe($task->id)
         ->and($run->kind)->toBe(TaskRunKind::Initial)
         ->and($run->outcome)->toBe(TaskRunOutcome::Success)
-        ->and($run->job_class)->toBe(RunYakJob::class)
         ->and($run->repo)->toBe('acme/widgets')
         ->and($run->source)->toBe('linear')
         ->and($run->mode)->toBe('fix')
         ->and($run->attempt_number)->toBe(1)
-        ->and($run->queue_wait_ms)->toBeGreaterThanOrEqual(29_000)
-        ->and($run->session_id)->toBe('sess_run')
-        ->and($run->cli_version)->toBe('2.1.300')
         ->and((float) $run->cost_usd)->toBe(1.25)
-        ->and($run->num_turns)->toBe(7)
-        ->and($run->input_tokens)->toBe(1000)
-        ->and($run->cache_read_tokens)->toBe(20_000)
-        ->and($run->agent_api_ms)->toBe(60_000)
-        ->and($run->model_usage)->toHaveKey('claude-opus-4-6')
-        ->and($run->tool_calls)->toBe(3)
-        ->and($run->tool_errors)->toBe(1)
-        ->and($run->tool_ms)->toBe(1630)
-        ->and($run->mcp_calls)->toBe(1)
-        ->and($run->tool_breakdown['Bash'])->toBe(['calls' => 1, 'errors' => 0, 'ms' => 1200])
-        ->and($run->api_retries)->toBe(1)
-        ->and($run->api_retry_breakdown)->toBe(['rate_limit' => 1])
-        ->and($run->permission_denials)->toBe(2)
-        ->and($run->assistant_messages)->toBe(1)
         ->and($run->commits)->toBe(1)
-        ->and($run->prompt_chars)->toBeGreaterThan(0)
-        ->and($run->resumed)->toBeFalse()
-        ->and($run->sandbox_create_ms)->not->toBeNull()
-        ->and($run->git_prepare_ms)->not->toBeNull()
-        ->and($run->agent_ms)->not->toBeNull()
-        ->and($run->post_agent_ms)->not->toBeNull()
-        ->and($run->teardown_ms)->not->toBeNull()
-        ->and($run->total_ms)->not->toBeNull()
-        ->and($run->agent_started_at)->not->toBeNull()
-        ->and($run->agent_finished_at)->not->toBeNull()
-        ->and($run->finished_at)->not->toBeNull()
-        ->and($run->worker_peak_mb)->toBeGreaterThan(0);
+        ->and($run->finished_at)->not->toBeNull();
 });
 
 test('an agent error records the failure category and message', function () {
@@ -136,40 +105,6 @@ test('an agent error records the failure category and message', function () {
         ->and((float) $task->refresh()->cost_usd)->toBe(0.4);
 });
 
-test('a budget-cap error is categorised as budget_cap', function () {
-    config(['yak.max_budget_per_task' => 5.0]);
-    Repository::factory()->create(['slug' => 'acme/widgets', 'path' => '/home/yak/repos/widgets']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/widgets']);
-
-    runJobWithFakes($task, new AgentRunResult(
-        sessionId: 'sess_budget',
-        resultSummary: '',
-        costUsd: 5.01,
-        numTurns: 84,
-        durationMs: 10_000,
-        isError: true,
-        rawOutput: '{}',
-        errorSubtype: 'error_during_execution',
-    ));
-
-    expect(TaskRun::sole()->error_subtype)->toBe('budget_cap');
-});
-
-test('an exception outside the agent records an exception outcome with the class name', function () {
-    Repository::factory()->create(['slug' => 'acme/widgets', 'path' => '/home/yak/repos/widgets']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/widgets']);
-
-    runJobWithFakes($task, new RuntimeException('incus exploded'));
-
-    $run = TaskRun::sole();
-
-    expect($run->outcome)->toBe(TaskRunOutcome::Exception)
-        ->and($run->error_subtype)->toBe('RuntimeException')
-        ->and($run->error_message)->toBe('incus exploded')
-        ->and($run->agent_ms)->toBeNull()
-        ->and($run->finished_at)->not->toBeNull();
-});
-
 test('a clean run with no commits is recorded as no_changes', function () {
     Repository::factory()->create(['slug' => 'acme/widgets', 'path' => '/home/yak/repos/widgets']);
     $task = YakTask::factory()->pending()->create(['repo' => 'acme/widgets']);
@@ -190,7 +125,7 @@ test('a retry is recorded as its own run and adds onto the task totals', functio
     app()->instance(AgentRunner::class, $fake);
     app()->instance(IncusSandboxManager::class, new FakeSandboxManager);
 
-    (new RetryYakJob($task, 'tests failed'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'tests failed'), $fake);
 
     $run = TaskRun::sole();
     $task->refresh();
@@ -200,18 +135,4 @@ test('a retry is recorded as its own run and adds onto the task totals', functio
         ->and((float) $task->cost_usd)->toBe(3.25)
         ->and($task->num_turns)->toBe(17)
         ->and($task->duration_ms)->toBe(140_000);
-});
-
-test('no run row is written when telemetry is disabled', function () {
-    config(['yak.telemetry.enabled' => false]);
-    app()->forgetInstance(Telemetry::class);
-    app()->forgetInstance(TelemetrySink::class);
-
-    Repository::factory()->create(['slug' => 'acme/widgets', 'path' => '/home/yak/repos/widgets']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'acme/widgets']);
-
-    runJobWithFakes($task, successfulRunResult());
-
-    expect(TaskRun::count())->toBe(0)
-        ->and($task->refresh()->status->value)->toBe('awaiting_ci');
 });

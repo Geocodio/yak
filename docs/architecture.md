@@ -65,7 +65,7 @@ Yak uses two distinct AI layers with different models, different frameworks, and
 | Layer | Framework | Models | Purpose |
 |---|---|---|---|
 | **Routing & Analysis** | Laravel AI (Anthropic API) | Haiku, Sonnet | Webhook processing, request routing, communication with users in Slack/Linear, Sentry triage, task intake |
-| **Implementation** | Claude Code CLI (`claude -p`) | Opus | Code changes, testing, committing, PR creation, research, ambiguity assessment |
+| **Implementation** | Claude Agent SDK runner (`yak-runner`) | Opus | Code changes, testing, committing, PR creation, research, ambiguity assessment |
 
 ### The Routing Layer
 
@@ -81,11 +81,11 @@ The routing layer is lightweight — classify the request, detect the repo, form
 
 ### The Implementation Layer
 
-Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs headlessly via `claude -p` with `--dangerously-skip-permissions` — no tool approval prompts, fully autonomous.
+Claude Code does the heavy lifting: reading files, assessing ambiguity with full codebase + MCP context, making changes, running tests, committing. It runs as the Agent SDK runner inside the task's thread sandbox, started by the pipe broker, with permission prompts skipped — fully autonomous.
 
 Claude Code is always Opus. Opus produces better first-attempt results, which means fewer retries and less total work than starting with Sonnet and escalating.
 
-Implementation runs on a Claude Max subscription, not the API key. The subscription covers Claude Code usage; the API key covers the routing layer. These are **separate auth mechanisms** — see [Setup → Log In To Claude Code](setup.md#6-log-in-to-claude-code) for how each is configured.
+Implementation runs on Claude accounts (setup-tokens or API keys) that people add in Settings, not on the routing layer's API key. Unattended work uses a system account. Yak sets no cost limit on SDK runs; a runaway guard stops a stuck turn.
 
 ## Channel Driver Architecture
 
@@ -258,7 +258,7 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 ### The Main Jobs
 
 - **`RunYakJob`** — the initial Claude Code session. Yak creates the branch (`yak/{external_id}`), then invokes Claude Code which writes code and commits locally. After Claude finishes, **Yak** pushes the branch and transitions the task to `awaiting_ci`. Claude Code never pushes or creates PRs — the system prompt explicitly forbids remote git operations.
-- **Clarification resume** — an agent run that needs input ends with a ```clarification block of structured questions, and the task waits in `awaiting_clarification`. Answers arrive through the dashboard form (any number of questions) or inline in Slack or Linear (a single question). `ClarificationAnswerSubmitter` stores them and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`), which resumes the Claude session with `--resume $session_id` and the answers. Claude already has full codebase context from the assessment phase — no ramp-up.
+- **Clarification resume** — an agent run that needs input ends with a ```clarification block of structured questions, and the task waits in `awaiting_clarification`. Answers arrive through the dashboard form (any number of questions) or inline in Slack or Linear (a single question). `ClarificationAnswerSubmitter` stores them and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`), which writes the answers as the next turn of the task's thread, resuming the same Claude session. Claude already has full codebase context from the assessment phase — no ramp-up.
 - **`ProcessCIResultJob`** — runs when a CI webhook arrives. On green, it collects artifacts and **Yak** creates the PR via the GitHub App API, then notifies the source. On red, it either dispatches `RetryYakJob` (first failure) or marks the task failed (second failure). For GitHub Actions, a failed workflow run first gets one re-run of its failed jobs, and only a second failure on the same commit reaches this job.
 - **`RetryYakJob`** — resumes the original Claude session with CI failure output and runs a second attempt on the existing branch. **Yak** force-pushes the result.
 - **`ResearchYakJob`** — for research mode tasks. Read-only; no branch, no CI. Claude generates a standalone HTML findings page saved to `.yak-artifacts/research.html`.
@@ -268,13 +268,9 @@ With Incus sandbox isolation, Claude Code tasks run **concurrently** (4 workers 
 - **`RenderWalkthroughJob`** — the v3 video render, keyed on the task id. Loads a task's `script`, `manifest`, `shot` and `voiceover` artifacts, builds the render timeline, renders `WalkthroughV3`, gates it through `RenderQaCheck`, and patches the PR body. See [The Walkthrough Video Pipeline (v3)](#the-walkthrough-video-pipeline-v3).
 - **`RenderVideoJob`** — the legacy v2 render, keyed on the raw `walkthrough.webm` artifact. Renders the `WalkthroughV2` composition. Stays in place until no v2 artifacts remain.
 
-### Middleware
-
-- **`EnsureDailyBudget`** — checks the `daily_costs` table before Claude Code invocations. If today's routing-layer cost exceeds `daily_budget_usd`, the job fails gracefully. This prevents runaway alert storms from blowing the budget.
-
 ## Session Continuity
 
-When a retry or clarification reply is needed, Yak uses `claude -p --resume $session_id` to continue the **original** Claude session. Claude retains its full context — files it read during assessment, approaches it considered, what it already tried.
+When a retry or clarification reply is needed, Yak writes the next turn into the task's thread, which continues the **original** Claude session. Claude retains its full context — files it read during assessment, approaches it considered, what it already tried.
 
 This is the single biggest cost optimization in Yak. A fresh session starting from zero would re-read the codebase, re-check Sentry, re-analyze the stacktrace. Resuming skips all of that and jumps directly to the new prompt (the CI failure, or the user's chosen clarification option).
 
@@ -321,7 +317,7 @@ One row per configured repo. Minimal schema — slug, name, path, default branch
 
 ### `daily_costs`
 
-Primary key is `date`. Tracks routing-layer API costs for budget enforcement. Updated after each task completes. Read by the `EnsureDailyBudget` middleware before any Claude Code invocation.
+Primary key is `date`. Tracks routing-layer API costs for the cost dashboard. Updated after each task completes.
 
 ### `branch_deployments`
 
@@ -373,7 +369,7 @@ Claude Code runs with `--dangerously-skip-permissions` on every invocation. No t
   - **Own network namespace** — firewall rules block access to the yak app and MariaDB.
   - **Own filesystem** — ZFS copy-on-write from a snapshot. Changes are invisible to other tasks.
   - **Own process tree** — no visibility into host processes.
-- **Short-lived credentials.** GitHub App tokens are injected per-task and are short-lived. Claude Max auth tokens are copied read-only from the host.
+- **Short-lived credentials.** GitHub App tokens are injected per-task and are short-lived. Claude account tokens are never written into a sandbox's files; the pipe broker redeems a one-time reference and hands the runner its token in its environment.
 - **Automatic cleanup.** Sandbox containers are destroyed after each task. A cron job catches any that were missed.
 
 Claude can do anything it wants inside that sandbox. The walls are real — Incus namespace isolation, not just user separation within a shared container.
@@ -394,10 +390,9 @@ The full test suite runs on real CI, not on self-reported output from Claude. Cl
 
 ### Cost Controls
 
-Three layers:
+Two layers:
 
-- **Per-task budget** — `--max-budget-usd 5.00` on every Claude CLI invocation, as a runaway guardrail. Implementation cost is covered by the subscription; this limit exists for safety.
-- **Daily budget** — `daily_budget_usd` (default $50) covers routing-layer API costs. Enforced by the `EnsureDailyBudget` middleware before any Claude Code job starts.
+- **No per-task or daily budget.** Yak enforces no cost limit on SDK runs. The runaway guard (`yak.threads.turn_wall_clock_minutes` and the assistant-turn cap) stops a stuck turn instead.
 - **Deduplication** — `UNIQUE(external_id, repo)` prevents repeat work on the same issue.
 
 ### Scope Flag

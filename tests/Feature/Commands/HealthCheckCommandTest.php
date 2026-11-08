@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\ClaudeAccount;
 use App\Services\HealthCheck\HealthCheck;
 use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthSection;
@@ -8,13 +9,14 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Redis;
 
 /**
  * A single controllable check, swapped in for the real registry so a test
  * can drive the command through a failing/recovering sequence without
  * depending on the real system checks.
  */
-function fakeHealthCheck(callable $result, string $id = 'claude-auth', string $name = 'Claude Max Session'): HealthCheck
+function fakeHealthCheck(callable $result, string $id = 'system-account', string $name = 'Claude System Account'): HealthCheck
 {
     return new class($result, $id, $name) implements HealthCheck
     {
@@ -50,15 +52,14 @@ function bindHealthCheckRegistry(HealthCheck ...$checks): void
 }
 
 beforeEach(function () {
-    $configDir = sys_get_temp_dir() . '/yak-claude-' . uniqid();
-    mkdir($configDir);
-    file_put_contents(dirname($configDir) . '/.claude.json', '{}');
-    config()->set('yak.sandbox.claude_config_source', $configDir);
+    ClaudeAccount::factory()->system()->create();
+    $redis = Mockery::mock();
+    $redis->shouldReceive('ping')->andReturn(true);
+    $redis->shouldReceive('exists')->with('broker:alive')->andReturn(1);
+    Redis::shouldReceive('connection')->with('threads')->andReturn($redis);
 
     Process::fake([
         'pgrep *' => Process::result(output: '12345'),
-        'claude --version' => Process::result(output: 'claude v1.0.0'),
-        '*claude --model claude-haiku-4-5*' => Process::result(output: 'ok'),
         'incus list*' => Process::result(output: 'task-1'),
         'incus snapshot list*' => Process::result(output: 'ready,2026-04-15'),
     ]);
@@ -172,7 +173,7 @@ test('healthcheck command posts once per outage and once on recovery', function 
     });
 });
 
-test('healthcheck command includes the agent queue count and the runbook in the alert', function () {
+test('healthcheck command includes the agent queue count in the alert', function () {
     config([
         'yak.channels.slack.bot_token' => 'xoxb-test-token',
         'yak.channels.slack.signing_secret' => 'test-secret',
@@ -190,8 +191,7 @@ test('healthcheck command includes the agent queue count and the runbook in the 
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertSent(function ($request) {
-        return str_contains($request['text'], 'Agent jobs queued:')
-            && str_contains($request['text'], 'yak-claude-login');
+        return str_contains($request['text'], 'Agent jobs queued:');
     });
 });
 
@@ -347,18 +347,4 @@ test('healthcheck command does not alert on a single transient failure', functio
     $this->artisan('yak:healthcheck')->assertExitCode(1);
 
     Http::assertNothingSent();
-});
-
-test('healthcheck command leaves out the claude runbook when claude auth is healthy', function () {
-    enableHealthCheckSlack();
-
-    Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
-
-    bindHealthCheckRegistry(fakeHealthCheck(fn () => HealthResult::error('down'), id: 'linear', name: 'Linear'));
-
-    $this->artisan('yak:healthcheck')->assertExitCode(1);
-    $this->artisan('yak:healthcheck')->assertExitCode(1);
-
-    Http::assertSent(fn ($request) => str_contains($request['text'], 'Linear')
-        && ! str_contains($request['text'], 'yak-claude-login'));
 });

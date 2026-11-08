@@ -119,3 +119,11 @@ func waitFor(t *testing.T, condition func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestBrokerPublishesAHeartbeatWhileRunning(t *testing.T) {
+	h := newHarness(t)
+	ttl, err := h.redis.TTL(context.Background(), "broker:alive").Result()
+	if err != nil || ttl <= 0 {
+		t.Fatalf("heartbeat missing or without expiry: ttl=%v err=%v", ttl, err)
+	}
+}

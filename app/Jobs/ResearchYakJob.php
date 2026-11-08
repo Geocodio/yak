@@ -2,24 +2,18 @@
 
 namespace App\Jobs;
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunRequest;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
-use App\Exceptions\ClaudeAuthException;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
 use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\FinishesResearchRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ReportsResearchToSource;
-use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Concerns\StartsThreadTurns;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\Repository;
 use App\Models\Thread;
@@ -27,7 +21,6 @@ use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\PromptResolver;
 use App\Services\TaskLogger;
-use App\Services\Telemetry\RunRecorder;
 use App\Support\TaskContext;
 use App\YakPromptBuilder;
 use Carbon\CarbonImmutable;
@@ -35,7 +28,6 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\Log;
 
 class ResearchYakJob implements ShouldBeUnique, ShouldQueue
 {
@@ -47,7 +39,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
     use NotifiesSourceOfFailure;
     use Queueable;
     use ReportsResearchToSource;
-    use RetriesWithoutStaleSession;
     use StartsThreadTurns;
 
     public int $timeout = 3600;
@@ -56,10 +47,10 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
     public array $backoff = [1, 5, 10];
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
-     * and lets a job wait out a drain or a re-authentication.
+     * and lets a job wait out a drain.
      */
     public function retryUntil(): \DateTimeInterface
     {
@@ -101,19 +92,17 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
             new EnsureRepoReady,
-            new EnsureDailyBudget,
         ];
     }
 
-    public function handle(AgentRunner $agent): void
+    public function handle(): void
     {
         TaskContext::set($this->task);
 
         try {
-            $this->runResearch($agent);
+            $this->runResearch();
         } finally {
             $this->finishParkingForQuestions();
             TaskContext::clear();
@@ -207,7 +196,7 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
-    private function runResearch(AgentRunner $agent): void
+    private function runResearch(): void
     {
         $repository = Repository::where('slug', $this->task->repo)->first();
 
@@ -226,8 +215,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
         }
 
         $resuming = $this->resumingWithAnswers();
-        $sandbox = app(IncusSandboxManager::class);
-        $containerName = null;
         TaskLogger::info($this->task, 'Picked up by worker — research');
 
         // One-shot "starting research" progress on first attempt,
@@ -241,74 +228,6 @@ class ResearchYakJob implements ShouldBeUnique, ShouldQueue
             );
         }
 
-        if (config('yak.threads.enabled')) {
-            $this->startResearchTurn($repository);
-
-            return;
-        }
-
-        $recorder = RunRecorder::start($this->task, TaskRunKind::Research, self::class, $this->task->dispatched_at ?? $this->queuedAt);
-
-        try {
-            // Create sandbox from repo snapshot
-            $containerName = $sandbox->create($this->task, $repository);
-            $recorder->mark('sandbox_create');
-            TaskLogger::info($this->task, 'Sandbox created for research', ['container' => $containerName]);
-
-            $riskProfile = $this->syncDefaultBranch($sandbox, $containerName, $repository);
-            if ($resuming) {
-                $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
-            }
-            $recorder->mark('git_prepare');
-
-            $request = new AgentRunRequest(
-                prompt: $this->promptFor(fn (): string => $riskProfile ? app(PromptResolver::class)->render('tasks-risk-profile') : YakPromptBuilder::taskPrompt($this->task)),
-                systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                containerName: $containerName,
-                timeoutSeconds: $this->timeout - 30,
-                maxBudgetUsd: (float) config('yak.max_budget_per_task'),
-                maxTurns: (int) config('yak.max_turns'),
-                model: (string) config('yak.default_model'),
-                resumeSessionId: $resuming ? $this->task->session_id : null,
-                mcpConfigPath: config('yak.mcp_config_path'),
-                task: $this->task,
-                attachments: $this->task->attachments->all(),
-            );
-
-            $recorder->agentStarted($request);
-            $result = $this->runAgentWithStaleSessionFallback($agent, $request);
-            $this->consumeAnswers();
-            $recorder->agentFinished($result);
-
-            $this->finishResearchResult($repository, $result, $sandbox, $containerName);
-            $recorder->mark('post_agent');
-        } catch (ClaudeAuthException $e) {
-            Log::error('ResearchYakJob auth failure', [
-                'task_id' => $this->task->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            $recorder->failed($e, 'claude_auth');
-            $this->handleError($e->getMessage());
-        } catch (\Throwable $e) {
-            Log::error('ResearchYakJob failed', [
-                'task_id' => $this->task->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            $recorder->failed($e);
-            $this->handleError($e->getMessage());
-        } finally {
-            $recorder->closePostAgent();
-
-            if ($containerName !== null) {
-                // Persisted so a follow-up question can resume this session.
-                $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
-                $sandbox->destroy($containerName);
-                $recorder->mark('teardown');
-            }
-
-            $recorder->finish();
-        }
+        $this->startResearchTurn($repository);
     }
 }

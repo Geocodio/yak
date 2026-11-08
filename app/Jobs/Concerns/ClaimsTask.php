@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
  * picks up a YakTask.
  *
  * `ClaimsTaskAtomically` (job middleware) calls `claimTask()` before
- * `EnsureRepoReady`/`EnsureDailyBudget` can run, so a losing copy is
+ * `EnsureRepoReady` can run, so a losing copy is
  * deleted before it ever reaches a path that calls `$job->fail()` —
  * which would otherwise mark the winning copy's task Failed and destroy
  * its live sandbox.

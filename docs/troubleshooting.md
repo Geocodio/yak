@@ -44,8 +44,8 @@ Symptoms: a task's status on the dashboard is `running` and hasn't moved for sev
 ### Likely Causes
 
 1. **Queue worker crashed mid-task.** Supervisord will restart the worker, but the task row remains in `running` until a human resets it.
-2. **Claude CLI hung on network I/O.** MCP server call, docker-compose bringing up a service, or a very long test suite.
-3. **Budget exhausted silently.** The task hit `--max-budget-usd` and the job didn't update status cleanly.
+2. **The agent hung on network I/O.** MCP server call, docker-compose bringing up a service, or a very long test suite.
+3. **The runaway guard stopped the turn.** The thread shows a guard stop with a Continue button on the task page.
 
 ### Diagnosis
 
@@ -160,15 +160,11 @@ If the first command fails, the CLI isn't installed in the container — rebuild
 
 Symptoms: tasks fail with `error_log` mentioning auth, 401, or "token expired". The health check posts an alert to Slack.
 
-Claude Code authenticates via an interactive `claude login` session token stored in `/home/yak/.claude/`. When the token expires, every Claude Code job fails gracefully with an auth error — tasks are marked `failed`, a notification goes to the source, and the health check raises an alert.
+Agent runs authenticate with the setup-token or API key of a Claude account (Settings → Claude accounts). When a token is revoked or expires, the account turns invalid, the thread shows "invalid token" with what to do, and the health check on the system account raises an alert.
 
-**Resolution:**
+**Resolution:** open Settings → Claude accounts and paste a new token for the account (`claude setup-token` creates one). It takes effect on the next turn. No restart is needed.
 
-```bash
-docker exec -it yak claude login
-```
-
-Follow the browser-based OAuth flow. The new session token persists in the mounted volume and takes effect immediately. No restart is needed.
+`docker exec -it yak claude login` is still used for MCP server logins and the skills page, which read `/home/yak/.claude`.
 
 ### MCP Server Connection Issues
 
@@ -224,18 +220,11 @@ If routing-layer costs are climbing, the cause is almost always one of:
 
 ### Implementation Layer (Claude Code)
 
-Implementation cost is covered by the Claude Max subscription, not billed per token. The cost dashboard shows Claude Code usage for monitoring but it does not affect your bill.
+Implementation cost depends on the Claude account a run uses. The cost dashboard shows Claude Code usage for monitoring.
 
 ### Budget Enforcement
 
-The `EnsureDailyBudget` job middleware fails new Claude Code jobs gracefully once the daily routing-layer budget is exceeded. Raise the limit via:
-
-```bash
-# In ansible/vault/secrets.yml or the Yak container env:
-YAK_DAILY_BUDGET=100
-```
-
-Re-run Ansible or restart the container.
+Yak enforces no cost limit on agent runs. A stuck turn is stopped by the runaway guard instead (`yak.threads.turn_wall_clock_minutes` and the assistant-turn cap).
 
 ## Health Check Failures
 
@@ -246,8 +235,8 @@ The `/health` page (and the scheduled `yak:healthcheck` command) runs these chec
 | **Queue worker running** | Supervisord crash — `docker restart yak` |
 | **Last task completed within N hours** | No traffic, or workers hung on a stuck task |
 | **All repos fetchable** | Git auth issue — re-run `yak:refresh-repos` manually, check SSH key |
-| **Claude CLI responding** | See [Claude CLI errors](#claude-cli-errors) above |
-| **Claude CLI authenticated** | Token expired — run `docker exec -it yak claude login` |
+| **Pipe broker and Redis** | Redis down or `yak-broker` stopped — `systemctl status yak-broker` on the host |
+| **Claude system account** | No usable system account — add or replace a setup-token in Settings → Claude accounts |
 | **Enabled channel MCP servers reachable** | Network issue or external service down |
 
 Failed health checks post to Slack if the Slack channel is enabled. If Slack isn't available, check the health page manually or set up external monitoring against `/health`.

@@ -2,12 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunRequest;
 use App\Enums\NotificationType;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
-use App\Exceptions\ClaudeAuthException;
 use App\Exceptions\SandboxCapacityReached;
 use App\GitOperations;
 use App\Jobs\Concerns\AsksClarifyingQuestions;
@@ -17,18 +14,14 @@ use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\HandlesWrongRepository;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
-use App\Jobs\Concerns\RetriesWithoutStaleSession;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\Repository;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use App\Services\TaskAttachmentStager;
 use App\Services\TaskLogger;
-use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
@@ -52,7 +45,6 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
     use NotifiesSourceOfFailure;
     use Queueable;
     use ResumesAgentOnExistingBranch;
-    use RetriesWithoutStaleSession;
 
     // Agent sessions involving browser capture, docker-compose warmup,
     // or long tool calls regularly exceed 10 minutes. Laravel enforces
@@ -66,10 +58,10 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
     public array $backoff = [1, 5, 10];
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
-     * and lets a job wait out a drain or a re-authentication.
+     * and lets a job wait out a drain.
      */
     public function retryUntil(): \DateTimeInterface
     {
@@ -113,26 +105,24 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
             new EnsureRepoReady,
-            new EnsureDailyBudget,
         ];
     }
 
-    public function handle(AgentRunner $agent): void
+    public function handle(): void
     {
         TaskContext::set($this->task);
 
         try {
-            $this->runTask($agent);
+            $this->runTask();
         } finally {
             $this->finishParkingForQuestions();
             TaskContext::clear();
         }
     }
 
-    private function runTask(AgentRunner $agent): void
+    private function runTask(): void
     {
         $repository = Repository::where('slug', $this->task->repo)->first();
 
@@ -167,82 +157,8 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
 
         $resuming = $this->resumingWithAnswers();
 
-        if (config('yak.threads.enabled')) {
-            $this->announceStart($resuming);
-            $this->startThreadTurn($repository, $resuming);
-
-            return;
-        }
-
-        $sandbox = app(IncusSandboxManager::class);
-        $containerName = null;
-        $recorder = RunRecorder::start($this->task, TaskRunKind::Initial, self::class, $this->task->dispatched_at ?? $this->queuedAt);
-
         $this->announceStart($resuming);
-
-        try {
-            // Create isolated sandbox container (instant CoW clone from snapshot)
-            $containerName = $sandbox->create($this->task, $repository);
-            $recorder->mark('sandbox_create');
-            TaskLogger::info($this->task, 'Sandbox created', ['container' => $containerName]);
-
-            if ($resuming && $this->task->branch_name !== null) {
-                $this->prepareExistingBranch($sandbox, $containerName, $repository, $this->task->branch_name);
-                $sandbox->pushSessionTranscript($containerName, $this->task->session_id);
-            } else {
-                $this->prepareBranch($sandbox, $containerName, $repository);
-            }
-            $recorder->mark('git_prepare');
-
-            $prompt = $this->promptFor(fn (): string => $this->assemblePrompt());
-
-            $request = new AgentRunRequest(
-                prompt: $prompt,
-                systemPrompt: YakPromptBuilder::systemPrompt($this->task),
-                containerName: $containerName,
-                timeoutSeconds: $this->timeout - 30,
-                maxBudgetUsd: (float) config('yak.max_budget_per_task'),
-                maxTurns: (int) config('yak.max_turns'),
-                model: (string) config('yak.default_model'),
-                resumeSessionId: $resuming ? $this->task->session_id : null,
-                mcpConfigPath: config('yak.mcp_config_path'),
-                task: $this->task,
-                attachments: $this->task->attachments->all(),
-            );
-
-            $recorder->agentStarted($request);
-            $result = $this->runAgentWithStaleSessionFallback($agent, $request);
-            $recorder->agentFinished($result);
-            $this->consumeAnswers();
-
-            $this->finishAgentResult($repository, $result, $sandbox, $containerName, $recorder);
-        } catch (ClaudeAuthException $e) {
-            Log::error('RunYakJob auth failure', [
-                'task_id' => $this->task->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            $recorder->failed($e, 'claude_auth');
-            $this->handleError($e->getMessage());
-        } catch (\Throwable $e) {
-            Log::error('RunYakJob failed', [
-                'task_id' => $this->task->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            $recorder->failed($e);
-            $this->handleError($e->getMessage());
-        } finally {
-            $recorder->closePostAgent();
-
-            if ($containerName !== null) {
-                $sandbox->pullSessionTranscript($containerName, $this->task->session_id);
-                $sandbox->destroy($containerName);
-                $recorder->mark('teardown');
-            }
-
-            $recorder->finish();
-        }
+        $this->startThreadTurn($repository, $resuming);
     }
 
     private function announceStart(bool $resuming): void

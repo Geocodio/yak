@@ -39,7 +39,7 @@ class QueuedMessageController extends Controller
         });
 
         if ($error === null && $mode === SteeringMode::Steer) {
-            SteeringDelivery::deliverIfEnabled($task);
+            SteeringDelivery::deliverQuietly($task);
         }
 
         return $this->back($task, $error);

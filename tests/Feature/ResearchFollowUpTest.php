@@ -149,7 +149,7 @@ function runResearchFollowUp(FakeAgentRunner $agent, FakeSandboxManager $sandbox
     Process::fake(['*' => Process::result('')]);
     Http::fake();
 
-    (new ResearchFollowUpJob($child))->handle($agent);
+    runAgentJob(new ResearchFollowUpJob($child), $agent);
 }
 
 function researchFollowUpFixture(): YakTask
@@ -183,10 +183,6 @@ test('a research follow-up resumes the session and carries the previous answer a
         ->and($request->prompt)->toContain('Which is cheapest?')
         ->and($request->prompt)->toContain('Three retry strategies fit the client.')
         ->and($request->prompt)->toContain('.yak-artifacts/previous-research.html');
-
-    expect($sandbox->pushedTranscripts)->toBe(['sess_research'])
-        ->and($sandbox->pulledTranscripts)->not->toBeEmpty()
-        ->and($sandbox->destroyedContainers)->toHaveCount(1);
 
     $child->refresh();
     expect($child->status)->toBe(TaskStatus::Success)

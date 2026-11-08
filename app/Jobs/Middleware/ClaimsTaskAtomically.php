@@ -19,12 +19,11 @@ use Illuminate\Support\Facades\Log;
  * this middleware entirely, as this app's job tests do — still claims
  * its task the same way.
  *
- * Must run before `EnsureRepoReady` and `EnsureDailyBudget` — both call
+ * Must run before `EnsureRepoReady` — it calls
  * `$job->fail()` on refusal, which would otherwise mark the (actually
  * Running) task Failed and destroy the winning copy's live sandbox
  * (`IncusSandboxManager::create()` reclaims a same-named container by
- * destroying it). It can safely run after `PausesDuringDrain` and
- * `HoldsForClaudeAuth`, since those only release the job back to the
+ * destroying it). It can safely run after `PausesDuringDrain`, since that only releases the job back to the
  * queue — the task is still Pending when they act, so a later retry of
  * the same job claims normally instead of finding itself already
  * "claimed" and deleting itself.

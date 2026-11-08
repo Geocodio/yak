@@ -18,9 +18,7 @@ use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\GuardsTerminalTaskStatus;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\Middleware\EnsureRepoReady;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\LinearOauthConnection;
@@ -62,10 +60,10 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     public array $backoff = [1, 5, 10];
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
-     * and lets a job wait out a drain or a re-authentication.
+     * and lets a job wait out a drain.
      */
     public function retryUntil(): \DateTimeInterface
     {
@@ -106,10 +104,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
             new EnsureRepoReady,
-            new EnsureDailyBudget,
         ];
     }
 
@@ -166,7 +162,6 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->timeout - 30,
-                maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
                 resumeSessionId: null,

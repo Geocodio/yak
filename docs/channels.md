@@ -262,7 +262,7 @@ I want to make sure I fix the right thing. Which did you mean?
 Reply with a number and I'll get started.
 ```
 
-The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session via `--resume` -- no re-reading, no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option), while several questions, or any question from GitHub or the dashboard, are answered on the task page form and Yak posts a link to it. `ClarificationAnswerSubmitter` stores the answers and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`).
+The task pauses in `awaiting_clarification` for up to 3 days. Reply in the thread with a number and Yak resumes the same Claude session on the task's thread -- no re-reading, no re-analysis. A single question in Slack or Linear can be answered inline in the thread (Slack shows one button per option), while several questions, or any question from GitHub or the dashboard, are answered on the task page form and Yak posts a link to it. `ClarificationAnswerSubmitter` stores the answers and re-dispatches the job that asked (`RunYakJob`, `RunFollowUpJob`, `ResearchYakJob` or `ResearchFollowUpJob`).
 
 ### Follow-ups
 

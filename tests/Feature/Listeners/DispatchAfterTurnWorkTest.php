@@ -11,7 +11,6 @@ use App\Models\YakTask;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
-    config(['yak.threads.enabled' => true]);
     Queue::fake();
     $this->thread = Thread::factory()->paused()->create();
     $this->task = YakTask::factory()->running()->create(['thread_id' => $this->thread->id]);
@@ -64,14 +63,6 @@ it('ignores a turn the runaway guard stopped', function () {
     $run = turnFor($this->task, ['turn_state' => TurnState::StoppedByGuard]);
 
     event(new TurnFailed($run));
-
-    Queue::assertNothingPushed();
-});
-
-it('does nothing while threads are disabled', function () {
-    config(['yak.threads.enabled' => false]);
-
-    event(new TurnCompleted(turnFor($this->task)));
 
     Queue::assertNothingPushed();
 });

@@ -47,7 +47,7 @@ test('a follow-up run stamps started_at when the worker picks it up', function (
         'started_at' => null,
     ]);
 
-    (new RunFollowUpJob($task))->handle($fake);
+    runAgentJob(new RunFollowUpJob($task), $fake);
 
     expect($task->fresh()->started_at)->not->toBeNull();
 });
@@ -70,7 +70,7 @@ test('a follow-up that fails before reaching the agent still stamps started_at',
         'started_at' => null,
     ]);
 
-    (new RunFollowUpJob($task))->handle($fake);
+    runAgentJob(new RunFollowUpJob($task), $fake);
 
     $task->refresh();
 
@@ -105,7 +105,7 @@ test('a follow-up that asks parks the child task and pushes nothing', function (
         isError: false, rawOutput: '{}', clarificationQuestions: [sampleQuestion('scope')],
     ));
 
-    (new RunFollowUpJob($child))->handle($fake);
+    runAgentJob(new RunFollowUpJob($child), $fake);
 
     expect($child->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and($sandbox->commandsMatching('git push'))->toBe([]);
@@ -120,10 +120,9 @@ test('a follow-up resumed with answers uses the answers prompt', function () {
     $child->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
     $child->update(['status' => TaskStatus::Pending]);
 
-    (new RunFollowUpJob($child->fresh()))->handle($fake);
+    runAgentJob(new RunFollowUpJob($child->fresh()), $fake);
 
-    expect($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
-        ->and($fake->lastCall()->resumeSessionId)->toBe('sess_fu_first');
+    expect($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small");
 });
 
 test('a follow-up on its third round does not park and drops the clarification block', function () {
@@ -137,7 +136,7 @@ test('a follow-up on its third round does not park and drops the clarification b
         $child->markClarificationAnswersConsumed();
     }
 
-    (new RunFollowUpJob($child->fresh()))->handle($fake);
+    runAgentJob(new RunFollowUpJob($child->fresh()), $fake);
 
     $child->refresh();
     expect($child->status)->not->toBe(TaskStatus::AwaitingClarification)

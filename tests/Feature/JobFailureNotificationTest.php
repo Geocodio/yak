@@ -36,7 +36,7 @@ test('RunYakJob tells the source when the run fails', function () {
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->pending()->create(['repo' => 'fail-repo', 'source' => 'linear']);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     expect($task->refresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
@@ -48,7 +48,7 @@ test('RunYakJob tells the source when an exception fails the run', function () {
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->pending()->create(['repo' => 'fail-repo', 'source' => 'linear']);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error
         && str_contains($job->message, 'uncommitted changes'));
@@ -59,7 +59,7 @@ test('an auth failure notifies exactly once', function () {
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->pending()->create(['repo' => 'fail-repo', 'source' => 'slack']);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     Queue::assertPushed(
         SendNotificationJob::class,
@@ -75,7 +75,7 @@ test('a system task failure does not notify', function () {
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->pending()->create(['repo' => 'fail-repo', 'source' => 'system']);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     expect($task->refresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertNotPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
@@ -101,7 +101,7 @@ test('RetryYakJob tells the source when the retry fails', function () {
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->retrying()->create(['repo' => 'fail-repo', 'source' => 'linear', 'branch_name' => 'yak/x']);
 
-    (new RetryYakJob($task, 'ci output'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'ci output'), $fake);
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
 });
@@ -111,7 +111,7 @@ test('ResearchYakJob tells the source when research fails', function () {
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->pending()->create(['repo' => 'fail-repo', 'source' => 'linear', 'mode' => 'research']);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job): bool => $job->type === NotificationType::Error);
 });
@@ -141,7 +141,7 @@ test('ResearchYakJob fails cleanly and tells the source when the repo is unresol
     $this->app->instance(AgentRunner::class, $fake);
     $task = YakTask::factory()->pending()->create(['repo' => 'unknown', 'source' => 'linear', 'mode' => 'research']);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Failed)

@@ -16,7 +16,6 @@ final readonly class AgentRunRequest
         public string $systemPrompt,
         public string $containerName,
         public int $timeoutSeconds,
-        public float $maxBudgetUsd,
         public int $maxTurns,
         public string $model,
         public ?string $resumeSessionId = null,
@@ -32,28 +31,6 @@ final readonly class AgentRunRequest
     }
 
     /**
-     * Copy of this request with the resume session stripped, for retrying
-     * a run whose `--resume` failed because the transcript is gone.
-     */
-    public function withoutResume(?string $prompt = null): self
-    {
-        return new self(
-            prompt: $prompt ?? $this->prompt,
-            systemPrompt: $this->systemPrompt,
-            containerName: $this->containerName,
-            timeoutSeconds: $this->timeoutSeconds,
-            maxBudgetUsd: $this->maxBudgetUsd,
-            maxTurns: $this->maxTurns,
-            model: $this->model,
-            resumeSessionId: null,
-            mcpConfigPath: $this->mcpConfigPath,
-            task: $this->task,
-            attachments: $this->attachments,
-            account: $this->account,
-        );
-    }
-
-    /**
      * Copy of this request with a different prompt and no attachments,
      * once the attachments have been staged and described in the prompt.
      */
@@ -64,7 +41,6 @@ final readonly class AgentRunRequest
             systemPrompt: $this->systemPrompt,
             containerName: $this->containerName,
             timeoutSeconds: $this->timeoutSeconds,
-            maxBudgetUsd: $this->maxBudgetUsd,
             maxTurns: $this->maxTurns,
             model: $this->model,
             resumeSessionId: $this->resumeSessionId,

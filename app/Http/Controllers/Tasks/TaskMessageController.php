@@ -94,7 +94,7 @@ class TaskMessageController extends Controller
         TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
 
         if ($mode === SteeringMode::Steer) {
-            SteeringDelivery::deliverIfEnabled($head);
+            SteeringDelivery::deliverQuietly($head);
         }
 
         TaskLogger::info($head, $mode === SteeringMode::Steer ? 'Steering message waiting for the next tool call via Yak UI' : 'Steering message queued via Yak UI');

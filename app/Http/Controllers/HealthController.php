@@ -3,14 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\DataTransferObjects\HealthResultData;
-use App\Services\HealthCheck\ClaudeAuthCheck;
-use App\Services\HealthCheck\HealthResult;
 use App\Services\HealthCheck\HealthSection;
-use App\Services\HealthCheck\HealthStatus;
 use App\Services\HealthCheck\Registry;
 use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,14 +14,6 @@ use Inertia\Response;
 class HealthController extends Controller
 {
     private const CACHE_TTL_SECONDS = 60;
-
-    /**
-     * The probe runs every 15 minutes; anything older than roughly two
-     * intervals means the scheduler likely died, not that the result is
-     * merely a little behind. Past this age the stored result is no longer
-     * trustworthy enough to show as a plain "Authenticated" green.
-     */
-    private const STALE_PROBE_MINUTES = 35;
 
     /**
      * Maps a check ID to the most relevant docs anchor. Used to render a
@@ -39,8 +27,8 @@ class HealthController extends Controller
         'last-task-completed' => 'troubleshooting',
         'incus-daemon' => 'architecture.sandbox',
         'sandbox-base-template' => 'architecture.sandbox',
-        'claude-cli' => 'troubleshooting.cli',
-        'claude-auth' => 'troubleshooting.cli',
+        'broker' => 'architecture.sandbox',
+        'system-account' => 'troubleshooting.cli',
         'repositories' => 'repositories',
         'webhook-signatures' => 'troubleshooting.webhooks',
         'slack' => 'channels.slack',
@@ -137,10 +125,6 @@ class HealthController extends Controller
 
     private function resultFor(string $checkId): HealthResultData
     {
-        if ($checkId === 'claude-auth') {
-            return $this->claudeAuthResultData();
-        }
-
         $result = Cache::remember(
             "health:check:{$checkId}",
             self::CACHE_TTL_SECONDS,
@@ -148,41 +132,5 @@ class HealthController extends Controller
         );
 
         return HealthResultData::from($result);
-    }
-
-    private function claudeAuthResultData(): HealthResultData
-    {
-        /** @var array{result: HealthResult, checked_at: string}|null $stored */
-        $stored = Cache::get(ClaudeAuthCheck::LAST_RESULT_CACHE_KEY);
-
-        if ($stored === null) {
-            return HealthResultData::from(
-                HealthResult::warn('Not yet probed — waiting for the next scheduled health check (runs every 15 minutes)'),
-            );
-        }
-
-        $result = $stored['result'];
-        $checkedAt = Carbon::parse($stored['checked_at']);
-        $age = $checkedAt->diffForHumans();
-
-        if ($checkedAt->diffInMinutes(now()) > self::STALE_PROBE_MINUTES) {
-            $staleDetail = "Stale probe result from {$age} — the scheduler may not be running. Last known state: {$result->detail}";
-
-            // Staleness only ever degrades an Ok result to a Warn. It must
-            // never upgrade-by-erasure a worse status (Error/NotConnected):
-            // downgrading a genuine Error to Warn would silently drop the
-            // re-authentication action, and would show a stale red probe
-            // as merely yellow.
-            if ($result->status === HealthStatus::Ok) {
-                return HealthResultData::from(HealthResult::warn($staleDetail));
-            }
-
-            return HealthResultData::from(new HealthResult($result->status, $staleDetail, $result->action));
-        }
-
-        return HealthResultData::from(
-            new HealthResult($result->status, "{$result->detail} ({$age})", $result->action),
-            checkedAgo: $age,
-        );
     }
 }

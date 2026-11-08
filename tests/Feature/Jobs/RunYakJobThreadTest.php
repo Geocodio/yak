@@ -24,7 +24,6 @@ use Tests\Support\FakeSandboxManager;
 use Tests\Support\FakeThreadStreams;
 
 beforeEach(function () {
-    config(['yak.threads.enabled' => true]);
     Queue::fake();
     Process::fake(['*' => Process::result('')]);
 

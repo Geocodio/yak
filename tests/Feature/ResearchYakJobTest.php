@@ -60,7 +60,7 @@ test('risk profile research saves a draft tied to the checked out revision witho
         'context' => json_encode(['risk_profile_draft' => true]),
     ]);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     $profiles = app(RepositoryRiskProfiles::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
@@ -101,7 +101,7 @@ test('a rejected risk profile draft keeps the research output for a human to cor
         'context' => json_encode(['risk_profile_draft' => true]),
     ]);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     $profiles = app(RepositoryRiskProfiles::class);
     expect($task->fresh()->status)->toBe(TaskStatus::Success)
@@ -144,7 +144,7 @@ test('successful research transitions task to success with result_summary and co
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
 
@@ -183,14 +183,10 @@ test('research creates sandbox and completes successfully', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Success);
-
-    // Sandbox was created and destroyed
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
 });
 
 test('research does not create any branch', function () {
@@ -216,7 +212,7 @@ test('research does not create any branch', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
     expect($task->branch_name)->toBeNull();
@@ -257,7 +253,7 @@ test('research fetches and resets default branch to origin before agent runs', f
         'mode' => 'research',
     ]);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     $fetchIndex = null;
     $checkoutIndex = null;
@@ -326,7 +322,7 @@ test('collects HTML artifact from sandbox when present', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $artifact = Artifact::where('yak_task_id', $task->id)->first();
 
@@ -360,7 +356,7 @@ test('handles missing HTML artifact gracefully', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'manual']);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
     expect($task->status)->toBe(TaskStatus::Success);
@@ -406,7 +402,7 @@ test('a recorded walkthrough is kept, rendered and linked from the reply', funct
     Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     expect(Artifact::where('yak_task_id', $task->id)->where('role', 'shot')->count())->toBe(1);
     Queue::assertPushed(RenderWalkthroughJob::class);
@@ -468,7 +464,7 @@ test('posts summary and findings URL as Linear comment', function () {
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     Http::assertSent(function ($request) {
         if ($request->url() !== 'https://api.linear.app/graphql') {
@@ -545,7 +541,7 @@ test('moves Linear issue to Done state', function () {
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     Http::assertSent(function ($request) {
         if ($request->url() !== 'https://api.linear.app/graphql') {
@@ -612,7 +608,7 @@ test('posts summary and findings URL as Slack thread reply', function () {
     ]);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     Http::assertSent(function ($request) use ($task) {
         if ($request->url() !== 'https://slack.com/api/chat.postMessage') {
@@ -666,7 +662,7 @@ test('Claude error response marks task as failed', function () {
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo']);
 
     $job = new ResearchYakJob($task);
-    $job->handle($fake);
+    runAgentJob($job, $fake);
 
     $task->refresh();
 
@@ -707,7 +703,7 @@ test('the research answer is sent once through SendNotificationJob without a sec
     Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'dashboard']);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     $results = Queue::pushed(SendNotificationJob::class, fn (SendNotificationJob $notification): bool => $notification->type === NotificationType::Result);
 
@@ -730,7 +726,7 @@ test('research that asks parks the task and collects no artifact', function () {
     Repository::factory()->create(['slug' => 'rq-repo', 'path' => '/home/yak/repos/rq-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'rq-repo', 'source' => 'slack', 'mode' => 'research']);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     expect($task->fresh()->status)->toBe(TaskStatus::AwaitingClarification)
         ->and(Artifact::where('yak_task_id', $task->id)->count())->toBe(0);
@@ -751,11 +747,10 @@ test('research resumed with answers resumes the session with the answers prompt'
     $task->recordClarificationAnswers(['scope' => ['choices' => ['Small'], 'other' => null]], null, 'Michele');
     $task->update(['status' => TaskStatus::Pending]);
 
-    (new ResearchYakJob($task->fresh()))->handle($fake);
+    runAgentJob(new ResearchYakJob($task->fresh()), $fake);
 
     expect($fake->lastCall()->resumeSessionId)->toBe('sess_first')
-        ->and($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small")
-        ->and($sandbox->pushedTranscripts)->toBe(['sess_first']);
+        ->and($fake->lastCall()->prompt)->toContain("Q: Which scope?\nA: Small");
 });
 
 function runRiskProfileResearch(string $areaName = 'billing'): YakTask
@@ -789,7 +784,7 @@ function runRiskProfileResearch(string $areaName = 'billing'): YakTask
         'context' => json_encode(['risk_profile_draft' => true]),
     ]);
 
-    (new ResearchYakJob($task))->handle($fake);
+    runAgentJob(new ResearchYakJob($task), $fake);
 
     return $task->fresh();
 }

@@ -149,9 +149,9 @@ Not enforced. Developers can run Pint on save or set up a git pre-commit hook. C
 
 See the [Architecture](architecture.md) page for the full system design. For contributors, the shortest version:
 
-- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `RunFollowUpJob`, `ResearchFollowUpJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Each agent job creates an Incus sandbox at the start and destroys it in a `finally` block.
-- **`app/Jobs/Middleware/`** — `EnsureDailyBudget`. Cross-cutting concerns as Laravel job middleware.
-- **`app/Agents/`** — `SandboxedAgentRunner` (the `AgentRunner` implementation), `ClaudeCodeOutputParser`, `StreamEventHandler`. The runner executes Claude Code inside the task's Incus container via `incus exec`.
+- **`app/Jobs/`** — the pipeline. `RunYakJob`, `RetryYakJob`, `ResearchYakJob`, `SetupYakJob`, `RunFollowUpJob`, `ResearchFollowUpJob`, `ProcessCIResultJob`, `CreatePullRequestJob`, `SendNotificationJob`, `ProcessWebhookJob`, `CleanupJob`. Task jobs write a turn into the task's thread and end; `Finish*TurnJob` does the work after the turn. One-shot jobs (`SetupYakJob`, `RunYakReviewJob`) create a sandbox and destroy it in a `finally` block.
+- **`app/Jobs/Middleware/`** — `PausesDuringDrain`, `ClaimsTaskAtomically`, `EnsureRepoReady`. Cross-cutting concerns as Laravel job middleware.
+- **`app/Agents/`** — `BrokeredAgentRunner` (the `AgentRunner` implementation for one-shot runs), `ClaudeCodeOutputParser`, `StreamEventHandler`. Agent turns run through the pipe broker in a thread sandbox; see `app/Services/Threads/`.
 - **`app/Services/IncusSandboxManager.php`** — sandbox lifecycle: clone from snapshot, configure resource limits, push Claude/MCP config, snapshot, promote-to-template, destroy.
 - **`app/Services/SandboxArtifactCollector.php`** — pulls `.yak-artifacts/` from the sandbox before destruction.
 - **`app/Drivers/`** — channel driver implementations. Each channel has an input driver, a notification driver, or both.
@@ -315,11 +315,11 @@ Key factory states:
 
 ### Process And HTTP Faking
 
-All external process calls (Claude CLI, git, docker-compose) use `Process::fake()`. Patterns matter — **specific patterns before wildcards**, because Laravel matches in registration order:
+All external process calls (git, docker-compose) use `Process::fake()`. Patterns matter — **specific patterns before wildcards**, because Laravel matches in registration order:
 
 ```php
 Process::fake([
-    'claude -p *' => Process::result(json: ['result' => '...', 'session_id' => '...']),
+    'git push *'  => Process::result(),
     '*'           => Process::result(),
 ]);
 ```

@@ -495,7 +495,7 @@ class ThreadDriver
 
         foreach (YakTask::query()->whereIn('id', $waiting)->whereNotNull('thread_id')->get() as $root) {
             if (Thread::query()->find($root->thread_id)?->runningTurn() !== null) {
-                SteeringDelivery::deliverIfEnabled($root);
+                SteeringDelivery::deliverQuietly($root);
             }
         }
     }

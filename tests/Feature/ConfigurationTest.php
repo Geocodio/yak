@@ -2,20 +2,6 @@
 
 /*
 |--------------------------------------------------------------------------
-| Budget Defaults
-|--------------------------------------------------------------------------
-*/
-
-test('daily_budget_usd defaults to 50', function () {
-    expect(config('yak.daily_budget_usd'))->toBe(50.0);
-});
-
-test('max_budget_per_task defaults to 5', function () {
-    expect(config('yak.max_budget_per_task'))->toBe(5.0);
-});
-
-/*
-|--------------------------------------------------------------------------
 | Task Execution Defaults
 |--------------------------------------------------------------------------
 */

@@ -32,7 +32,6 @@ function oneshotRequest(object $test, int $timeoutSeconds = 5): AgentRunRequest
         systemPrompt: 'You are Yak',
         containerName: 'yak-review-1',
         timeoutSeconds: $timeoutSeconds,
-        maxBudgetUsd: 0,
         maxTurns: 10,
         model: 'sonnet',
         task: $test->task,
@@ -117,10 +116,6 @@ it('hands review requests the repository unattended account', function () {
     expect($fake->lastCall()->account?->is($account))->toBeTrue();
 });
 
-it('binds the brokered runner when threads are enabled', function () {
-    config(['yak.threads.enabled' => true]);
+it('binds the brokered runner', function () {
     expect(app(AgentRunner::class))->toBeInstanceOf(BrokeredAgentRunner::class);
-
-    config(['yak.threads.enabled' => false]);
-    expect(app(AgentRunner::class))->not->toBeInstanceOf(BrokeredAgentRunner::class);
 });

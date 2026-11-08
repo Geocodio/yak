@@ -16,6 +16,7 @@ import (
 
 const (
 	channelsKey   = "broker:channels"
+	heartbeatKey  = "broker:alive"
 	containersKey = "broker:containers"
 	groupName     = "broker"
 )
@@ -78,6 +79,7 @@ func (b *Broker) Run(ctx context.Context) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
+		b.redis.Set(ctx, heartbeatKey, time.Now().Unix(), 15*time.Second)
 		b.refresh(ctx, "0")
 		select {
 		case <-ctx.Done():

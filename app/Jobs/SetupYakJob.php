@@ -15,8 +15,6 @@ use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
-use App\Jobs\Middleware\EnsureDailyBudget;
-use App\Jobs\Middleware\HoldsForClaudeAuth;
 use App\Jobs\Middleware\PausesDuringDrain;
 use App\Models\DailyCost;
 use App\Models\Repository;
@@ -65,14 +63,14 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     public int $tries = 1;
 
     /**
-     * Releases from PausesDuringDrain and the Claude-auth hold middleware
+     * Releases from PausesDuringDrain
      * increment the attempt counter, so the worker's --tries=3 would fail a
      * held job after three minutes. This method takes precedence over tries
-     * and lets a job wait out a drain or a re-authentication.
+     * and lets a job wait out a drain.
      *
      * retryUntil() and $tries=1 only actually collide on the hard-kill path
-     * (worker timeout / SIGKILL / OOM): a release from PausesDuringDrain or
-     * HoldsForClaudeAuth never reaches handle(), so it costs nothing but a
+     * (worker timeout / SIGKILL / OOM): a release from PausesDuringDrain
+     * never reaches handle(), so it costs nothing but a
      * queue row and isn't a "retry" in the budget-spending sense $tries=1
      * guards against. A hard kill after the agent has already started is a
      * real retry, and with a 3600s+ timeout on this job that path is the
@@ -119,9 +117,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
     {
         return [
             new PausesDuringDrain,
-            new HoldsForClaudeAuth,
             new ClaimsTaskAtomically,
-            new EnsureDailyBudget,
         ];
     }
 
@@ -215,7 +211,6 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
                 timeoutSeconds: $this->agentTimeoutSeconds(),
-                maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),
                 resumeSessionId: null,

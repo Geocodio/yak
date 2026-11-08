@@ -71,7 +71,7 @@ class IncusSandboxManager
             $this->destroy($containerName);
         }
 
-        $this->provision($containerName, $repository, fn () => $this->configureClaudeMount($containerName), ['task_id' => $task->id]);
+        $this->provision($containerName, $repository, fn () => $this->configureThreadClaudeConfig($containerName, '/home/yak/.claude'), ['task_id' => $task->id]);
 
         return $containerName;
     }
@@ -884,46 +884,6 @@ class IncusSandboxManager
     }
 
     /**
-     * Share the host's Claude config directory with the sandbox instead of
-     * copying it.
-     *
-     * Claude Code's OAuth refresh tokens are single-use: each refresh
-     * invalidates the previous one server-side. Handing every sandbox a
-     * private copy meant the first sandbox to refresh stranded every other
-     * copy, which is the "OAuth session expired and could not be refreshed"
-     * failure. With one shared directory there is exactly one credential
-     * file, and the CLI's own `.oauth_refresh.lock` — which lives in that
-     * directory — serializes concurrent refreshes the way it was designed to.
-     *
-     * `raw.idmap` maps the host uid that owns the directory onto the
-     * container's `yak` user, so the agent can read and write it and its
-     * writes land host-side owned by www-data. It only takes effect at
-     * container start, so this must run before `incus start`.
-     */
-    private function configureClaudeMount(string $containerName): void
-    {
-        $source = (string) config('yak.sandbox.claude_config_source', '/home/yak/.claude');
-
-        $this->configureClaudeIdmap($containerName, $source);
-
-        // Idempotent: a sandbox cloned from a template that was poisoned by
-        // an earlier build of this feature (see promoteToTemplate()) may
-        // already carry the device. Remove it first so the add below
-        // doesn't fail with "Device already exists".
-        Process::timeout(self::QUERY_TIMEOUT)->run(sprintf(
-            'incus config device remove %s claude 2>/dev/null',
-            escapeshellarg($containerName),
-        ));
-
-        $this->exec(sprintf(
-            'incus config device add %s claude disk source=%s path=%s',
-            escapeshellarg($containerName),
-            escapeshellarg($source),
-            escapeshellarg($source),
-        ));
-    }
-
-    /**
      * Maps the container's yak user onto the owner of the host Claude config.
      */
     private function configureClaudeIdmap(string $containerName, string $source): void
@@ -944,99 +904,6 @@ class IncusSandboxManager
             escapeshellarg($containerName),
             escapeshellarg(sprintf('both %d %d', $hostUid, $sandboxUid)),
         ));
-    }
-
-    /**
-     * Pull a Claude session transcript out of a sandbox before teardown so
-     * a later follow-up or clarification reply can `--resume` the session
-     * in a fresh sandbox. Transcripts live under `~/.claude/projects/`
-     * inside the container and are destroyed with it otherwise.
-     *
-     * Best-effort: any failure is logged and swallowed — teardown must not
-     * be blocked by transcript bookkeeping.
-     */
-    public function pullSessionTranscript(string $containerName, ?string $sessionId): void
-    {
-        if ($sessionId === null || $sessionId === '') {
-            return;
-        }
-
-        try {
-            $findResult = $this->run(
-                $containerName,
-                sprintf('find /home/yak/.claude/projects -name %s 2>/dev/null | head -1', escapeshellarg($sessionId . '.jsonl')),
-                timeout: 15,
-            );
-
-            $remotePath = trim((string) $findResult->output());
-
-            if ($remotePath === '') {
-                return;
-            }
-
-            $localDir = self::sessionTranscriptDir();
-            if (! is_dir($localDir)) {
-                mkdir($localDir, 0755, true);
-            }
-
-            $this->pullFile($containerName, $remotePath, $localDir . '/' . $sessionId . '.jsonl');
-
-            Log::channel('yak')->info('Persisted Claude session transcript', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-            ]);
-        } catch (\Throwable $e) {
-            Log::channel('yak')->warning('pullSessionTranscript failed', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-
-    /**
-     * Push a previously persisted session transcript into a fresh sandbox
-     * so `claude --resume {sessionId}` can find the conversation. Returns
-     * whether a transcript was pushed; when false the caller's resume will
-     * fail with "No conversation found" and should fall back to a fresh run.
-     */
-    public function pushSessionTranscript(string $containerName, ?string $sessionId): bool
-    {
-        if ($sessionId === null || $sessionId === '') {
-            return false;
-        }
-
-        $localPath = self::sessionTranscriptDir() . '/' . $sessionId . '.jsonl';
-
-        if (! is_file($localPath)) {
-            return false;
-        }
-
-        try {
-            // Claude Code keys project transcript dirs by the CWD with every
-            // non-alphanumeric character replaced by '-' (e.g. /workspace
-            // becomes -workspace). The agent always runs from workspacePath().
-            $projectDir = '/home/yak/.claude/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', self::workspacePath());
-
-            $this->run($containerName, 'mkdir -p ' . escapeshellarg($projectDir), timeout: 10, asRoot: true);
-            $this->pushFile($containerName, $localPath, $projectDir . '/' . $sessionId . '.jsonl');
-            $this->run($containerName, 'chown -R yak:yak /home/yak/.claude/projects', timeout: 10, asRoot: true);
-
-            Log::channel('yak')->info('Restored Claude session transcript into sandbox', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-            ]);
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::channel('yak')->warning('pushSessionTranscript failed', [
-                'container' => $containerName,
-                'session_id' => $sessionId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
     }
 
     /**

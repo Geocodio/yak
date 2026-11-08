@@ -26,12 +26,8 @@ class SteeringDelivery
      * Sends from a request or job path. A failure leaves the message waiting
      * for the driver's next sweep, so it never fails the caller.
      */
-    public static function deliverIfEnabled(YakTask $task): void
+    public static function deliverQuietly(YakTask $task): void
     {
-        if (! config('yak.threads.enabled')) {
-            return;
-        }
-
         try {
             app(self::class)->deliver($task);
         } catch (Throwable $e) {

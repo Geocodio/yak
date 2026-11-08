@@ -10,16 +10,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Budget Configuration
-    |--------------------------------------------------------------------------
-    */
-
-    'daily_budget_usd' => (float) env('YAK_DAILY_BUDGET_USD', 50),
-
-    'max_budget_per_task' => (float) env('YAK_MAX_BUDGET_PER_TASK', 5),
-
-    /*
-    |--------------------------------------------------------------------------
     | Task Execution
     |--------------------------------------------------------------------------
     */
@@ -554,13 +544,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Long-lived conversations that keep one sandbox and one Agent SDK runner
-    | across turns. Off until the cutover release removes the CLI path.
+    | across turns. Yak sets no cost limit on them; the runaway guard below stops a stuck turn.
     |
     */
 
     'threads' => [
-        'enabled' => (bool) env('YAK_THREADS_ENABLED', false),
-
         // Models a person can pick for a task, a thread or a repo default.
         'models' => ['opus', 'sonnet', 'haiku'],
 

@@ -4,6 +4,7 @@ use App\Contracts\AgentRunner;
 use App\DataTransferObjects\AgentRunResult;
 use App\Jobs\RunYakJob;
 use App\Models\Repository;
+use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
@@ -59,14 +60,12 @@ test('re-dispatching a task that is actually still queued does not produce two r
     // ReapLostPendingCommand::jobClassFor() would for a Fix-mode task.
     $resweep = new RunYakJob($task->fresh());
 
-    $original->handle($fake);
-    $resweep->handle($fake);
+    runAgentJob($original, $fake);
+    runAgentJob($resweep, $fake);
 
-    // Exactly one real run happened: one sandbox created, one destroyed —
-    // not two.
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1)
-        ->and($resweep->taskClaimLost)->toBeTrue();
+    // Exactly one real run happened.
+    expect($resweep->taskClaimLost)->toBeTrue()
+        ->and(TaskRun::count())->toBe(1);
 
     // The one real run advanced the task past Pending exactly once —
     // there's no sign of a second run having touched it.

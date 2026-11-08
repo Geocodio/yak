@@ -24,8 +24,6 @@ class FinishFollowUpTurnJob extends FinishThreadTurnJob
     use NotifiesSourceOfFailure;
     use ResumesAgentOnExistingBranch;
 
-    public ?string $staleSessionFallbackPrompt = null;
-
     protected function finishTurn(Repository $repository, AgentRunResult $result, IncusSandboxManager $sandbox, string $container, RunRecorder $recorder): void
     {
         $this->finishFollowUpResult($repository, $result, $sandbox, $container, $recorder);

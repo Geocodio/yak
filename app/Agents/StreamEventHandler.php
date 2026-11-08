@@ -30,12 +30,6 @@ class StreamEventHandler
     private int $resultCount = 0;
 
     /**
-     * Messages from stdin the CLI echoed back (`--replay-user-messages`),
-     * which it does at the moment it takes each one into the conversation.
-     */
-    private int $replayedMessageCount = 0;
-
-    /**
      * Session id from the first stream event that carries one (the
      * `system.init` event, normally). Captured early so the runner can
      * `--resume` the session when the CLI exits before the `result` event.
@@ -138,11 +132,6 @@ class StreamEventHandler
         return $this->resultCount;
     }
 
-    public function getReplayedMessageCount(): int
-    {
-        return $this->replayedMessageCount;
-    }
-
     public function getSessionId(): ?string
     {
         return $this->sessionId;
@@ -164,12 +153,6 @@ class StreamEventHandler
      */
     private function handleUser(array $event): void
     {
-        if (($event['isReplay'] ?? false) === true) {
-            $this->replayedMessageCount++;
-
-            return;
-        }
-
         $message = $event['message'] ?? [];
 
         if (! is_array($message)) {

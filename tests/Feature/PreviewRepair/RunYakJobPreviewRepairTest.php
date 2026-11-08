@@ -51,7 +51,7 @@ function runPreviewRepair(string $verdict, int $commitCount, $messenger): array
     app()->instance(IncusSandboxManager::class, $sandbox);
     app()->instance(PreviewRepairMessenger::class, $messenger);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     return [$task->refresh(), $previewRepair->refresh(), $sandbox];
 }

@@ -7,8 +7,8 @@ use App\Jobs\ResearchYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\RunYakReviewJob;
 use App\Jobs\SetupYakJob;
-use App\Models\DailyCost;
 use App\Models\Repository;
+use App\Models\TaskRun;
 use App\Models\YakTask;
 use App\Services\IncusSandboxManager;
 use Illuminate\Support\Facades\Process;
@@ -23,7 +23,7 @@ use Tests\Support\FakeSandboxManager;
  * bypasses the queue's middleware pipeline entirely — that's fine for
  * testing handle()'s own logic (claimTask() is idempotent and performs
  * the claim itself when no middleware got there first), but it means the
- * "a losing copy never reaches EnsureRepoReady/EnsureDailyBudget" — the
+ * "a losing copy never reaches EnsureRepoReady" — the
  * actual point of Change 0 — has to be proven by running the real
  * middleware() stack in order, the way CallQueuedHandler would.
  */
@@ -88,32 +88,6 @@ test('a task already Running is not re-claimed', function (string $jobClass, str
         ->and($task->attempts)->toBe(1);
 })->with('claiming job classes');
 
-test('the losing copy never reaches EnsureDailyBudget and does not mark the task Failed', function (string $jobClass, string $slug) {
-    Process::fake(['*' => Process::result('')]);
-    config()->set('yak.daily_budget_usd', 10.0);
-    DailyCost::factory()->create(['date' => now()->toDateString(), 'total_usd' => 999.0]);
-
-    $repository = makeReadyRepository($jobClass, $slug . '-budget');
-    $task = YakTask::factory()->pending()->create(['repo' => $repository->slug]);
-
-    $winner = new $jobClass($task);
-    expect($winner->claimTask())->toBeTrue();
-
-    $loser = new $jobClass($task->fresh());
-    $reachedHandle = false;
-
-    runJobMiddlewarePipeline($loser->middleware(), $loser, function () use (&$reachedHandle) {
-        $reachedHandle = true;
-    });
-
-    $task->refresh();
-
-    expect($reachedHandle)->toBeFalse()
-        ->and($task->status)->toBe(TaskStatus::Running)
-        ->and($task->error_log)->toBeNull()
-        ->and($task->completed_at)->toBeNull();
-})->with('claiming job classes');
-
 dataset('repo-gated job classes', [
     'RunYakJob' => [RunYakJob::class, 'atomic-claim-repogate-run'],
     'ResearchYakJob' => [ResearchYakJob::class, 'atomic-claim-repogate-research'],
@@ -152,7 +126,7 @@ test('the losing copy never reaches EnsureRepoReady and does not mark the task F
         ->and($task->completed_at)->toBeNull();
 })->with('repo-gated job classes');
 
-test('a losing copy does not destroy the winning copy\'s sandbox', function () {
+test('a losing copy does not start a second turn', function () {
     $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
         sessionId: 'sess_race',
         resultSummary: 'Done',
@@ -171,22 +145,17 @@ test('a losing copy does not destroy the winning copy\'s sandbox', function () {
     $repository = Repository::factory()->create(['slug' => 'race-repo', 'path' => '/home/yak/repos/race-repo']);
     $task = YakTask::factory()->pending()->create(['repo' => 'race-repo']);
 
-    // Winner claims and runs to completion — creating and destroying its
-    // own sandbox in the process.
+    // Winner claims and runs to completion.
     $winner = new RunYakJob($task);
-    $winner->handle($fake);
+    runAgentJob($winner, $fake);
 
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1);
+    expect(TaskRun::count())->toBe(1);
 
     // Loser dispatched against the same task after the winner already
-    // finished (still the dangerous case: a duplicate that shows up late
-    // must not touch the sandbox at all, let alone destroy it).
+    // finished: a duplicate that shows up late must not start another turn.
     $loser = new RunYakJob($task->fresh());
-    $loser->handle($fake);
+    runAgentJob($loser, $fake);
 
-    // No new sandbox activity from the loser.
-    expect($fakeSandbox->createdContainers)->toHaveCount(1)
-        ->and($fakeSandbox->destroyedContainers)->toHaveCount(1)
+    expect(TaskRun::count())->toBe(1)
         ->and($loser->taskClaimLost)->toBeTrue();
 });

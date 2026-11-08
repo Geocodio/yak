@@ -37,7 +37,7 @@ class DispatchAfterTurnWork
         $run = $event->run;
         $finisher = $this->finisherFor($run);
 
-        if (! config('yak.threads.enabled') || $finisher === null || $run->turn_state === TurnState::StoppedByGuard) {
+        if ($finisher === null || $run->turn_state === TurnState::StoppedByGuard) {
             return;
         }
 

@@ -78,7 +78,7 @@ test('a wrong repository verdict asks for a repo instead of failing on a dirty t
         'branch_name' => 'yak/old-branch',
     ]);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     $task->refresh();
 
@@ -112,7 +112,7 @@ test('an unknown suggested repository is ignored and the others stay alphabetica
 
     $task = YakTask::factory()->pending()->create(['repo' => 'acme/atlas', 'source' => 'linear']);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     expect($task->refresh()->clarification_options)->toBe(['acme/api', 'acme/zeta']);
 });
@@ -135,7 +135,7 @@ test('a retry that reports the wrong repository asks for a repo and starts over'
         'branch_name' => 'yak/old-branch',
     ]);
 
-    (new RetryYakJob($task, 'ci output'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'ci output'), $fake);
 
     $task->refresh();
 
@@ -169,7 +169,7 @@ test('a resumed run that reports the wrong repository asks for a repo and starts
         'branch_name' => 'yak/old-branch',
     ]);
 
-    (new RunYakJob($task))->handle($fake);
+    runAgentJob(new RunYakJob($task), $fake);
 
     $task->refresh();
 
@@ -200,7 +200,7 @@ test('a task that already has a pull request ignores the wrong repository verdic
         'pr_url' => 'https://github.com/acme/atlas/pull/3',
     ]);
 
-    (new RetryYakJob($task, 'ci output'))->handle($fake);
+    runAgentJob(new RetryYakJob($task, 'ci output'), $fake);
 
     expect($task->refresh()->repo)->toBe('acme/atlas')
         ->and(RepoClarificationResolver::awaitingRepoChoice($task))->toBeFalse();
