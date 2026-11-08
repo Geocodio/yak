@@ -24,6 +24,7 @@ use App\Http\Controllers\Repositories\GitHubCiDetectController;
 use App\Http\Controllers\Repositories\GitHubRepoSearchController;
 use App\Http\Controllers\Repositories\ManifestController;
 use App\Http\Controllers\Repositories\RepositoryActionController;
+use App\Http\Controllers\Repositories\RepositoryClaudeAccountController;
 use App\Http\Controllers\Repositories\RepositoryController;
 use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
@@ -115,6 +116,12 @@ Route::middleware(['auth'])->group(function () {
         ->where('repository', '.+');
     Route::patch('repos/{repository}', [RepositoryController::class, 'update'])
         ->name('repos.update')
+        ->where('repository', '.+');
+    Route::put('repos/{repository}/claude-account', [RepositoryClaudeAccountController::class, 'updateMine'])
+        ->name('repos.claude-account.update')
+        ->where('repository', '.+');
+    Route::put('repos/{repository}/unattended-claude-account', [RepositoryClaudeAccountController::class, 'updateUnattended'])
+        ->name('repos.unattended-claude-account.update')
         ->where('repository', '.+');
     Route::delete('repos/{repository}', [RepositoryController::class, 'destroy'])
         ->name('repos.destroy')

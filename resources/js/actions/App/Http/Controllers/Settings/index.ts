@@ -4,6 +4,7 @@ import ProfileController from './ProfileController'
 import GitHubAccountController from './GitHubAccountController'
 import AccountController from './AccountController'
 import LinearConnectionController from './LinearConnectionController'
+import ClaudeAccountController from './ClaudeAccountController'
 import VideoThemeController from './VideoThemeController'
 
 const Settings = {
@@ -13,6 +14,7 @@ const Settings = {
     GitHubAccountController: Object.assign(GitHubAccountController, GitHubAccountController),
     AccountController: Object.assign(AccountController, AccountController),
     LinearConnectionController: Object.assign(LinearConnectionController, LinearConnectionController),
+    ClaudeAccountController: Object.assign(ClaudeAccountController, ClaudeAccountController),
     VideoThemeController: Object.assign(VideoThemeController, VideoThemeController),
 }
 

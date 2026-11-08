@@ -8,6 +8,7 @@ use App\Channels\Sentry\Service as SentryService;
 use App\Enums\TaskMode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Repositories\SaveRepositoryRequest;
+use App\Http\Resources\AccountPickerData;
 use App\Http\Resources\RepositorySummaryData;
 use App\Http\Resources\YakConfigData;
 use App\Models\PrReview;
@@ -19,6 +20,7 @@ use App\Services\RepositoryConfig;
 use App\Services\RepositoryRiskProfiles;
 use App\Support\Docs;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -92,6 +94,8 @@ class RepositoryController extends Controller
                 ? null
                 : 'This repository has tasks and cannot be deleted. Deactivate it instead.',
             'docsLinks' => $this->docsLinks(),
+            'accountPicker' => fn () => AccountPickerData::forUser(Auth::user()),
+            'unattendedClaudeAccountId' => $repository->unattended_claude_account_id,
             'yakConfig' => Inertia::defer(
                 fn () => YakConfigData::from($repository, app(RepositoryConfig::class)->snapshot($repository)),
                 'yak-config',

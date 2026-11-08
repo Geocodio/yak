@@ -542,6 +542,9 @@ return [
     'threads' => [
         'enabled' => (bool) env('YAK_THREADS_ENABLED', false),
 
+        // Models a person can pick for a task, a thread or a repo default.
+        'models' => ['opus', 'sonnet', 'haiku'],
+
         // Days a closed thread's sandbox is kept before it is destroyed.
         'destroy_days' => 30,
 

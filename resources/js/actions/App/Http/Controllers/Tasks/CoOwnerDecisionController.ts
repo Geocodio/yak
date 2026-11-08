@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
-export const approve = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const approve = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: approve.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ approve.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
-approve.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+approve.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -52,7 +52,7 @@ approve.url = (args: { task: number | { id: number } } | [task: number | { id: n
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:25
 * @route '/tasks/{task}/co-owner/approve'
 */
-approve.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+approve.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: approve.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ approve.post = (args: { task: number | { id: number } } | [task: number | { id: 
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
-export const requestChanges = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const requestChanges = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: requestChanges.url(args, options),
     method: 'post',
 })
@@ -77,7 +77,7 @@ requestChanges.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
-requestChanges.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+requestChanges.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -110,7 +110,7 @@ requestChanges.url = (args: { task: number | { id: number } } | [task: number | 
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:34
 * @route '/tasks/{task}/co-owner/request-changes'
 */
-requestChanges.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+requestChanges.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: requestChanges.url(args, options),
     method: 'post',
 })
@@ -120,7 +120,7 @@ requestChanges.post = (args: { task: number | { id: number } } | [task: number |
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
-export const reject = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const reject = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reject.url(args, options),
     method: 'post',
 })
@@ -135,7 +135,7 @@ reject.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
-reject.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+reject.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -168,7 +168,7 @@ reject.url = (args: { task: number | { id: number } } | [task: number | { id: nu
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:43
 * @route '/tasks/{task}/co-owner/reject'
 */
-reject.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+reject.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: reject.url(args, options),
     method: 'post',
 })
@@ -178,7 +178,7 @@ reject.post = (args: { task: number | { id: number } } | [task: number | { id: n
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
-export const withdraw = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const withdraw = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: withdraw.url(args, options),
     method: 'post',
 })
@@ -193,7 +193,7 @@ withdraw.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
-withdraw.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+withdraw.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -226,7 +226,7 @@ withdraw.url = (args: { task: number | { id: number } } | [task: number | { id: 
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:52
 * @route '/tasks/{task}/co-owner/withdraw'
 */
-withdraw.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+withdraw.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: withdraw.url(args, options),
     method: 'post',
 })
@@ -236,7 +236,7 @@ withdraw.post = (args: { task: number | { id: number } } | [task: number | { id:
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
-export const checkAccess = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const checkAccess = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: checkAccess.url(args, options),
     method: 'post',
 })
@@ -251,7 +251,7 @@ checkAccess.definition = {
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
-checkAccess.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+checkAccess.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -284,7 +284,7 @@ checkAccess.url = (args: { task: number | { id: number } } | [task: number | { i
 * @see app/Http/Controllers/Tasks/CoOwnerDecisionController.php:61
 * @route '/tasks/{task}/co-owner/check-access'
 */
-checkAccess.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+checkAccess.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: checkAccess.url(args, options),
     method: 'post',
 })

@@ -8,6 +8,7 @@ use App\Enums\DeploymentStatus;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AccountPickerData;
 use App\Http\Resources\TaskRowData;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
@@ -74,6 +75,7 @@ class TaskListController extends Controller
                 ->where('is_active', true)
                 ->where('is_default', true)
                 ->value('slug'),
+            'accountPicker' => fn () => AccountPickerData::forUser($request->user()),
             'openNew' => $request->boolean('new'),
         ]);
     }

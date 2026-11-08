@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
-const TaskAttachmentController = (args: { attachment: number | { id: number } } | [attachment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const TaskAttachmentController = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: TaskAttachmentController.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ TaskAttachmentController.definition = {
 * @see app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
-TaskAttachmentController.url = (args: { attachment: number | { id: number } } | [attachment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+TaskAttachmentController.url = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { attachment: args }
     }
@@ -52,7 +52,7 @@ TaskAttachmentController.url = (args: { attachment: number | { id: number } } | 
 * @see app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
-TaskAttachmentController.get = (args: { attachment: number | { id: number } } | [attachment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+TaskAttachmentController.get = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: TaskAttachmentController.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ TaskAttachmentController.get = (args: { attachment: number | { id: number } } | 
 * @see app/Http/Controllers/TaskAttachmentController.php:20
 * @route '/task-attachments/{attachment}'
 */
-TaskAttachmentController.head = (args: { attachment: number | { id: number } } | [attachment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+TaskAttachmentController.head = (args: { attachment: string | number | { id: string | number } } | [attachment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: TaskAttachmentController.url(args, options),
     method: 'head',
 })

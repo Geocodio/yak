@@ -36,6 +36,8 @@ class StoreTaskController extends Controller
             'responsible_name' => $resolver->resolve(null, $authorName, $validated['repo']),
             'started_by_user_id' => $user?->id,
             'responsible_user_id' => $resolver->resolveUser(null, $user, $validated['repo'])?->id,
+            'requested_claude_account_id' => $validated['claude_account_id'] ?? null,
+            'requested_model' => $validated['model'] ?? null,
         ]);
 
         TaskAttachment::storeFromRequest($request, ['yak_task_id' => $task->id]);
