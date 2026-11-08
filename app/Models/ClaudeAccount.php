@@ -18,7 +18,11 @@ use Illuminate\Support\Facades\DB;
  * @property string $secret
  * @property bool $is_default
  * @property int|null $owner_user_id
+ * @property CarbonImmutable|null $validated_at
  * @property CarbonImmutable|null $expires_at
+ * @property CarbonImmutable|null $last_used_at
+ * @property string|null $default_model
+ * @property string|null $last_error
  */
 #[Hidden(['secret'])]
 class ClaudeAccount extends Model

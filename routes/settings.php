@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AccountController;
+use App\Http\Controllers\Settings\ClaudeAccountController;
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LinearConnectionController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -24,6 +25,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('settings/linear', [LinearConnectionController::class, 'edit'])->name('settings.linear');
     Route::patch('settings/linear', [LinearConnectionController::class, 'update'])->name('settings.linear.update');
     Route::delete('settings/linear', [LinearConnectionController::class, 'disconnect'])->name('settings.linear.disconnect');
+
+    Route::get('settings/claude-accounts', [ClaudeAccountController::class, 'index'])->name('settings.claude-accounts');
+    Route::post('settings/claude-accounts', [ClaudeAccountController::class, 'store'])->name('settings.claude-accounts.store');
+    Route::put('settings/claude-accounts/{account}/secret', [ClaudeAccountController::class, 'rotate'])->name('settings.claude-accounts.rotate');
+    Route::patch('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'update'])->name('settings.claude-accounts.update');
+    Route::delete('settings/claude-accounts/{account}', [ClaudeAccountController::class, 'destroy'])->name('settings.claude-accounts.destroy');
 
     Route::get('settings/video', [VideoThemeController::class, 'edit'])->name('settings.video');
     Route::put('settings/video', [VideoThemeController::class, 'update'])->name('settings.video.update');
