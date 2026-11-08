@@ -33,8 +33,17 @@ class ThreadDriversCommand extends Command
             $credentialServer?->serve(0);
             $channels = $streams->channels('threads:');
 
+            // A channel's entries are handled in order: once one is left pending, the rest of that channel waits for the next read.
+            $stalledChannels = [];
+
             foreach ($streams->read($channels, $consumer, 200, 100) as $entry) {
-                $this->process($entry, $streams, $driver);
+                if (isset($stalledChannels[$entry->channel])) {
+                    continue;
+                }
+
+                if (! $this->process($entry, $streams, $driver)) {
+                    $stalledChannels[$entry->channel] = true;
+                }
 
                 if ($this->shouldStop) {
                     return self::SUCCESS;
@@ -60,13 +69,16 @@ class ThreadDriversCommand extends Command
     /**
      * One entry never blocks the others: a failure is reported and the entry
      * stays pending to be tried again, and after MAX_ATTEMPTS it moves to the
-     * dead-letter stream and only its thread's turn fails.
+     * dead-letter stream and only its thread's turn fails. Returns false while
+     * the entry is still pending.
      */
-    private function process(StreamEntry $entry, ThreadStreams $streams, ThreadDriver $driver): void
+    private function process(StreamEntry $entry, ThreadStreams $streams, ThreadDriver $driver): bool
     {
         try {
             $driver->handle($entry);
             $streams->ack($entry);
+
+            return true;
         } catch (Throwable $exception) {
             report($exception);
             $attempts = $streams->recordFailure($entry);
@@ -74,7 +86,7 @@ class ThreadDriversCommand extends Command
             if ($attempts < self::MAX_ATTEMPTS) {
                 usleep($attempts * 100_000);
 
-                return;
+                return false;
             }
 
             $streams->deadLetter($entry, $exception::class . ': ' . $exception->getMessage());
@@ -84,6 +96,8 @@ class ThreadDriversCommand extends Command
             } catch (Throwable $inner) {
                 report($inner);
             }
+
+            return true;
         }
     }
 

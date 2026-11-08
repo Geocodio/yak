@@ -76,3 +76,33 @@ it('moves an entry that keeps failing to the dead letters and fails only its tur
         ->and($streams->deadLettered[0][1])->toContain('boom')
         ->and($streams->read([$thread->channel()], 'c', 0, 10))->toHaveCount(0);
 });
+
+it('holds back later entries of a channel while an earlier one is pending', function () {
+    $streams = new FakeThreadStreams;
+    $this->app->instance(ThreadStreams::class, $streams);
+    $thread = Thread::factory()->create();
+    $streams->register($thread->channel());
+    $streams->pushOutbound($thread->channel(), ['type' => 'first']);
+    $streams->pushOutbound($thread->channel(), ['type' => 'second']);
+
+    $handled = [];
+    $failedOnce = false;
+    $driver = Mockery::mock(ThreadDriver::class);
+    $driver->shouldReceive('handle')->andReturnUsing(function (StreamEntry $entry) use (&$handled, &$failedOnce) {
+        if ($entry->line['type'] === 'first' && ! $failedOnce) {
+            $failedOnce = true;
+
+            throw new RuntimeException('transient');
+        }
+
+        $handled[] = $entry->line['type'];
+    });
+    $driver->shouldReceive('tick');
+    $this->app->instance(ThreadDriver::class, $driver);
+
+    $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
+    expect($handled)->toBe([]);
+
+    $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
+    expect($handled)->toBe(['first', 'second']);
+});
