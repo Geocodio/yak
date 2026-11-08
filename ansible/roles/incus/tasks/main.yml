@@ -205,8 +205,8 @@
     sysctl_set: true
     reload: true
   loop:
-    - { key: "fs.inotify.max_user_instances", value: "1024" }
-    - { key: "fs.inotify.max_user_watches", value: "524288" }
+    - { key: "fs.inotify.max_user_instances", value: "8192" }
+    - { key: "fs.inotify.max_user_watches", value: "1048576" }
 
 - name: Check if base template exists at current version
   # The marker file is versioned: bumping `yak_sandbox_base_version` makes
@@ -257,6 +257,18 @@
     owner: root
     group: root
     mode: "0755"
+  when: base_template_check.rc != 0
+
+- name: Stage yak-runner on the host for baking into yak-base
+  # Copied without node_modules; npm ci runs inside the container so the
+  # optional native SDK package matches the container platform.
+  ansible.posix.synchronize:
+    src: "{{ playbook_dir }}/../sandbox-tools/yak-runner/"
+    dest: /tmp/yak-runner/
+    delete: true
+    rsync_opts:
+      - "--exclude=node_modules"
+      - "--exclude=tests"
   when: base_template_check.rc != 0
 
 - name: Create base template container
@@ -392,6 +404,29 @@
     # this baked copy guarantees video walkthroughs still work if the
     # push-on-launch step ever fails.
     incus file push /tmp/yak-browser.js yak-base/usr/local/bin/yak-browser --mode=0755
+
+    # Bake the Agent SDK runner at a stable path, inherited by repo templates.
+    incus exec yak-base -- rm -rf /opt/yak-runner
+    incus file push -r /tmp/yak-runner yak-base/opt/
+    incus exec yak-base -- bash -c '
+      set -euo pipefail
+      cd /opt/yak-runner
+      npm ci --omit=dev
+      chown -R root:root /opt/yak-runner
+      chmod -R a+rX /opt/yak-runner
+    '
+
+    # Report the runc version nested Docker will use; install the pinned
+    # one when yak_sandbox_runc_version is set.
+    incus exec yak-base -- runc --version
+    {% if yak_sandbox_runc_version | default('') != '' %}
+    incus exec yak-base -- bash -c '
+      set -euo pipefail
+      curl -fsSL -o /usr/local/sbin/runc https://github.com/opencontainers/runc/releases/download/v{{ yak_sandbox_runc_version }}/runc.amd64
+      chmod 0755 /usr/local/sbin/runc
+      runc --version
+    '
+    {% endif %}
 
     # Install the curated Claude Code skills as the yak user
     for skill_def in \

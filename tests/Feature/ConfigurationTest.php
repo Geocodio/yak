@@ -134,3 +134,9 @@ it('has pr_review config defaults', function () {
 it('has github app_bot_login config key', function () {
     expect(config('yak.channels.github.app_bot_login'))->not->toBeNull();
 });
+
+it('keeps the sandbox base version in step with Ansible', function () {
+    preg_match('/^yak_sandbox_base_version:\s*(\d+)/m', file_get_contents(base_path('ansible/group_vars/yak.yml')), $matches);
+
+    expect((int) $matches[1])->toBe(config('yak.sandbox.base_version'));
+});
