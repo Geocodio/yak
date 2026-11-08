@@ -112,7 +112,7 @@ class ThreadStreams
         $this->moveToDeadLetters($entry->channel, $entry->id, [
             'generation' => (string) $entry->generation,
             'sequence' => (string) $entry->sequence,
-            'line' => json_encode($entry->line),
+            'line' => json_encode($entry->line, JSON_THROW_ON_ERROR),
             'origin' => $entry->fromBroker ? 'broker' : '',
         ], $reason);
         $this->client()->hDel(self::ATTEMPTS_KEY, $this->attemptKey($entry));
