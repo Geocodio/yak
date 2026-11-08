@@ -119,6 +119,7 @@ final class TurnTracker
         return [];
     }
 
+    /** @phpstan-impure */
     public function isEnded(): bool
     {
         if ($this->resultCount === 0 || $this->backgroundTaskCount > 0 || $this->pendingBackgroundResults > 0) {

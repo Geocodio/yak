@@ -85,7 +85,7 @@ class BrokeredAgentRunner implements AgentRunner
                     $tracker->observe($entry->line);
                 }
 
-                if ($stopReason === null && ! $tracker->isEnded() && $handler->getStats()->assistantMessages >= $request->maxTurns) {
+                if (! $tracker->isEnded() && $handler->getStats()->assistantMessages >= $request->maxTurns) {
                     $stopReason = "The agent run stopped after {$request->maxTurns} assistant turns";
                 }
             }
