@@ -31,6 +31,7 @@ use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
 use App\Http\Controllers\SkillController;
 use App\Http\Controllers\TaskAttachmentController;
+use App\Http\Controllers\Tasks\ContinueTurnController;
 use App\Http\Controllers\Tasks\CoOwnerDecisionController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
 use App\Http\Controllers\Tasks\EarlyWarningController;
@@ -76,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('tasks/setup-card/dismiss', DismissSetupCardController::class)->name('tasks.setup-card.dismiss');
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
+    Route::post('tasks/{task}/continue', ContinueTurnController::class)->name('tasks.continue');
     Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
     Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
     Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');

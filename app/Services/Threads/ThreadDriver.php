@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\Agents\StreamEventHandler;
 use App\DataTransferObjects\StreamEntry;
 use App\Enums\CommandState;
+use App\Enums\NotificationType;
 use App\Enums\RunnerState;
 use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSessionKind;
@@ -13,6 +14,7 @@ use App\Events\RunnerExited;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
+use App\Jobs\SendNotificationJob;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +41,10 @@ class ThreadDriver
     /** @var list<int> threads whose runner was lost while a turn ran, recovered after the commit */
     private array $lostRunners = [];
 
-    public function __construct(private readonly RunnerRecovery $recovery) {}
+    /** @var list<array{0: int, 1: string}> thread id and message of each turn the guard stopped, acted on after the commit */
+    private array $stoppedTurns = [];
+
+    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands) {}
 
     public function handle(StreamEntry $entry): void
     {
@@ -65,13 +70,17 @@ class ThreadDriver
         }
 
         $this->lostRunners = [];
+        $this->afterGuardStops();
     }
 
     /**
-     * Sends the event of every finished turn whose event never went out.
+     * Stops running turns past their wall-clock limit, then sends the event
+     * of every finished turn whose event never went out.
      */
     public function tick(): void
     {
+        $this->guardRunningTurns();
+
         TaskRun::query()
             ->whereNotNull('thread_id')
             ->whereIn('turn_state', [TurnState::Completed, TurnState::Failed])
@@ -203,6 +212,8 @@ class ThreadDriver
         $run->save();
 
         if (! $tracker->isEnded()) {
+            $this->guardTurn($thread, $run, $events);
+
             return;
         }
 
@@ -237,6 +248,79 @@ class ThreadDriver
 
         if ($changed > 0) {
             $events[] = $this->completionEvent($run->fresh() ?? $run);
+        }
+    }
+
+    private function guardRunningTurns(): void
+    {
+        $runs = TaskRun::query()
+            ->whereNotNull('thread_id')
+            ->where('turn_state', TurnState::Running)
+            ->whereNotNull('agent_started_at')
+            ->get();
+
+        foreach ($runs as $candidate) {
+            /** @var list<object> $events */
+            $events = [];
+
+            DB::transaction(function () use ($candidate, &$events): void {
+                $thread = Thread::query()->lockForUpdate()->find($candidate->thread_id);
+                $run = $thread?->runningTurn();
+
+                if ($thread !== null && $run?->is($candidate)) {
+                    $this->guardTurn($thread, $run, $events);
+                }
+            });
+
+            $this->dispatchAll($events);
+        }
+
+        $this->afterGuardStops();
+    }
+
+    /**
+     * @param  list<object>  $events
+     */
+    private function guardTurn(Thread $thread, TaskRun $run, array &$events): void
+    {
+        $reason = $this->guard->check($run);
+
+        if ($reason === null) {
+            return;
+        }
+
+        $run->forceFill([
+            'turn_state' => TurnState::StoppedByGuard,
+            'guard_reason' => $reason,
+            'agent_finished_at' => now(),
+        ])->save();
+
+        unset($this->handlers[$run->id]);
+        $thread->forceFill([
+            'lock_holder' => ThreadLockHolder::None,
+            'lock_turn_id' => null,
+            'lock_acquired_at' => null,
+            'runner_state' => RunnerState::Idle,
+        ])->save();
+
+        $this->stoppedTurns[] = [$thread->id, $this->guard->message($run, $reason)];
+        $events[] = new TurnFailed($run);
+    }
+
+    private function afterGuardStops(): void
+    {
+        $stopped = $this->stoppedTurns;
+        $this->stoppedTurns = [];
+
+        foreach ($stopped as [$threadId, $message]) {
+            $thread = Thread::query()->findOrFail($threadId);
+            $this->commands->interrupt($thread);
+
+            $task = $thread->turns()->where('turn_state', TurnState::StoppedByGuard)->latest('id')->first()?->task;
+
+            if ($task !== null) {
+                SendNotificationJob::dispatch($task, NotificationType::Progress, $message, personalize: false);
+            }
         }
     }
 
