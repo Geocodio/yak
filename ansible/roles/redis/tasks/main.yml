@@ -43,6 +43,21 @@
         rm -rf /home/yak/redis-data
       changed_when: true
 
+# The password lives in a file only the container's redis user can read, so it
+# never shows up in the process list.
+- name: Write the Redis configuration
+  ansible.builtin.copy:
+    dest: /var/lib/yak/redis.conf
+    content: |
+      appendonly yes
+      appendfsync everysec
+      requirepass {{ redis_password }}
+    mode: "0600"
+    owner: "{{ redis_container_uid }}"
+    group: "{{ redis_container_uid }}"
+  no_log: true
+  register: redis_config
+
 # Thread streams live here, so the append-only file has to survive restarts.
 - name: Run Redis container
   community.docker.docker_container:
@@ -52,15 +67,12 @@
     restart_policy: unless-stopped
     command:
       - redis-server
-      - --appendonly
-      - "yes"
-      - --appendfsync
-      - everysec
-      - --requirepass
-      - "{{ redis_password }}"
+      - /usr/local/etc/redis/redis.conf
+    restart: "{{ redis_config.changed }}"
     ports:
       - "127.0.0.1:6379:6379"
     volumes:
       - "{{ redis_data_path }}:/data"
+      - /var/lib/yak/redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
       - name: yak
