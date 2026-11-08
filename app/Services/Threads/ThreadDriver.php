@@ -4,9 +4,11 @@ namespace App\Services\Threads;
 
 use App\Agents\StreamEventHandler;
 use App\DataTransferObjects\StreamEntry;
+use App\DataTransferObjects\TurnTrackerChange;
 use App\Enums\CommandState;
 use App\Enums\NotificationType;
 use App\Enums\RunnerState;
+use App\Enums\SteeringMode;
 use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
@@ -15,8 +17,10 @@ use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
 use App\Jobs\SendNotificationJob;
+use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\YakTask;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -80,6 +84,7 @@ class ThreadDriver
     public function tick(): void
     {
         $this->guardRunningTurns();
+        $this->sendWaitingSteers();
 
         TaskRun::query()
             ->whereNotNull('thread_id')
@@ -157,7 +162,14 @@ class ThreadDriver
             default => false,
         };
 
-        if ($lost && $thread->runningTurn() !== null) {
+        $lostRun = $lost ? $thread->runningTurn() : null;
+
+        if ($lostRun !== null) {
+            // The new runner never saw these; recovery sends them again with their uuids.
+            PendingSteeringMessage::query()
+                ->where('task_run_id', $lostRun->id)
+                ->whereNull('absorbed_at')
+                ->update(['sent_at' => null, 'delivered_at' => null]);
             $this->lostRunners[] = $thread->id;
         } elseif ($lost && $event === 'broker_started') {
             $thread->forceFill(['runner_state' => RunnerState::None])->save();
@@ -211,6 +223,10 @@ class ThreadDriver
 
         $run->save();
 
+        foreach ($changes as $change) {
+            $this->applySteeringChange($task, $change);
+        }
+
         if (! $tracker->isEnded()) {
             $this->guardTurn($thread, $run, $events);
 
@@ -218,6 +234,27 @@ class ThreadDriver
         }
 
         $this->finishTurn($thread, $run, $tracker, $events);
+    }
+
+    /**
+     * A steer follows its uuid: queued means the runner has it, started means
+     * the model took it in (the row is done), cancelled before that sends it
+     * again under a new uuid.
+     */
+    private function applySteeringChange(YakTask $task, TurnTrackerChange $change): void
+    {
+        $message = PendingSteeringMessage::query()->where('uuid', $change->uuid)->first();
+
+        if ($message === null) {
+            return;
+        }
+
+        match ($change->state) {
+            CommandState::Queued => $message->forceFill(['delivered_at' => $message->delivered_at ?? now()])->save(),
+            CommandState::Started => $message->absorb($task),
+            CommandState::Cancelled => $message->forceFill(['uuid' => null, 'sent_at' => null, 'delivered_at' => null])->save(),
+            default => null,
+        };
     }
 
     /**
@@ -248,6 +285,26 @@ class ThreadDriver
 
         if ($changed > 0) {
             $events[] = $this->completionEvent($run->fresh() ?? $run);
+        }
+    }
+
+    /**
+     * A steer whose request-time send failed, or that was switched to steer
+     * after the turn began, goes out here.
+     */
+    private function sendWaitingSteers(): void
+    {
+        $waiting = PendingSteeringMessage::query()
+            ->where('mode', SteeringMode::Steer)
+            ->whereNull('sent_at')
+            ->whereNull('reviewer_login')
+            ->pluck('root_task_id')
+            ->unique();
+
+        foreach (YakTask::query()->whereIn('id', $waiting)->whereNotNull('thread_id')->get() as $root) {
+            if (Thread::query()->find($root->thread_id)?->runningTurn() !== null) {
+                SteeringDelivery::deliverIfEnabled($root);
+            }
         }
     }
 

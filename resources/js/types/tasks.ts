@@ -279,6 +279,7 @@ export type QueuedMessage = {
     authorName: string | null;
     /** False for a GitHub review, which waits for the follow-up so the reviewer is asked to look again. */
     canSteer: boolean;
+    steeringState: 'waiting' | 'sent' | 'delivered' | 'queued_until_step_finishes';
     attachments: AttachmentData[];
 };
 

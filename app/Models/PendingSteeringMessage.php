@@ -6,6 +6,7 @@ use App\Enums\SteeringMode;
 use App\Facades\Telemetry;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,9 +15,16 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * @property SteeringMode $mode
+ * @property CarbonImmutable|null $sent_at
+ * @property CarbonImmutable|null $delivered_at
  */
 class PendingSteeringMessage extends Model
 {
+    public const STEERING_PREAMBLE = "The person you are working for sent this message while you were working. Take it into account from here on:\n\n";
+
+    /** Seconds a delivered message may wait before the dashboard says it is queued behind a running step. */
+    private const STEP_WAIT_SECONDS = 3;
+
     protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name'];
 
     /**
@@ -89,6 +97,7 @@ class PendingSteeringMessage extends Model
     {
         return self::where('root_task_id', $task->rootTask()->id)
             ->where('mode', SteeringMode::Steer)
+            ->whereNull('sent_at')
             ->with('attachments')
             ->orderBy('id')
             ->get();
@@ -127,26 +136,55 @@ class PendingSteeringMessage extends Model
                     break;
                 }
 
-                TaskAttachment::where('pending_steering_message_id', $message->id)->update([
-                    'yak_task_id' => $task->id,
-                    'pending_steering_message_id' => null,
-                    'context' => TaskAttachment::CONTEXT_STEERING,
-                ]);
-
-                $message->delete();
-
-                TaskLogger::info($task, ThreadBuilder::STEERING_MESSAGE_LOG, [
-                    'reply' => $message->text,
-                    'author' => $message->author_name,
-                    'source' => $message->source,
-                    'attachment_ids' => $message->attachments->pluck('id')->all(),
-                ]);
+                $message->absorb($task);
 
                 $delivered++;
             }
 
             return $delivered;
         });
+    }
+
+    /**
+     * The message reached the model: record it in the thread as the person's
+     * message, move its files onto `$task` and delete the row.
+     */
+    public function absorb(YakTask $task): void
+    {
+        $attachmentIds = $this->attachments()->pluck('id')->all();
+
+        TaskAttachment::where('pending_steering_message_id', $this->id)->update([
+            'yak_task_id' => $task->id,
+            'pending_steering_message_id' => null,
+            'context' => TaskAttachment::CONTEXT_STEERING,
+        ]);
+
+        $this->delete();
+
+        TaskLogger::info($task, ThreadBuilder::STEERING_MESSAGE_LOG, [
+            'reply' => $this->text,
+            'author' => $this->author_name,
+            'source' => $this->source,
+            'attachment_ids' => $attachmentIds,
+        ]);
+    }
+
+    /**
+     * Where a steer stands for the dashboard. A message handed to the runner
+     * that the model has not taken in yet is waiting for the running step.
+     *
+     * @return 'waiting'|'sent'|'delivered'|'queued_until_step_finishes'
+     */
+    public function steeringState(): string
+    {
+        // ponytail: the runner reports no tool-in-flight flag, so a delivered
+        // message still unabsorbed after a few seconds is read as a running step.
+        return match (true) {
+            $this->sent_at === null => 'waiting',
+            $this->delivered_at === null => 'sent',
+            $this->delivered_at->diffInSeconds(now(), true) > self::STEP_WAIT_SECONDS => 'queued_until_step_finishes',
+            default => 'delivered',
+        };
     }
 
     /**

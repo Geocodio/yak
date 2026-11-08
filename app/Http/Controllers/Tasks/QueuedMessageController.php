@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\UpdateQueuedMessageRequest;
 use App\Models\PendingSteeringMessage;
 use App\Models\YakTask;
+use App\Services\Threads\SteeringDelivery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -37,6 +38,10 @@ class QueuedMessageController extends Controller
             return null;
         });
 
+        if ($error === null && $mode === SteeringMode::Steer) {
+            SteeringDelivery::deliverIfEnabled($task);
+        }
+
         return $this->back($task, $error);
     }
 
@@ -65,6 +70,7 @@ class QueuedMessageController extends Controller
     private function findLocked(YakTask $task, int $message): ?PendingSteeringMessage
     {
         return PendingSteeringMessage::where('root_task_id', $task->rootTask()->id)
+            ->whereNull('sent_at')
             ->lockForUpdate()
             ->with('attachments')
             ->find($message);

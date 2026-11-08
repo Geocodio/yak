@@ -691,7 +691,7 @@ final class TaskDetailData
      *     note: string|null,
      *     buttonLabel: string|null,
      *     nextAttachmentNumber: int,
-     *     queued: array<int, array{id: int, text: string, mode: string, source: string, authorName: string|null, canSteer: bool, attachments: array<int, array<string, mixed>>}>,
+     *     queued: array<int, array{id: int, text: string, mode: string, source: string, authorName: string|null, canSteer: bool, steeringState: string, attachments: array<int, array<string, mixed>>}>,
      * }
      */
     private static function composer(YakTask $task, Collection $conversation): array
@@ -749,6 +749,7 @@ final class TaskDetailData
                 'source' => $message->source,
                 'authorName' => $message->author_name,
                 'canSteer' => $message->canSteer(),
+                'steeringState' => $message->steeringState(),
                 'attachments' => $message->attachments->map(fn (TaskAttachment $attachment) => AttachmentData::from($attachment))->values()->all(),
             ])->values()->all(),
         ];

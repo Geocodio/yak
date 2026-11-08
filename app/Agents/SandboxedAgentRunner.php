@@ -821,7 +821,7 @@ class SandboxedAgentRunner implements AgentRunner
 
             return PendingSteeringMessage::deliverSteeredFor($request->task, $messages, function (PendingSteeringMessage $message) use ($request, $stdin, $sections): bool {
                 $section = $sections[$message->id] ?? '';
-                $text = "The person you are working for sent this message while you were working. Take it into account from here on:\n\n"
+                $text = PendingSteeringMessage::STEERING_PREAMBLE
                     . $message->text
                     . ($section === '' ? '' : "\n\n" . $section);
 

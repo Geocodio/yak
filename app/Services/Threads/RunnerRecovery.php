@@ -54,6 +54,7 @@ class RunnerRecovery
 
             if (! $this->hasStarted($states[$steerUuid] ?? null)) {
                 $this->commands->steer($thread, $steerUuid, $steer->text, $steer->priority);
+                $steer->forceFill(['sent_at' => now()])->save();
             }
         }
 

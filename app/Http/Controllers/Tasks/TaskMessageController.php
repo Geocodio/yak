@@ -14,6 +14,7 @@ use App\Services\FollowUpTaskFactory;
 use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
+use App\Services\Threads\SteeringDelivery;
 use App\Support\AttachmentNumbering;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
@@ -91,6 +92,10 @@ class TaskMessageController extends Controller
 
         $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name);
         TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
+
+        if ($mode === SteeringMode::Steer) {
+            SteeringDelivery::deliverIfEnabled($head);
+        }
 
         TaskLogger::info($head, $mode === SteeringMode::Steer ? 'Steering message waiting for the next tool call via Yak UI' : 'Steering message queued via Yak UI');
 
