@@ -105,6 +105,45 @@ it('times out and kills the runner', function () {
         ->and(array_column($this->streams->commandsFor($channel), 'type'))->toBe(['start_runner', 'turn', 'kill']);
 });
 
+it('kills a run that passes its assistant turn limit', function () {
+    $this->streams->onCommand = function (string $channel, array $command) {
+        if ($command['type'] === 'turn') {
+            foreach (range(1, 3) as $ignored) {
+                $this->streams->pushOutbound($channel, ['type' => 'assistant', 'session_id' => 's', 'message' => ['content' => [['type' => 'text', 'text' => 'working']]]]);
+            }
+        }
+    };
+
+    $result = $this->runner->run(new AgentRunRequest(
+        prompt: 'p', systemPrompt: 's', containerName: 'yak-review-1', timeoutSeconds: 30, maxTurns: 2,
+        model: 'sonnet', task: $this->task, account: $this->account,
+    ));
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->resultSummary)->toContain('2 assistant turns')
+        ->and(array_column($this->streams->commandsFor($this->streams->registeredEver[0]), 'type'))->toBe(['start_runner', 'turn', 'kill']);
+});
+
+it('stops at the thread wall-clock limit even when the request allows longer', function () {
+    config()->set('yak.threads.turn_wall_clock_minutes', 0);
+
+    $result = $this->runner->run(oneshotRequest($this, timeoutSeconds: 3600));
+
+    expect($result->resultSummary)->toContain('timed out after 0 seconds');
+});
+
+it('reports a runner that failed to start as a start failure', function () {
+    $this->streams->onCommand = fn (string $channel, array $command) => $command['type'] === 'start_runner'
+        ? $this->streams->pushOutbound($channel, ['event' => 'runner_exited', 'exit_code' => -1], fromBroker: true)
+        : null;
+
+    $result = $this->runner->run(oneshotRequest($this));
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->resultSummary)->toContain('failed to start')
+        ->and($result->resultSummary)->not->toContain('timed out');
+});
+
 it('unregisters the channel', function () {
     $this->streams->onCommand = fn (string $channel, array $command) => $command['type'] === 'turn' ? finishTurnOn($this->streams, $channel) : null;
 

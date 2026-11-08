@@ -54,10 +54,18 @@ class BrokeredAgentRunner implements AgentRunner
             $tracker->track($turnUuid);
 
             $startedAt = microtime(true);
+            $deadline = min($request->timeoutSeconds, (int) config('yak.threads.turn_wall_clock_minutes') * 60);
             $cursor = '0';
-            $exited = false;
+            $exitLine = null;
+            $stopReason = null;
 
-            while (! $tracker->isEnded() && ! $exited && microtime(true) - $startedAt < $request->timeoutSeconds) {
+            while (! $tracker->isEnded() && $exitLine === null && $stopReason === null) {
+                if (microtime(true) - $startedAt >= $deadline) {
+                    $stopReason = "The agent run timed out after {$deadline} seconds";
+
+                    break;
+                }
+
                 $entries = $this->streams->readOnce($channel, $cursor, 1000);
 
                 if ($entries === []) {
@@ -68,7 +76,7 @@ class BrokeredAgentRunner implements AgentRunner
                     $cursor = $entry->id;
 
                     if ($entry->fromBroker) {
-                        $exited = ($entry->line['event'] ?? null) === 'runner_exited';
+                        $exitLine = ($entry->line['event'] ?? null) === 'runner_exited' ? $entry->line : null;
 
                         continue;
                     }
@@ -76,17 +84,28 @@ class BrokeredAgentRunner implements AgentRunner
                     $handler->handle($entry->line);
                     $tracker->observe($entry->line);
                 }
+
+                if ($stopReason === null && ! $tracker->isEnded() && $handler->getStats()->assistantMessages >= $request->maxTurns) {
+                    $stopReason = "The agent run stopped after {$request->maxTurns} assistant turns";
+                }
             }
 
-            $timedOut = ! $tracker->isEnded();
-
-            if (! $exited) {
-                $this->streams->command($channel, ['type' => $timedOut ? 'kill' : 'end']);
+            if ($exitLine === null) {
+                $this->streams->command($channel, ['type' => $tracker->isEnded() ? 'end' : 'kill']);
                 $this->waitForExit($channel, $cursor);
             }
 
-            if ($timedOut) {
-                return AgentRunResult::failure("The agent run timed out after {$request->timeoutSeconds} seconds", '{}');
+            if ($stopReason !== null) {
+                return AgentRunResult::failure($stopReason, '{}');
+            }
+
+            if ($exitLine !== null && ! $tracker->isEnded()) {
+                $exitCode = (int) ($exitLine['exit_code'] ?? 0);
+
+                return AgentRunResult::failure(
+                    $exitCode === -1 ? 'The agent runner failed to start' : "The agent runner exited before the turn ended (exit code {$exitCode})",
+                    '{}',
+                );
             }
 
             return TurnResult::fromEvent(
