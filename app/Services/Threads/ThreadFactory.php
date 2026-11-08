@@ -15,47 +15,68 @@ class ThreadFactory
 
     /**
      * The thread a task belongs to: a root task starts one, a follow-up
-     * joins the thread of its conversation's root.
+     * joins the thread of its conversation's root. A closed thread never
+     * reopens, so a task whose thread is closed continues in a new thread
+     * with a fresh account resolution and no session to resume.
      */
     public function forTask(YakTask $task): Thread
     {
         if ($task->thread_id !== null) {
-            return Thread::query()->findOrFail($task->thread_id);
+            $thread = Thread::query()->findOrFail($task->thread_id);
+
+            if ($thread->isOpen()) {
+                return $thread;
+            }
         }
 
-        $root = $task->rootTask();
+        $threadId = $this->openThreadIdOf($task->rootTask());
 
-        if ($root->thread_id === null) {
-            $this->createFor($root);
+        if ($task->thread_id !== $threadId) {
+            $task->forceFill(['thread_id' => $threadId])->save();
         }
 
-        if ($task->isNot($root)) {
-            $task->forceFill(['thread_id' => $root->thread_id])->save();
-        }
-
-        return Thread::query()->findOrFail($task->thread_id);
+        return Thread::query()->findOrFail($threadId);
     }
 
-    private function createFor(YakTask $root): void
+    /**
+     * The root's open thread, created when the root has none or its thread
+     * is closed. The root row is locked while it is read, so two tasks of one
+     * conversation cannot each create a thread.
+     */
+    private function openThreadIdOf(YakTask $root): int
     {
-        DB::transaction(function () use ($root): void {
-            $resolved = $this->resolver->forNewThread($root);
+        return DB::transaction(function () use ($root): int {
+            $locked = YakTask::query()->lockForUpdate()->findOrFail($root->id);
+            $current = $locked->thread_id === null ? null : Thread::query()->find($locked->thread_id);
 
-            $thread = Thread::query()->create([
-                'repo' => $root->repo,
-                'created_by_user_id' => $root->started_by_user_id,
-                'claude_account_id' => $resolved->account?->id,
-                'model' => $resolved->model,
-            ]);
-
-            $thread->repositories()->create(['repo' => $root->repo, 'role' => 'primary']);
-
-            if ($root->session_id !== null) {
-                $thread->sessions()->create(['session_id' => $root->session_id, 'kind' => ThreadSessionKind::Main]);
-                $this->sessionSync->seedFromLegacyTranscript($thread, $root->session_id);
+            if ($current?->isOpen() === true) {
+                return $current->id;
             }
 
-            $root->forceFill(['thread_id' => $thread->id])->save();
+            return $this->createFor($locked)->id;
         });
+    }
+
+    private function createFor(YakTask $root): Thread
+    {
+        $resolved = $this->resolver->forNewThread($root);
+
+        $thread = Thread::query()->create([
+            'repo' => $root->repo,
+            'created_by_user_id' => $root->started_by_user_id,
+            'claude_account_id' => $resolved->account?->id,
+            'model' => $resolved->model,
+        ]);
+
+        $thread->repositories()->create(['repo' => $root->repo, 'role' => 'primary']);
+
+        if ($root->thread_id === null && $root->session_id !== null) {
+            $thread->sessions()->create(['session_id' => $root->session_id, 'kind' => ThreadSessionKind::Main]);
+            $this->sessionSync->seedFromLegacyTranscript($thread, $root->session_id);
+        }
+
+        $root->forceFill(['thread_id' => $thread->id])->save();
+
+        return $thread;
     }
 }

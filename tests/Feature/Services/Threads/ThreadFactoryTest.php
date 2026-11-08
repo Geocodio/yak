@@ -51,3 +51,30 @@ it('returns the existing thread on a second call', function () {
     expect($factory->forTask($task)->is($factory->forTask($task)))->toBeTrue()
         ->and(Thread::count())->toBe(1);
 });
+
+it('starts a new thread when the conversation thread is closed', function () {
+    $closed = Thread::factory()->create(['status' => 'closed', 'closed_at' => now()]);
+    $root = YakTask::factory()->create(['thread_id' => $closed->id, 'session_id' => 'old-session']);
+    $followUp = YakTask::factory()->create(['parent_task_id' => $root->id, 'thread_id' => $closed->id]);
+
+    $thread = app(ThreadFactory::class)->forTask($followUp);
+
+    expect($thread->is($closed))->toBeFalse()
+        ->and($thread->isOpen())->toBeTrue()
+        ->and($thread->sessions)->toHaveCount(0)
+        ->and($root->fresh()->thread_id)->toBe($thread->id)
+        ->and($followUp->fresh()->thread_id)->toBe($thread->id)
+        ->and($closed->fresh()->isOpen())->toBeFalse();
+});
+
+it('lets a second task of one root join the thread the first created', function () {
+    $root = YakTask::factory()->create();
+    $first = YakTask::factory()->create(['parent_task_id' => $root->id]);
+    $second = YakTask::factory()->create(['parent_task_id' => $root->id]);
+    $factory = app(ThreadFactory::class);
+
+    $thread = $factory->forTask($first);
+
+    expect($factory->forTask($second)->is($thread))->toBeTrue()
+        ->and(Thread::count())->toBe(1);
+});
