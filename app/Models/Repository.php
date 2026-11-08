@@ -76,6 +76,12 @@ class Repository extends Model
         ];
     }
 
+    /** @return BelongsTo<ClaudeAccount, $this> */
+    public function unattendedClaudeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ClaudeAccount::class, 'unattended_claude_account_id');
+    }
+
     /** @return HasMany<RepositoryConfigFile, $this> */
     public function configFiles(): HasMany
     {
