@@ -24,6 +24,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property RunnerState $runner_state
  * @property ThreadLockHolder $lock_holder
  * @property ThreadBlockReason|null $blocked_reason
+ * @property int|null $claude_account_id
+ * @property int|null $runner_claude_account_id
  * @property CarbonImmutable|null $account_switched_at
  * @property CarbonImmutable|null $sandbox_state_changed_at
  * @property CarbonImmutable|null $runner_started_at

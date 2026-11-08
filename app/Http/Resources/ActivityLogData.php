@@ -78,7 +78,7 @@ final class ActivityLogData
      */
     private static function attemptLogs(YakTask $run, int $attempt): HasMany
     {
-        return $run->logs()->where('attempt_number', $attempt);
+        return $run->logs()->where('attempt_number', $attempt)->whereNull('metadata->synthetic_error');
     }
 
     /**
@@ -110,6 +110,15 @@ final class ActivityLogData
             'error' => (bool) ($metadata['is_error'] ?? false),
             'milestone' => self::isMilestone($log),
         ];
+    }
+
+    /**
+     * The assistant line the CLI invents when the API rejects a request. The
+     * thread block explains it, so the dashboard leaves it out.
+     */
+    public static function isSynthetic(TaskLog $log): bool
+    {
+        return (bool) (((array) $log->metadata)['synthetic_error'] ?? false);
     }
 
     public static function isMilestone(TaskLog $log): bool

@@ -2,8 +2,10 @@
 
 namespace App\Services\Threads;
 
+use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
 use App\Enums\TaskRunKind;
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\TurnState;
 use App\Models\ClaudeAccount;
@@ -12,7 +14,6 @@ use App\Models\Thread;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use RuntimeException;
 
 /**
  * Starts one turn on a thread: records the turn, takes the thread lock and
@@ -22,12 +23,31 @@ class ThreadTurns
 {
     public function __construct(private readonly ThreadCommands $commands) {}
 
-    public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName): TaskRun
+    /**
+     * Returns null, with no runner command sent, when the thread is blocked or
+     * its account cannot be used; the thread's blocked_reason says why. A
+     * thread never moves to another account on its own.
+     */
+    public function start(YakTask $task, TaskRunKind $kind, string $prompt, string $systemPrompt, ?int $driverUserId, string $containerName): ?TaskRun
     {
         $promptUuid = (string) Str::uuid();
 
-        [$thread, $run] = DB::transaction(function () use ($task, $kind, $prompt, $driverUserId, $containerName, $promptUuid): array {
+        $started = DB::transaction(function () use ($task, $kind, $prompt, $driverUserId, $containerName, $promptUuid): ?array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
+            $account = ClaudeAccount::query()->find($thread->claude_account_id);
+            $blockedReason = $this->blockedReason($thread, $account);
+
+            if ($blockedReason !== null || $account === null) {
+                $thread->forceFill(['blocked_reason' => $blockedReason])->save();
+
+                return null;
+            }
+
+            if (in_array($thread->blocked_reason, [ThreadBlockReason::InvalidToken, ThreadBlockReason::NoValidAccount], true)) {
+                $thread->forceFill(['blocked_reason' => null]);
+            }
+
+            $account->forceFill(['last_used_at' => now()])->save();
 
             $run = TaskRun::query()->create([
                 'yak_task_id' => $task->id,
@@ -37,7 +57,7 @@ class ThreadTurns
                 'mode' => $task->mode,
                 'started_at' => now(),
                 'thread_id' => $thread->id,
-                'claude_account_id' => $thread->claude_account_id,
+                'claude_account_id' => $account->id,
                 'model' => $thread->model,
                 'driver_user_id' => $driverUserId,
                 'turn_state' => TurnState::Queued,
@@ -54,11 +74,21 @@ class ThreadTurns
                 'owner_user_id' => $thread->owner_user_id ?? $driverUserId,
             ])->save();
 
-            return [$thread, $run];
+            return [$thread, $run, $account];
         });
 
+        if ($started === null) {
+            return null;
+        }
+
+        [$thread, $run, $account] = $started;
+
         if ($thread->runner_state === RunnerState::None) {
-            $this->commands->startRunner($thread, $this->account($thread), $thread->activeSession()?->session_id, $systemPrompt);
+            $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, $systemPrompt);
+        } elseif ($thread->runner_claude_account_id !== null && $thread->runner_claude_account_id !== $account->id) {
+            // The runner holds the old account's credential, so a switch restarts it on the same session.
+            $this->commands->kill($thread);
+            $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, $systemPrompt);
         } elseif ($thread->model !== null && $thread->model !== $thread->runner_model) {
             $this->commands->setModel($thread, $thread->model);
         }
@@ -70,9 +100,19 @@ class ThreadTurns
         return $run;
     }
 
-    private function account(Thread $thread): ClaudeAccount
+    /**
+     * A usage limit stays until someone switches the account or it clears. A
+     * missing or rejected account blocks for as long as it is unusable, so a
+     * re-validated token unblocks its threads by itself.
+     */
+    private function blockedReason(Thread $thread, ?ClaudeAccount $account): ?ThreadBlockReason
     {
-        return ClaudeAccount::query()->find($thread->claude_account_id)
-            ?? throw new RuntimeException("Thread {$thread->id} has no Claude account to start a runner with.");
+        return match (true) {
+            $account === null => ThreadBlockReason::NoValidAccount,
+            $account->status === ClaudeAccountStatus::Invalid => ThreadBlockReason::InvalidToken,
+            ! $account->isUsable() => ThreadBlockReason::NoValidAccount,
+            $thread->blocked_reason === ThreadBlockReason::UsageLimit => ThreadBlockReason::UsageLimit,
+            default => null,
+        };
     }
 }

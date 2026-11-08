@@ -39,6 +39,7 @@ class SendNotificationJob implements ShouldQueue
      * @param  bool  $personalize  False when the message is already in the Yak voice, for example a research answer with a report link appended after the rewrite.
      * @param  User|null  $actingUser  Who caused the event; a Cancelled notice names them.
      * @param  bool  $directMessagesOnly  True when the source channel was already told directly, as Linear's webhook does within its ten-second limit.
+     * @param  list<User>  $directRecipients  People who get a direct message in addition to whoever DirectMessageRecipients names.
      */
     public function __construct(
         public readonly YakTask $task,
@@ -47,6 +48,7 @@ class SendNotificationJob implements ShouldQueue
         public readonly bool $personalize = true,
         public readonly ?User $actingUser = null,
         public readonly bool $directMessagesOnly = false,
+        public readonly array $directRecipients = [],
     ) {
         $this->onQueue('default');
     }
@@ -70,7 +72,7 @@ class SendNotificationJob implements ShouldQueue
             }
 
             $driver = $this->directMessagesOnly ? null : $this->resolveDriver($registry);
-            $recipients = app(DirectMessageRecipients::class)->for($this->task, $this->type);
+            $recipients = $this->recipients();
 
             if ($driver === null && $recipients === []) {
                 return;
@@ -94,6 +96,21 @@ class SendNotificationJob implements ShouldQueue
         } finally {
             TaskContext::clear();
         }
+    }
+
+    /**
+     * @return list<User>
+     */
+    private function recipients(): array
+    {
+        $extra = array_filter($this->directRecipients, fn (User $user): bool => $user->direct_messages_enabled);
+
+        /** @var list<User> */
+        return collect(app(DirectMessageRecipients::class)->for($this->task, $this->type))
+            ->merge($extra)
+            ->unique('id')
+            ->values()
+            ->all();
     }
 
     /**

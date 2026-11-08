@@ -281,6 +281,7 @@ class StreamEventHandler
         TaskLogger::info($this->task, $display, array_filter([
             'type' => 'assistant',
             'text' => $isLong ? $content : null,
+            'synthetic_error' => is_string($event['error'] ?? null) && $event['error'] !== '' ? true : null,
         ]));
     }
 

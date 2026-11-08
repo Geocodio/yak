@@ -5,10 +5,12 @@ namespace App\Services\Threads;
 use App\Agents\StreamEventHandler;
 use App\DataTransferObjects\StreamEntry;
 use App\DataTransferObjects\TurnTrackerChange;
+use App\Enums\ClaudeAccountStatus;
 use App\Enums\CommandState;
 use App\Enums\NotificationType;
 use App\Enums\RunnerState;
 use App\Enums\SteeringMode;
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
@@ -17,10 +19,13 @@ use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
 use App\Jobs\SendNotificationJob;
+use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\User;
 use App\Models\YakTask;
+use App\Services\ClaudeAccounts\AccountFailureClassifier;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,10 +53,13 @@ class ThreadDriver
     /** @var list<array{0: int, 1: string}> thread id and message of each turn the guard stopped, acted on after the commit */
     private array $stoppedTurns = [];
 
+    /** @var list<array{0: int, 1: int, 2: ThreadBlockReason}> thread id, turn id and reason of each turn an account failure ended, acted on after the commit */
+    private array $blockedTurns = [];
+
     /** @var list<int> threads whose turn completed or failed, paused after the commit */
     private array $finishedThreads = [];
 
-    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands, private readonly ThreadSandbox $sandbox) {}
+    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands, private readonly ThreadSandbox $sandbox, private readonly AccountFailureClassifier $classifier) {}
 
     public function handle(StreamEntry $entry): void
     {
@@ -78,6 +86,7 @@ class ThreadDriver
 
         $this->lostRunners = [];
         $this->afterGuardStops();
+        $this->afterAccountFailures();
         $this->pauseFinishedThreads();
     }
 
@@ -189,6 +198,14 @@ class ThreadDriver
         $task = $run->task;
 
         if ($task === null) {
+            return;
+        }
+
+        $failure = $this->classifier->classify($line);
+
+        if ($failure !== null) {
+            $this->blockTurn($thread, $run, $failure, $events);
+
             return;
         }
 
@@ -368,6 +385,66 @@ class ThreadDriver
 
         $this->stoppedTurns[] = [$thread->id, $this->guard->message($run, $reason)];
         $events[] = new TurnFailed($run);
+    }
+
+    /**
+     * An account failure ends the turn and blocks the thread. Nothing retries
+     * and no other account takes over; a person switches the account.
+     *
+     * @param  list<object>  $events
+     */
+    private function blockTurn(Thread $thread, TaskRun $run, ThreadBlockReason $reason, array &$events): void
+    {
+        $run->forceFill(['turn_state' => TurnState::Failed, 'agent_finished_at' => now()])->save();
+
+        if ($reason === ThreadBlockReason::InvalidToken) {
+            ClaudeAccount::query()->whereKey($run->claude_account_id)->update([
+                'status' => ClaudeAccountStatus::Invalid->value,
+                'last_error' => 'Authentication failed',
+            ]);
+        }
+
+        unset($this->handlers[$run->id]);
+        $thread->forceFill([
+            'blocked_reason' => $reason,
+            'lock_holder' => ThreadLockHolder::None,
+            'lock_turn_id' => null,
+            'lock_acquired_at' => null,
+            'runner_state' => RunnerState::Idle,
+        ])->save();
+
+        $this->blockedTurns[] = [$thread->id, $run->id, $reason];
+        $this->finishedThreads[] = $thread->id;
+        $events[] = new TurnFailed($run);
+    }
+
+    private function afterAccountFailures(): void
+    {
+        $blocked = $this->blockedTurns;
+        $this->blockedTurns = [];
+
+        foreach ($blocked as [$threadId, $runId, $reason]) {
+            $thread = Thread::query()->findOrFail($threadId);
+            $run = TaskRun::query()->findOrFail($runId);
+            $account = $run->claude_account_id === null ? null : ClaudeAccount::query()->find($run->claude_account_id);
+            $name = $account->name ?? 'Claude account';
+            $owner = $account?->owner;
+            $driver = $reason === ThreadBlockReason::UsageLimit && $run->driver_user_id !== null ? User::query()->find($run->driver_user_id) : null;
+            $recipients = array_values(collect([$owner, $driver])->filter()->unique('id')->all());
+            $task = $run->task;
+
+            $this->commands->interrupt($thread);
+
+            if ($task === null) {
+                continue;
+            }
+
+            $message = $reason === ThreadBlockReason::InvalidToken
+                ? "Your Claude account {$name} was rejected. Paste a new token in Settings, Claude accounts."
+                : "The Claude account {$name} hit its usage limit. Switch this thread to another account, or wait for the limit to reset.";
+
+            SendNotificationJob::dispatch($task, NotificationType::Error, $message, personalize: false, directMessagesOnly: $recipients !== [], directRecipients: $recipients);
+        }
     }
 
     private function pauseFinishedThreads(): void

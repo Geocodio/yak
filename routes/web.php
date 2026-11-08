@@ -44,6 +44,7 @@ use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Tasks\ThreadAccountController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +79,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('tasks/{task}', [TaskController::class, 'show'])->name('tasks.show');
     Route::post('tasks/{task}/retry', [TaskActionController::class, 'retry'])->name('tasks.retry');
     Route::post('tasks/{task}/continue', ContinueTurnController::class)->name('tasks.continue');
+    Route::put('tasks/{task}/thread/account', [ThreadAccountController::class, 'update'])->name('tasks.thread.account.update');
+    Route::put('tasks/{task}/thread/model', [ThreadAccountController::class, 'updateModel'])->name('tasks.thread.model.update');
     Route::post('tasks/{task}/cancel', [TaskActionController::class, 'cancel'])->name('tasks.cancel');
     Route::post('tasks/{task}/rerun-review', [TaskActionController::class, 'rerunReview'])->name('tasks.rerun-review');
     Route::post('tasks/{task}/retry-render', [TaskActionController::class, 'retryRender'])->name('tasks.retry-render');

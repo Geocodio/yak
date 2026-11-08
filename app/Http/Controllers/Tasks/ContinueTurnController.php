@@ -26,7 +26,7 @@ class ContinueTurnController extends Controller
             return redirect()->route('tasks.show', $task)->with('error', 'There is no stopped turn to continue.');
         }
 
-        $turns->start(
+        $run = $turns->start(
             $task,
             TaskRunKind::FollowUp,
             'Continue from where you stopped.',
@@ -34,6 +34,10 @@ class ContinueTurnController extends Controller
             $request->user()?->id,
             (string) $thread->sandbox_container,
         );
+
+        if ($run === null) {
+            return redirect()->route('tasks.show', $task)->with('error', 'The thread is blocked on its Claude account. Switch the account to continue.');
+        }
 
         return redirect()->route('tasks.show', $task)->with('success', 'Yak is continuing.');
     }

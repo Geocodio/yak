@@ -34,7 +34,7 @@ class TaskController extends Controller
             $logId = TaskDetailData::resolveTranscriptLogId($request, $conversation);
             $log = $logId !== null ? TaskLog::find($logId) : null;
 
-            return $log !== null ? TranscriptData::entry($log) : null;
+            return $log !== null && ! ActivityLogData::isSynthetic($log) ? TranscriptData::entry($log) : null;
         };
 
         // Candidates are computed for the requester only, and only while the notice is pickable.
