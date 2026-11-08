@@ -35,6 +35,8 @@ class ClaudeAccountController extends Controller
 
     public function store(StoreClaudeAccountRequest $request, ClaudeAccountValidator $validator): RedirectResponse
     {
+        abort_if($request->boolean('is_system') && ! $this->managesSystemAccounts(), 403);
+
         $kind = ClaudeAccountKind::from($request->string('kind')->toString());
         $secret = $request->string('secret')->toString();
 
@@ -105,9 +107,14 @@ class ClaudeAccountController extends Controller
         }
     }
 
-    /** A person manages their own accounts; any signed-in user manages system accounts. */
+    /** A person manages their own accounts; only a system account admin manages the Yak-owned ones. */
     private function authorizeAccount(Request $request, ClaudeAccount $account): void
     {
-        abort_unless($account->isSystem() || $account->owner_user_id === Auth::id(), 403);
+        abort_unless($account->isSystem() ? $this->managesSystemAccounts() : $account->owner_user_id === Auth::id(), 403);
+    }
+
+    private function managesSystemAccounts(): bool
+    {
+        return in_array(Auth::id(), config('yak.system_claude_account_admin_ids', []), true);
     }
 }

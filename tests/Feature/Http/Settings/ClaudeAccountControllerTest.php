@@ -81,3 +81,24 @@ it('removes my account', function () {
 
     expect(ClaudeAccount::query()->count())->toBe(0);
 });
+
+it('keeps system accounts away from users who are not system account admins', function () {
+    $system = ClaudeAccount::factory()->system()->create();
+
+    $this->post(route('settings.claude-accounts.store'), ['name' => 'Shared', 'kind' => 'setup_token', 'secret' => 'tok', 'is_system' => true])->assertForbidden();
+    $this->put(route('settings.claude-accounts.rotate', $system), ['secret' => 'fresh'])->assertForbidden();
+    $this->patch(route('settings.claude-accounts.update', $system), ['name' => 'Renamed'])->assertForbidden();
+    $this->delete(route('settings.claude-accounts.destroy', $system))->assertForbidden();
+
+    expect(ClaudeAccount::query()->count())->toBe(1);
+});
+
+it('lets a system account admin manage system accounts', function () {
+    config()->set('yak.system_claude_account_admin_ids', [$this->user->id]);
+    $system = ClaudeAccount::factory()->system()->create();
+
+    $this->post(route('settings.claude-accounts.store'), ['name' => 'Shared', 'kind' => 'setup_token', 'secret' => 'tok', 'is_system' => true])->assertRedirect();
+    $this->delete(route('settings.claude-accounts.destroy', $system))->assertRedirect();
+
+    expect(ClaudeAccount::query()->whereNull('owner_user_id')->count())->toBe(1);
+});

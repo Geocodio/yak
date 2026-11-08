@@ -32,6 +32,9 @@ return [
 
     'credential_reference_store' => env('YAK_CREDENTIAL_REFERENCE_STORE', 'database'),
 
+    // User ids that may add, rotate and remove the Yak-owned (system) Claude accounts that unattended work bills to.
+    'system_claude_account_admin_ids' => array_values(array_filter(array_map('intval', explode(',', (string) env('YAK_SYSTEM_ACCOUNT_ADMIN_IDS', ''))))),
+
     'credential_socket' => [
         'path' => env('YAK_CREDENTIAL_SOCKET', '/var/lib/yak/credentials/redeem.sock'),
         'allowed_uid' => env('YAK_CREDENTIAL_SOCKET_UID') === null ? null : (int) env('YAK_CREDENTIAL_SOCKET_UID'),
