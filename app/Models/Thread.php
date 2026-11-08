@@ -117,6 +117,15 @@ class Thread extends Model
             ->first();
     }
 
+    /**
+     * The bearer token a client uses on this thread's session store routes. It is an HMAC of the
+     * thread id under the app key, so it opens no other thread.
+     */
+    public function sessionStoreToken(): string
+    {
+        return hash_hmac('sha256', 'session-store:' . $this->getKey(), (string) config('app.key'));
+    }
+
     public function channel(): string
     {
         return 'threads:' . $this->id;

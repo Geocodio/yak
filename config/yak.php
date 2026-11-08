@@ -587,7 +587,6 @@ return [
 
         // Production points this at the persistent /data volume.
         'session_store_path' => env('YAK_SESSION_STORE_PATH', storage_path('app/session-store')),
-        'session_store_api_token' => env('YAK_SESSION_STORE_API_TOKEN'),
     ],
 
 ];

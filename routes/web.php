@@ -283,7 +283,7 @@ Route::middleware(['restrict-to-ingress', 'auth'])
     ->get('/internal/deployments/status', DeploymentStatusController::class)
     ->name('deployments.status');
 
-Route::middleware('session-store-token')
+Route::middleware(['restrict-to-ingress', 'session-store-token'])
     ->prefix('/internal/session-store/{thread}')
     ->name('session-store.')
     ->group(function () {
