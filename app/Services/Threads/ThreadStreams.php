@@ -88,10 +88,25 @@ class ThreadStreams
         return [];
     }
 
+    /**
+     * Acknowledges a handled entry and drops everything before it from the out
+     * stream. Entries of a channel are handled in order, so nothing older is
+     * still pending. The acked entry itself stays: the broker reads the last
+     * entry to continue its generation and sequence after a restart.
+     */
     public function ack(StreamEntry $entry): void
     {
         $this->client()->xAck($entry->channel . ':out', self::GROUP, [$entry->id]);
+        $this->client()->xTrim($entry->channel . ':out', $entry->id, false, true);
         $this->client()->hDel(self::ATTEMPTS_KEY, $this->attemptKey($entry));
+    }
+
+    /**
+     * Removes a finished channel's streams, so no transcript stays in Redis.
+     */
+    public function delete(string $channel): void
+    {
+        $this->client()->del($channel . ':in', $channel . ':out', $channel . ':dead');
     }
 
     /**

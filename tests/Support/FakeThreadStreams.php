@@ -46,6 +46,14 @@ class FakeThreadStreams extends ThreadStreams
         unset($this->registered[$channel]);
     }
 
+    /** @var list<string> */
+    public array $deleted = [];
+
+    public function delete(string $channel): void
+    {
+        $this->deleted[] = $channel;
+    }
+
     public function channels(string $prefix): array
     {
         return array_values(array_filter(array_keys($this->registered), fn (string $channel): bool => str_starts_with($channel, $prefix)));

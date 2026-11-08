@@ -125,7 +125,8 @@ it('closes the thread when its PR merges', function () {
     expect($thread->status)->toBe(ThreadStatus::Closed)
         ->and($thread->close_reason)->toBe('pr_merged')
         ->and($thread->closed_at)->not->toBeNull()
-        ->and($thread->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
+        ->and($thread->sandbox_state)->toBe(ThreadSandboxState::Destroyed)
+        ->and($this->streams->deleted)->toBe([$thread->channel()]);
     Process::assertRan(fn ($p) => str_contains((string) $p->command, "incus delete {$thread->sandbox_container}"));
 });
 

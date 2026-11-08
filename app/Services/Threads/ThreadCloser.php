@@ -31,5 +31,6 @@ class ThreadCloser
         ])->save();
 
         $this->streams->unregister($thread->channel());
+        $this->streams->delete($thread->channel());
     }
 }

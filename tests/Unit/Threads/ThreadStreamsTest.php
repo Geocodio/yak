@@ -121,3 +121,25 @@ it('claims entries a crashed consumer left behind', function () {
 
     expect($this->streams->read([$this->channel], 'new-consumer', 50, 10))->toHaveCount(1);
 });
+
+it('drops entries before the acknowledged one but keeps the acknowledged entry', function () {
+    foreach ([1, 2, 3] as $sequence) {
+        $this->redis->xAdd($this->channel . ':out', '*', ['generation' => '1', 'sequence' => (string) $sequence, 'line' => '{"a":1}']);
+    }
+
+    $entries = $this->streams->read([$this->channel], 'consumer-a', 50, 10);
+    $this->streams->ack($entries[1]);
+
+    $remaining = array_keys($this->redis->xRange($this->channel . ':out', '-', '+'));
+    expect($remaining)->toBe([$entries[1]->id, $entries[2]->id]);
+});
+
+it('deletes all three streams of a channel', function () {
+    $this->streams->command($this->channel, ['type' => 'end']);
+    $this->redis->xAdd($this->channel . ':out', '*', ['line' => '{}']);
+    $this->redis->xAdd($this->channel . ':dead', '*', ['line' => '{}']);
+
+    $this->streams->delete($this->channel);
+
+    expect($this->redis->exists($this->channel . ':in', $this->channel . ':out', $this->channel . ':dead'))->toBe(0);
+});
