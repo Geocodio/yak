@@ -38,9 +38,9 @@ final class EmailChannel implements Channel
         $router->post('email', WebhookController::class)->name('webhooks.email');
     }
 
-    public function inputDriver(): ?InputDriverContract
+    public function inputDriver(): InputDriverContract
     {
-        return null;
+        return app(InputDriver::class);
     }
 
     public function notificationDriver(): ?NotificationDriver

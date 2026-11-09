@@ -3,6 +3,7 @@
 use App\Channels\ChannelRegistry;
 use App\Channels\Email\EmailChannel;
 use App\Channels\Email\HealthCheck;
+use App\Channels\Email\InputDriver;
 
 beforeEach(function (): void {
     config()->set('yak.channels.email', [
@@ -27,6 +28,10 @@ it('is enabled only when the webhook password and inbound address are set', func
 
 it('is registered in the channel registry', function (): void {
     expect(app(ChannelRegistry::class)->for('email'))->toBeInstanceOf(EmailChannel::class);
+});
+
+it('exposes the Postmark parser as its input driver', function (): void {
+    expect((new EmailChannel)->inputDriver())->toBeInstanceOf(InputDriver::class);
 });
 
 it('has no notification, CI, or build-scanner drivers', function (): void {
