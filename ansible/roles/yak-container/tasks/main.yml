@@ -92,6 +92,8 @@
       # expose the dashboard on the public internet over plain HTTP,
       # since Docker's iptables rules bypass UFW.
       - "127.0.0.1:8080:80"
+      # Reverb WebSocket server; Caddy routes /app/* and /apps/* here.
+      - "127.0.0.1:8081:8081"
     volumes:
       - "{{ yak_data_path }}:/data"
       - "{{ yak_claude_path }}:/home/yak/.claude"

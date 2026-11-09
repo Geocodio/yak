@@ -1,5 +1,11 @@
 {{ yak_domain }} {
-    reverse_proxy localhost:8080
+    @reverb path /app/* /apps/*
+    handle @reverb {
+        reverse_proxy localhost:8081
+    }
+    handle {
+        reverse_proxy localhost:8080
+    }
     tls {
         protocols tls1.2 tls1.3
     }
