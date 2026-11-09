@@ -44,11 +44,18 @@ tests/Fixtures/*.webm
 # Pest browser test failure screenshots
 tests/Browser/Screenshots
 
-# Wayfinder helpers for routes the telemetry packages register. Yak never
-# calls them, and the Vite plugin regenerates them on every build.
-/resources/js/actions/Cbox/
-/resources/js/actions/Spatie/
+# Wayfinder helper folders for routes that vendor packages register
+# (framework, Fortify, Inertia, Boost, cboxdk ...). Yak calls none of
+# them, and the Vite plugin regenerates them on every build. The
+# top-level routes/index.ts stays tracked: it mixes Yak's own routes
+# with Fortify's login and logout.
+/resources/js/actions/*
+!/resources/js/actions/App/
+/resources/js/routes/boost/
+/resources/js/routes/login/
+/resources/js/routes/password/
+/resources/js/routes/prometheus/
 /resources/js/routes/queue-metrics/
+/resources/js/routes/storage/
 /resources/js/routes/telemetry/
 /resources/js/routes/telemetry-ui/
-/resources/js/routes/prometheus/
