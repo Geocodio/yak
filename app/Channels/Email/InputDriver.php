@@ -84,7 +84,12 @@ class InputDriver implements InputDriverContract
             return null;
         }
 
-        $headers = $this->headers($payload['Headers'] ?? null);
+        $headerValues = $this->headers($payload['Headers'] ?? null);
+        $headers = array_map(fn (array $values): string => $values[0], $headerValues);
+
+        // Postmark adds X-Spam-Tests itself, but a sender can add one too.
+        // More than one means one is forged, so none of them is trusted.
+        $spamTests = count($headerValues['x-spam-tests'] ?? []) === 1 ? $headers['x-spam-tests'] : '';
         $text = $this->string($payload['TextBody'] ?? null);
 
         if (trim($text) === '') {
@@ -107,7 +112,7 @@ class InputDriver implements InputDriverContract
             originalSender: preg_match('/^From:[ \t]*(.+)$/mi', $forwarded, $matches) === 1 ? trim($matches[1]) : null,
             originalDate: preg_match('/^(?:Date|Sent):[ \t]*(.+)$/mi', $forwarded, $matches) === 1 ? trim($matches[1]) : null,
             attachments: $this->attachments($payload['Attachments'] ?? null),
-            dkimAligned: in_array('DKIM_VALID_AU', array_map('trim', explode(',', $headers['x-spam-tests'] ?? '')), true),
+            dkimAligned: in_array('DKIM_VALID_AU', array_map('trim', explode(',', $spamTests)), true),
             autoSubmitted: $autoSubmitted !== 'no' || in_array(strtolower(trim($headers['precedence'] ?? '')), ['bulk', 'list', 'junk'], true),
         );
     }
@@ -140,7 +145,7 @@ class InputDriver implements InputDriverContract
     }
 
     /**
-     * @return array<string, string> lowercased header name => last value
+     * @return array<string, non-empty-list<string>> lowercased header name => every value, in payload order
      */
     private function headers(mixed $headers): array
     {
@@ -152,7 +157,7 @@ class InputDriver implements InputDriverContract
 
         foreach ($headers as $header) {
             if (is_array($header) && is_string($header['Name'] ?? null) && is_string($header['Value'] ?? null)) {
-                $byName[strtolower($header['Name'])] = $header['Value'];
+                $byName[strtolower($header['Name'])][] = $header['Value'];
             }
         }
 

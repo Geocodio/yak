@@ -57,6 +57,13 @@ it('treats a signature from another domain or a missing spam header as not align
     'no spam tests header' => [['X-Spam-Tests' => '__drop__']],
 ]);
 
+it('treats a second X-Spam-Tests header as forged and not aligned', function () {
+    $payload = postmarkPayload(headers: ['X-Spam-Tests' => 'SPF_PASS']);
+    $payload['Headers'][] = ['Name' => 'x-spam-tests', 'Value' => 'DKIM_VALID_AU'];
+
+    expect(app(InputDriver::class)->parsePayload($payload)->dkimAligned)->toBeFalse();
+});
+
 it('detects auto-submitted and bulk mail', function (array $headers, bool $expected) {
     expect(app(InputDriver::class)->parsePayload(postmarkPayload(headers: $headers))->autoSubmitted)->toBe($expected);
 })->with([

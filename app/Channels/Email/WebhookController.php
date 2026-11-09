@@ -104,9 +104,14 @@ class WebhookController extends Controller
             return $this->dropped('rate_limited', $email, "{$describe} went over the limit of " . self::TASKS_PER_USER_PER_HOUR . ' email tasks per hour');
         }
 
-        RateLimiter::hit($rateLimitKey, 3600);
-
         $tasks = $this->createTasks($email, $user);
+
+        // One slot per task, so a note naming several repositories counts
+        // as several tasks. The forward that crosses the limit still
+        // completes; the next one is dropped.
+        foreach ($tasks as $task) {
+            RateLimiter::hit($rateLimitKey, 3600);
+        }
 
         SendEmailAcknowledgmentJob::dispatch(array_map(fn (YakTask $task): int => $task->id, $tasks));
 

@@ -36,7 +36,7 @@ class VerificationFailureNotifier
 
             $response = Http::withToken($token)->post('https://slack.com/api/chat.postMessage', [
                 'channel' => $slackUserId,
-                'text' => "An email claiming to be from {$email->fromEmail} failed sender verification, so Yak ignored it. Subject: {$email->subject}",
+                'text' => 'An email claiming to be from ' . $this->escape($email->fromEmail) . ' failed sender verification, so Yak ignored it. Subject: ' . $this->escape($email->subject),
             ]);
 
             if ($response->json('ok') !== true) {
@@ -45,5 +45,15 @@ class VerificationFailureNotifier
         } catch (\Throwable $exception) {
             report($exception);
         }
+    }
+
+    /**
+     * The subject and sender come from whoever sent the email, so escape
+     * Slack's control characters: an unescaped `<https://x|text>` would
+     * render as a link and `<!channel>` as a mention.
+     */
+    private function escape(string $text): string
+    {
+        return str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
     }
 }

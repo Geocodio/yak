@@ -124,6 +124,17 @@ it('drops the 31st task in an hour for one user', function () {
     expect(YakTask::query()->count())->toBe(30);
 });
 
+it('counts every task a multi-repo forward creates against the hourly limit', function () {
+    Repository::factory()->create(['slug' => 'geocodio-website', 'is_active' => true]);
+
+    foreach (range(1, 15) as $number) {
+        postEmail(['TextBody' => forwardedEmailBody('gmail', 'Check geocodio and geocodio-website')], ['Message-ID' => "<multi-{$number}@hey.com>"])->assertCreated();
+    }
+
+    postEmail(headers: ['Message-ID' => '<one-more@hey.com>'])->assertOk()->assertJson(['dropped' => 'rate_limited']);
+    expect(YakTask::query()->count())->toBe(30);
+});
+
 it('answers 200 for malformed payloads', function (array $payload) {
     test()->withBasicAuth('yak', 'secret')->postJson('/webhooks/email', $payload)
         ->assertOk()->assertJson(['dropped' => 'malformed']);

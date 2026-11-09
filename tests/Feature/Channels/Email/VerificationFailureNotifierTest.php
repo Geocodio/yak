@@ -26,6 +26,14 @@ it('tells the owner in Slack that a forward from their address was ignored', fun
         && $request['text'] === 'An email claiming to be from mhansen@hey.com failed sender verification, so Yak ignored it. Subject: Fwd: Budget alert');
 });
 
+it('escapes Slack control characters in the attacker-controlled subject', function () {
+    $email = app(InputDriver::class)->parsePayload(postmarkPayload(['Subject' => 'Urgent <https://evil.test|reset your password> & <!channel>'], ['X-Spam-Tests' => '']));
+
+    app(VerificationFailureNotifier::class)->notify($this->user, $email);
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request['text'], 'Subject: Urgent &lt;https://evil.test|reset your password&gt; &amp; &lt;!channel&gt;'));
+});
+
 it('sends at most one message per address per hour', function () {
     app(VerificationFailureNotifier::class)->notify($this->user, $this->email);
     app(VerificationFailureNotifier::class)->notify($this->user, $this->email);
