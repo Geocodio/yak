@@ -29,7 +29,7 @@ A blocked thread shows a notice in the conversation that says what happened and 
 
 | Notice | What it means | What to do |
 |---|---|---|
-| **Token rejected** | The account's token is invalid or expired. | The account's owner pastes a new token in Settings → Claude accounts. Messages sent meanwhile wait and run afterwards. |
+| **Token rejected** | The account's token is invalid or expired. | The account's owner pastes a new token in Settings → Claude accounts. New messages are refused until the owner pastes a new token, or you start a new thread. A missing or removed account behaves the same way. |
 | **Usage limit reached** | The account's plan is used up. | Nothing, Yak continues when the limit resets. Or start a new thread on another account. |
 | **Waiting for a free sandbox** | Yak runs a limited number of awake sandboxes and all are busy. | Nothing. The turn starts as soon as one frees up. |
 
