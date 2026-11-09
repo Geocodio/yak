@@ -35,6 +35,7 @@
         .em-ok { background-color: #1a2619 !important; color: #6fbe68 !important; }
         .em-warn { background-color: #2a2016 !important; color: #e8985a !important; }
         .em-link { color: #a99ce3 !important; }
+        .em-step-now { border-color: #8b7bd8 !important; color: #a99ce3 !important; }
     }
 </style>
 </head>
