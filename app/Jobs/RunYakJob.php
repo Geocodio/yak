@@ -13,6 +13,7 @@ use App\Jobs\Concerns\ClaimsTask;
 use App\Jobs\Concerns\FinishesAgentRuns;
 use App\Jobs\Concerns\HandlesAgentJobFailure;
 use App\Jobs\Concerns\HandlesWrongRepository;
+use App\Jobs\Concerns\HoldsForUsageLimit;
 use App\Jobs\Concerns\NotifiesSourceOfFailure;
 use App\Jobs\Concerns\ResumesAgentOnExistingBranch;
 use App\Jobs\Middleware\ClaimsTaskAtomically;
@@ -42,6 +43,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
     use FinishesAgentRuns;
     use HandlesAgentJobFailure;
     use HandlesWrongRepository;
+    use HoldsForUsageLimit;
     use InteractsWithQueue;
     use NotifiesSourceOfFailure;
     use Queueable;
@@ -223,7 +225,7 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                     if ($holdSeconds !== null) {
                         // A usage limit holds the message; the turn starts once the limit has passed.
                         $this->task->update(['status' => TaskStatus::Pending]);
-                        $this->release($holdSeconds);
+                        $this->holdForUsageLimit($holdSeconds);
 
                         return;
                     }

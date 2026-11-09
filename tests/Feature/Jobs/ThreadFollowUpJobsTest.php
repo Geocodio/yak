@@ -351,6 +351,7 @@ it('holds a follow-up until the usage limit resets', function () {
     $followUp = threadFollowUpOf(rootThreadTaskOn($this->thread));
 
     $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('payload')->andReturn(['retryUntil' => now()->addHours(6)->getTimestamp()]);
     $queueJob->shouldReceive('release')->once()->withArgs(fn (int $delay): bool => $delay >= 1200);
     $queueJob->shouldReceive('fail')->never();
     $job = new RunFollowUpJob($followUp);
@@ -359,6 +360,23 @@ it('holds a follow-up until the usage limit resets', function () {
 
     expect($followUp->fresh()->status)->toBe(TaskStatus::Pending)
         ->and($followUp->fresh()->error_log)->toBeNull();
+});
+
+it('requeues a follow-up as a fresh job when the usage limit outlasts its retry deadline', function () {
+    $this->thread->forceFill(['blocked_reason' => ThreadBlockReason::UsageLimit, 'blocked_until' => now()->addDays(3)])->save();
+    $followUp = threadFollowUpOf(rootThreadTaskOn($this->thread));
+
+    $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('payload')->andReturn(['retryUntil' => now()->addHours(6)->getTimestamp()]);
+    $queueJob->shouldReceive('release')->never();
+    $queueJob->shouldReceive('delete')->once();
+    $queueJob->shouldReceive('fail')->never();
+    $job = new RunFollowUpJob($followUp);
+    $job->setJob($queueJob);
+    $job->handle(new FakeAgentRunner);
+
+    Queue::assertPushed(RunFollowUpJob::class, fn ($pushed): bool => $pushed->delay >= 3 * 86400 - 60 && $pushed->task->is($followUp));
+    expect($followUp->fresh()->status)->toBe(TaskStatus::Pending);
 });
 
 it('starts the held follow-up once the limit has passed', function () {

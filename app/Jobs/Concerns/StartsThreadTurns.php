@@ -31,6 +31,8 @@ use Illuminate\Support\Facades\Log;
  */
 trait StartsThreadTurns
 {
+    use HoldsForUsageLimit;
+
     /**
      * Returns whether the turn was written. $promptFor runs after $prepareTree,
      * so it can read what the preparation found.
@@ -80,7 +82,7 @@ trait StartsThreadTurns
                     if ($holdSeconds !== null) {
                         // A usage limit holds the message; the turn starts once the limit has passed.
                         $this->task->update(['status' => TaskStatus::Pending]);
-                        $this->release($holdSeconds);
+                        $this->holdForUsageLimit($holdSeconds);
 
                         return false;
                     }
