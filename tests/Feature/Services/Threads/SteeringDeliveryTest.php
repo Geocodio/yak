@@ -82,7 +82,7 @@ it('sends a steer with the wrapper text and a uuid', function () {
     expect(app(SteeringDelivery::class)->deliver($this->task))->toBe(0);
 });
 
-it('marks delivered on queued and deletes on started', function () {
+it('marks delivered on queued and absorbs on started', function () {
     $message = queueSteer();
     app(SteeringDelivery::class)->deliver($this->task);
     $uuid = $message->fresh()->uuid;
@@ -93,6 +93,7 @@ it('marks delivered on queued and deletes on started', function () {
     steerLine($uuid, 'started');
 
     expect(PendingSteeringMessage::query()->whereKey($message->id)->exists())->toBeFalse()
+        ->and(PendingSteeringMessage::query()->withoutGlobalScopes()->find($message->id)->absorbed_at)->not->toBeNull()
         ->and(TaskLog::query()->where('yak_task_id', $this->task->id)->where('message', ThreadBuilder::STEERING_MESSAGE_LOG)->count())->toBe(1);
 });
 

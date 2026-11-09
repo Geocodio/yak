@@ -16,6 +16,7 @@ use App\Services\RepoClarificationResolver;
 use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
 use App\Services\Threads\SteeringDelivery;
+use App\Services\Threads\ThreadEventPublisher;
 use App\Support\AttachmentNumbering;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -102,6 +103,7 @@ class TaskMessageController extends Controller
 
         $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name, model: $request->validated('model'));
         TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
+        $this->recordSent($head, 'steer-' . $message->id);
 
         if ($mode === SteeringMode::Steer) {
             SteeringDelivery::deliverQuietly($head);
@@ -135,6 +137,20 @@ class TaskMessageController extends Controller
             return ['error', $closedMessage];
         }
 
+        $this->recordSent($head, 'task-' . $child->id);
+
         return ['success', $isResearch ? 'Sent to Yak. It will answer in this conversation.' : 'Sent to Yak. It will push changes to this PR.'];
+    }
+
+    private function recordSent(YakTask $task, string $messageId): void
+    {
+        if ($task->thread_id !== null) {
+            app(ThreadEventPublisher::class)->append($task->thread_id, 'message.state', [
+                'id' => $messageId,
+                'uuid' => null,
+                'state' => 'sent',
+                'readAfterSequence' => null,
+            ]);
+        }
     }
 }

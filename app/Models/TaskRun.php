@@ -94,4 +94,12 @@ class TaskRun extends Model
     {
         return $this->belongsTo(Thread::class);
     }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'driver_user_id');
+    }
 }

@@ -551,16 +551,30 @@ class ThreadDriver
         }
 
         foreach ($changes as $change) {
-            if ($change->uuid === $run->prompt_uuid && $change->state === CommandState::Started) {
+            if ($change->uuid !== $run->prompt_uuid) {
+                continue;
+            }
+
+            if ($change->state === CommandState::Started) {
                 $run->agent_started_at ??= now();
+                $run->prompt_read_after_sequence = (int) $thread->event_sequence;
                 $events[] = new TurnStarted($run);
+            }
+
+            if (in_array($change->state, [CommandState::Started, CommandState::Cancelled], true)) {
+                $this->publisher->record($thread, 'message.state', [
+                    'id' => 'run-' . $run->id,
+                    'uuid' => $change->uuid,
+                    'state' => $change->state === CommandState::Started ? 'read' : 'cancelled',
+                    'readAfterSequence' => $run->prompt_read_after_sequence,
+                ]);
             }
         }
 
         $run->save();
 
         foreach ($changes as $change) {
-            $this->applySteeringChange($task, $change);
+            $this->applySteeringChange($thread, $task, $change);
         }
 
         if (! $tracker->isEnded()) {
@@ -592,7 +606,7 @@ class ThreadDriver
      * the model took it in (the row is done), cancelled before that sends it
      * again under a new uuid.
      */
-    private function applySteeringChange(YakTask $task, TurnTrackerChange $change): void
+    private function applySteeringChange(Thread $thread, YakTask $task, TurnTrackerChange $change): void
     {
         $message = PendingSteeringMessage::query()->where('uuid', $change->uuid)->first();
 
@@ -602,10 +616,24 @@ class ThreadDriver
 
         match ($change->state) {
             CommandState::Queued => $message->forceFill(['delivered_at' => $message->delivered_at ?? now()])->save(),
-            CommandState::Started => $message->absorb($task),
+            CommandState::Started => $this->absorbSteer($thread, $task, $message),
             CommandState::Cancelled => $message->forceFill(['uuid' => null, 'sent_at' => null, 'delivered_at' => null])->save(),
             default => null,
         };
+    }
+
+    private function absorbSteer(Thread $thread, YakTask $task, PendingSteeringMessage $message): void
+    {
+        $readAfterSequence = (int) $thread->event_sequence;
+
+        $message->absorb($task, $readAfterSequence);
+
+        $this->publisher->record($thread, 'message.state', [
+            'id' => 'steer-' . $message->id,
+            'uuid' => $message->uuid,
+            'state' => 'read',
+            'readAfterSequence' => $readAfterSequence,
+        ]);
     }
 
     /**

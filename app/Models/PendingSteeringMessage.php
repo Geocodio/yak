@@ -8,6 +8,7 @@ use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\DB;
  * @property SteeringMode $mode
  * @property CarbonImmutable|null $sent_at
  * @property CarbonImmutable|null $delivered_at
+ * @property CarbonImmutable|null $absorbed_at
  */
 class PendingSteeringMessage extends Model
 {
@@ -24,6 +26,15 @@ class PendingSteeringMessage extends Model
 
     /** Seconds a delivered message may wait before the dashboard says it is queued behind a running step. */
     private const STEP_WAIT_SECONDS = 3;
+
+    /**
+     * A message the model has taken in stays as a record of the thread, so every
+     * query for messages still waiting skips it.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope('waiting', fn (Builder $query) => $query->whereNull($query->qualifyColumn('absorbed_at')));
+    }
 
     protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'model'];
 
@@ -149,9 +160,10 @@ class PendingSteeringMessage extends Model
 
     /**
      * The message reached the model: record it in the thread as the person's
-     * message, move its files onto `$task` and delete the row.
+     * message, move its files onto `$task` and keep the row, marked absorbed,
+     * with the thread position it was read at.
      */
-    public function absorb(YakTask $task): void
+    public function absorb(YakTask $task, ?int $readAfterSequence = null): void
     {
         $attachmentIds = $this->attachments()->pluck('id')->all();
 
@@ -161,7 +173,7 @@ class PendingSteeringMessage extends Model
             'context' => TaskAttachment::CONTEXT_STEERING,
         ]);
 
-        $this->delete();
+        $this->forceFill(['absorbed_at' => now(), 'read_after_sequence' => $readAfterSequence])->save();
 
         TaskLogger::info($task, ThreadBuilder::STEERING_MESSAGE_LOG, [
             'reply' => $this->text,
