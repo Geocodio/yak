@@ -169,3 +169,12 @@ it('renders the confirmation email with the owner name, button, and expiry copy'
     $mail->assertSeeInHtml($address->user->name);
     $mail->assertSeeInText('https://example.test/confirm');
 });
+
+it('keeps the signed link intact in the plain-text part', function () {
+    $address = UserEmailAddress::factory()->create();
+    $url = 'https://example.test/confirm?expires=1&signature=abc';
+
+    (new ConfirmEmailAddressMail($address, $url))
+        ->assertSeeInText($url)
+        ->assertDontSeeInText('&amp;');
+});

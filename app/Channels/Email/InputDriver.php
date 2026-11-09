@@ -29,6 +29,8 @@ class InputDriver implements InputDriverContract
         '/^-{3,}\s*Original Message\s*-{3,}\s*$/mi',
         '/^-{3,}\s*Forwarded Message\s*-{3,}\s*$/mi',
         '/^_{10,}\s*\n\s*From:/mi',
+        // Outlook's HTML forwards have no rule line, just the header block.
+        '/^From:[ \t].+\n(?:Sent|Date):/mi',
     ];
 
     public function parse(Request $request): TaskDescription
@@ -80,7 +82,12 @@ class InputDriver implements InputDriverContract
         $fromFull = $payload['FromFull'] ?? null;
         $fromEmail = is_array($fromFull) && is_string($fromFull['Email'] ?? null) ? UserEmailAddress::normalize($fromFull['Email']) : '';
 
-        if ($fromEmail === '') {
+        // RFC 5322 allows several authors in From. A valid DKIM signature
+        // from any one of them satisfies DKIM_VALID_AU, so a message naming
+        // more than one could borrow a Yak user's address. Never accept it.
+        $authorCount = preg_match_all('/[^\s<>",;]+@[^\s<>",;]+/', $this->string($payload['From'] ?? null));
+
+        if ($fromEmail === '' || $authorCount > 1) {
             return null;
         }
 
@@ -102,6 +109,7 @@ class InputDriver implements InputDriverContract
         return new InboundEmail(
             fromEmail: $fromEmail,
             subject: trim($this->string($payload['Subject'] ?? null)),
+            recipients: $this->recipients($payload),
             messageId: $this->messageIds($headers['message-id'] ?? '')[0] ?? null,
             threadMessageIds: array_values(array_unique([
                 ...$this->messageIds($headers['in-reply-to'] ?? ''),
@@ -165,6 +173,27 @@ class InputDriver implements InputDriverContract
     }
 
     /**
+     * The envelope recipient plus every To, Cc, and Bcc address, lowercased.
+     *
+     * @param  array<mixed>  $payload
+     * @return list<string>
+     */
+    private function recipients(array $payload): array
+    {
+        $addresses = [UserEmailAddress::normalize($this->string($payload['OriginalRecipient'] ?? null))];
+
+        foreach (['ToFull', 'CcFull', 'BccFull'] as $field) {
+            foreach (is_array($payload[$field] ?? null) ? $payload[$field] : [] as $recipient) {
+                if (is_array($recipient) && is_string($recipient['Email'] ?? null)) {
+                    $addresses[] = UserEmailAddress::normalize($recipient['Email']);
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($addresses, fn (string $address): bool => $address !== '')));
+    }
+
+    /**
      * @return list<string>
      */
     private function messageIds(string $value): array
@@ -217,8 +246,8 @@ class InputDriver implements InputDriverContract
     private function htmlToText(string $html): string
     {
         $html = (string) preg_replace('#<(style|script|head)\b[^>]*>.*?</\1>#is', '', $html);
-        $html = (string) preg_replace('#<br\s*/?>|</(p|div|tr|li|h[1-6]|blockquote)>#i', "\n", $html);
-        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5);
+        $html = (string) preg_replace('#<br\s*/?>|<hr\b[^>]*>|</(p|div|tr|li|h[1-6]|blockquote)>#i', "\n", $html);
+        $text = str_replace("\u{00A0}", ' ', html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5));
         $text = (string) preg_replace("/[ \t]+\n/", "\n", $text);
 
         return trim((string) preg_replace("/\n{3,}/", "\n\n", $text));

@@ -439,6 +439,8 @@ A message is accepted only when all of these hold, checked in this order:
 | Check | Dropped as |
 |---|---|
 | Webhook basic auth matches `email_webhook_password` | 403 |
+| The `From` header names exactly one address | `malformed` |
+| The inbound address is the envelope recipient or in To, Cc, or Bcc (so replies to the no-reply address never loop back in) | `wrong_recipient` |
 | Not an automatic or bulk message (`Auto-Submitted`, `Precedence: bulk/list/junk`) | `auto_submitted` |
 | Postmark's `X-Spam-Tests` contains `DKIM_VALID_AU` (a valid DKIM signature from the From domain), and the header appears exactly once | `dkim_failed` |
 | The From address is a sign-in or confirmed address | `unknown_sender` |

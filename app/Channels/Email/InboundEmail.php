@@ -18,6 +18,8 @@ readonly class InboundEmail
     public function __construct(
         public string $fromEmail,
         public string $subject,
+        /** @var list<string> envelope recipient plus To, Cc, and Bcc, lowercased */
+        public array $recipients,
         public ?string $messageId,
         public array $threadMessageIds,
         public string $instruction,

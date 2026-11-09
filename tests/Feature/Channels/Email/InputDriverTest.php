@@ -25,6 +25,30 @@ it('reads an HTML-only forward', function () use ($note) {
         ->and($email->forwardedContent)->not->toContain('color:red');
 });
 
+it('splits an HTML-only Outlook forward', function () use ($note) {
+    $html = '<html><body><div>' . e($note) . '</div><div><br></div><hr style="display:inline-block;width:98%">'
+        . '<div id="divRplyFwdMsg" dir="ltr"><font face="Calibri"><b>From:</b> Sentry &lt;noreply@md.getsentry.com&gt;<br><b>Sent:</b> Sunday, November 9, 2026 8:31 PM<br><b>To:</b> Mathias Hansen<br><b>Subject:</b> Budget</font><div>&nbsp;</div></div>'
+        . '<div><p>Your organization has consumed 82% of its budget.</p></div></body></html>';
+
+    $email = app(InputDriver::class)->parsePayload(postmarkPayload(['TextBody' => '', 'HtmlBody' => $html]));
+
+    expect($email->instruction)->toBe($note)
+        ->and($email->forwardedContent)->toStartWith('From: Sentry <noreply@md.getsentry.com>')
+        ->and($email->forwardedContent)->toContain('consumed 82%')
+        ->and($email->originalDate)->toBe('Sunday, November 9, 2026 8:31 PM');
+});
+
+it('lists every recipient address, lowercased', function () {
+    $email = app(InputDriver::class)->parsePayload(postmarkPayload([
+        'OriginalRecipient' => 'Yak@Geocodio.yak.build',
+        'ToFull' => [['Email' => 'a@b.c']],
+        'CcFull' => [['Email' => 'C@D.e'], 'junk'],
+        'BccFull' => 'nope',
+    ]));
+
+    expect($email->recipients)->toBe(['yak@geocodio.yak.build', 'a@b.c', 'c@d.e']);
+});
+
 it('uses the whole text as both instruction and content when there is no forward marker', function () {
     $email = app(InputDriver::class)->parsePayload(postmarkPayload(['TextBody' => "The geocoder returns 500s for PO boxes.\nCan you look?"]));
 

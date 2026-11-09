@@ -132,6 +132,14 @@ it('renders the started state with repo, mode, task link, instruction, and attac
     $mail->assertDontSeeInHtml('Needs one answer');
 });
 
+it('writes the plain-text part without HTML entities', function () {
+    $task = emailTask(['status' => 'awaiting_clarification', 'repo' => 'unknown', 'clarification_options' => ['geocodio']]);
+
+    startedMail($task)
+        ->assertSeeInText("What I read: Fwd: You've consumed 82%")
+        ->assertDontSeeInText('&#039;');
+});
+
 it('says it is working on a fix for fix-mode tasks', function () {
     startedMail(emailTask(['mode' => 'fix']))->assertSeeInHtml('working on a fix in');
 });

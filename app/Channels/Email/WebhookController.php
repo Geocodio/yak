@@ -70,6 +70,15 @@ class WebhookController extends Controller
 
         $describe = "An email from {$email->fromEmail} (\"" . Str::limit($email->subject, 80) . '")';
 
+        // The inbound domain routes every local part here, including the
+        // no-reply address acknowledgments use. Only mail to Yak's own
+        // address counts, which also stops loops with auto-responders.
+        $inboundAddress = mb_strtolower(trim((string) config('yak.channels.email.inbound_address')));
+
+        if (! in_array($inboundAddress, $email->recipients, true)) {
+            return $this->dropped('wrong_recipient', $email, "{$describe} was not addressed to {$inboundAddress}");
+        }
+
         if ($email->autoSubmitted) {
             return $this->dropped('auto_submitted', $email, "{$describe} was an automatic or bulk message");
         }
@@ -115,7 +124,12 @@ class WebhookController extends Controller
 
         SendEmailAcknowledgmentJob::dispatch(array_map(fn (YakTask $task): int => $task->id, $tasks));
 
-        return response()->json(['ok' => true, 'task_ids' => array_map(fn (YakTask $task): int => $task->id, $tasks)], 201);
+        return response()->json([
+            'ok' => true,
+            'handled' => 'task_created',
+            'task_id' => $tasks[0]->id,
+            'task_ids' => array_map(fn (YakTask $task): int => $task->id, $tasks),
+        ], 201);
     }
 
     /**
@@ -182,12 +196,14 @@ class WebhookController extends Controller
             ]), $slugs));
         }
 
+        // Record the Message-ID before anything that can fail, so a Postmark
+        // retry after an error is a duplicate rather than a second task.
+        if ($email->messageId !== null) {
+            EmailMessage::create(['message_id' => $email->messageId, 'yak_task_id' => $tasks[0]->id, 'direction' => EmailMessage::DIRECTION_INBOUND]);
+        }
+
         foreach ($tasks as $task) {
             $this->storeAttachments($email, $task, $user);
-
-            if ($email->messageId !== null && $task === $tasks[0]) {
-                EmailMessage::create(['message_id' => $email->messageId, 'yak_task_id' => $task->id, 'direction' => EmailMessage::DIRECTION_INBOUND]);
-            }
 
             TaskLogger::info($task, 'Task created', ['source' => 'email', 'repo' => $task->repo, 'from' => $email->fromEmail]);
 
@@ -270,6 +286,6 @@ class WebhookController extends Controller
             subject: $email->messageId ?? $email?->fromEmail,
         );
 
-        return response()->json(['ok' => true, 'dropped' => $reason]);
+        return response()->json(['ok' => true, 'skipped' => $reason]);
     }
 }

@@ -73,7 +73,7 @@ it('DMs the owner from the webhook when a known address fails DKIM, and sends no
 
     $this->withBasicAuth('yak', 'secret')
         ->postJson('/webhooks/email', postmarkPayload(headers: ['X-Spam-Tests' => 'SPF_PASS']))
-        ->assertOk()->assertJson(['dropped' => 'dkim_failed']);
+        ->assertOk()->assertJson(['skipped' => 'dkim_failed']);
 
     Http::assertSent(fn (Request $request) => $request['channel'] === 'U123');
     Mail::assertNothingOutgoing();
