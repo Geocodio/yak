@@ -48,8 +48,8 @@ function carriedSearch(): string {
 
 /** The package page for `path`, by the package's own path scheme. */
 function Body({ path }: { path: string }) {
-    const [head, ...rest] = path.split('/');
-    const tail = decodeURIComponent(rest.join('/'));
+    // The controller only passes `section/id`, with an id of plain characters.
+    const [head, tail] = path.split('/');
 
     switch (head) {
         case 'p':

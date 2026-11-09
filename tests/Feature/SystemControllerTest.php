@@ -49,3 +49,15 @@ it('adds the app disk and sandbox pool panels to the package system page', funct
     expect($panels)->toContain('yak-app-disk', 'yak-sandbox-pool')
         ->not->toContain('yak-cpu-utilization', 'yak-memory-utilization');
 });
+
+it('refuses ids that could steer the package api elsewhere', function (string $path) {
+    $this->actingAs(User::factory()->create())
+        ->get('/system/' . $path)
+        ->assertNotFound();
+})->with([
+    'traversal in a trace id' => 'traces/..%2F..%2Fpanels%2Fsystem-cpu',
+    'dot segment' => 'traces/..',
+    'extra segment' => 'p/system/extra',
+    'query characters' => 'errors/abc%3Fx%3D1',
+    'empty id' => 'traces/',
+]);
