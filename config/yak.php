@@ -1,6 +1,7 @@
 <?php
 
 use App\Channels\Drone\DroneChannel;
+use App\Channels\Email\EmailChannel;
 use App\Channels\GitHub\GitHubChannel;
 use App\Channels\Linear\LinearChannel;
 use App\Channels\Sentry\SentryChannel;
@@ -347,6 +348,26 @@ return [
             'oauth_scopes' => env('YAK_LINEAR_OAUTH_SCOPES', 'read,write,app:assignable,app:mentionable'),
         ],
 
+        'email' => [
+            'driver' => 'email',
+
+            // Postmark inbound webhooks carry no signature, so the webhook
+            // URL configured in Postmark holds HTTP basic auth credentials:
+            // https://yak:<password>@<host>/webhooks/email
+            'webhook_password' => env('YAK_EMAIL_WEBHOOK_PASSWORD'),
+
+            // The address people forward to, shown on the settings page.
+            'inbound_address' => env('YAK_EMAIL_INBOUND_ADDRESS'),
+
+            // Reply-To on acknowledgments, so a reply never reaches the
+            // inbound address. Defaults to no-reply@ on the inbound domain.
+            'reply_to' => env('YAK_EMAIL_REPLY_TO'),
+
+            // Only accept mail with a valid DKIM signature from the From
+            // domain. Turn off for local development only.
+            'require_dkim' => (bool) env('YAK_EMAIL_REQUIRE_DKIM', true),
+        ],
+
         'sentry' => [
             'driver' => 'sentry',
             'auth_token' => env('YAK_SENTRY_AUTH_TOKEN'),
@@ -400,6 +421,7 @@ return [
         SentryChannel::class,
         LinearChannel::class,
         SlackChannel::class,
+        EmailChannel::class,
     ],
 
     /*

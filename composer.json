@@ -23,6 +23,8 @@
         "laravel/tinker": "^3.0",
         "laravel/wayfinder": "^0.1",
         "league/commonmark": "*",
+        "symfony/http-client": "^8.0",
+        "symfony/postmark-mailer": "^8.0",
         "symfony/yaml": "^8.0"
     },
     "require-dev": {
