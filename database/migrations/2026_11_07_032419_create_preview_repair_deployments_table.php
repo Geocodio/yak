@@ -16,7 +16,7 @@ return new class extends Migration
             $table->timestamp('failed_at');
             $table->timestamp('notified_at')->nullable();
 
-            $table->unique(['preview_repair_id', 'branch_deployment_id']);
+            $table->unique(['preview_repair_id', 'branch_deployment_id'], 'preview_repair_deployments_repair_deployment_unique');
         });
     }
 
