@@ -1,5 +1,5 @@
 {{ yak_domain }} {
-    @reverb path /app/* /apps/*
+    @reverb path /app/*
     handle @reverb {
         reverse_proxy localhost:8081
     }

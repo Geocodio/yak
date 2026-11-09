@@ -416,7 +416,7 @@ reverb_app_key: "a-long-random-string"
 reverb_app_secret: "another-long-random-string"
 ```
 
-Reverb listens on `127.0.0.1:8081` inside the host and Caddy routes `/app/*` and `/apps/*` to it, so no extra firewall port is needed. Re-run Ansible after changing the secrets.
+Reverb listens on `127.0.0.1:8081` inside the host and Caddy routes `/app/*` (the browser connection) to it; the app publishes events to it directly on localhost, so no extra firewall port is needed. Re-run Ansible after changing the secrets.
 
 ## Updating Repos
 
