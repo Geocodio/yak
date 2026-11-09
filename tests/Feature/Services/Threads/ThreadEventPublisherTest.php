@@ -46,6 +46,14 @@ it('broadcasts only after the transaction commits', function () {
     Event::assertDispatchedTimes(ThreadActivity::class, 1);
 });
 
+it('sends a pointer when escaping pushes a payload over 8 KB on the wire', function () {
+    $thread = Thread::factory()->create();
+    $event = app(ThreadEventPublisher::class)->append($thread->id, 'entry', ['text' => str_repeat('"', 2000)]);
+
+    expect(strlen((string) json_encode(['sequence' => 1, 'type' => 'entry', 'data' => $event->payload])))->toBeLessThan(ThreadActivity::MAX_PAYLOAD_BYTES)
+        ->and((new ThreadActivity($event))->broadcastWith())->toBe(['sequence' => 1, 'type' => 'entry', 'pointer' => true]);
+});
+
 it('sends a pointer for a payload over 8 KB', function () {
     $thread = Thread::factory()->create();
     $event = app(ThreadEventPublisher::class)->append($thread->id, 'entry', ['text' => str_repeat('x', 9000)]);

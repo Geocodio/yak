@@ -15,6 +15,9 @@ class ThreadActivity implements ShouldBroadcastNow
 {
     public const MAX_PAYLOAD_BYTES = 8192;
 
+    // Room for the channel, event name and envelope around the data string.
+    private const ENVELOPE_MARGIN_BYTES = 512;
+
     public function __construct(public ThreadEvent $event) {}
 
     /**
@@ -37,7 +40,10 @@ class ThreadActivity implements ShouldBroadcastNow
     {
         $full = ['sequence' => $this->event->sequence, 'type' => $this->event->type, 'data' => $this->event->payload];
 
-        if (strlen((string) json_encode($full)) <= self::MAX_PAYLOAD_BYTES) {
+        // The Pusher client sends `data` as a JSON string inside a JSON body, so quotes and backslashes are escaped twice.
+        $wireBytes = strlen((string) json_encode(json_encode($full))) + self::ENVELOPE_MARGIN_BYTES;
+
+        if ($wireBytes <= self::MAX_PAYLOAD_BYTES) {
             return $full;
         }
 
