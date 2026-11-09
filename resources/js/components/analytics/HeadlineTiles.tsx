@@ -10,7 +10,7 @@ export function HeadlineTiles({ headline, days }: { headline: Headline; days: nu
                 label="PRs opened"
                 value={formatCount(headline.prsOpened)}
                 sub={`${formatCount(headline.merged)} merged · ${formatCount(headline.closedUnmerged)} closed · ${formatCount(headline.openPrs)} open`}
-                hint="Root fix tasks that opened a PR of their own."
+                hint="Root Change tasks that opened a PR of their own."
             />
             <StatTile
                 label="Merge rate"

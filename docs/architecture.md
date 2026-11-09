@@ -30,9 +30,9 @@ The substrate is the load-bearing part. Workflows are the user-facing surfaces. 
 
 ## Coding Agent Workflow
 
-Every fix task goes through the same pipeline, regardless of where it came from:
+Every Change task goes through the same pipeline, regardless of where it came from:
 
-![Fix task flow — entry, branch creation, the parallel fork into video rendering and CI, and PR convergence](fix-task-flow.png)
+![Change task flow — entry, branch creation, the parallel fork into video rendering and CI, and PR convergence](fix-task-flow.png)
 
 After the agent finishes, work splits into two parallel streams:
 
@@ -141,13 +141,13 @@ Task status is a fat enum (`artisan-build/fat-enums`) with transitions enforced 
 ### States
 
 ```
-pending → running → awaiting_ci → success      (fix tasks)
+pending → running → awaiting_ci → success      (Change tasks)
 pending → running → success                    (research / setup tasks)
 ```
 
 With these branches:
 
-- `running → awaiting_clarification → running` (Slack fix tasks only, 3-day TTL)
+- `running → awaiting_clarification → running` (Slack Change tasks only, 3-day TTL)
 - `awaiting_ci → retrying → awaiting_ci` (at most one retry, so at most two attempts)
 - `*→ failed` at any point where Claude errors, budget is exceeded, or retries run out
 

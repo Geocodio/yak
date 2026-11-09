@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('yak:scan-ci {--repo=} {--dry-run : Report detected failures without creating tasks or dispatching jobs}')]
-#[Description('Scan CI logs for flaky tests and create fix tasks')]
+#[Description('Scan CI logs for flaky tests and create Change tasks')]
 class ScanCiCommand extends Command
 {
     private const SOURCE = 'flaky-test';

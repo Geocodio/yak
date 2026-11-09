@@ -59,7 +59,7 @@ export function FunnelChart({ funnel }: { funnel: FunnelStage[] }) {
     );
 
     return (
-        <Section title="Funnel" hint="Root fix tasks moving from request to merged PR. The percentage is conversion from the previous stage.">
+        <Section title="Funnel" hint="Root Change tasks moving from request to merged PR. The percentage is conversion from the previous stage.">
             {hasData ? <EChart option={option} height={44 * funnel.length + 8} /> : <Empty>No tasks in this period.</Empty>}
         </Section>
     );

@@ -145,7 +145,7 @@ trait FinishesAgentRuns
             }
 
             $recorder->mark('post_agent');
-            TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
+            TaskLogger::info($this->task, 'Change pushed', ['branch' => $this->task->branch_name]);
         } else {
             $this->task->update($this->postAgentUpdate($repository, $result));
         }
@@ -153,7 +153,7 @@ trait FinishesAgentRuns
         if ($repository->settings()->ciSystem() === 'none') {
             ProcessCIResultJob::dispatch($this->task, passed: true)->afterCommit();
         } else {
-            $message = YakPersonality::generate(NotificationType::Progress, "Pushed fix on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
+            $message = YakPersonality::generate(NotificationType::Progress, "Pushed the change on branch {$this->task->branch_name} — waiting for CI to finish before opening a PR.");
             SendNotificationJob::dispatch($this->task, NotificationType::Progress, $message);
         }
     }

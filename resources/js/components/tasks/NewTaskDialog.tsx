@@ -14,7 +14,7 @@ import type { MediaItem } from '@/types/tasks';
 type TaskMode = 'fix' | 'research';
 
 const MODES: { mode: TaskMode; label: string; icon: typeof Wrench; hint: string }[] = [
-    { mode: 'fix', label: 'Fix', icon: Wrench, hint: 'Yak makes the change and opens a PR for review.' },
+    { mode: 'fix', label: 'Change', icon: Wrench, hint: 'Yak makes the change and opens a PR for review.' },
     { mode: 'research', label: 'Research', icon: Search, hint: 'Yak investigates and writes a report. No PR.' },
 ];
 

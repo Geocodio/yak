@@ -141,7 +141,7 @@ test('green path creates PR via GitHub API with correct payload', function () {
 
         return $request['head'] === 'yak/FIX-99'
             && $request['base'] === 'main'
-            && str_contains($request['title'], 'Yak Fix:');
+            && str_contains($request['title'], 'Yak Change:');
     });
 });
 

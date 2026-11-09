@@ -211,7 +211,7 @@ test('caches installation token in database after request', function () {
 |--------------------------------------------------------------------------
 */
 
-test('PR title uses Yak Fix prefix for fix mode tasks', function () {
+test('PR title uses Yak Change prefix for fix mode tasks', function () {
     Http::fake([
         'api.github.com/app/installations/*/access_tokens' => Http::response([
             'token' => 'ghs_test',
@@ -250,7 +250,7 @@ test('PR title uses Yak Fix prefix for fix mode tasks', function () {
     Http::assertSent(function ($request) {
         return $request->method() === 'POST'
             && str_contains($request->url(), '/pulls')
-            && $request['title'] === 'Yak Fix: Fix broken auth';
+            && $request['title'] === 'Yak Change: Fix broken auth';
     });
 });
 
@@ -297,7 +297,7 @@ test('PR title uses the AI-written title when the writer is enabled', function (
     Http::assertSent(function ($request) {
         return $request->method() === 'POST'
             && str_contains($request->url(), '/pulls')
-            && $request['title'] === 'Yak Fix: Reject duplicate spam blocklist entries in Nova';
+            && $request['title'] === 'Yak Change: Reject duplicate spam blocklist entries in Nova';
     });
 });
 
@@ -345,7 +345,7 @@ test('PR title falls back to the truncated description when the writer fails', f
     Http::assertSent(function ($request) {
         return $request->method() === 'POST'
             && str_contains($request->url(), '/pulls')
-            && $request['title'] === 'Yak Fix: Fix broken auth';
+            && $request['title'] === 'Yak Change: Fix broken auth';
     });
 });
 
@@ -440,7 +440,7 @@ test('PR title truncation preserves multi-byte characters at the boundary', func
         $title = $request['title'];
 
         return mb_check_encoding($title, 'UTF-8')
-            && str_starts_with($title, 'Yak Fix: ')
+            && str_starts_with($title, 'Yak Change: ')
             && str_ends_with($title, '...')
             && str_contains($title, '•');
     });
@@ -486,7 +486,7 @@ test('PR title truncates long descriptions', function () {
     Http::assertSent(function ($request) {
         return $request->method() === 'POST'
             && str_contains($request->url(), '/pulls')
-            && str_starts_with($request['title'], 'Yak Fix: ')
+            && str_starts_with($request['title'], 'Yak Change: ')
             && str_ends_with($request['title'], '...');
     });
 });

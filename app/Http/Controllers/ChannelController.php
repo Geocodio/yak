@@ -47,7 +47,7 @@ class ChannelController extends Controller
         [
             'slug' => 'sentry',
             'name' => 'Sentry',
-            'description' => 'Sentry alerts routed to Yak by an issue alert rule become fix tasks.',
+            'description' => 'Sentry alerts routed to Yak by an issue alert rule become Change tasks.',
             'docs_anchor' => 'channels.sentry',
             'health_check_id' => 'sentry',
             'required' => false,

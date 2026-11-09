@@ -179,7 +179,7 @@ The full command signature:
 yak:run {id} {description} [--repo=] [--context=] [--research] [--sync]
 ```
 
-Results post to the PR (for fix tasks) or to the task's dashboard page (for research tasks). There is no originating channel to post back to.
+Results post to the PR (for Change tasks) or to the task's dashboard page (for research tasks). There is no originating channel to post back to.
 
 ---
 
@@ -250,7 +250,7 @@ Yak responds in the same thread with a Block Kit card — personality line, cont
 
 ### Clarification Flow
 
-Any task run (fix tasks from Slack, Linear, Sentry, flaky tests or the dashboard, PR follow-ups, and research) may end with structured questions. If a request is ambiguous, Claude Code reads the codebase and posts 2--3 specific options grounded in what it found:
+Any task run (Change tasks from Slack, Linear, Sentry, flaky tests or the dashboard, PR follow-ups, and research) may end with structured questions. If a request is ambiguous, Claude Code reads the codebase and posts 2--3 specific options grounded in what it found:
 
 ```
 I want to make sure I fix the right thing. Which did you mean?
@@ -314,7 +314,7 @@ Assign any Linear issue to **Yak**. For research-only tasks, either (a) include 
 
 Delegation opens an agent session on the issue. Yak immediately posts an acknowledgement activity, then emits progress updates as it works. When the run finishes:
 
-- **Fix tasks** — Yak posts a `response` activity linking to the pull request and moves the issue to the team's review state (see [Issue State Management](#issue-state-management)).
+- **Change tasks** — Yak posts a `response` activity linking to the pull request and moves the issue to the team's review state (see [Issue State Management](#issue-state-management)).
 - **Research tasks** — Yak posts the findings and moves the issue to "Done" when a done state is configured.
 - **Wrong repository** — when routing is unsure, or the agent finds the request belongs to another repository, Yak asks in the session which repo to work in and lists the options. Reply with a number or a repo name and Yak restarts the task there.
 - **Failures** — Yak posts an `error` activity explaining what went wrong; the issue state is left alone.

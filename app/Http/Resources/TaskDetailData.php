@@ -529,7 +529,7 @@ final class TaskDetailData
         $steps = [
             ['label' => 'Received', 'tooltip' => 'Task landed in the queue.'],
             ['label' => 'Picked up', 'tooltip' => 'An agent has claimed the task and started setup.'],
-            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the fix.'],
+            ['label' => 'Working', 'tooltip' => 'Agent is investigating the codebase and implementing the change.'],
             ['label' => 'Pushed', 'tooltip' => 'Changes committed and pushed to a branch.'],
             ['label' => 'CI passing', 'tooltip' => 'Waiting for CI to verify the changes.'],
             ...($hasCoOwnerRequest ? [['label' => 'Waiting for a co-owner', 'tooltip' => 'A co-owner with write access has to approve before Yak opens the pull request.']] : []),

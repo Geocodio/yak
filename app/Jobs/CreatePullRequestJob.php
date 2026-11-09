@@ -271,7 +271,7 @@ class CreatePullRequestJob implements ShouldQueue
         $prefix = match ($mode) {
             TaskMode::Research => 'Yak Research',
             TaskMode::Setup => 'Yak Setup',
-            default => 'Yak Fix',
+            default => 'Yak Change',
         };
 
         $generated = (new PullRequestTitle)->generate($this->task);

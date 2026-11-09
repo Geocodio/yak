@@ -11,3 +11,10 @@ it('exposes all current cases', function () {
 
     expect($values)->toContain('fix', 'research', 'setup', 'review');
 });
+
+it('labels the fix mode Change', function () {
+    expect(TaskMode::Fix->label())->toBe('Change')
+        ->and(TaskMode::Research->label())->toBe('Research')
+        ->and(TaskMode::Setup->label())->toBe('Setup')
+        ->and(TaskMode::Review->label())->toBe('Review');
+});

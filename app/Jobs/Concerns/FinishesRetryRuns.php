@@ -103,7 +103,7 @@ trait FinishesRetryRuns
 
             $recorder->mark('post_agent');
 
-            TaskLogger::info($this->task, 'Fix pushed — retry', ['branch' => $this->task->branch_name]);
+            TaskLogger::info($this->task, 'Change pushed — retry', ['branch' => $this->task->branch_name]);
         } else {
             $this->task->update($this->postAgentUpdate($repository, $result));
         }
