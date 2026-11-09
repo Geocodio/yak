@@ -75,6 +75,12 @@ class WebhookController extends Controller
         }
 
         if ((bool) config('yak.channels.email.require_dkim', true) && ! $email->dkimAligned) {
+            $owner = User::findBySenderEmail($email->fromEmail);
+
+            if ($owner !== null) {
+                app(VerificationFailureNotifier::class)->notify($owner, $email);
+            }
+
             return $this->dropped('dkim_failed', $email, "{$describe} failed sender verification (no DKIM signature from the sender's domain)");
         }
 
