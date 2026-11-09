@@ -1,10 +1,10 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see app/Http/Controllers/Tasks/PullRequestImageController.php:24
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-const PullRequestImageController = (args: { task: number | { id: number }, asset: string | number } | [task: number | { id: number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const PullRequestImageController = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: PullRequestImageController.url(args, options),
     method: 'get',
 })
@@ -16,10 +16,10 @@ PullRequestImageController.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see app/Http/Controllers/Tasks/PullRequestImageController.php:24
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-PullRequestImageController.url = (args: { task: number | { id: number }, asset: string | number } | [task: number | { id: number }, asset: string | number ], options?: RouteQueryOptions) => {
+PullRequestImageController.url = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -44,20 +44,20 @@ PullRequestImageController.url = (args: { task: number | { id: number }, asset: 
 
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see app/Http/Controllers/Tasks/PullRequestImageController.php:24
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-PullRequestImageController.get = (args: { task: number | { id: number }, asset: string | number } | [task: number | { id: number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+PullRequestImageController.get = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: PullRequestImageController.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Tasks\PullRequestImageController::__invoke
-* @see app/Http/Controllers/Tasks/PullRequestImageController.php:26
+* @see app/Http/Controllers/Tasks/PullRequestImageController.php:24
 * @route '/tasks/{task}/pr-images/{asset}'
 */
-PullRequestImageController.head = (args: { task: number | { id: number }, asset: string | number } | [task: number | { id: number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+PullRequestImageController.head = (args: { task: string | number | { id: string | number }, asset: string | number } | [task: string | number | { id: string | number }, asset: string | number ], options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: PullRequestImageController.url(args, options),
     method: 'head',
 })

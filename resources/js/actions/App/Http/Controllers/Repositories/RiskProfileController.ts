@@ -1,10 +1,10 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see app/Http/Controllers/Repositories/RiskProfileController.php:17
 * @route '/repos/{repository}/risk-profile'
 */
-const RiskProfileController = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+const RiskProfileController = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: RiskProfileController.url(args, options),
     method: 'get',
 })
@@ -16,10 +16,10 @@ RiskProfileController.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see app/Http/Controllers/Repositories/RiskProfileController.php:17
 * @route '/repos/{repository}/risk-profile'
 */
-RiskProfileController.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+RiskProfileController.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -49,20 +49,20 @@ RiskProfileController.url = (args: { repository: string | { slug: string } } | [
 
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see app/Http/Controllers/Repositories/RiskProfileController.php:17
 * @route '/repos/{repository}/risk-profile'
 */
-RiskProfileController.get = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+RiskProfileController.get = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: RiskProfileController.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\Repositories\RiskProfileController::__invoke
-* @see app/Http/Controllers/Repositories/RiskProfileController.php:19
+* @see app/Http/Controllers/Repositories/RiskProfileController.php:17
 * @route '/repos/{repository}/risk-profile'
 */
-RiskProfileController.head = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+RiskProfileController.head = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: RiskProfileController.url(args, options),
     method: 'head',
 })

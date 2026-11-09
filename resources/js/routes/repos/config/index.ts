@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
-export const refresh = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const refresh = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: refresh.url(args, options),
     method: 'post',
 })
@@ -19,7 +19,7 @@ refresh.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
-refresh.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+refresh.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -52,7 +52,7 @@ refresh.url = (args: { repository: string | { slug: string } } | [repository: st
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:61
 * @route '/repos/{repository}/config/refresh'
 */
-refresh.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+refresh.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: refresh.url(args, options),
     method: 'post',
 })
@@ -62,7 +62,7 @@ refresh.post = (args: { repository: string | { slug: string } } | [repository: s
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
 * @route '/repos/{repository}/config/migrate'
 */
-export const migrate = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const migrate = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: migrate.url(args, options),
     method: 'post',
 })
@@ -77,7 +77,7 @@ migrate.definition = {
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
 * @route '/repos/{repository}/config/migrate'
 */
-migrate.url = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions) => {
+migrate.url = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { repository: args }
     }
@@ -110,7 +110,7 @@ migrate.url = (args: { repository: string | { slug: string } } | [repository: st
 * @see app/Http/Controllers/Repositories/RepositoryActionController.php:68
 * @route '/repos/{repository}/config/migrate'
 */
-migrate.post = (args: { repository: string | { slug: string } } | [repository: string | { slug: string } ] | string | { slug: string }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+migrate.post = (args: { repository: string | number | { slug: string | number } } | [repository: string | number | { slug: string | number } ] | string | number | { slug: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: migrate.url(args, options),
     method: 'post',
 })

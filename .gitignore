@@ -43,3 +43,12 @@ tests/Fixtures/*.webm
 
 # Pest browser test failure screenshots
 tests/Browser/Screenshots
+
+# Wayfinder helpers for routes the telemetry packages register. Yak never
+# calls them, and the Vite plugin regenerates them on every build.
+/resources/js/actions/Cbox/
+/resources/js/actions/Spatie/
+/resources/js/routes/queue-metrics/
+/resources/js/routes/telemetry/
+/resources/js/routes/telemetry-ui/
+/resources/js/routes/prometheus/

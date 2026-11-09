@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:52
+* @see app/Http/Controllers/Settings/ProfileController.php:47
 * @route '/settings/profile/direct-messages'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -16,7 +16,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:52
+* @see app/Http/Controllers/Settings/ProfileController.php:47
 * @route '/settings/profile/direct-messages'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -25,7 +25,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:52
+* @see app/Http/Controllers/Settings/ProfileController.php:47
 * @route '/settings/profile/direct-messages'
 */
 update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
