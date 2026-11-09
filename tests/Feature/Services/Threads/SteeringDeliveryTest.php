@@ -148,3 +148,19 @@ it('reports the steering state of a message', function () {
     $message->forceFill(['delivered_at' => now()->subSeconds(10)])->save();
     expect($message->steeringState())->toBe('queued_until_step_finishes');
 });
+
+it('switches the model before a steer without restarting', function () {
+    $this->thread->forceFill(['model' => 'sonnet', 'runner_model' => 'sonnet'])->save();
+    $message = queueSteer();
+    $message->forceFill(['model' => 'haiku'])->save();
+
+    app(SteeringDelivery::class)->deliver($this->task);
+
+    $commands = $this->streams->commandsFor($this->thread->channel());
+
+    expect(array_column($commands, 'type'))->toBe(['set_model', 'steer'])
+        ->and($commands[0]['model'])->toBe('haiku')
+        ->and($message->fresh()->model)->toBe('haiku')
+        ->and($this->thread->fresh()->model)->toBe('haiku')
+        ->and($this->thread->fresh()->runner_model)->toBe('haiku');
+});

@@ -112,6 +112,11 @@ class SteeringDelivery
             $text = PendingSteeringMessage::STEERING_PREAMBLE . $message->text
                 . ($attachmentSection === '' ? '' : "\n\n" . $attachmentSection);
 
+            if ($message->model !== null && $message->model !== $lockedThread->runner_model) {
+                $this->commands->setModel($lockedThread, $message->model);
+                $lockedThread->forceFill(['model' => $message->model])->save();
+            }
+
             $this->commands->steer($lockedThread, $uuid, $text, $message->priority);
 
             $message->forceFill(['uuid' => $uuid, 'task_run_id' => $run->id, 'sent_at' => now()])->save();

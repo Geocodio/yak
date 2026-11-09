@@ -25,7 +25,7 @@ class PendingSteeringMessage extends Model
     /** Seconds a delivered message may wait before the dashboard says it is queued behind a running step. */
     private const STEP_WAIT_SECONDS = 3;
 
-    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name'];
+    protected $fillable = ['root_task_id', 'text', 'source', 'mode', 'reviewer_login', 'author_name', 'model'];
 
     /**
      * @return array<string, string>
@@ -62,6 +62,7 @@ class PendingSteeringMessage extends Model
         ?string $reviewerLogin = null,
         SteeringMode $mode = SteeringMode::Queue,
         ?string $authorName = null,
+        ?string $model = null,
     ): self {
         $root = $task->rootTask();
 
@@ -74,6 +75,7 @@ class PendingSteeringMessage extends Model
             'mode' => $mode,
             'reviewer_login' => $reviewerLogin,
             'author_name' => $authorName,
+            'model' => $model,
         ]);
     }
 

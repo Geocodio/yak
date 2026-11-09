@@ -70,6 +70,8 @@ class ThreadTurns
                 $thread->forceFill(['blocked_reason' => null, 'blocked_until' => null]);
             }
 
+            $model = $task->requested_model ?? $thread->model;
+
             $account->forceFill(['last_used_at' => now()])->save();
 
             $run = TaskRun::query()->create([
@@ -81,7 +83,7 @@ class ThreadTurns
                 'started_at' => now(),
                 'thread_id' => $thread->id,
                 'claude_account_id' => $account->id,
-                'model' => $thread->model,
+                'model' => $model,
                 'driver_user_id' => $driverUserId,
                 'turn_state' => TurnState::Queued,
                 'prompt_uuid' => $promptUuid,
@@ -92,6 +94,7 @@ class ThreadTurns
 
             $thread->forceFill([
                 'sandbox_container' => $containerName,
+                'model' => $model,
                 'lock_holder' => ThreadLockHolder::Sandbox,
                 'lock_turn_id' => $run->id,
                 'lock_acquired_at' => now(),

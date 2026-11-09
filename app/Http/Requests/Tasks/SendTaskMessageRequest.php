@@ -20,6 +20,7 @@ class SendTaskMessageRequest extends FormRequest
         return [
             'message' => ['required', 'string', 'max:20000'],
             'option' => ['nullable', 'string'],
+            'model' => ['nullable', 'string', Rule::in(config('yak.threads.models'))],
             'mode' => ['nullable', Rule::enum(SteeringMode::class)],
             ...TaskAttachment::rules(),
         ];

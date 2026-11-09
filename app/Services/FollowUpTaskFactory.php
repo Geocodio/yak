@@ -27,8 +27,9 @@ class FollowUpTaskFactory
      * @param  string|null  $summonQuote  Conversation-tab comment the summary reply quotes, when summoned from one
      * @param  string|null  $slackFollowUpUserId  Slack user who replied in the thread, mentioned alongside the original requester
      * @param  Collection<int, TaskAttachment>|null  $attachments  Files sent with the instructions; they move onto the new run
+     * @param  string|null  $requestedModel  Model the new turn runs on; the thread's model when null
      */
-    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null): ?YakTask
+    public function create(YakTask $parent, string $instructions, string $source, ?string $authorName = null, array $reRequestReviewFrom = [], ?int $summonReviewCommentId = null, ?string $summonQuote = null, ?string $slackFollowUpUserId = null, ?Collection $attachments = null, ?string $requestedModel = null): ?YakTask
     {
         // One conversation() walk gives us both ends of the chain: the root
         // (stable base for external_id) and the head (newest task — its branch
@@ -43,7 +44,7 @@ class FollowUpTaskFactory
 
         $isResearch = $head->mode === TaskMode::Research;
 
-        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments): YakTask {
+        $child = DB::transaction(function () use ($head, $root, $isResearch, $instructions, $source, $authorName, $reRequestReviewFrom, $summonReviewCommentId, $summonQuote, $slackFollowUpUserId, $attachments, $requestedModel): YakTask {
             $child = YakTask::create([
                 'parent_task_id' => $head->id,
                 'source' => $source,
@@ -69,6 +70,7 @@ class FollowUpTaskFactory
                 'targets_external_pr' => ! $isResearch && $head->targets_external_pr,
                 'summon_review_comment_id' => $summonReviewCommentId,
                 'summon_quote' => $summonQuote,
+                'requested_model' => $requestedModel,
                 'status' => TaskStatus::Pending,
             ]);
 

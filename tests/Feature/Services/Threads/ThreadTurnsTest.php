@@ -81,3 +81,16 @@ it('takes and records the thread lock and owner', function () {
         ->and($run->driver_user_id)->toBe($user->id)
         ->and($run->claude_account_id)->toBe($this->account->id);
 });
+
+it('starts a follow-up turn on the model its message asked for', function () {
+    $first = startTurn($this->thread, $this->task);
+    $first->forceFill(['turn_state' => TurnState::Completed])->save();
+    Thread::query()->whereKey($this->thread->id)->update(['runner_state' => RunnerState::Idle->value, 'model' => 'sonnet', 'runner_model' => 'sonnet', 'lock_holder' => ThreadLockHolder::None->value, 'lock_turn_id' => null]);
+    $followUp = YakTask::factory()->running()->create(['thread_id' => $this->thread->id, 'requested_model' => 'opus']);
+
+    $run = startTurn($this->thread->fresh(), $followUp);
+
+    expect(array_slice(sentTypes($this->thread), 2))->toBe(['set_model', 'turn'])
+        ->and($run->model)->toBe('opus')
+        ->and($this->thread->fresh()->model)->toBe('opus');
+});

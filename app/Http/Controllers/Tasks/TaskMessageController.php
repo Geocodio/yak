@@ -90,7 +90,7 @@ class TaskMessageController extends Controller
     {
         $mode = $request->enum('mode', SteeringMode::class) ?? SteeringMode::Queue;
 
-        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name);
+        $message = PendingSteeringMessage::queueFor($head, $text, 'dashboard', mode: $mode, authorName: auth()->user()?->name, model: $request->validated('model'));
         TaskAttachment::storeFromRequest($request, ['pending_steering_message_id' => $message->id]);
 
         if ($mode === SteeringMode::Steer) {
@@ -117,7 +117,7 @@ class TaskMessageController extends Controller
         }
 
         $attachments = TaskAttachment::storeFromRequest($request);
-        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name, attachments: $attachments);
+        $child = app(FollowUpTaskFactory::class)->create($head, $text, 'dashboard', authorName: auth()->user()?->name, attachments: $attachments, requestedModel: $request->validated('model'));
 
         if ($child === null) {
             $attachments->each->delete();

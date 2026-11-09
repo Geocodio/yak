@@ -121,3 +121,18 @@ test('message is required', function () {
     $this->post(route('tasks.messages.store', $task), [])
         ->assertSessionHasErrors(['message']);
 });
+
+test('it rejects a message model outside the configured list', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+
+    $this->post(route('tasks.messages.store', $task), ['message' => 'go', 'model' => 'gpt-5'])
+        ->assertSessionHasErrors('model');
+});
+
+test('a model chosen with a queued message is kept on the message', function () {
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running]);
+
+    $this->post(route('tasks.messages.store', $task), ['message' => 'go', 'model' => 'haiku'])->assertSessionHasNoErrors();
+
+    expect(PendingSteeringMessage::first()->model)->toBe('haiku');
+});
