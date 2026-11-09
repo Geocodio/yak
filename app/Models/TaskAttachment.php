@@ -164,6 +164,31 @@ class TaskAttachment extends Model
     }
 
     /**
+     * Write raw file contents (for example an email attachment) to the
+     * artifacts disk and record it, the same way as an upload.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function storeContent(string $name, string $contents, string $mimeType, array $attributes = []): self
+    {
+        $name = self::safeFilename($name);
+        $path = 'attachments/' . Str::ulid() . '/' . $name;
+
+        if (! Storage::disk('artifacts')->put($path, $contents)) {
+            throw new \RuntimeException("Could not store attachment {$name}.");
+        }
+
+        return self::create([
+            'context' => self::CONTEXT_REQUEST,
+            ...$attributes,
+            'disk_path' => $path,
+            'original_name' => $name,
+            'mime_type' => Str::limit($mimeType, 128, ''),
+            'size_bytes' => strlen($contents),
+        ]);
+    }
+
+    /**
      * Strip anything that is not safe in a path segment while keeping the
      * name recognisable to the person who uploaded it and to the agent.
      */

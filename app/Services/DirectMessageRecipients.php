@@ -11,14 +11,14 @@ use Illuminate\Support\Facades\Log;
 /**
  * Decides who gets a Slack direct message about a task event. Slack tasks
  * reach people through thread mentions and GitHub tasks through the pull
- * request, so only Linear, dashboard and automated tasks send direct
+ * request, so only Linear, dashboard, email and automated tasks send direct
  * messages. The starter hears about every event that needs a person,
  * including the result of a follow-up on their task. A different responsible
  * user hears only once, when the pull request is first ready.
  */
 class DirectMessageRecipients
 {
-    private const array STARTER_SOURCES = ['linear', 'dashboard'];
+    private const array STARTER_SOURCES = ['linear', 'dashboard', 'email'];
 
     private const array RESPONSIBLE_SOURCES = ['linear', 'dashboard', 'sentry', 'flaky-test'];
 

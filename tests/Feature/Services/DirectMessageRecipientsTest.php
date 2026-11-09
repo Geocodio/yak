@@ -35,6 +35,8 @@ dataset('routing table', [
     'github error' => ['github', NotificationType::Error, [], []],
     'cli pr ready' => ['cli', NotificationType::Result, ['pr_url' => 'https://github.com/o/r/pull/1'], []],
     'system error' => ['system', NotificationType::Error, [], []],
+    'email clarification' => ['email', NotificationType::Clarification, [], ['Starter']],
+    'email error' => ['email', NotificationType::Error, [], ['Starter']],
     'linear clarification' => ['linear', NotificationType::Clarification, [], ['Starter']],
     'linear reminder' => ['linear', NotificationType::Reminder, [], ['Starter']],
     'linear answer ready' => ['linear', NotificationType::Result, [], ['Starter']],

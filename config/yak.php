@@ -366,6 +366,9 @@ return [
             // Only accept mail with a valid DKIM signature from the From
             // domain. Turn off for local development only.
             'require_dkim' => (bool) env('YAK_EMAIL_REQUIRE_DKIM', true),
+
+            // Attachments larger than this are skipped and logged.
+            'max_attachment_bytes' => 25 * 1024 * 1024,
         ],
 
         'sentry' => [

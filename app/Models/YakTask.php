@@ -28,6 +28,7 @@ use Illuminate\Support\Str;
  *
  * @property TaskStatus $status
  * @property TaskMode $mode
+ * @property string|null $title
  * @property bool $targets_external_pr
  * @property int $attempts
  * @property int $attempts_at_manual_retry
