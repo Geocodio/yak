@@ -14,7 +14,12 @@ use Illuminate\Support\Facades\Process;
  */
 class SandboxPoolUsage
 {
-    public const POOL_NAME = 'incus-pool';
+    /**
+     * The Incus storage pool the sandboxes' root disks use. It sits on the
+     * `incus-pool` zpool, but Incus knows it as `default` (see the incus
+     * Ansible role and the default profile's root device).
+     */
+    public const POOL_NAME = 'default';
 
     private const QUERY_TIMEOUT = 5;
 

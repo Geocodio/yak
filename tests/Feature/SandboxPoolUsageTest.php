@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Process;
 
 it('reads used and total bytes from incus', function () {
     Process::fake([
-        'incus query /1.0/storage-pools/incus-pool/resources*' => Process::result('{"space":{"used":73014444032,"total":107374182400}}'),
+        'incus query /1.0/storage-pools/default/resources*' => Process::result('{"space":{"used":73014444032,"total":107374182400}}'),
     ]);
 
     expect((new SandboxPoolUsage)->current())->toBe([
