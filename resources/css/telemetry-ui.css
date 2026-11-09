@@ -1,0 +1,65 @@
+/*
+ * Dresses the embedded @cboxdk/telemetry-ui pages in console-ui's palette.
+ * Only the package's components.css is loaded, never its tokens.css, whose
+ * `:root` would pin `color-scheme: light` and repaint all of Yak. The tokens
+ * the package shares with console-ui (--accent, --border, --info, --sidebar,
+ * --font-sans, --shadow-card ...) already mean the same thing and are
+ * inherited as they are; the rest are answered here from console-ui's
+ * light-dark() tokens, so the pages follow the OS theme with the rest of Yak.
+ */
+
+/* In the components layer, so Yak's utility classes (the section nav's link
+   colours, for one) win over the package's element rules. */
+@import '@cboxdk/telemetry-ui/components.css' layer(components);
+.t-scope {
+    --background: var(--panel);
+    --canvas: var(--bg);
+    --foreground: var(--text);
+    --card: var(--panel);
+    --card-foreground: var(--text);
+    --popover: var(--panel);
+    --popover-foreground: var(--text);
+    --primary: var(--accent);
+    --primary-foreground: var(--accent-ink);
+    --secondary: var(--panel-2);
+    --secondary-foreground: var(--text);
+    --muted: var(--panel-2);
+    --muted-foreground: var(--text-2);
+    --accent-foreground: var(--accent-ink);
+    --accent-edge: color-mix(in srgb, var(--accent) 32%, transparent);
+    --success: var(--ok);
+    --success-soft: var(--ok-soft);
+    --warning: var(--warn);
+    --warning-text: var(--warn);
+    --warning-soft: var(--warn-soft);
+    --destructive: var(--fail);
+    --destructive-soft: var(--fail-soft);
+    --violet: var(--accent);
+    --violet-soft: var(--accent-soft);
+    --violet-edge: color-mix(in srgb, var(--accent) 35%, transparent);
+    --border-subtle: var(--border);
+    --input: var(--border-strong);
+    --ring: var(--accent);
+    --chart-1: var(--accent);
+    --chart-2: var(--info);
+    --chart-3: var(--warn);
+    --chart-4: var(--fail);
+    --chart-5: var(--ok);
+    --chart-6: var(--idle);
+    --annot: var(--text-3);
+    --sidebar-foreground: var(--text);
+    --sidebar-muted: var(--text-2);
+    --sidebar-accent: var(--panel-2);
+    --rail: var(--panel-2);
+    --font-display: var(--font-sans);
+
+    --radius: var(--radius-card);
+    --radius-md: var(--radius-control);
+    --radius-sm: var(--radius-chip);
+    --shadow-popover: var(--shadow-overlay);
+    --ease: var(--ease-out-quart);
+    --dur-hover: var(--duration-quick);
+    --dur-menu: var(--duration-overlay);
+    --dur-layout: 300ms;
+    --topbar-h: 56px;
+}

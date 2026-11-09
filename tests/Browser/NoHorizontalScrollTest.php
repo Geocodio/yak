@@ -25,6 +25,10 @@ test('no page is wider than a phone, and nothing but code scrolls sideways', fun
     // amount of word wrapping can break.
     $unbrokenTask = YakTask::factory()->success()->create([
         'repo' => $repository->slug,
+        // Sentry tasks link their issue as "Triggered by", labelled with the
+        // unbroken external id.
+        'source' => 'sentry',
+        'external_url' => 'https://sentry.io/organizations/geocodio/issues/7012345678/',
         'external_id' => 'flaky-test:commit:b8dde56ba1ea5eaca13fa8299e701c14',
         'branch_name' => 'yak/flaky-test-commit-b8dde56ba1ea5eaca13fa8299e701c14',
         'description' => 'Fix flaky test: Tests\\Dash\\Integration\\Listeners\\NotifyPlanChangedToSlackTest > it posts the alert',

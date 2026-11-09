@@ -4,7 +4,10 @@ namespace App\Providers;
 
 use App\Agents\SandboxedAgentRunner;
 use App\Contracts\AgentRunner;
+use App\Models\User;
+use App\Services\AppDiskUsage;
 use App\Services\IncusSandboxManager;
+use App\Services\SandboxPoolUsage;
 use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Sinks\DatabaseSink;
 use App\Services\Telemetry\Sinks\NullSink;
@@ -12,9 +15,11 @@ use App\Services\Telemetry\Telemetry;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
+use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -25,6 +30,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // spatie/laravel-prometheus (pulled in by laravel-queue-metrics) serves
+        // an unauthenticated /prometheus route by default. Yak exports metrics
+        // through laravel-telemetry instead, so the route stays off. This runs
+        // in register() because the route is added while that package boots.
+        config(['prometheus.enabled' => false]);
+
         $this->app->singleton(IncusSandboxManager::class);
 
         $this->app->bind(AgentRunner::class, fn () => new SandboxedAgentRunner(app(IncusSandboxManager::class)));
@@ -58,6 +69,10 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
+        app(AppDiskUsage::class)->registerGauges();
+        app(SandboxPoolUsage::class)->registerGauges();
+        $this->configureTelemetryUi();
+
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
         Blade::anonymousComponentNamespace('layouts', 'layouts');
@@ -86,6 +101,36 @@ class AppServiceProvider extends ServiceProvider
                 ->symbols()
                 ->uncompromised()
             : null,
+        );
+    }
+
+    /**
+     * Every signed-in user may read the System section's telemetry: sign-in
+     * is already limited to the allowed Google Workspace domains. The app
+     * disk and sandbox pool charts join the package's own System page.
+     */
+    private function configureTelemetryUi(): void
+    {
+        Gate::define('viewTelemetryUi', fn (?User $user): bool => $user !== null);
+
+        TelemetryUi::metricPanel(
+            id: 'yak-app-disk',
+            title: 'App disk',
+            metric: 'yak_app_disk_usage_bytes',
+            page: 'system',
+            unit: 'bytes',
+            by: 'state',
+            subtitle: 'Used and size of the disk that holds Yak storage',
+        );
+
+        TelemetryUi::metricPanel(
+            id: 'yak-sandbox-pool',
+            title: 'Sandbox pool',
+            metric: 'yak_sandbox_pool_usage_bytes',
+            page: 'system',
+            unit: 'bytes',
+            by: 'state',
+            subtitle: 'Used and size of the Incus ZFS pool that holds the sandboxes',
         );
     }
 }

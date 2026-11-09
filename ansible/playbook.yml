@@ -64,6 +64,9 @@
           - google_oauth_client_id is defined and google_oauth_client_id | length > 0
           - google_oauth_client_secret is defined and google_oauth_client_secret | length > 0
           - google_oauth_allowed_domains is defined and google_oauth_allowed_domains | length > 0
+          - redis_password is defined and redis_password | length > 0
+          - telemetryd_ingest_token is defined and telemetryd_ingest_token | length > 0
+          - telemetryd_query_token is defined and telemetryd_query_token | length > 0
         fail_msg: "Required variables are missing. Check vault/secrets.yml."
       tags: always
 
@@ -111,6 +114,14 @@
 
     - role: mariadb
       tags: [mariadb]
+
+    # Tagged yak-container so the standard deploy (`--tags yak-container`)
+    # starts Redis before the Yak container that depends on it.
+    - role: redis
+      tags: [redis, yak-container]
+
+    - role: telemetryd
+      tags: [telemetryd, yak-container]
 
     - role: yak-container
       tags: [yak-container, yak-app, secrets]

@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults, validateParameters } from './../wayfinder'
 /**
 * @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
 * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:45
+* @see routes/web.php:50
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:45
+* @see routes/web.php:50
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:45
+* @see routes/web.php:50
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:45
+* @see routes/web.php:50
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:58
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:58
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:58
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:58
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -159,7 +159,7 @@ login.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:31
+* @see app/Http/Controllers/Tasks/TaskListController.php:35
 * @route '/tasks'
 */
 export const tasks = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -174,7 +174,7 @@ tasks.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:31
+* @see app/Http/Controllers/Tasks/TaskListController.php:35
 * @route '/tasks'
 */
 tasks.url = (options?: RouteQueryOptions) => {
@@ -183,7 +183,7 @@ tasks.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:31
+* @see app/Http/Controllers/Tasks/TaskListController.php:35
 * @route '/tasks'
 */
 tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -193,7 +193,7 @@ tasks.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Tasks\TaskListController::__invoke
-* @see app/Http/Controllers/Tasks/TaskListController.php:31
+* @see app/Http/Controllers/Tasks/TaskListController.php:35
 * @route '/tasks'
 */
 tasks.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -291,7 +291,7 @@ analytics.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:25
+* @see app/Http/Controllers/Repositories/RepositoryController.php:28
 * @route '/repos'
 */
 export const repos = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -306,7 +306,7 @@ repos.definition = {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:25
+* @see app/Http/Controllers/Repositories/RepositoryController.php:28
 * @route '/repos'
 */
 repos.url = (options?: RouteQueryOptions) => {
@@ -315,7 +315,7 @@ repos.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:25
+* @see app/Http/Controllers/Repositories/RepositoryController.php:28
 * @route '/repos'
 */
 repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -325,7 +325,7 @@ repos.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Repositories\RepositoryController::repos
-* @see app/Http/Controllers/Repositories/RepositoryController.php:25
+* @see app/Http/Controllers/Repositories/RepositoryController.php:28
 * @route '/repos'
 */
 repos.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -418,6 +418,72 @@ health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 */
 health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: health.url(options),
+    method: 'head',
+})
+
+/**
+* @see \App\Http\Controllers\SystemController::__invoke
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
+*/
+export const system = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: system.url(args, options),
+    method: 'get',
+})
+
+system.definition = {
+    methods: ["get","head"],
+    url: '/system/{path?}',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\SystemController::__invoke
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
+*/
+system.url = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { path: args }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            path: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    validateParameters(args, [
+        "path",
+    ])
+
+    const parsedArgs = {
+        path: args?.path,
+    }
+
+    return system.definition.url
+            .replace('{path?}', parsedArgs.path?.toString() ?? '')
+            .replace(/\/+$/, '') + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\SystemController::__invoke
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
+*/
+system.get = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: system.url(args, options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\SystemController::__invoke
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
+*/
+system.head = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: system.url(args, options),
     method: 'head',
 })
 

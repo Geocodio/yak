@@ -29,6 +29,7 @@ use App\Http\Controllers\Repositories\RiskProfileController;
 use App\Http\Controllers\Settings\McpLoginController;
 use App\Http\Controllers\Settings\McpServerController;
 use App\Http\Controllers\SkillController;
+use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TaskAttachmentController;
 use App\Http\Controllers\Tasks\CoOwnerDecisionController;
 use App\Http\Controllers\Tasks\DismissSetupCardController;
@@ -147,6 +148,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('observations', ObservationController::class)->name('observations');
 
     Route::get('health', [HealthController::class, 'index'])->name('health');
+    Route::get('system/{path?}', SystemController::class)->where('path', '.*')->name('system');
     Route::post('health/refresh', [HealthController::class, 'refreshAll'])->name('health.refresh');
     Route::post('health/{check}/refresh', [HealthController::class, 'refreshOne'])->name('health.check.refresh');
     Route::get('channels', ChannelController::class)->name('channels');

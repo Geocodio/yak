@@ -6,6 +6,7 @@ import AnalyticsController from './AnalyticsController'
 import Repositories from './Repositories'
 import ObservationController from './ObservationController'
 import HealthController from './HealthController'
+import SystemController from './SystemController'
 import ChannelController from './ChannelController'
 import SkillController from './SkillController'
 import MarketplaceController from './MarketplaceController'
@@ -28,6 +29,7 @@ const Controllers = {
     Repositories: Object.assign(Repositories, Repositories),
     ObservationController: Object.assign(ObservationController, ObservationController),
     HealthController: Object.assign(HealthController, HealthController),
+    SystemController: Object.assign(SystemController, SystemController),
     ChannelController: Object.assign(ChannelController, ChannelController),
     SkillController: Object.assign(SkillController, SkillController),
     MarketplaceController: Object.assign(MarketplaceController, MarketplaceController),

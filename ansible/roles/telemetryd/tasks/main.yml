@@ -1,0 +1,37 @@
+---
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: yak
+    state: present
+
+- name: Ensure telemetryd data directory exists
+  ansible.builtin.file:
+    path: "{{ telemetryd_data_path }}"
+    state: directory
+    mode: "0755"
+    # The image runs as the telemetryd user (uid/gid 10001), which must be
+    # able to write its store and generated tokens here.
+    owner: "10001"
+    group: "10001"
+
+# Keeps Yak's metrics, traces and logs for the System page: OTLP in from
+# the Yak container, Prometheus/Loki/Tempo query APIs out. Reachable only
+# on the yak network, and every surface needs its token.
+- name: Run telemetryd container
+  community.docker.docker_container:
+    name: "{{ telemetryd_container_name }}"
+    image: "ghcr.io/cboxdk/telemetryd:{{ telemetryd_image_tag }}"
+    state: started
+    restart_policy: unless-stopped
+    # telemetryd sizes its query limits from the memory it may use; without
+    # a limit it assumes the whole host, which it shares with MariaDB and
+    # the sandboxes.
+    memory: "{{ telemetryd_memory_limit }}"
+    volumes:
+      - "{{ telemetryd_data_path }}:/var/lib/telemetryd"
+    env:
+      TELEMETRYD_AUTH_INGEST_TOKEN: "{{ telemetryd_ingest_token }}"
+      TELEMETRYD_AUTH_QUERY_TOKEN: "{{ telemetryd_query_token }}"
+      TELEMETRYD_STORAGE_DISK_BUDGET: "{{ telemetryd_disk_budget }}"
+    networks:
+      - name: yak

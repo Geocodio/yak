@@ -113,6 +113,12 @@ yak_app_key: ""
 mariadb_root_password: ""
 mariadb_password: ""
 
+# Queue and System page telemetry (required; the playbook stops without them).
+# Generate each with `openssl rand -hex 32`.
+redis_password: ""
+telemetryd_ingest_token: ""
+telemetryd_query_token: ""
+
 # GitHub App (filled after guided setup on first run, then re-run)
 github_app_id: ""
 github_app_private_key: ""
@@ -312,8 +318,10 @@ This single command runs the following roles in order:
 5. **mcp-config** — generates `mcp-config.json` with only the enabled channels' MCP servers
 6. **mariadb** — runs a MariaDB 11 container with persistent storage on a Docker network
 7. **channel-*** — conditionally runs each enabled channel role (Slack, Linear, Sentry, Drone)
-8. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
-9. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
+8. **redis** -- runs the Redis container that holds every queue, with an append-only file and a password
+9. **telemetryd** -- runs the telemetryd container that keeps 30 days of metrics, traces and logs for the System page
+10. **yak-container** — pulls the pre-built Docker image from ghcr.io, starts the container with env vars
+11. **claude-code-config** — installs the Claude CLI, configures slash commands, prints the interactive login prompt
 
 Total time: about 10 minutes.
 

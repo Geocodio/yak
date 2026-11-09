@@ -10,7 +10,6 @@ import { FunnelChart } from '@/components/analytics/FunnelChart';
 import { HeadlineTiles } from '@/components/analytics/HeadlineTiles';
 import { LatencyChart } from '@/components/analytics/LatencyChart';
 import { OutliersTable } from '@/components/analytics/OutliersTable';
-import { QueueChart } from '@/components/analytics/QueueChart';
 import { ReviewQuality } from '@/components/analytics/ReviewQuality';
 import { RunsByKind } from '@/components/analytics/RunsByKind';
 import { StagesTable } from '@/components/analytics/StagesTable';
@@ -44,7 +43,6 @@ export default function Index({
     features,
     webhooks,
     reviews,
-    queues,
     explorer,
 }: Props) {
     const navigate = (next: Partial<Pick<AnalyticsFilters, 'period' | 'repo' | 'source' | 'event'>>) => {
@@ -191,10 +189,6 @@ export default function Index({
 
                     <div className="mt-6">
                         <ReviewQuality reviews={reviews} />
-                    </div>
-
-                    <div className="mt-6">
-                        <QueueChart queues={queues} />
                     </div>
 
                     <div className="mt-6">

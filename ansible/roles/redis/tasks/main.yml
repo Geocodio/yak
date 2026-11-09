@@ -1,0 +1,39 @@
+---
+- name: Ensure Docker network exists
+  community.docker.docker_network:
+    name: yak
+    state: present
+
+- name: Ensure Redis data directory exists
+  ansible.builtin.file:
+    path: "{{ redis_data_path }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+# The image starts as root, then runs Redis as the redis user (uid 999,
+# gid 1000), which must be able to read its config.
+- name: Write Redis config
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: "{{ redis_config_path }}"
+    mode: "0600"
+    owner: "999"
+    group: "1000"
+  register: redis_config
+
+# Settings and password live in the config file; see redis.conf.j2.
+- name: Run Redis container
+  community.docker.docker_container:
+    name: "{{ redis_container_name }}"
+    image: "redis:7-alpine"
+    state: started
+    restart: "{{ redis_config.changed }}"
+    restart_policy: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - "{{ redis_data_path }}:/data"
+      - "{{ redis_config_path }}:/usr/local/etc/redis/redis.conf:ro"
+    networks:
+      - name: yak

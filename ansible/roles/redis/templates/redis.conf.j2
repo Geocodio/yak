@@ -1,0 +1,14 @@
+# Managed by Ansible (roles/redis). Readable only by the redis user,
+# so the password stays out of `docker inspect` and the process list.
+
+# Redis holds the queue: every change goes to an append-only file, and
+# no key is ever evicted, so neither a restart nor memory pressure drops
+# a queued job. At maxmemory, writes fail instead of the kernel killing
+# Redis outright.
+appendonly yes
+maxmemory {{ redis_maxmemory }}
+maxmemory-policy noeviction
+
+# Queue payloads are serialized PHP that the workers run, and sandboxes
+# share the host's network path to the Docker bridge.
+requirepass {{ redis_password }}

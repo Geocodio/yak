@@ -152,6 +152,16 @@
     command: "php /app/artisan yak:resume"
   failed_when: false
 
+# Workers read only Redis. Jobs a previous image left in the database
+# queue (or that PausesDuringDrain released there) would otherwise be
+# re-dispatched by yak:reap-lost-pending and later run twice. With an
+# empty jobs table this is a no-op.
+- name: Move jobs left on the database queue to Redis
+  community.docker.docker_container_exec:
+    container: "{{ yak_container_name }}"
+    user: www-data
+    command: "php /app/artisan yak:queue:move-database-jobs"
+
 # Must run after the drain flag is cleared above — otherwise a task
 # resumed here would immediately be paused again by PausesDuringDrain,
 # sitting Pending until the next scheduled yak:reap-lost-pending sweep

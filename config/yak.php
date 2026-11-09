@@ -519,10 +519,6 @@ return [
         // task_runs rows are kept indefinitely (one small row per run).
         'retention_days' => (int) env('YAK_TELEMETRY_RETENTION_DAYS', 90),
 
-        // Sample queue depth and oldest-job age once a minute so the
-        // Analytics page can show worker backlog over time.
-        'queue_sampling' => (bool) env('YAK_TELEMETRY_QUEUE_SAMPLING', true),
-
         // Poll GitHub hourly for the state of Yak-opened PRs that have not
         // been reported merged or closed, so a missed webhook cannot leave
         // a PR looking open forever. Also counts human commits on the PR.
