@@ -45,6 +45,7 @@ use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Threads\ThreadEventController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -102,6 +103,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('task-attachments/{attachment}', TaskAttachmentController::class)
         ->middleware('signed')
         ->name('task-attachments.show');
+    Route::get('threads/{thread}/events', [ThreadEventController::class, 'index'])->whereNumber('thread')->name('threads.events.index');
     Route::get('costs', CostDashboardController::class)->name('costs');
     Route::get('analytics', AnalyticsController::class)->name('analytics');
 

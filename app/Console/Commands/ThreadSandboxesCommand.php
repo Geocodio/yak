@@ -7,6 +7,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Models\SessionFile;
 use App\Models\Thread;
+use App\Models\ThreadEvent;
 use App\Services\SessionStore\SessionStore;
 use App\Services\Threads\ThreadCloser;
 use App\Services\Threads\ThreadSandbox;
@@ -49,11 +50,15 @@ class ThreadSandboxesCommand extends Command
                 }
             });
 
+        $retainedUntilClosed = Thread::query()
+            ->where('status', ThreadStatus::Closed)
+            ->where('closed_at', '<=', now()->subDays((int) config('yak.threads.session_retention_days')))
+            ->select('id');
+
+        ThreadEvent::query()->whereIn('thread_id', $retainedUntilClosed)->delete();
+
         SessionFile::query()
-            ->whereIn('thread_id', Thread::query()
-                ->where('status', ThreadStatus::Closed)
-                ->where('closed_at', '<=', now()->subDays((int) config('yak.threads.session_retention_days')))
-                ->select('id'))
+            ->whereIn('thread_id', $retainedUntilClosed)
             ->distinct()
             ->pluck('thread_id')
             ->each(fn (int $threadId) => $sessionStore->deleteThread($threadId));
