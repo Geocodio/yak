@@ -174,12 +174,12 @@ class WebhookController extends Controller
                 ? $detection->repositories->pluck('slug')->values()->all()
                 : [$description->repository ?? 'unknown'];
 
-            $tasks = array_map(fn (string $slug): YakTask => YakTask::create([
+            $tasks = array_values(array_map(fn (string $slug): YakTask => YakTask::create([
                 ...$base,
                 ...$this->responsible($user, $slug),
                 'repo' => $slug,
                 'external_id' => count($slugs) > 1 ? "{$description->externalId}-{$slug}" : $description->externalId,
-            ]), $slugs);
+            ]), $slugs));
         }
 
         foreach ($tasks as $task) {
@@ -267,7 +267,7 @@ class WebhookController extends Controller
             source: 'email',
             kind: "email.{$reason}",
             summary: "{$summary}, so Yak took no action.",
-            subject: $email?->messageId ?? $email?->fromEmail,
+            subject: $email->messageId ?? $email?->fromEmail,
         );
 
         return response()->json(['ok' => true, 'dropped' => $reason]);

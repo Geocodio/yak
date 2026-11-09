@@ -31,7 +31,7 @@ class ConfirmEmailAddressMail extends Mailable implements ShouldQueue
             text: 'mail.confirm-email-address-text',
             with: [
                 'email' => $this->emailAddress->email,
-                'ownerName' => $this->emailAddress->user->name,
+                'ownerName' => $this->emailAddress->user->name ?? 'A Yak user',
                 'confirmationUrl' => $this->confirmationUrl,
             ],
         );

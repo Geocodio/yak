@@ -23,6 +23,7 @@ Channels are enabled by the presence of credentials — no credentials, no chann
 | Slack | Input, notification | no | Bot mention |
 | Linear | Input, notification | no | Assign issue to Yak |
 | Sentry | Input | no | Alert rule |
+| Email | Input | no | Forward an email to Yak |
 | Drone CI | CI | no | Polled by `yak:poll-drone-ci` |
 
 The minimum viable setup is **GitHub + manual CLI**. Everything else is optional.
@@ -403,6 +404,55 @@ The alert rule decides which issues reach Yak. The alert payload carries a singl
 - **No fallback repo.** Unlike Slack/Linear, Sentry webhooks do not fall back to the default repo — they require an explicit `sentry_project` mapping.
 - **Rejections are logged, not silent.** Every filtered issue writes a `Sentry issue filtered` debug line to the `yak` log channel with its reason and the event's tag keys. Start there when an alert you expected never became a task.
 - **Optional per-event opt-in.** Set `YAK_SENTRY_REQUIRED_TAG` (e.g. `yak-eligible`) to additionally require that tag key on the event. Off by default — the tag has to be set in application code at the moment the error is thrown, so the alert rule is usually the better place to decide eligibility.
+
+---
+
+## Email (optional)
+
+**Roles:** Input (task creation from forwarded emails). One-way: Yak sends a single acknowledgment and every later step happens in the Yak UI and the starter's Slack direct messages.
+
+Forward an email to Yak's inbound address with a note on top ("Figure out why the error consumption is so high, and whether it's in the geocodio repo"). Yak creates a task: the note is the instruction, the forwarded email and its attachments are the context. Repo detection and the fix or research choice use the note only, with the same `in <repo>:` and `research:` syntax as Slack. When the repo is unclear the task waits for a pick, and the acknowledgment links straight to it.
+
+### Setup
+
+1. Create a [Postmark](https://postmarkapp.com) server.
+2. **Inbound:** in the server's inbound stream, set the inbound domain (for example `yak.example.com`) and add an MX record on that host pointing to `inbound.postmarkapp.com`. Set the inbound webhook URL to `https://yak:<password>@{your-domain}/webhooks/email`, with a long random password.
+3. **Outbound:** verify the sending domain in Postmark (DKIM and Return-Path DNS records). Acknowledgments and address confirmations send from the outbound stream.
+4. Add to `ansible/vault/secrets.yml`:
+
+   ```yaml
+   email_webhook_password: ...          # the password in the webhook URL
+   email_inbound_address: yak@yak.example.com
+   postmark_api_key: ...                # server API token; also switches MAIL_MAILER to postmark
+   # email_reply_to: no-reply@yak.example.com   (defaults to no-reply@ the inbound domain)
+   # postmark_message_stream_id: outbound
+   ```
+
+5. Re-run Ansible. The health page's Email row turns green once a real mailer is set.
+
+### Who can send
+
+Every Yak user can forward from their sign-in address. Extra addresses (a personal mailbox, a second domain) are added under **Settings, Profile, Email to Yak**. Yak emails a confirmation link to the new address, and the owner must open it while signed in to Yak before the address counts.
+
+A message is accepted only when all of these hold, checked in this order:
+
+| Check | Dropped as |
+|---|---|
+| Webhook basic auth matches `email_webhook_password` | 403 |
+| Not an automatic or bulk message (`Auto-Submitted`, `Precedence: bulk/list/junk`) | `auto_submitted` |
+| Postmark's `X-Spam-Tests` contains `DKIM_VALID_AU` (a valid DKIM signature from the From domain), and the header appears exactly once | `dkim_failed` |
+| The From address is a sign-in or confirmed address | `unknown_sender` |
+| The Message-ID has not been seen before | `duplicate` |
+| It does not reply to a message that already started a task, or to a Yak acknowledgment | `thread_follow_up` |
+| The sender has created fewer than 30 tasks in the last hour | `rate_limited` |
+
+Every drop answers 200 (so Postmark does not retry), is logged to the `yak` channel, and appears on the Observations page as `email.<reason>`. Yak never replies by email to a dropped message, because the sender may be forged. When a forward from a known address fails the DKIM check, the address's owner gets a Slack direct message instead (at most one per address per hour).
+
+### Gotchas
+
+- **CC works once.** CC or BCC Yak on a thread and the first message Yak sees starts a task; later replies in that thread are ignored.
+- **Attachments.** Up to 20 files, each up to 25 MB, become task attachments. Images under 10 KB (signature logos, tracking pixels) are skipped.
+- **Local testing.** Set `YAK_EMAIL_REQUIRE_DKIM=false` to post hand-made payloads without a DKIM result. Never turn it off in production.
 
 ---
 

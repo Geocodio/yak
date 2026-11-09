@@ -85,12 +85,12 @@ class ProfileController extends Controller
 
         return [
             'inboundAddress' => (string) config('yak.channels.email.inbound_address'),
-            'addresses' => $user->emailAddresses()->orderBy('id')->get()
+            'addresses' => array_values($user->emailAddresses()->orderBy('id')->get()
                 ->map(fn (UserEmailAddress $address): array => [
                     'id' => $address->id,
                     'email' => $address->email,
                     'confirmed' => $address->isConfirmed(),
-                ])->values()->all(),
+                ])->all()),
         ];
     }
 
