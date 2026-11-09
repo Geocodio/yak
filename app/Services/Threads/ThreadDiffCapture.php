@@ -67,17 +67,22 @@ class ThreadDiffCapture
 
         $maxFile = (int) config('yak.threads.diff_max_file_bytes');
         $maxTotal = (int) config('yak.threads.diff_max_total_bytes');
+        $maxFiles = (int) config('yak.threads.diff_max_files');
         $stored = 0;
         $isTruncated = false;
         $rows = [];
 
-        foreach ($statuses as $file) {
+        foreach ($statuses as $position => $file) {
             [$additions, $deletions] = $counts[$file['path']] ?? [null, null];
             $isBinary = $additions === null;
             $patch = null;
             $isTooLarge = false;
 
-            if (! $isBinary) {
+            if (! $isBinary && ($position >= $maxFiles || $stored >= $maxTotal)) {
+                // Past either cap no patch is stored, so the per-file git command is skipped too.
+                $isTooLarge = true;
+                $isTruncated = true;
+            } elseif (! $isBinary) {
                 $paths = collect([$file['oldPath'], $file['path']])->filter()->map(escapeshellarg(...))->implode(' ');
                 $patch = $this->output($container, "{$git} diff --cached -M {$baseSha} -- {$paths} | head -c " . ($maxFile + 1));
 

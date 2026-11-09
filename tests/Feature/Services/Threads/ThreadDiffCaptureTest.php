@@ -128,6 +128,25 @@ it('stops storing patches at the total cap', function () {
         ->and($diff->files_count)->toBe(2);
 });
 
+it('keeps the number of git commands bounded when a turn touches many files', function () {
+    config()->set('yak.threads.diff_max_files', 2);
+    $thread = Thread::factory()->create();
+    $paths = array_map(fn (int $n): string => "f{$n}.php", range(1, 50));
+    $commands = fakeGit(
+        collect($paths)->flatMap(fn ($path) => ['M', $path])->all(),
+        array_map(fn ($path) => "1\t0\t{$path}", $paths),
+        array_fill_keys($paths, 'p'),
+    );
+
+    $diff = captureFor($thread);
+    $patchCommands = collect($commands)->filter(fn ($command) => str_contains($command, 'head -c'));
+
+    expect($patchCommands)->toHaveCount(2)
+        ->and($diff->files_count)->toBe(50)
+        ->and($diff->files->where('is_too_large', true))->toHaveCount(48)
+        ->and($diff->is_truncated)->toBeTrue();
+});
+
 it('includes untracked files', function () {
     $thread = Thread::factory()->create();
     $commands = fakeGit(['A', 'untracked.php'], ["1\t0\tuntracked.php"], ['untracked.php' => 'p']);

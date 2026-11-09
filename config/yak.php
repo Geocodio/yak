@@ -593,6 +593,10 @@ return [
         // Bytes of one file's patch, and of all patches together, kept in a thread's stored diff.
         'diff_max_file_bytes' => 262144,
         'diff_max_total_bytes' => 2097152,
+
+        // Files whose patch is read; further files are listed without a patch.
+        'diff_max_files' => 1000,
+
         'session_chunk_bytes' => 8 * 1024 * 1024,
 
         // Production points this at the persistent /data volume.
