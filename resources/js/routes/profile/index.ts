@@ -1,8 +1,9 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../../wayfinder'
 import directMessages from './direct-messages'
+import emailAddresses from './email-addresses'
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:18
+* @see app/Http/Controllers/Settings/ProfileController.php:19
 * @route '/settings/profile'
 */
 export const edit = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -17,7 +18,7 @@ edit.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:18
+* @see app/Http/Controllers/Settings/ProfileController.php:19
 * @route '/settings/profile'
 */
 edit.url = (options?: RouteQueryOptions) => {
@@ -26,7 +27,7 @@ edit.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:18
+* @see app/Http/Controllers/Settings/ProfileController.php:19
 * @route '/settings/profile'
 */
 edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -36,7 +37,7 @@ edit.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::edit
-* @see app/Http/Controllers/Settings/ProfileController.php:18
+* @see app/Http/Controllers/Settings/ProfileController.php:19
 * @route '/settings/profile'
 */
 edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -46,7 +47,7 @@ edit.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:32
+* @see app/Http/Controllers/Settings/ProfileController.php:37
 * @route '/settings/profile'
 */
 export const update = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -61,7 +62,7 @@ update.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:32
+* @see app/Http/Controllers/Settings/ProfileController.php:37
 * @route '/settings/profile'
 */
 update.url = (options?: RouteQueryOptions) => {
@@ -70,7 +71,7 @@ update.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Settings\ProfileController::update
-* @see app/Http/Controllers/Settings/ProfileController.php:32
+* @see app/Http/Controllers/Settings/ProfileController.php:37
 * @route '/settings/profile'
 */
 update.patch = (options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
@@ -82,6 +83,7 @@ const profile = {
     edit: Object.assign(edit, edit),
     update: Object.assign(update, update),
     directMessages: Object.assign(directMessages, directMessages),
+    emailAddresses: Object.assign(emailAddresses, emailAddresses),
 }
 
 export default profile
