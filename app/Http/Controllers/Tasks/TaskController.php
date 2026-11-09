@@ -9,6 +9,7 @@ use App\Http\Resources\TaskDetailData;
 use App\Http\Resources\ThreadPanelData;
 use App\Http\Resources\TranscriptData;
 use App\Models\TaskLog;
+use App\Models\ThreadView;
 use App\Models\YakTask;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +24,13 @@ class TaskController extends Controller
             $root = $task->conversation()->first();
 
             return redirect(route('tasks.show', $root) . '#turn-' . $task->id);
+        }
+
+        if ($task->thread_id !== null && $request->user() !== null) {
+            ThreadView::query()->updateOrCreate(
+                ['user_id' => $request->user()->id, 'thread_id' => $task->thread_id],
+                ['last_seen_at' => now()],
+            );
         }
 
         $conversation = $task->conversation();

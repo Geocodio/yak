@@ -13,7 +13,9 @@ use Carbon\CarbonImmutable;
 use Database\Factories\ThreadFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A long-lived conversation: one sandbox, one runner and one chain of
@@ -112,6 +114,30 @@ class Thread extends Model
     public function turns(): HasMany
     {
         return $this->hasMany(TaskRun::class);
+    }
+
+    /**
+     * @return HasOne<TaskRun, $this>
+     */
+    public function latestTurn(): HasOne
+    {
+        return $this->hasOne(TaskRun::class)->latestOfMany();
+    }
+
+    /**
+     * @return HasMany<ThreadView, $this>
+     */
+    public function views(): HasMany
+    {
+        return $this->hasMany(ThreadView::class);
+    }
+
+    /**
+     * @return BelongsTo<ClaudeAccount, $this>
+     */
+    public function claudeAccount(): BelongsTo
+    {
+        return $this->belongsTo(ClaudeAccount::class);
     }
 
     public function activeSession(): ?ThreadSession

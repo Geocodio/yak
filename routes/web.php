@@ -47,7 +47,9 @@ use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
 use App\Http\Controllers\Threads\ThreadDiffController;
 use App\Http\Controllers\Threads\ThreadEventController;
+use App\Http\Controllers\Threads\ThreadListController;
 use App\Http\Controllers\Threads\ThreadMessageController;
+use App\Http\Controllers\Threads\ThreadSeenController;
 use App\Http\Controllers\VideoThemeAssetController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -105,6 +107,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('task-attachments/{attachment}', TaskAttachmentController::class)
         ->middleware('signed')
         ->name('task-attachments.show');
+    Route::get('threads', [ThreadListController::class, 'index'])->name('threads.index');
+    Route::post('threads/{thread}/seen', [ThreadSeenController::class, 'store'])->whereNumber('thread')->name('threads.seen');
     Route::get('threads/{thread}/events', [ThreadEventController::class, 'index'])->whereNumber('thread')->name('threads.events.index');
     Route::get('threads/{thread}/messages', [ThreadMessageController::class, 'index'])->whereNumber('thread')->name('threads.messages.index');
     Route::get('threads/{thread}/diff', [ThreadDiffController::class, 'show'])->whereNumber('thread')->name('threads.diff.show');
