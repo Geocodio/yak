@@ -63,11 +63,16 @@ class ThreadTurns
             if ($blockedReason !== null || $account === null) {
                 $thread->forceFill(['blocked_reason' => $blockedReason])->save();
 
+                if ($thread->wasChanged('blocked_reason')) {
+                    app(ThreadEventPublisher::class)->recordThreadState($thread);
+                }
+
                 return null;
             }
 
             if (in_array($thread->blocked_reason, [ThreadBlockReason::InvalidToken, ThreadBlockReason::NoValidAccount, ThreadBlockReason::UsageLimit], true)) {
-                $thread->forceFill(['blocked_reason' => null, 'blocked_until' => null]);
+                $thread->forceFill(['blocked_reason' => null, 'blocked_until' => null])->save();
+                app(ThreadEventPublisher::class)->recordThreadState($thread);
             }
 
             $model = $task->requested_model ?? $thread->model;
@@ -103,6 +108,8 @@ class ThreadTurns
 
             return [$thread, $run, $account];
         });
+
+        app(ThreadEventPublisher::class)->flush();
 
         if ($started === null) {
             return null;

@@ -15,6 +15,7 @@ use App\Models\ClaudeAccount;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadEvent;
 use App\Models\YakTask;
 use App\Services\SessionStore\SessionSync;
 use App\Services\Threads\AuthProxyPlaceholders;
@@ -406,4 +407,57 @@ it('revokes the proxy placeholder when the current runner exits', function () {
     app(ThreadDriver::class)->handle(runnerExit());
 
     expect($placeholders->resolve($placeholder))->toBeNull();
+});
+
+function streamLine(array $event): array
+{
+    return ['type' => 'stream_event', 'event' => $event];
+}
+
+function threadEventTypes(Thread $thread): array
+{
+    return ThreadEvent::query()->where('thread_id', $thread->id)->orderBy('sequence')->get()->map(fn (ThreadEvent $event): string => $event->type)->all();
+}
+
+it('flushes a block early on a structural line', function () {
+    driveThread($this->thread, [
+        streamLine(['type' => 'message_start', 'message' => ['id' => 'm1']]),
+        streamLine(['type' => 'content_block_start', 'index' => 0]),
+        streamLine(['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'Work']]),
+        streamLine(['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'ing']]),
+        ['type' => 'assistant', 'message' => ['id' => 'm1', 'model' => 'opus', 'content' => [['type' => 'text', 'text' => 'Working']], 'usage' => ['input_tokens' => 1, 'output_tokens' => 1]]],
+    ]);
+
+    $events = ThreadEvent::query()->where('thread_id', $this->thread->id)->orderBy('sequence')->get();
+
+    expect($events->pluck('type')->all())->toBe(['delta', 'entry'])
+        ->and($events[0]->payload)->toBe(['blockKey' => 'm1:0', 'kind' => 'text', 'text' => 'Working']);
+});
+
+it('resets the stream on a synthetic user message mid-block', function () {
+    driveThread($this->thread, [
+        streamLine(['type' => 'message_start', 'message' => ['id' => 'm1']]),
+        streamLine(['type' => 'content_block_start', 'index' => 0]),
+        streamLine(['type' => 'content_block_delta', 'index' => 0, 'delta' => ['type' => 'text_delta', 'text' => 'Half']]),
+        ['type' => 'user', 'isSynthetic' => true, 'message' => ['content' => 'interrupted']],
+    ]);
+
+    expect(threadEventTypes($this->thread))->toBe(['delta', 'stream.reset']);
+});
+
+it('publishes a turn event when a turn completes', function () {
+    driveThread($this->thread, threadTurnLines());
+
+    $turn = ThreadEvent::query()->where('thread_id', $this->thread->id)->where('type', 'turn')->first();
+
+    expect($turn->payload)->toBe(['turnId' => $this->run->id, 'state' => 'completed'])
+        ->and(threadEventTypes($this->thread))->toContain('entry');
+});
+
+it('publishes nothing for output of an older runner generation', function () {
+    $this->thread->forceFill(['runner_generation' => 2])->save();
+
+    app(ThreadDriver::class)->handle(threadEntry($this->thread, ['type' => 'assistant', 'message' => ['id' => 'm1', 'content' => [['type' => 'text', 'text' => 'stale']]]], generation: 1));
+
+    expect(ThreadEvent::query()->where('thread_id', $this->thread->id)->count())->toBe(0);
 });

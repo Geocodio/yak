@@ -74,6 +74,40 @@ class ThreadEventPublisher
         return $event;
     }
 
+    /**
+     * The thread's status, sandbox and block as the page shows them, recorded under the caller's row lock.
+     */
+    public function recordThreadState(Thread $lockedThread): ThreadEvent
+    {
+        return $this->record($lockedThread, 'thread', $this->threadState($lockedThread));
+    }
+
+    public function appendThreadState(int $threadId): ThreadEvent
+    {
+        $event = DB::transaction(function () use ($threadId): ThreadEvent {
+            $thread = Thread::query()->lockForUpdate()->findOrFail($threadId);
+
+            return $this->recordThreadState($thread);
+        });
+
+        $this->flush();
+
+        return $event;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function threadState(Thread $thread): array
+    {
+        return [
+            'status' => $thread->status->value,
+            'sandboxState' => $thread->sandbox_state->value,
+            'blockedReason' => $thread->blocked_reason?->value,
+            'blockedUntil' => $thread->blocked_until?->toIso8601String(),
+        ];
+    }
+
     public function flush(): void
     {
         $events = $this->queue;

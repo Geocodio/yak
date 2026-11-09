@@ -32,7 +32,7 @@ class ThreadDriversCommand extends Command
             // A channel's entries are handled in order: once one is left pending, the rest of that channel waits for the next read.
             $stalledChannels = [];
 
-            foreach ($streams->read($channels, $consumer, 200, 100) as $entry) {
+            foreach ($streams->read($channels, $consumer, 50, 100) as $entry) {
                 if (isset($stalledChannels[$entry->channel])) {
                     continue;
                 }
@@ -45,6 +45,8 @@ class ThreadDriversCommand extends Command
                     return self::SUCCESS;
                 }
             }
+
+            $driver->flushDueDeltas();
 
             try {
                 $driver->tick();

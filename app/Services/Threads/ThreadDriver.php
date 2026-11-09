@@ -62,7 +62,35 @@ class ThreadDriver
     /** @var list<int> threads whose turn completed or failed, paused after the commit */
     private array $finishedThreads = [];
 
-    public function __construct(private readonly RunnerRecovery $recovery, private readonly RunawayGuard $guard, private readonly ThreadCommands $commands, private readonly AccountFailureClassifier $classifier) {}
+    /** @var array<int, string> message id of the streaming message per thread */
+    private array $streamingMessageIds = [];
+
+    /** @var array<int, array<int, true>> open streaming block indexes per thread */
+    private array $openBlocks = [];
+
+    public function __construct(
+        private readonly RunnerRecovery $recovery,
+        private readonly RunawayGuard $guard,
+        private readonly ThreadCommands $commands,
+        private readonly AccountFailureClassifier $classifier,
+        private readonly ThreadEventPublisher $publisher,
+        private readonly DeltaBatcher $batcher,
+        private readonly ThreadEventProjector $projector,
+    ) {}
+
+    /**
+     * Appends the streaming text whose 50 ms window has passed. The command loop calls this after every read.
+     */
+    public function flushDueDeltas(): void
+    {
+        foreach ($this->batcher->due(microtime(true)) as $delta) {
+            $this->isolated(fn () => $this->publisher->append($delta['threadId'], 'delta', [
+                'blockKey' => $delta['blockKey'],
+                'kind' => $delta['kind'],
+                'text' => $delta['text'],
+            ]));
+        }
+    }
 
     public function handle(StreamEntry $entry): void
     {
@@ -198,11 +226,101 @@ class ThreadDriver
             $this->recordSession($thread, $line['session_id'], $run);
         }
 
+        $this->streamLine($thread, $line);
+
         if ($run === null) {
             return;
         }
 
         $this->applyToTurn($thread, $run, $line, $events);
+    }
+
+    /**
+     * Turns a runner line into thread events. Streaming deltas wait in the batcher;
+     * a structural line first takes its thread's buffered deltas, so a delta never
+     * lands after the entry that finishes its block.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    private function streamLine(Thread $thread, array $line): void
+    {
+        $type = $line['type'] ?? null;
+
+        if ($type === 'stream_event') {
+            $this->streamEvent($thread, (array) ($line['event'] ?? []));
+
+            return;
+        }
+
+        if (! in_array($type, ['assistant', 'user', 'result', 'system'], true)) {
+            return;
+        }
+
+        $this->recordBufferedDeltas($thread);
+
+        foreach ($this->projector->project($line, ($this->openBlocks[$thread->id] ?? []) !== []) as $event) {
+            $this->publisher->record($thread, $event['type'], $event['data']);
+
+            if ($event['type'] === 'stream.reset') {
+                unset($this->openBlocks[$thread->id]);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $event
+     */
+    private function streamEvent(Thread $thread, array $event): void
+    {
+        $index = (int) ($event['index'] ?? 0);
+
+        switch ($event['type'] ?? null) {
+            case 'message_start':
+                $this->streamingMessageIds[$thread->id] = (string) ($event['message']['id'] ?? '');
+                $this->openBlocks[$thread->id] = [];
+
+                break;
+            case 'content_block_start':
+                $this->openBlocks[$thread->id][$index] = true;
+
+                break;
+            case 'content_block_delta':
+                $delta = (array) ($event['delta'] ?? []);
+                [$kind, $text] = match ($delta['type'] ?? null) {
+                    'text_delta' => ['text', $delta['text'] ?? ''],
+                    'thinking_delta' => ['thinking', $delta['thinking'] ?? ''],
+                    'input_json_delta' => ['tool_input', $delta['partial_json'] ?? ''],
+                    default => [null, ''],
+                };
+
+                if ($kind !== null && $text !== '') {
+                    $this->batcher->add($thread->id, ($this->streamingMessageIds[$thread->id] ?? '') . ':' . $index, $kind, (string) $text, microtime(true));
+                }
+
+                break;
+            case 'content_block_stop':
+                $this->recordBufferedDeltas($thread);
+                unset($this->openBlocks[$thread->id][$index]);
+
+                break;
+            case 'message_stop':
+                $this->recordBufferedDeltas($thread);
+                unset($this->openBlocks[$thread->id], $this->streamingMessageIds[$thread->id]);
+
+                break;
+        }
+    }
+
+    private function recordBufferedDeltas(Thread $thread): void
+    {
+        foreach ($this->batcher->takeThread($thread->id) as $delta) {
+            $this->publisher->record($thread, 'delta', ['blockKey' => $delta['blockKey'], 'kind' => $delta['kind'], 'text' => $delta['text']]);
+        }
+    }
+
+    private function recordTurnState(Thread $thread, TaskRun $run, TurnState $state): void
+    {
+        $this->publisher->record($thread, 'turn', ['turnId' => $run->id, 'state' => $state->value]);
     }
 
     /**
@@ -313,6 +431,7 @@ class ThreadDriver
         ] : []))->save();
 
         $this->finishedThreads[] = $thread->id;
+        $this->recordTurnState($thread, $run, TurnState::Failed);
         $events[] = new TurnFailed($run);
     }
 
@@ -364,6 +483,7 @@ class ThreadDriver
             if ($thread !== null && $run !== null) {
                 $thread->forceFill(['blocked_reason' => ThreadBlockReason::NoValidAccount]);
                 $this->abandonTurn($thread, $run, $events);
+                $this->publisher->recordThreadState($thread);
             }
         });
 
@@ -522,7 +642,9 @@ class ThreadDriver
         ])->save();
 
         $this->finishedThreads[] = $thread->id;
-        $events[] = $this->completionEvent($run->fresh() ?? $run);
+        $finished = $run->fresh() ?? $run;
+        $this->recordTurnState($thread, $finished, $failed ? TurnState::Failed : TurnState::Completed);
+        $events[] = $this->completionEvent($finished);
     }
 
     /**
@@ -598,6 +720,7 @@ class ThreadDriver
             'runner_state' => RunnerState::Idle,
         ])->save();
 
+        $this->recordTurnState($thread, $run, TurnState::StoppedByGuard);
         $events[] = new TurnFailed($run);
     }
 
@@ -638,6 +761,8 @@ class ThreadDriver
         ])->save();
 
         $this->finishedThreads[] = $thread->id;
+        $this->recordTurnState($thread, $run, TurnState::Failed);
+        $this->publisher->recordThreadState($thread);
         $events[] = new TurnFailed($run);
     }
 
@@ -720,6 +845,8 @@ class ThreadDriver
      */
     private function dispatchAll(array $events): void
     {
+        $this->publisher->flush();
+
         foreach ($events as $event) {
             event($event);
 

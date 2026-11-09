@@ -9,6 +9,9 @@ use App\Services\Telemetry\Contracts\TelemetrySink;
 use App\Services\Telemetry\Sinks\DatabaseSink;
 use App\Services\Telemetry\Sinks\NullSink;
 use App\Services\Telemetry\Telemetry;
+use App\Services\Threads\DeltaBatcher;
+use App\Services\Threads\ThreadDriver;
+use App\Services\Threads\ThreadEventPublisher;
 use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
@@ -26,6 +29,10 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(IncusSandboxManager::class);
+        // The driver is long-lived: its publisher queue, delta buffers and open-block tracking live across entries.
+        $this->app->singleton(ThreadEventPublisher::class);
+        $this->app->singleton(DeltaBatcher::class);
+        $this->app->singleton(ThreadDriver::class);
 
         $this->app->bind(AgentRunner::class, BrokeredAgentRunner::class);
 

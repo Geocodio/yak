@@ -329,5 +329,6 @@ class ThreadSandbox
     private function record(Thread $thread, ThreadSandboxState $state): void
     {
         $thread->forceFill(['sandbox_state' => $state, 'sandbox_state_changed_at' => now()])->save();
+        app(ThreadEventPublisher::class)->appendThreadState($thread->id);
     }
 }

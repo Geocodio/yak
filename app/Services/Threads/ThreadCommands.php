@@ -36,6 +36,7 @@ class ThreadCommands
                 'mcpServers' => (object) $this->mcpServers(),
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => $resumeSessionId,
+                'partial' => true,
                 'claudeConfigDir' => $thread->claude_config_dir,
                 'placeholder' => $this->placeholders->issueForThread($thread, $account),
                 'anthropicBaseUrl' => (string) config('yak.threads.auth_proxy_url'),

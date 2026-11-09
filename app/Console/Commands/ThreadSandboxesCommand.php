@@ -10,10 +10,12 @@ use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Services\SessionStore\SessionStore;
 use App\Services\Threads\ThreadCloser;
+use App\Services\Threads\ThreadEventPublisher;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 
 #[Signature('yak:thread-sandboxes')]
 #[Description('Stop idle thread sandboxes, close finished or idle threads and release turns waiting for a sandbox')]
@@ -63,22 +65,33 @@ class ThreadSandboxesCommand extends Command
             ->pluck('thread_id')
             ->each(fn (int $threadId) => $sessionStore->deleteThread($threadId));
 
-        Thread::query()
+        $this->unblock(Thread::query()
             ->where('blocked_reason', ThreadBlockReason::UsageLimit)
-            ->where('blocked_until', '<=', now())
-            ->update(['blocked_reason' => null, 'blocked_until' => null]);
+            ->where('blocked_until', '<=', now()), ['blocked_reason' => null, 'blocked_until' => null]);
 
         $awake = Thread::query()
             ->whereIn('sandbox_state', [ThreadSandboxState::Starting, ThreadSandboxState::Running, ThreadSandboxState::Paused])
             ->count();
 
         if ($awake < (int) config('yak.threads.awake_cap')) {
-            Thread::query()
-                ->where('blocked_reason', ThreadBlockReason::WaitingForSandbox)
-                ->update(['blocked_reason' => null]);
+            $this->unblock(Thread::query()->where('blocked_reason', ThreadBlockReason::WaitingForSandbox), ['blocked_reason' => null]);
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param  Builder<Thread>  $threads
+     * @param  array<string, mixed>  $attributes
+     */
+    private function unblock(Builder $threads, array $attributes): void
+    {
+        $ids = (clone $threads)->pluck('id');
+        $threads->update($attributes);
+
+        foreach ($ids as $threadId) {
+            app(ThreadEventPublisher::class)->appendThreadState($threadId);
+        }
     }
 
     private function isFinishedWithoutPullRequest(Thread $thread): bool

@@ -16,6 +16,7 @@ it('acks only after handling', function () {
     $driver = Mockery::mock(ThreadDriver::class);
     $driver->shouldReceive('handle')->once()->andThrow(new RuntimeException('boom'));
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('flushDueDeltas');
     $this->app->instance(ThreadDriver::class, $driver);
 
     $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
@@ -24,6 +25,7 @@ it('acks only after handling', function () {
     $driver = Mockery::mock(ThreadDriver::class);
     $driver->shouldReceive('handle')->once();
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('flushDueDeltas');
     $this->app->instance(ThreadDriver::class, $driver);
 
     $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
@@ -47,6 +49,7 @@ it('does not let one failing entry block another thread', function () {
         }
     });
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('flushDueDeltas');
     $this->app->instance(ThreadDriver::class, $driver);
 
     $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
@@ -65,6 +68,7 @@ it('moves an entry that keeps failing to the dead letters and fails only its tur
     $driver = Mockery::mock(ThreadDriver::class);
     $driver->shouldReceive('handle')->times(3)->andThrow(new RuntimeException('boom'));
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('flushDueDeltas');
     $driver->shouldReceive('failTurnOf')->once();
     $this->app->instance(ThreadDriver::class, $driver);
 
@@ -88,6 +92,7 @@ it('acknowledges an entry even when dead-lettering it fails', function () {
     $driver = Mockery::mock(ThreadDriver::class);
     $driver->shouldReceive('handle')->times(3)->andThrow(new RuntimeException('boom'));
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('flushDueDeltas');
     $driver->shouldReceive('failTurnOf')->once();
     $this->app->instance(ThreadDriver::class, $driver);
 
@@ -119,6 +124,7 @@ it('holds back later entries of a channel while an earlier one is pending', func
         $handled[] = $entry->line['type'];
     });
     $driver->shouldReceive('tick');
+    $driver->shouldReceive('flushDueDeltas');
     $this->app->instance(ThreadDriver::class, $driver);
 
     $this->artisan('yak:thread-drivers', ['--once' => true])->assertSuccessful();
