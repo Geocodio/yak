@@ -2,12 +2,15 @@
 
 use App\DataTransferObjects\StreamEntry;
 use App\Enums\SteeringMode;
+use App\Enums\TaskMode;
+use App\Enums\TaskStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Events\TurnStarted;
+use App\Jobs\FlushSteeringMessagesJob;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
@@ -15,6 +18,7 @@ use App\Models\Thread;
 use App\Models\ThreadEvent;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\FollowUpTaskFactory;
 use App\Services\Threads\SteeringDelivery;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadEventPublisher;
@@ -158,4 +162,34 @@ it('appends a sent event when a person steers a thread', function () {
 
     expect($event->payload)->toMatchArray(['state' => 'sent', 'readAfterSequence' => null])
         ->and($event->payload['id'])->toStartWith('steer-');
+});
+
+it('shows the typed text of a turn, not the assembled prompt', function () {
+    $task = YakTask::factory()->running()->create(['thread_id' => $this->thread->id, 'parent_task_id' => $this->task->id, 'description' => 'Rename the helper']);
+    $run = TaskRun::factory()->create([
+        'yak_task_id' => $task->id,
+        'thread_id' => $this->thread->id,
+        'prompt' => "You are Yak. Repository instructions...\n\nRename the helper",
+    ]);
+
+    expect(steerEntry(ThreadMessages::for($this->thread), 'run-' . $run->id)['text'])->toBe('Rename the helper');
+});
+
+it('lists a follow-up that failed before its turn started as cancelled', function () {
+    $followUp = YakTask::factory()->create(['thread_id' => $this->thread->id, 'parent_task_id' => $this->task->id, 'status' => TaskStatus::Failed]);
+
+    expect(steerEntry(ThreadMessages::for($this->thread), 'task-' . $followUp->id)['state'])->toBe('cancelled');
+});
+
+it('tells clients which task a flushed steer merged into', function () {
+    $this->task->update(['status' => TaskStatus::Success, 'mode' => TaskMode::Research]);
+    $steer = PendingSteeringMessage::queueFor($this->task, 'also handle nulls', 'dashboard');
+
+    (new FlushSteeringMessagesJob($this->task->id))->handle(app(FollowUpTaskFactory::class));
+
+    $events = ThreadEvent::query()->where('thread_id', $this->thread->id)->where('type', 'message.state')->get();
+    $merged = $events->first(fn ($event) => $event->payload['id'] === 'steer-' . $steer->id);
+
+    expect($merged->payload)->toMatchArray(['state' => 'merged'])
+        ->and($merged->payload['into'])->toStartWith('task-');
 });

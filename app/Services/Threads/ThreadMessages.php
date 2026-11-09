@@ -3,6 +3,7 @@
 namespace App\Services\Threads;
 
 use App\Enums\CommandState;
+use App\Enums\TaskStatus;
 use App\Models\PendingSteeringMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
@@ -22,7 +23,7 @@ class ThreadMessages
      */
     public static function for(Thread $thread): Collection
     {
-        $runs = TaskRun::query()->where('thread_id', $thread->id)->whereNotNull('prompt')->with('driver')->get();
+        $runs = TaskRun::query()->where('thread_id', $thread->id)->whereNotNull('prompt')->with(['driver', 'task'])->get();
         $taskIds = $thread->tasks()->pluck('id');
 
         /** @var list<array<string, mixed>> $messages */
@@ -34,7 +35,8 @@ class ThreadMessages
             $messages[] = [
                 'id' => 'run-' . $run->id,
                 'uuid' => $run->prompt_uuid,
-                'text' => (string) $run->prompt,
+                // task_runs.prompt is the assembled prompt Yak sends; the person's own words live on the task.
+                'text' => (string) ($run->task?->description ?? $run->prompt),
                 'authorName' => $run->driver?->name,
                 'model' => $run->model,
                 'state' => match (true) {
@@ -73,7 +75,7 @@ class ThreadMessages
                 'text' => (string) $task->description,
                 'authorName' => $task->author_name,
                 'model' => $task->requested_model,
-                'state' => 'sent',
+                'state' => in_array($task->status, [TaskStatus::Failed, TaskStatus::Cancelled, TaskStatus::Expired], true) ? 'cancelled' : 'sent',
                 'readAfterSequence' => null,
                 'sentAt' => $task->created_at?->toIso8601String(),
                 'readAt' => null,

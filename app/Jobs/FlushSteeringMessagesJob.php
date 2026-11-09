@@ -6,6 +6,7 @@ use App\Models\PendingSteeringMessage;
 use App\Models\TaskAttachment;
 use App\Models\YakTask;
 use App\Services\FollowUpTaskFactory;
+use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -63,6 +64,27 @@ class FlushSteeringMessagesJob implements ShouldBeUnique, ShouldQueue
 
         if ($child !== null) {
             PendingSteeringMessage::whereIn('id', $messages->pluck('id'))->delete();
+
+            if ($root->thread_id !== null) {
+                $publisher = app(ThreadEventPublisher::class);
+
+                foreach ($messages as $message) {
+                    $publisher->append($root->thread_id, 'message.state', [
+                        'id' => 'steer-' . $message->id,
+                        'uuid' => $message->uuid,
+                        'state' => 'merged',
+                        'into' => 'task-' . $child->id,
+                        'readAfterSequence' => null,
+                    ]);
+                }
+
+                $publisher->append($root->thread_id, 'message.state', [
+                    'id' => 'task-' . $child->id,
+                    'uuid' => null,
+                    'state' => 'sent',
+                    'readAfterSequence' => null,
+                ]);
+            }
         }
     }
 }
