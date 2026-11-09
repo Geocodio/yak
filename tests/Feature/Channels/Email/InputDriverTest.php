@@ -119,6 +119,23 @@ it('keeps attachments with their base64 content and decoded size', function () {
     ]);
 });
 
+it('rejects a From that names more than one mailbox, however it is written', function (string $from, array $headers) {
+    expect(app(InputDriver::class)->parsePayload(postmarkPayload(['From' => $from], $headers)))->toBeNull();
+})->with([
+    'plain list' => ['mhansen@hey.com, attacker@evil.test', []],
+    'quoted local part' => ['mhansen@hey.com, "x"@evil.test', []],
+    'group syntax' => ['team: mhansen@hey.com, x@evil.test;', []],
+    'second address only in the raw header' => ['mhansen@hey.com', ['From' => 'mhansen@hey.com, "x"@evil.test']],
+    'two raw From headers' => ['mhansen@hey.com', ['From' => 'mhansen@hey.com', 'from' => 'x@evil.test']],
+]);
+
+it('accepts a single mailbox whose display name contains an @ or a comma', function (string $from) {
+    expect(app(InputDriver::class)->parsePayload(postmarkPayload(['From' => $from])))->not->toBeNull();
+})->with([
+    '"Hansen, Mathias (mhansen@hey.com)" <mhansen@hey.com>',
+    'Mathias Hansen <mhansen@hey.com> (work, laptop)',
+]);
+
 it('returns null for payloads without a usable sender', function (array $payload) {
     expect(app(InputDriver::class)->parsePayload($payload))->toBeNull();
 })->with([

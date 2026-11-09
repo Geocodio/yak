@@ -85,13 +85,19 @@ class InputDriver implements InputDriverContract
         // RFC 5322 allows several authors in From. A valid DKIM signature
         // from any one of them satisfies DKIM_VALID_AU, so a message naming
         // more than one could borrow a Yak user's address. Never accept it.
-        $authorCount = preg_match_all('/[^\s<>",;]+@[^\s<>",;]+/', $this->string($payload['From'] ?? null));
+        $headerValues = $this->headers($payload['Headers'] ?? null);
+        $rawFromHeaders = $headerValues['from'] ?? [];
 
-        if ($fromEmail === '' || $authorCount > 1) {
+        if ($fromEmail === '' || count($rawFromHeaders) > 1 || $this->mailboxCount($this->string($payload['From'] ?? null)) > 1) {
             return null;
         }
 
-        $headerValues = $this->headers($payload['Headers'] ?? null);
+        foreach ($rawFromHeaders as $rawFrom) {
+            if ($this->mailboxCount($rawFrom) > 1) {
+                return null;
+            }
+        }
+
         $headers = array_map(fn (array $values): string => $values[0], $headerValues);
 
         // Postmark adds X-Spam-Tests itself, but a sender can add one too.
@@ -170,6 +176,23 @@ class InputDriver implements InputDriverContract
         }
 
         return $byName;
+    }
+
+    /**
+     * How many mailboxes an RFC 5322 From value names: the `@` signs left
+     * after quoted strings and (nested) comments are removed. Every mailbox
+     * has exactly one unquoted `@`, whatever its local part or display name
+     * looks like, so this cannot be fooled by quoting or group syntax.
+     */
+    private function mailboxCount(string $from): int
+    {
+        $from = (string) preg_replace('/"(?:[^"\\\\]|\\\\.)*"/s', '', $from);
+
+        do {
+            $from = (string) preg_replace('/\((?:[^()\\\\]|\\\\.)*\)/s', '', $from, -1, $replaced);
+        } while ($replaced > 0);
+
+        return substr_count($from, '@');
     }
 
     /**
