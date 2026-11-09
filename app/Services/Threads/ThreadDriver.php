@@ -603,7 +603,7 @@ class ThreadDriver
 
     /**
      * An account failure ends the turn and blocks the thread. Nothing retries
-     * and no other account takes over; a person switches the account. A usage
+     * and no other account takes over; the account is fixed at thread start. A usage
      * limit with no known reset time is a transient API error, not a plan
      * exhaustion: the turn fails and the thread stays unblocked.
      *
@@ -690,7 +690,7 @@ class ThreadDriver
         $recipients = array_values(collect([$account?->owner, $driver])->filter()->unique('id')->all());
 
         $message = $isUsageLimit
-            ? "The Claude account {$name} hit its usage limit. Switch this thread to another account, or wait for the limit to reset."
+            ? "The Claude account {$name} hit its usage limit. Yak continues this thread when the limit resets. To keep going now, start a new thread on another account."
             : "Your Claude account {$name} was rejected. Paste a new token in Settings, Claude accounts.";
 
         SendNotificationJob::dispatch($task, NotificationType::Error, $message, personalize: false, directMessagesOnly: $recipients !== [], directRecipients: $recipients);

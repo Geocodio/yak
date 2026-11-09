@@ -47,7 +47,7 @@ class TaskController extends Controller
         return Inertia::render('Tasks/Show', [
             ...$data,
             ...$candidates,
-            'threadPanel' => ThreadPanelData::forTask($task, $request->user()),
+            'threadPanel' => ThreadPanelData::forTask($task),
             'activityOlder' => Inertia::optional(fn () => $request->integer('before')
                 ? ActivityLogData::before($focusedRun, $attempt, $request->integer('before'))
                 : []),

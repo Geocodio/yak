@@ -127,7 +127,7 @@ length.head = (args: { thread: string | number | { id: string | number } } | [th
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::checkpoint
-* @see app/Http/Controllers/Internal/SessionStoreController.php:61
+* @see app/Http/Controllers/Internal/SessionStoreController.php:63
 * @route '/internal/session-store/{thread}/checkpoint'
 */
 export const checkpoint = (args: { thread: string | number | { id: string | number } } | [thread: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -142,7 +142,7 @@ checkpoint.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::checkpoint
-* @see app/Http/Controllers/Internal/SessionStoreController.php:61
+* @see app/Http/Controllers/Internal/SessionStoreController.php:63
 * @route '/internal/session-store/{thread}/checkpoint'
 */
 checkpoint.url = (args: { thread: string | number | { id: string | number } } | [thread: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -175,7 +175,7 @@ checkpoint.url = (args: { thread: string | number | { id: string | number } } | 
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::checkpoint
-* @see app/Http/Controllers/Internal/SessionStoreController.php:61
+* @see app/Http/Controllers/Internal/SessionStoreController.php:63
 * @route '/internal/session-store/{thread}/checkpoint'
 */
 checkpoint.post = (args: { thread: string | number | { id: string | number } } | [thread: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -185,7 +185,7 @@ checkpoint.post = (args: { thread: string | number | { id: string | number } } |
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::file
-* @see app/Http/Controllers/Internal/SessionStoreController.php:77
+* @see app/Http/Controllers/Internal/SessionStoreController.php:81
 * @route '/internal/session-store/{thread}/file'
 */
 export const file = (args: { thread: string | number | { id: string | number } } | [thread: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({
@@ -200,7 +200,7 @@ file.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::file
-* @see app/Http/Controllers/Internal/SessionStoreController.php:77
+* @see app/Http/Controllers/Internal/SessionStoreController.php:81
 * @route '/internal/session-store/{thread}/file'
 */
 file.url = (args: { thread: string | number | { id: string | number } } | [thread: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
@@ -233,7 +233,7 @@ file.url = (args: { thread: string | number | { id: string | number } } | [threa
 
 /**
 * @see \App\Http\Controllers\Internal\SessionStoreController::file
-* @see app/Http/Controllers/Internal/SessionStoreController.php:77
+* @see app/Http/Controllers/Internal/SessionStoreController.php:81
 * @route '/internal/session-store/{thread}/file'
 */
 file.put = (args: { thread: string | number | { id: string | number } } | [thread: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'put'> => ({

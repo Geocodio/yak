@@ -7,6 +7,8 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -26,25 +28,18 @@ it('shows the thread sandbox state, account and model', function () {
             ->where('threadPanel.account.name', 'My Max')
             ->where('threadPanel.account.isSystem', false)
             ->where('threadPanel.model', 'sonnet')
-            ->where('threadPanel.models', ['opus', 'sonnet', 'haiku'])
             ->where('threadPanel.blocked', null)
             ->where('threadPanel.guardStop', null)
             ->where('threadPanel.canContinue', false));
 });
 
-it('lists only accounts I may switch to', function () {
-    $mine = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id, 'name' => 'Spare']);
-    $system = ClaudeAccount::factory()->system()->create(['name' => 'Yak']);
-    ClaudeAccount::factory()->create(['owner_user_id' => User::factory()->create()->id, 'name' => 'Theirs']);
-    ClaudeAccount::factory()->expired()->create(['owner_user_id' => $this->user->id, 'name' => 'Expired']);
+it('has no account or model switching', function () {
+    expect(Route::has('tasks.thread.account.update'))->toBeFalse()
+        ->and(Route::has('tasks.thread.model.update'))->toBeFalse()
+        ->and(Schema::hasColumns('threads', ['account_switched_at', 'account_switched_by_user_id', 'runner_claude_account_id']))->toBeFalse();
 
     $this->actingAs($this->user)->get(route('tasks.show', $this->task))
-        ->assertInertia(fn (Assert $page) => $page
-            ->has('threadPanel.switchableAccounts', 2)
-            ->where('threadPanel.switchableAccounts', fn ($accounts) => collect($accounts)->pluck('id')->sort()->values()->all() === collect([$mine->id, $system->id])->sort()->values()->all()));
-
-    $this->actingAs(User::factory()->create())->get(route('tasks.show', $this->task))
-        ->assertInertia(fn (Assert $page) => $page->where('threadPanel.switchableAccounts', []));
+        ->assertInertia(fn (Assert $page) => $page->missing('threadPanel.switchableAccounts')->missing('threadPanel.models'));
 });
 
 it('explains a blocked thread', function () {
@@ -53,7 +48,7 @@ it('explains a blocked thread', function () {
     $this->actingAs($this->user)->get(route('tasks.show', $this->task))
         ->assertInertia(fn (Assert $page) => $page
             ->where('threadPanel.blocked.reason', 'invalid_token')
-            ->where('threadPanel.blocked.message', fn ($message) => str_contains($message, 'Settings') && str_contains($message, 'switch')));
+            ->where('threadPanel.blocked.message', fn ($message) => str_contains($message, 'Settings')));
 });
 
 it('offers continue after a guard stop', function () {

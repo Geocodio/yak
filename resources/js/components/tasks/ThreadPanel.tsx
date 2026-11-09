@@ -1,12 +1,7 @@
-import { Button, Dialog, cn } from '@geocodio/console-ui';
-import { useState } from 'react';
+import { Button, cn } from '@geocodio/console-ui';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { continueMethod } from '@/routes/tasks';
-import { update as updateAccount } from '@/routes/tasks/thread/account';
-import { update as updateModel } from '@/routes/tasks/thread/model';
 import type { ThreadPanelData } from '@/types/threads';
-
-export const SWITCH_WARNING = 'Switching accounts makes the next turn re-read the whole conversation without cache, so it costs more than a normal turn.';
 
 const SANDBOX: Record<ThreadPanelData['sandboxState'], { label: string; dot: string }> = {
     running: { label: 'Sandbox running', dot: 'bg-ok' },
@@ -22,27 +17,10 @@ const BLOCK_TITLES: Record<string, string> = {
     waiting_for_sandbox: 'Waiting for a free sandbox',
 };
 
-const SELECT_CLASS = 'h-7 rounded-md border border-hair-strong bg-panel px-2 text-[12.5px]';
-
 /** The thread's sandbox, account and model, with the block or guard stop that holds it. */
 export function ThreadPanel({ taskId, panel }: { taskId: number; panel: ThreadPanelData }) {
     const action = useRouterAction();
-    const [switchOpen, setSwitchOpen] = useState(false);
-    const [chosen, setChosen] = useState<number | null>(null);
     const sandbox = SANDBOX[panel.sandboxState];
-    const canSwitch = panel.switchableAccounts.length > 0;
-    const target = chosen ?? panel.switchableAccounts[0]?.id ?? null;
-
-    const confirmSwitch = () =>
-        target !== null &&
-        action.run('switch', 'put', updateAccount.url(taskId), { claude_account_id: target }, { onSuccess: () => setSwitchOpen(false) });
-
-    const switchButton = (primary: boolean) => (
-        <Button variant={primary ? 'primary' : 'secondary'} onClick={() => setSwitchOpen(true)} data-testid="thread-switch-account">
-            Switch account
-        </Button>
-    );
-
     return (
         <section className="flex flex-col gap-3 rounded-card border border-hair-strong bg-panel px-4 py-3 shadow-card" data-testid="thread-panel">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[13px]">
@@ -54,24 +32,7 @@ export function ThreadPanel({ taskId, panel }: { taskId: number; panel: ThreadPa
                     Account: {panel.account?.name ?? 'none'}
                     {panel.account?.isSystem ? ' (system)' : ''}
                 </span>
-                {canSwitch ? (
-                    <select
-                        aria-label="Model"
-                        className={SELECT_CLASS}
-                        value={panel.model}
-                        onChange={(event) => action.run('model', 'put', updateModel.url(taskId), { model: event.target.value })}
-                        data-testid="thread-model"
-                    >
-                        {[...new Set([panel.model, ...panel.models])].filter(Boolean).map((model) => (
-                            <option key={model} value={model}>
-                                {model}
-                            </option>
-                        ))}
-                    </select>
-                ) : (
-                    <span className="text-muted">Model: {panel.model || 'default'}</span>
-                )}
-                {canSwitch && <span className="ml-auto">{switchButton(false)}</span>}
+                <span className="text-muted">Model: {panel.model || 'default'}</span>
             </div>
 
             {panel.blocked && (
@@ -108,38 +69,6 @@ export function ThreadPanel({ taskId, panel }: { taskId: number; panel: ThreadPa
                     )}
                 </div>
             )}
-
-            <Dialog
-                open={switchOpen}
-                onOpenChange={setSwitchOpen}
-                title="Switch account"
-                description={SWITCH_WARNING}
-                footer={
-                    <>
-                        <Button variant="tertiary" onClick={() => setSwitchOpen(false)}>
-                            Cancel
-                        </Button>
-                        <Button variant="primary" pending={action.isPending('switch')} pendingLabel="Switching…" onClick={confirmSwitch} data-testid="thread-switch-confirm">
-                            Switch account
-                        </Button>
-                    </>
-                }
-            >
-                <select
-                    aria-label="Account"
-                    className={cn(SELECT_CLASS, 'w-full')}
-                    value={target ?? ''}
-                    onChange={(event) => setChosen(Number(event.target.value))}
-                    data-testid="thread-switch-select"
-                >
-                    {panel.switchableAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                            {account.name}
-                            {account.isSystem ? ' (system)' : ''}
-                        </option>
-                    ))}
-                </select>
-            </Dialog>
         </section>
     );
 }

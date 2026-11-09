@@ -58,6 +58,17 @@ it('only sets the model on a live runner', function () {
         ->and($this->streams->commandsFor($this->thread->channel())[0]['start']['model'])->toBe('opus');
 });
 
+it('keeps the runner when the thread account was edited in the database', function () {
+    $first = startTurn($this->thread, $this->task);
+    $first->forceFill(['turn_state' => TurnState::Completed])->save();
+    $other = ClaudeAccount::factory()->create();
+    Thread::query()->whereKey($this->thread->id)->update(['runner_state' => RunnerState::Idle->value, 'claude_account_id' => $other->id, 'lock_holder' => ThreadLockHolder::None->value, 'lock_turn_id' => null]);
+
+    startTurn($this->thread->fresh(), $this->task);
+
+    expect(sentTypes($this->thread))->toBe(['start_runner', 'turn', 'turn']);
+});
+
 it('takes and records the thread lock and owner', function () {
     $user = User::factory()->create();
 

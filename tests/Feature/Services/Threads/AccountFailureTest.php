@@ -103,6 +103,7 @@ it('notifies the account owner and the driver on a usage limit', function () {
 
         return $ids === collect([$this->owner->id, $this->driverUser->id])->sort()->values()->all();
     });
+    Queue::assertPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->message === 'The Claude account Work token hit its usage limit. Yak continues this thread when the limit resets. To keep going now, start a new thread on another account.');
 });
 
 it('blocks on a result line that carries a 401', function () {

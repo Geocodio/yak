@@ -45,7 +45,6 @@ class ThreadCommands
         $thread->forceFill([
             'runner_state' => RunnerState::Starting,
             'runner_model' => $thread->model,
-            'runner_claude_account_id' => $account->id,
             'append_system_prompt' => $appendSystemPrompt,
         ])->save();
     }

@@ -2,7 +2,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../
 import check from './check'
 /**
 * @see \App\Http\Controllers\HealthController::refresh
-* @see app/Http/Controllers/HealthController.php:68
+* @see app/Http/Controllers/HealthController.php:56
 * @route '/health/refresh'
 */
 export const refresh = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -17,7 +17,7 @@ refresh.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::refresh
-* @see app/Http/Controllers/HealthController.php:68
+* @see app/Http/Controllers/HealthController.php:56
 * @route '/health/refresh'
 */
 refresh.url = (options?: RouteQueryOptions) => {
@@ -26,7 +26,7 @@ refresh.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::refresh
-* @see app/Http/Controllers/HealthController.php:68
+* @see app/Http/Controllers/HealthController.php:56
 * @route '/health/refresh'
 */
 refresh.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({

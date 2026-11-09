@@ -114,8 +114,8 @@ it('stops a resting runner that holds a removed account but leaves a working one
     $streams = new FakeThreadStreams;
     $this->app->instance(ThreadStreams::class, $streams);
     $account = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id]);
-    $resting = Thread::factory()->paused()->create(['claude_account_id' => $account->id, 'runner_claude_account_id' => $account->id, 'runner_state' => RunnerState::Idle]);
-    $working = Thread::factory()->paused()->create(['claude_account_id' => $account->id, 'runner_claude_account_id' => $account->id, 'runner_state' => RunnerState::Busy]);
+    $resting = Thread::factory()->paused()->create(['claude_account_id' => $account->id, 'runner_state' => RunnerState::Idle]);
+    $working = Thread::factory()->paused()->create(['claude_account_id' => $account->id, 'runner_state' => RunnerState::Busy]);
     $task = YakTask::factory()->running()->create(['thread_id' => $working->id]);
     TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $working->id, 'turn_state' => TurnState::Running]);
 

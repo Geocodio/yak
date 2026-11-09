@@ -4,7 +4,6 @@ import DismissSetupCardController from './DismissSetupCardController'
 import TaskController from './TaskController'
 import TaskActionController from './TaskActionController'
 import ContinueTurnController from './ContinueTurnController'
-import ThreadAccountController from './ThreadAccountController'
 import CoOwnerDecisionController from './CoOwnerDecisionController'
 import EarlyWarningController from './EarlyWarningController'
 import TaskMessageController from './TaskMessageController'
@@ -20,7 +19,6 @@ const Tasks = {
     TaskController: Object.assign(TaskController, TaskController),
     TaskActionController: Object.assign(TaskActionController, TaskActionController),
     ContinueTurnController: Object.assign(ContinueTurnController, ContinueTurnController),
-    ThreadAccountController: Object.assign(ThreadAccountController, ThreadAccountController),
     CoOwnerDecisionController: Object.assign(CoOwnerDecisionController, CoOwnerDecisionController),
     EarlyWarningController: Object.assign(EarlyWarningController, EarlyWarningController),
     TaskMessageController: Object.assign(TaskMessageController, TaskMessageController),

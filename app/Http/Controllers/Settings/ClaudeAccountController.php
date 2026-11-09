@@ -98,7 +98,7 @@ class ClaudeAccountController extends Controller
 
         // A resting runner of this account would otherwise stay warm on a secret that no longer exists.
         Thread::query()
-            ->where('runner_claude_account_id', $account->id)
+            ->where('claude_account_id', $account->id)
             ->where('runner_state', '!=', RunnerState::None)
             ->get()
             ->filter(fn (Thread $thread): bool => $thread->runningTurn() === null)

@@ -1,6 +1,5 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 import setupCard from './setup-card'
-import thread from './thread'
 import coOwner from './co-owner'
 import messages from './messages'
 import queuedMessages from './queued-messages'
@@ -520,7 +519,6 @@ const tasks = {
     show: Object.assign(show, show),
     retry: Object.assign(retry, retry),
     continue: Object.assign(continueMethod, continueMethod),
-    thread: Object.assign(thread, thread),
     cancel: Object.assign(cancel, cancel),
     rerunReview: Object.assign(rerunReview, rerunReview),
     retryRender: Object.assign(retryRender, retryRender),

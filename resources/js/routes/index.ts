@@ -34,7 +34,7 @@ logout.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 })
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:52
 * @route '/'
 */
 export const home = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -48,7 +48,7 @@ home.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:52
 * @route '/'
 */
 home.url = (options?: RouteQueryOptions) => {
@@ -56,7 +56,7 @@ home.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:52
 * @route '/'
 */
 home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -65,7 +65,7 @@ home.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:53
+* @see routes/web.php:52
 * @route '/'
 */
 home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -74,7 +74,7 @@ home.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
-* @see routes/web.php:61
+* @see routes/web.php:60
 * @route '/letmein'
 */
 export const letmein = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -88,7 +88,7 @@ letmein.definition = {
 } satisfies RouteDefinition<["get","head"]>
 
 /**
-* @see routes/web.php:61
+* @see routes/web.php:60
 * @route '/letmein'
 */
 letmein.url = (options?: RouteQueryOptions) => {
@@ -96,7 +96,7 @@ letmein.url = (options?: RouteQueryOptions) => {
 }
 
 /**
-* @see routes/web.php:61
+* @see routes/web.php:60
 * @route '/letmein'
 */
 letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -105,7 +105,7 @@ letmein.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 })
 
 /**
-* @see routes/web.php:61
+* @see routes/web.php:60
 * @route '/letmein'
 */
 letmein.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -379,7 +379,7 @@ observations.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:41
 * @route '/health'
 */
 export const health = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -394,7 +394,7 @@ health.definition = {
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:41
 * @route '/health'
 */
 health.url = (options?: RouteQueryOptions) => {
@@ -403,7 +403,7 @@ health.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:41
 * @route '/health'
 */
 health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -413,7 +413,7 @@ health.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\HealthController::health
-* @see app/Http/Controllers/HealthController.php:53
+* @see app/Http/Controllers/HealthController.php:41
 * @route '/health'
 */
 health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({

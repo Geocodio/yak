@@ -25,8 +25,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property ThreadLockHolder $lock_holder
  * @property ThreadBlockReason|null $blocked_reason
  * @property int|null $claude_account_id
- * @property int|null $runner_claude_account_id
- * @property CarbonImmutable|null $account_switched_at
  * @property CarbonImmutable|null $sandbox_state_changed_at
  * @property CarbonImmutable|null $runner_started_at
  * @property CarbonImmutable|null $lock_acquired_at
@@ -62,7 +60,6 @@ class Thread extends Model
             'runner_state' => RunnerState::class,
             'lock_holder' => ThreadLockHolder::class,
             'blocked_reason' => ThreadBlockReason::class,
-            'account_switched_at' => 'datetime',
             'sandbox_state_changed_at' => 'datetime',
             'runner_started_at' => 'datetime',
             'lock_acquired_at' => 'datetime',

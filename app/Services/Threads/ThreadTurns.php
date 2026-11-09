@@ -116,10 +116,6 @@ class ThreadTurns
             $this->commands->startRunner($thread, $account, null, $systemPrompt);
         } elseif ($thread->runner_state === RunnerState::None) {
             $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, $systemPrompt);
-        } elseif ($thread->runner_claude_account_id !== null && $thread->runner_claude_account_id !== $account->id) {
-            // The runner holds the old account's credential, so a switch restarts it on the same session.
-            $this->commands->kill($thread);
-            $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, $systemPrompt);
         } elseif ($thread->model !== null && $thread->model !== $thread->runner_model) {
             $this->commands->setModel($thread, $thread->model);
         }
@@ -139,7 +135,7 @@ class ThreadTurns
     }
 
     /**
-     * A usage limit stays until someone switches the account or the window resets. A
+     * A usage limit stays until the window resets. A
      * missing or rejected account blocks for as long as it is unusable, so a
      * re-validated token unblocks its threads by itself.
      */
