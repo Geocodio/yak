@@ -218,6 +218,16 @@ class RunYakJob implements ShouldBeUnique, ShouldQueue
                 );
 
                 if ($run === null) {
+                    $holdSeconds = $thread->refresh()->secondsUntilLimitResets();
+
+                    if ($holdSeconds !== null) {
+                        // A usage limit holds the message; the turn starts once the limit has passed.
+                        $this->task->update(['status' => TaskStatus::Pending]);
+                        $this->release($holdSeconds);
+
+                        return;
+                    }
+
                     $this->handleError('The thread is blocked: ' . ($thread->refresh()->blocked_reason->value ?? 'no usable Claude account') . '.');
 
                     return;

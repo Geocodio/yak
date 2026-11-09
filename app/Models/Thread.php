@@ -70,6 +70,19 @@ class Thread extends Model
     }
 
     /**
+     * Seconds a job should wait before retrying a turn that a usage limit holds
+     * back, or null when no limit is holding the thread.
+     */
+    public function secondsUntilLimitResets(): ?int
+    {
+        if ($this->blocked_reason !== ThreadBlockReason::UsageLimit || $this->blocked_until?->isFuture() !== true) {
+            return null;
+        }
+
+        return max(30, (int) ceil(now()->diffInSeconds($this->blocked_until, true)));
+    }
+
+    /**
      * @return HasMany<YakTask, $this>
      */
     public function tasks(): HasMany

@@ -4,6 +4,7 @@ use App\Enums\NotificationType;
 use App\Enums\TaskMode;
 use App\Enums\TaskRunKind;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSessionKind;
 use App\Enums\TurnState;
 use App\Events\TurnCompleted;
@@ -344,3 +345,29 @@ it('the listener picks the finisher by kind and task mode', function (TaskRunKin
     'retry' => [TaskRunKind::Retry, TaskMode::Fix, FinishRetryTurnJob::class],
     'research' => [TaskRunKind::Research, TaskMode::Research, FinishResearchTurnJob::class],
 ]);
+
+it('holds a follow-up until the usage limit resets', function () {
+    $this->thread->forceFill(['blocked_reason' => ThreadBlockReason::UsageLimit, 'blocked_until' => now()->addMinutes(20)])->save();
+    $followUp = threadFollowUpOf(rootThreadTaskOn($this->thread));
+
+    $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('release')->once()->withArgs(fn (int $delay): bool => $delay >= 1200);
+    $queueJob->shouldReceive('fail')->never();
+    $job = new RunFollowUpJob($followUp);
+    $job->setJob($queueJob);
+    $job->handle(new FakeAgentRunner);
+
+    expect($followUp->fresh()->status)->toBe(TaskStatus::Pending)
+        ->and($followUp->fresh()->error_log)->toBeNull();
+});
+
+it('starts the held follow-up once the limit has passed', function () {
+    $this->thread->forceFill(['blocked_reason' => ThreadBlockReason::UsageLimit, 'blocked_until' => now()->addMinutes(20)])->save();
+    $followUp = threadFollowUpOf(rootThreadTaskOn($this->thread));
+
+    $this->travel(21)->minutes();
+    (new RunFollowUpJob($followUp))->handle(new FakeAgentRunner);
+
+    expect($this->thread->runningTurn())->not->toBeNull()
+        ->and($followUp->fresh()->status)->toBe(TaskStatus::Running);
+});

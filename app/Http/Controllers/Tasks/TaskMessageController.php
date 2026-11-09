@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tasks;
 use App\Enums\SteeringMode;
 use App\Enums\TaskMode;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadBlockReason;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tasks\SendTaskMessageRequest;
 use App\Models\PendingSteeringMessage;
@@ -16,13 +17,22 @@ use App\Services\TaskLogger;
 use App\Services\ThreadBuilder;
 use App\Services\Threads\SteeringDelivery;
 use App\Support\AttachmentNumbering;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 
 class TaskMessageController extends Controller
 {
-    public function store(SendTaskMessageRequest $request, YakTask $task): RedirectResponse
+    public function store(SendTaskMessageRequest $request, YakTask $task): RedirectResponse|JsonResponse
     {
+        if (in_array($task->thread?->blocked_reason, [ThreadBlockReason::InvalidToken, ThreadBlockReason::NoValidAccount], true)) {
+            $rejected = "This thread's Claude account was rejected. Its owner can paste a new token in Settings, Claude accounts, or you can start a new thread.";
+
+            return $request->wantsJson()
+                ? response()->json(['message' => $rejected], 422)
+                : redirect()->route('tasks.show', $task)->with('error', $rejected);
+        }
+
         $text = trim((string) $request->validated('message'));
         $conversation = $task->conversation();
         $head = $conversation->last() ?? $task;

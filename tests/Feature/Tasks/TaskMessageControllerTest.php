@@ -2,10 +2,12 @@
 
 use App\Enums\SteeringMode;
 use App\Enums\TaskStatus;
+use App\Enums\ThreadBlockReason;
 use App\Jobs\RunFollowUpJob;
 use App\Jobs\RunYakJob;
 use App\Models\PendingSteeringMessage;
 use App\Models\Repository;
+use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Queue;
@@ -135,4 +137,29 @@ test('a model chosen with a queued message is kept on the message', function () 
     $this->post(route('tasks.messages.store', $task), ['message' => 'go', 'model' => 'haiku'])->assertSessionHasNoErrors();
 
     expect(PendingSteeringMessage::first()->model)->toBe('haiku');
+});
+
+test('it rejects a message to a thread whose token was rejected', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::InvalidToken]);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'thread_id' => $thread->id]);
+    $expected = "This thread's Claude account was rejected. Its owner can paste a new token in Settings, Claude accounts, or you can start a new thread.";
+
+    $this->post(route('tasks.messages.store', $task), ['message' => 'carry on'])
+        ->assertRedirect(route('tasks.show', $task))
+        ->assertSessionHas('error', $expected);
+    $this->postJson(route('tasks.messages.store', $task), ['message' => 'carry on'])
+        ->assertStatus(422)
+        ->assertJsonPath('message', $expected);
+
+    expect(PendingSteeringMessage::where('root_task_id', $task->id)->count())->toBe(0);
+});
+
+test('it accepts a message to a thread waiting for a sandbox', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::WaitingForSandbox]);
+    $task = YakTask::factory()->create(['status' => TaskStatus::Running, 'thread_id' => $thread->id]);
+
+    $this->post(route('tasks.messages.store', $task), ['message' => 'carry on'])
+        ->assertSessionHas('success');
+
+    expect(PendingSteeringMessage::where('root_task_id', $task->id)->count())->toBe(1);
 });
