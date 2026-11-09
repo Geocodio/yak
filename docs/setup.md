@@ -406,6 +406,18 @@ ansible-vault edit ansible/vault/secrets.yml
 ansible-playbook ansible/playbook.yml --tags secrets
 ```
 
+### Reverb (live thread updates)
+
+The thread page streams live over Laravel Reverb. Add the three Reverb values to `ansible/vault/secrets.yml` (the example file has defaults to change):
+
+```yaml
+reverb_app_id: "yak"
+reverb_app_key: "a-long-random-string"
+reverb_app_secret: "another-long-random-string"
+```
+
+Reverb listens on `127.0.0.1:8081` inside the host and Caddy routes `/app/*` and `/apps/*` to it, so no extra firewall port is needed. Re-run Ansible after changing the secrets.
+
 ## Updating Repos
 
 ### Routine Maintenance
@@ -447,5 +459,7 @@ If either value is unset, the Caddyfile falls back to dashboard-only routing. Pr
 
 - [Channels](channels.md) — per-channel configuration and usage
 - [Repositories](repositories.md) — adding and managing repos, CLAUDE.md guidance
+- [Claude Accounts](claude-accounts.md) — adding accounts and how threads pick one
+- [Threads](threads.md) — how conversations with Claude work
 - [Architecture](architecture.md) — how Yak works under the hood
 - [Troubleshooting](troubleshooting.md) — common issues and solutions

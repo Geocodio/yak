@@ -37,6 +37,8 @@ const PAGES = [
   { file: 'repositories.md',    title: 'Repositories',   description: 'Add and manage repositories, setup tasks, and CLAUDE.md conventions.',   group: 'getting-started', order: 3 },
   { file: 'repo-config.md',      title: 'Repository config', description: 'Commit .yak/ files to a repository to control how Yak behaves there.', group: 'getting-started', order: 4 },
   { file: 'pr-review.md',       title: 'PR Review',      description: 'Enable Yak to review pull requests with line-level comments and a feedback dashboard.', group: 'getting-started', order: 5 },
+  { file: 'claude-accounts.md', title: 'Claude Accounts', description: 'Add Claude accounts, set defaults, and see how a thread gets its account.',  group: 'getting-started', order: 6 },
+  { file: 'threads.md',         title: 'Threads',        description: 'Conversations with Claude: modes, messages, blocked states, and the thread page.', group: 'getting-started', order: 7 },
   { file: 'architecture.md',    title: 'Architecture',   description: 'How Yak works under the hood: two-tier AI, drivers, state machine.',    group: 'reference',       order: 1 },
   { file: 'prompting.md',       title: 'Prompting',      description: 'Three prompt layers, system prompt, task templates, MCP servers.',       group: 'reference',       order: 2 },
   { file: 'troubleshooting.md', title: 'Troubleshooting',description: 'Common problems and how to diagnose them.',                             group: 'operations',      order: 1 },

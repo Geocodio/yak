@@ -32,3 +32,8 @@ it('respects the YAK_DOCS_URL env override', function () {
 it('resolves the repository config anchor', function () {
     expect(Docs::url('repositories.config'))->toEndWith('repo-config/');
 });
+
+it('resolves the Claude accounts and threads pages', function () {
+    expect(Docs::url('claude-accounts'))->toEndWith('claude-accounts/')
+        ->and(Docs::url('threads'))->toEndWith('threads/');
+});

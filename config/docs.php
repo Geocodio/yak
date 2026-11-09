@@ -34,6 +34,9 @@ return [
         // Root
         'home' => '',
 
+        'claude-accounts' => 'claude-accounts/',
+        'threads' => 'threads/',
+
         // Setup
         'setup' => 'setup/',
         'setup.slack' => 'setup/#slack-optional',

@@ -9,6 +9,8 @@ User-facing documentation for running and operating Yak. Source of truth lives h
 - **[Repositories](repositories.md)** — adding repos, the setup task, CLAUDE.md guidance, multi-repo routing
 - **[Repository config](repo-config.md)**: the `.yak/` directory: config.yml, preview.yml, risk-profile.yml, the `yak / config` check
 - **[PR Review](pr-review.md)** — enabling Yak to review pull requests, path filters, dashboard, reactions
+- **[Claude Accounts](claude-accounts.md)** — adding accounts, defaults, how a thread's account is chosen, rotating and removing
+- **[Threads](threads.md)** — Change and Research, messages while Claude works, blocked states, the thread page
 - **[Video Walkthroughs](video-walkthroughs.md)** — the walkthrough render pipeline and the installation-wide theme editor
 
 ## Reference
