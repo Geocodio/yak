@@ -36,7 +36,7 @@ class ThreadMessages
                 'id' => 'run-' . $run->id,
                 'uuid' => $run->prompt_uuid,
                 // task_runs.prompt is the assembled prompt Yak sends; the person's own words live on the task.
-                'text' => (string) ($run->task?->description ?? $run->prompt),
+                'text' => (string) ($run->task->description ?? $run->prompt),
                 'authorName' => $run->driver?->name,
                 'model' => $run->model,
                 'state' => match (true) {

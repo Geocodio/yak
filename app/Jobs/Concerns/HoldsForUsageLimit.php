@@ -24,7 +24,7 @@ trait HoldsForUsageLimit
         }
 
         // The unique lock is still held by this attempt, so dispatch through the bus rather than PendingDispatch.
-        app(Dispatcher::class)->dispatch((new static($this->task))->delay($seconds));
+        app(Dispatcher::class)->dispatch((new ($this::class)($this->task))->delay($seconds));
         $this->delete();
     }
 }
