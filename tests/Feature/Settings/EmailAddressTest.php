@@ -39,6 +39,36 @@ it('rejects an address that is a sign-in address or another user\'s confirmed ad
     Mail::assertNothingQueued();
 })->with(['Taken@geocod.io', 'CLAIMED@hey.com', 'not-an-email']);
 
+it('rejects an address another user has pending instead of failing on the unique index', function () {
+    UserEmailAddress::factory()->unconfirmed()->create(['email' => 'pending@hey.com']);
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('profile.email-addresses.store'), ['email' => 'pending@hey.com'])
+        ->assertSessionHasErrors('email');
+});
+
+it('limits how many addresses one user can add per hour', function () {
+    Mail::fake();
+    $user = User::factory()->create();
+
+    foreach (range(1, 5) as $number) {
+        $this->actingAs($user)->post(route('profile.email-addresses.store'), ['email' => "address{$number}@hey.com"])->assertRedirect();
+    }
+
+    $this->actingAs($user)->post(route('profile.email-addresses.store'), ['email' => 'address6@hey.com'])->assertTooManyRequests();
+
+    Mail::assertQueuedCount(5);
+});
+
+it('refuses to confirm an address that has since become someone\'s sign-in address', function () {
+    $address = UserEmailAddress::factory()->create(['email' => 'shared@geocod.io']);
+    User::factory()->create(['email' => 'Shared@geocod.io']);
+
+    $this->actingAs($address->user)->post(confirmationUrl($address))->assertStatus(409);
+
+    expect($address->fresh()->confirmed_at)->toBeNull();
+});
+
 it('rejects an address the user already added', function () {
     $address = UserEmailAddress::factory()->create(['email' => 'mine@hey.com']);
 

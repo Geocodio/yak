@@ -26,6 +26,11 @@ class EmailAddressController extends Controller
     {
         $user = $this->authenticatedUser($request);
 
+        // Each new address sends an email to an inbox the user names, so
+        // cap how often one user can make Yak do that.
+        abort_if(RateLimiter::tooManyAttempts("email-address-store:{$user->id}", 5), 429);
+        RateLimiter::hit("email-address-store:{$user->id}", 3600);
+
         /** @var UserEmailAddress $emailAddress */
         $emailAddress = $user->emailAddresses()->create(['email' => $request->validated('email')]);
         $this->sendConfirmation($emailAddress);
@@ -73,6 +78,9 @@ class EmailAddressController extends Controller
     public function confirm(Request $request, UserEmailAddress $emailAddress): RedirectResponse
     {
         $this->authorizeOwner($request, $emailAddress);
+
+        $isSomeonesSignInAddress = User::query()->whereRaw('lower(email) = ?', [$emailAddress->email])->exists();
+        abort_if($isSomeonesSignInAddress, 409, 'This address already belongs to a Yak account.');
 
         if (! $emailAddress->isConfirmed()) {
             $emailAddress->update(['confirmed_at' => now()]);

@@ -22,10 +22,8 @@ class StoreEmailAddressRequest extends FormRequest
                 $email = UserEmailAddress::normalize((string) $value);
 
                 $isSignInAddress = User::query()->whereRaw('lower(email) = ?', [$email])->exists();
-                $isTaken = UserEmailAddress::query()
-                    ->where('email', $email)
-                    ->where(fn ($query) => $query->whereNotNull('confirmed_at')->orWhere('user_id', $this->user()?->id))
-                    ->exists();
+                // One row per address across all users, confirmed or not.
+                $isTaken = UserEmailAddress::query()->where('email', $email)->exists();
 
                 if ($isSignInAddress || $isTaken) {
                     $fail('This address is already in use.');
