@@ -589,6 +589,10 @@ return [
         'session_file_max_bytes' => 64 * 1024 * 1024,
         'session_thread_max_bytes' => 512 * 1024 * 1024,
         'session_max_files' => 2000,
+
+        // Bytes of one file's patch, and of all patches together, kept in a thread's stored diff.
+        'diff_max_file_bytes' => 262144,
+        'diff_max_total_bytes' => 2097152,
         'session_chunk_bytes' => 8 * 1024 * 1024,
 
         // Production points this at the persistent /data volume.

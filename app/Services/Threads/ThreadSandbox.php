@@ -145,6 +145,7 @@ class ThreadSandbox
             }
 
             if ($syncSessions) {
+                app(ThreadDiffCapture::class)->capture($thread, (string) $thread->sandbox_container);
                 $this->syncSessions($thread, (string) $thread->sandbox_container);
             }
 

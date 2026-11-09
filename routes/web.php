@@ -45,6 +45,7 @@ use App\Http\Controllers\Tasks\TaskClarificationAnswerController;
 use App\Http\Controllers\Tasks\TaskController;
 use App\Http\Controllers\Tasks\TaskListController;
 use App\Http\Controllers\Tasks\TaskMessageController;
+use App\Http\Controllers\Threads\ThreadDiffController;
 use App\Http\Controllers\Threads\ThreadEventController;
 use App\Http\Controllers\Threads\ThreadMessageController;
 use App\Http\Controllers\VideoThemeAssetController;
@@ -106,6 +107,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('task-attachments.show');
     Route::get('threads/{thread}/events', [ThreadEventController::class, 'index'])->whereNumber('thread')->name('threads.events.index');
     Route::get('threads/{thread}/messages', [ThreadMessageController::class, 'index'])->whereNumber('thread')->name('threads.messages.index');
+    Route::get('threads/{thread}/diff', [ThreadDiffController::class, 'show'])->whereNumber('thread')->name('threads.diff.show');
+    Route::get('threads/{thread}/diff/files/{file}', [ThreadDiffController::class, 'showFile'])->whereNumber(['thread', 'file'])->name('threads.diff.files.show');
     Route::get('costs', CostDashboardController::class)->name('costs');
     Route::get('analytics', AnalyticsController::class)->name('analytics');
 
