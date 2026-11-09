@@ -14,27 +14,28 @@ use Cbox\Telemetry\Facades\Telemetry as CboxTelemetry;
 class AppDiskUsage
 {
     /**
-     * Publishes `yak.app_disk.used` and `yak.app_disk.total` in bytes, read
-     * when telemetry flushes. A path PHP cannot stat publishes no sample.
+     * Publishes `yak.app_disk.usage` in bytes with a `state` label (`used`,
+     * `total`), read when telemetry flushes. A path PHP cannot stat
+     * publishes no sample.
      */
     public function registerGauges(): void
     {
         CboxTelemetry::gauge(
-            'yak.app_disk.used',
-            function (): ?float {
+            'yak.app_disk.usage',
+            function (): array {
                 $total = @disk_total_space(storage_path());
                 $free = @disk_free_space(storage_path());
 
-                return $total === false || $free === false ? null : $total - $free;
-            },
-            description: 'Bytes used on the disk that holds Yak storage',
-            unit: 'By',
-        );
+                if ($total === false || $free === false) {
+                    return [];
+                }
 
-        CboxTelemetry::gauge(
-            'yak.app_disk.total',
-            fn (): ?float => ($total = @disk_total_space(storage_path())) === false ? null : $total,
-            description: 'Size of the disk that holds Yak storage',
+                return [
+                    [$total - $free, ['state' => 'used']],
+                    [$total, ['state' => 'total']],
+                ];
+            },
+            description: 'Bytes used and size of the disk that holds Yak storage',
             unit: 'By',
         );
     }

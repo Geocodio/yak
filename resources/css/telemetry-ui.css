@@ -1,23 +1,16 @@
 /*
- * Dresses the embedded @cboxdk/telemetry-ui panels in console-ui's palette.
+ * Dresses the embedded @cboxdk/telemetry-ui pages in console-ui's palette.
  * Only the package's components.css is loaded, never its tokens.css, whose
- * `:root` would pin `color-scheme: light` and override console-ui tokens that
- * share a name (--accent, --border, --sidebar ...).
- *
- * The shared names are copied to --yak-* on :root first: inside .t-scope a
- * token cannot be defined in terms of itself. Every value is console-ui's
- * light-dark() token, so the panels follow the OS theme with the rest of Yak.
+ * `:root` would pin `color-scheme: light` and repaint all of Yak. The tokens
+ * the package shares with console-ui (--accent, --border, --info, --sidebar,
+ * --font-sans, --shadow-card ...) already mean the same thing and are
+ * inherited as they are; the rest are answered here from console-ui's
+ * light-dark() tokens, so the pages follow the OS theme with the rest of Yak.
  */
-:root {
-    --yak-accent: var(--accent);
-    --yak-accent-soft: var(--accent-soft);
-    --yak-border: var(--border);
-    --yak-border-strong: var(--border-strong);
-    --yak-sidebar: var(--sidebar);
-    --yak-info: var(--info);
-    --yak-info-soft: var(--info-soft);
-}
 
+/* In the components layer, so Yak's utility classes (the section nav's link
+   colours, for one) win over the package's element rules. */
+@import '@cboxdk/telemetry-ui/components.css' layer(components);
 .t-scope {
     --background: var(--panel);
     --canvas: var(--bg);
@@ -26,54 +19,39 @@
     --card-foreground: var(--text);
     --popover: var(--panel);
     --popover-foreground: var(--text);
-    --primary: var(--yak-accent);
+    --primary: var(--accent);
     --primary-foreground: var(--accent-ink);
     --secondary: var(--panel-2);
     --secondary-foreground: var(--text);
     --muted: var(--panel-2);
     --muted-foreground: var(--text-2);
-    --accent: var(--yak-accent);
     --accent-foreground: var(--accent-ink);
-    --accent-soft: var(--yak-accent-soft);
-    --accent-edge: color-mix(in srgb, var(--yak-accent) 32%, transparent);
+    --accent-edge: color-mix(in srgb, var(--accent) 32%, transparent);
     --success: var(--ok);
     --success-soft: var(--ok-soft);
     --warning: var(--warn);
     --warning-text: var(--warn);
     --warning-soft: var(--warn-soft);
-    --info: var(--yak-info);
-    --info-soft: var(--yak-info-soft);
     --destructive: var(--fail);
     --destructive-soft: var(--fail-soft);
-    --violet: var(--yak-accent);
-    --violet-soft: var(--yak-accent-soft);
-    --violet-edge: color-mix(in srgb, var(--yak-accent) 35%, transparent);
-    --border: var(--yak-border);
-    --border-subtle: var(--yak-border);
-    --border-strong: var(--yak-border-strong);
-    --input: var(--yak-border-strong);
-    --ring: var(--yak-accent);
-    --chart-1: var(--yak-accent);
-    --chart-2: var(--yak-info);
+    --violet: var(--accent);
+    --violet-soft: var(--accent-soft);
+    --violet-edge: color-mix(in srgb, var(--accent) 35%, transparent);
+    --border-subtle: var(--border);
+    --input: var(--border-strong);
+    --ring: var(--accent);
+    --chart-1: var(--accent);
+    --chart-2: var(--info);
     --chart-3: var(--warn);
     --chart-4: var(--fail);
     --chart-5: var(--ok);
     --chart-6: var(--idle);
     --annot: var(--text-3);
-    --sidebar: var(--yak-sidebar);
     --sidebar-foreground: var(--text);
     --sidebar-muted: var(--text-2);
     --sidebar-accent: var(--panel-2);
     --rail: var(--panel-2);
-
-    --font-sans:
-        "IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, sans-serif;
-    --font-display:
-        "IBM Plex Sans", ui-sans-serif, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Roboto, sans-serif;
-    --font-mono:
-        "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-display: var(--font-sans);
 
     --radius: var(--radius-card);
     --radius-md: var(--radius-control);

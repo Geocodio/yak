@@ -19,24 +19,24 @@ class SandboxPoolUsage
     private const QUERY_TIMEOUT = 5;
 
     /**
-     * Publishes `yak.sandbox_pool.used` and `yak.sandbox_pool.total` in
-     * bytes. Each is read when telemetry flushes; a pool Incus cannot
-     * report publishes no sample, so the System page shows no data
-     * rather than a zero.
+     * Publishes `yak.sandbox_pool.usage` in bytes with a `state` label
+     * (`used`, `total`), read when telemetry flushes. A pool Incus cannot
+     * report publishes no sample, so the chart shows no data rather than
+     * a zero.
      */
     public function registerGauges(): void
     {
         CboxTelemetry::gauge(
-            'yak.sandbox_pool.used',
-            fn (): ?int => $this->current()['usedBytes'] ?? null,
-            description: 'Bytes used in the Incus storage pool that holds the sandboxes',
-            unit: 'By',
-        );
+            'yak.sandbox_pool.usage',
+            function (): array {
+                $usage = $this->current();
 
-        CboxTelemetry::gauge(
-            'yak.sandbox_pool.total',
-            fn (): ?int => $this->current()['totalBytes'] ?? null,
-            description: 'Size of the Incus storage pool that holds the sandboxes',
+                return $usage === null ? [] : [
+                    [$usage['usedBytes'], ['state' => 'used']],
+                    [$usage['totalBytes'], ['state' => 'total']],
+                ];
+            },
+            description: 'Bytes used and size of the Incus storage pool that holds the sandboxes',
             unit: 'By',
         );
     }

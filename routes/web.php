@@ -148,7 +148,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('observations', ObservationController::class)->name('observations');
 
     Route::get('health', [HealthController::class, 'index'])->name('health');
-    Route::get('system', SystemController::class)->name('system');
+    Route::get('system/{path?}', SystemController::class)->where('path', '.*')->name('system');
     Route::post('health/refresh', [HealthController::class, 'refreshAll'])->name('health.refresh');
     Route::post('health/{check}/refresh', [HealthController::class, 'refreshOne'])->name('health.check.refresh');
     Route::get('channels', ChannelController::class)->name('channels');

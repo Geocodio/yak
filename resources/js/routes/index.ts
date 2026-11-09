@@ -1,4 +1,4 @@
-import { queryParams, type RouteQueryOptions, type RouteDefinition } from './../wayfinder'
+import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults, validateParameters } from './../wayfinder'
 /**
 * @see \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::logout
 * @see vendor/laravel/fortify/src/Http/Controllers/AuthenticatedSessionController.php:100
@@ -423,45 +423,67 @@ health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:16
-* @route '/system'
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
 */
-export const system = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: system.url(options),
+export const system = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: system.url(args, options),
     method: 'get',
 })
 
 system.definition = {
     methods: ["get","head"],
-    url: '/system',
+    url: '/system/{path?}',
 } satisfies RouteDefinition<["get","head"]>
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:16
-* @route '/system'
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
 */
-system.url = (options?: RouteQueryOptions) => {
-    return system.definition.url + queryParams(options)
+system.url = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions) => {
+    if (typeof args === 'string' || typeof args === 'number') {
+        args = { path: args }
+    }
+
+    if (Array.isArray(args)) {
+        args = {
+            path: args[0],
+        }
+    }
+
+    args = applyUrlDefaults(args)
+
+    validateParameters(args, [
+        "path",
+    ])
+
+    const parsedArgs = {
+        path: args?.path,
+    }
+
+    return system.definition.url
+            .replace('{path?}', parsedArgs.path?.toString() ?? '')
+            .replace(/\/+$/, '') + queryParams(options)
 }
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:16
-* @route '/system'
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
 */
-system.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
-    url: system.url(options),
+system.get = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: system.url(args, options),
     method: 'get',
 })
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:16
-* @route '/system'
+* @see app/Http/Controllers/SystemController.php:23
+* @route '/system/{path?}'
 */
-system.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
-    url: system.url(options),
+system.head = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: system.url(args, options),
     method: 'head',
 })
 

@@ -39,8 +39,8 @@ it('publishes used and total bytes as gauges', function () {
 
     (new SandboxPoolUsage)->registerGauges();
 
-    expect($telemetry->gaugeValue('yak.sandbox_pool.used'))->toBe(73014444032.0)
-        ->and($telemetry->gaugeValue('yak.sandbox_pool.total'))->toBe(107374182400.0);
+    expect($telemetry->gaugeValue('yak.sandbox_pool.usage', ['state' => 'used']))->toBe(73014444032.0)
+        ->and($telemetry->gaugeValue('yak.sandbox_pool.usage', ['state' => 'total']))->toBe(107374182400.0);
 });
 
 it('publishes no pool gauges when incus cannot answer', function () {
@@ -51,6 +51,5 @@ it('publishes no pool gauges when incus cannot answer', function () {
 
     (new SandboxPoolUsage)->registerGauges();
 
-    $telemetry->assertGaugeNotSet('yak.sandbox_pool.used');
-    $telemetry->assertGaugeNotSet('yak.sandbox_pool.total');
+    $telemetry->assertGaugeNotSet('yak.sandbox_pool.usage');
 });

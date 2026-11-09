@@ -105,63 +105,32 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Every signed-in user may read the System page's telemetry: sign-in
-     * is already limited to the allowed Google Workspace domains. The
-     * declared panels fill gaps in the built-in ones: CPU and memory
-     * utilization over time, and the app disk and sandbox pool gauges that AppDiskUsage and
-     * SandboxPoolUsage publish.
+     * Every signed-in user may read the System section's telemetry: sign-in
+     * is already limited to the allowed Google Workspace domains. The app
+     * disk and sandbox pool charts join the package's own System page.
      */
     private function configureTelemetryUi(): void
     {
         Gate::define('viewTelemetryUi', fn (?User $user): bool => $user !== null);
 
         TelemetryUi::metricPanel(
-            id: 'yak-cpu-utilization',
-            title: 'CPU utilization',
-            metric: 'system_cpu_utilization_ratio',
-            page: 'system',
-            unit: 'percent',
-        );
-
-        TelemetryUi::metricPanel(
-            id: 'yak-memory-utilization',
-            title: 'Memory utilization',
-            metric: 'system_memory_utilization_ratio',
-            page: 'system',
-            unit: 'percent',
-            where: ['system_memory_state' => 'used'],
-        );
-
-        TelemetryUi::metricPanel(
-            id: 'yak-app-disk-used',
-            title: 'App disk used',
-            metric: 'yak_app_disk_used_bytes',
+            id: 'yak-app-disk',
+            title: 'App disk',
+            metric: 'yak_app_disk_usage_bytes',
             page: 'system',
             unit: 'bytes',
+            by: 'state',
+            subtitle: 'Used and size of the disk that holds Yak storage',
         );
 
         TelemetryUi::metricPanel(
-            id: 'yak-app-disk-total',
-            title: 'App disk size',
-            metric: 'yak_app_disk_total_bytes',
+            id: 'yak-sandbox-pool',
+            title: 'Sandbox pool',
+            metric: 'yak_sandbox_pool_usage_bytes',
             page: 'system',
             unit: 'bytes',
-        );
-
-        TelemetryUi::metricPanel(
-            id: 'yak-sandbox-pool-used',
-            title: 'Sandbox pool used',
-            metric: 'yak_sandbox_pool_used_bytes',
-            page: 'system',
-            unit: 'bytes',
-        );
-
-        TelemetryUi::metricPanel(
-            id: 'yak-sandbox-pool-total',
-            title: 'Sandbox pool size',
-            metric: 'yak_sandbox_pool_total_bytes',
-            page: 'system',
-            unit: 'bytes',
+            by: 'state',
+            subtitle: 'Used and size of the Incus ZFS pool that holds the sandboxes',
         );
     }
 }
