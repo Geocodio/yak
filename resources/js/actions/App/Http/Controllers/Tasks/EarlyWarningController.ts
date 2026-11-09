@@ -1,10 +1,10 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::tag
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:22
+* @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-export const tag = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const tag = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: tag.url(args, options),
     method: 'post',
 })
@@ -16,10 +16,10 @@ tag.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::tag
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:22
+* @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-tag.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+tag.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -49,20 +49,20 @@ tag.url = (args: { task: number | { id: number } } | [task: number | { id: numbe
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::tag
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:22
+* @see app/Http/Controllers/Tasks/EarlyWarningController.php:23
 * @route '/tasks/{task}/co-owner/tag'
 */
-tag.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+tag.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: tag.url(args, options),
     method: 'post',
 })
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::decline
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:29
+* @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-export const decline = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const decline = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: decline.url(args, options),
     method: 'post',
 })
@@ -74,10 +74,10 @@ decline.definition = {
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::decline
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:29
+* @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-decline.url = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+decline.url = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { task: args }
     }
@@ -107,10 +107,10 @@ decline.url = (args: { task: number | { id: number } } | [task: number | { id: n
 
 /**
 * @see \App\Http\Controllers\Tasks\EarlyWarningController::decline
-* @see app/Http/Controllers/Tasks/EarlyWarningController.php:29
+* @see app/Http/Controllers/Tasks/EarlyWarningController.php:30
 * @route '/tasks/{task}/co-owner/decline'
 */
-decline.post = (args: { task: number | { id: number } } | [task: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+decline.post = (args: { task: string | number | { id: string | number } } | [task: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: decline.url(args, options),
     method: 'post',
 })

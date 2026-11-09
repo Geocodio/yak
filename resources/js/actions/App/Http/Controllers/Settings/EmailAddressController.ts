@@ -35,7 +35,7 @@ store.post = (options?: RouteQueryOptions): RouteDefinition<'post'> => ({
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::resend
-* @see app/Http/Controllers/Settings/EmailAddressController.php:36
+* @see app/Http/Controllers/Settings/EmailAddressController.php:41
 * @route '/settings/profile/email-addresses/{emailAddress}/resend'
 */
 export const resend = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -50,7 +50,7 @@ resend.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::resend
-* @see app/Http/Controllers/Settings/EmailAddressController.php:36
+* @see app/Http/Controllers/Settings/EmailAddressController.php:41
 * @route '/settings/profile/email-addresses/{emailAddress}/resend'
 */
 resend.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -83,7 +83,7 @@ resend.url = (args: { emailAddress: number | { id: number } } | [emailAddress: n
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::resend
-* @see app/Http/Controllers/Settings/EmailAddressController.php:36
+* @see app/Http/Controllers/Settings/EmailAddressController.php:41
 * @route '/settings/profile/email-addresses/{emailAddress}/resend'
 */
 resend.post = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -93,7 +93,7 @@ resend.post = (args: { emailAddress: number | { id: number } } | [emailAddress: 
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::destroy
-* @see app/Http/Controllers/Settings/EmailAddressController.php:51
+* @see app/Http/Controllers/Settings/EmailAddressController.php:56
 * @route '/settings/profile/email-addresses/{emailAddress}'
 */
 export const destroy = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -108,7 +108,7 @@ destroy.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::destroy
-* @see app/Http/Controllers/Settings/EmailAddressController.php:51
+* @see app/Http/Controllers/Settings/EmailAddressController.php:56
 * @route '/settings/profile/email-addresses/{emailAddress}'
 */
 destroy.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -141,7 +141,7 @@ destroy.url = (args: { emailAddress: number | { id: number } } | [emailAddress: 
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::destroy
-* @see app/Http/Controllers/Settings/EmailAddressController.php:51
+* @see app/Http/Controllers/Settings/EmailAddressController.php:56
 * @route '/settings/profile/email-addresses/{emailAddress}'
 */
 destroy.delete = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
@@ -151,7 +151,7 @@ destroy.delete = (args: { emailAddress: number | { id: number } } | [emailAddres
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:60
+* @see app/Http/Controllers/Settings/EmailAddressController.php:65
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 export const show = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -166,7 +166,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:60
+* @see app/Http/Controllers/Settings/EmailAddressController.php:65
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 show.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -199,7 +199,7 @@ show.url = (args: { emailAddress: number | { id: number } } | [emailAddress: num
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:60
+* @see app/Http/Controllers/Settings/EmailAddressController.php:65
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 show.get = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -209,7 +209,7 @@ show.get = (args: { emailAddress: number | { id: number } } | [emailAddress: num
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:60
+* @see app/Http/Controllers/Settings/EmailAddressController.php:65
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 show.head = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -219,7 +219,7 @@ show.head = (args: { emailAddress: number | { id: number } } | [emailAddress: nu
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::confirm
-* @see app/Http/Controllers/Settings/EmailAddressController.php:73
+* @see app/Http/Controllers/Settings/EmailAddressController.php:78
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 export const confirm = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -234,7 +234,7 @@ confirm.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::confirm
-* @see app/Http/Controllers/Settings/EmailAddressController.php:73
+* @see app/Http/Controllers/Settings/EmailAddressController.php:78
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 confirm.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -267,7 +267,7 @@ confirm.url = (args: { emailAddress: number | { id: number } } | [emailAddress: 
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::confirm
-* @see app/Http/Controllers/Settings/EmailAddressController.php:73
+* @see app/Http/Controllers/Settings/EmailAddressController.php:78
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 confirm.post = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

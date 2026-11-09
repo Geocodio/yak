@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Settings;
 
+use App\Channels\ChannelRegistry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateDirectMessagesRequest;
 use App\Http\Requests\Settings\UpdateProfileRequest;
 use App\Models\User;
+use App\Models\UserEmailAddress;
 use Carbon\Carbon;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -30,6 +32,7 @@ class ProfileController extends Controller
                     'login' => $user->github_login,
                     'linkedAt' => Carbon::parse($user->github_linked_at)->toIso8601String(),
                 ] : null,
+                'emailToYak' => $this->emailToYak($user),
             ],
         ]);
     }
@@ -69,6 +72,26 @@ class ProfileController extends Controller
         $user->sendEmailVerificationNotification();
 
         return redirect()->route('profile.edit')->with('success', 'A new verification link has been sent to your email address.');
+    }
+
+    /**
+     * @return array{inboundAddress: string, addresses: list<array{id: int, email: string, confirmed: bool}>}|null
+     */
+    private function emailToYak(User $user): ?array
+    {
+        if (! (app(ChannelRegistry::class)->for('email')?->enabled() ?? false)) {
+            return null;
+        }
+
+        return [
+            'inboundAddress' => (string) config('yak.channels.email.inbound_address'),
+            'addresses' => $user->emailAddresses()->orderBy('id')->get()
+                ->map(fn (UserEmailAddress $address): array => [
+                    'id' => $address->id,
+                    'email' => $address->email,
+                    'confirmed' => $address->isConfirmed(),
+                ])->values()->all(),
+        ];
     }
 
     private function hasUnverifiedEmail(User $user): bool

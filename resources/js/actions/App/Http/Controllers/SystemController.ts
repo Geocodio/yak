@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults, validateParameters } from './../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:23
+* @see app/Http/Controllers/SystemController.php:28
 * @route '/system/{path?}'
 */
 const SystemController = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ SystemController.definition = {
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:23
+* @see app/Http/Controllers/SystemController.php:28
 * @route '/system/{path?}'
 */
 SystemController.url = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -47,7 +47,7 @@ SystemController.url = (args?: { path?: string | number } | [path: string | numb
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:23
+* @see app/Http/Controllers/SystemController.php:28
 * @route '/system/{path?}'
 */
 SystemController.get = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -57,7 +57,7 @@ SystemController.get = (args?: { path?: string | number } | [path: string | numb
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:23
+* @see app/Http/Controllers/SystemController.php:28
 * @route '/system/{path?}'
 */
 SystemController.head = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
