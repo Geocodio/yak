@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\ClaudeAccountColor;
+use App\Enums\ClaudeAccountIcon;
 use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
 use App\Models\ClaudeAccount;
@@ -25,6 +27,8 @@ class ClaudeAccountFactory extends Factory
             'name' => fake()->words(2, true),
             'kind' => ClaudeAccountKind::SetupToken,
             'secret' => 'sk-ant-oat01-' . fake()->sha256(),
+            'icon' => ClaudeAccountIcon::Sparkles,
+            'color' => ClaudeAccountColor::Accent,
             'status' => ClaudeAccountStatus::Active,
             'is_default' => false,
             'validated_at' => now(),

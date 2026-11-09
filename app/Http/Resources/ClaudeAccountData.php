@@ -18,6 +18,8 @@ final class ClaudeAccountData
             'id' => $account->id,
             'name' => $account->name,
             'kind' => $account->kind->value,
+            'icon' => $account->icon->value,
+            'color' => $account->color->value,
             'isSystem' => $account->isSystem(),
             'isDefault' => $account->is_default,
             'defaultModel' => $account->default_model,

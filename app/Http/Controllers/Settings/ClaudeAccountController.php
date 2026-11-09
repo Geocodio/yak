@@ -51,6 +51,7 @@ class ClaudeAccountController extends Controller
             'kind' => $kind,
             'secret' => $secret,
             'default_model' => $request->input('default_model'),
+            ...$request->safe()->only(['icon', 'color']),
             'status' => ClaudeAccountStatus::Active,
             'validated_at' => now(),
             'expires_at' => $kind === ClaudeAccountKind::SetupToken ? now()->addYear() : null,

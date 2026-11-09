@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\ClaudeAccountColor;
+use App\Enums\ClaudeAccountIcon;
 use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
 use Carbon\CarbonImmutable;
@@ -15,6 +17,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * @property ClaudeAccountKind $kind
  * @property ClaudeAccountStatus $status
+ * @property ClaudeAccountIcon $icon
+ * @property ClaudeAccountColor $color
  * @property string $secret
  * @property bool $is_default
  * @property int|null $owner_user_id
@@ -36,6 +40,8 @@ class ClaudeAccount extends Model
     protected $attributes = [
         'is_default' => false,
         'status' => 'active',
+        'icon' => 'sparkles',
+        'color' => 'accent',
     ];
 
     /**
@@ -46,6 +52,8 @@ class ClaudeAccount extends Model
         return [
             'kind' => ClaudeAccountKind::class,
             'status' => ClaudeAccountStatus::class,
+            'icon' => ClaudeAccountIcon::class,
+            'color' => ClaudeAccountColor::class,
             'secret' => 'encrypted',
             'is_default' => 'boolean',
             'validated_at' => 'immutable_datetime',

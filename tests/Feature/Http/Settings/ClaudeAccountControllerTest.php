@@ -125,3 +125,38 @@ it('stops a resting runner that holds a removed account but leaves a working one
         ->and($resting->fresh()->runner_state)->toBe(RunnerState::None)
         ->and($streams->commandsFor($working->channel()))->toBe([]);
 });
+
+it('stores a chosen icon and colour', function () {
+    $this->post(route('settings.claude-accounts.store'), ['name' => 'Mine', 'kind' => 'setup_token', 'secret' => 'tok', 'icon' => 'rocket', 'color' => 'ok']);
+
+    $account = ClaudeAccount::query()->firstOrFail();
+    expect($account->icon->value)->toBe('rocket')->and($account->color->value)->toBe('ok');
+
+    $this->get(route('settings.claude-accounts'))->assertInertia(fn (Assert $page) => $page
+        ->where('accounts.0.icon', 'rocket')->where('accounts.0.color', 'ok'));
+});
+
+it('rejects an icon outside the set', function () {
+    $this->post(route('settings.claude-accounts.store'), ['name' => 'Mine', 'kind' => 'setup_token', 'secret' => 'tok', 'icon' => 'skull'])
+        ->assertSessionHasErrors('icon');
+});
+
+it('rejects a colour outside the set', function () {
+    $this->post(route('settings.claude-accounts.store'), ['name' => 'Mine', 'kind' => 'setup_token', 'secret' => 'tok', 'color' => 'purple'])
+        ->assertSessionHasErrors('color');
+});
+
+it('defaults to sparkles and accent', function () {
+    $this->post(route('settings.claude-accounts.store'), ['name' => 'Mine', 'kind' => 'setup_token', 'secret' => 'tok']);
+
+    $account = ClaudeAccount::query()->firstOrFail()->fresh();
+    expect($account->icon->value)->toBe('sparkles')->and($account->color->value)->toBe('accent');
+});
+
+it('changes the icon and colour without a secret', function () {
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id]);
+
+    $this->patch(route('settings.claude-accounts.update', $account), ['icon' => 'zap', 'color' => 'warn']);
+
+    expect($account->fresh()->icon->value)->toBe('zap')->and($account->fresh()->color->value)->toBe('warn');
+});
