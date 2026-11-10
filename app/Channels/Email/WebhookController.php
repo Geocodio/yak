@@ -27,8 +27,9 @@ use Illuminate\Support\Str;
 
 /**
  * Turns a forwarded email into a task. In order: the request must carry
- * the webhook's basic auth credentials; the message must be signed by its
- * From domain (DKIM_VALID_AU); the sender must be a Yak user's sign-in or
+ * the webhook's basic auth credentials; it must be addressed to Yak; the
+ * raw message must carry a valid DKIM signature from its From domain,
+ * verified by Yak itself; the sender must be a Yak user's sign-in or
  * confirmed address; and the message must not be a duplicate, a reply in a
  * thread that already made a task, or over the sender's hourly limit.
  *
@@ -83,7 +84,7 @@ class WebhookController extends Controller
             return $this->dropped('auto_submitted', $email, "{$describe} was an automatic or bulk message");
         }
 
-        if ((bool) config('yak.channels.email.require_dkim', true) && ! $email->dkimAligned) {
+        if ((bool) config('yak.channels.email.require_dkim', true) && ! app(DkimVerifier::class)->verify($email->rawEmail, $email->fromEmail)) {
             $owner = User::findBySenderEmail($email->fromEmail);
 
             if ($owner !== null) {

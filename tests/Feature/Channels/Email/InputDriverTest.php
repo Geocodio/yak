@@ -62,30 +62,13 @@ it('uses the default instruction when the note is empty', function () {
     expect($email->instruction)->toBe('Look into the forwarded email below.');
 });
 
-it('reads sender, subject, and DKIM alignment', function () {
+it('reads sender, subject, and the raw message', function () {
     $email = app(InputDriver::class)->parsePayload(postmarkPayload(['FromFull' => ['Email' => ' MHansen@HEY.com ']]));
 
     expect($email->fromEmail)->toBe('mhansen@hey.com')
         ->and($email->subject)->toBe("Fwd: You've consumed 82% of your monthly pay-as-you-go budget for errors")
-        ->and($email->dkimAligned)->toBeTrue()
+        ->and($email->rawEmail)->toContain('DKIM-Signature:')
         ->and($email->autoSubmitted)->toBeFalse();
-});
-
-it('treats a signature from another domain or a missing spam header as not aligned', function (array $headers) {
-    $payload = postmarkPayload(headers: $headers);
-    $payload['Headers'] = array_values(array_filter($payload['Headers'], fn (array $header) => $header['Value'] !== '__drop__'));
-
-    expect(app(InputDriver::class)->parsePayload($payload)->dkimAligned)->toBeFalse();
-})->with([
-    'valid but not author domain' => [['X-Spam-Tests' => 'DKIM_SIGNED,DKIM_VALID,SPF_PASS']],
-    'no spam tests header' => [['X-Spam-Tests' => '__drop__']],
-]);
-
-it('treats a second X-Spam-Tests header as forged and not aligned', function () {
-    $payload = postmarkPayload(headers: ['X-Spam-Tests' => 'SPF_PASS']);
-    $payload['Headers'][] = ['Name' => 'x-spam-tests', 'Value' => 'DKIM_VALID_AU'];
-
-    expect(app(InputDriver::class)->parsePayload($payload)->dkimAligned)->toBeFalse();
 });
 
 it('detects auto-submitted and bulk mail', function (array $headers, bool $expected) {
@@ -133,6 +116,9 @@ it('rejects a From that names more than one mailbox, however it is written', fun
     'unbalanced comment' => ['mhansen@hey.com (x', []],
     'no address at all' => ['Mathias Hansen', []],
     'domain literal hiding a comma' => ['x@[1.2.3.4], mhansen@hey.com', []],
+    'bracket hiding a mailbox' => ['Team [, x@evil.test] mhansen@hey.com', []],
+    'address differs from the parsed sender' => ['attacker@evil.test', []],
+    'display name that looks like the sender' => ['"mhansen@hey.com" <attacker@evil.test>', []],
     'very long value' => [str_repeat('(', 5000) . 'mhansen@hey.com' . str_repeat(')', 5000), []],
 ]);
 
@@ -155,7 +141,7 @@ it('survives malformed optional fields', function () {
     $email = app(InputDriver::class)->parsePayload(['FromFull' => ['Email' => 'a@b.c'], 'Headers' => 'nope', 'Attachments' => 'nope', 'TextBody' => ['x']]);
 
     expect($email->attachments)->toBe([])
-        ->and($email->dkimAligned)->toBeFalse()
+        ->and($email->rawEmail)->toBe('')
         ->and($email->subject)->toBe('')
         ->and($email->instruction)->toBe('Look into the forwarded email below.');
 });

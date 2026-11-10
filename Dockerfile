@@ -23,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cron \
     chromium \
     ffmpeg \
+    python3-dkim \
     ca-certificates \
     gnupg \
     openssl \

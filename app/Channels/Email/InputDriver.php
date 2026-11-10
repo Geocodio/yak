@@ -88,21 +88,22 @@ class InputDriver implements InputDriverContract
         $headerValues = $this->headers($payload['Headers'] ?? null);
         $rawFromHeaders = $headerValues['from'] ?? [];
 
-        if ($fromEmail === '' || count($rawFromHeaders) > 1 || ! $this->namesOneMailbox($this->string($payload['From'] ?? null))) {
+        // Postmark's parsed sender must be the one mailbox its From string and
+        // any raw From header name. An empty From string is not checked:
+        // some payloads carry only FromFull.
+        $fromValues = array_values(array_filter([$this->string($payload['From'] ?? null), ...$rawFromHeaders], fn (string $value): bool => $value !== ''));
+
+        if ($fromEmail === '' || count($rawFromHeaders) > 1) {
             return null;
         }
 
-        foreach ($rawFromHeaders as $rawFrom) {
-            if (! $this->namesOneMailbox($rawFrom)) {
+        foreach ($fromValues as $fromValue) {
+            if (self::mailboxAddress($fromValue) !== $fromEmail) {
                 return null;
             }
         }
 
         $headers = array_map(fn (array $values): string => $values[0], $headerValues);
-
-        // Postmark adds X-Spam-Tests itself, but a sender can add one too.
-        // More than one means one is forged, so none of them is trusted.
-        $spamTests = count($headerValues['x-spam-tests'] ?? []) === 1 ? $headers['x-spam-tests'] : '';
         $text = $this->string($payload['TextBody'] ?? null);
 
         if (trim($text) === '') {
@@ -126,7 +127,7 @@ class InputDriver implements InputDriverContract
             originalSender: preg_match('/^From:[ \t]*(.+)$/mi', $forwarded, $matches) === 1 ? trim($matches[1]) : null,
             originalDate: preg_match('/^(?:Date|Sent):[ \t]*(.+)$/mi', $forwarded, $matches) === 1 ? trim($matches[1]) : null,
             attachments: $this->attachments($payload['Attachments'] ?? null),
-            dkimAligned: in_array('DKIM_VALID_AU', array_map('trim', explode(',', $spamTests)), true),
+            rawEmail: $this->string($payload['RawEmail'] ?? null),
             autoSubmitted: $autoSubmitted !== 'no' || in_array(strtolower(trim($headers['precedence'] ?? '')), ['bulk', 'list', 'junk'], true),
         );
     }
@@ -179,27 +180,24 @@ class InputDriver implements InputDriverContract
     }
 
     /**
-     * Whether an RFC 5322 From value names exactly one mailbox. Every
-     * mailbox has exactly one `@` outside quoted strings, comments, and
-     * domain literals, so one left-to-right scan that tracks those states
-     * counts mailboxes however the value is quoted or grouped. Anything the
-     * scan cannot read with certainty (unbalanced quotes, comments, or
-     * brackets, or a value too long to be a real header) is rejected.
-     * An empty value is not checked: Postmark omits it in some payloads.
+     * The one address an RFC 5322 From value names, lowercased, or null
+     * when it names none or several, or cannot be read with certainty.
+     *
+     * One left-to-right scan drops quoted strings and (nested) comments, so
+     * neither a display name nor a comment can hide or fake an address.
+     * Every mailbox has exactly one `@` outside them, so more than one
+     * means more than one author. Square brackets (domain literals) are
+     * rejected outright, as are unbalanced quotes or comments and values
+     * too long to be a real header.
      */
-    private function namesOneMailbox(string $from): bool
+    public static function mailboxAddress(string $from): ?string
     {
-        if ($from === '') {
-            return true;
-        }
-
         if (strlen($from) > 2000) {
-            return false;
+            return null;
         }
 
-        $atSigns = 0;
+        $plain = '';
         $isQuoted = false;
-        $isLiteral = false;
         $commentDepth = 0;
 
         for ($index = 0, $length = strlen($from); $index < $length; $index++) {
@@ -219,20 +217,23 @@ class InputDriver implements InputDriverContract
                     ')' => -1,
                     default => 0,
                 };
-            } elseif ($isLiteral) {
-                $isLiteral = $character !== ']';
+            } elseif ($character === '"') {
+                $isQuoted = true;
+            } elseif ($character === '(') {
+                $commentDepth = 1;
             } else {
-                match ($character) {
-                    '"' => $isQuoted = true,
-                    '(' => $commentDepth = 1,
-                    '[' => $isLiteral = true,
-                    '@' => $atSigns++,
-                    default => null,
-                };
+                $plain .= $character;
             }
         }
 
-        return ! $isQuoted && ! $isLiteral && $commentDepth === 0 && $atSigns === 1;
+        if ($isQuoted || $commentDepth > 0 || substr_count($plain, '@') !== 1 || strpbrk($plain, '[]') !== false) {
+            return null;
+        }
+
+        $address = preg_match('/<([^<>]*)>/', $plain, $matches) === 1 ? $matches[1] : $plain;
+        $address = UserEmailAddress::normalize((string) preg_replace('/\s+/', '', $address));
+
+        return preg_match('/^[^@\s]+@[^@\s]+$/', $address) === 1 ? $address : null;
     }
 
     /**

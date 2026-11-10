@@ -12,7 +12,9 @@ use App\Models\UserEmailAddress;
 use App\Models\YakTask;
 use App\Providers\ChannelServiceProvider;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
@@ -30,6 +32,7 @@ beforeEach(function (): void {
     Mail::fake();
     Queue::fake();
     Storage::fake('artifacts');
+    Process::fake(['*' => Process::result('signature ok')]);
 
     $this->user = User::factory()->create(['email' => 'mathias@geocod.io', 'name' => 'Mathias Hansen']);
     UserEmailAddress::factory()->confirmed()->for($this->user)->create(['email' => 'mhansen@hey.com']);
@@ -66,21 +69,35 @@ it('rejects a wrong webhook password with 403', function () {
     expect(YakTask::query()->count())->toBe(0);
 });
 
-it('drops mail without DKIM_VALID_AU', function () {
-    expectDropped(postEmail(headers: ['X-Spam-Tests' => 'DKIM_SIGNED,DKIM_VALID,SPF_PASS']), 'dkim_failed');
+it('verifies DKIM on the raw message', function () {
+    postEmail()->assertCreated();
+
+    Process::assertRan(fn (PendingProcess $process) => $process->command === ['dkimverify', '--index', '0']
+        && str_contains((string) $process->input, 'From: Mathias Hansen <mhansen@hey.com>'));
 });
 
-it('drops mail with no X-Spam-Tests header', function () {
-    $payload = postmarkPayload();
-    $payload['Headers'] = [['Name' => 'Message-ID', 'Value' => '<a@hey.com>']];
+it('drops mail whose DKIM signature does not verify', function () {
+    Process::fake(['*' => Process::result('signature verification failed', exitCode: 1)]);
 
-    expectDropped(test()->withBasicAuth('yak', 'secret')->postJson('/webhooks/email', $payload), 'dkim_failed');
+    expectDropped(postEmail(), 'dkim_failed');
+});
+
+it('drops mail that arrives without the raw message', function () {
+    expectDropped(postEmail(['RawEmail' => '']), 'dkim_failed');
+});
+
+it('ignores a forged X-Spam-Tests header', function () {
+    Process::fake(['*' => Process::result('signature verification failed', exitCode: 1)]);
+
+    expectDropped(postEmail(headers: ['X-Spam-Tests' => 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU']), 'dkim_failed');
 });
 
 it('accepts unsigned mail when the DKIM check is turned off', function () {
     config()->set('yak.channels.email.require_dkim', false);
+    Process::fake();
 
-    postEmail(headers: ['X-Spam-Tests' => ''])->assertCreated();
+    postEmail(['RawEmail' => ''])->assertCreated();
+    Process::assertNothingRan();
 });
 
 it('drops unknown senders and unconfirmed addresses', function (string $sender) {

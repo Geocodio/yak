@@ -10,6 +10,7 @@ use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
 
@@ -397,9 +398,8 @@ function postmarkPayload(array $overrides = [], array $headers = []): array
         ...$headers,
     ];
 
-    return [
+    $payload = [
         'FromName' => 'Mathias Hansen',
-        'From' => 'mhansen@hey.com',
         'FromFull' => ['Email' => 'mhansen@hey.com', 'Name' => 'Mathias Hansen', 'MailboxHash' => ''],
         'To' => 'yak@geocodio.yak.build',
         'ToFull' => [['Email' => 'yak@geocodio.yak.build', 'Name' => '', 'MailboxHash' => '']],
@@ -411,5 +411,18 @@ function postmarkPayload(array $overrides = [], array $headers = []): array
         'Headers' => collect($headers)->map(fn (string $value, string $name): array => ['Name' => $name, 'Value' => $value])->values()->all(),
         'Attachments' => [],
         ...$overrides,
+    ];
+
+    // The From string and the raw message follow the final sender, the way
+    // Postmark builds them from the same message.
+    $sender = is_array($payload['FromFull']) && is_string($payload['FromFull']['Email'] ?? null) ? trim($payload['FromFull']['Email']) : '';
+    $domain = Str::afterLast($sender, '@');
+    $rawHeaders = collect($headers)->map(fn (string $value, string $name): string => "{$name}: {$value}")->implode("\r\n");
+
+    return [
+        'From' => $sender,
+        'RawEmail' => "DKIM-Signature: v=1; a=rsa-sha256; d={$domain}; s=sel; h=from:subject; bh=abc; b=def\r\nFrom: Mathias Hansen <{$sender}>\r\nSubject: {$payload['Subject']}\r\n{$rawHeaders}\r\n\r\n" . (is_string($payload['TextBody']) ? $payload['TextBody'] : ''),
+        ...$payload,
+        ...array_intersect_key($overrides, ['From' => true, 'RawEmail' => true]),
     ];
 }

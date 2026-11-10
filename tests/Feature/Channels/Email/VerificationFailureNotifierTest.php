@@ -8,14 +8,16 @@ use App\Providers\ChannelServiceProvider;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function (): void {
     config()->set('yak.channels.slack.bot_token', 'xoxb-test');
     Http::fake(['slack.com/api/chat.postMessage' => Http::response(['ok' => true])]);
+    Process::fake(['*' => Process::result('signature verification failed', exitCode: 1)]);
 
     $this->user = User::factory()->create(['slack_user_id' => 'U123', 'direct_messages_enabled' => true]);
-    $this->email = app(InputDriver::class)->parsePayload(postmarkPayload(['Subject' => 'Fwd: Budget alert'], ['X-Spam-Tests' => 'SPF_PASS']));
+    $this->email = app(InputDriver::class)->parsePayload(postmarkPayload(['Subject' => 'Fwd: Budget alert']));
 });
 
 it('tells the owner in Slack that a forward from their address was ignored', function () {
@@ -72,7 +74,7 @@ it('DMs the owner from the webhook when a known address fails DKIM, and sends no
     UserEmailAddress::factory()->confirmed()->for($this->user)->create(['email' => 'mhansen@hey.com']);
 
     $this->withBasicAuth('yak', 'secret')
-        ->postJson('/webhooks/email', postmarkPayload(headers: ['X-Spam-Tests' => 'SPF_PASS']))
+        ->postJson('/webhooks/email', postmarkPayload())
         ->assertOk()->assertJson(['skipped' => 'dkim_failed']);
 
     Http::assertSent(fn (Request $request) => $request['channel'] === 'U123');
@@ -84,7 +86,7 @@ it('sends no DM when the failing address belongs to nobody', function () {
     (new ChannelServiceProvider(app()))->boot();
 
     $this->withBasicAuth('yak', 'secret')
-        ->postJson('/webhooks/email', postmarkPayload(['FromFull' => ['Email' => 'stranger@hey.com']], ['X-Spam-Tests' => 'SPF_PASS']))
+        ->postJson('/webhooks/email', postmarkPayload(['FromFull' => ['Email' => 'stranger@hey.com']]))
         ->assertOk();
 
     Http::assertNothingSent();

@@ -416,7 +416,7 @@ Forward an email to Yak's inbound address with a note on top ("Figure out why th
 ### Setup
 
 1. Create a [Postmark](https://postmarkapp.com) server.
-2. **Inbound:** in the server's inbound stream, set the inbound domain (for example `yak.example.com`) and add an MX record on that host pointing to `inbound.postmarkapp.com`. Set the inbound webhook URL to `https://yak:<password>@{your-domain}/webhooks/email`, with a long random password.
+2. **Inbound:** in the server's inbound stream, set the inbound domain (for example `yak.example.com`) and add an MX record on that host pointing to `inbound.postmarkapp.com`. Set the inbound webhook URL to `https://yak:<password>@{your-domain}/webhooks/email`, with a long random password, and turn on **Include raw email content in JSON payload**. Yak verifies DKIM on that raw message; without it every email is rejected.
 3. **Outbound:** verify the sending domain in Postmark (DKIM and Return-Path DNS records). Acknowledgments and address confirmations send from the outbound stream.
 4. Add to `ansible/vault/secrets.yml`:
 
@@ -442,7 +442,7 @@ A message is accepted only when all of these hold, checked in this order:
 | The `From` header names exactly one address | `malformed` |
 | The inbound address is the envelope recipient or in To, Cc, or Bcc (so replies to the no-reply address never loop back in) | `wrong_recipient` |
 | Not an automatic or bulk message (`Auto-Submitted`, `Precedence: bulk/list/junk`) | `auto_submitted` |
-| Postmark's `X-Spam-Tests` contains `DKIM_VALID_AU` (a valid DKIM signature from the From domain), and the header appears exactly once | `dkim_failed` |
+| The raw message has exactly one `From` header naming the sender, and a DKIM signature from the From domain (or a parent domain) that Yak verifies itself with `dkimverify` | `dkim_failed` |
 | The From address is a sign-in or confirmed address | `unknown_sender` |
 | The Message-ID has not been seen before | `duplicate` |
 | It does not reply to a message that already started a task, or to a Yak acknowledgment | `thread_follow_up` |
@@ -454,7 +454,7 @@ Every drop answers 200 (so Postmark does not retry), is logged to the `yak` chan
 
 - **CC works once.** CC or BCC Yak on a thread and the first message Yak sees starts a task; later replies in that thread are ignored.
 - **Attachments.** Up to 20 files, each up to 25 MB, become task attachments. Images under 10 KB (signature logos, tracking pixels) are skipped.
-- **Local testing.** Set `YAK_EMAIL_REQUIRE_DKIM=false` to post hand-made payloads without a DKIM result. Never turn it off in production.
+- **Local testing.** Set `YAK_EMAIL_REQUIRE_DKIM=false` to post hand-made payloads without a signature. Never turn it off in production. The check needs `dkimverify` (Debian package `python3-dkim`, included in the Docker image) and outbound DNS to look up signing keys.
 
 ---
 

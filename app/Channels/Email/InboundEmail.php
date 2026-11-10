@@ -27,7 +27,8 @@ readonly class InboundEmail
         public ?string $originalSender,
         public ?string $originalDate,
         public array $attachments,
-        public bool $dkimAligned,
+        /** The whole message as received, for DKIM verification. Empty when Postmark did not include it. */
+        public string $rawEmail,
         public bool $autoSubmitted,
     ) {}
 }
