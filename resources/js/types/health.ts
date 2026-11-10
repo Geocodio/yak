@@ -32,4 +32,5 @@ export type ChannelRow = {
     docsUrl: string;
     enabled: boolean;
     required: boolean;
+    address: string | null;
 };

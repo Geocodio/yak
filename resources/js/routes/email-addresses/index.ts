@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::confirm
-* @see app/Http/Controllers/Settings/EmailAddressController.php:78
+* @see app/Http/Controllers/Settings/EmailAddressController.php:85
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 export const confirm = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
@@ -16,7 +16,7 @@ confirm.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::confirm
-* @see app/Http/Controllers/Settings/EmailAddressController.php:78
+* @see app/Http/Controllers/Settings/EmailAddressController.php:85
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 confirm.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ confirm.url = (args: { emailAddress: number | { id: number } } | [emailAddress: 
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::confirm
-* @see app/Http/Controllers/Settings/EmailAddressController.php:78
+* @see app/Http/Controllers/Settings/EmailAddressController.php:85
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 confirm.post = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({

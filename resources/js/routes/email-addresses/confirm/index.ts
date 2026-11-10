@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:65
+* @see app/Http/Controllers/Settings/EmailAddressController.php:72
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 export const show = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:65
+* @see app/Http/Controllers/Settings/EmailAddressController.php:72
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 show.url = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
@@ -49,7 +49,7 @@ show.url = (args: { emailAddress: number | { id: number } } | [emailAddress: num
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:65
+* @see app/Http/Controllers/Settings/EmailAddressController.php:72
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 show.get = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -59,7 +59,7 @@ show.get = (args: { emailAddress: number | { id: number } } | [emailAddress: num
 
 /**
 * @see \App\Http\Controllers\Settings\EmailAddressController::show
-* @see app/Http/Controllers/Settings/EmailAddressController.php:65
+* @see app/Http/Controllers/Settings/EmailAddressController.php:72
 * @route '/email-addresses/{emailAddress}/confirm'
 */
 show.head = (args: { emailAddress: number | { id: number } } | [emailAddress: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
