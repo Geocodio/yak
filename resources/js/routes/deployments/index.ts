@@ -187,7 +187,7 @@ destroy.delete = (args: { deployment: string | number | { id: string | number } 
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 export const wake = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -202,7 +202,7 @@ wake.definition = {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 wake.url = (options?: RouteQueryOptions) => {
@@ -211,7 +211,7 @@ wake.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 wake.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -221,7 +221,7 @@ wake.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Internal\DeploymentWakeController::__invoke
-* @see app/Http/Controllers/Internal/DeploymentWakeController.php:21
+* @see app/Http/Controllers/Internal/DeploymentWakeController.php:23
 * @route '/internal/deployments/wake'
 */
 wake.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -230,8 +230,52 @@ wake.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 })
 
 /**
+* @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
+* @see app/Http/Controllers/Internal/PreviewAuthController.php:18
+* @route '/internal/deployments/preview-auth'
+*/
+export const previewAuth = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: previewAuth.url(options),
+    method: 'get',
+})
+
+previewAuth.definition = {
+    methods: ["get","head"],
+    url: '/internal/deployments/preview-auth',
+} satisfies RouteDefinition<["get","head"]>
+
+/**
+* @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
+* @see app/Http/Controllers/Internal/PreviewAuthController.php:18
+* @route '/internal/deployments/preview-auth'
+*/
+previewAuth.url = (options?: RouteQueryOptions) => {
+    return previewAuth.definition.url + queryParams(options)
+}
+
+/**
+* @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
+* @see app/Http/Controllers/Internal/PreviewAuthController.php:18
+* @route '/internal/deployments/preview-auth'
+*/
+previewAuth.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+    url: previewAuth.url(options),
+    method: 'get',
+})
+
+/**
+* @see \App\Http\Controllers\Internal\PreviewAuthController::__invoke
+* @see app/Http/Controllers/Internal/PreviewAuthController.php:18
+* @route '/internal/deployments/preview-auth'
+*/
+previewAuth.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+    url: previewAuth.url(options),
+    method: 'head',
+})
+
+/**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 export const authBounce = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -246,7 +290,7 @@ authBounce.definition = {
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 authBounce.url = (options?: RouteQueryOptions) => {
@@ -255,7 +299,7 @@ authBounce.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 authBounce.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -265,7 +309,7 @@ authBounce.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\Deployments\AuthBounceController::__invoke
-* @see app/Http/Controllers/Deployments/AuthBounceController.php:22
+* @see app/Http/Controllers/Deployments/AuthBounceController.php:27
 * @route '/deployments/auth-bounce'
 */
 authBounce.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
@@ -324,6 +368,7 @@ const deployments = {
     destroy: Object.assign(destroy, destroy),
     share: Object.assign(share, share),
     wake: Object.assign(wake, wake),
+    previewAuth: Object.assign(previewAuth, previewAuth),
     authBounce: Object.assign(authBounce, authBounce),
     status: Object.assign(status, status),
 }

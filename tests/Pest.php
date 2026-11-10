@@ -4,7 +4,9 @@ use App\Channels\Slack\SenderPolicy;
 use App\DataTransferObjects\ConfigFile;
 use App\DataTransferObjects\ConfigSnapshot;
 use App\Models\Repository;
+use App\Models\User;
 use App\Providers\ChannelServiceProvider;
+use App\Services\PreviewAccess;
 use App\Services\RepositoryConfig;
 use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
@@ -430,4 +432,15 @@ function postmarkPayload(array $overrides = [], array $headers = []): array
         ...$payload,
         ...array_intersect_key($overrides, ['From' => true, 'RawEmail' => true]),
     ];
+}
+
+/**
+ * A valid per-preview cookie value for a host, as /_yak/auth would issue it.
+ */
+function previewCookie(string $host, ?int $userId = null): string
+{
+    $userId ??= User::factory()->create()->id;
+    preg_match('/=([^;]+);/', app(PreviewAccess::class)->setCookieHeader($host, $userId), $matches);
+
+    return $matches[1];
 }

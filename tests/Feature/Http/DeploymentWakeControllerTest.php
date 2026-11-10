@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\BranchDeployment;
-use App\Models\User;
 use App\Services\DeploymentWaker;
+use App\Services\PreviewAccess;
 
 beforeEach(function () {
     // Accept any IP as ingress for these HTTP tests. Real middleware is still
@@ -27,7 +27,7 @@ it('redirects anonymous visitors to a signed auth-bounce URL on the dashboard ap
 });
 
 it('returns 404 + mascot page for an unknown hostname when authenticated', function () {
-    $response = $this->actingAs(User::factory()->create())
+    $response = $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'unknown.yak.example.com']);
 
     $response->assertStatus(404);
@@ -38,7 +38,7 @@ it('returns 404 + mascot page for an unknown hostname when authenticated', funct
 it('returns 401 + mascot page for an invalid share token', function () {
     BranchDeployment::factory()->running()->create(['hostname' => 'foo.yak.example.com']);
 
-    $response = $this->actingAs(User::factory()->create())->get(
+    $response = $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))->get(
         '/internal/deployments/wake',
         [
             'X-Forwarded-Host' => 'foo.yak.example.com',
@@ -60,7 +60,7 @@ it('returns upstream headers for a running deployment', function () {
         'state' => 'ready', 'host' => '10.0.0.5', 'port' => 8080,
     ]);
 
-    $response = $this->actingAs(User::factory()->create())
+    $response = $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com']);
 
     $response->assertOk();
@@ -76,7 +76,7 @@ it('returns 425 + shim HTML when the wake is still pending', function () {
     $this->app->instance(DeploymentWaker::class, $waker);
     $waker->shouldReceive('ensureReady')->andReturn(['state' => 'pending']);
 
-    $response = $this->actingAs(User::factory()->create())
+    $response = $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com']);
 
     $response->assertStatus(425);
@@ -91,7 +91,7 @@ it('returns 502 + failed HTML when wake fails', function () {
     $this->app->instance(DeploymentWaker::class, $waker);
     $waker->shouldReceive('ensureReady')->andReturn(['state' => 'failed', 'reason' => 'boom']);
 
-    $response = $this->actingAs(User::factory()->create())
+    $response = $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com']);
 
     $response->assertStatus(502);
@@ -108,7 +108,7 @@ it('updates last_accessed_at on every successful call', function () {
     $this->app->instance(DeploymentWaker::class, $waker);
     $waker->shouldReceive('ensureReady')->andReturn(['state' => 'ready', 'host' => '1.2.3.4', 'port' => 80]);
 
-    $this->actingAs(User::factory()->create())
+    $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com'])
         ->assertOk();
 
@@ -125,7 +125,7 @@ it('renders the host chip and elapsed timer on the waking page', function () {
     $this->app->instance(DeploymentWaker::class, $waker);
     $waker->shouldReceive('ensureReady')->andReturn(['state' => 'pending']);
 
-    $this->actingAs(User::factory()->create())
+    $this->withCookie(PreviewAccess::COOKIE_NAME, previewCookie('foo.yak.example.com'))
         ->get('/internal/deployments/wake', ['X-Forwarded-Host' => 'foo.yak.example.com'])
         ->assertStatus(425)
         ->assertSee('Waking up the preview')
