@@ -28,7 +28,9 @@ it('registers and resolves an editable repository risk profile prompt', function
     expect(PromptDefinitions::has('tasks-risk-profile'))->toBeTrue();
     $resolver = app(PromptResolver::class);
     expect($resolver->render('tasks-risk-profile'))->toContain('areas')
-        ->toContain('Do not use brace expansion such as `{a,b}`');
+        ->toContain('Do not use brace expansion such as `{a,b}`,')
+        ->toContain('every changed file falls in a `low`')
+        ->toContain('stops Yak from approving pull requests');
     Prompt::updateOrCreate(['slug' => 'tasks-risk-profile'], [
         'content' => 'Custom repository risk research instructions.', 'is_customized' => true,
     ]);
@@ -46,7 +48,7 @@ it('saves and resets the risk prompt through the versioned editor', function () 
     expect(app(PromptResolver::class)->render('tasks-risk-profile'))->toContain('areas');
 });
 
-it('tells the risk profile prompt to start from the existing file', function () {
+it('tells the risk profile prompt to re-rate the existing file', function () {
     expect(app(PromptResolver::class)->render('tasks-risk-profile'))
-        ->toContain('If `.yak/risk-profile.yml` exists in the checkout, start from it');
+        ->toContain('If `.yak/risk-profile.yml` exists in the checkout, reuse its area names')->toContain('an existing risk level is not');
 });

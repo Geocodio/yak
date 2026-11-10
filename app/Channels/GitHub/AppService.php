@@ -1375,6 +1375,23 @@ GRAPHQL;
     }
 
     /**
+     * Submitted reviews on a PR, oldest first. Throws on failure, so an outage
+     * is not mistaken for a PR nobody reviewed.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listPullRequestReviews(int $installationId, string $repoSlug, int $prNumber): array
+    {
+        // ponytail: first 100 reviews only; paginate if a PR ever collects more.
+        $reviews = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/pulls/{$prNumber}/reviews", ['per_page' => 100])
+            ->throw()
+            ->json();
+
+        return is_array($reviews) ? $reviews : [];
+    }
+
+    /**
      * Patch an existing PR. Typically used to edit the body (e.g. to append
      * a walkthrough video link once the render completes asynchronously).
      *
