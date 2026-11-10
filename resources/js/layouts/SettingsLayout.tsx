@@ -1,7 +1,8 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { SettingsShell, type SettingsNavSection } from '@geocodio/console-ui';
+import { SettingsShell, ToastHost, type SettingsNavSection } from '@geocodio/console-ui';
 import { Inbox, User, Video as VideoIcon, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { FlashToasts } from '@/components/FlashToasts';
 import { channels, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 import { linear, video } from '@/routes/settings';
@@ -53,8 +54,13 @@ const SECTIONS: SettingsNavSection[] = [
 export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video' | 'channels'; children: ReactNode }) {
     const currentPath = usePage().url.split('?')[0];
 
+    // Settings pages render outside AppLayout, so they mount their own toast
+    // host; without it success flashes and server errors fire unseen.
     return (
-        <SettingsShell
+        <>
+            <FlashToasts />
+            <ToastHost />
+            <SettingsShell
             sections={SECTIONS}
             slug={slug}
             currentPath={currentPath}
@@ -64,7 +70,8 @@ export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' 
             LinkComponent={Link}
             onNavigate={(href) => router.visit(href)}
         >
-            {children}
-        </SettingsShell>
+                {children}
+            </SettingsShell>
+        </>
     );
 }
