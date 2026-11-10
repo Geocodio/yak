@@ -437,7 +437,7 @@ return [
         'hostname_suffix' => env('YAK_DEPLOYMENTS_HOSTNAME_SUFFIX', 'yak.example.com'),
         'running_cap' => (int) env('YAK_DEPLOYMENTS_RUNNING_CAP', 6),
         'idle_minutes' => (int) env('YAK_DEPLOYMENTS_IDLE_MINUTES', 15),
-        'destroy_days' => (int) env('YAK_DEPLOYMENTS_DESTROY_DAYS', 30),
+        'destroy_days' => (int) env('YAK_DEPLOYMENTS_DESTROY_DAYS', 7),
         'long_lived_idle_minutes' => (int) env('YAK_DEPLOYMENTS_LONG_LIVED_IDLE_MINUTES', 4320), // 3 days
         'release_branch_prefix' => env('YAK_DEPLOYMENTS_RELEASE_BRANCH_PREFIX', 'release/'),
         'stuck_starting_minutes' => (int) env('YAK_DEPLOYMENTS_STUCK_STARTING_MINUTES', 30),

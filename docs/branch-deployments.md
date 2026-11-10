@@ -19,7 +19,7 @@ Every open PR on an opted-in repo gets a live preview URL. Click it, sign in wit
 5. Every push to the branch updates the preview in place (or marks it dirty to be refreshed on next wake if hibernated). A push to a failed preview rebuilds it from the template at the new commit.
 6. After 15 minutes of no traffic, the container hibernates. Next request wakes it again.
 7. When the PR is closed, merged, or the branch is deleted, the preview is torn down.
-8. Preview state never lives longer than 30 days of idle, regardless of PR state.
+8. Preview state never lives longer than 7 days of idle, regardless of PR state.
 
 ## Activity log
 
