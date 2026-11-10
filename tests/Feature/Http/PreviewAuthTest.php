@@ -71,7 +71,7 @@ it('never redirects off the preview host after the exchange', function (string $
     $ticket = app(PreviewAccess::class)->mintTicket('foo.yak.example.com', User::factory()->create());
 
     exchangeTicket($this, 'foo.yak.example.com', $ticket, $to)->assertHeader('Location', '/');
-})->with(['//evil.example.net', 'https://evil.example.net', '/\\evil.example.net']);
+})->with(['//evil.example.net', 'https://evil.example.net', '/\\evil.example.net', "/\t/evil.example.net", "/\n/evil.example.net", "/\r/evil.example.net", ' //evil.example.net', "/\x00/evil.example.net"]);
 
 it('accepts the issued cookie at the wake endpoint', function () {
     $waker = Mockery::mock(DeploymentWaker::class);

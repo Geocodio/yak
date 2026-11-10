@@ -28,8 +28,10 @@ class PreviewAuthController
         }
 
         // Only same-host paths: a single leading slash, never //host or /\host.
+        // Control characters and whitespace are rejected because browsers strip
+        // tabs and newlines from URLs, which would turn "/\t/host" into "//host".
         $to = (string) $request->query('to', '/');
-        if (! preg_match('#^/(?![/\\\\])#', $to)) {
+        if (preg_match('/[\x00-\x20\x7f]/', $to) || ! preg_match('#^/(?![/\\\\])#', $to)) {
             $to = '/';
         }
 
