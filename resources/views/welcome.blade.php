@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Yak — Papercuts, handled.</title>
-    <meta name="description" content="Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, and our CI and delivers reviewable pull requests — or answers questions about the codebase.">
+    <meta name="description" content="Yak is an autonomous coding agent for papercuts. It picks up small tasks from Slack, Linear, Sentry, forwarded email, and our CI and delivers reviewable pull requests — or answers questions about the codebase.">
 
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     <link rel="icon" href="/favicon.ico" sizes="32x32">
@@ -447,7 +447,7 @@
 
         .channel-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 22px;
         }
         .channel-card {
@@ -490,6 +490,7 @@
         .chip-slack  { background: #611f69; }
         .chip-linear { background: var(--yak-slate); }
         .chip-sentry { background: var(--yak-danger); }
+        .chip-email  { background: var(--yak-orange); }
 
         .chat {
             font-family: var(--font-mono);
@@ -1171,7 +1172,7 @@
                 </p>
 
                 <p class="subline reveal d3">
-                    Yak watches Slack, Linear, Sentry, and our CI.
+                    Yak watches Slack, Linear, Sentry, forwarded email, and our CI.
                     When something small breaks, it opens a branch, writes
                     the fix, verifies it in CI, and hands you a pull request
                     with screenshots and a video walkthrough. Got a question
@@ -1216,7 +1217,7 @@
             <h2>Mention it. <em>Assign it.</em> Forget it.</h2>
             <p class="sub">
                 Yak plugs into the tools the team already lives in. Tag a Slack
-                thread, assign a Linear issue, let a Sentry alert fire — the
+                thread, assign a Linear issue, let a Sentry alert fire, forward an email — the
                 routing layer takes it from there.
             </p>
         </div>
@@ -1289,6 +1290,28 @@
                     <strong>Filters the noise.</strong> CSP violations, redis
                     blips, and one-off user errors get dropped — only real,
                     actionable issues with enough signal get a task.
+                </p>
+            </div>
+
+            <div class="channel-card">
+                <div class="channel-header">
+                    <span class="channel-name">
+                        <span class="chip chip-email">@</span>
+                        Email
+                    </span>
+                    <span class="caption">forward · note on top</span>
+                </div>
+                <div class="chat">
+                    <div class="chat-line" style="color: var(--yak-slate);"><strong>Fwd:</strong> You've consumed 82% of your errors budget</div>
+                    <div class="chat-line"><span class="meta">"Why is error volume so high? Is it the geocodio repo?"</span></div>
+                    <div class="chat-line"><span class="yak">yak</span> sender verified · DKIM <span style="color: var(--yak-green);">✓</span> · routed to geocodio</div>
+                    <div class="chat-line"><span class="yak">yak</span> <span style="color: var(--yak-green);">✓ task started</span> · link in your inbox</div>
+                </div>
+                <p class="channel-foot">
+                    <strong>Forward and move on.</strong> Send any email to Yak
+                    with a note on top. Yak checks the sender's signature,
+                    starts the task, and replies once with a link. Everything
+                    after that happens in Yak.
                 </p>
             </div>
         </div>

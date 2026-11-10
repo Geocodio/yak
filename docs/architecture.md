@@ -102,6 +102,10 @@ Every external integration is a pluggable channel. Channels are enabled by the p
 │  │ Slack  │ │ Linear │ │ Sentry │ │ Manual CLI   │  │
 │  │  opt.  │ │  opt.  │ │  opt.  │ │ always avail │  │
 │  └────────┘ └────────┘ └────────┘ └──────────────┘  │
+│  ┌────────┐                                          │
+│  │ Email  │                                          │
+│  │  opt.  │                                          │
+│  └────────┘                                          │
 │                                                      │
 │  CI Drivers (how build results return):              │
 │  ┌─────────────────┐ ┌────────┐                      │
@@ -294,7 +298,7 @@ The primary record. Every incoming event creates a task row. Key columns:
 
 | Column | Purpose |
 |---|---|
-| `source` | `sentry`, `flaky-test`, `linear`, `slack`, `manual` |
+| `source` | `sentry`, `flaky-test`, `linear`, `slack`, `email`, `dashboard`, `manual` |
 | `repo` | Slug joining to `repositories.slug` |
 | `external_id` | Source-side ID (GEO-1234, SENTRY-98765). Unique with `repo`. |
 | `mode` | `fix`, `research`, `setup` |

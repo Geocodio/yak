@@ -469,6 +469,21 @@ test('repo column has no link when no repository record exists', function () {
                 ->etc()));
 });
 
+test('setup card counts the email channel as a connected channel', function () {
+    foreach (['slack', 'linear', 'sentry', 'drone'] as $channel) {
+        config()->set("yak.channels.{$channel}", []);
+    }
+    config()->set('yak.channels.github', []);
+    config()->set('yak.channels.email', ['webhook_password' => 'secret', 'inbound_address' => 'yak@example.test']);
+    User::query()->delete();
+    $this->actingAs(User::factory()->create(['has_seen_setup_card_at' => null]));
+
+    $this->get(route('tasks'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('setupCard.items.1.title', 'Connect a channel')
+            ->where('setupCard.items.1.done', true));
+});
+
 test('setup card shows until dismissed', function () {
     User::query()->delete();
     $user = User::factory()->create(['has_seen_setup_card_at' => null]);

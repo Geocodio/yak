@@ -18,7 +18,7 @@
 
 ## What It Does
 
-- **Opens PRs for papercuts.** Receives tasks from Slack, Linear, Sentry, and GitHub; sends Claude into an isolated sandbox; opens a reviewable PR and verifies CI passes
+- **Opens PRs for papercuts.** Receives tasks from Slack, Linear, Sentry, GitHub, and forwarded email; sends Claude into an isolated sandbox; opens a reviewable PR and verifies CI passes
 - **Reviews pull requests.** Line-level comments, `suggestion` blocks, and a feedback dashboard
 - **Serves preview deployments.** Every open PR gets a unique URL, OAuth-gated, hibernated when idle, destroyed when the PR closes
 - **Shared sandbox fleet.** One Incus + ZFS substrate, one GitHub App, one Inertia dashboard, one cost model across all three workflows

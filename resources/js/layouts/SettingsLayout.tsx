@@ -44,7 +44,7 @@ const SECTIONS: SettingsNavSection[] = [
                 href: channels.url(),
                 label: 'Channels',
                 icon: <Inbox size={15} />,
-                description: 'Slack, Linear, and Sentry inputs.',
+                description: 'Slack, Linear, Sentry, and email inputs.',
             },
         ],
     },
