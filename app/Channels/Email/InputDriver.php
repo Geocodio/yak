@@ -88,12 +88,12 @@ class InputDriver implements InputDriverContract
         $headerValues = $this->headers($payload['Headers'] ?? null);
         $rawFromHeaders = $headerValues['from'] ?? [];
 
-        if ($fromEmail === '' || count($rawFromHeaders) > 1 || $this->mailboxCount($this->string($payload['From'] ?? null)) > 1) {
+        if ($fromEmail === '' || count($rawFromHeaders) > 1 || ! $this->namesOneMailbox($this->string($payload['From'] ?? null))) {
             return null;
         }
 
         foreach ($rawFromHeaders as $rawFrom) {
-            if ($this->mailboxCount($rawFrom) > 1) {
+            if (! $this->namesOneMailbox($rawFrom)) {
                 return null;
             }
         }
@@ -179,20 +179,60 @@ class InputDriver implements InputDriverContract
     }
 
     /**
-     * How many mailboxes an RFC 5322 From value names: the `@` signs left
-     * after quoted strings and (nested) comments are removed. Every mailbox
-     * has exactly one unquoted `@`, whatever its local part or display name
-     * looks like, so this cannot be fooled by quoting or group syntax.
+     * Whether an RFC 5322 From value names exactly one mailbox. Every
+     * mailbox has exactly one `@` outside quoted strings, comments, and
+     * domain literals, so one left-to-right scan that tracks those states
+     * counts mailboxes however the value is quoted or grouped. Anything the
+     * scan cannot read with certainty (unbalanced quotes, comments, or
+     * brackets, or a value too long to be a real header) is rejected.
+     * An empty value is not checked: Postmark omits it in some payloads.
      */
-    private function mailboxCount(string $from): int
+    private function namesOneMailbox(string $from): bool
     {
-        $from = (string) preg_replace('/"(?:[^"\\\\]|\\\\.)*"/s', '', $from);
+        if ($from === '') {
+            return true;
+        }
 
-        do {
-            $from = (string) preg_replace('/\((?:[^()\\\\]|\\\\.)*\)/s', '', $from, -1, $replaced);
-        } while ($replaced > 0);
+        if (strlen($from) > 2000) {
+            return false;
+        }
 
-        return substr_count($from, '@');
+        $atSigns = 0;
+        $isQuoted = false;
+        $isLiteral = false;
+        $commentDepth = 0;
+
+        for ($index = 0, $length = strlen($from); $index < $length; $index++) {
+            $character = $from[$index];
+
+            if ($character === '\\' && ($isQuoted || $commentDepth > 0)) {
+                $index++;
+
+                continue;
+            }
+
+            if ($isQuoted) {
+                $isQuoted = $character !== '"';
+            } elseif ($commentDepth > 0) {
+                $commentDepth += match ($character) {
+                    '(' => 1,
+                    ')' => -1,
+                    default => 0,
+                };
+            } elseif ($isLiteral) {
+                $isLiteral = $character !== ']';
+            } else {
+                match ($character) {
+                    '"' => $isQuoted = true,
+                    '(' => $commentDepth = 1,
+                    '[' => $isLiteral = true,
+                    '@' => $atSigns++,
+                    default => null,
+                };
+            }
+        }
+
+        return ! $isQuoted && ! $isLiteral && $commentDepth === 0 && $atSigns === 1;
     }
 
     /**

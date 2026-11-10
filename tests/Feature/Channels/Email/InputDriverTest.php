@@ -127,6 +127,13 @@ it('rejects a From that names more than one mailbox, however it is written', fun
     'group syntax' => ['team: mhansen@hey.com, x@evil.test;', []],
     'second address only in the raw header' => ['mhansen@hey.com', ['From' => 'mhansen@hey.com, "x"@evil.test']],
     'two raw From headers' => ['mhansen@hey.com', ['From' => 'mhansen@hey.com', 'from' => 'x@evil.test']],
+    'quote inside a comment' => ['mhansen@hey.com ("), x@evil.test, (")', []],
+    'escaped quote inside a quoted string' => ['"a\\" b" mhansen@hey.com, x@evil.test', []],
+    'unbalanced quote' => ['"mhansen@hey.com', []],
+    'unbalanced comment' => ['mhansen@hey.com (x', []],
+    'no address at all' => ['Mathias Hansen', []],
+    'domain literal hiding a comma' => ['x@[1.2.3.4], mhansen@hey.com', []],
+    'very long value' => [str_repeat('(', 5000) . 'mhansen@hey.com' . str_repeat(')', 5000), []],
 ]);
 
 it('accepts a single mailbox whose display name contains an @ or a comma', function (string $from) {
