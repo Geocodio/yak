@@ -84,20 +84,18 @@ class WebhookController extends Controller
             return $this->dropped('auto_submitted', $email, "{$describe} was an automatic or bulk message");
         }
 
-        if ((bool) config('yak.channels.email.require_dkim', true) && ! app(DkimVerifier::class)->verify($email->rawEmail, $email->fromEmail)) {
-            $owner = User::findBySenderEmail($email->fromEmail);
-
-            if ($owner !== null) {
-                app(VerificationFailureNotifier::class)->notify($owner, $email);
-            }
-
-            return $this->dropped('dkim_failed', $email, "{$describe} failed sender verification (no DKIM signature from the sender's domain)");
-        }
-
+        // Look the sender up before verifying, so only mail that claims a
+        // confirmed address ever reaches the DKIM verifier.
         $user = User::findBySenderEmail($email->fromEmail);
 
         if ($user === null) {
             return $this->dropped('unknown_sender', $email, "{$describe} came from an address that is not a confirmed Yak sender");
+        }
+
+        if ((bool) config('yak.channels.email.require_dkim', true) && ! app(DkimVerifier::class)->verify($email->rawEmail, $email->fromEmail, $inboundAddress)) {
+            app(VerificationFailureNotifier::class)->notify($user, $email);
+
+            return $this->dropped('dkim_failed', $email, "{$describe} failed sender verification (no valid DKIM signature from the sender's domain on a message addressed to Yak)");
         }
 
         if ($email->messageId !== null && EmailMessage::seen([$email->messageId])) {

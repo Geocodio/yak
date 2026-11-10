@@ -182,17 +182,30 @@ class InputDriver implements InputDriverContract
     /**
      * The one address an RFC 5322 From value names, lowercased, or null
      * when it names none or several, or cannot be read with certainty.
-     *
-     * One left-to-right scan drops quoted strings and (nested) comments, so
-     * neither a display name nor a comment can hide or fake an address.
-     * Every mailbox has exactly one `@` outside them, so more than one
-     * means more than one author. Square brackets (domain literals) are
-     * rejected outright, as are unbalanced quotes or comments and values
-     * too long to be a real header.
      */
     public static function mailboxAddress(string $from): ?string
     {
-        if (strlen($from) > 2000) {
+        $addresses = self::addresses($from);
+
+        return $addresses !== null && count($addresses) === 1 ? $addresses[0] : null;
+    }
+
+    /**
+     * Every address an RFC 5322 address-list value (From, To, Cc) names,
+     * lowercased, or null when it cannot be read with certainty.
+     *
+     * One left-to-right scan drops quoted strings and (nested) comments, so
+     * neither a display name nor a comment can hide or fake an address.
+     * What remains splits on commas into mailboxes, after group syntax
+     * (`team: a@b, c@d;`) is flattened. Each mailbox must have exactly one
+     * `@`. Square brackets (domain literals), unbalanced quotes or comments,
+     * and values too long to be a real header are rejected outright.
+     *
+     * @return list<string>|null
+     */
+    public static function addresses(string $value): ?array
+    {
+        if (strlen($value) > 2000) {
             return null;
         }
 
@@ -200,8 +213,8 @@ class InputDriver implements InputDriverContract
         $isQuoted = false;
         $commentDepth = 0;
 
-        for ($index = 0, $length = strlen($from); $index < $length; $index++) {
-            $character = $from[$index];
+        for ($index = 0, $length = strlen($value); $index < $length; $index++) {
+            $character = $value[$index];
 
             if ($character === '\\' && ($isQuoted || $commentDepth > 0)) {
                 $index++;
@@ -226,14 +239,31 @@ class InputDriver implements InputDriverContract
             }
         }
 
-        if ($isQuoted || $commentDepth > 0 || substr_count($plain, '@') !== 1 || strpbrk($plain, '[]') !== false) {
+        if ($isQuoted || $commentDepth > 0 || strpbrk($plain, '[]') !== false) {
             return null;
         }
 
-        $address = preg_match('/<([^<>]*)>/', $plain, $matches) === 1 ? $matches[1] : $plain;
-        $address = UserEmailAddress::normalize((string) preg_replace('/\s+/', '', $address));
+        // A group's display name ends at ':' and the group at ';'.
+        $plain = (string) preg_replace('/^[^,<>@]*:|;/', ',', $plain);
+        $plain = (string) preg_replace('/,[^,<>@]*:/', ',', $plain);
+        $addresses = [];
 
-        return preg_match('/^[^@\s]+@[^@\s]+$/', $address) === 1 ? $address : null;
+        foreach (explode(',', $plain) as $mailbox) {
+            if (trim($mailbox) === '') {
+                continue;
+            }
+
+            $address = preg_match('/<([^<>]*)>/', $mailbox, $matches) === 1 ? $matches[1] : $mailbox;
+            $address = UserEmailAddress::normalize((string) preg_replace('/\s+/', '', $address));
+
+            if (preg_match('/^[^@\s<>]+@[^@\s<>]+$/', $address) !== 1) {
+                return null;
+            }
+
+            $addresses[] = $address;
+        }
+
+        return $addresses === [] ? null : $addresses;
     }
 
     /**

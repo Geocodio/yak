@@ -442,8 +442,8 @@ A message is accepted only when all of these hold, checked in this order:
 | The `From` header names exactly one address | `malformed` |
 | The inbound address is the envelope recipient or in To, Cc, or Bcc (so replies to the no-reply address never loop back in) | `wrong_recipient` |
 | Not an automatic or bulk message (`Auto-Submitted`, `Precedence: bulk/list/junk`) | `auto_submitted` |
-| The raw message has exactly one `From` header naming the sender, and a DKIM signature from the From domain (or a parent domain) that Yak verifies itself with `dkimverify` | `dkim_failed` |
 | The From address is a sign-in or confirmed address | `unknown_sender` |
+| The raw message has one `From` header naming the sender, no duplicated `To`, `Cc`, or `Subject`, and a DKIM signature that Yak verifies itself (`app/Channels/Email/dkim_verify.py`, dkimpy): `d=` exactly the From domain, no `l=` tag, signing `From` and the `To` or `Cc` header that names Yak. The last rule stops someone from replaying a signed email a team member once sent them. | `dkim_failed` |
 | The Message-ID has not been seen before | `duplicate` |
 | It does not reply to a message that already started a task, or to a Yak acknowledgment | `thread_follow_up` |
 | The sender has created fewer than 30 tasks in the last hour | `rate_limited` |
@@ -452,9 +452,9 @@ Every drop answers 200 (so Postmark does not retry), is logged to the `yak` chan
 
 ### Gotchas
 
-- **CC works once.** CC or BCC Yak on a thread and the first message Yak sees starts a task; later replies in that thread are ignored.
+- **CC works once; BCC does not work.** CC Yak on a thread and the first message Yak sees starts a task; later replies in that thread are ignored. A BCC is rejected, because no signed header names Yak.
 - **Attachments.** Up to 20 files, each up to 25 MB, become task attachments. Images under 10 KB (signature logos, tracking pixels) are skipped.
-- **Local testing.** Set `YAK_EMAIL_REQUIRE_DKIM=false` to post hand-made payloads without a signature. Never turn it off in production. The check needs `dkimverify` (Debian package `python3-dkim`, included in the Docker image) and outbound DNS to look up signing keys.
+- **Local testing.** Set `YAK_EMAIL_REQUIRE_DKIM=false` to post hand-made payloads without a signature. Never turn it off in production. The check needs `python3` with dkimpy (Debian package `python3-dkim`, included in the Docker image) and outbound DNS to look up signing keys.
 
 ---
 

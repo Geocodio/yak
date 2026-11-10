@@ -32,7 +32,7 @@ beforeEach(function (): void {
     Mail::fake();
     Queue::fake();
     Storage::fake('artifacts');
-    Process::fake(['*' => Process::result('signature ok')]);
+    Process::fake(['*' => Process::result('["cc", "from", "subject", "to"]')]);
 
     $this->user = User::factory()->create(['email' => 'mathias@geocod.io', 'name' => 'Mathias Hansen']);
     UserEmailAddress::factory()->confirmed()->for($this->user)->create(['email' => 'mhansen@hey.com']);
@@ -72,8 +72,14 @@ it('rejects a wrong webhook password with 403', function () {
 it('verifies DKIM on the raw message', function () {
     postEmail()->assertCreated();
 
-    Process::assertRan(fn (PendingProcess $process) => $process->command === ['dkimverify', '--index', '0']
+    Process::assertRan(fn (PendingProcess $process) => $process->command === ['python3', app_path('Channels/Email/dkim_verify.py'), 'hey.com']
         && str_contains((string) $process->input, 'From: Mathias Hansen <mhansen@hey.com>'));
+});
+
+it('does not start DKIM verification for senders it does not know', function () {
+    expectDropped(postEmail(['FromFull' => ['Email' => 'stranger@hey.com']]), 'unknown_sender');
+
+    Process::assertNothingRan();
 });
 
 it('drops mail whose DKIM signature does not verify', function () {
@@ -277,12 +283,13 @@ it('drops mail that was not addressed to the inbound address', function () {
     ]), 'wrong_recipient');
 });
 
-it('accepts Yak in CC or as the envelope recipient of a BCC, ignoring case', function (array $overrides) {
-    postEmail(['ToFull' => [['Email' => 'someone@hey.com']], 'OriginalRecipient' => '', ...$overrides])->assertCreated();
-})->with([
-    'cc' => [['CcFull' => [['Email' => 'YAK@geocodio.yak.build']]]],
-    'bcc envelope' => [['OriginalRecipient' => 'yak@geocodio.yak.build']],
-]);
+it('accepts Yak in CC, ignoring case', function () {
+    postEmail(['ToFull' => [['Email' => 'someone@hey.com']], 'CcFull' => [['Email' => 'YAK@geocodio.yak.build']], 'OriginalRecipient' => ''])->assertCreated();
+});
+
+it('rejects a BCC, because no signed header names Yak', function () {
+    expectDropped(postEmail(['ToFull' => [['Email' => 'someone@hey.com']], 'OriginalRecipient' => 'yak@geocodio.yak.build']), 'dkim_failed');
+});
 
 it('reports the created task in the shape webhook telemetry reads', function () {
     $response = postEmail()->assertCreated();

@@ -418,10 +418,15 @@ function postmarkPayload(array $overrides = [], array $headers = []): array
     $sender = is_array($payload['FromFull']) && is_string($payload['FromFull']['Email'] ?? null) ? trim($payload['FromFull']['Email']) : '';
     $domain = Str::afterLast($sender, '@');
     $rawHeaders = collect($headers)->map(fn (string $value, string $name): string => "{$name}: {$value}")->implode("\r\n");
+    $recipients = fn (string $field): string => collect(is_array($payload[$field] ?? null) ? $payload[$field] : [])
+        ->map(fn (mixed $recipient): string => is_array($recipient) && is_string($recipient['Email'] ?? null) ? $recipient['Email'] : '')
+        ->filter()->implode(', ');
+    $addressHeaders = collect(['To' => $recipients('ToFull'), 'Cc' => $recipients('CcFull')])
+        ->filter()->map(fn (string $value, string $name): string => "{$name}: {$value}\r\n")->implode('');
 
     return [
         'From' => $sender,
-        'RawEmail' => "DKIM-Signature: v=1; a=rsa-sha256; d={$domain}; s=sel; h=from:subject; bh=abc; b=def\r\nFrom: Mathias Hansen <{$sender}>\r\nSubject: {$payload['Subject']}\r\n{$rawHeaders}\r\n\r\n" . (is_string($payload['TextBody']) ? $payload['TextBody'] : ''),
+        'RawEmail' => "DKIM-Signature: v=1; a=rsa-sha256; d={$domain}; s=sel; h=from:to:cc:subject; bh=abc; b=def\r\nFrom: Mathias Hansen <{$sender}>\r\n{$addressHeaders}Subject: {$payload['Subject']}\r\n{$rawHeaders}\r\n\r\n" . (is_string($payload['TextBody']) ? $payload['TextBody'] : ''),
         ...$payload,
         ...array_intersect_key($overrides, ['From' => true, 'RawEmail' => true]),
     ];
