@@ -4,13 +4,16 @@
     name: yak
     state: present
 
+# Owned by the redis user (uid 999, gid 1000) that the image runs Redis as.
+# Setting it to root here would take the directory back from a running
+# Redis, which then cannot save its snapshot and refuses every write.
 - name: Ensure Redis data directory exists
   ansible.builtin.file:
     path: "{{ redis_data_path }}"
     state: directory
-    mode: "0755"
-    owner: root
-    group: root
+    mode: "0750"
+    owner: "999"
+    group: "1000"
 
 # The image starts as root, then runs Redis as the redis user (uid 999,
 # gid 1000), which must be able to read its config.

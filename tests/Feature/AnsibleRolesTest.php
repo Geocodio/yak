@@ -10,6 +10,14 @@ it('gives the telemetryd data directory to the user the image runs as', function
         ->and((string) $directory['group'])->toBe('10001');
 });
 
+it('gives the redis data directory to the user redis runs as, so a deploy never takes it back', function () {
+    $tasks = Yaml::parseFile(base_path('ansible/roles/redis/tasks/main.yml'));
+    $directory = collect($tasks)->firstWhere('name', 'Ensure Redis data directory exists')['ansible.builtin.file'];
+
+    expect((string) $directory['owner'])->toBe('999')
+        ->and((string) $directory['group'])->toBe('1000');
+});
+
 it('moves leftover database jobs to redis on every deploy, before tasks resume', function () {
     $names = collect(Yaml::parseFile(base_path('ansible/roles/yak-container/tasks/main.yml')))->pluck('name')->values();
 
