@@ -39,6 +39,16 @@ it('rejects an address that is a sign-in address or another user\'s confirmed ad
     Mail::assertNothingQueued();
 })->with(['Taken@geocod.io', 'CLAIMED@hey.com', 'not-an-email']);
 
+it('saves no address when the confirmation email cannot be queued', function () {
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('MISCONF Redis is unable to persist to disk'));
+
+    $this->actingAs(User::factory()->create())
+        ->post(route('profile.email-addresses.store'), ['email' => 'mhansen@hey.com'])
+        ->assertServerError();
+
+    expect(UserEmailAddress::query()->count())->toBe(0);
+});
+
 it('rejects an address another user has pending instead of failing on the unique index', function () {
     UserEmailAddress::factory()->unconfirmed()->create(['email' => 'pending@hey.com']);
 

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\UserEmailAddress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -31,9 +32,15 @@ class EmailAddressController extends Controller
         abort_if(RateLimiter::tooManyAttempts("email-address-store:{$user->id}", 5), 429);
         RateLimiter::hit("email-address-store:{$user->id}", 3600);
 
-        /** @var UserEmailAddress $emailAddress */
-        $emailAddress = $user->emailAddresses()->create(['email' => $request->validated('email')]);
-        $this->sendConfirmation($emailAddress);
+        // Saved only if its confirmation email is queued, so a failure never
+        // leaves an address the person was told nothing about.
+        $emailAddress = DB::transaction(function () use ($user, $request): UserEmailAddress {
+            /** @var UserEmailAddress $emailAddress */
+            $emailAddress = $user->emailAddresses()->create(['email' => $request->validated('email')]);
+            $this->sendConfirmation($emailAddress);
+
+            return $emailAddress;
+        });
 
         return redirect()->route('profile.edit')->with('success', "Confirmation sent to {$emailAddress->email}.");
     }
