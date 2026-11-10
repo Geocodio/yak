@@ -296,6 +296,12 @@ class PromptFixtures
                     'data' => [],
                 ],
             ],
+            'agents-task-title' => [
+                [
+                    'label' => 'Static content',
+                    'data' => [],
+                ],
+            ],
             'agents-pr-title' => [
                 [
                     'label' => 'Static content',

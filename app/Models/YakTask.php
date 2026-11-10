@@ -28,6 +28,7 @@ use Illuminate\Support\Str;
  *
  * @property TaskStatus $status
  * @property TaskMode $mode
+ * @property string|null $title
  * @property bool $targets_external_pr
  * @property int $attempts
  * @property int $attempts_at_manual_retry
@@ -455,12 +456,17 @@ class YakTask extends Model
     }
 
     /**
-     * A one-line title for the task: the description summary when it is
-     * shorter than the description's first line, else that first line.
-     * Linear descriptions start with the issue title.
+     * A one-line title for the task: the generated title when there is one,
+     * else the description summary when it is shorter than the description's
+     * first line, else that first line. Linear descriptions start with the
+     * issue title.
      */
     public function headline(): string
     {
+        if ($this->title !== null && $this->title !== '') {
+            return $this->title;
+        }
+
         $firstLine = Str::before((string) $this->description, "\n");
         $summary = (string) $this->description_summary;
 

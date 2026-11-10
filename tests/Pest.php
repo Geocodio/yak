@@ -10,6 +10,7 @@ use App\Services\RepositoryConfigParser;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Pest\Browser\Api\AwaitableWebpage;
 use Tests\TestCase;
 
@@ -361,4 +362,72 @@ function enableSlackForInteractive(): string
     (new ChannelServiceProvider(app()))->boot();
 
     return $secret;
+}
+
+/**
+ * The plain-text body a mail client produces when forwarding the Sentry
+ * budget email with a note on top, in that client's forward format.
+ */
+function forwardedEmailBody(string $client, string $note = "Figure out why the error consumption is so high, and whether it's in the geocodio repo"): string
+{
+    $original = "Your organization, Geocodio, has consumed 82% of its monthly errors pay-as-you-go budget.\n\nErrors 1,718,278 / 100,000";
+    $subject = "You've consumed 82% of your monthly pay-as-you-go budget for errors";
+
+    return match ($client) {
+        'gmail' => "{$note}\n\n---------- Forwarded message ---------\nFrom: Sentry <noreply@md.getsentry.com>\nDate: Sun, Nov 9, 2026 at 8:31 PM\nSubject: {$subject}\nTo: <mathias@geocod.io>\n\n\n{$original}\n",
+        'apple-mail', 'hey' => "{$note}\n\nBegin forwarded message:\n\nFrom: Sentry <noreply@md.getsentry.com>\nSubject: {$subject}\nDate: November 9, 2026 at 20:31:00 GMT+1\nTo: mathias@geocod.io\n\n{$original}\n",
+        'outlook' => "{$note}\n\n________________________________\nFrom: Sentry <noreply@md.getsentry.com>\nSent: Sunday, November 9, 2026 8:31 PM\nTo: Mathias Hansen <mathias@geocod.io>\nSubject: {$subject}\n\n{$original}\n",
+        'outlook-classic' => "{$note}\n\n-----Original Message-----\nFrom: Sentry <noreply@md.getsentry.com>\nSent: Sunday, November 9, 2026 8:31 PM\nTo: Mathias Hansen\nSubject: {$subject}\n\n{$original}\n",
+        default => throw new InvalidArgumentException("Unknown client {$client}"),
+    };
+}
+
+/**
+ * A Postmark inbound webhook payload for a forward from mhansen@hey.com
+ * that passed DKIM for hey.com.
+ *
+ * @param  array<string, mixed>  $overrides
+ * @param  array<string, string>  $headers
+ * @return array<string, mixed>
+ */
+function postmarkPayload(array $overrides = [], array $headers = []): array
+{
+    $headers = [
+        'X-Spam-Tests' => 'DKIM_SIGNED,DKIM_VALID,DKIM_VALID_AU,SPF_PASS',
+        'Message-ID' => '<forward-1@hey.com>',
+        ...$headers,
+    ];
+
+    $payload = [
+        'FromName' => 'Mathias Hansen',
+        'FromFull' => ['Email' => 'mhansen@hey.com', 'Name' => 'Mathias Hansen', 'MailboxHash' => ''],
+        'To' => 'yak@geocodio.yak.build',
+        'ToFull' => [['Email' => 'yak@geocodio.yak.build', 'Name' => '', 'MailboxHash' => '']],
+        'Subject' => "Fwd: You've consumed 82% of your monthly pay-as-you-go budget for errors",
+        'MessageID' => '73e6d360-66eb-11e1-8e72-a8904824019b',
+        'Date' => 'Sun, 9 Nov 2026 20:35:00 +0100',
+        'TextBody' => forwardedEmailBody('gmail'),
+        'HtmlBody' => '',
+        'Headers' => collect($headers)->map(fn (string $value, string $name): array => ['Name' => $name, 'Value' => $value])->values()->all(),
+        'Attachments' => [],
+        ...$overrides,
+    ];
+
+    // The From string and the raw message follow the final sender, the way
+    // Postmark builds them from the same message.
+    $sender = is_array($payload['FromFull']) && is_string($payload['FromFull']['Email'] ?? null) ? trim($payload['FromFull']['Email']) : '';
+    $domain = Str::afterLast($sender, '@');
+    $rawHeaders = collect($headers)->map(fn (string $value, string $name): string => "{$name}: {$value}")->implode("\r\n");
+    $recipients = fn (string $field): string => collect(is_array($payload[$field] ?? null) ? $payload[$field] : [])
+        ->map(fn (mixed $recipient): string => is_array($recipient) && is_string($recipient['Email'] ?? null) ? $recipient['Email'] : '')
+        ->filter()->implode(', ');
+    $addressHeaders = collect(['To' => $recipients('ToFull'), 'Cc' => $recipients('CcFull')])
+        ->filter()->map(fn (string $value, string $name): string => "{$name}: {$value}\r\n")->implode('');
+
+    return [
+        'From' => $sender,
+        'RawEmail' => "DKIM-Signature: v=1; a=rsa-sha256; d={$domain}; s=sel; h=from:to:cc:subject; bh=abc; b=def\r\nFrom: Mathias Hansen <{$sender}>\r\n{$addressHeaders}Subject: {$payload['Subject']}\r\n{$rawHeaders}\r\n\r\n" . (is_string($payload['TextBody']) ? $payload['TextBody'] : ''),
+        ...$payload,
+        ...array_intersect_key($overrides, ['From' => true, 'RawEmail' => true]),
+    ];
 }

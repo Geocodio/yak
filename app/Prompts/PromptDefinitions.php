@@ -199,6 +199,14 @@ class PromptDefinitions
                 'type' => 'agent',
                 'variables' => [],
             ],
+            'agents-task-title' => [
+                'view' => 'prompts.agents.task-title',
+                'label' => 'Task Title Writer',
+                'description' => 'Instructions for the TaskTitleAgent, which writes a short title for a task started by email, from the note and the forwarded subject. Failures are non-fatal: the title falls back to the subject without its Fwd: prefix.',
+                'category' => 'advanced',
+                'type' => 'agent',
+                'variables' => [],
+            ],
             'agents-pr-title' => [
                 'view' => 'prompts.agents.pr-title',
                 'label' => 'PR Title Writer',

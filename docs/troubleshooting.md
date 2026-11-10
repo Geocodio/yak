@@ -105,7 +105,7 @@ If the issue is `CLAUDE.md` coverage, update the `CLAUDE.md` file in the target 
 
 ## Webhooks Not Arriving
 
-Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, or trigger a Sentry alert) and nothing happens. No task appears on the dashboard.
+Symptoms: you `@yak` in Slack (or assign a Linear issue to Yak, trigger a Sentry alert, or forward an email) and nothing happens. No task appears on the dashboard.
 
 ### Checklist
 

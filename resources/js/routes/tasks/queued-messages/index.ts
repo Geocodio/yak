@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
 * @route '/tasks/{task}/queued-messages/{message}'
 */
-export const update = (args: { task: number | { id: number }, message: string | number } | [task: number | { id: number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -19,7 +19,7 @@ update.definition = {
 * @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
 * @route '/tasks/{task}/queued-messages/{message}'
 */
-update.url = (args: { task: number | { id: number }, message: string | number } | [task: number | { id: number }, message: string | number ], options?: RouteQueryOptions) => {
+update.url = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -47,7 +47,7 @@ update.url = (args: { task: number | { id: number }, message: string | number } 
 * @see app/Http/Controllers/Tasks/QueuedMessageController.php:20
 * @route '/tasks/{task}/queued-messages/{message}'
 */
-update.patch = (args: { task: number | { id: number }, message: string | number } | [task: number | { id: number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -57,7 +57,7 @@ update.patch = (args: { task: number | { id: number }, message: string | number 
 * @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
 * @route '/tasks/{task}/queued-messages/{message}'
 */
-export const destroy = (args: { task: number | { id: number }, message: string | number } | [task: number | { id: number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -72,7 +72,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
 * @route '/tasks/{task}/queued-messages/{message}'
 */
-destroy.url = (args: { task: number | { id: number }, message: string | number } | [task: number | { id: number }, message: string | number ], options?: RouteQueryOptions) => {
+destroy.url = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             task: args[0],
@@ -100,7 +100,7 @@ destroy.url = (args: { task: number | { id: number }, message: string | number }
 * @see app/Http/Controllers/Tasks/QueuedMessageController.php:43
 * @route '/tasks/{task}/queued-messages/{message}'
 */
-destroy.delete = (args: { task: number | { id: number }, message: string | number } | [task: number | { id: number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { task: string | number | { id: string | number }, message: string | number } | [task: string | number | { id: string | number }, message: string | number ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })

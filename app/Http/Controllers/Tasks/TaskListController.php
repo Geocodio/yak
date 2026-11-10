@@ -348,7 +348,7 @@ class TaskListController extends Controller
 
         $anyRepo = Repository::count() > 0;
         $registry = app(ChannelRegistry::class);
-        $anyChannelEnabled = collect(['slack', 'linear', 'sentry', 'github', 'drone'])
+        $anyChannelEnabled = collect(['slack', 'linear', 'sentry', 'email', 'github', 'drone'])
             ->contains(fn (string $channel) => $registry->for($channel)?->enabled() ?? false);
         $anyTask = YakTask::count() > 0;
 
@@ -363,7 +363,7 @@ class TaskListController extends Controller
                 ],
                 [
                     'title' => 'Connect a channel',
-                    'body' => 'Slack, Linear, or Sentry — tasks come in from configured channels.',
+                    'body' => 'Slack, Linear, Sentry, or email: tasks come in from configured channels.',
                     'done' => $anyChannelEnabled,
                     'url' => Docs::url('channels'),
                     'external' => true,

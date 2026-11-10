@@ -107,7 +107,15 @@ export default function Show({
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const hasQuestions = composer.state === 'questions' && questions !== null;
-    const [composerFill, setComposerFill] = useState<string | null>(null);
+    // A repo link in the email auto-reply (`?repo=<slug>`) prefills the
+    // answer to the "which repository?" question, if it is one of the offered
+    // options. The person still presses Send.
+    const [composerFill, setComposerFill] = useState<string | null>(() => {
+        const repo = new URLSearchParams(window.location.search).get('repo');
+        const isOffered = thread.some((entry) => entry.kind === 'clarification' && entry.options?.includes(repo ?? ''));
+
+        return task.status === 'awaiting_clarification' && repo !== null && isOffered ? repo : null;
+    });
     const [walkthroughOpen, setWalkthroughOpen] = useState(false);
     const walkthroughCloseRef = useRef<HTMLButtonElement>(null);
     const [tab, setTab] = useState<TaskTab>(() => {

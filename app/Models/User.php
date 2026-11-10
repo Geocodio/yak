@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Log;
@@ -76,5 +77,32 @@ class User extends Authenticatable
         }
 
         return $user;
+    }
+
+    /**
+     * @return HasMany<UserEmailAddress, $this>
+     */
+    public function emailAddresses(): HasMany
+    {
+        return $this->hasMany(UserEmailAddress::class);
+    }
+
+    /**
+     * The user who may send email to Yak from this address: the owner of the
+     * sign-in address, or of a confirmed extra address. Case and surrounding
+     * spaces are ignored. Unconfirmed extra addresses never match.
+     */
+    public static function findBySenderEmail(?string $email): ?self
+    {
+        $normalizedEmail = UserEmailAddress::normalize($email);
+
+        if ($normalizedEmail === '') {
+            return null;
+        }
+
+        return self::query()->whereRaw('lower(email) = ?', [$normalizedEmail])->first()
+            ?? self::query()
+                ->whereHas('emailAddresses', fn ($query) => $query->where('email', $normalizedEmail)->whereNotNull('confirmed_at'))
+                ->first();
     }
 }

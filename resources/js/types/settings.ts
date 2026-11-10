@@ -4,6 +4,12 @@ export type ProfileData = {
     hasUnverifiedEmail: boolean;
     directMessagesEnabled: boolean;
     github: { login: string; linkedAt: string } | null;
+    emailToYak: EmailToYakData | null;
+};
+
+export type EmailToYakData = {
+    inboundAddress: string;
+    addresses: { id: number; email: string; confirmed: boolean }[];
 };
 
 export type LinearConnectionData = {

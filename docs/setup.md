@@ -31,6 +31,7 @@ Only configure the channels you use. Everything except GitHub (for pushing branc
 | **Slack** | Slack app with bot token plus signing secret. |
 | **Linear** | OAuth application (client id + secret + webhook signing secret). Authorize at `/settings/linear`. Requires workspace admin approval. |
 | **Sentry** | Auth token plus webhook secret. An issue alert rule that notifies the integration. |
+| **Email** | Postmark server with an inbound stream (MX record on the inbound domain) and a verified sending domain. |
 | **Drone CI** | API token. Yak polls the Drone API — no webhook needed. |
 | **GitHub Actions** | Included with the GitHub App — no additional setup. |
 
@@ -141,6 +142,10 @@ linear_webhook_secret: ""
 sentry_auth_token: ""
 sentry_webhook_secret: ""
 sentry_org_slug: ""
+
+email_webhook_password: ""        # Postmark inbound webhook basic auth password
+email_inbound_address: ""         # e.g. yak@yak.example.com
+postmark_api_key: ""              # outbound mail; also sets MAIL_MAILER=postmark
 
 drone_url: ""
 drone_token: ""

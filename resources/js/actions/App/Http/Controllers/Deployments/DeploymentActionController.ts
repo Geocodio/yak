@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefa
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
-export const updateHibernation = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const updateHibernation = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: updateHibernation.url(args, options),
     method: 'patch',
 })
@@ -19,7 +19,7 @@ updateHibernation.definition = {
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
-updateHibernation.url = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+updateHibernation.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
@@ -52,7 +52,7 @@ updateHibernation.url = (args: { deployment: number | { id: number } } | [deploy
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:16
 * @route '/deployments/{deployment}/hibernation'
 */
-updateHibernation.patch = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+updateHibernation.patch = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: updateHibernation.url(args, options),
     method: 'patch',
 })
@@ -62,7 +62,7 @@ updateHibernation.patch = (args: { deployment: number | { id: number } } | [depl
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
-export const rebuild = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const rebuild = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rebuild.url(args, options),
     method: 'post',
 })
@@ -77,7 +77,7 @@ rebuild.definition = {
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
-rebuild.url = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+rebuild.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
@@ -110,7 +110,7 @@ rebuild.url = (args: { deployment: number | { id: number } } | [deployment: numb
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:51
 * @route '/deployments/{deployment}/rebuild'
 */
-rebuild.post = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+rebuild.post = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: rebuild.url(args, options),
     method: 'post',
 })
@@ -120,7 +120,7 @@ rebuild.post = (args: { deployment: number | { id: number } } | [deployment: num
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
-export const destroy = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -135,7 +135,7 @@ destroy.definition = {
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
-destroy.url = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+destroy.url = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { deployment: args }
     }
@@ -168,7 +168,7 @@ destroy.url = (args: { deployment: number | { id: number } } | [deployment: numb
 * @see app/Http/Controllers/Deployments/DeploymentActionController.php:58
 * @route '/deployments/{deployment}'
 */
-destroy.delete = (args: { deployment: number | { id: number } } | [deployment: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { deployment: string | number | { id: string | number } } | [deployment: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })

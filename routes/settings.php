@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\AccountController;
+use App\Http\Controllers\Settings\EmailAddressController;
 use App\Http\Controllers\Settings\GitHubAccountController;
 use App\Http\Controllers\Settings\LinearConnectionController;
 use App\Http\Controllers\Settings\ProfileController;
@@ -14,6 +15,12 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('settings/profile/direct-messages', [ProfileController::class, 'updateDirectMessages'])->name('profile.direct-messages.update');
     Route::post('settings/profile/resend-verification', [ProfileController::class, 'resendVerification'])->name('verification.resend');
+
+    Route::post('settings/profile/email-addresses', [EmailAddressController::class, 'store'])->name('profile.email-addresses.store');
+    Route::post('settings/profile/email-addresses/{emailAddress}/resend', [EmailAddressController::class, 'resend'])->name('profile.email-addresses.resend');
+    Route::delete('settings/profile/email-addresses/{emailAddress}', [EmailAddressController::class, 'destroy'])->name('profile.email-addresses.destroy');
+    Route::get('email-addresses/{emailAddress}/confirm', [EmailAddressController::class, 'show'])->middleware('signed')->name('email-addresses.confirm.show');
+    Route::post('email-addresses/{emailAddress}/confirm', [EmailAddressController::class, 'confirm'])->middleware('signed')->name('email-addresses.confirm');
 
     Route::get('settings/github/connect', [GitHubAccountController::class, 'connect'])->name('settings.github.connect');
     Route::get('settings/github/callback', [GitHubAccountController::class, 'callback'])->name('settings.github.callback');
