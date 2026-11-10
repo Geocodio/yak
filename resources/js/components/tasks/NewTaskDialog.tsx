@@ -1,6 +1,7 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, usePage } from '@inertiajs/react';
 import { BrandMarkIcon, Button, Dialog, Kbd, cn } from '@geocodio/console-ui';
-import { ChevronDown, Search, Wrench } from 'lucide-react';
+import { ChevronDown, Mail, Search, Wrench } from 'lucide-react';
+import { CopyableAddress } from '@/components/CopyableAddress';
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
@@ -9,6 +10,7 @@ import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import { RepoPicker } from '@/components/tasks/RepoPicker';
 import { YAK_MARK } from '@/lib/brand';
 import { store } from '@/routes/tasks';
+import type { SharedProps } from '@/types/shared';
 import type { MediaItem } from '@/types/tasks';
 
 type TaskMode = 'fix' | 'research';
@@ -45,6 +47,7 @@ export function NewTaskDialog({
     repoOptions: string[];
     defaultRepo: string | null;
 }) {
+    const { emailToYakAddress } = usePage<SharedProps>().props;
     const form = useForm<{ repo: string; mode: TaskMode; description: string; attachments: File[]; attachment_refs: string[] }>({
         repo: '',
         mode: 'fix',
@@ -243,6 +246,13 @@ export function NewTaskDialog({
             {error && (
                 <p className="px-[18px] pb-3 text-[12px] text-fail" data-testid="new-task-error">
                     {error}
+                </p>
+            )}
+
+            {emailToYakAddress && (
+                <p className="flex flex-wrap items-center gap-1.5 px-[18px] pb-3 text-[12px] text-muted" data-testid="new-task-email-hint">
+                    <Mail size={12} aria-hidden="true" />
+                    You can also forward an email to <CopyableAddress address={emailToYakAddress} label={null} />
                 </p>
             )}
 

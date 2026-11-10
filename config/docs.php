@@ -48,6 +48,7 @@ return [
         'channels.slack' => 'channels/#slack-optional',
         'channels.linear' => 'channels/#linear-optional',
         'channels.sentry' => 'channels/#sentry-optional',
+        'channels.email' => 'channels/#email-optional',
         'channels.drone' => 'channels/#drone-ci-optional',
         'channels.manual' => 'channels/#manual-cli-always-available',
         'channels.adding' => 'channels/#adding-a-new-channel',

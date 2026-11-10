@@ -3,6 +3,7 @@ export type SharedProps = {
     flash: { success?: string | null; error?: string | null; id?: string | null };
     nav: { activeTaskCount: number };
     docs: { baseUrl: string };
+    emailToYakAddress: string | null;
     attachmentLimits: { maxFiles: number; maxFileBytes: number };
 };
 

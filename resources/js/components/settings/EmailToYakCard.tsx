@@ -1,5 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import { Badge, Button, TextInput } from '@geocodio/console-ui';
+import { CopyableAddress } from '@/components/CopyableAddress';
 import { useRouterAction } from '@/lib/useRouterAction';
 import { destroy, resend, store } from '@/routes/profile/email-addresses';
 import type { EmailToYakData } from '@/types/settings';
@@ -20,7 +21,7 @@ export function EmailToYakCard({ signInEmail, emailToYak }: { signInEmail: strin
         <div className="rounded-card border border-hair bg-panel p-4 shadow-card" data-testid="email-to-yak-card">
             <div className="text-[13px] font-medium">Email to Yak</div>
             <div className="mt-0.5 max-w-xl text-[12px] text-muted">
-                Forward an email to <code className="rounded-chip bg-app px-1 font-mono text-[11.5px] text-body">{emailToYak.inboundAddress}</code> to
+                Forward an email to <CopyableAddress address={emailToYak.inboundAddress} /> to
                 start a task. Add a note at the top to tell Yak what to do. Yak only accepts mail from the confirmed addresses below.
             </div>
 

@@ -53,6 +53,14 @@ class ChannelController extends Controller
             'required' => false,
         ],
         [
+            'slug' => 'email',
+            'name' => 'Email',
+            'description' => 'Forward an email with a note on top and Yak starts a task. Accepted from your sign-in address and the extra addresses on your profile.',
+            'docs_anchor' => 'channels.email',
+            'health_check_id' => 'email',
+            'required' => false,
+        ],
+        [
             'slug' => 'drone',
             'name' => 'Drone CI',
             'description' => 'Polled for CI results when a repo uses Drone instead of GitHub Actions. No webhooks needed.',
@@ -70,7 +78,7 @@ class ChannelController extends Controller
     }
 
     /**
-     * @return list<array{name: string, slug: string, status: string, statusLabel: string, message: ?string, description: string, docsUrl: string, enabled: bool, required: bool}>
+     * @return list<array{name: string, slug: string, status: string, statusLabel: string, message: ?string, description: string, docsUrl: string, enabled: bool, required: bool, address: ?string}>
      */
     private function channels(): array
     {
@@ -101,6 +109,7 @@ class ChannelController extends Controller
                 'docsUrl' => Docs::url($meta['docs_anchor']),
                 'enabled' => $enabled,
                 'required' => $meta['required'],
+                'address' => $meta['slug'] === 'email' && $enabled ? (string) config('yak.channels.email.inbound_address') : null,
             ];
         }, self::CHANNELS));
     }

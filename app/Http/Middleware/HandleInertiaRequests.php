@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Channels\ChannelRegistry;
 use App\Enums\TaskStatus;
 use App\Models\YakTask;
 use Illuminate\Http\Request;
@@ -64,6 +65,10 @@ class HandleInertiaRequests extends Middleware
                 'activeTaskCount' => $user === null ? 0 : YakTask::query()->whereIn('status', TaskStatus::activeValues())->count(),
             ],
             'docs' => ['baseUrl' => (string) config('docs.base_url')],
+            // The address to forward email to, shown wherever tasks start; null while the email channel is off.
+            'emailToYakAddress' => fn () => app(ChannelRegistry::class)->for('email')?->enabled() === true
+                ? (string) config('yak.channels.email.inbound_address')
+                : null,
             'attachmentLimits' => [
                 'maxFiles' => (int) config('yak.attachments.max_files'),
                 'maxFileBytes' => (int) config('yak.attachments.max_file_kb') * 1024,

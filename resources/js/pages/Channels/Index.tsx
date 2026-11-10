@@ -1,8 +1,10 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { Badge, StackedTable, StackedTbody, StackedTd, StackedThead, StackedTr, StatusPill, Th, Tr } from '@geocodio/console-ui';
 import { ExternalLink } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { CopyableAddress } from '@/components/CopyableAddress';
 import { SettingsLayout } from '@/layouts/SettingsLayout';
+import { edit as profileEdit } from '@/routes/profile';
 import type { ChannelRow } from '@/types/health';
 import type { PageProps } from '@/types/shared';
 
@@ -48,6 +50,14 @@ export default function Index({ channels }: Props) {
                                     </StackedTd>
                                     <StackedTd label="Description" className="align-top text-[12.5px] leading-relaxed text-muted">
                                         {channel.description}
+                                        {channel.address && (
+                                            <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1" data-testid="email-channel-address">
+                                                <CopyableAddress address={channel.address} />
+                                                <Link href={profileEdit.url()} className="text-accent-text hover:underline">
+                                                    Manage your addresses
+                                                </Link>
+                                            </div>
+                                        )}
                                     </StackedTd>
                                     <StackedTd label="Docs" className="pr-4 align-top">
                                         <a

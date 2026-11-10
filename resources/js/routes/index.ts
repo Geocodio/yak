@@ -489,7 +489,7 @@ system.head = (args?: { path?: string | number } | [path: string | number ] | st
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:65
+* @see app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 export const channels = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -504,7 +504,7 @@ channels.definition = {
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:65
+* @see app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 channels.url = (options?: RouteQueryOptions) => {
@@ -513,7 +513,7 @@ channels.url = (options?: RouteQueryOptions) => {
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:65
+* @see app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 channels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -523,7 +523,7 @@ channels.get = (options?: RouteQueryOptions): RouteDefinition<'get'> => ({
 
 /**
 * @see \App\Http\Controllers\ChannelController::__invoke
-* @see app/Http/Controllers/ChannelController.php:65
+* @see app/Http/Controllers/ChannelController.php:73
 * @route '/channels'
 */
 channels.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
