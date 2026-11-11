@@ -70,11 +70,6 @@ class ThreadCommands
         $this->placeholders->revoke($thread);
     }
 
-    public function rebindPlaceholderGeneration(Thread $thread): void
-    {
-        $this->placeholders->rebindGeneration($thread);
-    }
-
     public function turn(Thread $thread, string $uuid, string $text, ?string $priority = null): void
     {
         $this->send($thread, $this->message('turn', $uuid, $text, $priority));

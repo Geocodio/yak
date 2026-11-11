@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Cache;
  * Placeholders for the auth proxy. A sandbox only ever holds a placeholder
  * (`yakph-` plus 32 random bytes). It is bound to one subject (a thread or a
  * run id), one account and one container ip. A thread placeholder is also
- * bound to the runner generation and the sandbox container it was issued for,
- * and stops resolving when either changes, the thread closes or the sandbox is
+ * bound to the sandbox container it was issued for, and only the newest
+ * placeholder of a subject is live. It stops resolving when the container changes, the thread closes or the sandbox is
  * destroyed. The proxy redeems it over the
  * credential socket. Only the sha256 of the placeholder is stored, never the
  * placeholder or the account secret.
@@ -22,7 +22,7 @@ class AuthProxyPlaceholders
 {
     public const PREFIX = 'yakph-';
 
-    /** Backstop for thread placeholders; revocation and the generation check are the real controls. */
+    /** Backstop for thread placeholders; revocation and the one-live-placeholder rule are the real controls. */
     private const THREAD_TTL_SECONDS = 604_800;
 
     /** Extra minutes beyond one turn's wall clock for placeholders of one-shot runs. */
@@ -46,7 +46,6 @@ class AuthProxyPlaceholders
             'account_id' => $account->id,
             'container_ip' => $containerIp,
             'subject' => $subjectKey,
-            'generation' => $subject instanceof Thread ? $subject->runner_generation : null,
             'container' => $containerName,
         ], $ttl);
         $this->store()->put('auth-proxy-subject:' . $subjectKey, $hash, $ttl);
@@ -60,22 +59,6 @@ class AuthProxyPlaceholders
 
         if (is_string($hash)) {
             $this->store()->forget('auth-proxy-placeholder:' . $hash);
-        }
-    }
-
-    /**
-     * Follows the thread's runner generation once the broker reports the new
-     * runner started, so the placeholder issued for that runner keeps resolving.
-     */
-    public function rebindGeneration(Thread $thread): void
-    {
-        $subjectKey = $this->subjectKey($thread);
-        $hash = $this->store()->get('auth-proxy-subject:' . $subjectKey);
-        $binding = is_string($hash) ? $this->store()->get('auth-proxy-placeholder:' . $hash) : null;
-
-        if (is_array($binding)) {
-            $binding['generation'] = $thread->runner_generation;
-            $this->store()->put('auth-proxy-placeholder:' . $hash, $binding, self::THREAD_TTL_SECONDS);
         }
     }
 
@@ -115,7 +98,6 @@ class AuthProxyPlaceholders
 
         return $thread !== null
             && $thread->isOpen()
-            && $thread->runner_generation === ($binding['generation'] ?? null)
             && ! in_array($thread->sandbox_state, [ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true)
             && $thread->sandbox_container === ($binding['container'] ?? null);
     }

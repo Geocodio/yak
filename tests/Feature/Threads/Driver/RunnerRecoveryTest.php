@@ -34,7 +34,6 @@ function lostRunnerTurn(array $runAttributes = [], TurnMessageState $promptState
 
     $commands = Mockery::mock(ThreadCommands::class);
     $commands->shouldReceive('revokePlaceholder')->byDefault();
-    $commands->shouldReceive('rebindPlaceholderGeneration')->byDefault();
     app()->instance(ThreadCommands::class, $commands);
 
     return [$thread, $run, $commands];

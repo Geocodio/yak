@@ -122,16 +122,15 @@ it('keeps two threads independent', function () {
         ->and($this->placeholders->resolve($b, '10.100.0.7'))->not->toBeNull();
 });
 
-it('stops resolving when the runner generation moves on', function () {
+it('keeps one live placeholder per thread and resolves a new one immediately', function () {
     $thread = Thread::factory()->create(['sandbox_container' => 'yak-thread-1']);
-    $placeholder = $this->placeholders->issue($thread, ClaudeAccount::factory()->create(), '10.100.0.6');
+    $account = ClaudeAccount::factory()->create();
+    $first = $this->placeholders->issue($thread, $account, '10.100.0.6');
     $thread->forceFill(['runner_generation' => 1])->save();
+    $second = $this->placeholders->issue($thread, $account, '10.100.0.6');
 
-    expect($this->placeholders->resolve($placeholder, '10.100.0.6'))->toBeNull();
-
-    $this->placeholders->rebindGeneration($thread);
-
-    expect($this->placeholders->resolve($placeholder, '10.100.0.6'))->not->toBeNull();
+    expect($this->placeholders->resolve($first, '10.100.0.6'))->toBeNull()
+        ->and($this->placeholders->resolve($second, '10.100.0.6')?->is($account))->toBeTrue();
 });
 
 it('stops resolving once the sandbox is destroying or destroyed', function (string $state) {
