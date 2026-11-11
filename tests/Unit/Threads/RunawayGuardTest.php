@@ -58,3 +58,17 @@ it('words the stop message per reason', function () {
     expect($guard->message(RunawayGuard::WALL_CLOCK, 10))
         ->toBe('Yak stopped this turn after 60 minutes. Reply or press Continue to keep going.');
 });
+
+it('trips wall clock for a run whose agent_started_at is a mutable Carbon', function () {
+    config(['yak.threads.turn_wall_clock_minutes' => 240]);
+    $now = CarbonImmutable::now();
+
+    $run = new TaskRun;
+    $run->agent_started_at = now()->subMinutes(241);
+    expect((new RunawayGuard)->check($run, $now, 0))->toBe(RunawayGuard::WALL_CLOCK);
+
+    $run = new TaskRun;
+    $run->agent_started_at = now()->subMinutes(239);
+    expect((new RunawayGuard)->check($run, $now, 0))->toBeNull();
+    expect((new RunawayGuard)->check($run, $now, (int) config('yak.max_turns')))->toBe(RunawayGuard::ASSISTANT_TURNS);
+});
