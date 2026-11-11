@@ -21,10 +21,14 @@ export type ThreadData = {
     rootThreadId: number | null;
     lastActivityAt: string | null;
     repositories: ThreadRepositoryData[];
+    isOwner: boolean;
+    sharedWithCount: number;
+    startedOnDevice: boolean;
 };
 
 /** Props of the `Threads/Show` page; mirrors `App\Http\Resources\ThreadPageData`. */
 export type ThreadPageData = {
     thread: ThreadData;
     canDrive: boolean;
+    publishWarning: boolean;
 };
