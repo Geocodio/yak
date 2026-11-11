@@ -4,10 +4,32 @@ import { IconButton, cn } from '@geocodio/console-ui';
 import { SECTION_COPY } from '@/components/shell/sections';
 import type { RailSection } from '@/components/shell/sections';
 import { isActive } from '@/components/Sidebar';
+import { deployments, observations, prReviews, repos } from '@/routes';
+import { edit as editRepository } from '@/routes/repos';
+import type { SharedProps } from '@/types/shared';
+
+type Trailing = { text: string; className: string };
+
+/** Right-aligned live figure per Operations row; hidden when absent or zero. */
+function operationsTrailing(panel: SharedProps['operationsPanel']): Record<string, Trailing | undefined> {
+    if (!panel) {
+        return {};
+    }
+    const entry = (count: number, text: string, className: string): Trailing | undefined => (count > 0 ? { text, className } : undefined);
+
+    return {
+        [repos.url()]: entry(panel.counts.repositories, String(panel.counts.repositories), 'text-muted'),
+        [deployments.url()]: entry(panel.deploymentsRunning, `${panel.deploymentsRunning} running`, 'text-ok') ?? entry(panel.counts.deployments, String(panel.counts.deployments), 'text-muted'),
+        [prReviews.url()]: entry(panel.prReviewsOpen, `${panel.prReviewsOpen} open`, 'text-muted') ?? entry(panel.counts.prReviews, String(panel.counts.prReviews), 'text-muted'),
+        [observations.url()]: entry(panel.observationsNew, `${panel.observationsNew} new`, 'text-warn') ?? entry(panel.counts.observations, String(panel.counts.observations), 'text-muted'),
+    };
+}
 
 /** The Operations, Insights and Settings drawers: a description line and the section's pages. */
 export function SectionPanel({ section, touch = false, onNavigate, onCollapse }: { section: Exclude<RailSection, 'threads'>; touch?: boolean; onNavigate?: () => void; onCollapse?: () => void }) {
-    const { url } = usePage();
+    const { url, props } = usePage<SharedProps>();
+    const operationsPanel = section === 'operations' ? props.operationsPanel : null;
+    const trailing = operationsTrailing(operationsPanel);
     const { title, description, items, groups } = SECTION_COPY[section];
     const navGroups = groups ?? [{ title: '', items: items ?? [] }];
 
@@ -43,12 +65,33 @@ export function SectionPanel({ section, touch = false, onNavigate, onCollapse }:
                                 >
                                     <Icon size={touch ? 18 : 15} />
                                     <span className="flex-1">{item.label}</span>
+                                    {trailing[item.url] ? <span className={cn('text-[11.5px] tabular-nums', trailing[item.url]?.className)}>{trailing[item.url]?.text}</span> : null}
                                 </Link>
                             );
                         })}
                     </div>
                 ))}
             </nav>
+            {operationsPanel && operationsPanel.repositories.length > 0 ? (
+                <div className="flex flex-col gap-px px-2" data-testid="ops-repositories">
+                    <div className="px-2 pb-1 pt-4 text-[11px] font-medium text-faint">Repositories</div>
+                    {operationsPanel.repositories.map((repository) => (
+                        <Link
+                            key={repository.slug}
+                            href={editRepository.url(repository.slug)}
+                            onClick={onNavigate}
+                            data-testid={`ops-repo-${repository.slug}`}
+                            className={cn(touch ? 'min-h-11' : 'min-h-9', 'flex items-center gap-2 rounded-control px-2 py-1 hover:bg-panel-2')}
+                        >
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-control bg-panel-2 text-[9px] font-semibold text-muted">{repository.initials}</span>
+                            <span className="flex min-w-0 flex-col">
+                                <span className="truncate font-mono text-[12px] text-body">{repository.slug}</span>
+                                <span className={cn('text-[11px]', repository.status.endsWith('needs you') ? 'text-brand' : 'text-faint')}>{repository.status}</span>
+                            </span>
+                        </Link>
+                    ))}
+                </div>
+            ) : null}
         </div>
     );
 }

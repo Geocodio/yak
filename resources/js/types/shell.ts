@@ -19,3 +19,11 @@ export type ThreadListData = {
     threads: ThreadListRow[];
     needsYouCount: number;
 };
+
+export type OperationsPanelData = {
+    counts: { repositories: number; deployments: number; prReviews: number; observations: number };
+    deploymentsRunning: number;
+    prReviewsOpen: number;
+    observationsNew: number;
+    repositories: { slug: string; initials: string; status: string }[];
+};

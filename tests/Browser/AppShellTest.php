@@ -1,9 +1,13 @@
 <?php
 
+use App\Models\BranchDeployment;
+use App\Models\Repository;
 use App\Models\User;
 
 test('the app shell renders the sidebar nav and the command palette opens', function () {
     $this->actingAs(User::factory()->create());
+    Repository::factory()->create(['slug' => 'acme/widgets', 'name' => 'Acme Widgets']);
+    BranchDeployment::factory()->running()->count(3)->create();
 
     $page = visit('/repos');
 
@@ -16,6 +20,11 @@ test('the app shell renders the sidebar nav and the command palette opens', func
         'insights' => ['Analytics', 'Costs', 'Health'],
         'settings' => ['Prompts', 'Skills', 'MCP servers', 'System'],
     ];
+
+    $page->click('[data-testid="rail-operations"]')
+        ->assertVisible('[data-testid="ops-repo-acme/widgets"]')
+        ->assertSee('3 running')
+        ->assertSee('Quiet');
 
     foreach ($sections as $section => $labels) {
         $page->click('[data-testid="rail-' . $section . '"]')
