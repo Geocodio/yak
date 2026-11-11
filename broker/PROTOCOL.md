@@ -109,3 +109,27 @@ The secret is never written to disk or logged. The proxy may keep a reply in mem
 | `YAK_BROKER_CREDENTIALS_FILE` | Credentials file to check when a `start_runner` has no `credentials_path`. |
 | `YAK_BROKER_SHARED_CLAUDE_REFRESH_SHA256` | Comma list of sha256 hex digests of the refresh tokens of the shared Yak Claude account(s) that may appear as `claudeAiOauth`. |
 | `YAK_BROKER_CREDENTIAL_SOCKET` | Unix socket the auth proxy listens on, default `/var/lib/yak/credentials/redeem.sock`. |
+
+## 7. Auth proxy
+
+The broker runs an auth proxy for the sandboxes. A sandbox's Claude process talks to the proxy with a placeholder token and never holds a real credential. The proxy asks the Yak app for the real one over a Unix socket and swaps it in.
+
+Credential socket: path from `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), owner-only. The PHP side checks the peer credentials of every connection. One request line, one reply line, then the connection closes.
+
+Request: `{"placeholder": "...", "container_ip": "..."}`
+
+Reply: `{"kind": "setup_token"|"api_key", "secret": "...", "account_id": N}`, or `{"error": "unknown"}` when the placeholder is unknown, revoked or not bound to that address.
+
+The IP binding is enforced by the app, never by the proxy. The proxy sends the TCP peer address of the incoming connection as `container_ip` and ignores `X-Forwarded-For`, `Forwarded` and every other client-supplied address header. Placeholders used for host-side validation are bound by the app to the address the host connects from (loopback or the bridge address).
+
+Allowlist: `POST /v1/messages`, `POST /v1/messages/count_tokens`, and `HEAD /api/hello` (the CLI startup probe, forwarded without a credential). Every other method and path gets 404.
+
+Header injection: the inbound `x-api-key` and `Authorization` headers are removed. A `setup_token` credential sets `Authorization: Bearer <secret>`; an `api_key` credential sets `x-api-key: <secret>`. Requests and responses stream without buffering, and status, headers and body are relayed verbatim.
+
+Cache: credentials are cached in memory only, per placeholder and sandbox address, for 30 seconds. `AuthProxy.Revoke(placeholder)` drops a placeholder's entries and the broker calls it when a runner exits. An upstream 401 also drops the cached entry so a rotated secret is re-fetched on the next request.
+
+Status mapping: 401 unknown or missing placeholder, 404 path not allowed, 502 upstream failure, 503 credential service down or replying garbage. Error bodies are generic and never contain the secret, the placeholder or the socket path.
+
+Logging: every non-200 upstream response is logged with its status, safe headers and body shape (JSON key names, `error.type`, length). Body values, the secret and the placeholder are never logged.
+
+Wiring: `NewAuthProxy(SocketCredentialSource{Path: socketPath}, upstreamURL, logger)`, then `Serve(ctx, listener)` on the bridge address. `Serve` shuts down gracefully on `ctx.Done` (10 s drain), uses a 10 s `ReadHeaderTimeout` and has no write timeout.
