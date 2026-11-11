@@ -516,12 +516,21 @@ func printDownPlan(d Deps, m api.DownManifest, mode, top string) {
 		case r.Status == "failed":
 			d.say("  %s: Yak could not push it, it will not be brought down", r.Repo)
 		default:
-			d.say("  %s -> %s (fresh clone)", r.Repo, filepath.Join(extrasRoot, repoName(r.Repo)))
+			d.say("  %s -> %s (fresh clone)", r.Repo, filepath.Join(extrasRoot, extraFolder(r)))
 		}
 	}
 	if len(m.ContextRepos) > 0 {
 		d.say("  Context repos stay on Yak: %s", strings.Join(m.ContextRepos, ", "))
 	}
+}
+
+// extraFolder names the local clone folder after the extra's sandbox path, so two extras with the same short
+// name stay apart. Older manifests without a sandbox path fall back to the short name.
+func extraFolder(r api.ManifestRepo) string {
+	if r.SandboxPath != "" {
+		return filepath.Base(r.SandboxPath)
+	}
+	return repoName(r.Repo)
 }
 
 func repoName(slug string) string { return slug[strings.LastIndex(slug, "/")+1:] }
@@ -552,7 +561,7 @@ func shortSHA(sha string) string {
 // cloneExtra clones a secondary repo without checking anything out, runs the same clash check, then checks out
 // the thread's commit. A failure is reported for that repo and never blocks the primary.
 func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
-	path := filepath.Join(root, repoName(extra.Repo))
+	path := filepath.Join(root, extraFolder(extra))
 	failed := func(reason string) AppliedRepo {
 		return AppliedRepo{Repo: extra.Repo, Status: "failed", Mode: "clone", Reason: reason}
 	}
@@ -623,6 +632,9 @@ func writeNote(d Deps, m api.DownManifest, applied []AppliedRepo, resumeDir, pro
 		mapping := CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/extras/<repo>"), "<repo>", repoName(a.Repo)), LocalPath: a.Path}
 		for _, r := range m.Repos {
 			if r.Repo == a.Repo {
+				if r.SandboxPath != "" {
+					mapping.SandboxPath = r.SandboxPath
+				}
 				for _, rule := range r.Refresh {
 					mapping.Refresh = append(mapping.Refresh, RefreshRule{Glob: rule.Glob, Command: rule.Command})
 				}

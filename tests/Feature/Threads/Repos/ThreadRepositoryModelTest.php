@@ -7,6 +7,11 @@ use App\Models\ThreadDiffRepository;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
 
+it('sandboxPathFor gives a colliding short name its owner prefix', function () {
+    expect(ThreadRepository::sandboxPathFor('other/lib', RepositoryRole::Changes, ['/extras/lib']))->toBe('/extras/other-lib')
+        ->and(ThreadRepository::sandboxPathFor('other/lib', RepositoryRole::Changes, []))->toBe('/extras/lib');
+});
+
 it('maps a slug to its sandbox path', function () {
     expect(ThreadRepository::sandboxPathFor('acme/lib', RepositoryRole::Changes))->toBe('/extras/lib')
         ->and(ThreadRepository::sandboxPathFor('acme/lib', RepositoryRole::Context))->toBe('/extras/lib')

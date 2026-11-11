@@ -99,9 +99,18 @@ class ThreadRepository extends Model
         return in_array($this->role, [RepositoryRole::Primary, RepositoryRole::Changes], true);
     }
 
-    public static function sandboxPathFor(string $slug, RepositoryRole $role): string
+    /**
+     * @param  list<string>  $takenPaths
+     */
+    public static function sandboxPathFor(string $slug, RepositoryRole $role, array $takenPaths = []): string
     {
-        return $role === RepositoryRole::Primary ? '/workspace' : '/extras/' . Str::afterLast($slug, '/');
+        if ($role === RepositoryRole::Primary) {
+            return '/workspace';
+        }
+
+        $path = '/extras/' . Str::afterLast($slug, '/');
+
+        return in_array($path, $takenPaths, true) ? '/extras/' . str_replace('/', '-', $slug) : $path;
     }
 
     public function hasOpenPullRequest(): bool

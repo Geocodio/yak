@@ -4,9 +4,12 @@ use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
 use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\WipPreserver;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Process;
+use Tests\Support\ExtrasGit;
 use Tests\Support\LocalGitSandboxManager;
 
 beforeEach(function () {
@@ -146,4 +149,19 @@ test('wip commit sha is recorded', function () {
     $result = app(WipPreserver::class)->preserve($thread);
 
     expect($thread->fresh()->wip_commit_sha)->toBe($result->sha)->toBe($this->git->git(['rev-parse', $this->git->branch]));
+});
+
+test('preserveAll still pushes the extra when the primary push fails, then rethrows', function () {
+    $thread = wipThread($this->git);
+    $bare = ExtrasGit::seedBare($this->wipTempDir, 'lib');
+    $path = "{$this->git->workspace}/extras/lib";
+    Process::run(['git', 'clone', $bare, $path])->throw();
+    Process::path($path)->run(['git', 'checkout', '-b', $this->git->branch])->throw();
+    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'branch' => $this->git->branch, 'sandbox_path' => $path]);
+    file_put_contents("{$this->git->workspace}/work.txt", 'primary');
+    file_put_contents("{$path}/extra.txt", 'extra');
+    $this->git->rejectPushes();
+
+    expect(fn () => app(WipPreserver::class)->preserveAll($thread))->toThrow(SandboxCommandFailed::class)
+        ->and(trim(Process::path($bare)->run(['git', 'show', "{$this->git->branch}:extra.txt"])->output()))->toBe('extra');
 });

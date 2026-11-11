@@ -13,6 +13,7 @@ use App\Models\StackMessage;
 use App\Models\StackThreadMessage;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Stacks\ChildOutcomeRecorder;
@@ -100,6 +101,43 @@ it('keeps the sandbox and reports a failure when the push fails', function () {
         ->and($row->text)->toContain('could not be pushed')
         ->and($child->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
         ->and(collect($this->sandbox->calls)->where('operation', 'destroy'))->toBeEmpty();
+});
+
+function queueExtraPush($test, bool $pushSucceeds): void
+{
+    $test->sandbox->queueExecResult(Process::result(" M b.php\n"));
+    $test->sandbox->queueExecResult(Process::result("1\n"));
+    $test->sandbox->queueExecResult(Process::result());
+    $test->sandbox->queueExecResult(Process::result());
+    $test->sandbox->queueExecResult(Process::result(exitCode: $pushSucceeds ? 0 : 1, errorOutput: 'rejected'));
+    $test->sandbox->queueExecResult(Process::result($pushSucceeds ? "def456\n" : ''));
+}
+
+it('pushes a dirty changes extra before destroying the child sandbox', function () {
+    $child = outcomeChild($this);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $child->id, 'repo' => 'acme/lib', 'branch' => 'yak/parent/scout', 'sandbox_path' => '/workspace/extras/lib']);
+    queuePushResults($this, true);
+    queueExtraPush($this, true);
+
+    app(ChildOutcomeRecorder::class)->recordFinished($child, outcomeRun($child));
+
+    $pushedExtra = collect($this->sandbox->calls)->contains(fn (array $call): bool => in_array('/workspace/extras/lib', $call['arguments']['command'] ?? [], true));
+
+    expect(StackThreadMessage::query()->sole()->kind)->toBe(StackThreadMessageKind::Result)
+        ->and($child->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed)
+        ->and($pushedExtra)->toBeTrue();
+});
+
+it('keeps the sandbox when the extra push fails', function () {
+    $child = outcomeChild($this);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $child->id, 'repo' => 'acme/lib', 'branch' => 'yak/parent/scout', 'sandbox_path' => '/workspace/extras/lib']);
+    queuePushResults($this, true);
+    queueExtraPush($this, false);
+
+    app(ChildOutcomeRecorder::class)->recordFinished($child, outcomeRun($child));
+
+    expect(StackThreadMessage::query()->sole()->kind)->toBe(StackThreadMessageKind::Failure)
+        ->and($child->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
 });
 
 it('lists mockup artifacts in the result', function () {

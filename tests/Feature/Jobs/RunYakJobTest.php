@@ -12,6 +12,7 @@ use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\Repository;
 use App\Models\TaskRun;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -38,6 +39,18 @@ it('prepares the branch, writes one initial turn and pushes nothing', function (
         ->and($context['shell']->commandsMatching('git checkout -B yak/ISSUE-42 origin/main'))->toHaveCount(1)
         ->and($context['shell']->commandsMatching('git push'))->toBe([]);
     Queue::assertNotPushed(ProcessCIResultJob::class);
+});
+
+it('gives start-time changes extras the thread branch and leaves context extras alone', function () {
+    Queue::fake();
+    $context = pendingRunYak(['external_id' => 'ISSUE-43']);
+    $changes = ThreadRepository::factory()->changes()->create(['thread_id' => $context['thread']->id, 'repo' => 'acme/lib', 'branch' => null]);
+    $docs = ThreadRepository::factory()->context()->create(['thread_id' => $context['thread']->id, 'repo' => 'acme/docs', 'branch' => null]);
+
+    (new RunYakJob($context['task']))->handle();
+
+    expect($changes->fresh()->branch)->toBe('yak/ISSUE-43')
+        ->and($docs->fresh()->branch)->toBeNull();
 });
 
 it('adds a counter suffix when the remote already has the branch', function () {

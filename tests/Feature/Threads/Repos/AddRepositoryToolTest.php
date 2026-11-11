@@ -82,6 +82,19 @@ it('adds a changes repository and returns its path', function () {
         ->and($row->setup_status)->toBe(RepositorySetupStatus::Ready);
 });
 
+it('gives a repository with a colliding short name an owner-prefixed path', function () {
+    ThreadRepository::factory()->create(['thread_id' => $this->thread->id, 'repo' => 'acme/docs', 'role' => RepositoryRole::Changes, 'sandbox_path' => '/extras/docs']);
+    Repository::factory()->create(['slug' => 'other/docs']);
+    fakeReachableRepositories(['other/docs']);
+    queueSetup();
+
+    $result = app(YakToolRouter::class)->handle($this->thread, addRepositoryCall(['repo' => 'other/docs', 'reason' => 'Needs it']));
+
+    expect($result->isError)->toBeFalse()
+        ->and($result->content)->toContain('/extras/other-docs')
+        ->and($this->thread->repositories()->where('repo', 'other/docs')->value('sandbox_path'))->toBe('/extras/other-docs');
+});
+
 it('stores the context role', function () {
     Repository::factory()->create(['slug' => 'acme/docs']);
     fakeReachableRepositories();

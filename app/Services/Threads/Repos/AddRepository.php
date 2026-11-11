@@ -33,16 +33,13 @@ class AddRepository
             return new AddRepositoryOutcome('invalid', message: 'Give a repository as owner/name, with role changes or context.');
         }
 
-        $path = ThreadRepository::sandboxPathFor($slug, $role);
         $existing = $thread->repositories()->where('repo', $slug)->first();
 
         if ($existing !== null) {
             return new AddRepositoryOutcome('duplicate', $existing->sandbox_path);
         }
 
-        if ($thread->repositories()->where('sandbox_path', $path)->exists()) {
-            return new AddRepositoryOutcome('invalid', message: "Another repository already uses {$path}.");
-        }
+        $path = ThreadRepository::sandboxPathFor($slug, $role, array_values($thread->repositories()->get()->map(fn (ThreadRepository $repository): string => $repository->sandbox_path)->all()));
 
         $result = $this->access->check($slug);
 

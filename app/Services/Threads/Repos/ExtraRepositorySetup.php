@@ -26,7 +26,7 @@ class ExtraRepositorySetup
 
     private const MIRROR_DIRECTORY = '/var/cache/yak/mirrors';
 
-    public function __construct(private SandboxManager $sandboxes, private RefreshTriggers $refresh) {}
+    public function __construct(private SandboxManager $sandboxes, private RefreshTriggers $refresh, private ThreadRepositoryBranches $branches) {}
 
     public function setUp(Thread $thread, ThreadRepository $repository): RepositorySetupResult
     {
@@ -71,7 +71,7 @@ class ExtraRepositorySetup
 
         foreach ($cloneOk as $index) {
             $repository = $repositories[$index];
-            $this->transition($thread, $repository, RepositorySetupStatus::Setup, $repository->role === RepositoryRole::Changes && filled($thread->branch) ? ['branch' => $thread->branch] : []);
+            $this->transition($thread, $repository, RepositorySetupStatus::Setup, $this->branchAttributes($thread, $repository));
         }
 
         $work = $cloneOk === [] ? [] : $this->planWork($thread, $repositories, $cloneOk);
@@ -116,6 +116,16 @@ class ExtraRepositorySetup
         return $results;
     }
 
+    /**
+     * @return array<string, string>
+     */
+    private function branchAttributes(Thread $thread, ThreadRepository $repository): array
+    {
+        $branch = $repository->role === RepositoryRole::Changes && $repository->branch === null ? $this->branches->branchFor($thread, $repository) : null;
+
+        return $branch === null ? [] : ['branch' => $branch];
+    }
+
     private function cloneBody(Thread $thread, ThreadRepository $repository): string
     {
         $slug = $repository->repo;
@@ -126,8 +136,10 @@ class ExtraRepositorySetup
 
         $lines = ["[ -d {$destination}/.git ] || git clone --reference-if-able {$mirror} --dissociate {$url} {$destination} || exit \$?", "cd {$destination} || exit \$?"];
 
-        if ($repository->role === RepositoryRole::Changes && filled($thread->branch)) {
-            $branch = escapeshellarg((string) $thread->branch);
+        $changesBranch = $repository->role === RepositoryRole::Changes ? $this->branches->branchFor($thread, $repository) : null;
+
+        if ($changesBranch !== null) {
+            $branch = escapeshellarg($changesBranch);
             $lines[] = "if git fetch origin {$branch}; then git checkout -B {$branch} FETCH_HEAD; else git checkout -B {$branch} origin/{$default}; fi";
         } else {
             $lines[] = "git checkout {$default}";

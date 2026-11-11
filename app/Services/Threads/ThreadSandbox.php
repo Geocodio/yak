@@ -385,7 +385,7 @@ class ThreadSandbox
     private function preserveWork(Thread $thread): bool
     {
         try {
-            $this->wip->preserve($thread);
+            $this->wip->preserveAll($thread);
 
             return true;
         } catch (Throwable $exception) {

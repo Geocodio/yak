@@ -14,6 +14,7 @@ use App\Services\Teleport\BranchHeadVerifier;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeSandboxManager;
+use App\Services\Threads\Repos\ThreadRepositoryBranches;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\File;
@@ -103,6 +104,22 @@ it('commits and pushes a dirty extra and records its head', function () {
         ->and($teleport->branch_heads)->toEqual($this->pushedHeads)
         ->and($teleport->payload['wip_commit_made'])->toBe(['acme/widgets' => true, 'acme/api' => true])
         ->and($teleport->payload['repo_failures'])->toBe([]);
+});
+
+it('commits the edits of a start-time changes extra once it has been assigned the thread branch', function () {
+    ThreadRepository::factory()->role(RepositoryRole::Changes)->create(['thread_id' => $this->thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/extras/docs-edit', 'branch' => null]);
+    app(ThreadRepositoryBranches::class)->assign($this->thread);
+    $this->pushedHeads = [
+        'acme/widgets' => ($this->headOfPath)('/workspace'),
+        'acme/api' => ($this->headOfPath)('/extras/api'),
+        'acme/lib' => ($this->headOfPath)('/extras/docs-edit'),
+    ];
+
+    $teleport = ($this->run)();
+
+    expect($teleport->state)->toBe(TeleportState::Ready)
+        ->and($teleport->payload['wip_commit_made']['acme/lib'])->toBeTrue()
+        ->and($teleport->branch_heads)->toHaveKey('acme/lib');
 });
 
 it('does not touch a context repo', function () {

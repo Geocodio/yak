@@ -29,7 +29,7 @@ it('runs a thread with a primary, a changes and a context repo from push to clos
     foreach (['acme/api', 'acme/web', 'acme/docs'] as $slug) {
         Repository::factory()->create(['slug' => $slug, 'github_full_name' => $slug, 'default_branch' => 'main', 'ci_system' => 'github_actions']);
     }
-    $thread = Thread::factory()->create(['title' => 'Rename the widget', 'sandbox_state' => ThreadSandboxState::Running]);
+    $thread = Thread::factory()->create(['title' => 'Rename the widget', 'branch' => 'yak/rename', 'sandbox_state' => ThreadSandboxState::Running]);
     $api = ThreadRepository::factory()->for($thread)->create(['repo' => 'acme/api', 'branch' => 'yak/rename']);
     $web = ThreadRepository::factory()->for($thread)->changes()->create(['repo' => 'acme/web', 'sandbox_path' => '/workspace/web']);
     $docs = ThreadRepository::factory()->for($thread)->context()->create(['repo' => 'acme/docs', 'sandbox_path' => '/workspace/docs']);
@@ -51,7 +51,7 @@ it('runs a thread with a primary, a changes and a context repo from push to clos
     app(ThreadRepositoryPullRequests::class)->publishChangedRepositories($thread);
 
     $web->refresh();
-    expect($web->branch)->toBe('yak/rename-web')->and($web->ci_status)->toBe('running');
+    expect($web->branch)->toBe('yak/rename')->and($web->ci_status)->toBe('running');
     $touchedDocs = collect($sandboxes->calls)->contains(fn ($call) => str_contains(implode(' ', $call['arguments']['command'] ?? []), '/workspace/docs'));
     expect($touchedDocs)->toBeFalse();
 
