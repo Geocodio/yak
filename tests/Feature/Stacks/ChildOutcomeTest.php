@@ -191,3 +191,50 @@ it('notifies the owner on usage limit with generic text for private threads', fu
         && ! str_contains($mail->notice, 'Secret migration plan')
         && ! str_contains($mail->notice, 'scout'));
 });
+
+it('records an implement child result once when TurnCompleted is dispatched twice', function () {
+    $child = outcomeChild($this);
+    queuePushResults($this, true);
+    $run = outcomeRun($child);
+
+    event(new TurnCompleted($run));
+    event(new TurnCompleted($run));
+
+    $operations = collect($this->sandbox->calls)->where('threadId', $child->id)->pluck('operation');
+
+    expect(StackThreadMessage::query()->where('from_thread_id', $child->id)->count())->toBe(1)
+        ->and($operations->where(fn ($operation) => $operation === 'destroy')->count())->toBe(1);
+});
+
+it('records a failed child once when TurnFailed is dispatched twice', function () {
+    $child = outcomeChild($this);
+    $run = outcomeRun($child, TurnState::Failed);
+
+    event(new TurnFailed($run));
+    event(new TurnFailed($run));
+
+    expect(StackThreadMessage::query()->where('from_thread_id', $child->id)->count())->toBe(1);
+});
+
+it('releases the claim when the recorder throws so a redispatch records', function () {
+    $child = outcomeChild($this, ['kind' => ThreadKind::Research, 'branch' => null]);
+    $run = outcomeRun($child);
+    $real = app(ChildOutcomeRecorder::class);
+    $attempts = 0;
+    $recorder = Mockery::mock(ChildOutcomeRecorder::class);
+    $recorder->shouldReceive('recordFinished')->andReturnUsing(function ($child, $run) use ($real, &$attempts) {
+        if ($attempts++ === 0) {
+            throw new RuntimeException('boom');
+        }
+        $real->recordFinished($child, $run);
+    });
+    app()->instance(ChildOutcomeRecorder::class, $recorder);
+
+    expect(fn () => event(new TurnCompleted($run)))->toThrow(RuntimeException::class)
+        ->and($run->fresh()->child_outcome_recorded_at)->toBeNull();
+
+    event(new TurnCompleted($run));
+
+    expect($run->fresh()->child_outcome_recorded_at)->not->toBeNull()
+        ->and(StackThreadMessage::query()->where('from_thread_id', $child->id)->count())->toBe(1);
+});

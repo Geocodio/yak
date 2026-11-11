@@ -1,7 +1,9 @@
 <?php
 
+use App\DataTransferObjects\WipResult;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Jobs\Threads\StartThreadPreviewJob;
@@ -11,7 +13,9 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadSandbox;
+use App\Services\Threads\WipPreserver;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 
@@ -81,7 +85,7 @@ test('stop sends end waits for runner exit then syncs then stops', function () {
     expect($streams->commands("threads:{$thread->id}"))->toBe([['type' => 'end']])
         ->and($order)->toBe(['waiting after 1 end, 0 sync'])
         ->and($sync->synced)->toBe([$thread->id])
-        ->and(operations())->toBe(['stop'])
+        ->and(operations())->toBe(['exec', 'stop'])
         ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
         ->and($thread->fresh()->runner_state)->toBe(RunnerState::None);
 });
@@ -94,7 +98,7 @@ test('stop forces after the timeout when the runner never exits', function () {
     app(ThreadSandbox::class)->stop($thread);
 
     Sleep::assertSleptTimes(5);
-    expect(operations())->toBe(['stop'])->and(app(SandboxManager::class)->calls[0]['arguments']['timeoutSeconds'])->toBe(5);
+    expect(operations())->toBe(['exec', 'stop'])->and(app(SandboxManager::class)->calls[1]['arguments']['timeoutSeconds'])->toBe(5);
 });
 
 test('stop continues when session sync throws', function () {
@@ -112,7 +116,7 @@ test('stop continues when session sync throws', function () {
 
     app(ThreadSandbox::class)->stop($thread);
 
-    expect(operations())->toBe(['stop']);
+    expect(operations())->toBe(['exec', 'stop']);
 });
 
 test('stop leaves a busy thread alone', function () {
@@ -130,7 +134,7 @@ test('stop resumes a paused sandbox first', function () {
 
     app(ThreadSandbox::class)->stop($thread);
 
-    expect(operations())->toBe(['resume', 'stop']);
+    expect(operations())->toBe(['resume', 'exec', 'stop']);
 });
 
 test('touch is throttled', function () {
@@ -211,4 +215,125 @@ test('a second caller during wake gets restoring not ready', function () {
 
     expect($wake->restoring)->toBeTrue()->and($wake->ready)->toBeFalse();
     $lock->release();
+});
+
+function sharedResearchChild(): array
+{
+    $parent = runningSandboxThread();
+    $child = Thread::factory()->child($parent)->create([
+        'name' => 'scan',
+        'kind' => ThreadKind::Research,
+        'sandbox_container' => $parent->sandbox_container,
+        'sandbox_state' => ThreadSandboxState::Running,
+        'claude_config_dir' => '/home/yak/.claude-child',
+    ]);
+
+    return [$parent, $child];
+}
+
+test('releasing a research child syncs its transcript before its config dir is removed', function () {
+    [, $child] = sharedResearchChild();
+    $sandboxes = app(SandboxManager::class);
+    $callsAtSync = null;
+    app()->instance(SessionFileSync::class, new class($sandboxes, $callsAtSync) implements SessionFileSync
+    {
+        public function __construct(private $sandboxes, public &$callsAtSync) {}
+
+        public function syncFromSandbox(Thread $thread): void
+        {
+            $this->callsAtSync = count($this->sandboxes->calls);
+        }
+
+        public function restoreIntoSandbox(Thread $thread): void {}
+    });
+
+    app(ThreadSandbox::class)->stop($child);
+
+    $removal = collect($sandboxes->calls)->search(fn (array $call): bool => $call['operation'] === 'exec' && str_contains(implode(' ', $call['arguments']['command']), 'rm -rf'));
+    expect($callsAtSync)->toBe($removal)
+        ->and($child->fresh()->sandbox_container)->toBeNull();
+});
+
+test('a failing session sync does not block releasing a research child', function () {
+    [, $child] = sharedResearchChild();
+    app()->instance(SessionFileSync::class, new class implements SessionFileSync
+    {
+        public function syncFromSandbox(Thread $thread): void
+        {
+            throw new RuntimeException('boom');
+        }
+
+        public function restoreIntoSandbox(Thread $thread): void {}
+    });
+
+    app(ThreadSandbox::class)->stop($child);
+
+    expect(collect(app(SandboxManager::class)->calls)->contains(fn (array $call): bool => $call['operation'] === 'exec' && str_contains(implode(' ', $call['arguments']['command']), 'rm -rf')))->toBeTrue()
+        ->and($child->fresh()->sandbox_container)->toBeNull();
+});
+
+test('a failed WIP push during destroy puts a stopped sandbox back to stopped', function () {
+    $thread = Thread::factory()->stopped()->create();
+    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'))));
+
+    app(ThreadSandbox::class)->destroy($thread);
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
+        ->and(operations())->toBe(['start', 'stop']);
+});
+
+test('a failed WIP push during destroy puts a paused sandbox back to paused', function () {
+    $thread = Thread::factory()->paused()->create();
+    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'))));
+
+    app(ThreadSandbox::class)->destroy($thread);
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Paused)
+        ->and(operations())->toBe(['resume', 'pause']);
+});
+
+test('a running sandbox stays running when its WIP push fails', function () {
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None]);
+    app()->instance(WipPreserver::class, Mockery::mock(WipPreserver::class, fn ($mock) => $mock->shouldReceive('preserve')->andThrow(new RuntimeException('push rejected'))));
+
+    app(ThreadSandbox::class)->destroy($thread);
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running)
+        ->and(operations())->toBe([]);
+});
+
+test('the stopped sandbox is picked up by the next sweep once the push works', function () {
+    $thread = Thread::factory()->stopped()->create();
+    $preserver = $this->mock(WipPreserver::class);
+    $preserver->shouldReceive('preserve')->once()->andThrow(new RuntimeException('push rejected'));
+    $preserver->shouldReceive('preserve')->once()->andReturn(new WipResult(true, true, 'abc'));
+    app()->forgetInstance(ThreadSandbox::class);
+
+    app(ThreadSandbox::class)->destroy($thread);
+    app(ThreadSandbox::class)->destroy($thread->fresh());
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed)
+        ->and(operations())->toContain('destroy');
+});
+
+test('stopping a sandbox stores the repo destroy delay from .yak/config.yml', function () {
+    Sleep::fake();
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None]);
+    app(SandboxManager::class)->queueExecResult(Process::result('destroy_after_hours: 168'));
+
+    app(ThreadSandbox::class)->stop($thread);
+
+    expect($thread->fresh()->destroy_after_hours)->toBe(168)
+        ->and(operations())->toBe(['exec', 'stop']);
+});
+
+test('a stop keeps the stored delay when the config cannot be read', function () {
+    Sleep::fake();
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None, 'destroy_after_hours' => 48]);
+    app(SandboxManager::class)->queueExecResult(Process::result('', 'no such file', 1));
+
+    app(ThreadSandbox::class)->stop($thread);
+
+    expect($thread->fresh()->destroy_after_hours)->toBe(48)
+        ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
 });

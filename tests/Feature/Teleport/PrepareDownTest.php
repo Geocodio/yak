@@ -36,6 +36,8 @@ class DownScriptedSandbox extends FakeSandboxManager
 {
     public bool $pushFails = false;
 
+    public ?ProcessResult $sha256Result = null;
+
     public function exec(Thread $thread, array $command, ?string $stdin = null, array $env = []): ProcessResult
     {
         parent::exec($thread, $command, $stdin, $env);
@@ -46,6 +48,7 @@ class DownScriptedSandbox extends FakeSandboxManager
             str_contains($line, 'rev-list') => Process::result(output: "0\n"),
             str_contains($line, 'rev-parse HEAD') => Process::result(output: DOWN_HEAD . "\n"),
             $this->pushFails && str_contains($line, ' push ') => Process::result(errorOutput: 'rejected', exitCode: 1),
+            str_contains($line, 'sha256sum') => $this->sha256Result ?? Process::result(output: hash('sha256', app(SessionStore::class)->read($thread, DOWN_SESSION, DOWN_SESSION . '.jsonl')) . "  file\n"),
             str_contains($line, 'check-ignore') => Process::result(output: ".env\n"),
             default => Process::result(),
         };
@@ -194,6 +197,23 @@ it('lists only changed memory files and checkpoints every append file', function
         ->and($teleport->manifest['repos'][0]['branch_created_by_yak'])->toBeFalse();
     expect(SessionFile::query()->where('mode', 'append')->whereNull('sha256')->count())->toBe(0)
         ->and(collect($teleport->manifest['session']['files'])->every(fn (array $file): bool => $file['sha256'] !== null))->toBeTrue();
+});
+
+it('fails with session_incomplete when the store is behind the sandbox transcript', function () {
+    $this->sandboxes->sha256Result = Process::result(output: hash('sha256', "more bytes the store never received\n") . "  file\n");
+    $before = $this->thread->only(['owner_side', 'owner_device_id']);
+
+    $teleport = runDown(downTeleport($this));
+
+    expect($teleport->state)->toBe(TeleportState::Failed)->and($teleport->failure_code)->toBe('session_incomplete')
+        ->and($this->thread->refresh()->only(['owner_side', 'owner_device_id']))->toBe($before)
+        ->and(SessionFile::query()->where('mode', 'append')->whereNotNull('sha256')->count())->toBe(0);
+});
+
+it('fails with session_incomplete when sha256sum cannot be read', function () {
+    $this->sandboxes->sha256Result = Process::result(errorOutput: 'no such file', exitCode: 1);
+
+    expect(runDown(downTeleport($this))->failure_code)->toBe('session_incomplete');
 });
 
 it('has a null last_up for a thread never teleported up', function () {

@@ -2,6 +2,7 @@
 
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Events\ThreadSandboxSlotFreed;
@@ -156,4 +157,51 @@ test('scheduled every minute without overlap', function () {
     expect($event)->not->toBeNull()
         ->and($event->expression)->toBe('* * * * *')
         ->and($event->withoutOverlapping)->toBeTrue();
+});
+
+test('a research child is left alone when its parent sandbox is stopped by the sweep', function () {
+    $parent = Thread::factory()->paused()->create(['last_activity_at' => now()->subMinutes(31)]);
+    $child = Thread::factory()->child($parent)->create([
+        'kind' => ThreadKind::Research,
+        'name' => 'scan',
+        'sandbox_container' => $parent->sandbox_container,
+        'sandbox_state' => ThreadSandboxState::Paused,
+        'last_activity_at' => now()->subMinutes(31),
+    ]);
+
+    sweep();
+
+    expect($parent->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
+        ->and($child->fresh()->sandbox_container)->toBe($parent->sandbox_container)
+        ->and(collect(app(SandboxManager::class)->calls)->contains(fn (array $call): bool => $call['operation'] === 'exec' && str_contains(implode(' ', $call['arguments']['command']), 'rm -rf')))->toBeFalse();
+});
+
+it('keeps an idle stopped thread whose repo asks for a longer destroy delay', function () {
+    $longer = Thread::factory()->stopped()->create(['last_activity_at' => now(), 'destroy_after_hours' => 168]);
+    $default = Thread::factory()->stopped()->create(['last_activity_at' => now()]);
+
+    $this->travel(100)->hours();
+    sweep();
+
+    expect($longer->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
+        ->and($default->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
+});
+
+it('destroys a thread past its shorter per-repo delay', function () {
+    $shorter = Thread::factory()->stopped()->create(['last_activity_at' => now(), 'destroy_after_hours' => 24]);
+    $default = Thread::factory()->stopped()->create(['last_activity_at' => now()]);
+
+    $this->travel(30)->hours();
+    sweep();
+
+    expect($shorter->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed)
+        ->and($default->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
+});
+
+it('still destroys a closed thread immediately regardless of the delay', function () {
+    $closed = Thread::factory()->closed()->stopped()->create(['last_activity_at' => now(), 'destroy_after_hours' => 168]);
+
+    sweep();
+
+    expect($closed->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
 });

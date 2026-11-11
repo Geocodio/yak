@@ -1,6 +1,7 @@
 <?php
 
 use App\DataTransferObjects\AppendOutcome;
+use App\Enums\ThreadKind;
 use App\Models\SessionFile;
 use App\Models\Thread;
 use App\Services\SessionStore\SegmentCipher;
@@ -141,3 +142,33 @@ it('throws when reading a sandbox file fails', function () {
 
     app(SessionSync::class)->syncFromSandbox($this->thread);
 })->throws(RuntimeException::class, 'disk gone');
+
+it('syncs a research child transcript written under its worktree project directory', function () {
+    $parent = Thread::factory()->create(['sandbox_container' => 'yak-shared']);
+    $child = Thread::factory()->child($parent)->create(['kind' => ThreadKind::Research, 'name' => 'scan', 'sandbox_container' => 'yak-shared', 'claude_config_dir' => '/home/yak/.claude-child']);
+    $this->sandboxes->disks[$child->id] = ["/home/yak/.claude-child/projects/-workspace-research-scan/{$this->rel}" => "one\n"];
+
+    app(SessionSync::class)->syncFromSandbox($child);
+
+    expect($this->store->length($child, $this->sid, $this->rel))->toBe(4);
+});
+
+it('keeps the root thread on the -workspace project directory', function () {
+    $this->sandboxes->disks[$this->thread->id] = ["{$this->dir}/{$this->rel}" => "one\n"];
+
+    app(SessionSync::class)->syncFromSandbox($this->thread);
+
+    expect($this->store->length($this->thread, $this->sid, $this->rel))->toBe(4);
+});
+
+it('reports a checkpoint mismatch instead of passing silently', function () {
+    $this->sandboxes->disks[$this->thread->id] = ["{$this->dir}/{$this->rel}" => "one\n"];
+    app(SessionSync::class)->syncFromSandbox($this->thread);
+    $this->sandboxes->disks[$this->thread->id]["{$this->dir}/{$this->rel}"] .= "two\n";
+
+    expect(app(SessionSync::class)->checkpointMatches($this->thread, $this->sid, $this->rel))->toBeFalse();
+
+    app(SessionSync::class)->syncFromSandbox($this->thread);
+
+    expect(app(SessionSync::class)->checkpointMatches($this->thread, $this->sid, $this->rel))->toBeTrue();
+});

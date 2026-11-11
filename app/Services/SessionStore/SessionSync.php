@@ -4,6 +4,7 @@ namespace App\Services\SessionStore;
 
 use App\Models\SessionFile;
 use App\Models\Thread;
+use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -65,8 +66,21 @@ class SessionSync
         }
 
         foreach ($appended as $relativePath => $sessionId) {
-            $this->checkpoint($thread, $directory, $sessionId, $relativePath);
+            $this->checkpointMatches($thread, $sessionId, $relativePath);
         }
+    }
+
+    /**
+     * True only when the sandbox file's sha256 is readable and equals the
+     * stored file, which the store then records as checkpointed.
+     */
+    public function checkpointMatches(Thread $thread, string $sessionId, string $relativePath): bool
+    {
+        $directory = $this->projectDirectory($thread);
+        $result = $this->sandboxes->exec($thread, ['bash', '-c', 'sha256sum ' . escapeshellarg("{$directory}/{$relativePath}")]);
+        $hash = strtok(trim($result->output()), ' ');
+
+        return $result->successful() && $hash !== false && $this->store->checkpoint($thread, $sessionId, $relativePath, $hash);
     }
 
     /**
@@ -221,16 +235,6 @@ class SessionSync
         }
     }
 
-    private function checkpoint(Thread $thread, string $directory, string $sessionId, string $relativePath): void
-    {
-        $result = $this->sandboxes->exec($thread, ['bash', '-c', 'sha256sum ' . escapeshellarg("{$directory}/{$relativePath}")]);
-        $hash = strtok(trim($result->output()), ' ');
-
-        if ($result->successful() && $hash !== false) {
-            $this->store->checkpoint($thread, $sessionId, $relativePath, $hash);
-        }
-    }
-
     /**
      * Reads a sandbox file from a zero-based byte offset, at most $length bytes.
      */
@@ -248,7 +252,9 @@ class SessionSync
 
     private function projectDirectory(Thread $thread): string
     {
-        return $thread->claude_config_dir . '/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', self::WORKSPACE_PATH);
+        $runnerCwd = $thread->sharesParentSandbox() ? ResearchChildRunner::worktreePath($thread) : self::WORKSPACE_PATH;
+
+        return $thread->claude_config_dir . '/projects/' . preg_replace('/[^a-zA-Z0-9]/', '-', $runnerCwd);
     }
 
     private function sessionIdOf(string $relativePath): string

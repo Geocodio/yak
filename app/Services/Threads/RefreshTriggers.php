@@ -36,6 +36,27 @@ class RefreshTriggers
         return $this->parseRefreshMap($result->output(), $thread->id);
     }
 
+    /** The repo's own destroy delay in hours, or null when the config is unreadable or sets none. */
+    public function destroyAfterHours(Thread $thread): ?int
+    {
+        $result = $this->sandboxes->exec($thread, ['cat', '.yak/config.yml']);
+
+        return $result->failed() ? null : $this->parseDestroyAfterHours($result->output());
+    }
+
+    public function parseDestroyAfterHours(string $yaml): ?int
+    {
+        try {
+            $parsed = Yaml::parse($yaml);
+        } catch (ParseException) {
+            return null;
+        }
+
+        $hours = is_array($parsed) ? ($parsed['destroy_after_hours'] ?? null) : null;
+
+        return is_int($hours) && $hours > 0 ? $hours : null;
+    }
+
     /**
      * @return array<string, string> Glob to command; empty when the YAML or the map is invalid.
      */

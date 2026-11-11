@@ -39,6 +39,7 @@ class MultiRepoScriptedSandbox extends FakeSandboxManager
         return match (true) {
             str_contains($line, 'status --porcelain') => Process::result(output: " M app.php\n"),
             str_contains($line, 'rev-list') => Process::result(output: "0\n"),
+            str_contains($line, 'sha256sum') => Process::result(output: hash('sha256', app(SessionStore::class)->read($thread, PREPARE_DOWN_MULTI_SESSION, PREPARE_DOWN_MULTI_SESSION . '.jsonl')) . "  file\n"),
             $this->unreadablePath !== null && str_contains($line, "-C {$this->unreadablePath} rev-parse") => Process::result(),
             str_contains($line, 'rev-parse HEAD') => Process::result(output: 'head-' . md5($line) . "\n"),
             $this->failingPushPath !== null && str_contains($line, "-C {$this->failingPushPath} push") => Process::result(errorOutput: 'rejected https://x:secret@github.com/acme/api.git', exitCode: 1),

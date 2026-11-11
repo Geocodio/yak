@@ -144,3 +144,16 @@ it('recreates the worktree at the parent head for a later message', function () 
         ->and($commands->filter(fn (string $command): bool => str_contains($command, 'git worktree add')))->toHaveCount(2)
         ->and($this->parent->fresh()->sandbox_state)->toBe(ThreadSandboxState::Running);
 });
+
+it('restores the child session into a recreated config dir on refreshWorktree', function () {
+    $this->runner->prepare($this->child);
+    $this->parent->update(['sandbox_state' => ThreadSandboxState::Paused]);
+    $this->sandbox->pause($this->parent);
+
+    $this->runner->refreshWorktree($this->child->fresh());
+
+    $commands = collect($this->sandbox->calls)->where('operation', 'exec')->pluck('arguments.command')->map(fn (array $command): string => implode(' ', $command));
+
+    expect($commands->contains("mkdir -p /home/yak/.claude-{$this->child->id}"))->toBeTrue()
+        ->and(app(SessionFileSync::class)->restored)->toBe([$this->child->id]);
+});

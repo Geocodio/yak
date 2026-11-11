@@ -11,7 +11,7 @@ use App\Exceptions\TeleportError;
 use App\Models\SessionFile;
 use App\Models\Teleport;
 use App\Models\Thread;
-use App\Services\SessionStore\SessionStore;
+use App\Services\SessionStore\SessionSync;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadSandbox;
@@ -31,7 +31,7 @@ class TeleportDownPreparer
         private readonly WipPreserver $wip,
         private readonly RepositoryWip $repositoryWip,
         private readonly SessionFileSync $sessions,
-        private readonly SessionStore $store,
+        private readonly SessionSync $syncVerifier,
         private readonly BranchHeadVerifier $heads,
         private readonly DownManifestBuilder $manifests,
     ) {}
@@ -177,15 +177,9 @@ class TeleportDownPreparer
         $files = SessionFile::query()->where(['thread_id' => $thread->id, 'mode' => 'append'])->get();
 
         foreach ($files as $file) {
-            $stored = hash('sha256', $this->store->read($thread, $file->session_id, $file->rel_path));
-
-            if ($file->sha256 !== $stored || $file->checkpoint_sha256 !== $stored) {
-                $this->store->checkpoint($thread, $file->session_id, $file->rel_path, $stored);
+            if (! $this->syncVerifier->checkpointMatches($thread, $file->session_id, $file->rel_path) || $file->refresh()->sha256 === null) {
+                throw new TeleportError('session_incomplete', 'The session upload to Yak did not complete; teleport was not started.');
             }
-        }
-
-        if (SessionFile::query()->where(['thread_id' => $thread->id, 'mode' => 'append'])->whereNull('sha256')->exists()) {
-            throw new TeleportError('teleport_failed', 'The session could not be checkpointed.');
         }
 
         $teleport->progressStep(TeleportStep::SyncSession, 'done');

@@ -39,6 +39,7 @@ class ThreadSandbox
         private AuthProxyPlaceholders $placeholders,
         private DatasetClones $datasetClones,
         private ThreadPreviewDevServer $previewServer,
+        private RefreshTriggers $triggers,
     ) {}
 
     public function touch(Thread $thread): void
@@ -116,6 +117,7 @@ class ThreadSandbox
                 return;
             }
 
+            $priorState = $thread->sandbox_state;
             $this->wakeForPreserve($thread);
 
             try {
@@ -126,6 +128,8 @@ class ThreadSandbox
 
             // Never destroy a sandbox whose work could not be pushed; the sweep retries.
             if (! $this->preserveWork($thread)) {
+                $this->restorePriorState($thread, $priorState);
+
                 return;
             }
 
@@ -181,6 +185,12 @@ class ThreadSandbox
         $this->streams->command("threads:{$child->id}", ['type' => 'kill']);
 
         if (in_array($parent->sandbox_state, [ThreadSandboxState::Running, ThreadSandboxState::Paused], true)) {
+            try {
+                $this->sessions->syncFromSandbox($child);
+            } catch (Throwable $exception) {
+                Log::warning('Syncing a research child session before release failed', ['thread' => $child->id, 'error' => $exception->getMessage()]);
+            }
+
             try {
                 $this->sandboxes->exec($parent, ['bash', '-c', 'git worktree remove --force "$1"; rm -rf "$2"', 'bash', ResearchChildRunner::worktreePath($child), $child->claude_config_dir]);
             } catch (Throwable $exception) {
@@ -314,6 +324,7 @@ class ThreadSandbox
         }
 
         $timeout = (int) config('yak.threads.stop_timeout_seconds');
+        $this->storeDestroyDelay($thread);
         $this->streams->command("threads:{$thread->id}", ['type' => 'end']);
         $this->waitForRunnerExit($thread, $timeout);
 
@@ -332,6 +343,22 @@ class ThreadSandbox
         $thread->update(['runner_state' => RunnerState::None]);
     }
 
+    /** Read while the sandbox is awake; the sweep decides on the stored value once it sleeps. */
+    private function storeDestroyDelay(Thread $thread): void
+    {
+        try {
+            $hours = $this->triggers->destroyAfterHours($thread);
+        } catch (Throwable $exception) {
+            Log::warning('Reading the destroy delay failed while stopping a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+
+            return;
+        }
+
+        if ($hours !== null) {
+            $thread->forceFill(['destroy_after_hours' => $hours])->save();
+        }
+    }
+
     private function wakeForPreserve(Thread $thread): void
     {
         if ($thread->sandbox_state === ThreadSandboxState::Paused) {
@@ -340,6 +367,18 @@ class ThreadSandbox
         } elseif ($thread->sandbox_state === ThreadSandboxState::Stopped) {
             $this->sandboxes->start($thread);
             $this->record($thread, ThreadSandboxState::Running);
+        }
+    }
+
+    /** Puts a sandbox that destroy() woke back to the state it was in. */
+    private function restorePriorState(Thread $thread, ?ThreadSandboxState $priorState): void
+    {
+        if ($priorState === ThreadSandboxState::Stopped) {
+            $this->sandboxes->stop($thread, (int) config('yak.threads.stop_timeout_seconds'));
+            $this->record($thread, ThreadSandboxState::Stopped);
+        } elseif ($priorState === ThreadSandboxState::Paused) {
+            $this->sandboxes->pause($thread);
+            $this->record($thread, ThreadSandboxState::Paused);
         }
     }
 
