@@ -171,7 +171,7 @@ export default function FilesPanel({ thread, canDrive }: PanelProps) {
                                         <span className="mr-auto min-w-0 text-body">
                                             Claude saved {active.path.split('/').pop()} after you opened it. Your edit is still here, nothing was overwritten. Saving yours replaces Claude's change.
                                         </span>
-                                        <Button variant="primary" onClick={() => save(active.path, true)}>
+                                        <Button variant="primary" data-testid="conflict-save-mine" onClick={() => save(active.path, true)}>
                                             Save mine anyway
                                         </Button>
                                         <Button variant="secondary" data-testid="conflict-compare-btn" onClick={() => setComparing((current) => ({ ...current, [active.path]: !current[active.path] }))}>
