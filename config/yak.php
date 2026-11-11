@@ -474,7 +474,6 @@ return [
         'hostname_suffix' => env('YAK_DEPLOYMENTS_HOSTNAME_SUFFIX', 'yak.example.com'),
         'running_cap' => (int) env('YAK_DEPLOYMENTS_RUNNING_CAP', 6),
         'idle_minutes' => (int) env('YAK_DEPLOYMENTS_IDLE_MINUTES', 15),
-        'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),
         'destroy_days' => (int) env('YAK_DEPLOYMENTS_DESTROY_DAYS', 7),
         'long_lived_idle_minutes' => (int) env('YAK_DEPLOYMENTS_LONG_LIVED_IDLE_MINUTES', 4320), // 3 days
         'release_branch_prefix' => env('YAK_DEPLOYMENTS_RELEASE_BRANCH_PREFIX', 'release/'),
@@ -629,6 +628,7 @@ return [
     */
 
     'threads' => [
+        'terminal_close_hours' => (int) env('YAK_THREADS_TERMINAL_CLOSE_HOURS', 24),
         'turn_grace_seconds' => (int) env('YAK_THREADS_TURN_GRACE_SECONDS', 30),
         'turn_wall_clock_minutes' => (int) env('YAK_THREADS_TURN_WALL_CLOCK_MINUTES', 240),
         'pause_to_stop_minutes' => (int) env('YAK_THREADS_PAUSE_TO_STOP_MINUTES', 30),

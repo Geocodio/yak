@@ -58,6 +58,8 @@ it('leaves device-owned, running and open-PR threads open', function () {
         ->and($openPr->refresh()->status)->toBe(ThreadStatus::Open);
 });
 
+beforeEach(fn () => config()->set('yak.threads.terminal_close_hours', 24));
+
 function terminalThread(int $finishedHoursAgo, array $task = [], array $thread = []): Thread
 {
     $record = Thread::factory()->create(['last_activity_at' => now(), ...$thread]);
@@ -74,7 +76,7 @@ function terminalThread(int $finishedHoursAgo, array $task = [], array $thread =
 }
 
 it('closes a research thread whose task finished more than the window ago', function () {
-    $thread = terminalThread((int) config('yak.threads.terminal_close_hours') + 1, ['mode' => TaskMode::Research]);
+    $thread = terminalThread(25, ['mode' => TaskMode::Research]);
 
     $this->artisan('yak:close-idle-threads')->assertSuccessful();
 
@@ -82,7 +84,7 @@ it('closes a research thread whose task finished more than the window ago', func
 });
 
 it('closes a thread whose only task failed without a branch after the window', function () {
-    $thread = terminalThread((int) config('yak.threads.terminal_close_hours') + 1, ['status' => TaskStatus::Failed]);
+    $thread = terminalThread(25, ['status' => TaskStatus::Failed]);
 
     $this->artisan('yak:close-idle-threads')->assertSuccessful();
 
@@ -90,7 +92,7 @@ it('closes a thread whose only task failed without a branch after the window', f
 });
 
 it('keeps a thread whose terminal task finished inside the window', function () {
-    $thread = terminalThread((int) config('yak.threads.terminal_close_hours') - 1);
+    $thread = terminalThread(1);
 
     $this->artisan('yak:close-idle-threads')->assertSuccessful();
 
