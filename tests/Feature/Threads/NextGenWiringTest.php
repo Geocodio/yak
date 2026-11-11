@@ -1,5 +1,6 @@
 <?php
 
+use App\DataTransferObjects\YakToolCall;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnMessageState;
 use App\Enums\TurnState;
@@ -14,7 +15,9 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
+use App\Services\Threads\YakToolRouter;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Process;
 
 it('runs a natural turn from start to pause and keeps a private thread off another user\'s list', function () {
     Event::fake([TurnCompleted::class]);
@@ -58,4 +61,15 @@ it('runs a natural turn from start to pause and keeps a private thread off anoth
     $this->actingAs($other)->getJson(route('threads.list', ['filter' => 'everyone']))
         ->assertOk()->assertJsonCount(0, 'threads')->assertJsonCount(0, 'needsYou');
     $this->actingAs($owner)->getJson(route('threads.list'))->assertJsonCount(1, 'needsYou');
+});
+
+it('serves request_refresh through the resolved tool router', function () {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Running, 'repo' => 'acme/app']);
+    $sandbox = app(SandboxManager::class);
+    $sandbox->queueExecResult(Process::result("refresh:\n  composer.lock: composer install\n"));
+    $sandbox->queueExecResult(Process::result("README.md\n"));
+
+    $result = app(YakToolRouter::class)->handle($thread, new YakToolCall('c1', 'request_refresh', []));
+
+    expect($result->content)->not->toContain('not available yet')->toContain('Nothing to refresh');
 });
