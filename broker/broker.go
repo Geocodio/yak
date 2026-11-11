@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -122,7 +121,7 @@ func (b *Broker) startup(ctx context.Context) error {
 				b.logger.Warn("startup kill failed", "channel", name, "error", err)
 			}
 		}
-		b.emit(state, `{"type":"broker","event":"broker_started"}`)
+		b.emitBroker(state, "broker.restarted", nil)
 	}
 	return nil
 }
@@ -287,15 +286,17 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 		b.logger.Warn("kill before start failed", "channel", state.name, "error", err)
 	}
 	start := append([]byte(nil), cmd.Start...)
-	process, err := b.spawner.Start(ctx, state.container, cmd.UID, cmd.Cwd, state.name)
-	if err != nil {
-		b.logger.Error("start runner failed", "channel", state.name, "error", err)
-		b.failStart(state)
-		return
-	}
 	state.mu.Lock()
 	state.generation++
 	generation := state.generation
+	state.mu.Unlock()
+	process, err := b.spawner.Start(ctx, state.container, cmd.UID, cmd.Cwd, state.name)
+	if err != nil {
+		b.logger.Error("start runner failed", "channel", state.name, "error", err)
+		b.emitBroker(state, "broker.runner_exited", map[string]any{"generation": generation, "exit_code": -1})
+		return
+	}
+	state.mu.Lock()
 	state.process = process
 	state.placeholder = placeholderOf(cmd.Start)
 	state.mu.Unlock()
@@ -304,19 +305,12 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 	if err != nil {
 		b.logger.Warn("write start line failed", "channel", state.name, "error", err)
 	}
+	b.emitBroker(state, "broker.runner_started", map[string]any{"generation": generation})
 	b.wg.Add(1)
 	go func() {
 		defer b.wg.Done()
 		b.pump(state, process, generation)
 	}()
-}
-
-// failStart reports a runner that could not be started as an exit of the generation it would have had.
-func (b *Broker) failStart(state *channelState) {
-	b.emit(state, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":-1}`, state.generation+1))
-	state.mu.Lock()
-	state.generation++
-	state.mu.Unlock()
 }
 
 // placeholderOf reads the auth proxy placeholder out of a start line.
@@ -341,7 +335,7 @@ func (b *Broker) revoke(state *channelState) {
 func (b *Broker) pump(state *channelState, process Process, generation int) {
 	readLines(process.Stdout(), func(line []byte) { b.emitLine(state, generation, string(line), false) })
 	code, _ := process.Wait()
-	b.emitLine(state, generation, fmt.Sprintf(`{"type":"broker","event":"runner_exited","generation":%d,"exit_code":%d}`, generation, code), true)
+	b.emitBroker(state, "broker.runner_exited", map[string]any{"generation": generation, "exit_code": code})
 	state.mu.Lock()
 	ended := state.process == process
 	if ended {
@@ -357,13 +351,11 @@ func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command)
 	switch cmd.Type {
 	case "turn", "steer":
 		if !b.write(state, userMessage{Type: "user", UUID: cmd.UUID, Text: cmd.Text, Priority: cmd.Priority}) {
-			uuid, _ := json.Marshal(cmd.UUID)
-			b.emit(state, `{"type":"broker","event":"no_runner","uuid":`+string(uuid)+`}`)
+			b.emitBroker(state, "broker.no_runner", map[string]any{"uuid": cmd.UUID})
 		}
 	case "tool_result":
 		if !b.write(state, toolResult{Type: "tool_result", CallID: cmd.CallID, IsError: cmd.IsError, Content: cmd.Content}) {
-			callID, _ := json.Marshal(cmd.CallID)
-			b.emit(state, `{"type":"broker","event":"no_runner","call_id":`+string(callID)+`}`)
+			b.emitBroker(state, "broker.no_runner", map[string]any{"call_id": cmd.CallID})
 		}
 	case "interrupt":
 		b.write(state, map[string]string{"type": "interrupt"})
@@ -373,6 +365,7 @@ func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command)
 		b.write(state, map[string]string{"type": "set_model", "model": cmd.Model})
 	case "kill":
 		b.kill(ctx, state)
+		b.emitBroker(state, "broker.kill_done", nil)
 	default:
 		b.logger.Warn("unknown command", "channel", state.name, "type", cmd.Type)
 	}
@@ -423,11 +416,21 @@ func (b *Broker) killAll() {
 	}
 }
 
-// emit appends a broker-originated line under the current generation.
-func (b *Broker) emit(state *channelState, line string) {
+// emitBroker appends a broker-originated line `{"type":lineType,...fields}`.
+// A "generation" field also stamps the entry; otherwise the current generation does.
+func (b *Broker) emitBroker(state *channelState, lineType string, fields map[string]any) {
 	state.mu.Lock()
 	generation := state.generation
 	state.mu.Unlock()
+	if value, ok := fields["generation"].(int); ok {
+		generation = value
+	}
+	typeJSON, _ := json.Marshal(lineType)
+	line := `{"type":` + string(typeJSON) + `}`
+	if len(fields) > 0 {
+		body, _ := json.Marshal(fields)
+		line = `{"type":` + string(typeJSON) + `,` + string(body[1:])
+	}
 	b.emitLine(state, generation, line, true)
 }
 

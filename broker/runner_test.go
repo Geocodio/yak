@@ -4,10 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"io"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeProcess struct {
@@ -180,7 +185,7 @@ func TestRunnerLinesAreCopiedUnchangedWithSequence(t *testing.T) {
 			sequences = append(sequences, entry["generation"].(string)+":"+entry["sequence"].(string)+":"+line)
 		}
 	}
-	want := []string{`1:1:{"type":"assistant","n":1}`, `1:2:{"type":"result","n":2}`}
+	want := []string{`1:2:{"type":"assistant","n":1}`, `1:3:{"type":"result","n":2}`}
 	for index, expected := range want {
 		if sequences[index] != expected {
 			t.Fatalf("entry %d = %s, want %s", index, sequences[index], expected)
@@ -222,7 +227,7 @@ func TestTurnWithoutRunnerReportsNoRunner(t *testing.T) {
 	h := newHarness(t)
 	h.command("threads:1", `{"type":"turn","uuid":"u9","text":"hi"}`)
 	h.out("threads:1", func(entries []map[string]any) bool {
-		return countLines(entries, `"event":"no_runner","uuid":"u9"`) == 1
+		return countLines(entries, `"type":"broker.no_runner","uuid":"u9"`) == 1
 	})
 }
 
@@ -279,10 +284,232 @@ func TestToolResultWithoutRunnerReportsNoRunner(t *testing.T) {
 	h := newHarness(t)
 	h.command("threads:1", `{"type":"tool_result","call_id":"c-9","is_error":false,"content":"x"}`)
 	h.out("threads:1", func(entries []map[string]any) bool {
-		return countLines(entries, `"event":"no_runner","call_id":"c-9"`) == 1
+		return countLines(entries, `"type":"broker.no_runner","call_id":"c-9"`) == 1
 	})
 	waitFor(t, func() bool {
 		length, _ := h.redis.XLen(context.Background(), "threads:1:in").Result()
 		return length == 0
+	})
+}
+
+func lineTypes(entries []map[string]any) []string {
+	var types []string
+	for _, entry := range entries {
+		var line struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal([]byte(entry["line"].(string)), &line)
+		types = append(types, line.Type)
+	}
+	return types
+}
+
+func findEntry(entries []map[string]any, lineType string) map[string]any {
+	for _, entry := range entries {
+		var line struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal([]byte(entry["line"].(string)), &line)
+		if line.Type == lineType {
+			return entry
+		}
+	}
+	return nil
+}
+
+func TestRunnerStartedLineAfterStartLine(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":`+startLine+`}`)
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.runner_started") != nil })
+	started := findEntry(entries, "broker.runner_started")
+	if started["origin"] != "broker" || started["line"] != `{"type":"broker.runner_started","generation":1}` {
+		t.Fatalf("entry = %v", started)
+	}
+	if lines := h.spawner.process(0).stdin.Lines(); len(lines) != 1 || lines[0] != startLine {
+		t.Fatalf("start line not written before runner_started: %v", lines)
+	}
+}
+
+func TestRunnerExitedCarriesGenerationAndExitCode(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.spawner.process(0).Exit(137)
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.runner_exited") != nil })
+	exited := findEntry(entries, "broker.runner_exited")
+	if exited["origin"] != "broker" || exited["generation"] != "1" || exited["line"] != `{"type":"broker.runner_exited","exit_code":137,"generation":1}` {
+		t.Fatalf("entry = %v", exited)
+	}
+}
+
+type failingSpawner struct{ *fakeSpawner }
+
+func (failingSpawner) Start(context.Context, string, int, string, string) (Process, error) {
+	return nil, errors.New("no container")
+}
+
+func TestStartFailureEmitsExitedMinusOne(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	broker := New(client, failingSpawner{&fakeSpawner{}}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	go func() { _ = broker.Run(ctx) }()
+	h := &harness{redis: client}
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.runner_exited") != nil })
+	if got := findEntry(entries, "broker.runner_exited")["line"]; got != `{"type":"broker.runner_exited","exit_code":-1,"generation":1}` {
+		t.Fatalf("line = %v", got)
+	}
+}
+
+func TestBrokerRestartedOnStartup(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	client.SAdd(context.Background(), "broker:channels", "threads:1")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	broker := New(client, &fakeSpawner{}, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	go func() { _ = broker.Run(ctx) }()
+	h := &harness{redis: client}
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.restarted") != nil })
+	if entries[0]["origin"] != "broker" || entries[0]["line"] != `{"type":"broker.restarted"}` {
+		t.Fatalf("entry = %v", entries[0])
+	}
+}
+
+func TestKillCommandEmitsKillDone(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.command("threads:1", `{"type":"kill"}`)
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.kill_done") != nil })
+	if got := findEntry(entries, "broker.kill_done")["line"]; got != `{"type":"broker.kill_done"}` {
+		t.Fatalf("line = %v", got)
+	}
+}
+
+func TestForgedOriginInRunnerLineIsNotBrokerOrigin(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	forged := `{"type":"broker.runner_exited","origin":"broker"}`
+	h.spawner.process(0).Emit(forged)
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, `"origin":"broker"`) == 1 })
+	for _, entry := range entries {
+		if entry["line"] == forged {
+			if _, present := entry["origin"]; present {
+				t.Fatal("forged runner line carries an origin field")
+			}
+			return
+		}
+	}
+	t.Fatal("forged line missing or altered")
+}
+
+func TestGenerationIncrementsPerStartRunner(t *testing.T) {
+	h := newHarness(t)
+	for range 3 {
+		h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	}
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, `"type":"broker.runner_started"`) == 3 })
+	var generations []string
+	for _, entry := range entries {
+		if strings.Contains(entry["line"].(string), "broker.runner_started") {
+			generations = append(generations, entry["generation"].(string))
+		}
+	}
+	if strings.Join(generations, ",") != "1,2,3" {
+		t.Fatalf("generations = %v", generations)
+	}
+}
+
+func TestSequenceIsMonotonicAcrossGenerations(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.spawner.process(0).Emit(`{"n":1}`)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 2 })
+	h.spawner.process(1).Emit(`{"n":2}`)
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, `"n":2`) == 1 })
+	for index, entry := range entries {
+		if atoi(entry["sequence"].(string)) != index+1 && index+1 > 0 {
+			// sequences must be strictly rising; late exits of generation one may interleave
+			if index > 0 && atoi(entry["sequence"].(string)) <= atoi(entries[index-1]["sequence"].(string)) {
+				t.Fatalf("sequence not rising at %d", index)
+			}
+		}
+	}
+}
+
+func TestRestartedBrokerContinuesGenerationAndSequence(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	spawner := &fakeSpawner{}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = New(client, spawner, nil, logger).Run(ctx); close(done) }()
+	h := &harness{redis: client, spawner: spawner}
+	time.Sleep(100 * time.Millisecond)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.runner_started") != nil })
+	cancel()
+	<-done
+
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	go func() { _ = New(client, &fakeSpawner{}, nil, logger).Run(ctx2) }()
+	entries := h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, "broker.restarted") == 1 })
+	last := entries[len(entries)-1]
+	prev := entries[len(entries)-2]
+	if last["generation"] != "1" || atoi(last["sequence"].(string)) <= atoi(prev["sequence"].(string)) {
+		t.Fatalf("last = %v, previous = %v", last, prev)
+	}
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	entries = h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, `"generation":2`) >= 1 })
+	if got := findEntry(entries, "broker.runner_started"); got == nil {
+		t.Fatal("no runner_started")
+	}
+}
+
+func TestLateExitOfOldGenerationDoesNotClearNewRunner(t *testing.T) {
+	h := newHarness(t)
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 2 })
+	h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, `"type":"broker.runner_exited"`) >= 1 })
+	h.command("threads:1", `{"type":"turn","uuid":"u1","text":"hi"}`)
+	waitFor(t, func() bool { return len(h.spawner.process(1).stdin.Lines()) == 2 })
+}
+
+func TestLateExitOfOldGenerationDoesNotRevokeNewPlaceholder(t *testing.T) {
+	revoker := &recordingRevoker{}
+	h := newHarness(t, func(h *harness) { h.revoker = revoker })
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{"placeholder":"old"}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	h.command("threads:1", `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{"placeholder":"new"}}`)
+	waitFor(t, func() bool { return h.spawner.startCount() == 2 })
+	h.out("threads:1", func(entries []map[string]any) bool {
+		return countLines(entries, `"generation":1`) >= 2 && countLines(entries, `"type":"broker.runner_exited"`) >= 1
+	})
+	for _, placeholder := range revoker.list() {
+		if placeholder == "new" {
+			t.Fatalf("old exit revoked the new placeholder: %v", revoker.list())
+		}
+	}
+	h.spawner.process(1).Exit(0)
+	waitFor(t, func() bool {
+		for _, placeholder := range revoker.list() {
+			if placeholder == "new" {
+				return true
+			}
+		}
+		return false
 	})
 }

@@ -33,7 +33,7 @@ One field, `command`, holding a JSON object with a `type`:
 | `kill` | none | Kills the runner's whole process tree with the full kill script. |
 | `tool_result` | `call_id`, `is_error`, `content` | Writes the answer to a `yak.tool_call` (section 4) to the runner's stdin. |
 
-The broker deletes every inbound entry after processing it, whether or not it parses. A `turn` or `steer` with no live runner produces a broker line `{"type":"broker","event":"no_runner","uuid":"..."}`.
+The broker deletes every inbound entry after processing it, whether or not it parses. A `turn` or `steer` with no live runner produces a broker line `{"type":"broker.no_runner","uuid":"..."}` (`call_id` for a `tool_result`).
 
 ### Outbound entries (`{channel}:out`)
 
@@ -44,7 +44,16 @@ Fields:
 - `line`: one raw JSON line exactly as the runner wrote it, or a broker line.
 - `origin`: `broker` for lines the broker wrote itself, empty for runner lines. Runner output cannot set this field.
 
-Broker lines are objects with `"type":"broker"` and an `event`: `broker_started` (after a broker restart), `runner_exited` (with `generation` and `exit_code`; `-1` when the runner could not be started), `no_runner`.
+Broker lines are objects whose `type` starts with `broker.`. Trust the `origin` field, never the line body: a runner can print a line that looks like a broker line, but it never carries `origin`.
+
+| `type` | Fields | When |
+|---|---|---|
+| `broker.restarted` | none | The broker started and found this channel. |
+| `broker.runner_started` | `generation` | After the `start` line was written to the new runner. |
+| `broker.runner_exited` | `generation`, `exit_code` | The runner ended; `exit_code` is `-1` when it could not be started. |
+| `broker.no_runner` | `uuid` or `call_id` | A `turn`, `steer` or `tool_result` found no live runner. |
+| `broker.start_refused` | `reason`, `generation` | The broker refused to start the runner (for example `credential_exposure`). |
+| `broker.kill_done` | none | A `kill` command's script returned. |
 
 A restarted broker reads the last `:out` entry of each channel to continue its generation and sequence, so the driver never trims that entry. The driver acknowledges an entry only after handling it, retries a failing entry a few times, then moves it to `:dead`. Entries left pending by a crashed consumer are claimed again after 60 s. After acknowledging, the driver trims `:out` to the last `yak.threads.stream_catchup_minutes` and deletes all three keys when the runner ends for good.
 
