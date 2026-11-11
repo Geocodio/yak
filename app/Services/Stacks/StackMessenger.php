@@ -76,7 +76,7 @@ class StackMessenger
         }
     }
 
-    private function deliver(Thread $to, string $framed, Thread $from): void
+    public function deliver(Thread $to, string $framed, Thread $from): void
     {
         if ($to->owner_side === ThreadOwnerSide::Device) {
             $this->inbox->record($to, StackMessageKind::Note, $from, $framed);
