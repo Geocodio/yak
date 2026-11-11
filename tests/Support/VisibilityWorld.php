@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Enums\ThreadVisibility;
+use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\ClaudeAccount;
@@ -11,11 +12,13 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
+use App\Models\TelemetryEvent;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
 use App\Models\ThreadEvent;
 use App\Models\ThreadRepository;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Storage;
@@ -40,6 +43,8 @@ class VisibilityWorld
     public User $other;
 
     public User $admin;
+
+    public User $sharedViewer;
 
     public Thread $thread;
 
@@ -67,6 +72,10 @@ class VisibilityWorld
 
     public ThreadEvent $event;
 
+    public TelemetryEvent $telemetryEvent;
+
+    public AiUsage $aiUsage;
+
     public ThreadRepository $repository;
 
     public int $missingId = 999_999;
@@ -90,6 +99,7 @@ class VisibilityWorld
         $world->owner = User::factory()->create();
         $world->other = User::factory()->create();
         $world->admin = User::factory()->create();
+        $world->sharedViewer = User::factory()->create();
         config(['claude-accounts.admin_user_ids' => [$world->admin->id]]);
 
         $account = ClaudeAccount::factory()->create();
@@ -100,6 +110,7 @@ class VisibilityWorld
             'visibility' => $visibility,
             'owner_user_id' => $world->owner->id,
         ]);
+        ThreadShare::factory()->create(['thread_id' => $world->thread->id, 'user_id' => $world->sharedViewer->id]);
         $diff = ThreadDiff::factory()->create(['thread_id' => $world->thread->id, 'files_count' => 1]);
         $world->diffFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id]);
         $world->repository = ThreadRepository::factory()->changes()->create(['thread_id' => $world->thread->id, 'repo' => 'secret-acme/extra']);
@@ -130,6 +141,13 @@ class VisibilityWorld
         $world->attachment = TaskAttachment::factory()->create(['yak_task_id' => $world->task->id]);
         $world->artifact = Artifact::factory()->create(['yak_task_id' => $world->task->id, 'filename' => 'shot.png', 'disk_path' => 'private/shot.png']);
         $world->prReview = PrReview::factory()->create(['yak_task_id' => $world->task->id, 'repo' => self::REPO, 'pr_number' => 77]);
+
+        $world->telemetryEvent = TelemetryEvent::factory()->named('pr.opened')->create([
+            'yak_task_id' => $world->task->id,
+            'repo' => self::REPO,
+            'properties' => ['pr_number' => 77],
+        ]);
+        $world->aiUsage = AiUsage::factory()->create(['yak_task_id' => $world->task->id, 'cost_usd' => 1.5]);
 
         $world->coOwnerRequest = CoOwnerRequest::factory()->create([
             'task_id' => $world->task->id,

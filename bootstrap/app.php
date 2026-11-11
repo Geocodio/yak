@@ -4,6 +4,7 @@ use App\Channels\Drone\PollCommand;
 use App\Exceptions\TeleportError;
 use App\Http\Middleware\AuthenticateDevice;
 use App\Http\Middleware\CliProtocol;
+use App\Http\Middleware\EnsureTaskDriveRights;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RestrictToIngress;
 use App\Http\Middleware\VerifySessionStoreToken;
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ssh-internal-token' => VerifySshInternalToken::class,
             'cli.protocol' => CliProtocol::class,
             'auth.device' => AuthenticateDevice::class,
+            'task.drive' => EnsureTaskDriveRights::class,
         ]);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: CliProtocol::class);
         $middleware->prependToPriorityList(before: ThrottleRequests::class, prepend: AuthenticateDevice::class);

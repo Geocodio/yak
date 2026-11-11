@@ -2,14 +2,18 @@
 
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadListFilter;
+use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\CoOwnerRequest;
 use App\Models\PrReview;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
+use App\Models\TelemetryEvent;
 use App\Models\Thread;
+use App\Models\VideoMetric;
 use App\Models\YakTask;
+use App\Services\Telemetry\AnalyticsReport;
 use App\Services\Threads\ThreadList;
 use App\Services\Threads\ThreadNotificationGuard;
 use Illuminate\Support\Facades\Schema;
@@ -29,7 +33,7 @@ beforeEach(function () {
 function removePrivateGraph(VisibilityWorld $world): void
 {
     Schema::disableForeignKeyConstraints();
-    foreach ([CoOwnerRequest::class, PrReview::class, Artifact::class, TaskAttachment::class, BranchDeployment::class, TaskRun::class, YakTask::class] as $model) {
+    foreach ([AiUsage::class, TelemetryEvent::class, CoOwnerRequest::class, PrReview::class, Artifact::class, TaskAttachment::class, BranchDeployment::class, TaskRun::class, YakTask::class] as $model) {
         $model::withoutGlobalScopes()->whereIn($model === CoOwnerRequest::class ? 'task_id' : ($model === YakTask::class ? 'id' : 'yak_task_id'), [$world->task->id, $world->childTask->id])->delete();
     }
     Thread::withoutGlobalScopes()->whereIn('id', [$world->thread->id, $world->child->id])->delete();
@@ -102,3 +106,50 @@ it('leaves the stack tab data for the wave 3 integration', function () {
         $this->markTestSkipped('App\\Http\\Resources\\StackTabData has not landed; the integrator adds its row here.');
     }
 });
+
+it('hides private-thread telemetry from the analytics page and keeps it for the owner', function (string $viewer, bool $sees) {
+    $untied = TelemetryEvent::factory()->named('untied.event')->create(['repo' => 'open/repo']);
+    $teamTask = YakTask::factory()->create(['thread_id' => $this->teamThread->id, 'repo' => 'open/repo']);
+    TelemetryEvent::factory()->named('team.event')->create(['yak_task_id' => $teamTask->id, 'repo' => 'open/repo']);
+
+    $encoded = json_encode(inertiaProps($this, '/analytics', $this->world->{$viewer}), JSON_UNESCAPED_SLASHES);
+    $privateMarkers = [VisibilityWorld::REPO, 'tasks/' . $this->world->task->id, 'pr.opened', '"pr_number":77'];
+
+    foreach ($privateMarkers as $marker) {
+        $sees ? expect($encoded)->toContain($marker) : expect($encoded)->not->toContain($marker);
+    }
+
+    expect($encoded)->toContain($untied->name)->toContain('team.event');
+})->with([['owner', true], ['other', false], ['admin', false]]);
+
+it('scopes the report explorer to the signed-in user', function () {
+    $explorer = fn () => (new AnalyticsReport('30d'))->explorer();
+
+    $this->actingAs($this->world->other);
+    expect($explorer()['names'])->not->toContain('pr.opened')->and($explorer()['rows'])->toBeEmpty();
+
+    $this->actingAs($this->world->owner);
+    expect($explorer()['names'])->toContain('pr.opened')->and($explorer()['rows'])->toHaveCount(1);
+});
+
+it('hides private-thread AI spend from the costs page, filtered and unfiltered', function (string $viewer, string $query, float $amount, int $calls) {
+    AiUsage::factory()->create(['yak_task_id' => null, 'cost_usd' => 0.25]);
+    $props = inertiaProps($this, '/costs' . $query, $this->world->{$viewer});
+
+    $spend = $props['summary']['apiSpend'];
+    expect($spend['amount'])->toEqual($amount)->and($spend['calls'])->toBe($calls);
+})->with([
+    'owner filtered' => ['owner', '?repo=' . VisibilityWorld::REPO, 1.5, 1],
+    'other filtered' => ['other', '?repo=' . VisibilityWorld::REPO, 0.0, 0],
+    'admin filtered' => ['admin', '?repo=' . VisibilityWorld::REPO, 0.0, 0],
+    'owner unfiltered' => ['owner', '', 1.75, 2],
+    'other unfiltered' => ['other', '', 0.25, 1],
+    'admin unfiltered' => ['admin', '', 0.25, 1],
+]);
+
+it('hides private-thread video renders from the costs page video summary', function (string $viewer, int $rendered) {
+    VideoMetric::factory()->create(['yak_task_id' => $this->world->task->id]);
+    $props = inertiaProps($this, '/costs', $this->world->{$viewer});
+
+    expect($props['videoSummary']['rendered'])->toBe($rendered);
+})->with([['owner', 1], ['other', 0], ['admin', 0]]);
