@@ -13,6 +13,7 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Process;
 
@@ -139,3 +140,35 @@ it('applies every fixture twice without a second log line or event', function (s
     expect(TaskLog::query()->count())->toBe($logs)
         ->and(collect(Event::dispatched(TurnCompleted::class))->count() + collect(Event::dispatched(TurnFailed::class))->count())->toBe($ends);
 })->with(['natural-turn-end', 'usage-limit', 'steer-in-grace-window', 'compaction']);
+
+it('completes a turn after the runner exits mid-turn and recovery continues it', function () {
+    Event::fake([TurnCompleted::class, TurnFailed::class]);
+    [$thread, $run] = fixtureTurn();
+    $thread->forceFill(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running'])->save();
+    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7\n"));
+
+    replayFixtureThroughConsumer($thread, 'runner-exit-mid-turn');
+
+    $continuation = (string) ThreadTurnMessage::query()->where('task_run_id', $run->id)->where('uuid', '!=', FIXTURE_PROMPT_UUID)->value('uuid');
+    expect($run->refresh()->restart_count)->toBe(1)->and($continuation)->not->toBe('');
+
+    $streams = app(BrokerStreams::class);
+    $channel = 'threads:' . $thread->id;
+    $sequence = 100;
+
+    foreach ([
+        ['type' => 'runner', 'event' => 'started', 'generation' => 2],
+        ['type' => 'command_lifecycle', 'command_uuid' => $continuation, 'state' => 'started', 'generation' => 2],
+        ['type' => 'result', 'subtype' => 'success', 'is_error' => false, 'session_id' => 'a46f8256-9427-5ce0-88ae-4d0cc885f796', 'generation' => 2],
+        ['type' => 'command_lifecycle', 'command_uuid' => $continuation, 'state' => 'completed', 'generation' => 2],
+    ] as $line) {
+        $streams->pushOut($channel, 2, ++$sequence, $line);
+    }
+
+    Artisan::call('yak:thread-drivers', ['--once' => true]);
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
+
+    expect($run->refresh()->turn_state)->toBe(TurnState::Completed);
+    Event::assertDispatchedTimes(TurnCompleted::class, 1);
+});
