@@ -1,7 +1,10 @@
 <?php
 
 use App\Enums\ThreadSandboxState;
+use App\Models\Dataset;
+use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\EnvironmentNote;
 
@@ -53,4 +56,27 @@ test('redacts nothing it was not given', function () {
     app(EnvironmentNote::class)->write(noteThread(), ['Restore' => ['x']]);
 
     expect(execCalls()[0]['env'])->toBe([]);
+});
+
+test('repository sections list extras, lost context edits, missing datasets and failed setups', function () {
+    $thread = noteThread(['repo' => 'acme/app']);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/lib', 'sandbox_path' => '/extras/lib']);
+    ThreadRepository::factory()->context()->failed('setup.sh exited with 2')->create(['thread_id' => $thread->id, 'repo' => 'acme/docs', 'sandbox_path' => '/extras/docs']);
+    $library = Repository::factory()->create(['slug' => 'acme/lib']);
+    Dataset::factory()->create(['repository_id' => $library->id]);
+
+    $sections = app(EnvironmentNote::class)->sectionsForRepositories($thread);
+
+    expect($sections['Repositories'])->toContain('/workspace: acme/app (primary)')->toContain('/extras/lib: acme/lib (changes)')->toContain('/extras/docs: acme/docs (context)')
+        ->and($sections['Context edits'])->toContain('lost')
+        ->and($sections['Datasets'])->toContain('acme/lib: dataset not attached')
+        ->and($sections['Failed setups'])->toBe(['acme/docs: setup.sh exited with 2']);
+});
+
+test('a single repo thread has no repository sections', function () {
+    $thread = noteThread(['repo' => 'acme/app']);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
+
+    expect(app(EnvironmentNote::class)->sectionsForRepositories($thread))->toBe([]);
 });

@@ -7,6 +7,7 @@ use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\ThreadRepositoryPrompt;
 
 /**
  * Writes runner commands to a thread's broker channel. The channel carries the
@@ -48,7 +49,7 @@ class ThreadCommands
                 'appendSystemPrompt' => $appendSystemPrompt,
                 'permissionMode' => 'bypassPermissions',
                 'cwd' => $workingDirectory,
-                'additionalDirectories' => [],
+                'additionalDirectories' => ThreadRepositoryPrompt::extraDirectories($thread),
                 'mcpServers' => (object) [],
                 'settingSources' => ['user', 'project', 'local'],
                 'resume' => $resumeSessionId,

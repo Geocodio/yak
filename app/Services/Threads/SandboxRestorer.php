@@ -231,7 +231,7 @@ class SandboxRestorer
         preg_match_all('/^\$ (.+)$/m', $refreshOutput, $matches);
         $setupRan = ($steps[RestoreStepName::RunSetupScript->value]->status ?? null) === RestoreStepStatus::Succeeded;
 
-        $this->note->write($thread, $this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)));
+        $this->note->write($thread, [...$this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)), ...$this->note->sectionsForRepositories($thread)]);
 
         return true;
     }
