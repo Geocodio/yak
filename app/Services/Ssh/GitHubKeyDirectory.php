@@ -6,7 +6,7 @@ use App\Enums\SshKeySource;
 use App\Models\GithubKeySync;
 use App\Models\SshKey;
 use App\Models\User;
-use Illuminate\Http\Client\ConnectionException;
+use Exception;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -33,7 +33,7 @@ class GitHubKeyDirectory
         try {
             $login = $this->resolveLogin($user->github_id);
             $keys = $login === null ? [] : $this->fetchKeys($login);
-        } catch (RuntimeException|ConnectionException $exception) {
+        } catch (Exception $exception) {
             return $this->recordError($user, $existing, $exception->getMessage());
         }
 
