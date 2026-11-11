@@ -591,6 +591,9 @@ return [
 
         'credential_socket' => env('YAK_THREADS_CREDENTIAL_SOCKET', '/run/yak/credentials.sock'),
 
+        // Cache store holding placeholder bindings (sha256 only). Keep it off Redis.
+        'placeholder_store' => env('YAK_THREADS_PLACEHOLDER_STORE', 'database'),
+
         // Address of the auth proxy on the Incus bridge (10.100.0.1, see the incus Ansible role).
         'auth_proxy_url' => env('YAK_THREADS_AUTH_PROXY_URL', 'http://10.100.0.1:8787'),
 
