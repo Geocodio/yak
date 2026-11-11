@@ -22,6 +22,8 @@ class VisibilityRoutes
         'threads.diff.show' => ['GET', '/threads/{thread}/diff'],
         'threads.diff.files.show' => ['GET', '/threads/{thread}/diff/files/{file}'],
         'threads.environment.show' => ['GET', '/threads/{thread}/environment'],
+        'threads.files.tree' => ['GET', '/threads/{thread}/files?scope=repo'],
+        'threads.files.show' => ['GET', '/threads/{thread}/files/content?scope=repo&path=README.md'],
         'threads.events.index' => ['GET', '/threads/{thread}/events'],
         'threads.events.show' => ['GET', '/threads/{thread}/events/{sequence}'],
         'threads.pull-request.store' => ['POST', '/threads/{thread}/pull-request', ['acknowledged_private_publish' => true], 302],
