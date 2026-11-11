@@ -179,3 +179,24 @@ test('resume records the sandbox address', function () {
 
     expect($thread->fresh()->sandbox_ip)->toBe('10.0.0.11');
 });
+
+test('stop clears the recorded sandbox address', function () {
+    Process::fake();
+    $thread = Thread::factory()->create(['sandbox_ip' => '10.0.0.9']);
+
+    incusManager()->stop($thread, 30);
+
+    expect($thread->fresh()->sandbox_ip)->toBeNull();
+});
+
+test('a missed address lookup clears the previous address', function () {
+    Process::fake([
+        '*incus list*' => Process::result(''),
+        '*' => Process::result(),
+    ]);
+    $thread = Thread::factory()->create(['sandbox_ip' => '10.0.0.9']);
+
+    incusManager()->resume($thread);
+
+    expect($thread->fresh()->sandbox_ip)->toBeNull();
+});

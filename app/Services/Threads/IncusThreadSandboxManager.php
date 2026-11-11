@@ -107,6 +107,8 @@ class IncusThreadSandboxManager implements SandboxManager
         if ($result->failed()) {
             $this->mustRun('stop', ['incus', 'stop', $container, '--force']);
         }
+
+        $thread->update(['sandbox_ip' => null]);
     }
 
     public function destroy(Thread $thread): void
@@ -220,13 +222,13 @@ class IncusThreadSandboxManager implements SandboxManager
         return $value * 1024 ** $exponent;
     }
 
-    /** Best effort: the preview waker resolves and records the address itself when this misses. */
+    /** Best effort: a missed lookup clears any previous address so the preview waker resolves and records it itself. */
     private function recordAddress(Thread $thread): void
     {
         try {
             $thread->update(['sandbox_ip' => app(DeploymentContainerManager::class)->resolveContainerIp($this->containerName($thread))]);
         } catch (DeploymentStartTimeoutException) {
-            // Leave the address unset.
+            $thread->update(['sandbox_ip' => null]);
         }
     }
 
