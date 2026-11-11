@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
+use App\Contracts\SandboxShell;
 use App\DataTransferObjects\TemplateSnapshotRef;
 use App\Enums\DeploymentStatus;
 use App\Enums\TaskStatus;
@@ -22,7 +23,7 @@ use RuntimeException;
  * Containers have their own Docker daemon, network namespace, and filesystem
  * via ZFS copy-on-write — providing full isolation from the yak host.
  */
-class IncusSandboxManager
+class IncusSandboxManager implements SandboxShell
 {
     /**
      * Wall-clock ceiling for incus commands that move real data — `copy`,
