@@ -28,6 +28,7 @@ use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\Threads\SetupScriptHash;
 use App\Services\YakConfigFiles;
 use App\Support\MarkdownText;
 use App\Support\TaskContext;
@@ -321,6 +322,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         // Promote the setup container to a repo template with snapshot.
         // Future tasks for this repo will clone from this snapshot (instant CoW).
         // This also bumps current_template_version to 1+ so DeployBranchJob can proceed.
+        $setupScriptHash = app(SetupScriptHash::class)->forSandbox($containerName);
         $snapshotRef = $sandbox->promoteToTemplate($containerName, $repository);
 
         $this->task->update([
@@ -336,6 +338,7 @@ class SetupYakJob implements ShouldBeUnique, ShouldQueue
         $repository->update([
             'setup_status' => 'ready',
             'sandbox_snapshot' => $snapshotRef,
+            'setup_script_hash' => $setupScriptHash,
         ]);
 
         app(EnqueuePrReview::class)->releaseHeld($repository);

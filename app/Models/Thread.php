@@ -11,6 +11,7 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadSessionKind;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
+use App\Enums\TurnState;
 use App\Models\Scopes\VisibleThreadScope;
 use App\Services\Threads\ThreadAccess;
 use Carbon\CarbonImmutable;
@@ -45,6 +46,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadLockHolder $lock_holder
  * @property ThreadOwnerSide $owner_side
  * @property ThreadBlockReason|null $blocked_reason
+ * @property string|null $last_refresh_commit
+ * @property string|null $wip_commit_sha
+ * @property string|null $local_repo_path
+ * @property string|null $git_author_name
+ * @property string|null $git_author_email
  * @property CarbonImmutable|null $sandbox_state_changed_at
  * @property CarbonImmutable|null $runner_started_at
  * @property CarbonImmutable|null $lock_acquired_at
@@ -192,6 +198,14 @@ class Thread extends Model
     }
 
     /**
+     * @return HasMany<ThreadRestoreStep, $this>
+     */
+    public function restoreSteps(): HasMany
+    {
+        return $this->hasMany(ThreadRestoreStep::class)->orderBy('position');
+    }
+
+    /**
      * @return BelongsTo<ClaudeAccount, $this>
      */
     public function claudeAccount(): BelongsTo
@@ -213,6 +227,29 @@ class Thread extends Model
     public function activeSession(): ?ThreadSession
     {
         return $this->sessions()->where('kind', ThreadSessionKind::Main)->orderByDesc('id')->first();
+    }
+
+    /**
+     * True while a turn is running in this thread's sandbox or in any thread
+     * sharing its container, or while a human holds the sandbox.
+     */
+    public function isSandboxBusy(): bool
+    {
+        $sharing = self::query()->withoutGlobalScopes()
+            ->when(
+                $this->sandbox_container !== null,
+                fn (Builder $query) => $query->where('sandbox_container', $this->sandbox_container),
+                fn (Builder $query) => $query->whereKey($this->id),
+            );
+
+        if ($this->lock_holder !== ThreadLockHolder::None || (clone $sharing)->where('lock_holder', '!=', ThreadLockHolder::None->value)->exists()) {
+            return true;
+        }
+
+        return TaskRun::query()
+            ->where('turn_state', TurnState::Running)
+            ->whereIn('thread_id', $sharing->select('id'))
+            ->exists();
     }
 
     public function isRoot(): bool

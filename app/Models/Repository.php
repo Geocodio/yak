@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * from the `$casts` property only -- it does not read the `casts()` method
  * form this model uses, so without these it infers the raw column types.
  *
+ * @property array<string, string>|null $build_credentials
+ * @property string|null $setup_script_hash
  * @property array<int, string>|null $pr_review_path_excludes
  * @property int $pr_reviews_30d_count
  * @property int $tasks_count
@@ -45,6 +47,9 @@ class Repository extends Model
 
     protected $guarded = [];
 
+    /** @var list<string> */
+    protected $hidden = ['build_credentials'];
+
     /** @var array<string, mixed> */
     protected $attributes = [
         'is_default' => false,
@@ -60,6 +65,7 @@ class Repository extends Model
     protected function casts(): array
     {
         return [
+            'build_credentials' => 'encrypted:array',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
             'sandbox_base_version' => 'integer',

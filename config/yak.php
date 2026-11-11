@@ -133,6 +133,9 @@ return [
         'docker_config_source' => env('YAK_SANDBOX_DOCKER_CONFIG', '/home/yak/.docker/config.json'),
         'network' => env('YAK_SANDBOX_NETWORK', 'yak-sandbox'),
         'cleanup_after_hours' => (int) env('YAK_SANDBOX_CLEANUP_HOURS', 24),
+        'incus_remote' => env('YAK_SANDBOX_INCUS_REMOTE', 'local'),
+        'incus_pool' => env('YAK_SANDBOX_INCUS_POOL', 'default'),
+        'ready_timeout_seconds' => (int) env('YAK_SANDBOX_READY_TIMEOUT_SECONDS', 60),
     ],
 
     /*

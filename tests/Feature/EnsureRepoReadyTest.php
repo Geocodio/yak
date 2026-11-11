@@ -9,8 +9,11 @@ use App\Jobs\RetryYakJob;
 use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
+use App\Models\GitHubInstallationToken;
 use App\Models\Repository;
 use App\Models\YakTask;
+use App\Services\Threads\SetupScriptHash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 
@@ -257,3 +260,63 @@ test('a refused agent job notifies the source exactly once', function () {
     expect($task->fresh()->status)->toBe(TaskStatus::Failed);
     Queue::assertPushed(SendNotificationJob::class, 1);
 });
+
+function fakeSetupScriptOnGitHub(string $slug, ?string $contents): void
+{
+    config()->set('yak.channels.github.installation_id', 12345);
+    GitHubInstallationToken::create(['installation_id' => 12345, 'token' => 'ghs_fake', 'expires_at' => now()->addHour()]);
+    Http::fake([
+        "https://api.github.com/repos/{$slug}/contents/.yak/setup.sh*" => $contents === null
+            ? Http::response(['message' => 'Not Found'], 404)
+            : Http::response($contents, 200, ['Content-Length' => (string) strlen($contents)]),
+    ]);
+}
+
+test('a changed setup script rebuilds the template', function () {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    fakeSetupScriptOnGitHub('acme/scripted', "composer install\n");
+    $repo = Repository::factory()->create([
+        'slug' => 'acme/scripted',
+        'github_full_name' => 'acme/scripted',
+        'sandbox_base_version' => (int) config('yak.sandbox.base_version'),
+        'setup_script_hash' => SetupScriptHash::forContents("composer install --old\n"),
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/scripted']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+    $called = false;
+
+    (new EnsureRepoReady)->handle($job, function () use (&$called) {
+        $called = true;
+    });
+
+    expect($called)->toBeFalse()
+        ->and($job->failMessage)->toContain('.yak/setup.sh changed')->toContain('fresh Setup task')
+        ->and($repo->fresh()->setup_status)->toBe('pending');
+});
+
+test('an unchanged or missing setup script does not', function (?string $remote) {
+    Queue::fake();
+    Process::fake(['*' => Process::result(exitCode: 0)]);
+    fakeSetupScriptOnGitHub('acme/scripted', $remote);
+    Repository::factory()->create([
+        'slug' => 'acme/scripted',
+        'github_full_name' => 'acme/scripted',
+        'sandbox_base_version' => (int) config('yak.sandbox.base_version'),
+        'setup_script_hash' => SetupScriptHash::forContents("composer install\n"),
+    ]);
+    $task = YakTask::factory()->pending()->create(['repo' => 'acme/scripted']);
+    $job = makeTestJobDouble();
+    $job->task = $task;
+    $called = false;
+
+    (new EnsureRepoReady)->handle($job, function () use (&$called) {
+        $called = true;
+    });
+
+    expect($called)->toBeTrue()->and($job->failed)->toBeFalse();
+})->with([
+    'unchanged' => ["composer install\n"],
+    'missing' => [null],
+]);
