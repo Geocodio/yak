@@ -26,6 +26,10 @@ type Context struct {
 	OpenURL   func(string) error
 	Cwd       string
 	ConfigDir string
+	// Interactive is true when stdin is a terminal and prompts may be shown.
+	Interactive bool
+	// Exec replaces this process with argv running in dir; nil means print the command instead.
+	Exec func(dir string, argv []string) error
 }
 
 type command func(ctx *Context, args []string) int
@@ -33,7 +37,7 @@ type command func(ctx *Context, args []string) int
 var commands = map[string]command{}
 
 // futureCommands are dispatched names whose implementation lands in a later chunk.
-var futureCommands = []string{"teleport", "ssh", "hook", "mcp", "open-link", "marker"}
+var futureCommands = []string{"ssh", "hook", "mcp", "open-link", "marker"}
 
 func init() {
 	commands["version"] = func(ctx *Context, _ []string) int {
