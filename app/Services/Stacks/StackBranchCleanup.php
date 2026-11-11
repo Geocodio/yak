@@ -21,6 +21,7 @@ class StackBranchCleanup
         $branches = Thread::query()->withoutGlobalScopes()
             ->where('root_thread_id', $root->id)
             ->where('id', '!=', $root->id)
+            ->where('repo', $root->repo)
             ->where('branch', 'like', 'yak/%')
             ->pluck('branch')
             ->unique();

@@ -61,7 +61,11 @@ class ChildOutcomeRecorder
             }
         }
 
-        $this->queue($child, StackThreadMessageKind::Result, $text, now(), $child->branch);
+        if ($this->isRepoChild($child)) {
+            $text .= "\n\n" . $this->pullRequestLine($child);
+        }
+
+        $this->queue($child, StackThreadMessageKind::Result, $text, now(), $this->isRepoChild($child) ? null : $child->branch);
 
         $parent = Thread::query()->withoutGlobalScopes()->find($child->parent_thread_id);
 
@@ -91,6 +95,24 @@ class ChildOutcomeRecorder
         if ($usageLimit) {
             $this->notifier->notifyOwner($child->rootThread(), "sub-thread {$child->name} hit its usage limit");
         }
+    }
+
+    /** A child in another repo opens its own pull request; its branch is never merged into the parent. */
+    private function isRepoChild(Thread $child): bool
+    {
+        $parent = Thread::query()->withoutGlobalScopes()->find($child->parent_thread_id);
+
+        return $parent !== null && $parent->repo !== $child->repo;
+    }
+
+    private function pullRequestLine(Thread $child): string
+    {
+        $url = $child->tasks()->whereNotNull('pr_url')->latest('id')->value('pr_url')
+            ?? $child->primaryRepository?->pull_request_url;
+
+        return $url === null
+            ? "Its work is on branch {$child->branch} in {$child->repo}, which gets its own pull request there. Do not merge it into your branch."
+            : "Its own pull request in {$child->repo}: {$url}. Do not merge it into your branch.";
     }
 
     private function isIgnored(Thread $child, TaskRun $run): bool
