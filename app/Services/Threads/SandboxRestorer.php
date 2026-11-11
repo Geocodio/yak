@@ -14,6 +14,7 @@ use App\Services\Datasets\DatasetClones;
 use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Collection;
 use RuntimeException;
@@ -211,7 +212,7 @@ class SandboxRestorer
         return true;
     }
 
-    /** Git identity and credentials come from the task sandbox helpers, which only know real containers. */
+    /** Git identity comes from the task sandbox helpers, which only know real containers. Credentials are limited to the thread's repositories. */
     private function configureGit(Thread $thread): void
     {
         if (! $this->sandboxes instanceof IncusThreadSandboxManager) {
@@ -221,7 +222,11 @@ class SandboxRestorer
         $incus = app(IncusSandboxManager::class);
         $container = $this->sandboxes->containerName($thread);
         $incus->configureGitIdentity($container);
-        $incus->injectGitCredentials($container);
+
+        if ((int) config('yak.channels.github.installation_id') !== 0) {
+            $incus->installGhWrapper($container);
+            app(ThreadGitHubCredentials::class)->install($thread);
+        }
     }
 
     /**
