@@ -52,6 +52,7 @@ type teleportState struct {
 	failComplete *api.Failure
 	slowComplete int
 	sandbox      string
+	sandboxRepos []api.SandboxRepo
 
 	messages map[int][]api.StackMessage
 	acked    map[int]int
@@ -116,6 +117,13 @@ func (s *Server) SlowCompleteForPolls(n int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tele.slowComplete = n
+}
+
+// SetSandboxRepos makes teleport-up completes report these per-repo sandbox outcomes.
+func (s *Server) SetSandboxRepos(repos ...api.SandboxRepo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tele.sandboxRepos = repos
 }
 
 // SetSandboxState sets sandbox.state in the next up completes (ready, restoring, waiting_for_slot).
@@ -642,7 +650,7 @@ func (s *Server) finishUp(row *teleportRow) {
 		sandbox = "ready"
 	}
 	row.completed = api.CompleteUpResponse{
-		Teleport: row.object(), Ownership: "yak", Sandbox: api.Sandbox{State: sandbox}, TurnStarted: req.Message != "",
+		Teleport: row.object(), Ownership: "yak", Sandbox: api.Sandbox{State: sandbox, Repos: s.tele.sandboxRepos}, TurnStarted: req.Message != "",
 		Marker: api.Marker{ThreadID: thread.ID, TeleportID: row.id, Owner: "yak", ThreadURL: thread.URL},
 	}
 }

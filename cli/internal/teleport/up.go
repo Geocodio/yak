@@ -255,6 +255,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		d.say("Yak has no free sandbox right now. The thread is on Yak and will start when one is free.")
 	}
 	d.say("Yak has the thread. This session is now read-only.")
+	reportUpRepos(d, repos, done.Sandbox.Repos, missing)
 	d.say("Yak runs it under the %s Claude account; turns you run here use your local Claude login.", started.Thread.ClaudeAccount.Name)
 	d.say("Continue at %s", started.Thread.URL)
 	return UpResult{ThreadID: started.Thread.ID, ThreadURL: started.Thread.URL, TeleportID: started.TeleportID, Branch: completeRepos[0].Branch}, nil
@@ -460,5 +461,30 @@ func firstPrompt(path string) string {
 		if err != nil {
 			return ""
 		}
+	}
+}
+
+// reportUpRepos prints what became of each repo and which added directories were not uploaded.
+func reportUpRepos(d Deps, repos []*upRepo, sandboxRepos []api.SandboxRepo, missing []string) {
+	if len(repos) > 1 {
+		for _, r := range repos {
+			var failure *api.SandboxRepo
+			for i, sr := range sandboxRepos {
+				if sr.Repo == r.slug && sr.Status == "failed" {
+					failure = &sandboxRepos[i]
+				}
+			}
+			switch {
+			case failure != nil:
+				d.say("! %s could not be set up on Yak: %s", r.slug, failure.Reason)
+			case r.role == "context":
+				d.say("%s: context, not changed", r.slug)
+			default:
+				d.say("%s: changes, on %s", r.slug, r.prepared.Branch)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		d.say("Not uploaded (not on Yak): %s", strings.Join(missing, ", "))
 	}
 }

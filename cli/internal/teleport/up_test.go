@@ -467,3 +467,38 @@ func TestUpAddDirChangesRepoFollowsCleanTreeRules(t *testing.T) {
 		t.Fatalf("%d teleports begun", n)
 	}
 }
+
+func TestUpPrintsEachRepoOutcome(t *testing.T) {
+	h := newHarness(t)
+	extra, _ := addYakRepo(t, h)
+	h.srv.SetSandboxRepos(api.SandboxRepo{Repo: "acme/api", Role: "context", Status: "failed", Reason: "clone failed"})
+	if _, err := h.upAddDirs(PrepareOptions{}, extra.Dir); err != nil {
+		t.Fatal(err)
+	}
+	out := h.out.String()
+	for _, want := range []string{"acme/widgets: changes, on feat", "! acme/api could not be set up on Yak: clone failed"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q in:\n%s", want, out)
+		}
+	}
+	h2 := newHarness(t)
+	extra2, _ := addYakRepo(t, h2)
+	if _, err := h2.upAddDirs(PrepareOptions{}, extra2.Dir); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(h2.out.String(), "acme/api: context, not changed") {
+		t.Fatalf("missing context line:\n%s", h2.out.String())
+	}
+}
+
+func TestUpListsMissingDirectoriesAtTheEnd(t *testing.T) {
+	h := newHarness(t)
+	scratch := testrepo.Clone(t, testrepo.Bare(t))
+	if _, err := h.upAddDirs(PrepareOptions{}, scratch.Dir); err != nil {
+		t.Fatal(err)
+	}
+	out := h.out.String()
+	if !strings.Contains(out, "Not uploaded (not on Yak): "+scratch.Dir) || strings.Index(out, "Not uploaded") < strings.Index(out, "read-only") {
+		t.Fatalf("%s", out)
+	}
+}
