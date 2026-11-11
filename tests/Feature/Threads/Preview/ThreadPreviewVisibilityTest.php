@@ -35,6 +35,13 @@ function previewWakeOf($test, string $host, $user)
         ->get('/internal/threads/preview/wake');
 }
 
+function previewStatusOf($test, string $host, $user)
+{
+    return $test->withHeaders(['X-Forwarded-Host' => $host])
+        ->withCookie(PreviewAccess::COOKIE_NAME, previewCookie($host, $user->id))
+        ->get('/internal/threads/preview/status');
+}
+
 /** The handshake steps that exist in this chunk, each answering with a masked body. */
 function handshakeSteps(): array
 {
@@ -42,6 +49,7 @@ function handshakeSteps(): array
         'bounce' => fn ($test, $host, $user) => previewBounceOf($test, $host, $user),
         'preview-auth' => fn ($test, $host, $user) => previewExchangeOf($test, $host, $user),
         'wake' => fn ($test, $host, $user) => previewWakeOf($test, $host, $user),
+        'status' => fn ($test, $host, $user) => previewStatusOf($test, $host, $user),
     ];
 }
 
@@ -52,7 +60,7 @@ it('answers a private thread host like an unknown host', function (string $step,
 
     expect($hidden->getStatusCode())->toBe($missing->getStatusCode())
         ->and(str_replace($this->host, 'HOST', (string) $hidden->getContent()))->toBe(str_replace($this->unknown, 'HOST', (string) $missing->getContent()));
-})->with(['bounce', 'preview-auth', 'wake'])->with(['other', 'admin']);
+})->with(['bounce', 'preview-auth', 'wake', 'status'])->with(['other', 'admin']);
 
 it('answers a closed thread host like an unknown host', function (string $step) {
     $this->world->thread->update(['status' => ThreadStatus::Closed]);
@@ -62,7 +70,7 @@ it('answers a closed thread host like an unknown host', function (string $step) 
 
     expect($closed->getStatusCode())->toBe($missing->getStatusCode())
         ->and(str_replace($this->host, 'HOST', (string) $closed->getContent()))->toBe(str_replace($this->unknown, 'HOST', (string) $missing->getContent()));
-})->with(['bounce', 'preview-auth', 'wake']);
+})->with(['bounce', 'preview-auth', 'wake', 'status']);
 
 it('ends a live cookie when the share is withdrawn', function () {
     $share = ThreadShare::factory()->create(['thread_id' => $this->world->thread->id, 'user_id' => $this->world->other->id]);

@@ -31,6 +31,9 @@ class VisibilityRoutes
         'threads.stop' => ['POST', '/threads/{thread}/stop'],
         'threads.continue' => ['POST', '/threads/{thread}/continue'],
         'threads.restore.retry' => ['POST', '/threads/{thread}/restore/retry'],
+        'threads.preview.status' => ['GET', '/threads/{thread}/preview/status'],
+        'threads.preview.heartbeat' => ['POST', '/threads/{thread}/preview/heartbeat'],
+        'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
         'tasks.show' => ['GET', '/tasks/{task}'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
@@ -187,7 +190,7 @@ class VisibilityRoutes
      */
     public static function hosts(): array
     {
-        return ['deployments.preview-auth', 'deployments.status', 'deployments.wake', 'threads.preview.wake'];
+        return ['deployments.preview-auth', 'deployments.status', 'deployments.wake', 'threads.preview.wake', 'threads.preview.host-status'];
     }
 
     /**
