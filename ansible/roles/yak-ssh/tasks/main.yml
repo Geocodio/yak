@@ -1,0 +1,135 @@
+---
+- name: Assert the internal token is set
+  ansible.builtin.assert:
+    that:
+      - yak_ssh_internal_token | length > 0
+    fail_msg: yak_ssh_internal_token must be set in the vault
+
+- name: Ensure /etc/yak directory exists
+  ansible.builtin.file:
+    path: /etc/yak
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Create the jump, lookup and bridge groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    system: true
+  loop:
+    - "{{ yak_ssh_jump_user }}"
+    - "{{ yak_ssh_lookup_user }}"
+    - "{{ yak_ssh_bridge_user }}"
+
+- name: Create the jump, lookup and bridge users
+  ansible.builtin.user:
+    name: "{{ item }}"
+    group: "{{ item }}"
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+  loop:
+    - "{{ yak_ssh_jump_user }}"
+    - "{{ yak_ssh_lookup_user }}"
+    - "{{ yak_ssh_bridge_user }}"
+
+# Each service reads its own copy, so no token file is shared between users.
+- name: Write the internal token files
+  ansible.builtin.copy:
+    dest: "/etc/yak/ssh-token-{{ item.name }}"
+    content: "{{ yak_ssh_internal_token }}\n"
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "0600"
+  no_log: true
+  loop:
+    - { name: wake, owner: "{{ yak_ssh_broker_user }}" }
+    - { name: lookup, owner: "{{ yak_ssh_lookup_user }}" }
+    - { name: termbridge, owner: "{{ yak_ssh_bridge_user }}" }
+
+- name: Write the service environment files
+  ansible.builtin.template:
+    src: yak-ssh.env.j2
+    dest: "/etc/yak/ssh-{{ item }}.env"
+    owner: root
+    group: root
+    mode: "0644"
+  vars:
+    yak_ssh_env_for: "{{ item }}"
+  loop:
+    - wake
+    - termbridge
+  notify:
+    - Restart yak-wake
+    - Restart yak-termbridge
+
+- name: Install the key lookup wrapper
+  ansible.builtin.template:
+    src: yak-ssh-lookup.sh.j2
+    dest: /usr/local/bin/yak-ssh-lookup
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Create the jump sshd config directory
+  ansible.builtin.file:
+    path: "{{ yak_ssh_config_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Generate the jump host key
+  ansible.builtin.command:
+    cmd: ssh-keygen -q -t ed25519 -N "" -f {{ yak_ssh_config_dir }}/ssh_host_ed25519_key
+    creates: "{{ yak_ssh_config_dir }}/ssh_host_ed25519_key"
+
+- name: Install the jump sshd config
+  ansible.builtin.template:
+    src: yak-jump-sshd.conf.j2
+    dest: "{{ yak_ssh_config_dir }}/sshd_config"
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Restart yak-jump-sshd
+
+- name: Install the systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - yak-jump-sshd.service
+    - yak-wake.service
+    - yak-termbridge.service
+  notify:
+    - Reload systemd (yak-ssh)
+    - Restart yak-jump-sshd
+    - Restart yak-wake
+    - Restart yak-termbridge
+
+- name: Flush handlers so systemd sees the new units
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start the jump sshd, wake proxy and terminal bridge
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - yak-jump-sshd
+    - yak-wake
+    - yak-termbridge
+
+# The wake listeners (127.0.0.0/8) and the bridge (loopback) need no firewall rule.
+- name: Allow the jump host port
+  community.general.ufw:
+    rule: allow
+    direction: in
+    to_port: "{{ yak_ssh_jump_port }}"
+    proto: tcp
+    comment: "Yak ssh jump host"

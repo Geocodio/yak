@@ -1,0 +1,15 @@
+---
+yak_ssh_jump_port: 2222
+yak_ssh_bridge_listen: 127.0.0.1:8090
+yak_ssh_url: "https://geocodio.yak.build"
+# From the vault. An empty token locks every internal ssh route on the Yak side.
+yak_ssh_internal_token: ""
+yak_ssh_allowed_origins: "https://geocodio.yak.build"
+yak_ssh_wake_timeout: 90s
+yak_ssh_jump_user: yak-jump
+yak_ssh_lookup_user: yak-ssh-lookup
+yak_ssh_bridge_user: yak-termbridge
+yak_ssh_broker_user: "{{ yak_broker_user | default('yak-broker') }}"
+# CI builds the Go binaries and drops them here; the role never builds.
+yak_ssh_bin_dir: /opt/yak/bin
+yak_ssh_config_dir: /etc/ssh/yak-jump

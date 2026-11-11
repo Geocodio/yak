@@ -1,0 +1,21 @@
+# Jump host sshd for `ssh -J`. It only forwards TCP to sandbox wake addresses.
+# Who may forward where is decided per key by Yak, through AuthorizedKeysCommand.
+Port {{ yak_ssh_jump_port }}
+HostKey {{ yak_ssh_config_dir }}/ssh_host_ed25519_key
+PidFile /run/yak-jump-sshd.pid
+
+AllowUsers {{ yak_ssh_jump_user }}
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile none
+AuthorizedKeysCommand /usr/local/bin/yak-ssh-lookup %f
+AuthorizedKeysCommandUser {{ yak_ssh_lookup_user }}
+
+AllowTcpForwarding yes
+PermitTTY no
+X11Forwarding no
+AllowAgentForwarding no
+PermitTunnel no
+GatewayPorts no
+ForceCommand /bin/false
