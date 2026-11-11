@@ -2,7 +2,7 @@ import type { AssistantBlock, ThreadEventState, TranscriptEntry } from '@/types/
 import type { ConversationItem } from './conversationItem';
 
 type ToolUse = Extract<AssistantBlock, { type: 'tool_use' }>;
-type Source = Pick<ThreadEventState, 'entries' | 'streamingBlocks' | 'lastSequence'> & Partial<Pick<ThreadEventState, 'children'>>;
+type Source = Pick<ThreadEventState, 'entries' | 'streamingBlocks' | 'lastSequence'> & Partial<Pick<ThreadEventState, 'children' | 'repositories'>>;
 
 const editTools = new Set(['Edit', 'MultiEdit', 'Write']);
 
@@ -127,6 +127,10 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
 
     Object.values(state.children ?? {}).forEach(({ sequence, data }) => {
         items.push({ kind: 'child', key: `child:${data.childThreadId}`, sequence, role: 'assistant', child: data });
+    });
+
+    Object.values(state.repositories ?? {}).forEach(({ sequence, data }) => {
+        items.push({ kind: 'repository', key: `repository:${data.repo}`, sequence, role: 'assistant', repository: data });
     });
 
     Object.entries(state.streamingBlocks)

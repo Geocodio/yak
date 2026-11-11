@@ -28,7 +28,8 @@ final class ThreadEnvironmentData
      *     model: ?string,
      *     startedBy: ?array{name: string, at: string},
      *     stoppedAfterMinutes: int,
-     *     repositories: list<array{repo: string, role: value-of<RepositoryRole>, setupStatus: value-of<RepositorySetupStatus>}>,
+     *     repositories: list<array{id: int, repo: string, role: value-of<RepositoryRole>, path: string, setupStatus: value-of<RepositorySetupStatus>, setupError: ?string, setupOutput: ?string, addedBy: ?string, addedAt: ?string, isDatasetAttached: bool, canMakeContextOnly: bool}>,
+     *     notUploadedDirectories: list<string>,
      * }
      */
     public static function build(Thread $thread, ?User $viewer): array
@@ -42,9 +43,17 @@ final class ThreadEnvironmentData
 
         foreach ($thread->repositories as $repository) {
             $repositories[] = [
+                'id' => $repository->id,
                 'repo' => $repository->repo,
                 'role' => $repository->role->value,
+                'path' => $repository->sandbox_path,
                 'setupStatus' => $repository->setup_status->value,
+                'setupError' => $repository->setup_error,
+                'setupOutput' => $repository->setup_output,
+                'addedBy' => $repository->added_by,
+                'addedAt' => $repository->created_at?->toIso8601String(),
+                'isDatasetAttached' => $repository->isPrimary(),
+                'canMakeContextOnly' => $repository->role === RepositoryRole::Changes && ! $repository->hasOpenPullRequest(),
             ];
         }
 
@@ -68,7 +77,21 @@ final class ThreadEnvironmentData
             ],
             'stoppedAfterMinutes' => (int) config('yak.threads.pause_to_stop_minutes'),
             'repositories' => $repositories,
+            'notUploadedDirectories' => self::notUploadedDirectories($thread),
         ];
+    }
+
+    /**
+     * Directories of the person's computer that the latest teleport could not upload.
+     *
+     * @return list<string>
+     */
+    private static function notUploadedDirectories(Thread $thread): array
+    {
+        $payload = $thread->teleports()->latest('id')->first()?->payload;
+        $missing = is_array($payload) ? ($payload['missing_directories'] ?? []) : [];
+
+        return array_values(array_filter(is_array($missing) ? $missing : [], is_string(...)));
     }
 
     /**

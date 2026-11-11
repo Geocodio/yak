@@ -1,0 +1,46 @@
+<?php
+
+use App\Enums\RepositoryRole;
+use App\Models\ClaudeAccount;
+use App\Models\Repository;
+use App\Models\Thread;
+use App\Models\User;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+
+it('adds a context repo, shows the note and count, and shows progress after starting', function () {
+    $keyPair = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($keyPair, $privateKey);
+    config()->set('yak.channels.github.app_id', '999');
+    config()->set('yak.channels.github.private_key', $privateKey);
+    config()->set('yak.channels.github.installation_id', 42);
+    Http::fake([
+        'api.github.com/app/installations/42/access_tokens' => fn (Request $request) => Http::response(['token' => 'ghs_x', 'expires_at' => now()->addHour()->toIso8601String()], 201),
+        'api.github.com/repos/*' => Http::response(['description' => null, 'topics' => []]),
+    ]);
+    Queue::fake();
+
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/api', 'is_default' => true]);
+    Repository::factory()->create(['slug' => 'acme/docs']);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->type('[data-testid="start-thread-description"]', 'Move invoices to cursor pagination')
+        ->click('[data-testid="add-repo"]')
+        ->click('acme/docs')
+        ->assertCount('[data-testid="repo-chip"]', 2)
+        ->assertSeeIn('[data-testid="expected-pr-count"]', '2 pull requests expected')
+        ->click('[data-testid="repo-role"]')
+        ->click('Context')
+        ->assertSeeIn('[data-testid="expected-pr-count"]', '1 pull request expected')
+        ->assertSeeIn('[data-testid="repo-note"]', 'acme/docs is throwaway')
+        ->click('[data-testid="start-thread-submit"]')
+        ->assertVisible('[data-testid="repo-progress"]')
+        ->assertSee('acme/docs');
+
+    $thread = Thread::query()->latest('id')->firstOrFail();
+    expect($thread->repositories()->where('repo', 'acme/docs')->value('role'))->toBe(RepositoryRole::Context);
+});

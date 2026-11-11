@@ -5,6 +5,7 @@ use App\Enums\ThreadSandboxState;
 use App\Models\BranchDeployment;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
+use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\User;
@@ -87,4 +88,38 @@ it('returns nulls for a thread with no task or deployment', function () {
         ->assertJsonPath('startedBy', null)
         ->assertJsonPath('branch', null)
         ->assertJsonPath('repositories', []);
+});
+
+it('describes each repository with path, setup error and role actions', function () {
+    $thread = Thread::factory()->create(['repo' => 'acme/app']);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
+    ThreadRepository::factory()->changes()->failed('npm ci failed')->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude']);
+
+    $response = $this->actingAs(User::factory()->create())->getJson(route('threads.environment.show', $thread))->assertOk();
+
+    $response->assertJsonPath('repositories.0.isDatasetAttached', true)
+        ->assertJsonPath('repositories.0.canMakeContextOnly', false)
+        ->assertJsonPath('repositories.1.path', '/extras/web')
+        ->assertJsonPath('repositories.1.setupStatus', 'failed')
+        ->assertJsonPath('repositories.1.setupError', 'npm ci failed')
+        ->assertJsonPath('repositories.1.isDatasetAttached', false)
+        ->assertJsonPath('repositories.1.canMakeContextOnly', true)
+        ->assertJsonPath('repositories.1.addedBy', 'claude');
+});
+
+it('does not offer context only while the repo has an open pull request', function () {
+    $thread = Thread::factory()->create();
+    $task = YakTask::factory()->create(['thread_id' => $thread->id, 'pr_url' => 'https://github.com/acme/web/pull/9']);
+    ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'pull_request_url' => $task->pr_url]);
+
+    $this->actingAs(User::factory()->create())->getJson(route('threads.environment.show', $thread))
+        ->assertJsonPath('repositories.0.canMakeContextOnly', false);
+});
+
+it('lists the directories the latest teleport did not upload', function () {
+    $thread = Thread::factory()->create();
+    Teleport::factory()->create(['thread_id' => $thread->id, 'payload' => ['missing_directories' => ['/Users/ada/shared', '/Users/ada/data']]]);
+
+    $this->actingAs(User::factory()->create())->getJson(route('threads.environment.show', $thread))
+        ->assertJsonPath('notUploadedDirectories', ['/Users/ada/shared', '/Users/ada/data']);
 });

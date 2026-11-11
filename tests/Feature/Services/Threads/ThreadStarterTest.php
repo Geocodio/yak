@@ -39,6 +39,14 @@ it('creates thread, task, repository row and starts the first turn', function ()
     Queue::assertPushed(RunYakJob::class, fn (RunYakJob $job) => $job->task->is($task));
 });
 
+it('stores the primary repository at /workspace', function () {
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $this->user->id]);
+
+    $thread = startThread();
+
+    expect(ThreadRepository::query()->where('thread_id', $thread->id)->firstOrFail()->sandbox_path)->toBe('/workspace');
+});
+
 it('uses the chosen account and model', function () {
     ClaudeAccount::factory()->default()->create(['owner_user_id' => $this->user->id]);
     $chosen = ClaudeAccount::factory()->create(['owner_user_id' => $this->user->id]);

@@ -11,10 +11,10 @@ use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
 use App\Services\Telemetry\RunRecorder;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\IncusThreadSandboxManager;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use App\Services\Threads\ThreadDiffCapture;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadShell;
@@ -147,7 +147,7 @@ abstract class FinishThreadTurnJob implements ShouldQueue
     private function refreshGitCredentials(SandboxManager $sandboxes, Thread $thread): void
     {
         if ($sandboxes instanceof IncusThreadSandboxManager) {
-            app(IncusSandboxManager::class)->injectGitCredentials($sandboxes->containerName($thread));
+            app(ThreadGitHubCredentials::class)->refresh($thread);
         }
     }
 }

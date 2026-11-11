@@ -26,9 +26,15 @@ class StoreThreadController extends Controller
                 isset($validated['claude_account_id']) ? (int) $validated['claude_account_id'] : null,
                 $validated['model'] ?? null,
                 TaskAttachment::storeFromRequest($request),
+                $validated['repositories'] ?? [],
             );
         } catch (RuntimeException $exception) {
             throw ValidationException::withMessages(['claude_account_id' => $exception->getMessage()]);
+        }
+
+        // With extra repositories the dialog stays open to show per-repo progress.
+        if (! empty($validated['repositories'])) {
+            return back()->with('startedThreadId', $thread->id);
         }
 
         return redirect()->route('threads.show', $thread);

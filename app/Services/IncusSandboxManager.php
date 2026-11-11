@@ -262,6 +262,12 @@ class IncusSandboxManager implements SandboxShell
         $token = app(GitHubAppService::class)->getReadOnlyInstallationToken($installationId);
 
         $this->run($containerName, 'mkdir -p /home/yak/.config/yak && umask 077 && cat > /home/yak/.config/yak/gh-token', timeout: 10, input: $token);
+        $this->installGhWrapper($containerName);
+    }
+
+    /** Puts the `gh` wrapper on PATH; it reads the token file on every call. */
+    public function installGhWrapper(string $containerName): void
+    {
         $this->run(
             $containerName,
             'cat > /usr/local/bin/gh && chmod 755 /usr/local/bin/gh',

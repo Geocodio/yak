@@ -12,6 +12,7 @@ use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\TaskAttachmentStager;
+use App\Services\Threads\Repos\ThreadRepositoryPrompt;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadFactory;
 use App\Services\Threads\ThreadSandbox;
@@ -67,6 +68,11 @@ trait StartsThreadTurns
             $shell = ThreadShell::for($thread);
             $prepareTree($shell, $thread);
             $prompt = $promptFor($thread);
+            $setupFailure = ThreadRepositoryPrompt::setupFailureNotice($thread);
+
+            if ($setupFailure !== null) {
+                $prompt = rtrim($prompt) . "\n\n" . $setupFailure;
+            }
 
             $staged = (new TaskAttachmentStager($shell))->stage((string) $thread->sandbox_container, collect($attachments)->all());
 
@@ -74,7 +80,7 @@ trait StartsThreadTurns
                 $prompt = rtrim($prompt) . "\n\n" . $staged;
             }
 
-            $thread->forceFill(['append_system_prompt' => YakPromptBuilder::systemPrompt($this->task)])->save();
+            $thread->forceFill(['append_system_prompt' => trim(YakPromptBuilder::systemPrompt($this->task) . "\n\n" . ThreadRepositoryPrompt::section($thread))])->save();
 
             $driver = $this->task->started_by_user_id === null ? null : User::query()->find($this->task->started_by_user_id);
             $run = app(ThreadTurns::class)->start($this->task, $prompt, $driver, null);

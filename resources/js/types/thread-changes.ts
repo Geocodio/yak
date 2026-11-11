@@ -4,6 +4,7 @@ export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed';
 
 export type ThreadDiffFile = {
     id: number;
+    repo: string;
     path: string;
     oldPath: string | null;
     status: DiffFileStatus;
@@ -11,6 +12,17 @@ export type ThreadDiffFile = {
     deletions: number | null;
     isBinary: boolean;
     isTooLarge: boolean;
+};
+
+export type ThreadDiffRepository = {
+    repo: string;
+    role: 'primary' | 'changes' | 'context';
+    isThrowaway: boolean;
+    baseSha: string;
+    headSha: string;
+    filesCount: number;
+    additions: number;
+    deletions: number;
 };
 
 export type ThreadDiffSummary = {
@@ -21,7 +33,9 @@ export type ThreadDiffSummary = {
     filesCount: number;
     additions: number;
     deletions: number;
+    throwawayFilesCount: number;
     isTurnRunning: boolean;
+    repositories: ThreadDiffRepository[];
     files: ThreadDiffFile[];
 };
 
@@ -35,6 +49,20 @@ export type ThreadDiffFilePatch = {
     patch: string | null;
 };
 
+export type ThreadEnvironmentRepository = {
+    id: number;
+    repo: string;
+    role: 'primary' | 'changes' | 'context';
+    path: string;
+    setupStatus: 'pending' | 'cloning' | 'setup' | 'ready' | 'failed';
+    setupError: string | null;
+    setupOutput: string | null;
+    addedBy: string | null;
+    addedAt: string | null;
+    isDatasetAttached: boolean;
+    canMakeContextOnly: boolean;
+};
+
 export type ThreadEnvironment = {
     sandbox: { state: 'none' | 'starting' | 'running' | 'paused' | 'stopped' | 'destroying' | 'destroyed'; stateChangedAt: string | null };
     branch: string | null;
@@ -44,5 +72,6 @@ export type ThreadEnvironment = {
     model: string | null;
     startedBy: { name: string; at: string } | null;
     stoppedAfterMinutes: number;
-    repositories: { repo: string; role: string; setupStatus: string }[];
+    repositories: ThreadEnvironmentRepository[];
+    notUploadedDirectories: string[];
 };

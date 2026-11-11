@@ -22,11 +22,11 @@ export function FileTree({ nodes, viewed, onToggleViewed, onOpen, depth = 0 }: P
                 node.kind === 'directory' ? (
                     <DirectoryRow key={node.path} node={node} viewed={viewed} onToggleViewed={onToggleViewed} onOpen={onOpen} depth={depth} />
                 ) : (
-                    <li key={node.path} className="flex items-center gap-2 py-1" style={{ paddingLeft: depth * 12 }} data-testid={`changes-file-${node.path}`}>
-                        <input type="checkbox" checked={viewed.has(node.path)} onChange={() => onToggleViewed(node.path)} aria-label={`Mark ${node.path} viewed`} className="shrink-0" />
-                        <button type="button" onClick={() => onOpen(node.path)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left text-[13px] text-body hover:underline">
+                    <li key={node.key} className="flex items-center gap-2 py-1" style={{ paddingLeft: depth * 12 }} data-testid={`changes-file-${node.path}`}>
+                        <input type="checkbox" checked={viewed.has(node.key)} onChange={() => onToggleViewed(node.key)} aria-label={`Mark ${node.path} viewed`} className="shrink-0" />
+                        <button type="button" onClick={() => onOpen(node.key)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left text-[13px] text-body hover:underline">
                             <FileText size={13} className="shrink-0 text-muted" />
-                            <span className={cn('truncate', viewed.has(node.path) && 'text-muted')}>{node.name}</span>
+                            <span className={cn('truncate', viewed.has(node.key) && 'text-muted')}>{node.name}</span>
                         </button>
                         <span className="shrink-0 text-[11.5px] tabular-nums text-muted">
                             {node.file.isBinary || node.file.isTooLarge ? (

@@ -34,6 +34,9 @@ class VisibilityRoutes
         'threads.stop' => ['POST', '/threads/{thread}/stop'],
         'threads.continue' => ['POST', '/threads/{thread}/continue'],
         'threads.restore.retry' => ['POST', '/threads/{thread}/restore/retry'],
+        'threads.repositories.progress' => ['GET', '/threads/{thread}/repositories'],
+        'threads.repositories.update' => ['PATCH', '/threads/{thread}/repositories/{repository}', ['role' => 'context'], 302],
+        'threads.repositories.retry' => ['POST', '/threads/{thread}/repositories/{repository}/retry', [], 302],
         'threads.stack.show' => ['GET', '/threads/{thread}/stack'],
         'threads.stack.limit' => ['PATCH', '/threads/{thread}/stack/limit', ['limit' => 2]],
         'threads.stack.stop' => ['POST', '/threads/{thread}/stack/stop'],
@@ -103,6 +106,7 @@ class VisibilityRoutes
                 '{task}' => (string) ($id === $missing ? $missing : $task),
                 '{deployment}' => (string) ($id === $missing ? $missing : $deployment),
                 '{attachment}' => (string) ($id === $missing ? $missing : $world->attachment->id),
+                '{repository}' => (string) ($id === $missing ? $missing : $world->repository->id),
                 '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),
                 '{sequence}' => (string) ($id === $missing ? $missing : $world->event->sequence),
                 '{pr}' => (string) ($id === $missing ? $missing : $world->prReview->pr_number),
@@ -163,7 +167,7 @@ class VisibilityRoutes
             // Device pairing and the viewer's own paired devices: per user, no thread data.
             'device.show', 'device.approve', 'device.deny', 'settings.devices', 'settings.devices.destroy',
             // New-thread form and creation: reads the viewer's own repositories and accounts only.
-            'threads.new', 'threads.store',
+            'threads.new', 'threads.store', 'threads.repository-access',
             // Device-token protocol for the CLI: no web session; each controller resolves the thread through the device owner's visibility.
             'cli.device.code', 'cli.device.token', 'cli.me', 'cli.device.destroy', 'cli.repos.resolve',
             'GET api/cli/v1/threads/by-session/{sessionId}', 'GET api/cli/v1/threads/{thread}', 'POST api/cli/v1/teleports',

@@ -1,16 +1,18 @@
-import { Link, useForm, usePage } from '@inertiajs/react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Button, Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown, Search, Wrench } from 'lucide-react';
-import { useRef, type KeyboardEvent } from 'react';
+import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { ModelPicker } from '@/components/threads/composer/ModelPicker';
-import { store } from '@/routes/threads';
+import { RepositoryPicker } from './RepositoryPicker';
+import { RepositoryProgress } from './RepositoryProgress';
+import { show, store } from '@/routes/threads';
 import { claudeAccounts } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
-import type { NewThreadPageData } from '@/types/threads';
+import type { NewThreadPageData, StartRepository } from '@/types/threads';
 
 type Mode = 'fix' | 'research';
 
@@ -27,7 +29,7 @@ const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] 
  */
 export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFocus }: Omit<NewThreadPageData, 'emailToYakAddress'> & { onStarted?: () => void; autoFocus?: boolean }) {
     const { docs } = usePage<SharedProps>().props;
-    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
+    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: StartRepository[] }>({
         repo: defaultRepo ?? '',
         mode: 'fix',
         description: '',
@@ -35,7 +37,9 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         model: null,
         attachments: [],
         attachment_refs: [],
+        repositories: [],
     });
+    const [startedThreadId, setStartedThreadId] = useState<number | null>(null);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const draft = useAttachmentDraft({ enabled: true, onAdd: (added) => editorRef.current?.insertTokens(added) });
     const errors = form.errors as Record<string, string | undefined>;
@@ -48,6 +52,16 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
     const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3;
 
+    const extras = form.data.repositories;
+    const isResearch = form.data.mode === 'research';
+    const contextRepos = extras.filter((extra) => isResearch || extra.role === 'context');
+    const expectedPullRequests = 1 + extras.filter((extra) => extra.role === 'changes').length;
+    const openThread = useCallback(() => {
+        if (startedThreadId !== null) {
+            router.visit(show.url(startedThreadId));
+        }
+    }, [startedThreadId]);
+
     const submit = () => {
         if (!canSubmit || form.processing) {
             return;
@@ -58,7 +72,16 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
             attachments: draft.files,
             attachment_refs: draft.refs,
         }));
-        form.post(store.url(), { onSuccess: () => onStarted?.() });
+        form.post(store.url(), {
+            onSuccess: (page) => {
+                const startedId = (page.props as unknown as SharedProps).flash.startedThreadId;
+                if (startedId) {
+                    setStartedThreadId(startedId);
+                } else {
+                    onStarted?.();
+                }
+            },
+        });
     };
 
     const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -68,7 +91,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         }
     };
 
-    const error = errors.claude_account_id ?? errors.repo ?? errors.description ?? errors.model ?? errors.mode;
+    const error = Object.entries(errors).find(([key]) => key.startsWith('repositories'))?.[1] ?? errors.claude_account_id ?? errors.repo ?? errors.description ?? errors.model ?? errors.mode;
 
     return (
         <div data-testid="start-thread-form">
@@ -102,7 +125,9 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                             key: repo.slug,
                             label: repo.slug,
                             checked: repo.slug === form.data.repo,
-                            onSelect: () => form.setData('repo', repo.slug),
+                            onSelect: () => {
+                                form.setData((data) => ({ ...data, repo: repo.slug, repositories: data.repositories.filter((extra) => extra.repo !== repo.slug) }));
+                            },
                         }))}
                     />
                     <div className="inline-flex h-7 gap-0.5 rounded-control bg-panel-2 p-0.5" role="group" aria-label="Mode">
@@ -125,11 +150,43 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         ))}
                     </div>
                     <AttachButton draft={draft} disabled={form.processing} />
-                    <Button variant="primary" className="ml-auto h-7" pending={form.processing} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
+                    <Button variant="primary" className="ml-auto h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
                         Start thread
                     </Button>
                 </div>
             </div>
+
+            {startedThreadId !== null ? (
+                <div className="mt-3">
+                    <RepositoryProgress threadId={startedThreadId} onReady={openThread} />
+                </div>
+            ) : (
+                !noRepos && (
+                    <div className="mt-3 flex flex-col gap-2">
+                        <RepositoryPicker
+                            primary={form.data.repo}
+                            extras={extras}
+                            available={repos.map((repo) => repo.slug)}
+                            isResearch={isResearch}
+                            disabled={form.processing || form.data.repo === ''}
+                            onChange={(next) => form.setData('repositories', next)}
+                        />
+                        {extras.length > 0 && (
+                            <div className="flex items-start gap-3 text-[12px] text-muted">
+                                <p data-testid="repo-note">
+                                    {contextRepos.length > 0 && <>{contextRepos.map((extra) => extra.repo).join(', ')} {contextRepos.length > 1 ? 'are' : 'is'} throwaway, with no pull request. </>}
+                                    Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.
+                                </p>
+                                {!isResearch && (
+                                    <span className="ml-auto shrink-0" data-testid="expected-pr-count">
+                                        {expectedPullRequests} pull {expectedPullRequests === 1 ? 'request' : 'requests'} expected
+                                    </span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )
+            )}
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted" data-testid="start-thread-runs-on">
                 <span>Runs on</span>

@@ -32,10 +32,18 @@ class RefreshTriggers
             return [];
         }
 
+        return $this->parseRefreshMap($result->output(), $thread->id);
+    }
+
+    /**
+     * @return array<string, string> Glob to command; empty when the YAML or the map is invalid.
+     */
+    public function parseRefreshMap(string $yaml, int $threadId): array
+    {
         try {
-            $parsed = Yaml::parse($result->output());
+            $parsed = Yaml::parse($yaml);
         } catch (ParseException $exception) {
-            Log::warning('Invalid .yak/config.yml refresh map', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+            Log::warning('Invalid .yak/config.yml refresh map', ['thread' => $threadId, 'error' => $exception->getMessage()]);
 
             return [];
         }
@@ -43,7 +51,7 @@ class RefreshTriggers
         $map = is_array($parsed) ? ($parsed['refresh'] ?? []) : [];
 
         if (! is_array($map) || array_filter($map, fn (mixed $command, mixed $glob): bool => ! is_string($glob) || ! is_string($command), ARRAY_FILTER_USE_BOTH) !== []) {
-            Log::warning('Invalid .yak/config.yml refresh map', ['thread' => $thread->id]);
+            Log::warning('Invalid .yak/config.yml refresh map', ['thread' => $threadId]);
 
             return [];
         }

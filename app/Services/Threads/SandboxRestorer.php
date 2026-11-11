@@ -2,25 +2,29 @@
 
 namespace App\Services\Threads;
 
+use App\Enums\RepositorySetupStatus;
 use App\Enums\RestoreStepName;
 use App\Enums\RestoreStepStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadRestoreStep;
 use App\Services\Datasets\DatasetAvailability;
 use App\Services\Datasets\DatasetClones;
 use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\Repos\ExtraRepositorySetup;
+use App\Services\Threads\Repos\ThreadGitHubCredentials;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Collection;
 use RuntimeException;
 use Throwable;
 
 /**
- * Rebuilds a thread sandbox in six recorded steps. A retry resumes at the
+ * Rebuilds a thread sandbox in seven recorded steps. A retry resumes at the
  * first step that did not finish; an earlier restore that completed starts over.
  */
 class SandboxRestorer
@@ -96,6 +100,7 @@ class SandboxRestorer
             RestoreStepName::CheckoutBranch => $this->checkoutBranch($step, $thread),
             RestoreStepName::RunSetupScript => $this->runSetupScript($step, $thread),
             RestoreStepName::RunRefreshTriggers => $this->runRefreshTriggers($step, $thread),
+            RestoreStepName::SetUpExtraRepositories => $this->setUpExtraRepositories($step, $thread),
             RestoreStepName::RestoreSessionFiles => $this->restoreSessionFiles($thread),
             RestoreStepName::PrepareEnvironment => $this->prepareEnvironment($step, $thread),
         };
@@ -185,6 +190,26 @@ class SandboxRestorer
         return true;
     }
 
+    /** Extras are rebuilt from scratch; a failed one is recorded on its row and never blocks the restore. */
+    private function setUpExtraRepositories(ThreadRestoreStep $step, Thread $thread): bool
+    {
+        $extras = $thread->repositories()->get()->filter(fn (ThreadRepository $repository): bool => $repository->isExtra());
+
+        if ($extras->isEmpty()) {
+            return false;
+        }
+
+        foreach ($extras as $repository) {
+            $repository->update(['setup_status' => RepositorySetupStatus::Pending, 'setup_error' => null]);
+        }
+
+        foreach (app(ExtraRepositorySetup::class)->setUpAll($thread, $extras) as $result) {
+            $this->append($step, "{$result->repo}: {$result->status->value}" . ($result->error === null ? '' : " ({$result->error})") . "\n");
+        }
+
+        return true;
+    }
+
     private function restoreSessionFiles(Thread $thread): bool
     {
         $this->sessions->restoreIntoSandbox($thread);
@@ -206,12 +231,12 @@ class SandboxRestorer
         preg_match_all('/^\$ (.+)$/m', $refreshOutput, $matches);
         $setupRan = ($steps[RestoreStepName::RunSetupScript->value]->status ?? null) === RestoreStepStatus::Succeeded;
 
-        $this->note->write($thread, $this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)));
+        $this->note->write($thread, [...$this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)), ...$this->note->sectionsForRepositories($thread)]);
 
         return true;
     }
 
-    /** Git identity and credentials come from the task sandbox helpers, which only know real containers. */
+    /** Git identity comes from the task sandbox helpers, which only know real containers. Credentials are limited to the thread's repositories. */
     private function configureGit(Thread $thread): void
     {
         if (! $this->sandboxes instanceof IncusThreadSandboxManager) {
@@ -221,7 +246,11 @@ class SandboxRestorer
         $incus = app(IncusSandboxManager::class);
         $container = $this->sandboxes->containerName($thread);
         $incus->configureGitIdentity($container);
-        $incus->injectGitCredentials($container);
+
+        if ((int) config('yak.channels.github.installation_id') !== 0) {
+            $incus->installGhWrapper($container);
+            app(ThreadGitHubCredentials::class)->install($thread);
+        }
     }
 
     /**

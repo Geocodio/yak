@@ -15,6 +15,7 @@ use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
 use App\Models\ThreadEvent;
+use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Storage;
@@ -64,6 +65,8 @@ class VisibilityWorld
 
     public ThreadEvent $event;
 
+    public ThreadRepository $repository;
+
     public int $missingId = 999_999;
 
     public static function build(): self
@@ -97,6 +100,7 @@ class VisibilityWorld
         ]);
         $diff = ThreadDiff::factory()->create(['thread_id' => $world->thread->id, 'files_count' => 1]);
         $world->diffFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id]);
+        $world->repository = ThreadRepository::factory()->changes()->create(['thread_id' => $world->thread->id, 'repo' => 'secret-acme/extra']);
         $world->event = ThreadEvent::factory()->create(['thread_id' => $world->thread->id, 'sequence' => 1]);
         $world->child = Thread::factory()->child($world->thread)->create(['title' => self::TITLE . ' child', 'claude_account_id' => $account->id]);
 

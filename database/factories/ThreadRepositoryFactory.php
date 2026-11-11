@@ -33,4 +33,30 @@ class ThreadRepositoryFactory extends Factory
     {
         return $this->state(['role' => $role]);
     }
+
+    public function changes(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'role' => RepositoryRole::Changes,
+            'sandbox_path' => ThreadRepository::sandboxPathFor($attributes['repo'], RepositoryRole::Changes),
+        ]);
+    }
+
+    public function context(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'role' => RepositoryRole::Context,
+            'sandbox_path' => ThreadRepository::sandboxPathFor($attributes['repo'], RepositoryRole::Context),
+        ]);
+    }
+
+    public function failed(string $error = 'setup.sh exited with 1'): static
+    {
+        return $this->state(['setup_status' => RepositorySetupStatus::Failed, 'setup_error' => $error]);
+    }
+
+    public function settingUp(): static
+    {
+        return $this->state(['setup_status' => RepositorySetupStatus::Setup, 'setup_started_at' => now()]);
+    }
 }

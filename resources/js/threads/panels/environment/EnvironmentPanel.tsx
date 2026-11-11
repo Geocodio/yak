@@ -1,8 +1,9 @@
 import { Badge, Skeleton, cn, toast } from '@geocodio/console-ui';
 import { Copy, ExternalLink } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
+import { RepositoryRows } from './RepositoryRows';
 import { useThreadEnvironment } from './useThreadEnvironment';
 
 type SandboxState = ThreadEnvironment['sandbox']['state'];
@@ -75,8 +76,17 @@ function formatStartedAt(iso: string): string {
     return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function EnvironmentPanel({ thread }: PanelProps) {
-    const { environment, isLoading, error } = useThreadEnvironment(thread);
+export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
+    const { environment, isLoading, error, reload } = useThreadEnvironment(thread);
+    const isSettingUp = environment?.repositories.some((repository) => ['pending', 'cloning', 'setup'].includes(repository.setupStatus)) ?? false;
+
+    useEffect(() => {
+        if (!isSettingUp) {
+            return;
+        }
+        const timer = window.setInterval(reload, 3000);
+        return () => window.clearInterval(timer);
+    }, [isSettingUp, reload]);
 
     if (environment === null) {
         return (
@@ -96,7 +106,7 @@ export function EnvironmentPanel({ thread }: PanelProps) {
         );
     }
 
-    const { sandbox, branch, pullRequest, deployment, account, model, startedBy, stoppedAfterMinutes, repositories } = environment;
+    const { sandbox, branch, pullRequest, deployment, account, model, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
 
     return (
         <div className="flex flex-col gap-4" data-testid="environment-panel">
@@ -173,11 +183,17 @@ export function EnvironmentPanel({ thread }: PanelProps) {
             {repositories.length > 1 && (
                 <section data-testid="environment-repositories">
                     <h3 className="mb-1 text-[12px] text-muted">Repositories</h3>
-                    <ul className="flex flex-col gap-1 text-[13px] text-body">
-                        {repositories.map((repository) => (
-                            <li key={repository.repo} className="flex items-center justify-between gap-2">
-                                <span className="truncate">{repository.repo}</span>
-                                <Badge tone="neutral">{repository.role}</Badge>
+                    <RepositoryRows threadId={thread.id} repositories={repositories} canDrive={canDrive} onChanged={reload} />
+                </section>
+            )}
+
+            {notUploadedDirectories.length > 0 && (
+                <section data-testid="environment-not-uploaded">
+                    <h3 className="mb-1 text-[12px] text-muted">Not uploaded from your computer</h3>
+                    <ul className="flex flex-col gap-1">
+                        {notUploadedDirectories.map((directory) => (
+                            <li key={directory}>
+                                <code className="font-mono text-[12px] text-body">{directory}</code>
                             </li>
                         ))}
                     </ul>
