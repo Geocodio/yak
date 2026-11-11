@@ -6,17 +6,17 @@ import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { store as storeMessage } from '@/routes/threads/messages';
 import { stop } from '@/routes/threads';
-import type { ThreadComposer as ThreadComposerData } from '@/types/threads';
+import type { ThreadComposer as ThreadComposerData, ThreadData } from '@/types/threads';
 import { ModelPicker } from './ModelPicker';
 
 const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     disabled_closed: 'This thread is closed.',
     disabled_computer: 'Your computer is working on this thread',
-    disabled_blocked: 'This thread is waiting. You can still add a message.',
+    disabled_blocked: 'Sending is paused until the problem above is fixed.',
     readonly: 'You can read this thread but not send messages.',
 };
 
-export function ThreadComposer({ threadId, composer }: { threadId: number; composer: ThreadComposerData }) {
+export function ThreadComposer({ thread, composer }: { thread: ThreadData; composer: ThreadComposerData }) {
     const form = useForm<{ message: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -24,7 +24,7 @@ export function ThreadComposer({ threadId, composer }: { threadId: number; compo
         attachment_refs: [],
     });
     const editorRef = useRef<AttachmentTextareaHandle>(null);
-    const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'readonly';
+    const disabled = composer.state === 'disabled_closed' || composer.state === 'disabled_computer' || composer.state === 'disabled_blocked' || composer.state === 'readonly';
     const working = composer.state === 'working';
     const draft = useAttachmentDraft({
         enabled: !disabled,
@@ -39,7 +39,7 @@ export function ThreadComposer({ threadId, composer }: { threadId: number; compo
             return;
         }
         form.transform((data) => ({ ...data, attachments: draft.files, attachment_refs: draft.refs }));
-        form.post(storeMessage.url(threadId), {
+        form.post(storeMessage.url(thread.id), {
             preserveScroll: true,
             onSuccess: () => {
                 form.setData('message', '');
@@ -88,7 +88,7 @@ export function ThreadComposer({ threadId, composer }: { threadId: number; compo
                         </div>
                         <div className="flex shrink-0 gap-2">
                             {working && (
-                                <Button variant="secondary" className="h-7" onClick={() => router.post(stop.url(threadId), {}, { preserveScroll: true })} data-testid="thread-stop">
+                                <Button variant="secondary" className="h-7" onClick={() => router.post(stop.url(thread.id), {}, { preserveScroll: true })} data-testid="thread-stop">
                                     Stop
                                 </Button>
                             )}

@@ -28,7 +28,7 @@ export default function Show({ thread, canDrive, messages, notice, composer }: P
             <div className="flex min-h-0 flex-1">
                 <div className="flex min-w-0 flex-1 flex-col" data-testid="thread-conversation">
                     <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} />
-                    <ThreadComposer threadId={thread.id} composer={composer} />
+                    <ThreadComposer thread={thread} composer={composer} />
                 </div>
 
                 {panels.length > 0 && active !== null && (

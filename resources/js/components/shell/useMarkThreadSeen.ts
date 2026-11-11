@@ -1,4 +1,3 @@
-import { router } from '@inertiajs/react';
 import { useEffect, useRef } from 'react';
 import { seen } from '@/routes/threads';
 
@@ -18,6 +17,8 @@ export function useMarkThreadSeen(url: string): void {
             return;
         }
         postedId.current = threadId;
-        router.post(seen.url(threadId), {}, { preserveState: true, preserveScroll: true, only: [] });
+        // A plain request: the endpoint answers 204, which Inertia would show in its error dialog.
+        const token = decodeURIComponent(/(?:^|; )XSRF-TOKEN=([^;]*)/.exec(document.cookie)?.[1] ?? '');
+        void fetch(seen.url(threadId), { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': token, 'X-Requested-With': 'XMLHttpRequest' } });
     }, [threadId]);
 }
