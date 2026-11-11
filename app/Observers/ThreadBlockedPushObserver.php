@@ -73,7 +73,7 @@ class ThreadBlockedPushObserver
         }
 
         try {
-            $this->accountNotifier->usageLimit($account, $account->usage_limit_resets_at, $driverId === null ? null : User::find($driverId));
+            $this->accountNotifier->usageLimit($account, $account->usage_limit_resets_at, $driverId === null ? null : User::query()->find((int) $driverId));
         } catch (Throwable $exception) {
             Log::channel('yak')->warning('Claude account notice failed', ['account_id' => $account->id, 'error' => $exception->getMessage()]);
         }
