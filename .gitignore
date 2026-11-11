@@ -59,3 +59,4 @@ tests/Browser/Screenshots
 /resources/js/routes/storage/
 /resources/js/routes/telemetry/
 /resources/js/routes/telemetry-ui/
+broker/dist/

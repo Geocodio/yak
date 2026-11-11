@@ -108,3 +108,78 @@ it('mounts the credential socket directory into the container', function () use 
 
     expect($container['volumes'])->toContain('{{ yak_credentials_path }}:{{ yak_credentials_path }}');
 });
+
+it('runs the broker as an unprivileged user in incus-admin', function () use ($roleTask) {
+    $user = $roleTask('yak-broker', 'Create the broker user')['ansible.builtin.user'];
+
+    expect($user)->toMatchArray([
+        'groups' => 'incus-admin',
+        'system' => true,
+        'shell' => '/usr/sbin/nologin',
+        'uid' => '{{ yak_broker_uid }}',
+    ]);
+});
+
+it('keeps the credential socket directory reachable only by the app uid and the broker group', function () use ($roleTask) {
+    $directory = $roleTask('yak-broker', 'Create the credential socket directory')['ansible.builtin.file'];
+
+    expect($directory)->toMatchArray([
+        'mode' => '2750',
+        'owner' => '{{ yak_container_www_data_uid }}',
+        'group' => '{{ yak_broker_user }}',
+    ]);
+});
+
+it('writes the broker environment file as mode 0600 owned by the broker', function () use ($roleTask) {
+    $template = $roleTask('yak-broker', 'Write the broker environment')['ansible.builtin.template'];
+
+    expect($template)->toMatchArray(['mode' => '0600', 'owner' => '{{ yak_broker_user }}', 'dest' => '/etc/yak/broker.env']);
+});
+
+it('names the broker environment variables the Go side reads', function () {
+    $template = file_get_contents(base_path('ansible/roles/yak-broker/templates/broker.env.j2'));
+
+    foreach (['YAK_BROKER_REDIS_ADDR', 'YAK_BROKER_REDIS_PASSWORD', 'YAK_BROKER_CREDENTIAL_SOCKET', 'YAK_BROKER_PROXY_ADDR', 'YAK_BROKER_PROXY_HOST_CIDRS'] as $name) {
+        expect($template)->toContain("{$name}=");
+    }
+});
+
+it('restarts the broker unit always, hardened, reading the env file', function () {
+    $unit = file_get_contents(base_path('ansible/roles/yak-broker/templates/yak-broker.service.j2'));
+
+    expect($unit)->toContain('Restart=always')
+        ->toContain('NoNewPrivileges=true')
+        ->toContain('EnvironmentFile=/etc/yak/broker.env')
+        ->toContain('User={{ yak_broker_user }}')
+        ->toMatch('/After=.*incus\.service/')
+        ->toMatch('/After=.*docker\.service/');
+});
+
+it('restarts the broker on binary, env or unit change', function () use ($roleTask) {
+    foreach (['Install the broker binary', 'Write the broker environment', 'Install the broker unit'] as $name) {
+        expect((array) $roleTask('yak-broker', $name)['notify'])->toContain('Restart yak-broker');
+    }
+});
+
+it('builds the broker binary on the controller unless CI supplied one', function () use ($roleTask) {
+    $build = $roleTask('yak-broker', 'Build the broker on the controller');
+
+    expect($build['when'])->toContain('not')
+        ->and($build['delegate_to'])->toBe('localhost')
+        ->and($build['run_once'])->toBeTrue()
+        ->and(file_get_contents(base_path('.gitignore')))->toContain('broker/dist/');
+});
+
+it('lets sandboxes reach only the auth proxy port on the bridge', function () use ($roleTask) {
+    $rule = $roleTask('incus', 'Allow the sandbox bridge to reach the auth proxy')['community.general.ufw'];
+
+    expect($rule)->toMatchArray(['rule' => 'allow', 'direction' => 'in', 'interface' => 'yak-sandbox', 'proto' => 'tcp'])
+        ->and($rule['to_port'])->toContain('yak_auth_proxy_address');
+});
+
+it('lets the Yak container reach the auth proxy', function () use ($roleTask) {
+    $rule = $roleTask('incus', 'Allow the Yak container to reach the auth proxy')['community.general.ufw'];
+
+    expect($rule['from_ip'])->toBe('{{ yak_auth_proxy_host_cidrs }}')
+        ->and($rule['to_port'])->toContain('yak_auth_proxy_address');
+});
