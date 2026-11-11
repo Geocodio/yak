@@ -193,3 +193,148 @@ func TestProxyAnswers503WhenTheCredentialServiceFails(t *testing.T) {
 		t.Fatalf("body leaks: %s", response.Body)
 	}
 }
+
+func TestProxyAllowsOnlyTheCLIsPaths(t *testing.T) {
+	h := newProxyHarness(t, validCredentials)
+	cases := []struct {
+		method, target string
+		forwarded      bool
+	}{
+		{"POST", "/v1/messages", true},
+		{"POST", "/v1/messages/count_tokens", true},
+		{"GET", "/v1/messages", false},
+		{"POST", "/v1/models", false},
+		{"POST", "/v1/messages/../x", false},
+		{"POST", "/v1//messages", false},
+		{"POST", "/v1/messages/%2e%2e/x", false},
+		{"POST", "/v1%2fmessages", false},
+		{"POST", "/v1/organizations", false},
+	}
+	for _, c := range cases {
+		before := len(h.forwarded())
+		request := httptest.NewRequest(c.method, "http://proxy"+c.target, nil)
+		request.RemoteAddr = "10.0.0.5:40000"
+		request.Header.Set("Authorization", "Bearer yakph-a")
+		recorder := httptest.NewRecorder()
+		h.proxy.ServeHTTP(recorder, request)
+		got := len(h.forwarded()) - before
+		if c.forwarded && (got != 1 || recorder.Code != 200) {
+			t.Fatalf("%s %s: forwarded %d status %d", c.method, c.target, got, recorder.Code)
+		}
+		if !c.forwarded && (got != 0 || recorder.Code != http.StatusNotFound) {
+			t.Fatalf("%s %s: forwarded %d status %d", c.method, c.target, got, recorder.Code)
+		}
+	}
+}
+
+func TestProxyForwardsTheStartupProbeWithoutACredential(t *testing.T) {
+	h := newProxyHarness(t, validCredentials)
+	response := h.do("HEAD", "/api/hello", "", "10.0.0.9")
+	got := h.forwarded()
+	if response.Code != 200 || len(got) != 1 || got[0].Path != "/api/hello" || got[0].Authorization != "" || got[0].APIKey != "" {
+		t.Fatalf("status %d received %+v", response.Code, got)
+	}
+	if h.source.lookupCount() != 0 {
+		t.Fatal("probe triggered a lookup")
+	}
+}
+
+func sandboxRequest(h *proxyHarness, mutate func(*http.Request)) *httptest.ResponseRecorder {
+	request := httptest.NewRequest("POST", "/v1/messages", strings.NewReader(`{"model":"x"}`))
+	request.RemoteAddr = "10.0.0.5:40000"
+	request.Header.Set("Authorization", "Bearer yakph-a")
+	if mutate != nil {
+		mutate(request)
+	}
+	recorder := httptest.NewRecorder()
+	h.proxy.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func TestProxySetupTokenUsesBearer(t *testing.T) {
+	h := newProxyHarness(t, validCredentials)
+	sandboxRequest(h, func(r *http.Request) {
+		r.Header.Set("X-Api-Key", "sandbox-supplied")
+		r.Header.Set("Anthropic-Beta", "oauth-2025-04-20,fine-grained-tool-streaming")
+	})
+	got := h.forwarded()[0]
+	if got.Authorization != "Bearer real-token" || got.APIKey != "" || got.Beta != "oauth-2025-04-20,fine-grained-tool-streaming" || string(got.Body) != `{"model":"x"}` {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestProxyApiKeyUsesXApiKey(t *testing.T) {
+	h := newProxyHarness(t, map[string]Credential{"yakph-a|10.0.0.5": {Kind: "api_key", Secret: "real-key"}})
+	sandboxRequest(h, func(r *http.Request) { r.Header.Set("Anthropic-Beta", "oauth-2025-04-20,context-1m") })
+	sandboxRequest(h, func(r *http.Request) { r.Header.Set("Anthropic-Beta", "oauth-2025-04-20") })
+	got := h.forwarded()
+	if got[0].APIKey != "real-key" || got[0].Authorization != "" || got[0].Beta != "context-1m" {
+		t.Fatalf("%+v", got[0])
+	}
+	if _, present := got[1].Header["Anthropic-Beta"]; present {
+		t.Fatalf("empty beta header kept: %+v", got[1].Header)
+	}
+}
+
+func TestProxyPassesRequestHeadersAndBodyByteForByte(t *testing.T) {
+	h := newProxyHarness(t, validCredentials)
+	body := bytes.Repeat([]byte("0123456789abcdef"), 1<<16)
+	headers := map[string]string{"Anthropic-Version": "2023-06-01", "User-Agent": "claude-cli/9.9", "X-App": "cli", "Content-Type": "application/json", "Accept-Encoding": "gzip"}
+	sandboxRequest(h, func(r *http.Request) {
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		r.ContentLength = int64(len(body))
+		for name, value := range headers {
+			r.Header.Set(name, value)
+		}
+		r.Header.Set("X-Forwarded-For", "1.2.3.4")
+		r.Header.Set("Forwarded", "for=1.2.3.4")
+		r.Header.Set("Via", "1.1 sandbox")
+	})
+	got := h.forwarded()[0]
+	for name, value := range headers {
+		if got.Header.Get(name) != value {
+			t.Fatalf("%s: %q", name, got.Header.Get(name))
+		}
+	}
+	if !bytes.Equal(got.Body, body) {
+		t.Fatal("body differs")
+	}
+	for _, name := range []string{"X-Forwarded-For", "Forwarded", "Via"} {
+		if got.Header.Get(name) != "" {
+			t.Fatalf("%s reached upstream", name)
+		}
+	}
+}
+
+func TestProxyRelaysResponsesVerbatim(t *testing.T) {
+	h := newProxyHarness(t, validCredentials)
+	gzipped := []byte{0x1f, 0x8b, 0x08, 0x00, 0xde, 0xad, 0xbe, 0xef}
+	for _, status := range []int{200, 400, 404, 429, 500, 529} {
+		h.mu.Lock()
+		h.respond = func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Retry-After", "17")
+			w.Header().Set("Anthropic-Ratelimit-Unified-Status", "rejected")
+			w.Header().Set("Request-Id", "req_1")
+			w.Header().Set("Content-Encoding", "gzip")
+			w.WriteHeader(status)
+			_, _ = w.Write(gzipped)
+		}
+		h.mu.Unlock()
+		response := sandboxRequest(h, nil)
+		if response.Code != status || !bytes.Equal(response.Body.Bytes(), gzipped) ||
+			response.Header().Get("Retry-After") != "17" || response.Header().Get("Request-Id") != "req_1" ||
+			response.Header().Get("Content-Encoding") != "gzip" || response.Header().Get("Anthropic-Ratelimit-Unified-Status") != "rejected" {
+			t.Fatalf("status %d: %d %v", status, response.Code, response.Header())
+		}
+	}
+}
+
+func TestProxyReadsARotatedSecretAfterUpstream401(t *testing.T) {
+	h := newProxyHarness(t, validCredentials)
+	h.respond = func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusUnauthorized) }
+	sandboxRequest(h, nil)
+	sandboxRequest(h, nil)
+	if h.source.lookupCount() != 2 {
+		t.Fatalf("lookups %d", h.source.lookupCount())
+	}
+}

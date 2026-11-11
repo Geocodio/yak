@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -37,16 +40,59 @@ type AuthProxy struct {
 	upstream *url.URL
 	logger   *slog.Logger
 	now      func() time.Time
+	reverse  *httputil.ReverseProxy
 
 	mu    sync.Mutex
 	cache map[cacheKey]cacheEntry
 }
 
 func NewAuthProxy(source CredentialSource, upstream *url.URL, logger *slog.Logger) *AuthProxy {
-	return &AuthProxy{source: source, upstream: upstream, logger: logger, now: time.Now, cache: map[cacheKey]cacheEntry{}}
+	proxy := &AuthProxy{source: source, upstream: upstream, logger: logger, now: time.Now, cache: map[cacheKey]cacheEntry{}}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableCompression = true
+	proxy.reverse = &httputil.ReverseProxy{
+		Rewrite:        proxy.rewrite,
+		Transport:      transport,
+		FlushInterval:  -1,
+		ModifyResponse: proxy.afterResponse,
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			logger.Warn("upstream request failed")
+			deny(w, http.StatusBadGateway, "upstream request failed")
+		},
+	}
+	return proxy
+}
+
+// allowedRoutes are the only method and path pairs the CLI needs.
+var allowedRoutes = map[string]bool{
+	"POST /v1/messages":              true,
+	"POST /v1/messages/count_tokens": true,
+	"HEAD /api/hello":                true,
+}
+
+// matchRoute returns the allowlist key for a request, or false when the method
+// and path are not allowed or the path is not already in canonical form.
+func matchRoute(r *http.Request) (string, bool) {
+	escaped := r.URL.EscapedPath()
+	lowered := strings.ToLower(escaped)
+	if escaped != path.Clean(escaped) || strings.Contains(escaped, "..") || strings.Contains(escaped, "//") ||
+		strings.Contains(lowered, "%2e") || strings.Contains(lowered, "%2f") {
+		return "", false
+	}
+	key := r.Method + " " + r.URL.Path
+	return key, allowedRoutes[key]
 }
 
 func (p *AuthProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	route, allowed := matchRoute(r)
+	if !allowed {
+		deny(w, http.StatusNotFound, "path not allowed")
+		return
+	}
+	if route == "HEAD /api/hello" {
+		p.reverse.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), forwardKey{}, forwardInfo{})))
+		return
+	}
 	placeholder := presentedPlaceholder(r)
 	if !strings.HasPrefix(placeholder, placeholderPrefix) {
 		deny(w, http.StatusUnauthorized, "unknown placeholder")
@@ -62,7 +108,7 @@ func (p *AuthProxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		deny(w, status, reason)
 		return
 	}
-	p.forward(w, r, credential, placeholder, ip)
+	p.forward(w, r, credential, placeholder)
 }
 
 func (p *AuthProxy) credentialFor(r *http.Request, placeholder, ip string) (Credential, int, string) {
@@ -108,9 +154,70 @@ func (p *AuthProxy) Revoke(placeholder string) {
 	}
 }
 
-// forward is implemented with the pass-through in the next step.
-func (p *AuthProxy) forward(w http.ResponseWriter, r *http.Request, credential Credential, placeholder, ip string) {
-	w.WriteHeader(http.StatusNoContent)
+type forwardKey struct{}
+
+// forwardInfo travels in the request context to Rewrite and ModifyResponse.
+// A zero value means an unauthenticated startup probe.
+type forwardInfo struct {
+	credential  Credential
+	placeholder string
+}
+
+func (p *AuthProxy) forward(w http.ResponseWriter, r *http.Request, credential Credential, placeholder string) {
+	info := forwardInfo{credential, placeholder}
+	p.reverse.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), forwardKey{}, info)))
+}
+
+func (p *AuthProxy) rewrite(r *httputil.ProxyRequest) {
+	info, _ := r.In.Context().Value(forwardKey{}).(forwardInfo)
+	out := r.Out
+	out.URL.Scheme = p.upstream.Scheme
+	out.URL.Host = p.upstream.Host
+	out.URL.RawPath = ""
+	out.Host = p.upstream.Host
+	out.Header.Del("Authorization")
+	out.Header.Del("X-Api-Key")
+	out.Header.Del("Via")
+	out.Header.Del("Forwarded")
+	for name := range out.Header {
+		if strings.HasPrefix(strings.ToLower(name), "x-forwarded-") {
+			out.Header.Del(name)
+		}
+	}
+	switch info.credential.Kind {
+	case "api_key":
+		out.Header.Set("X-Api-Key", info.credential.Secret)
+		if beta := withoutOAuthBeta(out.Header.Get("Anthropic-Beta")); beta != "" {
+			out.Header.Set("Anthropic-Beta", beta)
+		} else {
+			out.Header.Del("Anthropic-Beta")
+		}
+	case "setup_token":
+		out.Header.Set("Authorization", "Bearer "+info.credential.Secret)
+	}
+}
+
+// afterResponse forgets a credential the API rejected, so a rotated secret is
+// read on the next request.
+func (p *AuthProxy) afterResponse(response *http.Response) error {
+	if response.StatusCode == http.StatusUnauthorized {
+		if info, ok := response.Request.Context().Value(forwardKey{}).(forwardInfo); ok {
+			p.Revoke(info.placeholder)
+		}
+	}
+	return nil
+}
+
+// withoutOAuthBeta drops the OAuth beta flag, which an API key request must
+// not carry.
+func withoutOAuthBeta(header string) string {
+	kept := []string{}
+	for _, flag := range strings.Split(header, ",") {
+		if flag = strings.TrimSpace(flag); flag != "" && !strings.HasPrefix(flag, "oauth-") {
+			kept = append(kept, flag)
+		}
+	}
+	return strings.Join(kept, ",")
 }
 
 func presentedPlaceholder(r *http.Request) string {
