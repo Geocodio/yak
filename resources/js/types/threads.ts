@@ -149,7 +149,16 @@ export type ThreadNotice = {
     resetsAt: string | null;
     isOwnerOfAccount: boolean;
     canContinue: boolean;
-    restoreSteps: { label: string; status: 'pending' | 'running' | 'done' | 'failed'; error: string | null }[];
+    restoreSteps: {
+        key: string;
+        label: string;
+        detail: string;
+        status: 'pending' | 'running' | 'done' | 'failed';
+        error: string | null;
+        durationSeconds: number | null;
+        outputTail: string[];
+        exitCode: number | null;
+    }[];
 };
 
 /** Props of the `Threads/New` page; mirrors `App\Http\Controllers\Threads\NewThreadController`. */

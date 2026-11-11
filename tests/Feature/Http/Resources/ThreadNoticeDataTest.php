@@ -91,17 +91,64 @@ it('lists restore steps with the failed one', function () {
 
     $notice = ThreadNoticeData::for($thread);
 
-    expect($notice['restoreSteps'])->toBe([
-        ['label' => 'Create sandbox', 'status' => 'done', 'error' => null],
-        ['label' => 'Checkout branch', 'status' => 'failed', 'error' => 'Branch is gone'],
-    ])->and($notice['body'])->toContain('Branch is gone');
+    expect($notice['restoreSteps'][0])->toMatchArray(['key' => 'create_sandbox', 'status' => 'done', 'error' => null])
+        ->and($notice['restoreSteps'][1])->toMatchArray(['key' => 'checkout_branch', 'status' => 'failed', 'error' => 'Branch is gone', 'outputTail' => [], 'exitCode' => null]);
+});
+
+it('labels restore steps with the mockup wording and detail lines', function () {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Starting]);
+
+    foreach ([RestoreStepName::CreateSandbox, RestoreStepName::CheckoutBranch, RestoreStepName::RunSetupScript, RestoreStepName::RunRefreshTriggers, RestoreStepName::RestoreSessionFiles, RestoreStepName::PrepareEnvironment] as $index => $name) {
+        ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => $index + 1, 'step' => $name, 'status' => 'pending']);
+    }
+
+    $steps = ThreadNoticeData::for($thread)['restoreSteps'];
+
+    expect(array_column($steps, 'label'))->toBe(['Clone the repo template', 'Check out the thread branch', 'Run .yak/setup.sh', 'Run the refresh triggers', 'Restore the conversation', 'Start Claude'])
+        ->and(collect($steps)->every(fn (array $step): bool => $step['detail'] !== ''))->toBeTrue();
+});
+
+it('reports durationSeconds from started_at and finished_at', function () {
+    $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Starting]);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::CreateSandbox, 'status' => 'succeeded', 'started_at' => now()->subSeconds(12), 'finished_at' => now()]);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 2, 'step' => RestoreStepName::CheckoutBranch, 'status' => 'running']);
+
+    $steps = ThreadNoticeData::for($thread)['restoreSteps'];
+
+    expect($steps[0]['durationSeconds'])->toBe(12.0)
+        ->and($steps[1]['durationSeconds'])->toBeNull();
+});
+
+it('keeps the last 5 output lines as outputTail and parses "exit code N" from the error', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::RestoreFailed]);
+    ThreadRestoreStep::factory()->failed('setup.sh failed with exit code 127')->create([
+        'thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::RunSetupScript,
+        'output' => implode("\n", ['one', 'two', 'three', 'four', 'five', 'six', 'seven']),
+    ]);
+
+    $step = ThreadNoticeData::for($thread)['restoreSteps'][0];
+
+    expect($step['outputTail'])->toBe(['three', 'four', 'five', 'six', 'seven'])
+        ->and($step['exitCode'])->toBe(127);
+});
+
+it('titles a rebuild failure with the failed step number', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::RestoreFailed]);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::CreateSandbox, 'status' => 'succeeded']);
+    ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'position' => 2, 'step' => RestoreStepName::CheckoutBranch, 'status' => 'succeeded']);
+    ThreadRestoreStep::factory()->failed('boom')->create(['thread_id' => $thread->id, 'position' => 3, 'step' => RestoreStepName::RunSetupScript]);
+
+    expect(ThreadNoticeData::for($thread))->toMatchArray([
+        'title' => 'Rebuilding the sandbox stopped at step 3',
+        'body' => 'Your message is saved. Claude reads it once the sandbox is back.',
+    ]);
 });
 
 it('shows restore progress while the sandbox starts', function () {
     $thread = Thread::factory()->create(['sandbox_state' => ThreadSandboxState::Starting]);
     ThreadRestoreStep::factory()->create(['thread_id' => $thread->id, 'status' => 'running']);
 
-    expect(ThreadNoticeData::for($thread))->toMatchArray(['kind' => 'restoring', 'canContinue' => false])
+    expect(ThreadNoticeData::for($thread))->toMatchArray(['kind' => 'restoring', 'title' => 'Rebuilding the sandbox', 'canContinue' => false])
         ->and(ThreadNoticeData::for($thread)['restoreSteps'])->toHaveCount(1);
 });
 
