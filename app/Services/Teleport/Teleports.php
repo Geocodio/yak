@@ -27,7 +27,17 @@ class Teleports
         private readonly TeleportThreadCreator $creator,
         private readonly BranchNamer $namer,
         private readonly ThreadAccess $access,
+        private readonly TeleportDownBegin $downBegin,
     ) {}
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{teleport: Teleport, resumed: bool}
+     */
+    public function beginDown(Device $device, array $validated): array
+    {
+        return $this->downBegin->begin($device, $validated);
+    }
 
     /**
      * @param  array<string, mixed>  $validated

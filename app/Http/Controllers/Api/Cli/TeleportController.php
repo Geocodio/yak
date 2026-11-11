@@ -23,8 +23,14 @@ class TeleportController extends Controller
     {
         $validated = $request->validated();
 
-        if ($validated['direction'] !== 'up') {
-            throw new TeleportError('direction_unavailable', 'Teleporting down is not available yet.', 422);
+        if ($validated['direction'] === 'down') {
+            $down = $this->teleports->beginDown($this->cliDevice($request), $validated);
+
+            return response()->json([
+                'teleport_id' => $down['teleport']->id,
+                'resumed' => $down['resumed'],
+                'teleport' => $down['teleport']->toApi(),
+            ]);
         }
 
         $result = $this->teleports->beginUp($this->cliDevice($request), $validated);

@@ -20,6 +20,9 @@ class BeginTeleportRequest extends FormRequest
         return [
             'direction' => ['required', Rule::in(['up', 'down'])],
             'session_id' => ['required_if:direction,up', 'nullable', 'uuid'],
+            'thread_id' => ['required_if:direction,down', 'nullable', 'integer'],
+            'running_turn' => ['nullable', Rule::in(['wait', 'stop'])],
+            'visibility' => ['nullable', Rule::in(['keep', 'private'])],
             'title_hint' => ['nullable', 'string', 'max:200'],
             'git_name' => ['nullable', 'string', 'max:200'],
             'git_email' => ['nullable', 'string', 'max:200'],
