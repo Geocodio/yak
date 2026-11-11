@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\VisibleTaskChildScope;
 use Database\Factories\TaskAttachmentFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -18,6 +20,7 @@ use Illuminate\Support\Str;
  * the message started (or, for a clarification reply, the run it resumed)
  * and is pushed into that run's sandbox so the agent can read it.
  */
+#[ScopedBy(VisibleTaskChildScope::class)]
 class TaskAttachment extends Model
 {
     /** @use HasFactory<TaskAttachmentFactory> */

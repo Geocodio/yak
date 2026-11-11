@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\VisibleTaskChildScope;
 use Carbon\CarbonImmutable;
 use Database\Factories\PrReviewFactory;
+use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $pr_merged_at
  * @property array<string, mixed>|null $risk_assessment
  */
+#[ScopedBy(VisibleTaskChildScope::class)]
 class PrReview extends Model
 {
     /** @use HasFactory<PrReviewFactory> */
