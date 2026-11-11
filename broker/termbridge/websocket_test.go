@@ -1,4 +1,4 @@
-package termbridge
+package main
 
 import (
 	"bufio"
@@ -37,13 +37,19 @@ func allowAll(string) bool { return true }
 
 func dial(t *testing.T, server *httptest.Server, origin string) (*testClient, *http.Response) {
 	t.Helper()
+
+	return dialPath(t, server, "/", origin)
+}
+
+func dialPath(t *testing.T, server *httptest.Server, path, origin string) (*testClient, *http.Response) {
+	t.Helper()
 	conn, err := net.Dial("tcp", strings.TrimPrefix(server.URL, "http://"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { conn.Close() })
 
-	request := "GET / HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n" +
+	request := "GET " + path + " HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n" +
 		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
 	if origin != "" {
 		request += "Origin: " + origin + "\r\n"
@@ -115,6 +121,12 @@ func (c *testClient) read(t *testing.T) (byte, []byte) {
 		c.reader.Read(ext[:1])
 		c.reader.Read(ext[1:])
 		length = int(binary.BigEndian.Uint16(ext[:]))
+	case 127:
+		var ext [8]byte
+		for i := range ext {
+			c.reader.Read(ext[i : i+1])
+		}
+		length = int(binary.BigEndian.Uint64(ext[:]))
 	}
 	payload := make([]byte, length)
 	for read := 0; read < length; {

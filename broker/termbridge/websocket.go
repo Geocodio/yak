@@ -1,5 +1,5 @@
-// Package termbridge bridges a browser WebSocket to a local ssh client running under a PTY.
-package termbridge
+// Command termbridge bridges a browser WebSocket to a local ssh client running under a PTY.
+package main
 
 import (
 	"bufio"
