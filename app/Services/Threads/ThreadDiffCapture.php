@@ -8,6 +8,7 @@ use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Repos\RepositoryDiffCapture;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -42,6 +43,7 @@ class ThreadDiffCapture
 
         try {
             $diff = $this->captureWithIndex($thread, $index);
+            app(RepositoryDiffCapture::class)->capture($thread, $diff, $index);
         } catch (Throwable $exception) {
             report($exception);
 
@@ -61,18 +63,50 @@ class ThreadDiffCapture
 
     private function captureWithIndex(Thread $thread, string $index): ThreadDiff
     {
-        $defaultBranch = Repository::query()->where('slug', $thread->repo)->value('default_branch') ?: 'main';
+        $snapshot = $this->inspect($thread, $index, (string) $thread->repo, null);
+        ['baseSha' => $baseSha, 'headSha' => $headSha, 'rows' => $rows, 'isTruncated' => $isTruncated] = $snapshot;
+
+        return DB::transaction(function () use ($thread, $baseSha, $headSha, $rows, $isTruncated): ThreadDiff {
+            ThreadDiff::query()->where('thread_id', $thread->id)->delete();
+
+            $diff = ThreadDiff::query()->create([
+                'thread_id' => $thread->id,
+                'task_run_id' => $thread->runs()->max('id'),
+                'base_sha' => $baseSha,
+                'head_sha' => $headSha,
+                'files_count' => count($rows),
+                'additions' => array_sum(array_column($rows, 'additions')),
+                'deletions' => array_sum(array_column($rows, 'deletions')),
+                'is_truncated' => $isTruncated,
+                'captured_at' => now(),
+            ]);
+
+            $diff->files()->createMany($rows);
+
+            return $diff;
+        });
+    }
+
+    /**
+     * Diffs one checkout against the merge base with its repository's default branch.
+     * A null directory is the primary repository, which is the sandbox's working directory.
+     *
+     * @return array{baseSha: string, headSha: string, rows: list<array<string, mixed>>, isTruncated: bool}
+     */
+    public function inspect(Thread $thread, string $index, string $slug, ?string $directory): array
+    {
+        $defaultBranch = Repository::query()->where('slug', $slug)->value('default_branch') ?: 'main';
         $env = ['GIT_INDEX_FILE' => $index];
 
-        $headSha = trim($this->git($thread, ['rev-parse', 'HEAD'])->output());
-        $mergeBase = $this->sandboxes->exec($thread, ['git', 'merge-base', 'HEAD', "origin/{$defaultBranch}"]);
+        $headSha = trim($this->git($thread, $directory, ['rev-parse', 'HEAD'])->output());
+        $mergeBase = $this->sandboxes->exec($thread, ['git', ...$this->directoryArguments($directory), 'merge-base', 'HEAD', "origin/{$defaultBranch}"]);
         $baseSha = $mergeBase->successful() && trim($mergeBase->output()) !== '' ? trim($mergeBase->output()) : $headSha;
 
-        $this->git($thread, ['read-tree', 'HEAD'], $env);
-        $this->git($thread, ['add', '-A'], $env);
+        $this->git($thread, $directory, ['read-tree', 'HEAD'], $env);
+        $this->git($thread, $directory, ['add', '-A'], $env);
 
-        $statuses = $this->parseNameStatus($this->git($thread, ['diff', '--cached', '-M', '--name-status', '-z', $baseSha], $env)->output());
-        $counts = $this->parseNumstat($this->git($thread, ['diff', '--cached', '-M', '--numstat', '-z', $baseSha], $env)->output());
+        $statuses = $this->parseNameStatus($this->git($thread, $directory, ['diff', '--cached', '-M', '--name-status', '-z', $baseSha], $env)->output());
+        $counts = $this->parseNumstat($this->git($thread, $directory, ['diff', '--cached', '-M', '--numstat', '-z', $baseSha], $env)->output());
 
         $maxFile = self::maxFileBytes();
         $maxTotal = (int) config('yak.threads.diff_max_bytes');
@@ -92,7 +126,7 @@ class ThreadDiffCapture
                 $isTruncated = true;
             } elseif (! $isBinary) {
                 $paths = array_values(array_filter([$file['oldPath'], $file['path']], fn (?string $path): bool => $path !== null));
-                $patch = $this->git($thread, ['diff', '--cached', '-M', $baseSha, '--', ...$paths], $env)->output();
+                $patch = $this->git($thread, $directory, ['diff', '--cached', '-M', $baseSha, '--', ...$paths], $env)->output();
 
                 if (strlen($patch) > $maxFile) {
                     $isTooLarge = true;
@@ -121,34 +155,24 @@ class ThreadDiffCapture
             ];
         }
 
-        return DB::transaction(function () use ($thread, $baseSha, $headSha, $rows, $isTruncated): ThreadDiff {
-            ThreadDiff::query()->where('thread_id', $thread->id)->delete();
+        return ['baseSha' => $baseSha, 'headSha' => $headSha, 'rows' => $rows, 'isTruncated' => $isTruncated];
+    }
 
-            $diff = ThreadDiff::query()->create([
-                'thread_id' => $thread->id,
-                'task_run_id' => $thread->runs()->max('id'),
-                'base_sha' => $baseSha,
-                'head_sha' => $headSha,
-                'files_count' => count($rows),
-                'additions' => array_sum(array_column($rows, 'additions')),
-                'deletions' => array_sum(array_column($rows, 'deletions')),
-                'is_truncated' => $isTruncated,
-                'captured_at' => now(),
-            ]);
-
-            $diff->files()->createMany($rows);
-
-            return $diff;
-        });
+    /**
+     * @return list<string>
+     */
+    private function directoryArguments(?string $directory): array
+    {
+        return $directory === null ? [] : ['-C', $directory];
     }
 
     /**
      * @param  list<string>  $arguments
      * @param  array<string, string>  $env
      */
-    private function git(Thread $thread, array $arguments, array $env = []): ProcessResult
+    private function git(Thread $thread, ?string $directory, array $arguments, array $env = []): ProcessResult
     {
-        $result = $this->sandboxes->exec($thread, ['git', ...$arguments], null, $env);
+        $result = $this->sandboxes->exec($thread, ['git', ...$this->directoryArguments($directory), ...$arguments], null, $env);
 
         if ($result->failed()) {
             // Remotes can embed credentials, so no URL survives into the message.

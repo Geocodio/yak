@@ -46,7 +46,9 @@ class ThreadFileController extends Controller
         $changedPaths = [];
 
         foreach (ThreadDiffData::build($thread)['diff']['files'] ?? [] as $file) {
-            $changedPaths[] = $file['path'];
+            if ($file['repo'] === $thread->repo) {
+                $changedPaths[] = $file['path'];
+            }
         }
 
         return response()->json([

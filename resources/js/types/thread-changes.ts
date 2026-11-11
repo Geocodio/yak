@@ -4,6 +4,7 @@ export type DiffFileStatus = 'added' | 'modified' | 'deleted' | 'renamed';
 
 export type ThreadDiffFile = {
     id: number;
+    repo: string;
     path: string;
     oldPath: string | null;
     status: DiffFileStatus;
@@ -11,6 +12,17 @@ export type ThreadDiffFile = {
     deletions: number | null;
     isBinary: boolean;
     isTooLarge: boolean;
+};
+
+export type ThreadDiffRepository = {
+    repo: string;
+    role: 'primary' | 'changes' | 'context';
+    isThrowaway: boolean;
+    baseSha: string;
+    headSha: string;
+    filesCount: number;
+    additions: number;
+    deletions: number;
 };
 
 export type ThreadDiffSummary = {
@@ -21,7 +33,9 @@ export type ThreadDiffSummary = {
     filesCount: number;
     additions: number;
     deletions: number;
+    throwawayFilesCount: number;
     isTurnRunning: boolean;
+    repositories: ThreadDiffRepository[];
     files: ThreadDiffFile[];
 };
 
