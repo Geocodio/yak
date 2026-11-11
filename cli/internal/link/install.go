@@ -19,17 +19,30 @@ func Install(goos, home, binary string, run Runner) (string, error) {
 	switch goos {
 	case "darwin":
 		app := filepath.Join(home, "Applications", "Yak Link.app")
-		for rel, content := range RenderMacApp(binary) {
-			mode := os.FileMode(0o644)
-			if filepath.Base(rel) == "yak-link" {
-				mode = 0o755
-			}
-			if err := writeFile(filepath.Join(app, rel), content, mode); err != nil {
+		source := filepath.Join(home, ".config", "yak", "handler.applescript")
+		if err := writeFile(source, RenderAppleScript(binary), 0o644); err != nil {
+			return "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(app), 0o755); err != nil {
+			return "", err
+		}
+		if err := os.RemoveAll(app); err != nil {
+			return "", err
+		}
+		plist := filepath.Join(app, "Contents", "Info.plist")
+		const lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+		steps := [][]string{
+			{"osacompile", "-o", app, source},
+			{"plutil", "-insert", "CFBundleURLTypes", "-json", URLTypesJSON, plist},
+			{"plutil", "-replace", "LSUIElement", "-bool", "true", plist},
+			{lsregister, "-f", app},
+		}
+		for _, step := range steps {
+			if err := run(step[0], step[1:]...); err != nil {
 				return "", err
 			}
 		}
-		const lsregister = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
-		return app, run(lsregister, "-f", app)
+		return app, writeFile(RegisteredBinaryPath(home), binary, 0o644)
 	case "linux":
 		path := filepath.Join(home, ".local", "share", "applications", "yak-handler.desktop")
 		if err := writeFile(path, RenderDesktopEntry(binary), 0o644); err != nil {
@@ -100,4 +113,9 @@ func escapeAppleScript(s string) string {
 		out = append(out, s[i])
 	}
 	return string(out)
+}
+
+// RegisteredBinaryPath is the file that records which yak binary the handler runs.
+func RegisteredBinaryPath(home string) string {
+	return filepath.Join(home, ".config", "yak", "handler-binary")
 }

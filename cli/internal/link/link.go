@@ -65,30 +65,21 @@ func ShellCommand(dir string, argv []string) string {
 	return "cd " + ShellQuote(dir) + " && " + strings.Join(parts, " ")
 }
 
-// RenderMacApp returns the files of a macOS app bundle, keyed by path inside the bundle, that claims the yak scheme.
+// URLTypesJSON is the CFBundleURLTypes value that makes an app claim the yak scheme.
+const URLTypesJSON = `[{"CFBundleURLName":"Yak teleport link","CFBundleURLSchemes":["yak"]}]`
+
+// RenderAppleScript returns the source of an applet whose open location handler runs `binary open-link <url>`.
+// macOS delivers a clicked URL to an app as an Apple Event, never as an argument.
+func RenderAppleScript(binary string) string {
+	return "on open location theURL\n\tdo shell script quoted form of \"" + escapeAppleScript(binary) +
+		"\" & \" open-link \" & quoted form of theURL\nend open location\n"
+}
+
+// RenderMacApp returns the inputs of the macOS handler: the applet source and the URL types to add to its Info.plist.
 func RenderMacApp(binary string) map[string]string {
 	return map[string]string{
-		"Contents/Info.plist": `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>CFBundleName</key><string>Yak Link</string>
-	<key>CFBundleIdentifier</key><string>build.yak.link</string>
-	<key>CFBundleExecutable</key><string>yak-link</string>
-	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>LSUIElement</key><true/>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key><string>Yak teleport link</string>
-			<key>CFBundleURLSchemes</key>
-			<array><string>yak</string></array>
-		</dict>
-	</array>
-</dict>
-</plist>
-`,
-		"Contents/MacOS/yak-link": "#!/bin/sh\nexec " + ShellQuote(binary) + " open-link \"$1\"\n",
+		"handler.applescript": RenderAppleScript(binary),
+		"url-types.json":      URLTypesJSON,
 	}
 }
 
