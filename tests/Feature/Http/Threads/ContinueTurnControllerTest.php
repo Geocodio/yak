@@ -46,3 +46,19 @@ it('refuses a double click while a turn runs', function () {
 
     $this->actingAs($user)->post(route('threads.continue', $thread))->assertSessionHas('error');
 });
+
+it('refuses on a closed thread', function () {
+    [$thread, , $user] = guardStoppedThread();
+    $thread->forceFill(['status' => 'closed', 'closed_at' => now()])->save();
+    $this->mock(ThreadTurns::class)->shouldNotReceive('start');
+
+    $this->actingAs($user)->post(route('threads.continue', $thread))->assertSessionHas('error');
+});
+
+it('refuses while a computer owns the thread', function () {
+    [$thread, , $user] = guardStoppedThread();
+    $thread->forceFill(['owner_side' => 'device', 'owner_device_id' => 1])->save();
+    $this->mock(ThreadTurns::class)->shouldNotReceive('start');
+
+    $this->actingAs($user)->post(route('threads.continue', $thread))->assertSessionHas('error');
+});
