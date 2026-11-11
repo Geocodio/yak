@@ -45,7 +45,8 @@ class IncusThreadSandboxManager implements SandboxManager
 
     public function containerName(Thread $thread): string
     {
-        return "yak-thread-{$thread->id}";
+        // A research child shares its parent's container.
+        return $thread->sandbox_container ?? "yak-thread-{$thread->id}";
     }
 
     public function create(Thread $thread): void

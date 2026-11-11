@@ -31,6 +31,14 @@ class VisibilityRoutes
         'threads.stop' => ['POST', '/threads/{thread}/stop'],
         'threads.continue' => ['POST', '/threads/{thread}/continue'],
         'threads.restore.retry' => ['POST', '/threads/{thread}/restore/retry'],
+        'threads.stack.show' => ['GET', '/threads/{thread}/stack'],
+        'threads.stack.limit' => ['PATCH', '/threads/{thread}/stack/limit', ['limit' => 2]],
+        'threads.stack.stop' => ['POST', '/threads/{thread}/stack/stop'],
+        'threads.stack.children.store' => ['POST', '/threads/{thread}/stack/children', ['name' => 'scout', 'brief' => 'Look around.', 'kind' => 'research']],
+        'threads.stack.children.diff' => ['GET', '/threads/{thread}/stack/children/{child}/diff'],
+        'threads.stack.take-over' => ['POST', '/threads/{child}/stack/take-over'],
+        'threads.stack.split' => ['POST', '/threads/{child}/stack/split'],
+        'threads.stack.drop' => ['POST', '/threads/{child}/stack/drop'],
         'tasks.show' => ['GET', '/tasks/{task}'],
         'tasks.retry' => ['POST', '/tasks/{task}/retry'],
         'tasks.cancel' => ['POST', '/tasks/{task}/cancel'],
@@ -84,6 +92,7 @@ class VisibilityRoutes
         foreach ($probes as $name => $probe) {
             $uri = fn (int $id): string => strtr($probe[1], [
                 '{thread}' => (string) ($id === $missing ? $missing : $thread),
+                '{child}' => (string) ($id === $missing ? $missing : $world->child->id),
                 '{task}' => (string) ($id === $missing ? $missing : $task),
                 '{deployment}' => (string) ($id === $missing ? $missing : $deployment),
                 '{attachment}' => (string) ($id === $missing ? $missing : $world->attachment->id),

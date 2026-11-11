@@ -73,6 +73,9 @@ class YakTask extends Model
     /** Source of a task that carries a laptop's work onto Yak. */
     public const string SOURCE_TELEPORT = 'teleport';
 
+    /** Source of a task that carries a sub-thread's brief. */
+    public const string SOURCE_STACK = 'stack';
+
     protected $table = 'tasks';
 
     protected $guarded = [];

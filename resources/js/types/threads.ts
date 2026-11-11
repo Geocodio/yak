@@ -67,6 +67,7 @@ export type ThreadPageData = {
     messages: ThreadMessage[];
     composer: ThreadComposer;
     notice: ThreadNotice | null;
+    stackParent: { id: number; name: string; title: string } | null;
 };
 
 export type ThreadMessage = {

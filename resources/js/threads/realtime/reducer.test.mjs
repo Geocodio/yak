@@ -95,3 +95,20 @@ test('reconnect journey: pointer gap, catch-up applies once in order, replayed l
     assert.equal(state.entries.length, 9);
     assert.equal(state.lastSequence, 10);
 });
+
+test('replaces a card when a newer child event arrives and keeps its first sequence', () => {
+    const child = (sequence, state) => ({ sequence, type: 'child', createdAt: at, data: { childThreadId: 7, name: 'c', kind: 'implement', model: null, state, step: null, resultSummary: null, branch: null, messagesPaused: false } });
+    const state = apply(initialEventState(), child(1, 'queued'), child(2, 'done'));
+
+    assert.equal(state.children[7].sequence, 1);
+    assert.equal(state.children[7].data.state, 'done');
+    assert.equal(state.lastSequence, 2);
+});
+
+test('keeps unknown event types ignored by the reducer', () => {
+    const state = apply(initialEventState(), { sequence: 1, type: 'mystery', createdAt: at, data: {} });
+
+    assert.equal(state.lastSequence, 1);
+    assert.deepEqual(state.children, {});
+    assert.equal(state.entries.length, 0);
+});

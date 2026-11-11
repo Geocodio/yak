@@ -1,4 +1,4 @@
-import { Button, TextInput, cn } from '@geocodio/console-ui';
+import { Button, Select, TextInput, cn } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -7,6 +7,7 @@ import { DiffViewer } from './DiffViewer';
 import { OpenPullRequestButton } from './OpenPullRequestButton';
 import { FileTree } from './FileTree';
 import { buildFileTree } from './buildFileTree';
+import { useStack } from '../stack/useStack';
 import { useThreadDiff } from './useThreadDiff';
 
 function storageKey(threadId: number, headSha: string): string {
@@ -32,7 +33,20 @@ function writeViewed(key: string, viewed: Set<string>): void {
 
 export function ChangesPanel({ thread, canDrive }: PanelProps) {
     const { publishWarning } = usePage<{ publishWarning: boolean } & Record<string, unknown>>().props;
-    const { diff, isLoading, error } = useThreadDiff(thread);
+    const { stack } = useStack(thread);
+    const [childId, setChildId] = useState<number | null>(null);
+    const { diff, isLoading, error } = useThreadDiff(thread, childId);
+    const switchOptions = stack?.isRoot && stack.children.length > 0 ? [{ value: '', label: 'This thread' }, ...stack.children.map((child) => ({ value: String(child.id), label: child.name }))] : [];
+    const diffSwitch = switchOptions.length > 0 && (
+        <Select
+            options={switchOptions}
+            value={childId === null ? '' : String(childId)}
+            onChange={(value) => { setChildId(value ? Number(value) : null); setOpenPath(null); }}
+            aria-label="Show changes of"
+            data-testid="changes-child-switch"
+        />
+    );
+    const diffThreadId = childId ?? thread.id;
     const [filter, setFilter] = useState('');
     const [openPath, setOpenPath] = useState<string | null>(null);
     const [mode, setMode] = useState<'unified' | 'split'>('unified');
@@ -85,7 +99,8 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
 
     if (diff === null || diff.filesCount === 0) {
         return (
-            <div data-testid="changes-panel">
+            <div className="flex flex-col gap-3" data-testid="changes-panel">
+                {diffSwitch}
                 {diff === null && isLoading ? (
                     <p className="text-[13px] text-muted">Loading changes</p>
                 ) : error !== null && diff === null ? (
@@ -109,13 +124,14 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
 
     return (
         <div className="flex flex-col gap-3" data-testid="changes-panel">
+            {diffSwitch}
             <div className="flex items-center justify-between gap-2">
                 <p className="text-[13px] text-body" data-testid="changes-summary">
                     <span className="font-medium">{diff.filesCount} {diff.filesCount === 1 ? 'file' : 'files'} changed</span>{' '}
                     <span className="text-ok">+{diff.additions}</span> <span className="text-fail">-{diff.deletions}</span>
                 </p>
                 <div className="flex items-center gap-2">
-                    {canDrive && <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />}
+                    {canDrive && childId === null && <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />}
                     <button type="button" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? 'Shrink to sidebar width' : 'Expand to full width'} className="cursor-pointer text-muted hover:text-body">
                         {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                     </button>
@@ -166,7 +182,7 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                         <input type="checkbox" checked={viewed.has(openFile.path)} onChange={() => toggleViewed(openFile.path)} />
                         Viewed
                     </label>
-                    <DiffViewer key={openFile.id} threadId={thread.id} file={openFile} mode={mode} />
+                    <DiffViewer key={openFile.id} threadId={diffThreadId} file={openFile} mode={mode} />
                 </>
             )}
         </div>

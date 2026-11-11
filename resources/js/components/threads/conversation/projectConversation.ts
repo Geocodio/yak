@@ -2,7 +2,7 @@ import type { AssistantBlock, ThreadEventState, TranscriptEntry } from '@/types/
 import type { ConversationItem } from './conversationItem';
 
 type ToolUse = Extract<AssistantBlock, { type: 'tool_use' }>;
-type Source = Pick<ThreadEventState, 'entries' | 'streamingBlocks' | 'lastSequence'>;
+type Source = Pick<ThreadEventState, 'entries' | 'streamingBlocks' | 'lastSequence'> & Partial<Pick<ThreadEventState, 'children'>>;
 
 const editTools = new Set(['Edit', 'MultiEdit', 'Write']);
 
@@ -123,6 +123,10 @@ export function projectConversation(state: Source, entrySequences: number[]): { 
         } else if (entry.role === 'user' && entry.uuid) {
             readSequences[entry.uuid] = sequence;
         }
+    });
+
+    Object.values(state.children ?? {}).forEach(({ sequence, data }) => {
+        items.push({ kind: 'child', key: `child:${data.childThreadId}`, sequence, role: 'assistant', child: data });
     });
 
     Object.entries(state.streamingBlocks)

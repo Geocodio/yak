@@ -4,6 +4,7 @@ namespace App\Services\Threads;
 
 use App\Enums\ThreadSandboxState;
 use App\Exceptions\InvalidSandboxTransition;
+use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
@@ -22,11 +23,19 @@ class FakeSandboxManager implements SandboxManager
 
     public float $poolPercent = 10.0;
 
+    private bool $copyShouldFail = false;
+
     /** @var array<int, ThreadSandboxState> */
     private array $states = [];
 
     /** @var list<ProcessResult> */
     private array $execResults = [];
+
+    /** Makes the next copyFrom throw, as a failed `incus copy` does. */
+    public function failNextCopy(): void
+    {
+        $this->copyShouldFail = true;
+    }
 
     public function queueExecResult(ProcessResult $result): void
     {
@@ -78,6 +87,12 @@ class FakeSandboxManager implements SandboxManager
 
     public function copyFrom(Thread $source, Thread $target): void
     {
+        if ($this->copyShouldFail) {
+            $this->copyShouldFail = false;
+
+            throw SandboxCommandFailed::for('copy', Process::result(errorOutput: 'copy failed', exitCode: 1));
+        }
+
         $sourceState = $this->state($source);
 
         if ($sourceState === ThreadSandboxState::None || $sourceState === ThreadSandboxState::Destroyed) {

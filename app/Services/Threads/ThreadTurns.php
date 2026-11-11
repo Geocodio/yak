@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
+use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Teleport\ThreadNotOwnedByYak;
 use App\Services\Teleport\ThreadOwnership;
 use Illuminate\Support\Facades\DB;
@@ -166,7 +167,13 @@ class ThreadTurns
 
         if ($thread->runner_state === RunnerState::None) {
             $account = ClaudeAccount::query()->findOrFail($run->claude_account_id);
-            $this->commands->startRunner($thread, $account, $thread->activeSession()?->session_id, (string) $thread->append_system_prompt);
+            $this->commands->startRunner(
+                $thread,
+                $account,
+                $thread->activeSession()?->session_id,
+                (string) $thread->append_system_prompt,
+                $thread->sharesParentSandbox() ? ResearchChildRunner::worktreePath($thread) : null,
+            );
         } elseif ($thread->model !== null && $thread->model !== $thread->runner_model) {
             $this->commands->setModel($thread, $thread->model);
         }

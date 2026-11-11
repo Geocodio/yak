@@ -62,6 +62,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $waiting_for_computer_at
  * @property string|null $teleport_requested_running_turn
  * @property CarbonImmutable|null $owner_changed_at
+ * @property CarbonImmutable|null $taken_over_at
+ * @property CarbonImmutable|null $messages_paused_at
+ * @property CarbonImmutable|null $queued_for_slot_at
+ * @property string|null $current_step
+ * @property int $stack_alert_turn_mark
+ * @property int $stack_alert_hours_mark
+ * @property int $stack_alert_child_mark
+ * @property CarbonImmutable|null $stack_stopped_at
  */
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
@@ -108,6 +116,10 @@ class Thread extends Model
             'first_teleported_at' => 'immutable_datetime',
             'waiting_for_computer_at' => 'immutable_datetime',
             'owner_changed_at' => 'immutable_datetime',
+            'taken_over_at' => 'immutable_datetime',
+            'messages_paused_at' => 'immutable_datetime',
+            'queued_for_slot_at' => 'immutable_datetime',
+            'stack_stopped_at' => 'immutable_datetime',
         ];
     }
 
@@ -307,6 +319,28 @@ class Thread extends Model
             ->where('turn_state', TurnState::Running)
             ->whereIn('thread_id', $sharing->select('id'))
             ->exists();
+    }
+
+    public function isChild(): bool
+    {
+        return $this->parent_thread_id !== null;
+    }
+
+    public function isResearchChild(): bool
+    {
+        return $this->isChild() && $this->kind === ThreadKind::Research;
+    }
+
+    /**
+     * A research child runs as a second runner in its parent's container.
+     */
+    public function sharesParentSandbox(): bool
+    {
+        if (! $this->isResearchChild() || $this->sandbox_container === null) {
+            return false;
+        }
+
+        return $this->sandbox_container === self::query()->withoutGlobalScopes()->whereKey($this->parent_thread_id)->value('sandbox_container');
     }
 
     public function isRoot(): bool

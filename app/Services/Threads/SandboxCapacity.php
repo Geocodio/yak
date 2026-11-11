@@ -72,7 +72,7 @@ class SandboxCapacity
             ->select('threads.*')
             ->get();
 
-        return $candidates->first(fn (Thread $candidate): bool => ! $candidate->isSandboxBusy());
+        return $candidates->first(fn (Thread $candidate): bool => ! $candidate->isSandboxBusy() && ! $candidate->sharesParentSandbox());
     }
 
     public function ramBelowFloor(): bool
