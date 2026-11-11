@@ -13,6 +13,8 @@ export type Panel = {
     visible: (thread: ThreadData) => boolean;
     /** A number shown beside the tab label. */
     count?: (thread: ThreadData) => number;
+    /** A component that renders its own tab text (or nothing) beside the label. */
+    badge?: ComponentType<{ thread: ThreadData }>;
 };
 
 const sidebarPanels = new Map<string, Panel>();

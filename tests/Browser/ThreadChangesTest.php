@@ -42,3 +42,11 @@ test('it shows the working note while a turn runs', function () {
     $page->click('[data-testid="thread-panel-tab-changes"]')
         ->assertPresent('[data-testid="changes-working-note"]');
 });
+
+test('it shows the changed file count on the Changes tab', function () {
+    $thread = Thread::factory()->create();
+    ThreadDiff::factory()->for($thread)->withFiles(2)->create();
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="thread-panel-count-changes"]', '2');
+});
