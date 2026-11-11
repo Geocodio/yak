@@ -15,7 +15,7 @@ it('starts a thread with the account and model pickers', function () {
     visit(route('threads.new'))
         ->assertSee('What should Yak work on?')
         ->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
-        ->click('[data-testid="start-thread-runs-on"] button')
+        ->click('[aria-label="Claude account"]')
         ->click('Spare')
         ->click('[data-testid="composer-model"]')
         ->click('[data-testid="composer-model-haiku"]')
