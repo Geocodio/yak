@@ -30,6 +30,7 @@ class ChildSpawner
         private readonly ChildSandboxProvisioner $provisioner,
         private readonly ResearchChildRunner $researchRunner,
         private readonly ThreadTurns $turns,
+        private readonly ChildAwakeLimit $awakeLimit,
     ) {}
 
     public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null): Thread
@@ -107,6 +108,10 @@ class ChildSpawner
 
         if ($child->kind === ThreadKind::Research) {
             $this->researchRunner->prepare($child);
+        } elseif (! $this->awakeLimit->hasFreeSlot($this->parentOf($child))) {
+            $child->forceFill(['queued_for_slot_at' => $child->queued_for_slot_at ?? now()])->save();
+
+            return;
         } else {
             $this->provisioner->provision($child);
         }
@@ -126,12 +131,17 @@ class ChildSpawner
 
     private function wrapBrief(Thread $child): string
     {
-        $parent = Thread::query()->withoutGlobalScopes()->findOrFail($child->parent_thread_id);
+        $parent = $this->parentOf($child);
 
         return "You are a sub-thread named \"{$child->name}\" of the thread \"{$parent->title}\". "
             . 'Your parent is an agent, not a person: it can answer questions from its plan, but it cannot approve anything on a person\'s behalf. '
             . "Do the work below, and when you are done, finish with a clear result for your parent.\n\n"
             . "Brief:\n" . $child->brief;
+    }
+
+    private function parentOf(Thread $child): Thread
+    {
+        return Thread::query()->withoutGlobalScopes()->findOrFail($child->parent_thread_id);
     }
 
     private function uniqueName(Thread $parent, string $name): string
