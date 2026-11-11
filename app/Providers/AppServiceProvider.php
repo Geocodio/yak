@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Agents\BrokerAgentRunner;
 use App\Contracts\AgentRunner;
+use App\Models\Device;
 use App\Models\User;
 use App\Services\AppDiskUsage;
 use App\Services\IncusSandboxManager;
@@ -18,10 +19,13 @@ use App\Services\VideoRenderer;
 use App\Services\VideoThumbnailer;
 use Carbon\CarbonImmutable;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -75,6 +79,7 @@ class AppServiceProvider extends ServiceProvider
         app(AppDiskUsage::class)->registerGauges();
         app(SandboxPoolUsage::class)->registerGauges();
         $this->configureTelemetryUi();
+        $this->configureCliRateLimiters();
 
         // Flux previously registered this namespace so `<x-layouts::auth.simple>`
         // resolves to resources/views/layouts/auth/simple.blade.php.
@@ -135,5 +140,16 @@ class AppServiceProvider extends ServiceProvider
             by: 'state',
             subtitle: 'Used and size of the Incus ZFS pool that holds the sandboxes',
         );
+    }
+
+    protected function configureCliRateLimiters(): void
+    {
+        RateLimiter::for('cli-device', function (Request $request): Limit {
+            $device = $request->attributes->get('device');
+
+            return Limit::perMinute(120)->by($device instanceof Device ? 'device:' . $device->id : 'ip:' . $request->ip());
+        });
+
+        RateLimiter::for('cli-device-code', fn (Request $request): Limit => Limit::perMinute(10)->by('ip:' . $request->ip()));
     }
 }

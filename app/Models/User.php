@@ -105,4 +105,12 @@ class User extends Authenticatable
                 ->whereHas('emailAddresses', fn ($query) => $query->where('email', $normalizedEmail)->whereNotNull('confirmed_at'))
                 ->first();
     }
+
+    /**
+     * @return HasMany<Device, $this>
+     */
+    public function devices(): HasMany
+    {
+        return $this->hasMany(Device::class);
+    }
 }

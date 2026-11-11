@@ -8,6 +8,7 @@ use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Enums\ThreadVisibility;
+use App\Models\Device;
 use App\Models\Thread;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -76,11 +77,11 @@ class ThreadFactory extends Factory
         });
     }
 
-    public function ownedByDevice(int $deviceId = 1): static
+    public function ownedByDevice(?int $deviceId = null): static
     {
-        return $this->state([
+        return $this->state(fn (): array => [
             'owner_side' => ThreadOwnerSide::Device,
-            'owner_device_id' => $deviceId,
+            'owner_device_id' => $deviceId ?? Device::factory(),
         ]);
     }
 

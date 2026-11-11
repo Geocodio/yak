@@ -131,6 +131,14 @@ class Thread extends Model
     }
 
     /**
+     * @return BelongsTo<Device, $this>
+     */
+    public function ownerDevice(): BelongsTo
+    {
+        return $this->belongsTo(Device::class, 'owner_device_id');
+    }
+
+    /**
      * @return HasMany<YakTask, $this>
      */
     public function tasks(): HasMany
