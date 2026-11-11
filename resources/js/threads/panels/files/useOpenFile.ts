@@ -12,6 +12,8 @@ export type OpenFiles = {
     close: (path: string) => void;
     reload: (path: string) => void;
     setActive: (path: string) => void;
+    /** Swaps in newer content for an open file and makes its sha256 the new base for the next save. */
+    rebase: (path: string, file: FileContentData) => void;
 };
 
 /** Open tabs of the Files panel. Each file keeps the sha256 it was opened with as `baseSha256`. */
@@ -53,5 +55,9 @@ export function useOpenFile(threadId: number): OpenFiles {
 
     const reload = useCallback((path: string) => fetchFile(scopes[path] ?? 'repo', path), [fetchFile, scopes]);
 
-    return { openFiles, activePath, failure, open, close, reload, setActive: setActivePath };
+    const rebase = useCallback((path: string, file: FileContentData) => {
+        setOpenFiles((current) => current.map((entry) => (entry.path === path ? { ...entry, ...file, headContent: file.headContent ?? entry.headContent, baseSha256: file.sha256 } : entry)));
+    }, []);
+
+    return { openFiles, activePath, failure, open, close, reload, setActive: setActivePath, rebase };
 }

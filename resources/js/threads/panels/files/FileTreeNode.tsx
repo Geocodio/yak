@@ -18,7 +18,8 @@ export function FileTreeNode({ entry, depth, isExpanded, isActive, changeLetter,
     return (
         <button
             type="button"
-            data-testid={`file-node-${entry.path}`}
+            data-testid="files-tree-item"
+            data-path={entry.path}
             onClick={() => (entry.isDirectory ? onToggle(entry) : onOpen(entry))}
             style={{ paddingLeft: 8 + depth * 14 }}
             className={cn('flex h-8 w-full items-center gap-1.5 pr-2 text-left text-[13px] text-body', isActive && 'bg-app font-medium')}
