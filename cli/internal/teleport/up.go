@@ -74,6 +74,8 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	repos := []*upRepo{{repo: primaryRepo, dir: top, slug: *item.Repo, role: "primary", remote: item.Remote}}
 
 	var missing []string
+	var extras []*upRepo
+	var plan []upPlanEntry
 	for _, dir := range in.AddDirs {
 		extra, ok, err := resolveAddDir(ctx, d, dir)
 		if err != nil {
@@ -83,12 +85,22 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			missing = append(missing, dir)
 			continue
 		}
-		yes, err := d.Prompter.Confirm(fmt.Sprintf("%s is %s on Yak. Let Yak change it too (role: changes)?", dir, extra.slug), true)
+		role, reason, err := classifyAddDir(extra.repo)
+		if err != nil {
+			return UpResult{}, userErrorf(err, "Could not read %s: %v", dir, err)
+		}
+		extra.role = role
+		extras = append(extras, extra)
+		plan = append(plan, upPlanEntry{Dir: dir, Slug: extra.slug, Role: role, Reason: reason})
+	}
+	printUpPlan(d, plan)
+	for i, extra := range extras {
+		yes, err := d.Prompter.Confirm(fmt.Sprintf("Bring %s (%s) to Yak?", extra.slug, extra.role), true)
 		if err != nil {
 			return UpResult{}, err
 		}
 		if !yes {
-			missing = append(missing, dir)
+			missing = append(missing, plan[i].Dir)
 			continue
 		}
 		repos = append(repos, extra)
@@ -111,6 +123,9 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	}
 
 	for _, r := range repos {
+		if r.role == "context" {
+			continue
+		}
 		opts := in.Options
 		if r.role != "primary" {
 			opts = PrepareOptions{Interactive: in.Options.Interactive, CommitTracked: in.Options.CommitTracked}
@@ -134,10 +149,12 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		begin.MissingDirectories = []string{}
 	}
 	for _, r := range repos {
-		branch, head := r.prepared.Branch, r.prepared.Head
-		begin.Repos = append(begin.Repos, api.BeginRepo{
-			Repo: r.slug, Role: r.role, LocalPath: r.dir, Branch: &branch, OnDefaultBranch: r.prepared.OnDefaultBranch, HeadSHA: &head,
-		})
+		entry := api.BeginRepo{Repo: r.slug, Role: r.role, LocalPath: r.dir}
+		if r.role != "context" {
+			branch, head := r.prepared.Branch, r.prepared.Head
+			entry.Branch, entry.HeadSHA, entry.OnDefaultBranch = &branch, &head, r.prepared.OnDefaultBranch
+		}
+		begin.Repos = append(begin.Repos, entry)
 	}
 	var started api.BeginUpResponse
 	if err := d.API.Do(ctx, "POST", "/teleports", begin, &started); err != nil {
@@ -153,7 +170,14 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 				local = r
 			}
 		}
-		if local == nil || planned.Branch == "" {
+		if local == nil {
+			continue
+		}
+		if local.role == "context" {
+			completeRepos = append(completeRepos, api.CompleteUpRepo{Repo: planned.Repo})
+			continue
+		}
+		if planned.Branch == "" {
 			continue
 		}
 		if err := prepareBranch(local, planned); err != nil {
@@ -231,6 +255,7 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		d.say("Yak has no free sandbox right now. The thread is on Yak and will start when one is free.")
 	}
 	d.say("Yak has the thread. This session is now read-only.")
+	reportUpRepos(d, repos, done.Sandbox.Repos, missing)
 	d.say("Yak runs it under the %s Claude account; turns you run here use your local Claude login.", started.Thread.ClaudeAccount.Name)
 	d.say("Continue at %s", started.Thread.URL)
 	return UpResult{ThreadID: started.Thread.ID, ThreadURL: started.Thread.URL, TeleportID: started.TeleportID, Branch: completeRepos[0].Branch}, nil
@@ -348,7 +373,7 @@ func resolveAddDir(ctx context.Context, d Deps, dir string) (*upRepo, bool, erro
 	if err != nil || !ok {
 		return nil, false, err
 	}
-	return &upRepo{repo: repo, dir: top, slug: *item.Repo, role: "changes", remote: item.Remote}, true, nil
+	return &upRepo{repo: repo, dir: top, slug: *item.Repo, remote: item.Remote}, true, nil
 }
 
 // pickSession returns the session id and the path of its transcript. A session found by guessing is confirmed
@@ -436,5 +461,30 @@ func firstPrompt(path string) string {
 		if err != nil {
 			return ""
 		}
+	}
+}
+
+// reportUpRepos prints what became of each repo and which added directories were not uploaded.
+func reportUpRepos(d Deps, repos []*upRepo, sandboxRepos []api.SandboxRepo, missing []string) {
+	if len(repos) > 1 {
+		for _, r := range repos {
+			var failure *api.SandboxRepo
+			for i, sr := range sandboxRepos {
+				if sr.Repo == r.slug && sr.Status == "failed" {
+					failure = &sandboxRepos[i]
+				}
+			}
+			switch {
+			case failure != nil:
+				d.say("! %s could not be set up on Yak: %s", r.slug, failure.Reason)
+			case r.role == "context":
+				d.say("%s: context, not changed", r.slug)
+			default:
+				d.say("%s: changes, on %s", r.slug, r.prepared.Branch)
+			}
+		}
+	}
+	if len(missing) > 0 {
+		d.say("Not uploaded (not on Yak): %s", strings.Join(missing, ", "))
 	}
 }

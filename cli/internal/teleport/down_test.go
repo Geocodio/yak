@@ -527,3 +527,238 @@ func TestDownRememberedCheckoutSaved(t *testing.T) {
 		t.Fatalf("%+v %v", cfg, err)
 	}
 }
+
+// addExtra puts a second repo on Yak at branch yak/fix with the given files and adds it to the manifest.
+func (h *harness) addExtra(s *downSetup, slug string, files map[string]string, refresh ...api.RefreshRule) (origin, head string) {
+	h.t.Helper()
+	origin = h.srv.AddRepoWithOrigin(h.t, slug)
+	yak := testrepo.Clone(h.t, origin)
+	yak.Git("switch", "-q", "-c", "yak/fix")
+	head = yak.Commit(files, "yak work")
+	yak.Git("push", "-q", "origin", "yak/fix")
+	s.manifest.Repos = append(s.manifest.Repos, api.ManifestRepo{
+		Repo: slug, Role: "changes", CloneURL: origin, DefaultBranch: "main", Branch: "yak/fix", HeadSHA: head,
+		SandboxPath: "/extras/" + slug[strings.LastIndex(slug, "/")+1:], Pushed: true, Refresh: refresh,
+	})
+	h.srv.ScriptDownStates(42, s.manifest, "preparing", "ready")
+	return origin, head
+}
+
+func (h *harness) rescript(s *downSetup) {
+	h.srv.ScriptDownStates(42, s.manifest, "preparing", "ready")
+}
+
+func TestDownPlanShowsBothFoldersForWorktree(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	s.manifest.ContextRepos = []string{"acme/docs"}
+	h.rescript(s)
+	dirty(h)
+	h.deps.Prompter = &scriptPrompter{choices: []int{1}}
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	extrasRoot, worktree := downFolders(h.cwd, "fix-cache")
+	out := h.out.String()
+	if extrasRoot == worktree || !strings.Contains(out, worktree) || !strings.Contains(out, filepath.Join(extrasRoot, "api")) {
+		t.Fatalf("plan missing folders:\n%s", out)
+	}
+	if strings.Index(out, "On this computer:") > strings.Index(out, "Applied ") {
+		t.Fatalf("plan came after the apply:\n%s", out)
+	}
+}
+
+func TestDownPlanListsContextReposAsStayingOnYak(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	s.manifest.ContextRepos = []string{"acme/docs", "acme/site"}
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(h.out.String(), "Context repos stay on Yak: acme/docs, acme/site") {
+		t.Fatal(h.out.String())
+	}
+}
+
+func TestDownPlanComesBeforeAnyWrite(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	out := h.out.String()
+	plan, cloned := strings.Index(out, "On this computer:"), strings.Index(out, "Cloned ")
+	if plan < 0 || cloned < 0 || plan > cloned {
+		t.Fatalf("plan must come before the first write:\n%s", out)
+	}
+}
+
+func TestDownCancelledLeavesNoExtrasFolder(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	dirty(h)
+	before := h.snapshot()
+	h.deps.Prompter = &scriptPrompter{choices: []int{2}}
+	if _, err := h.down(DownOptions{}); err == nil {
+		t.Fatal("expected cancel")
+	}
+	extrasRoot, _ := downFolders(h.cwd, "fix-cache")
+	if _, err := os.Stat(extrasRoot); err == nil || h.snapshot() != before {
+		t.Fatal("something was written")
+	}
+}
+
+func (h *harness) appliedBody() map[string]api.AppliedRepo {
+	h.t.Helper()
+	reqs := h.requests("/complete")
+	var body api.CompleteDownRequest
+	if err := json.Unmarshal(reqs[len(reqs)-1].Body, &body); err != nil {
+		h.t.Fatal(err)
+	}
+	out := map[string]api.AppliedRepo{}
+	for _, a := range body.Applied {
+		out[a.Repo] = a
+	}
+	return out
+}
+
+func TestDownExtraFolderExistsFailsOnlyThatRepo(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	h.addExtra(s, "acme/web", map[string]string{"w.txt": "w\n"})
+	root, _ := downFolders(h.cwd, "fix-cache")
+	taken := filepath.Join(root, "api")
+	if err := os.MkdirAll(taken, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	got := h.appliedBody()
+	if got["acme/widgets"].Status != "applied" || got["acme/web"].Status != "applied" {
+		t.Fatalf("%+v", got)
+	}
+	if got["acme/api"].Status != "failed" || !strings.Contains(got["acme/api"].Reason, "the folder "+taken+" already exists") {
+		t.Fatalf("%+v", got["acme/api"])
+	}
+	if _, err := os.Stat(filepath.Join(root, "web", "w.txt")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDownExtraClashNamesPathsAndLeavesNothingBehind(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	origin := h.srv.AddRepoWithOrigin(t, "acme/api")
+	yak := testrepo.Clone(t, origin)
+	yak.Git("switch", "-q", "-c", "yak/fix")
+	head := yak.Tip([]testrepo.Entry{{Path: "Readme.md", Content: "1"}, {Path: "README.md", Content: "2"}}, "")
+	yak.Git("update-ref", "refs/heads/yak/fix", head)
+	yak.Git("push", "-q", "origin", "yak/fix")
+	s.manifest.Repos = append(s.manifest.Repos, api.ManifestRepo{Repo: "acme/api", Role: "changes", CloneURL: origin, Branch: "yak/fix", HeadSHA: head})
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	a := h.appliedBody()["acme/api"]
+	root, _ := downFolders(h.cwd, "fix-cache")
+	if a.Status != "failed" || !strings.Contains(a.Reason, "these paths clash: ") || !strings.Contains(a.Reason, "README.md") {
+		t.Fatalf("%+v", a)
+	}
+	if _, err := os.Stat(filepath.Join(root, "api")); err == nil {
+		t.Fatal("clone left behind")
+	}
+}
+
+func TestDownExtraCloneDeniedIsReported(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	s.manifest.Repos[1].CloneURL = filepath.Join(t.TempDir(), "missing.git")
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if a := h.appliedBody()["acme/api"]; a.Status != "failed" || a.Reason != "clone denied for acme/api" {
+		t.Fatalf("%+v", a)
+	}
+}
+
+func TestDownSkipsRepoFailedOnYak(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	s.manifest.Repos[1].Status = "failed"
+	s.manifest.Repos[1].Failure = &api.Failure{Code: "push_failed", Message: "Yak could not push yak/fix"}
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	a := h.appliedBody()["acme/api"]
+	root, _ := downFolders(h.cwd, "fix-cache")
+	if a.Status != "skipped" || a.Reason != "Yak could not push it: Yak could not push yak/fix" {
+		t.Fatalf("%+v", a)
+	}
+	if _, err := os.Stat(root); err == nil {
+		t.Fatal("extras folder created for a failed repo")
+	}
+}
+
+func TestDownSummaryNamesAppliedAndNotApplied(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	h.addExtra(s, "acme/web", map[string]string{"w.txt": "w\n"})
+	s.manifest.Repos[2].Status = "failed"
+	s.manifest.Repos[2].Failure = &api.Failure{Message: "no push"}
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	out := h.out.String()
+	if !strings.Contains(out, "Applied: acme/widgets, acme/api\n") || !strings.Contains(out, "Not applied: acme/web (Yak could not push it: no push)\n") {
+		t.Fatal(out)
+	}
+}
+
+func TestDownNeverUsesAnExistingCheckoutOfAnExtra(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	origin, head := h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	elsewhere := testrepo.Clone(t, origin)
+	elsewhere.Write("mine.txt", "local work\n")
+	h.deps.Config.Checkouts = map[string]string{"acme/api": elsewhere.Dir}
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	root, _ := downFolders(h.cwd, "fix-cache")
+	if sha, _ := gitxRepo(filepath.Join(root, "api")).Head(); sha != head {
+		t.Fatalf("extra at %s", sha)
+	}
+	if _, err := os.Stat(filepath.Join(root, "api", "mine.txt")); err == nil {
+		t.Fatal("used the other checkout")
+	}
+}
+
+func TestDownWritesNoteWithExtrasAndContextRepos(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"}, api.RefreshRule{Glob: "composer.lock", Command: "composer install"})
+	s.manifest.ContextRepos = []string{"acme/docs"}
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	note, _ := config.TakeNote(h.deps.ConfigDir, testSession)
+	root, _ := downFolders(h.cwd, "fix-cache")
+	for _, want := range []string{"In " + filepath.Join(root, "api") + ": composer install (fresh clone, nothing is installed)", "Context repos. acme/docs stayed on Yak"} {
+		if !strings.Contains(note, want) {
+			t.Fatalf("missing %q in:\n%s", want, note)
+		}
+	}
+}

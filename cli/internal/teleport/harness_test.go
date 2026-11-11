@@ -34,6 +34,8 @@ type harness struct {
 	deps      Deps
 	// hostileTip is the commit pushTip last pushed.
 	hostileTip string
+	// manifest is what yakWorks last scripted for a teleport down.
+	manifest api.DownManifest
 }
 
 func isolateGit(t *testing.T) {

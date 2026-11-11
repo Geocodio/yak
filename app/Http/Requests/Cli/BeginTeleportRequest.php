@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Cli;
 
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -33,7 +34,11 @@ class BeginTeleportRequest extends FormRequest
             'repos.0.role' => ['in:primary'],
             'repos.*.repo' => ['required', 'string', 'max:200'],
             'repos.*.role' => ['required', Rule::in(['primary', 'changes', 'context'])],
-            'repos.*.local_path' => ['nullable', 'string', 'max:500'],
+            'repos.*.local_path' => ['nullable', 'string', 'max:500', function (string $attribute, mixed $value, Closure $fail): void {
+                if (! is_string($value) || ! str_starts_with($value, '/') || preg_match('/[\n\r\0]/', $value) === 1 || in_array('..', explode('/', $value), true)) {
+                    $fail('The local path must be an absolute path without parent segments.');
+                }
+            }],
             'repos.*.branch' => ['nullable', 'string', 'max:255'],
             'repos.*.on_default_branch' => ['nullable', 'boolean'],
             'repos.*.head_sha' => ['nullable', 'string', 'max:64'],

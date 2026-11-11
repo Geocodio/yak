@@ -115,6 +115,7 @@ it('completes up and moves ownership last', function () {
         ->assertJsonPath('teleport.state', 'completed')
         ->assertJsonPath('ownership', 'yak')
         ->assertJsonPath('sandbox.state', 'ready')
+        ->assertJsonMissingPath('sandbox.repos')
         ->assertJsonPath('turn_started', false)
         ->assertJsonPath('held_events_delivered', 0)
         ->assertJsonPath('marker.thread_id', $thread->id)

@@ -120,6 +120,17 @@ class Teleport extends Model
         $this->forceFill(['progress' => $progress])->save();
     }
 
+    public function localPathOf(string $repo): ?string
+    {
+        foreach ($this->payload['repos'] ?? [] as $entry) {
+            if (strtolower((string) ($entry['repo'] ?? '')) === strtolower($repo)) {
+                return $entry['local_path'] ?? null;
+            }
+        }
+
+        return null;
+    }
+
     public function touchCall(): void
     {
         $this->forceFill([

@@ -17,7 +17,12 @@ import (
 type CheckoutMapping struct {
 	SandboxPath string
 	LocalPath   string
+	// Refresh lists every command suggested for a fresh clone of an extra.
+	Refresh []RefreshRule
 }
+
+// NotBroughtDown is an extra that stayed on Yak and why.
+type NotBroughtDown struct{ Repo, Reason string }
 
 // RefreshRule suggests Command when a changed file matches Glob.
 type RefreshRule struct {
@@ -32,6 +37,8 @@ type NoteInput struct {
 	Primary                CheckoutMapping
 	Extras                 []CheckoutMapping // /extras/<repo> mapped to the cloned folder
 	Refresh                []RefreshRule
+	ContextRepos           []string // slugs that stayed on Yak
+	NotBroughtDown         []NotBroughtDown
 	// FromSHA and ToSHA bound the diff used to match refresh rules; an empty FromSHA skips them.
 	FromSHA, ToSHA string
 	// TouchedPaths come from TouchedPaths on the transcript.
@@ -87,6 +94,13 @@ func BuildLocalNote(in NoteInput) string {
 		}
 	}
 
+	if len(in.ContextRepos) > 0 {
+		b.WriteString("Context repos. " + strings.Join(in.ContextRepos, ", ") + " stayed on Yak and were not brought down.\n")
+	}
+	for _, failed := range in.NotBroughtDown {
+		b.WriteString("Not brought down. " + failed.Repo + ": " + failed.Reason + "\n")
+	}
+
 	if missing := missingFiles(in); len(missing) > 0 {
 		b.WriteString("Missing here. These gitignored files were used in the thread and did not travel:\n")
 		for _, m := range missing {
@@ -98,6 +112,16 @@ func BuildLocalNote(in NoteInput) string {
 }
 
 func refreshLines(in NoteInput) []string {
+	lines := primaryRefreshLines(in)
+	for _, extra := range in.Extras {
+		for _, rule := range extra.Refresh {
+			lines = append(lines, "In "+extra.LocalPath+": "+rule.Command+" (fresh clone, nothing is installed)")
+		}
+	}
+	return lines
+}
+
+func primaryRefreshLines(in NoteInput) []string {
 	if in.FromSHA == "" || in.ToSHA == "" || len(in.Refresh) == 0 {
 		return nil
 	}

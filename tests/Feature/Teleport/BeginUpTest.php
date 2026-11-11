@@ -163,3 +163,51 @@ it('validates the body', function () {
     $this->postJson('/api/cli/v1/teleports', beginPayload(['repos' => [['role' => 'context']]]), cliHeaders($this->token))
         ->assertStatus(422);
 });
+
+it('rejects hostile local paths', function (string $path) {
+    Repository::factory()->create(['slug' => 'acme/lib', 'github_full_name' => 'acme/lib']);
+    $payload = beginPayload();
+    $payload['repos'][] = ['repo' => 'acme/lib', 'role' => 'changes', 'local_path' => $path, 'branch' => 'main', 'head_sha' => 'abc'];
+
+    $this->postJson('/api/cli/v1/teleports', $payload, cliHeaders($this->token))
+        ->assertStatus(422)->assertJsonPath('error', 'validation_failed');
+    expect(Teleport::query()->count())->toBe(0);
+})->with(['../../etc', 'relative/path', "/ok\n/bad", '/a/../b']);
+
+it('rejects the same repo twice', function () {
+    $payload = beginPayload();
+    $payload['repos'][] = ['repo' => 'Acme/Widgets', 'role' => 'changes', 'local_path' => '/Users/ada/other', 'branch' => 'x', 'head_sha' => 'abc'];
+
+    $this->postJson('/api/cli/v1/teleports', $payload, cliHeaders($this->token))
+        ->assertStatus(422)->assertJsonPath('error', 'validation_failed')->assertJsonPath('details.repo', 'Acme/Widgets');
+});
+
+it('rejects two repos that share a folder name', function () {
+    Repository::factory()->create(['slug' => 'other/widgets', 'github_full_name' => 'other/widgets']);
+    $payload = beginPayload();
+    $payload['repos'][] = ['repo' => 'other/widgets', 'role' => 'context'];
+
+    $this->postJson('/api/cli/v1/teleports', $payload, cliHeaders($this->token))
+        ->assertStatus(422)->assertJsonPath('error', 'validation_failed')->assertJsonPath('details.repo', 'other/widgets');
+});
+
+it('accepts a context entry without branch and head and returns branch null', function () {
+    Repository::factory()->create(['slug' => 'acme/lib', 'github_full_name' => 'acme/lib']);
+    $payload = beginPayload();
+    $payload['repos'][] = ['repo' => 'acme/lib', 'role' => 'context', 'local_path' => '/Users/ada/lib'];
+
+    $this->postJson('/api/cli/v1/teleports', $payload, cliHeaders($this->token))
+        ->assertOk()->assertJsonPath('repos.1.branch', null);
+});
+
+it('localPathOf returns the local path of an added repo and null for unknown', function () {
+    $teleport = Teleport::factory()->create(['payload' => ['repos' => [
+        ['repo' => 'acme/widgets', 'role' => 'primary', 'local_path' => '/Users/ada/widgets'],
+        ['repo' => 'acme/lib', 'role' => 'changes', 'local_path' => '/Users/ada/lib'],
+        ['repo' => 'acme/ctx', 'role' => 'context'],
+    ]]]);
+
+    expect($teleport->localPathOf('ACME/lib'))->toBe('/Users/ada/lib')
+        ->and($teleport->localPathOf('acme/ctx'))->toBeNull()
+        ->and($teleport->localPathOf('nope/x'))->toBeNull();
+});

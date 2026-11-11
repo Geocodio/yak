@@ -52,6 +52,7 @@ type teleportState struct {
 	failComplete *api.Failure
 	slowComplete int
 	sandbox      string
+	sandboxRepos []api.SandboxRepo
 
 	messages map[int][]api.StackMessage
 	acked    map[int]int
@@ -80,6 +81,18 @@ func (s *Server) AddRepoWithOrigin(t testing.TB, slug string) string {
 	return dir
 }
 
+// UpRepos returns the repos the CLI sent when it began the teleport up with that id.
+func (s *Server) UpRepos(t testing.TB, id string) []api.BeginRepo {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	row, ok := s.tele.rows[id]
+	if !ok {
+		t.Fatalf("no teleport %s", id)
+	}
+	return append([]api.BeginRepo(nil), row.upRepos...)
+}
+
 // ScriptDownStates scripts what GET /teleports/{id} answers for the next down teleport of the thread: each poll
 // moves one state along (waiting_for_turn, preparing, ready, failed) and the last state repeats. The manifest is
 // served once the state is ready.
@@ -104,6 +117,13 @@ func (s *Server) SlowCompleteForPolls(n int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.tele.slowComplete = n
+}
+
+// SetSandboxRepos makes teleport-up completes report these per-repo sandbox outcomes.
+func (s *Server) SetSandboxRepos(repos ...api.SandboxRepo) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.tele.sandboxRepos = repos
 }
 
 // SetSandboxState sets sandbox.state in the next up completes (ready, restoring, waiting_for_slot).
@@ -575,7 +595,7 @@ func (s *Server) completeUp(w http.ResponseWriter, r *http.Request, row *telepor
 	}
 	for _, rr := range req.Repos {
 		repo, ok := s.repoBySlug(rr.Repo)
-		if !ok || repo.BarePath == "" {
+		if !ok || repo.BarePath == "" || rr.Branch == "" {
 			continue
 		}
 		head, err := gitx.Repo{Dir: repo.BarePath, Env: testrepo.Env}.Run("rev-parse", "--verify", "-q", "refs/heads/"+rr.Branch)
@@ -630,7 +650,7 @@ func (s *Server) finishUp(row *teleportRow) {
 		sandbox = "ready"
 	}
 	row.completed = api.CompleteUpResponse{
-		Teleport: row.object(), Ownership: "yak", Sandbox: api.Sandbox{State: sandbox}, TurnStarted: req.Message != "",
+		Teleport: row.object(), Ownership: "yak", Sandbox: api.Sandbox{State: sandbox, Repos: s.tele.sandboxRepos}, TurnStarted: req.Message != "",
 		Marker: api.Marker{ThreadID: thread.ID, TeleportID: row.id, Owner: "yak", ThreadURL: thread.URL},
 	}
 }

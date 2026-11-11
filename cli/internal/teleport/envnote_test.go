@@ -156,3 +156,48 @@ func TestNoteHasNoLaptopWord(t *testing.T) {
 		}
 	}
 }
+
+func TestNoteSuggestsRefreshForEachFreshExtra(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Commit(map[string]string{"a.txt": "a"}, "init")
+	in := baseInput(repo.Dir)
+	in.Extras = []CheckoutMapping{{SandboxPath: "/extras/api", LocalPath: "/work/p-x/api", Refresh: []RefreshRule{
+		{Glob: "composer.lock", Command: "composer install"}, {Glob: "package-lock.json", Command: "npm ci"},
+	}}}
+	note := BuildLocalNote(in)
+	want := "Suggested commands. In /work/p-x/api: composer install (fresh clone, nothing is installed)\n  In /work/p-x/api: npm ci (fresh clone, nothing is installed)\n"
+	if !strings.Contains(note, want) {
+		t.Fatalf("missing:\n%s", note)
+	}
+}
+
+func TestNoteSaysContextReposWereNotBroughtDown(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Commit(map[string]string{"a.txt": "a"}, "init")
+	in := baseInput(repo.Dir)
+	in.ContextRepos = []string{"acme/docs", "acme/site"}
+	if note := BuildLocalNote(in); !strings.Contains(note, "Context repos. acme/docs, acme/site stayed on Yak and were not brought down.\n") {
+		t.Fatal(note)
+	}
+}
+
+func TestNoteListsFailedExtras(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Commit(map[string]string{"a.txt": "a"}, "init")
+	in := baseInput(repo.Dir)
+	in.NotBroughtDown = []NotBroughtDown{{Repo: "acme/web", Reason: "clone denied for acme/web"}}
+	if note := BuildLocalNote(in); !strings.Contains(note, "Not brought down. acme/web: clone denied for acme/web\n") {
+		t.Fatal(note)
+	}
+}
+
+func TestNoteWithoutExtrasIsUnchanged(t *testing.T) {
+	repo := testrepo.New(t)
+	repo.Commit(map[string]string{"a.txt": "a"}, "init")
+	want := "[Yak] This session moved from Yak to this computer.\n\n" +
+		"System. Linux x86_64 -> macOS arm64. Binaries built on Linux will not run here.\n" +
+		"Paths. /workspace is now " + repo.Dir + ". Treat /workspace in earlier messages as that path.\n"
+	if got := BuildLocalNote(baseInput(repo.Dir)); got != want {
+		t.Fatalf("got:\n%s", got)
+	}
+}

@@ -152,8 +152,9 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	}
 	resumeDir := top
 	if mode == "worktree" {
-		resumeDir = filepath.Clean(top) + "-yak-" + manifest.Thread.Slug
+		_, resumeDir = downFolders(top, manifest.Thread.Slug)
 	}
+	printDownPlan(d, manifest, mode, top)
 
 	projectDir := filepath.Join(session.ClaudeConfigDir(d.Env, d.Home), "projects", session.ProjectFolderName(resumeDir))
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
@@ -400,8 +401,8 @@ func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, m api
 		options = append(options, ui.Option{Label: "Stash them, then apply the thread", Hint: "git stash keeps your changes safe"})
 		modes = append(modes, "stash")
 	}
-	slug := m.Thread.Slug
-	options = append(options, ui.Option{Label: "Apply into a new worktree", Hint: filepath.Clean(top) + "-yak-" + slug + ", this checkout stays as it is"})
+	_, worktreeDir := downFolders(top, m.Thread.Slug)
+	options = append(options, ui.Option{Label: "Apply into a new worktree", Hint: worktreeDir + ", this checkout stays as it is"})
 	modes = append(modes, "worktree")
 	options = append(options, ui.Option{Label: "Cancel", Hint: "default"})
 	modes = append(modes, "cancel")
@@ -470,14 +471,75 @@ func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m
 	}
 	d.say("Applied %s at %s (%s)", primary.Branch, shortSHA(primary.HeadSHA), strings.ReplaceAll(res.Mode, "_", "-"))
 	applied := []AppliedRepo{{Repo: primary.Repo, Status: "applied", Mode: res.Mode, HeadSHA: primary.HeadSHA, Branch: res.Branch, Path: res.Path}}
-	extrasRoot := filepath.Clean(top) + "-" + m.Thread.Slug
+	extrasRoot, _ := downFolders(top, m.Thread.Slug)
+	_, rootExisted := os.Lstat(extrasRoot)
 	for _, extra := range m.Repos {
-		if extra.Role == "primary" {
-			continue
+		switch {
+		case extra.Role == "primary":
+		case extra.Status == "failed":
+			reason := "Yak could not push it"
+			if extra.Failure != nil && extra.Failure.Message != "" {
+				reason += ": " + strings.TrimRight(extra.Failure.Message, ".")
+			}
+			applied = append(applied, AppliedRepo{Repo: extra.Repo, Status: "skipped", Reason: reason})
+		default:
+			applied = append(applied, cloneExtra(d, extrasRoot, extra))
 		}
-		applied = append(applied, cloneExtra(d, extrasRoot, extra))
 	}
+	if rootExisted != nil {
+		_ = os.Remove(extrasRoot)
+	}
+	printAppliedSummary(d, applied)
 	return applied, res.Path, nil
+}
+
+// downFolders returns the folder extras are cloned into and the worktree folder for a dirty primary checkout.
+func downFolders(top, slug string) (extrasRoot, worktreeDir string) {
+	base := filepath.Clean(top)
+	return base + "-" + slug, base + "-yak-" + slug
+}
+
+// printDownPlan says where each repo of the thread will land before anything is written on this computer.
+func printDownPlan(d Deps, m api.DownManifest, mode, top string) {
+	extrasRoot, worktreeDir := downFolders(top, m.Thread.Slug)
+	d.say("On this computer:")
+	if primary, ok := primaryOf(m); ok {
+		where := top
+		if mode == "worktree" {
+			where = worktreeDir + " (new worktree, " + top + " stays as it is)"
+		}
+		d.say("  %s -> %s", primary.Repo, where)
+	}
+	for _, r := range m.Repos {
+		switch {
+		case r.Role == "primary":
+		case r.Status == "failed":
+			d.say("  %s: Yak could not push it, it will not be brought down", r.Repo)
+		default:
+			d.say("  %s -> %s (fresh clone)", r.Repo, filepath.Join(extrasRoot, repoName(r.Repo)))
+		}
+	}
+	if len(m.ContextRepos) > 0 {
+		d.say("  Context repos stay on Yak: %s", strings.Join(m.ContextRepos, ", "))
+	}
+}
+
+func repoName(slug string) string { return slug[strings.LastIndex(slug, "/")+1:] }
+
+// printAppliedSummary names the repos that landed here and, with the reason, the ones that did not.
+func printAppliedSummary(d Deps, applied []AppliedRepo) {
+	var landed []string
+	for _, a := range applied {
+		if a.Status == "applied" {
+			landed = append(landed, a.Repo)
+		}
+	}
+	d.say("Applied: %s", strings.Join(landed, ", "))
+	for _, a := range applied {
+		if a.Status != "applied" {
+			d.say("Not applied: %s (%s)", a.Repo, a.Reason)
+		}
+	}
 }
 
 func shortSHA(sha string) string {
@@ -490,8 +552,7 @@ func shortSHA(sha string) string {
 // cloneExtra clones a secondary repo without checking anything out, runs the same clash check, then checks out
 // the thread's commit. A failure is reported for that repo and never blocks the primary.
 func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
-	name := extra.Repo[strings.LastIndex(extra.Repo, "/")+1:]
-	path := filepath.Join(root, name)
+	path := filepath.Join(root, repoName(extra.Repo))
 	failed := func(reason string) AppliedRepo {
 		return AppliedRepo{Repo: extra.Repo, Status: "failed", Mode: "clone", Reason: reason}
 	}
@@ -503,14 +564,18 @@ func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
 	}
 	if _, err := (gitx.Repo{Dir: root}).Run("clone", "--quiet", "--no-checkout", extra.CloneURL, path); err != nil {
 		os.RemoveAll(path)
-		return failed("clone failed")
+		return failed(cloneFailureReason(extra.Repo, err))
 	}
 	clone := gitx.Repo{Dir: path}
 	if extra.HeadSHA != "" {
 		report, err := clash.Check(clone, extra.HeadSHA)
-		if err != nil || !report.Empty() {
+		if err != nil {
 			os.RemoveAll(path)
-			return failed("the repo has files this computer cannot hold")
+			return failed("the repo could not be checked for files this computer cannot hold")
+		}
+		if !report.Empty() {
+			os.RemoveAll(path)
+			return failed("these paths clash: " + strings.Join(clashPaths(report), ", "))
 		}
 		if _, err := clone.Run("checkout", "--quiet", "-B", extra.Branch, extra.HeadSHA); err != nil {
 			os.RemoveAll(path)
@@ -522,6 +587,17 @@ func cloneExtra(d Deps, root string, extra api.ManifestRepo) AppliedRepo {
 	}
 	d.say("Cloned %s to %s", extra.Repo, path)
 	return AppliedRepo{Repo: extra.Repo, Status: "applied", Mode: "clone", HeadSHA: extra.HeadSHA, Branch: extra.Branch, Path: path}
+}
+
+// cloneFailureReason keeps the repo name and drops git's text, which can carry the clone URL.
+func cloneFailureReason(slug string, err error) string {
+	text := err.Error()
+	for _, marker := range []string{"Authentication failed", "403", "not found", "does not exist", "Could not read"} {
+		if strings.Contains(text, marker) {
+			return "clone denied for " + slug
+		}
+	}
+	return "clone failed for " + slug
 }
 
 func writeNote(d Deps, m api.DownManifest, applied []AppliedRepo, resumeDir, projectDir, tip string) {
@@ -538,11 +614,21 @@ func writeNote(d Deps, m api.DownManifest, applied []AppliedRepo, resumeDir, pro
 	for _, r := range env.Refresh {
 		in.Refresh = append(in.Refresh, RefreshRule{Glob: r.Glob, Command: r.Command})
 	}
+	in.ContextRepos = m.ContextRepos
 	for _, a := range applied[1:] {
-		if a.Status == "applied" {
-			name := a.Repo[strings.LastIndex(a.Repo, "/")+1:]
-			in.Extras = append(in.Extras, CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/extras/<repo>"), "<repo>", name), LocalPath: a.Path})
+		if a.Status != "applied" {
+			in.NotBroughtDown = append(in.NotBroughtDown, NotBroughtDown{Repo: a.Repo, Reason: a.Reason})
+			continue
 		}
+		mapping := CheckoutMapping{SandboxPath: strings.ReplaceAll(firstNonEmpty(env.ExtrasPathPattern, "/extras/<repo>"), "<repo>", repoName(a.Repo)), LocalPath: a.Path}
+		for _, r := range m.Repos {
+			if r.Repo == a.Repo {
+				for _, rule := range r.Refresh {
+					mapping.Refresh = append(mapping.Refresh, RefreshRule{Glob: rule.Glob, Command: rule.Command})
+				}
+			}
+		}
+		in.Extras = append(in.Extras, mapping)
 	}
 	if touched, err := TouchedPaths(filepath.Join(projectDir, m.Session.SessionID+".jsonl")); err == nil {
 		in.TouchedPaths = touched

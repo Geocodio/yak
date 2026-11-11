@@ -83,6 +83,7 @@ func (h *harness) yakWorks(res UpResult, uploaded string) (tip, longer string) {
 		Branch: res.Branch, HeadSHA: h.local.Git("rev-parse", "HEAD"),
 		Files: []api.SessionFile{{RelPath: testSession + ".jsonl", Length: int64(len(uploaded)), SHA256: sum(uploaded)}},
 	}
+	h.manifest = m
 	h.srv.ScriptDownStates(res.ThreadID, m, "preparing", "ready")
 	return tip, longer
 }
@@ -201,5 +202,59 @@ func TestRevokeMidFlowLeavesEverythingUnchanged(t *testing.T) {
 	}
 	if len(h.requests("/complete")) != 1 || h.srv.Threads[res.ThreadID].OwnerSide != "yak" {
 		t.Fatal("down completed or moved ownership")
+	}
+}
+
+func TestMultiRepoRoundTrip(t *testing.T) {
+	h := newHarness(t)
+	changes, changesOrigin := addYakRepo(t, h)
+	changes.Write("api.txt", "edited\n")
+	docsOrigin := h.srv.AddRepoWithOrigin(t, "acme/docs")
+	seed := testrepo.Clone(t, docsOrigin)
+	seed.Git("switch", "-q", "-c", "main")
+	seed.Commit(map[string]string{"d.txt": "d\n"}, "initial")
+	seed.Git("push", "-q", "-u", "origin", "main")
+	docs := testrepo.Clone(t, docsOrigin)
+
+	uploaded := bigTranscript()
+	h.local.Git("switch", "-q", "-c", "feat")
+	h.writeTranscript(uploaded)
+	res, err := Up(t.Context(), h.deps, UpInput{Cwd: h.cwd, SessionID: testSession, AddDirs: []string{changes.Dir, docs.Dir}, Options: PrepareOptions{CommitTracked: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := h.srv.UpRepos(t, res.TeleportID)
+	if len(sent) != 3 || sent[1].Role != "changes" || sent[2].Role != "context" {
+		t.Fatalf("%+v", sent)
+	}
+
+	tip, _ := h.yakWorks(res, uploaded)
+	extraHead := *sent[1].HeadSHA
+	h.manifest.Repos = append(h.manifest.Repos, api.ManifestRepo{
+		Repo: "acme/api", Role: "changes", CloneURL: changesOrigin, DefaultBranch: "main", Branch: *sent[1].Branch, HeadSHA: extraHead,
+		SandboxPath: "/extras/api", Pushed: true,
+	})
+	h.manifest.ContextRepos = []string{"acme/docs"}
+	h.srv.ScriptDownStates(res.ThreadID, h.manifest, "preparing", "ready")
+
+	down, err := Down(t.Context(), h.deps, DownInput{ThreadID: res.ThreadID, Cwd: h.cwd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, _ := downFolders(h.cwd, "fix")
+	if h.local.Git("rev-parse", "HEAD") != tip {
+		t.Fatal("primary not fast-forwarded")
+	}
+	if sha, _ := gitxRepo(filepath.Join(root, "api")).Head(); sha != extraHead {
+		t.Fatalf("extra at %s, want %s", sha, extraHead)
+	}
+	if _, err := os.Stat(filepath.Join(root, "docs")); err == nil {
+		t.Fatal("context repo was brought down")
+	}
+	if m, ok := config.ReadMarker(h.deps.ConfigDir, testSession); !ok || m.Owner != "device" {
+		t.Fatalf("marker %+v %v", m, ok)
+	}
+	if len(down.Applied) != 2 || down.Applied[1].Repo != "acme/api" || !strings.Contains(h.out.String(), "Applied: acme/widgets, acme/api\n") {
+		t.Fatalf("%+v\n%s", down.Applied, h.out.String())
 	}
 }

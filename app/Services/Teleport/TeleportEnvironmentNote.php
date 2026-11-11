@@ -5,8 +5,10 @@ namespace App\Services\Teleport;
 use App\Enums\RepositoryRole;
 use App\Models\Teleport;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Services\SessionStore\SessionStore;
 use App\Services\Threads\Contracts\SandboxManager;
+use Illuminate\Database\Eloquent\Collection;
 use Throwable;
 
 /**
@@ -58,13 +60,37 @@ class TeleportEnvironmentNote
             $sections['Directories that are not here'] = array_values($missing);
         }
 
-        $extras = $this->extras($thread);
+        $extras = $this->upExtras($thread, $teleport);
 
         if ($extras !== []) {
             $sections['Extra repositories'] = $extras;
         }
 
         return $sections;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function upExtras(Thread $thread, Teleport $teleport): array
+    {
+        $report = $teleport->payload['sandbox_repos'] ?? [];
+
+        return array_values($thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->orderBy('repo')->get()
+            ->map(function (ThreadRepository $repository) use ($teleport, $report): string {
+                $line = "{$repository->repo}: {$repository->sandbox_path}";
+
+                if ($repository->role === RepositoryRole::Context) {
+                    $line .= ' (context, default branch; local edits were not uploaded)';
+
+                    return ($report[$repository->repo]['status'] ?? null) === 'failed' ? $line . '; the clone failed, so it is not available here' : $line;
+                }
+
+                $localPath = $teleport->localPathOf($repository->repo);
+
+                return $line . ' (changes)' . ($localPath === null ? '' : ", your path {$localPath} links to it");
+            })
+            ->all());
     }
 
     /**
@@ -84,23 +110,38 @@ class TeleportEnvironmentNote
             $sections['Paths'] = "Earlier messages mention {$workspace}. That is {$localPath} here.";
         }
 
-        $extras = $this->extras($thread);
+        $commandsByRepo = [];
+
+        foreach ($teleport->manifest['repos'] ?? [] as $entry) {
+            $commandsByRepo[(string) $entry['repo']] = array_column($entry['refresh'] ?? [], 'command');
+        }
+
+        $extras = [];
+
+        foreach ($this->extrasOfRole($thread, RepositoryRole::Changes) as $repository) {
+            $commands = $commandsByRepo[$repository->repo] ?? [];
+            $extras[] = "{$repository->repo} at {$repository->sandbox_path}" . ($commands === [] ? '' : ' (refresh: ' . implode(', ', $commands) . ')');
+        }
 
         if ($extras !== []) {
             $sections['Extra repositories'] = $extras;
+        }
+
+        $context = $this->extrasOfRole($thread, RepositoryRole::Context)->pluck('repo')->all();
+
+        if ($context !== []) {
+            $sections['Context repositories'] = implode(', ', $context) . ' were not brought down. They stay in the sandbox only.';
         }
 
         return $sections;
     }
 
     /**
-     * @return list<string>
+     * @return Collection<int, ThreadRepository>
      */
-    private function extras(Thread $thread): array
+    private function extrasOfRole(Thread $thread, RepositoryRole $role): Collection
     {
-        return array_values($thread->repositories()->where('role', '!=', RepositoryRole::Primary->value)->get()
-            ->map(fn ($repository): string => "{$repository->repo} at {$repository->sandbox_path}")
-            ->all());
+        return $thread->repositories()->where('role', $role->value)->get();
     }
 
     /**
