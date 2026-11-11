@@ -1,5 +1,6 @@
 import { Button } from '@geocodio/console-ui';
 import { router } from '@inertiajs/react';
+import { Info } from 'lucide-react';
 import type { ThreadData } from '@/types/threads';
 import { useThreadEnvironment } from '../environment/useThreadEnvironment';
 
@@ -16,9 +17,12 @@ export function ContextRepoCallout({ thread, repo, canDrive, onPromoted }: Props
     const repository = environment?.repositories.find((candidate) => candidate.repo === repo);
 
     return (
-        <div className="rounded-card border border-dashed border-hair p-3 text-[12px] text-muted" data-testid="changes-context-callout">
-            <p>
-                {repo} is context. No pull request is opened and these files are discarded with the sandbox, not teleported. Make it a repo with changes to keep them.
+        <div className="rounded-card bg-warn-soft p-3 text-[12px] text-body" data-testid="changes-context-callout">
+            <p className="flex items-start gap-2">
+                <Info size={14} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
+                <span>
+                    <strong className="font-semibold">{repo} is context.</strong> No pull request is opened and these files are discarded with the sandbox, not teleported. Make it a repo with changes to keep them.
+                </span>
             </p>
             {canDrive && repository !== undefined && (
                 <Button
