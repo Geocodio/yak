@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Cast-backed attributes are declared here because Larastan resolves casts
@@ -80,6 +81,12 @@ class Repository extends Model
             'config_read_at' => 'immutable_datetime',
             'co_owner_gate_enforced_at' => 'immutable_datetime',
         ];
+    }
+
+    /** @return HasOne<Dataset, $this> */
+    public function dataset(): HasOne
+    {
+        return $this->hasOne(Dataset::class);
     }
 
     /** @return HasMany<RepositoryConfigFile, $this> */

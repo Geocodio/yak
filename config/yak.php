@@ -88,6 +88,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Datasets
+    |--------------------------------------------------------------------------
+    |
+    | A repo declares a dataset in `.yak/config.yml`; it is fetched once from a
+    | generic S3-compatible store into one Incus volume per repo. The S3
+    | credential is only ever handed to the one-shot data sandbox.
+    |
+    */
+
+    'datasets' => [
+        's3' => [
+            'endpoint' => env('YAK_DATASETS_S3_ENDPOINT'),
+            'region' => env('YAK_DATASETS_S3_REGION', 'us-east-1'),
+            'bucket' => env('YAK_DATASETS_S3_BUCKET'),
+            'access_key' => env('YAK_DATASETS_S3_ACCESS_KEY'),
+            'secret' => env('YAK_DATASETS_S3_SECRET'),
+            'use_path_style_endpoint' => (bool) env('YAK_DATASETS_S3_PATH_STYLE', true),
+        ],
+        'fetch_timeout_minutes' => (int) env('YAK_DATASETS_FETCH_TIMEOUT_MINUTES', 720),
+        'cli' => env('YAK_DATASETS_CLI', 'aws'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Sandbox Configuration (Incus)
     |--------------------------------------------------------------------------
     |
