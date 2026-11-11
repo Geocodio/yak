@@ -17,7 +17,7 @@ final class RepositoryTurnPrompts
 
     public static function ciFailure(ThreadRepository $row, ?string $output): string
     {
-        $prompt = self::header($row) . "\n\nCI failed on this pull request. Fix the failure in {$row->sandbox_path} only, commit and push the branch.";
+        $prompt = self::header($row) . "\n\nCI failed on this pull request. Fix the failure in {$row->sandbox_path} only and commit it. Yak pushes the branch.";
 
         if ($output !== null && trim($output) !== '') {
             $prompt .= "\n\nFailure output:\n" . Str::limit($output, self::OUTPUT_LIMIT);
