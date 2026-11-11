@@ -96,9 +96,9 @@ class ThreadTurns
      * @throws ThreadBusy when the thread already runs a turn
      * @throws ThreadNotOwnedByYak when a device owns the thread or a teleport is open
      */
-    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model): TaskRun
+    public function start(YakTask $task, string $prompt, ?User $driver, ?string $model, ?TaskRunKind $kind = null): TaskRun
     {
-        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model): array {
+        [$thread, $run, $account, $blocked] = DB::transaction(function () use ($task, $prompt, $driver, $model, $kind): array {
             $thread = Thread::query()->lockForUpdate()->findOrFail($task->thread_id);
             app(ThreadOwnership::class)->assertYakMayRunTurns($thread);
 
@@ -121,7 +121,7 @@ class ThreadTurns
 
             $run = TaskRun::query()->create([
                 'yak_task_id' => $task->id,
-                'kind' => $thread->runs()->exists() ? TaskRunKind::FollowUp : TaskRunKind::Initial,
+                'kind' => $kind ?? ($thread->runs()->exists() ? TaskRunKind::FollowUp : TaskRunKind::Initial),
                 'repo' => $task->repo,
                 'source' => $task->source,
                 'mode' => $task->mode,

@@ -1,6 +1,7 @@
 <?php
 
 use App\DataTransferObjects\SandboxWake;
+use App\Enums\TaskRunKind;
 use App\Enums\ThreadVisibility;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\Threads\OpenRepositoryPullRequestJob;
@@ -87,7 +88,7 @@ it('resets only the failing repo and starts a turn naming it', function () {
     [$thread, , $extra] = ciRetryThread();
     $this->mock(ThreadSandbox::class)->shouldReceive('ensureAwake')->andReturn(SandboxWake::ready());
     $turns = $this->mock(ThreadTurns::class);
-    $turns->shouldReceive('start')->once()->withArgs(fn ($task, $prompt) => str_contains($prompt, 'acme/web#4') && str_contains($prompt, '/workspace/web') && str_contains($prompt, 'lint failed'));
+    $turns->shouldReceive('start')->once()->withArgs(fn ($task, $prompt, $driver, $model, $kind) => $kind === TaskRunKind::RepositoryEvent && str_contains($prompt, 'acme/web#4') && str_contains($prompt, '/workspace/web') && str_contains($prompt, 'lint failed'));
 
     $sandboxes = new FakeSandboxManager;
     $sandboxes->create($thread);
