@@ -38,3 +38,4 @@ Schedule::command('yak:preview-repair:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:prune-session-store')->daily();
 Schedule::command('yak:claude-accounts-expiry')->daily();
 Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();

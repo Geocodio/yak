@@ -23,6 +23,10 @@ class TeleportAuthorizer
             ->latest('id')
             ->first();
 
+        if ($teleport === null && Teleport::query()->where('thread_id', $thread->id)->where('device_id', $device->id)->latest('id')->value('state') === TeleportState::Expired) {
+            throw new TeleportError('teleport_expired', 'This teleport expired. Start it again.');
+        }
+
         $allowed = $teleport !== null && ($write
             ? $teleport->direction === TeleportDirection::Up && $teleport->state === TeleportState::Open
             : $this->mayRead($teleport));
