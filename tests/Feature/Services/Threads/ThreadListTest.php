@@ -141,6 +141,7 @@ test('a thread with no runs and no activity renders as stopped', function () {
         'needsYouReason' => null,
         'needsYouLabel' => null,
         'isPrivate' => false,
+        'isShared' => false,
         'isUnattended' => false,
         'lastActivityAt' => null,
         'group' => 'older',

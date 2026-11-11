@@ -3,6 +3,7 @@
 use App\Enums\TaskStatus;
 use App\Enums\ThreadListFilter;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\ThreadList;
@@ -86,4 +87,17 @@ test('an orphan child (parent closed) is not listed at top level', function () {
 
     expect(visibleIds(ThreadList::for($user, ThreadListFilter::Everyone)))->not->toContain($child->id)->toBe([])
         ->and(visibleIds(ThreadList::for($user)))->toBe([]);
+});
+
+test('a private thread row is shared only when it has share rows', function () {
+    $owner = User::factory()->create();
+    $guest = User::factory()->create();
+    $alone = Thread::factory()->private($owner)->create(['created_by_user_id' => $owner->id]);
+    $shared = Thread::factory()->private($owner)->create(['created_by_user_id' => $owner->id]);
+    ThreadShare::factory()->create(['thread_id' => $shared->id, 'user_id' => $guest->id]);
+
+    $rows = collect(ThreadList::for($owner)['threads'])->keyBy('id');
+
+    expect($rows[$alone->id]['isShared'])->toBeFalse()
+        ->and($rows[$shared->id]['isShared'])->toBeTrue();
 });
