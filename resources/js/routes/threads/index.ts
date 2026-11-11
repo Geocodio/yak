@@ -7,6 +7,10 @@ import teleportRequest from './teleport-request'
 import messages from './messages'
 import restore from './restore'
 import share from './share'
+import files from './files'
+import preview from './preview'
+import terminalSessions from './terminal-sessions'
+import stack from './stack'
 /**
 * @see \App\Http\Controllers\Threads\ThreadController::show
 * @see app/Http/Controllers/Threads/ThreadController.php:18
@@ -387,6 +391,10 @@ const threads = {
     new: Object.assign(newMethod, newMethod),
     store: Object.assign(store, store),
     share: Object.assign(share, share),
+    files: Object.assign(files, files),
+    preview: Object.assign(preview, preview),
+    terminalSessions: Object.assign(terminalSessions, terminalSessions),
+    stack: Object.assign(stack, stack),
 }
 
 export default threads

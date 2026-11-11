@@ -1,7 +1,7 @@
 import { queryParams, type RouteQueryOptions, type RouteDefinition, applyUrlDefaults } from './../../../../../../wayfinder'
 /**
 * @see \App\Http\Controllers\Api\Cli\SshLookupController::show
-* @see app/Http/Controllers/Api/Cli/SshLookupController.php:18
+* @see app/Http/Controllers/Api/Cli/SshLookupController.php:23
 * @route '/api/cli/v1/threads/{thread}/ssh'
 */
 export const show = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -16,7 +16,7 @@ show.definition = {
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SshLookupController::show
-* @see app/Http/Controllers/Api/Cli/SshLookupController.php:18
+* @see app/Http/Controllers/Api/Cli/SshLookupController.php:23
 * @route '/api/cli/v1/threads/{thread}/ssh'
 */
 show.url = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -43,7 +43,7 @@ show.url = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SshLookupController::show
-* @see app/Http/Controllers/Api/Cli/SshLookupController.php:18
+* @see app/Http/Controllers/Api/Cli/SshLookupController.php:23
 * @route '/api/cli/v1/threads/{thread}/ssh'
 */
 show.get = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -53,7 +53,7 @@ show.get = (args: { thread: string | number } | [thread: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\Api\Cli\SshLookupController::show
-* @see app/Http/Controllers/Api/Cli/SshLookupController.php:18
+* @see app/Http/Controllers/Api/Cli/SshLookupController.php:23
 * @route '/api/cli/v1/threads/{thread}/ssh'
 */
 show.head = (args: { thread: string | number } | [thread: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({

@@ -12,6 +12,10 @@ import RestoreRetryController from './RestoreRetryController'
 import NewThreadController from './NewThreadController'
 import StoreThreadController from './StoreThreadController'
 import ThreadShareController from './ThreadShareController'
+import ThreadFileController from './ThreadFileController'
+import Preview from './Preview'
+import TerminalSessionController from './TerminalSessionController'
+import Stack from './Stack'
 
 const Threads = {
     ThreadController: Object.assign(ThreadController, ThreadController),
@@ -28,6 +32,10 @@ const Threads = {
     NewThreadController: Object.assign(NewThreadController, NewThreadController),
     StoreThreadController: Object.assign(StoreThreadController, StoreThreadController),
     ThreadShareController: Object.assign(ThreadShareController, ThreadShareController),
+    ThreadFileController: Object.assign(ThreadFileController, ThreadFileController),
+    Preview: Object.assign(Preview, Preview),
+    TerminalSessionController: Object.assign(TerminalSessionController, TerminalSessionController),
+    Stack: Object.assign(Stack, Stack),
 }
 
 export default Threads
