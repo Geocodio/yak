@@ -21,10 +21,12 @@ use App\Models\BranchDeployment;
 use App\Models\FollowUpPendingComment;
 use App\Models\PrReview;
 use App\Models\Repository;
+use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\BranchDeploymentProvisioner;
 use App\Services\RepositoryConfig;
 use App\Services\TaskLogger;
+use App\Services\Threads\PullRequests\CiCheckDetails;
 use App\Services\Threads\PullRequests\RepositoryCiRetry;
 use App\Services\Threads\PullRequests\RepositoryTurnPrompts;
 use App\Services\Threads\PullRequests\RoutedPullRequest;
@@ -187,6 +189,13 @@ class WebhookController extends Controller
 
         $headSha = (string) $request->input('check_suite.head_sha', '');
 
+        if ($task->thread_id !== null) {
+            ThreadRepository::query()
+                ->where('thread_id', $task->thread_id)
+                ->where('role', 'primary')
+                ->update(['ci_checks' => json_encode(CiCheckDetails::collect($github, $repository->github_full_name, $headSha, $output))]);
+        }
+
         ProcessCIResultJob::dispatch($task, $passed, $output, $headSha !== '' ? $headSha : null);
 
         return response()->json(['ok' => true, 'dispatched' => true]);
@@ -258,7 +267,13 @@ class WebhookController extends Controller
             }
         }
 
-        app(RepositoryCiRetry::class)->handleResult($routed->row, $passed, $output, $commitSha !== '' ? $commitSha : null);
+        app(RepositoryCiRetry::class)->handleResult(
+            $routed->row,
+            $passed,
+            $output,
+            $commitSha !== '' ? $commitSha : null,
+            CiCheckDetails::collect($github, $repository->github_full_name, $commitSha, $output),
+        );
 
         return response()->json(['ok' => true, 'dispatched' => true]);
     }

@@ -21,10 +21,17 @@ class RepositoryCiRetry
 {
     public function __construct(private readonly HeldEvents $heldEvents) {}
 
-    public function handleResult(ThreadRepository $row, bool $passed, ?string $output, ?string $commitSha): void
+    /**
+     * @param  list<array{name: string, state: string, durationSeconds?: ?int, excerpt?: ?string}>|null  $checks
+     */
+    public function handleResult(ThreadRepository $row, bool $passed, ?string $output, ?string $commitSha, ?array $checks = null): void
     {
         if (! $row->isChangesRepo()) {
             return;
+        }
+
+        if ($checks !== null) {
+            $row->forceFill(['ci_checks' => $checks])->save();
         }
 
         $headTask = YakTask::query()->where('thread_id', $row->thread_id)->latest('id')->first();
