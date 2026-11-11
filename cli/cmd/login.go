@@ -143,6 +143,8 @@ func authedClient(ctx *Context) (*api.Client, config.Config, error) {
 // reportAPIError prints the right copy for an API failure and returns exit code 1. It never touches the token.
 func reportAPIError(ctx *Context, err error) int {
 	switch {
+	case api.IsCode(err, "protocol_too_old"):
+		printTooOld(ctx)
 	case api.IsCode(err, "device_revoked"):
 		ui.Fail(ctx.Stderr, "This computer was removed from Yak.")
 		fmt.Fprintln(ctx.Stderr, "  Someone revoked it in Settings, Devices. Nothing changed on Yak.")
@@ -154,6 +156,13 @@ func reportAPIError(ctx *Context, err error) int {
 		ui.Fail(ctx.Stderr, "%s", err.Error())
 	}
 	return 1
+}
+
+// printTooOld is the copy for HTTP 426 and for a server whose minimum protocol is above ours.
+func printTooOld(ctx *Context) {
+	ui.Fail(ctx.Stderr, "This version of yak is too old for Yak.")
+	fmt.Fprintln(ctx.Stderr, "  Your yak plugin is older than this Yak server supports. Nothing was changed.")
+	fmt.Fprintln(ctx.Stderr, "  Update it, then run the command again: claude plugin update yak")
 }
 
 func logout(ctx *Context, _ []string) int {

@@ -15,6 +15,7 @@ import (
 	"github.com/geocodio/yak/cli/internal/link"
 	"github.com/geocodio/yak/cli/internal/teleport"
 	"github.com/geocodio/yak/cli/internal/ui"
+	"github.com/geocodio/yak/cli/internal/version"
 )
 
 // Exit codes of yak teleport.
@@ -116,6 +117,14 @@ func runTeleport(ctx *Context, args []string) int {
 	if err != nil {
 		return exitFailure
 	}
+	var me api.Me
+	if err := client.Do(context.Background(), "GET", "/me", nil, &me); err != nil {
+		return reportAPIError(ctx, err)
+	}
+	if me.Protocol.Min > version.ProtocolVersion {
+		printTooOld(ctx)
+		return exitFailure
+	}
 	prompter := ctx.Prompter
 	if f.yes {
 		prompter = ui.NewNonInteractive()
@@ -211,7 +220,7 @@ func reportTeleportError(ctx *Context, err error) int {
 		return exitRefused
 	}
 	if e, ok := api.AsError(err); ok {
-		if !errors.As(err, &userErr) {
+		if api.IsCode(err, "protocol_too_old") || !errors.As(err, &userErr) {
 			return reportAPIError(ctx, e)
 		}
 		if api.IsCode(err, "device_revoked") || api.IsCode(err, "invalid_token") {
