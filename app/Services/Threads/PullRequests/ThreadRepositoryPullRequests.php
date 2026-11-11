@@ -9,6 +9,7 @@ use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Support\LocalLinkFiles;
 use App\Support\SecretFilePatterns;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Log;
@@ -97,7 +98,11 @@ class ThreadRepositoryPullRequests
     private function commitStrayWork(Thread $thread, ThreadRepository $row): void
     {
         $names = array_values(array_filter(explode("\n", trim($this->git($thread, $row, ['ls-files', '--others', '--modified', '--exclude-standard'])->output()))));
-        $addable = array_values(array_diff($names, SecretFilePatterns::filter($names)));
+        $addable = array_values(array_filter(
+            array_diff($names, SecretFilePatterns::filter($names)),
+            fn (string $name): bool => ! LocalLinkFiles::isManifest($name)
+                || ! LocalLinkFiles::carriesLocalLink($this->git($thread, $row, ['diff', 'HEAD', '--', $name])->output()),
+        ));
 
         if ($addable === []) {
             return;

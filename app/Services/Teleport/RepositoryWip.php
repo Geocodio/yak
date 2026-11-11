@@ -8,6 +8,7 @@ use App\Exceptions\SandboxCommandFailed;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Support\LocalLinkFiles;
 use Illuminate\Contracts\Process\ProcessResult;
 
 /**
@@ -40,7 +41,11 @@ class RepositoryWip
 
         if ($isDirty) {
             $this->mustGit($thread, $repository, ['add', '-A'], 'add');
-            $this->mustGit($thread, $repository, [...$this->identityArguments($thread), 'commit', '-m', self::SUBJECT . "\n\n" . self::YAK_TRAILER], 'commit');
+            $hasUnstaged = $this->unstageLocalLinks($thread, $repository);
+
+            if (! $hasUnstaged || $this->git($thread, $repository, ['diff', '--cached', '--quiet'])->failed()) {
+                $this->mustGit($thread, $repository, [...$this->identityArguments($thread), 'commit', '-m', self::SUBJECT . "\n\n" . self::YAK_TRAILER], 'commit');
+            }
         }
 
         $this->mustGit($thread, $repository, ['push', 'origin', "HEAD:refs/heads/{$repository->branch}"], 'push');
@@ -48,6 +53,21 @@ class RepositoryWip
         $sha = trim($this->mustGit($thread, $repository, ['rev-parse', 'HEAD'], 'rev-parse')->output());
 
         return new WipResult($isDirty, true, $sha);
+    }
+
+    /** Leaves manifests that link a sandbox path out of the commit; returns whether any were unstaged. */
+    private function unstageLocalLinks(Thread $thread, ThreadRepository $repository): bool
+    {
+        $unstaged = false;
+
+        foreach (array_filter(explode("\n", trim($this->git($thread, $repository, ['diff', '--cached', '--name-only'])->output()))) as $name) {
+            if (LocalLinkFiles::isManifest($name) && LocalLinkFiles::carriesLocalLink($this->git($thread, $repository, ['diff', '--cached', '--', $name])->output())) {
+                $this->mustGit($thread, $repository, ['reset', '-q', '--', $name], 'reset');
+                $unstaged = true;
+            }
+        }
+
+        return $unstaged;
     }
 
     /**
