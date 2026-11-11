@@ -15,8 +15,13 @@ test('a person approves a computer from the browser', function () {
 
     $page->assertNoJavaScriptErrors()
         ->assertSeeIn('[data-testid="device-code"]', $authorization->user_code)
+        ->assertSee('Only approve a code you just saw in your own terminal.')
+        ->assertSee('About device sign-in')
+        ->assertMissing('#device-name')
         ->click('[data-testid="device-approve"]')
         ->assertSee('Computer connected')
+        ->assertSee('See your computers')
+        ->assertSee('What to try first')
         ->assertNoJavaScriptErrors();
 
     expect($flow->poll($deviceCode)['token'])->toStartWith('yakdev_');

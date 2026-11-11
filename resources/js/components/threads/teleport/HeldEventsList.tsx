@@ -9,7 +9,10 @@ export function HeldEventsList({ teleport }: { teleport: TeleportData }) {
 
     return (
         <section className="flex flex-col gap-2" data-testid="held-events">
-            <h3 className="text-[13px] font-medium text-body">Held while on {ownerLabel(teleport)}</h3>
+            <h3 className="flex items-center gap-2 text-[13px] font-medium text-body">
+                Held while on {ownerLabel(teleport)}
+                <span className="rounded-full bg-warn-soft px-2 py-0.5 text-[12px]" data-testid="held-events-count">{teleport.heldEvents.length}</span>
+            </h3>
             {teleport.heldEvents.map((event) => (
                 <article
                     key={event.id}
@@ -29,7 +32,11 @@ export function HeldEventsList({ teleport }: { teleport: TeleportData }) {
                     )}
                 </article>
             ))}
-            <p className="text-[12px] text-muted">Yak does not act on these while your computer has the thread.</p>
+            <p className="text-[12px] text-muted">
+                {teleport.viewerIsOwner
+                    ? 'Yak does not act on these while the computer has the thread. It told you. Teleport to Yak to let Claude handle them, or fix them in Claude Code.'
+                    : `Yak does not act on these while the computer has the thread. It told ${(teleport.ownerName ?? 'its owner').split(' ')[0]}.`}
+            </p>
         </section>
     );
 }
