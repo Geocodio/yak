@@ -14,13 +14,7 @@ class SiblingBlock
 {
     public function render(Thread $thread, ThreadRepository $forRow): ?string
     {
-        $rows = ThreadRepository::query()
-            ->where('thread_id', $thread->id)
-            ->where('role', '!=', 'context')
-            ->whereNotNull('pull_request_url')
-            ->orderByRaw('merge_position is null, merge_position')
-            ->orderBy('id')
-            ->get();
+        $rows = app(MergeOrder::class)->forThread($thread);
 
         if ($rows->count() < 2) {
             return null;
