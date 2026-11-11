@@ -6,9 +6,11 @@ use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Http\Resources\ThreadNoticeData;
 use App\Models\ClaudeAccount;
+use App\Models\Repository;
 use App\Models\TaskLog;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Models\ThreadRepository;
 use App\Models\ThreadRestoreStep;
 use App\Models\User;
 use App\Models\YakTask;
@@ -253,4 +255,43 @@ it('has no account links on other notices', function () {
     $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
 
     expect(ThreadNoticeData::for($thread))->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => null]);
+});
+
+function restoringThreadWithSetupStep(string $output, string $error): Thread
+{
+    $thread = Thread::factory()->create(['repo' => 'acme/app', 'sandbox_state' => ThreadSandboxState::Starting]);
+    ThreadRestoreStep::factory()->failed($error)->create([
+        'thread_id' => $thread->id, 'position' => 1, 'step' => RestoreStepName::RunSetupScript, 'output' => $output,
+    ]);
+
+    return $thread;
+}
+
+it('scrubs build credentials and token patterns from restore step output', function () {
+    Repository::factory()->create(['slug' => 'acme/app', 'build_credentials' => ['NPM_TOKEN' => 'npm_abcdef123456']]);
+    $thread = restoringThreadWithSetupStep("npm_abcdef123456\nsk-ant-abcdefgh12345\nplain line", 'failed with npm_abcdef123456, exit code 1');
+
+    $step = ThreadNoticeData::for($thread)['restoreSteps'][0];
+
+    expect($step['outputTail'])->toContain('[redacted]', 'plain line')
+        ->and(json_encode($step))->not->toContain('npm_abcdef123456')->not->toContain('sk-ant-abcdefgh12345')
+        ->and($step['error'])->toBe('failed with [redacted], exit code 1')
+        ->and($step['exitCode'])->toBe(1);
+});
+
+it('scrubs the build credentials of extra repositories', function () {
+    Repository::factory()->create(['slug' => 'acme/other', 'build_credentials' => ['TOKEN' => 'extra-secret-value']]);
+    $thread = restoringThreadWithSetupStep('using extra-secret-value', 'boom');
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/other']);
+
+    expect(json_encode(ThreadNoticeData::for($thread)['restoreSteps']))->not->toContain('extra-secret-value');
+});
+
+it('redacts before splitting the output tail', function () {
+    Repository::factory()->create(['slug' => 'acme/app', 'build_credentials' => ['TOKEN' => "multi\nline-secret"]]);
+    $thread = restoringThreadWithSetupStep("multi\nline-secret\n" . implode("\n", ['a', 'b', 'c', 'd']), 'boom');
+
+    $tail = ThreadNoticeData::for($thread)['restoreSteps'][0]['outputTail'];
+
+    expect($tail)->toBe(['[redacted]', 'a', 'b', 'c', 'd']);
 });

@@ -482,7 +482,16 @@ class WebhookController extends Controller
             $sha = (string) $request->input('pull_request.head.sha');
             $prNumber = (int) $request->input('pull_request.number');
 
-            $deployment = app(BranchDeploymentProvisioner::class)->provision($repo, $branch);
+            $headRepository = (string) $request->input('pull_request.head.repo.full_name', '');
+
+            // A deleted fork sends no head repo; the sentinel keeps it unlinked.
+            $deployment = app(BranchDeploymentProvisioner::class)->provision(
+                $repo,
+                $branch,
+                $prNumber,
+                $headRepository !== '' ? $headRepository : 'unknown/unknown',
+                $sha,
+            );
             $deployment->update([
                 'pr_number' => $prNumber,
                 'pr_state' => 'open',

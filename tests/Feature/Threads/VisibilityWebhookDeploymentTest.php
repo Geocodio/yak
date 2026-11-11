@@ -22,7 +22,7 @@ beforeEach(function () {
     Repository::where('slug', VisibilityWorld::REPO)->update(['deployments_enabled' => true, 'current_template_version' => 1]);
 });
 
-function postPullRequestEvent(string $action, string $branch, int $number = 77, string $repo = VisibilityWorld::REPO)
+function postPullRequestEvent(string $action, string $branch, int $number = 77, string $repo = VisibilityWorld::REPO, ?string $headRepo = null)
 {
     $payload = [
         'action' => $action,
@@ -31,7 +31,7 @@ function postPullRequestEvent(string $action, string $branch, int $number = 77, 
             'html_url' => "https://github.com/{$repo}/pull/{$number}",
             'number' => $number, 'title' => '', 'body' => '', 'draft' => false,
             'user' => ['login' => 'dev'],
-            'head' => ['ref' => $branch, 'sha' => 'abcd1234'],
+            'head' => ['ref' => $branch, 'sha' => 'abcd1234', 'repo' => ['full_name' => $headRepo ?? $repo]],
             'base' => ['ref' => 'main', 'sha' => 'base'],
             'state' => 'open',
         ],
@@ -81,4 +81,11 @@ it('links an unlinked old deployment when its pull request is reopened', functio
 
     expect(BranchDeployment::withoutGlobalScopes()->where('branch_name', VisibilityWorld::BRANCH)->sole()->yak_task_id)
         ->toBe($this->world->task->id);
+});
+
+it('leaves a fork pull request deployment unlinked even when a thread task carries the branch name', function () {
+    postPullRequestEvent('opened', VisibilityWorld::BRANCH, 78, VisibilityWorld::REPO, 'forker/app')->assertOk();
+
+    $deployment = BranchDeployment::withoutGlobalScopes()->where('branch_name', VisibilityWorld::BRANCH)->sole();
+    expect($deployment->yak_task_id)->toBeNull();
 });

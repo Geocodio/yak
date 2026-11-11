@@ -18,6 +18,17 @@ final class SecretRedactor
     }
 
     /**
+     * @param  array<array-key, mixed>  $secrets
+     */
+    public static function redactExact(string $text, array $secrets): string
+    {
+        $values = array_filter(array_map('strval', $secrets), fn (string $value): bool => strlen($value) >= 4);
+        usort($values, fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+        return self::redact(str_replace($values, self::REPLACEMENT, $text));
+    }
+
+    /**
      * @param  array<array-key, mixed>  $data
      * @return array<array-key, mixed>
      */
