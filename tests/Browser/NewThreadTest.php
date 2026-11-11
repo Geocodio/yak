@@ -25,3 +25,42 @@ it('starts a thread with the account and model pickers', function () {
     $thread = Thread::query()->latest('id')->firstOrFail();
     expect($thread->claude_account_id)->toBe($other->id)->and($thread->model)->toBe('haiku');
 });
+
+it('shows the approved start controls', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertSee('Start change')
+        ->assertDontSee('Start thread')
+        ->click('[data-testid="start-mode-research"]')
+        ->assertSee('Start research')
+        ->assertSeeIn('[data-testid="start-thread-form"]', '⌘');
+});
+
+it('shows Pick a repo and a disabled button when no repo is chosen', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => false]);
+    Repository::factory()->create(['slug' => 'acme/gadgets', 'is_default' => false]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertSee('Pick a repo')
+        ->assertAttribute('[data-testid="start-thread-description"]', 'placeholder', 'What should Yak do? Say what is wrong or what you want, and where to look if you know.')
+        ->assertDisabled('[data-testid="start-thread-submit"]');
+});
+
+it('still submits with Cmd/Ctrl+Enter', function (string $chord) {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/widgets', 'is_default' => true]);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->type('[data-testid="start-thread-description"]', 'Fix the flaky checkout test')
+        ->keys('[data-testid="start-thread-description"]', $chord)
+        ->assertPathBeginsWith('/threads/');
+})->with(['Meta+Enter', 'Control+Enter']);

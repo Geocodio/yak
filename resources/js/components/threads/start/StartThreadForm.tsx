@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { Button, Menu, cn } from '@geocodio/console-ui';
+import { Button, Kbd, Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown, Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
@@ -7,6 +7,7 @@ import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/compone
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
 import { ModelPicker } from '@/components/threads/composer/ModelPicker';
+import { repoInitials } from './repoInitials';
 import { RepositoryPicker } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
 import { show, store } from '@/routes/threads';
@@ -102,7 +103,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                     draft={draft}
                     rows={5}
                     autoFocus={autoFocus}
-                    placeholder="Describe the change or the question. Paste or drop screenshots and files."
+                    placeholder="What should Yak do? Say what is wrong or what you want, and where to look if you know."
                     value={form.data.description}
                     onValueChange={(value) => form.setData('description', value)}
                     onKeyDown={onKeyDown}
@@ -117,7 +118,16 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         aria-label="Repository"
                         disabled={noRepos}
                         trigger={
-                            <span className="flex items-center gap-1 text-[12.5px] font-medium text-body" data-testid="start-thread-repo">
+                            <span
+                                className={cn(
+                                    'inline-flex h-7 items-center gap-1.5 rounded-control border bg-panel pl-2 pr-2.5 text-[12.5px] font-medium hover:bg-panel-2',
+                                    form.data.repo === '' ? 'border-dashed border-hair-strong text-muted' : 'border-hair-strong text-body',
+                                )}
+                                data-testid="start-thread-repo"
+                            >
+                                <span className={cn('grid size-4 place-items-center rounded-[4px] font-mono text-[9px] font-semibold', form.data.repo === '' ? 'bg-panel-2 text-faint' : 'bg-brand text-accent-ink')}>
+                                    {form.data.repo === '' ? '@' : repoInitials(form.data.repo)}
+                                </span>
                                 {form.data.repo || (noRepos ? 'No repository' : 'Pick a repo')} <ChevronDown size={12} className="text-faint" aria-hidden="true" />
                             </span>
                         }
@@ -150,9 +160,12 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         ))}
                     </div>
                     <AttachButton draft={draft} disabled={form.processing} />
-                    <Button variant="primary" className="ml-auto h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
-                        Start thread
-                    </Button>
+                    <div className="ml-auto flex items-center gap-2.5">
+                        <Kbd keys={['⌘', '↵']} className="hidden pointer-fine:inline-flex" />
+                        <Button variant="primary" className="h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
+                            {form.processing || startedThreadId !== null ? 'Starting...' : `Start ${isResearch ? 'research' : 'change'}`}
+                        </Button>
+                    </div>
                 </div>
             </div>
 
