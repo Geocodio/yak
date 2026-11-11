@@ -78,15 +78,23 @@ class DeployBranchJob implements ShouldQueue
      */
     private function resetForRedeploy(BranchDeployment $deployment): void
     {
-        BranchDeployment::query()->where('id', $deployment->id)->update([
+        BranchDeployment::query()->where('id', $deployment->id)->update(self::redeployAttributes($deployment));
+
+        $deployment->refresh();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function redeployAttributes(BranchDeployment $deployment): array
+    {
+        return [
             'status' => DeploymentStatus::Pending->value,
             'container_name' => 'deploy-' . Str::lower((string) Str::ulid()),
             'template_version' => max(1, $deployment->repository->current_template_version ?? 0),
             'dirty' => false,
             'failure_reason' => null,
             'last_accessed_at' => null,
-        ]);
-
-        $deployment->refresh();
+        ];
     }
 }

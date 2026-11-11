@@ -160,6 +160,31 @@ it('queues one redeploy for two concurrent hits on a destroyed row', function ()
     Queue::assertPushed(DeployBranchJob::class, 1);
 });
 
+it('dispatches one redeploy for five wake requests even after the lock expires', function () {
+    Queue::fake();
+    $deployment = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'open']);
+    $deployment->repository->update(['deployments_enabled' => true]);
+    $stale = $deployment->fresh();
+
+    foreach (range(1, 5) as $ignored) {
+        Cache::forget("yak:redeploy:{$deployment->id}");
+        app(DeploymentWaker::class)->ensureReady($stale);
+    }
+
+    Queue::assertPushed(DeployBranchJob::class, 1);
+    expect($deployment->fresh()->status)->toBe(DeploymentStatus::Pending);
+});
+
+it('dispatches no redeploy for a request after the row is pending', function () {
+    Queue::fake();
+    $deployment = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'open']);
+    $deployment->repository->update(['deployments_enabled' => true]);
+    BranchDeployment::where('id', $deployment->id)->update(['status' => DeploymentStatus::Pending->value]);
+
+    expect(app(DeploymentWaker::class)->ensureReady($deployment->fresh()))->toBe(['state' => 'pending']);
+    Queue::assertNothingPushed();
+});
+
 it('does not redeploy a destroyed row of a closed PR or a repo with deployments off', function () {
     Queue::fake();
     $closed = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'closed']);

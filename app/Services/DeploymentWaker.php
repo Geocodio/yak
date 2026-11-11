@@ -100,12 +100,20 @@ class DeploymentWaker
     {
         $lock = Cache::lock("yak:redeploy:{$deployment->id}", seconds: 30);
 
-        // The lock is left to expire: releasing it would let a second hit
-        // enqueue again before the job has reset the row from Destroyed.
+        // The lock is left to expire, and the conditional update is the real
+        // dedup: only the request that moves the row out of Destroyed enqueues,
+        // however long the job runs.
         if ($lock->get()) {
-            DeploymentLog::record($deployment, 'info', 'lifecycle', 'Rebuilding destroyed deployment');
+            $claimed = BranchDeployment::query()
+                ->where('id', $deployment->id)
+                ->where('status', DeploymentStatus::Destroyed->value)
+                ->update(DeployBranchJob::redeployAttributes($deployment));
 
-            DeployBranchJob::dispatch($deployment->id);
+            if ($claimed === 1) {
+                DeploymentLog::record($deployment, 'info', 'lifecycle', 'Rebuilding destroyed deployment');
+
+                DeployBranchJob::dispatch($deployment->id);
+            }
         }
 
         return ['state' => 'pending'];
