@@ -9,14 +9,27 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
-    $this->path = sys_get_temp_dir() . '/yk' . getmypid() . '-' . Str::random(6) . '.sock';
+    $this->directory = safeSocketDirectory();
+    $this->path = $this->directory . '/redeem.sock';
     $this->account = ClaudeAccount::factory()->create(['secret' => 'sk-ant-secret-value', 'kind' => ClaudeAccountKind::SetupToken]);
     $this->placeholders = app(AuthProxyPlaceholders::class);
 });
 
 afterEach(function () {
     @unlink($this->path);
+    @chmod($this->directory, 0700);
+    @rmdir($this->directory);
 });
+
+function safeSocketDirectory(int $mode = 02770): string
+{
+    $directory = sys_get_temp_dir() . '/yk' . getmypid() . '-' . Str::random(6);
+    mkdir($directory, 0700);
+    chgrp($directory, posix_getegid());
+    chmod($directory, $mode);
+
+    return $directory;
+}
 
 /**
  * @return array<string, mixed>
@@ -39,9 +52,8 @@ function redeemRequest(string $placeholder, string $containerIp): string
 
 function allowedServer(string $path, ?int $reportedUid = -1): CredentialSocketServer
 {
-    // The allowed uid is the test process's own so the socket chown succeeds without root.
     $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class), fn () => $reportedUid === -1 ? posix_geteuid() : $reportedUid);
-    $server->listen($path, posix_geteuid());
+    $server->listen($path, posix_geteuid(), posix_geteuid(), posix_getegid());
 
     return $server;
 }
@@ -103,23 +115,6 @@ it('refuses a peer whose uid the kernel did not report', function () {
     $server->close();
 });
 
-it('makes the socket file mode 0660', function () {
-    $server = allowedServer($this->path);
-
-    expect(substr(sprintf('%o', fileperms($this->path)), -4))->toBe('0660');
-
-    $server->close();
-});
-
-it('replaces a stale socket file on listen', function () {
-    file_put_contents($this->path, 'stale');
-    $server = allowedServer($this->path);
-
-    expect(filetype($this->path))->toBe('socket');
-
-    $server->close();
-});
-
 it('malformed json gets unknown without throwing', function () {
     $server = allowedServer($this->path);
 
@@ -166,25 +161,67 @@ it('serves a validation placeholder to a validation cidr peer and refuses other 
     $server->close();
 });
 
-it('chowns the socket to the allowed uid with mode 0660', function () {
-    $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class));
-    $server->listen($this->path, posix_geteuid());
+it('binds a 0660 socket in the directory group without chown or chmod', function () {
+    $server = allowedServer($this->path);
 
-    expect(fileowner($this->path))->toBe(posix_geteuid())
-        ->and(fileperms($this->path) & 0777)->toBe(0660);
+    expect(fileperms($this->path) & 0777)->toBe(0660)
+        ->and(filegroup($this->path))->toBe(filegroup($this->directory));
 
     $server->close();
 });
 
-it('fails loudly when it cannot chown the socket to the allowed uid', function () {
-    (new CredentialSocketServer(app(AuthProxyPlaceholders::class)))->listen($this->path, 991);
-})->skip(fn () => posix_geteuid() === 0, 'root can chown')
-    ->throws(RuntimeException::class, 'Cannot chown the credential socket to uid 991: not running as root');
+it('refuses a directory owned by another uid', function () {
+    (new CredentialSocketServer($this->placeholders))->listen($this->path, 1, posix_geteuid() + 1, posix_getegid());
+})->throws(RuntimeException::class, 'is not safe');
+
+it('refuses a directory in another group', function () {
+    (new CredentialSocketServer($this->placeholders))->listen($this->path, 1, posix_geteuid(), posix_getegid() + 1);
+})->throws(RuntimeException::class, 'is not safe');
+
+it('refuses a directory with a looser mode', function (int $mode) {
+    $directory = safeSocketDirectory($mode);
+
+    try {
+        (new CredentialSocketServer($this->placeholders))->listen($directory . '/redeem.sock', 1, posix_geteuid(), posix_getegid());
+    } finally {
+        chmod($directory, 0700);
+        rmdir($directory);
+    }
+})->with([0777, 0775, 0750, 03770])->throws(RuntimeException::class, 'is not safe');
+
+it('refuses a symlinked directory', function () {
+    $link = $this->directory . '-link';
+    symlink($this->directory, $link);
+
+    try {
+        (new CredentialSocketServer($this->placeholders))->listen($link . '/redeem.sock', 1, posix_geteuid(), posix_getegid());
+    } finally {
+        unlink($link);
+    }
+})->throws(RuntimeException::class, 'not a real directory');
+
+it('refuses to unlink a non-socket at the path', function () {
+    file_put_contents($this->path, 'precious');
+
+    try {
+        (new CredentialSocketServer($this->placeholders))->listen($this->path, 1, posix_geteuid(), posix_getegid());
+    } finally {
+        expect(file_get_contents($this->path))->toBe('precious');
+    }
+})->throws(RuntimeException::class, 'Refusing to remove');
+
+it('replaces a stale socket it owns', function () {
+    allowedServer($this->path)->close();
+    $server = allowedServer($this->path);
+
+    expect(filetype($this->path))->toBe('socket');
+
+    $server->close();
+});
 
 it('lets the allowed uid connect and refuses another uid', function () {
     $server = new CredentialSocketServer(app(AuthProxyPlaceholders::class));
     $server->listen($this->path, 991);
-    expect(fileowner($this->path))->toBe(991);
     // The forked children keep root's supplementary group, so move the socket to a group nobody holds.
     chgrp($this->path, 7777);
 

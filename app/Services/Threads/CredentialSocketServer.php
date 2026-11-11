@@ -7,14 +7,17 @@ use RuntimeException;
 use Socket;
 
 /**
- * Serves the credential behind an auth proxy placeholder on a Unix socket. The socket file is owned by the
- * broker's uid and reachable only by it and the app's group, and every connection is also checked against the
- * broker's uid with the kernel's peer credentials (SCM_CREDENTIALS), which the
- * peer cannot forge. One request line `{"placeholder": "...", "container_ip": "..."}` gets one reply line:
+ * Serves the credential behind an auth proxy placeholder on a Unix socket. The socket lives in a directory that
+ * root owns (mode 2770, setgid, the broker's group), so it is created with umask 0117 as 0660 in the broker's
+ * group and is never chowned or chmodded by path. Every connection is also checked against the broker's uid with
+ * the kernel's peer credentials (SCM_CREDENTIALS), which the peer cannot forge. One request line
+ * `{"placeholder": "...", "container_ip": "..."}` gets one reply line:
  * `{"kind", "secret", "account_id"}`, `{"error": "unknown"}` or `{"error": "forbidden"}`. Never logs.
  */
 class CredentialSocketServer
 {
+    public const EXPECTED_DIRECTORY_MODE = 02770;
+
     private ?Socket $listener = null;
 
     private int $allowedUid = -1;
@@ -24,11 +27,11 @@ class CredentialSocketServer
      */
     public function __construct(private readonly AuthProxyPlaceholders $placeholders, private readonly ?Closure $peerUidOverride = null) {}
 
-    public function listen(string $path, int $allowedUid, int $mode = 0660): void
+    public function listen(string $path, int $allowedUid, int $directoryOwnerUid = 0, ?int $directoryGid = null): void
     {
-        if (file_exists($path)) {
-            unlink($path);
-        }
+        $directory = dirname($path);
+        $this->assertSafeDirectory($directory, $directoryOwnerUid, $directoryGid);
+        $this->removeStaleSocket($path);
 
         $listener = socket_create(AF_UNIX, SOCK_STREAM, 0) ?: throw new RuntimeException('Cannot create the credential socket.');
         $previousMask = umask(0117);
@@ -46,16 +49,50 @@ class CredentialSocketServer
             socket_set_option($listener, SOL_SOCKET, SO_PASSCRED, 1);
         }
 
-        // Root hands the socket to the broker uid; the mode then admits only that owner and the app's group.
-        if (! @chown($path, $allowedUid) && posix_geteuid() !== $allowedUid) {
+        $socketStat = @lstat($path);
+        $directoryStat = @lstat($directory);
+
+        if ($socketStat === false || $directoryStat === false || ($socketStat['mode'] & 0777) !== 0660 || $socketStat['gid'] !== $directoryStat['gid']) {
             socket_close($listener);
-            throw new RuntimeException('Cannot chown the credential socket to uid ' . $allowedUid . ': not running as root');
+            throw new RuntimeException('The credential socket ' . $path . ' is not 0660 in the directory group.');
         }
 
-        chmod($path, $mode);
         socket_set_nonblock($listener);
         $this->listener = $listener;
         $this->allowedUid = $allowedUid;
+    }
+
+    private function assertSafeDirectory(string $directory, int $ownerUid, ?int $gid): void
+    {
+        $stat = @lstat($directory);
+        $problem = match (true) {
+            $stat === false => 'it does not exist',
+            ($stat['mode'] & 0170000) !== 0040000 => 'it is not a real directory',
+            $stat['uid'] !== $ownerUid => 'it is owned by uid ' . $stat['uid'] . ', not ' . $ownerUid,
+            $gid !== null && $stat['gid'] !== $gid => 'it is owned by gid ' . $stat['gid'] . ', not ' . $gid,
+            ($stat['mode'] & 07777 & ~self::EXPECTED_DIRECTORY_MODE) !== 0 => 'its mode is looser than ' . decoct(self::EXPECTED_DIRECTORY_MODE),
+            ($stat['mode'] & 02000) === 0 => 'it lacks the setgid bit',
+            default => null,
+        };
+
+        if ($problem !== null) {
+            throw new RuntimeException('The credential socket directory ' . $directory . ' is not safe: ' . $problem);
+        }
+    }
+
+    private function removeStaleSocket(string $path): void
+    {
+        $stat = @lstat($path);
+
+        if ($stat === false) {
+            return;
+        }
+
+        if (($stat['mode'] & 0170000) !== 0140000 || $stat['uid'] !== posix_geteuid()) {
+            throw new RuntimeException('Refusing to remove ' . $path . ': it is not a socket owned by this process.');
+        }
+
+        unlink($path);
     }
 
     /**

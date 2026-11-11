@@ -123,14 +123,15 @@ it('runs the broker as an unprivileged user in incus-admin', function () use ($r
     ]);
 });
 
-it('keeps the credential socket directory traversable, with the socket itself owned by the broker uid', function () use ($roleTask) {
+it('makes the credential socket directory root-owned, setgid, in the broker group', function () use ($roleTask) {
     $directory = $roleTask('yak-broker', 'Create the credential socket directory')['ansible.builtin.file'];
+    $env = file_get_contents(base_path('ansible/roles/yak-container/templates/env.j2'));
 
     expect($directory)->toMatchArray([
-        'mode' => '0755',
-        'owner' => '{{ yak_container_www_data_uid }}',
+        'mode' => '2770',
+        'owner' => 'root',
         'group' => '{{ yak_broker_user }}',
-    ]);
+    ])->and($env)->toContain('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID={{ yak_broker_gid }}');
 });
 
 it('writes the broker environment file as mode 0600 owned by the broker', function () use ($roleTask) {

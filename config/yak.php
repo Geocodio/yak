@@ -667,6 +667,7 @@ return [
 
         // Uid of the broker system user, the only peer allowed on the credential socket.
         'credential_socket_uid' => env('YAK_THREADS_CREDENTIAL_SOCKET_UID') === null ? null : (int) env('YAK_THREADS_CREDENTIAL_SOCKET_UID'),
+        'credential_socket_directory_gid' => env('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID') === null ? null : (int) env('YAK_THREADS_CREDENTIAL_SOCKET_DIRECTORY_GID'),
 
         // Cache store holding placeholder bindings (sha256 only). Keep it off Redis.
         'placeholder_store' => env('YAK_THREADS_PLACEHOLDER_STORE', 'database'),

@@ -91,7 +91,7 @@ The runner exposes in-process MCP tools to Claude: `spawn_thread`, `send_message
 
 ## 5. Credential socket
 
-`yak:credential-socket` serves the real credential behind an auth proxy placeholder to the broker's auth proxy. The Unix socket path is `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), file mode 0660. Every connection is also checked against `yak.threads.credential_socket_uid` (the broker system user) with the kernel's peer credentials (SCM_CREDENTIALS), so a peer with another uid gets `{"error":"forbidden"}` and nothing else.
+`yak:credential-socket` serves the real credential behind an auth proxy placeholder to the broker's auth proxy. The Unix socket path is `yak.threads.credential_socket` (default `/run/yak/credentials.sock`). The directory holding it is owned by root, group `yak-broker`, mode 2770 with the setgid bit, and the app refuses to bind unless it finds exactly that. The app binds under umask 0117, so the socket is 0660 in the broker group, and never chowns or chmods it by path. Every connection is also checked against `yak.threads.credential_socket_uid` (the broker system user) with the kernel's peer credentials (SCM_CREDENTIALS), so a peer with another uid gets `{"error":"forbidden"}` and nothing else.
 
 One JSON line request, one JSON line reply:
 
@@ -118,7 +118,7 @@ The secret is never written to disk or logged. The proxy may keep a reply in mem
 
 The broker runs an auth proxy for the sandboxes. A sandbox's Claude process talks to the proxy with a placeholder token and never holds a real credential. The proxy asks the Yak app for the real one over a Unix socket and swaps it in.
 
-Credential socket: path from `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), owner-only. The PHP side checks the peer credentials of every connection. One request line, one reply line, then the connection closes.
+Credential socket: path from `yak.threads.credential_socket` (default `/run/yak/credentials.sock`), inside that root-owned directory. The PHP side checks the peer credentials of every connection. One request line, one reply line, then the connection closes.
 
 Request: `{"placeholder": "...", "container_ip": "..."}`
 
