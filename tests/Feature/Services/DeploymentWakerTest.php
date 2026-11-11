@@ -185,6 +185,26 @@ it('dispatches no redeploy for a request after the row is pending', function () 
     Queue::assertNothingPushed();
 });
 
+it('does not redeploy when the PR closed or deployments were turned off after the model was loaded', function () {
+    Queue::fake();
+    $closedSince = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'open']);
+    $closedSince->repository->update(['deployments_enabled' => true]);
+    $staleClosed = $closedSince->fresh()->load('repository');
+    BranchDeployment::where('id', $closedSince->id)->update(['pr_state' => 'closed']);
+
+    $disabledSince = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'open']);
+    $disabledSince->repository->update(['deployments_enabled' => true]);
+    $staleDisabled = $disabledSince->fresh()->load('repository');
+    $disabledSince->repository->update(['deployments_enabled' => false]);
+
+    app(DeploymentWaker::class)->ensureReady($staleClosed);
+    app(DeploymentWaker::class)->ensureReady($staleDisabled);
+
+    Queue::assertNothingPushed();
+    expect($closedSince->fresh()->status)->toBe(DeploymentStatus::Destroyed)
+        ->and($disabledSince->fresh()->status)->toBe(DeploymentStatus::Destroyed);
+});
+
 it('does not redeploy a destroyed row of a closed PR or a repo with deployments off', function () {
     Queue::fake();
     $closed = BranchDeployment::factory()->destroyed()->create(['pr_state' => 'closed']);

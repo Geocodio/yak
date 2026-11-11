@@ -107,6 +107,8 @@ class DeploymentWaker
             $claimed = BranchDeployment::query()
                 ->where('id', $deployment->id)
                 ->where('status', DeploymentStatus::Destroyed->value)
+                ->where('pr_state', 'open')
+                ->whereHas('repository', fn ($repository) => $repository->where('deployments_enabled', true))
                 ->update(DeployBranchJob::redeployAttributes($deployment));
 
             if ($claimed === 1) {
