@@ -22,7 +22,10 @@ class ThreadEventPublisher
 
     private int $nextQueueId = 0;
 
-    public function __construct(private readonly ThreadEventWindow $window) {}
+    public function __construct(
+        private readonly ThreadEventWindow $window,
+        private readonly DeltaBatcher $batcher,
+    ) {}
 
     /**
      * Records an event inside the caller's transaction (which holds the thread row lock), then
@@ -96,6 +99,28 @@ class ThreadEventPublisher
         $this->flush();
 
         return $event;
+    }
+
+    /**
+     * Appends every batch whose 50 ms window has passed as a non-stored delta event.
+     */
+    public function flushDueDeltas(): void
+    {
+        $this->appendDeltas($this->batcher->due(now()->getTimestampMs() / 1000));
+    }
+
+    /**
+     * @param  list<array{threadId: int, blockKey: string, kind: string, text: string}>  $deltas
+     */
+    public function appendDeltas(array $deltas): void
+    {
+        foreach ($deltas as $delta) {
+            $this->append($delta['threadId'], 'delta', [
+                'blockKey' => $delta['blockKey'],
+                'kind' => $delta['kind'],
+                'text' => $delta['text'],
+            ], isStored: false);
+        }
     }
 
     public function flush(): void
