@@ -8,6 +8,7 @@ use App\Enums\TaskStatus;
 use App\Jobs\ProcessCIResultJob;
 use App\Jobs\SendNotificationJob;
 use App\Models\TaskRun;
+use App\Models\ThreadRepository;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
@@ -42,6 +43,24 @@ it('goes straight to the PR step when the repository has no CI', function () {
     expect($task->refresh()->status)->toBe(TaskStatus::Running);
     Queue::assertPushed(ProcessCIResultJob::class, fn (ProcessCIResultJob $job) => $job->passed === true);
     Queue::assertNotPushed(SendNotificationJob::class, fn (SendNotificationJob $job) => $job->type === NotificationType::Progress);
+});
+
+it('marks the primary repo row ci running when a push awaits CI', function () {
+    [$task, $run, $thread] = endedTurn();
+    $row = ThreadRepository::factory()->for($thread)->create(['repo' => $task->repo]);
+
+    runFinisher($run);
+
+    expect($row->refresh()->ci_status)->toBe('running');
+});
+
+it('leaves the primary repo row ci status alone when the repository has no CI', function () {
+    [$task, $run, $thread] = endedTurn(repositoryAttributes: ['ci_system' => 'none']);
+    $row = ThreadRepository::factory()->for($thread)->create(['repo' => $task->repo]);
+
+    runFinisher($run);
+
+    expect($row->refresh()->ci_status)->toBeNull();
 });
 
 it('completes without a push when the agent answered without commits', function () {
