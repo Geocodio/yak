@@ -37,7 +37,7 @@ class DatasetClones
             return $existing;
         }
 
-        $version = $dataset->currentVersion;
+        $version = $dataset->currentVersion()->firstOrFail();
         $cloneVolume = DatasetClone::volumeNameFor($owner);
 
         try {
@@ -90,7 +90,7 @@ class DatasetClones
             return true;
         }
 
-        $primary = $owner->primaryRepository?->repo ?? $owner->repo;
+        $primary = $owner->primaryRepository()->value('repo') ?? $owner->repo;
 
         return $primary === $repository->slug;
     }

@@ -47,7 +47,7 @@ final readonly class DatasetAvailability
     /** Only the primary repository's dataset counts; extra repositories get none. */
     public static function forThread(Thread $thread): self
     {
-        $slug = $thread->primaryRepository?->repo ?? $thread->repo;
+        $slug = $thread->primaryRepository()->value('repo') ?? $thread->repo;
         $repository = Repository::where('slug', $slug)->first();
 
         if ($repository === null) {

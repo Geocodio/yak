@@ -41,7 +41,7 @@ class DatasetSweep
 
             $this->versions->retireSuperseded($version->dataset);
 
-            if ($version->fresh()->status === DatasetVersionStatus::Retired) {
+            if ($version->fresh()?->status === DatasetVersionStatus::Retired) {
                 $reclaimed++;
             }
         });
