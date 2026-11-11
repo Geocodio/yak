@@ -35,8 +35,8 @@ test('pause and resume use incus pause and resume', function () {
     incusManager()->pause($thread);
     incusManager()->resume($thread);
 
-    Process::assertRan(fn ($p) => implode(' ', $p->command) === "incus pause yak-thread-{$thread->id}");
-    Process::assertRan(fn ($p) => implode(' ', $p->command) === "incus resume yak-thread-{$thread->id}");
+    Process::assertRan(fn ($p) => is_array($p->command) && implode(' ', $p->command) === "incus pause yak-thread-{$thread->id}");
+    Process::assertRan(fn ($p) => is_array($p->command) && implode(' ', $p->command) === "incus resume yak-thread-{$thread->id}");
 });
 
 test('start waits until the container answers an exec', function () {
@@ -152,3 +152,30 @@ test('reconcile maps incus status to state', function (string $status, ThreadSan
     ['FROZEN', ThreadSandboxState::Paused],
     ['STOPPED', ThreadSandboxState::Stopped],
 ]);
+
+test('start records the sandbox address and destroy clears it', function () {
+    Sleep::fake();
+    Process::fake([
+        '*incus list*' => Process::result("yak-thread-1,10.0.0.9 (eth0)\n172.17.0.1 (docker0)\n"),
+        '*' => Process::result(),
+    ]);
+    $thread = Thread::factory()->create();
+
+    incusManager()->start($thread);
+    expect($thread->fresh()->sandbox_ip)->toBe('10.0.0.9');
+
+    incusManager()->destroy($thread);
+    expect($thread->fresh()->sandbox_ip)->toBeNull();
+});
+
+test('resume records the sandbox address', function () {
+    Process::fake([
+        '*incus list*' => Process::result("yak-thread-1,10.0.0.11 (eth0)\n"),
+        '*' => Process::result(),
+    ]);
+    $thread = Thread::factory()->create();
+
+    incusManager()->resume($thread);
+
+    expect($thread->fresh()->sandbox_ip)->toBe('10.0.0.11');
+});

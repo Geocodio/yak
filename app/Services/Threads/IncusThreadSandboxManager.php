@@ -3,9 +3,11 @@
 namespace App\Services\Threads;
 
 use App\Enums\ThreadSandboxState;
+use App\Exceptions\DeploymentStartTimeoutException;
 use App\Exceptions\SandboxCommandFailed;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Services\DeploymentContainerManager;
 use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\SandboxManager;
 use Closure;
@@ -76,6 +78,8 @@ class IncusThreadSandboxManager implements SandboxManager
         for ($attempt = 0; $attempt < $timeout; $attempt++) {
             $probe = Process::timeout(10)->run(['incus', 'exec', $container, '--', 'true']);
             if ($probe->successful()) {
+                $this->recordAddress($thread);
+
                 return;
             }
             Sleep::for(1)->second();
@@ -92,6 +96,7 @@ class IncusThreadSandboxManager implements SandboxManager
     public function resume(Thread $thread): void
     {
         $this->mustRun('resume', ['incus', 'resume', $this->containerName($thread)]);
+        $this->recordAddress($thread);
     }
 
     public function stop(Thread $thread, int $timeoutSeconds): void
@@ -111,6 +116,8 @@ class IncusThreadSandboxManager implements SandboxManager
         if ($result->failed() && ! str_contains(strtolower($result->errorOutput()), 'not found')) {
             throw SandboxCommandFailed::for('destroy', $result);
         }
+
+        $thread->update(['sandbox_ip' => null]);
     }
 
     /**
@@ -211,6 +218,16 @@ class IncusThreadSandboxManager implements SandboxManager
         $exponent = ['b' => 0, 'kib' => 1, 'mib' => 2, 'gib' => 3, 'tib' => 4, 'pib' => 5][strtolower($unit)] ?? 0;
 
         return $value * 1024 ** $exponent;
+    }
+
+    /** Best effort: the preview waker resolves and records the address itself when this misses. */
+    private function recordAddress(Thread $thread): void
+    {
+        try {
+            $thread->update(['sandbox_ip' => app(DeploymentContainerManager::class)->resolveContainerIp($this->containerName($thread))]);
+        } catch (DeploymentStartTimeoutException) {
+            // Leave the address unset.
+        }
     }
 
     private function recordContainer(Thread $thread, string $container): void

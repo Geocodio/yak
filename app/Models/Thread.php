@@ -38,6 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadVisibility $visibility
  * @property ThreadKind $kind
  * @property string|null $branch
+ * @property string|null $sandbox_ip
  * @property int|null $owner_user_id
  * @property int|null $parent_thread_id
  * @property int|null $root_thread_id
