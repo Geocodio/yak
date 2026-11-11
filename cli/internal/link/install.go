@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 // Runner runs an external command.
@@ -48,7 +49,10 @@ func Install(goos, home, binary string, run Runner) (string, error) {
 		if err := writeFile(path, RenderDesktopEntry(binary), 0o644); err != nil {
 			return "", err
 		}
-		return path, run("xdg-mime", "default", "yak-handler.desktop", "x-scheme-handler/yak")
+		if err := run("xdg-mime", "default", "yak-handler.desktop", "x-scheme-handler/yak"); err != nil {
+			return path, err
+		}
+		return path, writeFile(RegisteredBinaryPath(home), binary, 0o644)
 	}
 	return "", fmt.Errorf("yak:// links are not supported on %s", goos)
 }
@@ -118,4 +122,13 @@ func escapeAppleScript(s string) string {
 // RegisteredBinaryPath is the file that records which yak binary the handler runs.
 func RegisteredBinaryPath(home string) string {
 	return filepath.Join(home, ".config", "yak", "handler-binary")
+}
+
+// RegisteredBinary returns the yak binary the installed handler runs, or "" when no handler was installed.
+func RegisteredBinary(home string) string {
+	b, err := os.ReadFile(RegisteredBinaryPath(home))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }

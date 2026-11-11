@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/hook"
+	"github.com/geocodio/yak/cli/internal/link"
 )
 
 func init() { commands["hook"] = runHook }
@@ -23,7 +25,15 @@ func runHook(ctx *Context, args []string) int {
 		return 0
 	}
 	binary, _ := os.Executable()
-	deps := hook.HookDeps{Binary: binary, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
+	home := ctx.Env("HOME")
+	refresh := func() {
+		run := ctx.RunCommand
+		if run == nil {
+			run = link.SystemRunner
+		}
+		_, _ = link.Install(runtime.GOOS, home, binary, run)
+	}
+	deps := hook.HookDeps{Binary: binary, Home: home, RefreshHandler: refresh, ConfigDir: ctx.ConfigDir, Out: ctx.Stdout, API: func() (*api.Client, bool) { return silentClient(ctx) }}
 	var out string
 	switch args[0] {
 	case "session-start":

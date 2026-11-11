@@ -40,6 +40,10 @@ type HookDeps struct {
 	Out       io.Writer
 	// Binary is the absolute path of the running yak; empty falls back to "yak".
 	Binary string
+	// Home locates the record of the registered yak:// handler.
+	Home string
+	// RefreshHandler re-registers the yak:// handler for Binary; nil disables the refresh.
+	RefreshHandler func()
 }
 
 // ReadInput decodes stdin; ok is false for anything unreadable.
@@ -68,6 +72,7 @@ func output(event, text string) string {
 
 // SessionStart prints the environment note once on resume, plus unseen stack messages for a device-owned thread.
 func SessionStart(d HookDeps, in Input) string {
+	refreshHandler(d)
 	if in.Source != "resume" || !session.ValidSessionID(in.SessionID) {
 		return ""
 	}
@@ -84,6 +89,17 @@ func SessionStart(d HookDeps, in Input) string {
 		return ""
 	}
 	return output("SessionStart", strings.Join(parts, "\n\n"))
+}
+
+// refreshHandler re-registers the yak:// handler when yak moved since it was installed. A person who never installed
+// the handler has no record, so nothing is registered on their behalf.
+func refreshHandler(d HookDeps) {
+	if d.RefreshHandler == nil || d.Binary == "" || d.Home == "" {
+		return
+	}
+	if registered := link.RegisteredBinary(d.Home); registered != "" && registered != d.Binary {
+		d.RefreshHandler()
+	}
 }
 
 // UserPromptSubmit blocks prompts in a Yak-owned session and hands over stack messages in a device-owned one.

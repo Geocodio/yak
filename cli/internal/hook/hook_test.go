@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -11,6 +13,7 @@ import (
 	"github.com/geocodio/yak/cli/internal/api"
 	"github.com/geocodio/yak/cli/internal/config"
 	"github.com/geocodio/yak/cli/internal/fakeyak"
+	"github.com/geocodio/yak/cli/internal/link"
 )
 
 const sid = "4f1c0c9e-7b53-4a52-9f7d-1c2b3a4d5e6f"
@@ -202,4 +205,28 @@ func TestYakOwnedBlockNamesBothWaysOut(t *testing.T) {
 			t.Errorf("reason %q lacks %q", v.Reason, want)
 		}
 	}
+}
+
+func TestSessionStartRefreshesHandlerWhenBinaryMoved(t *testing.T) {
+	home := t.TempDir()
+	record := link.RegisteredBinaryPath(home)
+	calls := 0
+	deps := HookDeps{Binary: "/new/yak", Home: home, RefreshHandler: func() { calls++ }}
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+	if calls != 0 {
+		t.Fatal("refreshed without a record")
+	}
+	_ = os.MkdirAll(filepath.Dir(record), 0o755)
+	_ = os.WriteFile(record, []byte("/new/yak"), 0o644)
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+	if calls != 0 {
+		t.Fatal("refreshed with an unchanged path")
+	}
+	_ = os.WriteFile(record, []byte("/old/yak"), 0o644)
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
+	if calls != 1 {
+		t.Fatalf("calls %d", calls)
+	}
+	deps.RefreshHandler = nil
+	SessionStart(deps, Input{SessionID: sid, Source: "startup"})
 }
