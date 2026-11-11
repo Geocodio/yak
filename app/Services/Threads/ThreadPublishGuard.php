@@ -17,7 +17,7 @@ class ThreadPublishGuard
 
     public const string MESSAGE = 'This thread is private. Opening a pull request publishes its branch and a description written from the private conversation to GitHub.';
 
-    public function requiresAcknowledgement(Thread $thread): bool
+    public static function requiresAcknowledgement(Thread $thread): bool
     {
         return $thread->effectiveVisibility() !== ThreadVisibility::Team;
     }
@@ -25,9 +25,9 @@ class ThreadPublishGuard
     /**
      * @throws ValidationException
      */
-    public function assertAcknowledged(Thread $thread, bool $acknowledged): void
+    public static function assertAcknowledged(Thread $thread, bool $acknowledged): void
     {
-        if ($this->requiresAcknowledgement($thread) && ! $acknowledged) {
+        if (self::requiresAcknowledgement($thread) && ! $acknowledged) {
             throw ValidationException::withMessages([self::ACKNOWLEDGEMENT_KEY => self::MESSAGE]);
         }
     }
