@@ -225,3 +225,33 @@ html #nprogress .bar {
         --risk-none-hatch: #62666e66;
     }
 }
+
+/* Changes panel full-width mode: the diff takes the whole page beside the header. */
+body[data-thread-changes-expanded] [data-testid='thread-conversation'] {
+    display: none;
+}
+
+body[data-thread-changes-expanded] [data-testid='thread-sidebar'] {
+    width: auto;
+    flex: 1;
+}
+
+/* Diff syntax colours, drawn from the semantic tokens. */
+.hljs-keyword,
+.hljs-built_in {
+    color: var(--color-info);
+}
+
+.hljs-string,
+.hljs-attr {
+    color: var(--color-ok);
+}
+
+.hljs-comment {
+    color: var(--color-muted);
+}
+
+.hljs-number,
+.hljs-literal {
+    color: var(--color-warn);
+}
