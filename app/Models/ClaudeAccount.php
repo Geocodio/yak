@@ -6,6 +6,7 @@ use App\Enums\ClaudeAccountColor;
 use App\Enums\ClaudeAccountIcon;
 use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
+use App\Services\Push\AccountProblemPush;
 use Carbon\CarbonImmutable;
 use Database\Factories\ClaudeAccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -123,7 +124,13 @@ class ClaudeAccount extends Model
 
     public function markInvalid(string $error): void
     {
+        $isNewEpisode = $this->status !== ClaudeAccountStatus::Invalid;
+
         $this->forceFill(['status' => ClaudeAccountStatus::Invalid, 'last_error' => $error])->save();
+
+        if ($isNewEpisode) {
+            app(AccountProblemPush::class)->send($this, "{$this->name} stopped working. Open Settings to fix it.");
+        }
     }
 
     public function markExpired(): void

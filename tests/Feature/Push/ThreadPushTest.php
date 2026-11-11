@@ -3,6 +3,7 @@
 use App\Models\Thread;
 use App\Models\User;
 use App\Services\Push\PushEvent;
+use App\Services\Push\StackUsagePush;
 use App\Services\Push\ThreadPresence;
 use App\Services\Push\ThreadPush;
 use Tests\Support\FakePushEndpoint;
@@ -71,4 +72,19 @@ it('does not let one failing device block the next recipient', function () {
 
     expect(sendPush($this->thread, [$this->user, $other]))->toBeGreaterThanOrEqual(1);
     $this->push->assertSentTo($good->endpoint);
+});
+
+it('stack usage goes to the stack owner and honours the toggle', function () {
+    $owner = User::factory()->create();
+    $root = Thread::factory()->create(['owner_user_id' => $owner->id]);
+    $device = $this->push->subscription($owner);
+    $this->push->subscription($this->user);
+    $this->push->respondWith();
+
+    expect(app(StackUsagePush::class)->send($root, 'Stack used 80% of its budget.'))->toBe(1);
+    $this->push->assertSentTo($device->endpoint);
+
+    $owner->setPushPreferences(['stack_usage' => false]);
+
+    expect(app(StackUsagePush::class)->send($root, 'Stack used 90% of its budget.'))->toBe(0);
 });

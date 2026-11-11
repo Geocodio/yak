@@ -60,7 +60,7 @@ final class FakePushEndpoint
     {
         $key = openssl_pkey_new(['curve_name' => 'prime256v1', 'private_key_type' => OPENSSL_KEYTYPE_EC]);
         $details = openssl_pkey_get_details($key);
-        $publicKey = "\x04" . $details['ec']['x'] . $details['ec']['y'];
+        $publicKey = "\x04" . str_pad($details['ec']['x'], 32, "\0", STR_PAD_LEFT) . str_pad($details['ec']['y'], 32, "\0", STR_PAD_LEFT);
 
         return PushDevice::factory()->forUser($user)->create(array_merge([
             'public_key' => rtrim(strtr(base64_encode($publicKey), '+/', '-_'), '='),

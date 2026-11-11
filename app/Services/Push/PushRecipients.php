@@ -21,6 +21,16 @@ class PushRecipients
     }
 
     /**
+     * The person who last drove the thread answers its clarification questions.
+     *
+     * @return list<User>
+     */
+    public function forClarification(Thread $thread): array
+    {
+        return $this->users([$this->latestDriverId($thread)]);
+    }
+
+    /**
      * @return list<User>
      */
     public function forBlockedThread(Thread $thread): array
