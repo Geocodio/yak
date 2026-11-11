@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\ThreadOwnerSide;
 use App\Models\BranchDeployment;
 use App\Models\Thread;
 use App\Models\User;
 use App\Models\YakTask;
+use App\Services\Threads\Preview\ThreadPreviewHosts;
 use App\Services\Threads\ThreadAccess;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -79,8 +81,27 @@ class PreviewAccess
     }
 
     /**
+     * Which kind of target a host names: a branch deployment, a thread
+     * preview host, or neither.
+     */
+    public function targetKind(string $host): ?string
+    {
+        if ($this->threadFor($host) !== null) {
+            return 'thread';
+        }
+
+        return BranchDeployment::withoutGlobalScopes()->where('hostname', strtolower($host))->exists() ? 'deployment' : null;
+    }
+
+    public function threadFor(string $host): ?Thread
+    {
+        return app(ThreadPreviewHosts::class)->threadForHost($host);
+    }
+
+    /**
      * Whether the user may open the preview of this host: the user exists and
-     * may see the thread the preview's task belongs to. A host with no
+     * may see the thread the preview belongs to. A thread host also needs an
+     * open thread that is not owned by a local machine. A host with no
      * deployment, or a deployment outside any thread, has nothing to hide.
      */
     public function mayEnter(string $host, int $userId): bool
@@ -90,6 +111,18 @@ class PreviewAccess
             return false;
         }
 
+        $thread = $this->threadFor($host);
+        if ($thread !== null) {
+            return $thread->isOpen()
+                && $thread->owner_side !== ThreadOwnerSide::Device
+                && app(ThreadAccess::class)->canSee($user, $thread);
+        }
+
+        return $this->mayEnterDeployment($host, $user);
+    }
+
+    private function mayEnterDeployment(string $host, User $user): bool
+    {
         $taskId = BranchDeployment::withoutGlobalScopes()->where('hostname', strtolower($host))->value('yak_task_id');
         $threadId = $taskId === null ? null : YakTask::withoutGlobalScopes()->whereKey($taskId)->value('thread_id');
         $thread = $threadId === null ? null : Thread::withoutGlobalScopes()->whereKey($threadId)->first();
