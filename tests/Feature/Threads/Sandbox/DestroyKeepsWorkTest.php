@@ -3,6 +3,7 @@
 use App\Enums\RunnerState;
 use App\Enums\ThreadSandboxState;
 use App\Models\Thread;
+use App\Services\Threads\AuthProxyPlaceholders;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\File;
@@ -94,4 +95,13 @@ test('a clean destroy makes no commit', function () {
     expect(keepWorkOperations($this->git))->toBe(['destroy'])
         ->and($this->git->git(['branch', '--list', $this->git->branch]))->toBe('')
         ->and($thread->fresh()->wip_commit_sha)->toBeNull();
+});
+
+test('destroy revokes the placeholders of every thread in the container', function () {
+    $thread = keepWorkThread($this->git);
+    $placeholders = Mockery::mock(AuthProxyPlaceholders::class);
+    $placeholders->shouldReceive('revoke')->once()->with(Mockery::on(fn ($given) => $given->is($thread)));
+    app()->instance(AuthProxyPlaceholders::class, $placeholders);
+
+    app(ThreadSandbox::class)->destroy($thread);
 });
