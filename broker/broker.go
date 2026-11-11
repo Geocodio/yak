@@ -34,6 +34,9 @@ type command struct {
 	Text      string          `json:"text"`
 	Priority  string          `json:"priority"`
 	Model     string          `json:"model"`
+	CallID    string          `json:"call_id"`
+	IsError   bool            `json:"is_error"`
+	Content   string          `json:"content"`
 }
 
 type userMessage struct {
@@ -41,6 +44,13 @@ type userMessage struct {
 	UUID     string `json:"uuid"`
 	Text     string `json:"text"`
 	Priority string `json:"priority,omitempty"`
+}
+
+type toolResult struct {
+	Type    string `json:"type"`
+	CallID  string `json:"call_id"`
+	IsError bool   `json:"is_error"`
+	Content string `json:"content"`
 }
 
 // channelState is the broker's view of one channel. mu orders sequence
@@ -349,6 +359,11 @@ func (b *Broker) dispatch(ctx context.Context, state *channelState, cmd command)
 		if !b.write(state, userMessage{Type: "user", UUID: cmd.UUID, Text: cmd.Text, Priority: cmd.Priority}) {
 			uuid, _ := json.Marshal(cmd.UUID)
 			b.emit(state, `{"type":"broker","event":"no_runner","uuid":`+string(uuid)+`}`)
+		}
+	case "tool_result":
+		if !b.write(state, toolResult{Type: "tool_result", CallID: cmd.CallID, IsError: cmd.IsError, Content: cmd.Content}) {
+			callID, _ := json.Marshal(cmd.CallID)
+			b.emit(state, `{"type":"broker","event":"no_runner","call_id":`+string(callID)+`}`)
 		}
 	case "interrupt":
 		b.write(state, map[string]string{"type": "interrupt"})
