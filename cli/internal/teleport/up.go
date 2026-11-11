@@ -74,6 +74,8 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	repos := []*upRepo{{repo: primaryRepo, dir: top, slug: *item.Repo, role: "primary", remote: item.Remote}}
 
 	var missing []string
+	var extras []*upRepo
+	var plan []upPlanEntry
 	for _, dir := range in.AddDirs {
 		extra, ok, err := resolveAddDir(ctx, d, dir)
 		if err != nil {
@@ -83,12 +85,22 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 			missing = append(missing, dir)
 			continue
 		}
-		yes, err := d.Prompter.Confirm(fmt.Sprintf("%s is %s on Yak. Let Yak change it too (role: changes)?", dir, extra.slug), true)
+		role, reason, err := classifyAddDir(extra.repo)
+		if err != nil {
+			return UpResult{}, userErrorf(err, "Could not read %s: %v", dir, err)
+		}
+		extra.role = role
+		extras = append(extras, extra)
+		plan = append(plan, upPlanEntry{Dir: dir, Slug: extra.slug, Role: role, Reason: reason})
+	}
+	printUpPlan(d, plan)
+	for i, extra := range extras {
+		yes, err := d.Prompter.Confirm(fmt.Sprintf("Bring %s (%s) to Yak?", extra.slug, extra.role), true)
 		if err != nil {
 			return UpResult{}, err
 		}
 		if !yes {
-			missing = append(missing, dir)
+			missing = append(missing, plan[i].Dir)
 			continue
 		}
 		repos = append(repos, extra)
@@ -111,6 +123,9 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 	}
 
 	for _, r := range repos {
+		if r.role == "context" {
+			continue
+		}
 		opts := in.Options
 		if r.role != "primary" {
 			opts = PrepareOptions{Interactive: in.Options.Interactive, CommitTracked: in.Options.CommitTracked}
@@ -134,10 +149,12 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 		begin.MissingDirectories = []string{}
 	}
 	for _, r := range repos {
-		branch, head := r.prepared.Branch, r.prepared.Head
-		begin.Repos = append(begin.Repos, api.BeginRepo{
-			Repo: r.slug, Role: r.role, LocalPath: r.dir, Branch: &branch, OnDefaultBranch: r.prepared.OnDefaultBranch, HeadSHA: &head,
-		})
+		entry := api.BeginRepo{Repo: r.slug, Role: r.role, LocalPath: r.dir}
+		if r.role != "context" {
+			branch, head := r.prepared.Branch, r.prepared.Head
+			entry.Branch, entry.HeadSHA, entry.OnDefaultBranch = &branch, &head, r.prepared.OnDefaultBranch
+		}
+		begin.Repos = append(begin.Repos, entry)
 	}
 	var started api.BeginUpResponse
 	if err := d.API.Do(ctx, "POST", "/teleports", begin, &started); err != nil {
@@ -153,7 +170,14 @@ func Up(ctx context.Context, d Deps, in UpInput) (UpResult, error) {
 				local = r
 			}
 		}
-		if local == nil || planned.Branch == "" {
+		if local == nil {
+			continue
+		}
+		if local.role == "context" {
+			completeRepos = append(completeRepos, api.CompleteUpRepo{Repo: planned.Repo})
+			continue
+		}
+		if planned.Branch == "" {
 			continue
 		}
 		if err := prepareBranch(local, planned); err != nil {
@@ -348,7 +372,7 @@ func resolveAddDir(ctx context.Context, d Deps, dir string) (*upRepo, bool, erro
 	if err != nil || !ok {
 		return nil, false, err
 	}
-	return &upRepo{repo: repo, dir: top, slug: *item.Repo, role: "changes", remote: item.Remote}, true, nil
+	return &upRepo{repo: repo, dir: top, slug: *item.Repo, remote: item.Remote}, true, nil
 }
 
 // pickSession returns the session id and the path of its transcript. A session found by guessing is confirmed

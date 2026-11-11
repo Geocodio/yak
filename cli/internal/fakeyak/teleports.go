@@ -587,7 +587,7 @@ func (s *Server) completeUp(w http.ResponseWriter, r *http.Request, row *telepor
 	}
 	for _, rr := range req.Repos {
 		repo, ok := s.repoBySlug(rr.Repo)
-		if !ok || repo.BarePath == "" {
+		if !ok || repo.BarePath == "" || rr.Branch == "" {
 			continue
 		}
 		head, err := gitx.Repo{Dir: repo.BarePath, Env: testrepo.Env}.Run("rev-parse", "--verify", "-q", "refs/heads/"+rr.Branch)

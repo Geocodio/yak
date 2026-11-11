@@ -218,8 +218,8 @@ type BeginDownResponse struct {
 
 type CompleteUpRepo struct {
 	Repo    string `json:"repo"`
-	Branch  string `json:"branch"`
-	HeadSHA string `json:"head_sha"`
+	Branch  string `json:"branch,omitempty"`
+	HeadSHA string `json:"head_sha,omitempty"`
 }
 
 type CompleteUpRequest struct {

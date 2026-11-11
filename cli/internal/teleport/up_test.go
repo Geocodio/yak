@@ -1,6 +1,7 @@
 package teleport
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -308,5 +309,161 @@ func TestUpAddDirNotYakIsMissingDirectoryNotUploaded(t *testing.T) {
 	}
 	if len(body.Repos) != 1 || len(body.MissingDirectories) != 2 || body.MissingDirectories[0] != scratch.Dir {
 		t.Fatalf("%+v", body)
+	}
+}
+
+// snapshotPrompter records what had been printed when each question was asked.
+type snapshotPrompter struct {
+	scriptPrompter
+	out  *bytes.Buffer
+	seen []string
+}
+
+func (p *snapshotPrompter) Confirm(q string, def bool) (bool, error) {
+	p.seen = append(p.seen, p.out.String())
+	return p.scriptPrompter.Confirm(q, def)
+}
+
+// addYakRepo registers acme/api on the fake Yak and returns a clean checkout of its pushed main plus its origin.
+func addYakRepo(t *testing.T, h *harness) (*testrepo.Repo, string) {
+	t.Helper()
+	origin := h.srv.AddRepoWithOrigin(t, "acme/api")
+	seed := testrepo.Clone(t, origin)
+	seed.Git("switch", "-q", "-c", "main")
+	seed.Commit(map[string]string{"api.txt": "api\n"}, "initial")
+	seed.Git("push", "-q", "-u", "origin", "main")
+	return testrepo.Clone(t, origin), origin
+}
+
+func (h *harness) upAddDirs(opts PrepareOptions, dirs ...string) (UpResult, error) {
+	h.local.Git("switch", "-q", "-c", "feat")
+	h.writeTranscript(firstLine)
+	return Up(context.Background(), h.deps, UpInput{Cwd: h.cwd, SessionID: testSession, AddDirs: dirs, Options: opts})
+}
+
+func yakBranches(t *testing.T, origin string) string {
+	t.Helper()
+	out, err := gitxRepo(origin).Run("for-each-ref", "--format=%(refname)", "refs/heads/yak/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func allRefs(t *testing.T, origin string) string {
+	t.Helper()
+	out, err := gitxRepo(origin).Run("for-each-ref")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+func TestUpAddDirDirtyYakRepoBecomesChangesAndIsPushed(t *testing.T) {
+	h := newHarness(t)
+	extra, origin := addYakRepo(t, h)
+	extra.Write("api.txt", "edited\n")
+	res, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := h.srv.UpRepos(t, res.TeleportID)
+	if len(sent) != 2 || sent[1].Role != "changes" || sent[1].Branch == nil || sent[1].HeadSHA == nil {
+		t.Fatalf("%+v", sent)
+	}
+	if subject, _ := gitxRepo(extra.Dir).Run("log", "-1", "--format=%s"); subject != DefaultWIPMessage {
+		t.Fatalf("no WIP commit: %q", subject)
+	}
+	if yakBranches(t, origin) == "" {
+		t.Fatalf("no yak branch pushed:\n%s", allRefs(t, origin))
+	}
+}
+
+func TestUpAddDirCleanYakRepoBecomesContextAndIsNeverPushed(t *testing.T) {
+	h := newHarness(t)
+	extra, origin := addYakRepo(t, h)
+	before, headBefore := allRefs(t, origin), extra.Git("rev-parse", "HEAD")
+	res, err := h.upAddDirs(PrepareOptions{}, extra.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent := h.srv.UpRepos(t, res.TeleportID)
+	if len(sent) != 2 || sent[1].Role != "context" || sent[1].Branch != nil || sent[1].HeadSHA != nil {
+		t.Fatalf("%+v", sent)
+	}
+	if allRefs(t, origin) != before || extra.Git("rev-parse", "HEAD") != headBefore {
+		t.Fatal("context repo changed")
+	}
+}
+
+func TestUpAddDirContextRepoNeverReceivesACommit(t *testing.T) {
+	h := newHarness(t)
+	extra, origin := addYakRepo(t, h)
+	before := extra.Git("rev-list", "--all", "--count")
+	if _, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir); err != nil {
+		t.Fatal(err)
+	}
+	if extra.Git("rev-list", "--all", "--count") != before || yakBranches(t, origin) != "" {
+		t.Fatal("context repo received a commit or ref")
+	}
+}
+
+func TestUpAddDirDeclinedRepoIsListedMissing(t *testing.T) {
+	h := newHarness(t)
+	extra, _ := addYakRepo(t, h)
+	h.deps.Prompter = &scriptPrompter{confirms: []bool{false}}
+	res, err := h.upAddDirs(PrepareOptions{}, extra.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sent := h.srv.UpRepos(t, res.TeleportID); len(sent) != 1 {
+		t.Fatalf("%+v", sent)
+	}
+	var body api.BeginUpRequest
+	if err := json.Unmarshal(h.requests("POST /api/cli/v1/teleports")[0].Body, &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.MissingDirectories) != 1 || body.MissingDirectories[0] != extra.Dir {
+		t.Fatalf("%+v", body.MissingDirectories)
+	}
+}
+
+func TestUpAddDirPrintsPlanBeforeAsking(t *testing.T) {
+	h := newHarness(t)
+	extra, _ := addYakRepo(t, h)
+	extra.Write("api.txt", "edited\n")
+	p := &snapshotPrompter{out: h.out}
+	h.deps.Prompter = p
+	if _, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir); err != nil {
+		t.Fatal(err)
+	}
+	var asked string
+	for i, q := range p.questions {
+		if strings.Contains(q, "acme/api") {
+			asked = p.seen[i]
+		}
+	}
+	for _, want := range []string{"acme/api", "changes", "uncommitted changes"} {
+		if !strings.Contains(asked, want) {
+			t.Fatalf("plan missing %q before the question:\n%s", want, asked)
+		}
+	}
+}
+
+func TestUpAddDirChangesRepoFollowsCleanTreeRules(t *testing.T) {
+	h := newHarness(t)
+	extra, _ := addYakRepo(t, h)
+	extra.Commit(map[string]string{".env": "AWS_SECRET_ACCESS_KEY=abcdefghijklmnopqrstuvwxyz0123456789ABCD\n"}, "add env")
+	extra.Write(".env", "AWS_SECRET_ACCESS_KEY=abcdefghijklmnopqrstuvwxyz0123456789ABCE\n")
+	_, err := h.upAddDirs(PrepareOptions{CommitTracked: true}, extra.Dir)
+	var refusal *Refusal
+	if !errors.As(err, &refusal) {
+		t.Fatalf("got %v", err)
+	}
+	if refusal.Kind != "secret_excluded" {
+		t.Fatalf("kind %s", refusal.Kind)
+	}
+	if n := len(h.requests("POST /api/cli/v1/teleports")); n != 0 {
+		t.Fatalf("%d teleports begun", n)
 	}
 }
