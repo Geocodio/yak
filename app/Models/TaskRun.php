@@ -37,6 +37,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, int>|null $api_retry_breakdown
  * @property array<string, mixed>|null $last_result_event
  * @property CarbonImmutable|null $completion_dispatched_at
+ * @property CarbonImmutable|null $child_outcome_recorded_at
  */
 #[ScopedBy(VisibleTaskRunScope::class)]
 class TaskRun extends Model
@@ -62,6 +63,7 @@ class TaskRun extends Model
             'oneshot_heartbeat_at' => 'immutable_datetime',
             'oneshot_deadline_at' => 'immutable_datetime',
             'completion_event_emitted_at' => 'datetime',
+            'child_outcome_recorded_at' => 'datetime',
             'resumed' => 'boolean',
             'stale_session_retry' => 'boolean',
             'synthesized_result' => 'boolean',
