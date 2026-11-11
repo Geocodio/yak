@@ -41,7 +41,7 @@ class ThreadFileController extends Controller
 
         $directory = (string) $request->query('path', '');
         $entries = $this->files->tree($thread, $scope, $directory);
-        $this->sandbox->touch($thread);
+        $this->sandbox->markSessionOpen($thread);
 
         $changedPaths = [];
 
@@ -75,7 +75,7 @@ class ThreadFileController extends Controller
 
         $path = (string) $request->query('path', '');
         $file = $this->files->read($thread, $scope, $path);
-        $this->sandbox->touch($thread);
+        $this->sandbox->markSessionOpen($thread);
 
         $canEdit = Gate::allows('drive', $thread)
             && ! $file->isTooLarge
@@ -110,7 +110,7 @@ class ThreadFileController extends Controller
         }
 
         $notes->record($thread, $user, SandboxPath::resolve($thread, $scope, $path), $outcome->written->sha256);
-        $this->sandbox->touch($thread);
+        $this->sandbox->markSessionOpen($thread);
 
         $thread->refresh();
 

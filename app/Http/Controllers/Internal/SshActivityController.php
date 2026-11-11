@@ -23,7 +23,7 @@ class SshActivityController extends Controller
             return response()->json(['state' => 'gone'], 410);
         }
 
-        $sandbox->touch($thread);
+        $sandbox->markSessionOpen($thread);
 
         return response()->json(['state' => 'ok']);
     }
