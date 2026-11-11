@@ -44,7 +44,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                                 aria-pressed={panel.id === dockId}
                                 data-testid={`thread-dock-toggle-${panel.id}`}
                                 onClick={() => setDockId(panel.id === dockId ? null : panel.id)}
-                                className={cn('hidden h-8 items-center rounded-md px-2.5 text-[13px] lg:flex', panel.id === dockId ? 'bg-hover font-medium text-body' : 'text-muted')}
+                                className={cn('hidden h-8 items-center rounded-md px-2.5 text-[13px] lg:flex', panel.id === dockId ? 'bg-sidebar font-medium text-body' : 'text-muted')}
                             >
                                 {panel.label}
                             </button>

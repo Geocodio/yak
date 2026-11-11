@@ -10,7 +10,7 @@ export function DockHost({ thread, canDrive, activeId }: { thread: ThreadData; c
     }
 
     return (
-        <aside className="hidden w-[560px] shrink-0 flex-col border-l border-hair bg-app lg:flex" data-testid={`thread-dock-${active.id}`}>
+        <aside className="hidden w-[720px] max-w-[60%] shrink-0 flex-col border-l border-hair bg-app lg:flex" data-testid={`thread-dock-${active.id}`}>
             <active.component thread={thread} canDrive={canDrive} />
         </aside>
     );
