@@ -260,6 +260,8 @@ func TestDownClashRefusesAndTreeUntouched(t *testing.T) {
 	for name, entries := range cases {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
+			// Case clashes are only refused where the checkout ignores case, as on macOS.
+			h.local.Git("config", "core.ignorecase", "true")
 			setup := h.setupDown(true)
 			pushTip(t, h, entries)
 			setup.manifest.Repos[0].HeadSHA = h.hostileTip
