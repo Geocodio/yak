@@ -11,6 +11,13 @@ const SHORT_LABELS: Record<(typeof BAR_LABELS)[number], string> = {
     Repositories: 'Repos',
 };
 
+// Stable test ids, independent of the visible label.
+const TAB_TEST_IDS: Record<(typeof BAR_LABELS)[number], string> = {
+    Tasks: 'tasks',
+    'PR Reviews': 'reviews',
+    Repositories: 'repos',
+};
+
 /**
  * Tab links load their page in the background when the bar mounts and keep
  * it for 30 seconds, then refresh it in the background for another minute,
@@ -43,7 +50,7 @@ export function MobileTabBar() {
             href: item.url,
             active: isActive(url, item.url),
             badge: label === 'Tasks' ? props.nav.activeTaskCount : null,
-            testId: `mobile-tab-${label.toLowerCase().replace(' ', '-')}`,
+            testId: `mobile-tab-${TAB_TEST_IDS[label]}`,
         };
     });
 
