@@ -205,7 +205,7 @@ class TeleportUpCompleter
                 'state' => TeleportState::Preparing,
                 'branch_heads' => $heads,
                 'message' => $validated['message'] ?? null,
-                'payload' => [...($locked->payload ?? []), 'deliver_held_events' => (bool) ($validated['deliver_held_events'] ?? true)],
+                'payload' => [...($locked->payload ?? []), 'deliver_held_events' => (bool) ($validated['deliver_held_events'] ?? true), 'prepare_started_at' => now()->toIso8601String()],
             ])->save();
             $teleport->setRawAttributes($locked->getAttributes(), true);
 
@@ -263,7 +263,13 @@ class TeleportUpCompleter
         }
 
         if ($teleport->state !== TeleportState::Completed) {
-            return ['status' => 202, 'body' => ['teleport' => $teleport->toApi()]];
+            $body = ['teleport' => $teleport->toApi()];
+
+            if (($teleport->payload['waiting_for_slot'] ?? false) === true) {
+                $body['message'] = 'Yak has no free sandbox right now. Waiting for one before the thread moves.';
+            }
+
+            return ['status' => 202, 'body' => $body];
         }
 
         $result = $teleport->payload['result'] ?? [];
@@ -274,7 +280,6 @@ class TeleportUpCompleter
             'ownership' => 'yak',
             'sandbox' => array_filter([
                 'state' => $sandboxState,
-                'message' => $sandboxState === 'waiting_for_slot' ? 'Yak has no free sandbox right now. The thread is on Yak and will start when one is free.' : null,
                 'repos' => $this->sandboxRepos($teleport),
             ], fn (mixed $value, string $key): bool => $key !== 'repos' || $value !== [], ARRAY_FILTER_USE_BOTH),
             'turn_started' => (bool) ($result['turn_started'] ?? false),

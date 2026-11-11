@@ -23,6 +23,8 @@ return [
     'teleport' => [
         'expiry_minutes' => (int) env('YAK_TELEPORT_EXPIRY_MINUTES', 30),
         'complete_wait_seconds' => (int) env('YAK_TELEPORT_COMPLETE_WAIT_SECONDS', 30),
+        'slot_wait_minutes' => (int) env('YAK_TELEPORT_SLOT_WAIT_MINUTES', 20),
+        'slot_poll_seconds' => (int) env('YAK_TELEPORT_SLOT_POLL_SECONDS', 5),
         'held_event_tint_hours' => (int) env('YAK_TELEPORT_HELD_EVENT_TINT_HOURS', 24),
     ],
 

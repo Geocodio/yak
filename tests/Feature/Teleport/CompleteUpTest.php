@@ -5,6 +5,7 @@ use App\DataTransferObjects\SandboxWake;
 use App\Enums\TeleportState;
 use App\Enums\ThreadOwnerSide;
 use App\Enums\ThreadSandboxState;
+use App\Jobs\PrepareTeleportUpJob;
 use App\Models\ClaudeAccount;
 use App\Models\Repository;
 use App\Models\Teleport;
@@ -16,6 +17,7 @@ use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\FakeSandboxManager;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\ThreadTurns;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -46,7 +48,11 @@ beforeEach(function () {
     app()->instance(SessionFileSync::class, $this->sessions);
 
     $this->sandbox = Mockery::mock(ThreadSandbox::class);
-    $this->sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::ready())->byDefault();
+    $this->sandbox->shouldReceive('ensureAwake')->andReturnUsing(function (Thread $thread) {
+        $thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+
+        return SandboxWake::ready();
+    })->byDefault();
     app()->instance(ThreadSandbox::class, $this->sandbox);
 
     $this->turns = Mockery::mock(ThreadTurns::class);
@@ -188,17 +194,47 @@ it('marks the teleport failed and leaves the owner when preparation fails', func
         ->and(Teleport::query()->find($begin['teleport_id'])->state)->toBe(TeleportState::Failed);
 });
 
-it('completes with a deferred sandbox when no slot is free', function () {
+it('stays preparing with the device as owner while no slot is free', function () {
+    config()->set('yak.teleport.complete_wait_seconds', 0);
     $begin = beginAndUpload($this);
-    $this->sandbox->shouldReceive('ensureAwake')->andReturn(SandboxWake::waitingForSlot());
+    $this->sandbox->shouldReceive('ensureAwake')->once()->andReturn(SandboxWake::waitingForSlot());
 
     $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(), cliHeaders($this->token))
-        ->assertOk()
-        ->assertJsonPath('ownership', 'yak')
-        ->assertJsonPath('sandbox.state', 'waiting_for_slot');
+        ->assertStatus(202)
+        ->assertJsonPath('teleport.state', 'preparing')
+        ->assertJsonPath('message', 'Yak has no free sandbox right now. Waiting for one before the thread moves.');
 
-    expect(Thread::withoutGlobalScopes()->find($begin['thread']['id'])->owner_side)->toBe(ThreadOwnerSide::Yak)
+    expect(Thread::withoutGlobalScopes()->find($begin['thread']['id'])->owner_side)->toBe(ThreadOwnerSide::Device)
         ->and($this->sandboxes->calls)->toBe([]);
+});
+
+it('moves ownership once the slot frees', function () {
+    config()->set('yak.teleport.complete_wait_seconds', 0);
+    $begin = beginAndUpload($this);
+    $this->sandbox->shouldReceive('ensureAwake')->once()->andReturn(SandboxWake::waitingForSlot());
+    $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(), cliHeaders($this->token))->assertStatus(202);
+
+    $this->sandbox->shouldReceive('ensureAwake')->once()->andReturnUsing(function (Thread $thread) {
+        $thread->forceFill(['sandbox_state' => ThreadSandboxState::Running])->save();
+
+        return SandboxWake::ready();
+    });
+    app()->call([new PrepareTeleportUpJob($begin['teleport_id']), 'handle']);
+
+    $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(), cliHeaders($this->token))
+        ->assertOk()->assertJsonPath('ownership', 'yak');
+});
+
+it('records when preparation started', function () {
+    Carbon::setTestNow(Carbon::parse('2026-11-11 09:30:00'));
+    config()->set('yak.teleport.complete_wait_seconds', 0);
+    $begin = beginAndUpload($this);
+    $this->sandbox->shouldReceive('ensureAwake')->once()->andReturn(SandboxWake::waitingForSlot());
+
+    $this->postJson("/api/cli/v1/teleports/{$begin['teleport_id']}/complete", completeBody(), cliHeaders($this->token))->assertStatus(202);
+
+    expect(Carbon::parse(Teleport::query()->find($begin['teleport_id'])->payload['prepare_started_at'])->equalTo(now()))->toBeTrue();
+    Carbon::setTestNow();
 });
 
 it('starts a turn with the message', function () {

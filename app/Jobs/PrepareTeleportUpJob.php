@@ -22,6 +22,8 @@ use App\Services\Threads\ThreadSandbox;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Support\Carbon;
 use RuntimeException;
 use Throwable;
 
@@ -31,9 +33,11 @@ use Throwable;
  */
 class PrepareTeleportUpJob implements ShouldQueue
 {
+    use InteractsWithQueue;
     use Queueable;
 
-    public int $tries = 1;
+    /** Unlimited releases: the job re-queues itself until the sandbox is awake or the slot wait runs out. */
+    public int $tries = 0;
 
     public function __construct(public string $teleportId) {}
 
@@ -57,6 +61,19 @@ class PrepareTeleportUpJob implements ShouldQueue
 
         try {
             $sandboxState = $this->prepare($teleport, $thread, $sandbox, $sandboxes, $sessions, $refresh, $note, $extras);
+
+            if ($sandboxState === null) {
+                if ($this->slotWaitExpired($teleport)) {
+                    $teleports->fail($teleport->refresh(), 'no_sandbox_slot', 'Yak has no free sandbox right now. Your work is safe on Yak; run yak teleport again later.');
+
+                    return;
+                }
+
+                $this->release((int) config('yak.teleport.slot_poll_seconds', 5));
+
+                return;
+            }
+
             $completer->finish($teleport->refresh(), $sandboxState);
         } catch (Throwable $exception) {
             $teleports->fail($teleport->refresh(), 'teleport_failed', $exception instanceof TeleportError || $exception instanceof RuntimeException ? $exception->getMessage() : 'Preparing the sandbox failed.');
@@ -73,16 +90,17 @@ class PrepareTeleportUpJob implements ShouldQueue
         RefreshTriggers $refresh,
         EnvironmentNote $note,
         TeleportExtras $extras,
-    ): string {
+    ): ?string {
         $wasRestored = in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed], true);
 
         $teleport->progressStep(TeleportStep::Restore, 'running');
         $wake = $sandbox->ensureAwake($thread);
 
         if ($wake->waitingForSlot || $wake->restoring) {
-            $teleport->progressStep(TeleportStep::Restore, 'done');
+            $teleport->touchCall();
+            $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'waiting_for_slot' => $wake->waitingForSlot]])->save();
 
-            return $wake->waitingForSlot ? 'waiting_for_slot' : 'restoring';
+            return null;
         }
 
         if (! $wake->ready) {
@@ -97,6 +115,7 @@ class PrepareTeleportUpJob implements ShouldQueue
         if ($wasRestored) {
             // The restore already checked out the branch, ran setup and refresh, and restored the session.
             $this->prepareExtras($teleport, $thread, $extras);
+            $this->writeNote($teleport, $thread, $note);
 
             foreach ([TeleportStep::FetchBranch, TeleportStep::Setup, TeleportStep::Refresh, TeleportStep::SessionRestore] as $step) {
                 $teleport->progressStep($step, 'done');
@@ -117,6 +136,22 @@ class PrepareTeleportUpJob implements ShouldQueue
         $teleport->progressStep(TeleportStep::SessionRestore, 'done');
 
         return 'ready';
+    }
+
+    /**
+     * True once the teleport has waited longer than the slot wait. A missing start time is written now so the clock always runs.
+     */
+    private function slotWaitExpired(Teleport $teleport): bool
+    {
+        $startedAt = $teleport->payload['prepare_started_at'] ?? null;
+
+        if ($startedAt === null) {
+            $teleport->forceFill(['payload' => [...($teleport->payload ?? []), 'prepare_started_at' => now()->toIso8601String()]])->save();
+
+            return false;
+        }
+
+        return Carbon::parse($startedAt)->diffInMinutes(now(), true) > (int) config('yak.teleport.slot_wait_minutes');
     }
 
     private function fetchBranches(Teleport $teleport, Thread $thread, SandboxManager $sandboxes): void
