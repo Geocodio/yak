@@ -21,6 +21,7 @@ class DownManifestBuilder
     public function __construct(
         private readonly SessionStore $store,
         private readonly RefreshTriggers $refresh,
+        private readonly TeleportRefreshMaps $refreshMaps,
     ) {}
 
     /**
@@ -40,6 +41,7 @@ class DownManifestBuilder
                 'claude_account' => ['name' => $thread->claudeAccount?->name],
             ],
             'repos' => $this->repos($thread, $teleport, $lastUp),
+            'context_repos' => $thread->repositories->where('role', RepositoryRole::Context)->pluck('repo')->values()->all(),
             'last_up' => $lastUp,
             'session' => $this->session($thread),
             'memory' => $this->memory($thread, $teleport),
@@ -85,6 +87,7 @@ class DownManifestBuilder
 
             $model = Repository::query()->whereRaw('LOWER(github_full_name) = ?', [strtolower($repository->repo)])->first();
             $head = $teleport->branch_heads[$repository->repo] ?? null;
+            $failure = $teleport->payload['repo_failures'][$repository->repo] ?? null;
             $repos[] = [
                 'repo' => $repository->repo,
                 'role' => $repository->role->value,
@@ -96,6 +99,9 @@ class DownManifestBuilder
                 'sandbox_path' => $repository->sandbox_path,
                 'wip_commit_made' => (bool) ($teleport->payload['wip_commit_made'][$repository->repo] ?? false),
                 'pushed' => $head !== null,
+                'status' => $failure === null ? 'ready' : 'failed',
+                'failure' => $failure,
+                'refresh' => $failure === null ? $this->refreshMaps->forRepository($thread, $repository) : [],
             ];
         }
 
