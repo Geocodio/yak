@@ -4,16 +4,46 @@
     name: yak
     state: present
 
-# Owned by the redis user (uid 999, gid 1000) that the image runs Redis as.
-# Setting it to root here would take the directory back from a running
-# Redis, which then cannot save its snapshot and refuses every write.
+- name: Ensure /var/lib/yak exists
+  ansible.builtin.file:
+    path: /var/lib/yak
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+# The append-only file holds thread stream contents, so only the redis user
+# (uid 999, gid 1000 in the image) may read it. Setting it to root here
+# would take the directory back from a running Redis, which then cannot
+# save its snapshot and refuses every write.
 - name: Ensure Redis data directory exists
   ansible.builtin.file:
     path: "{{ redis_data_path }}"
     state: directory
-    mode: "0750"
+    mode: "0700"
     owner: "999"
     group: "1000"
+
+# Earlier installs kept the data world-readable under the yak user's home.
+- name: Check for Redis data in the old location
+  ansible.builtin.stat:
+    path: /home/yak/redis-data
+  register: old_redis_data
+
+- name: Move Redis data out of the old location
+  when: old_redis_data.stat.exists
+  block:
+    - name: Stop Redis before moving its data
+      community.docker.docker_container:
+        name: "{{ redis_container_name }}"
+        state: stopped
+
+    - name: Copy the data and remove the old directory
+      ansible.builtin.shell: |
+        cp -a /home/yak/redis-data/. {{ redis_data_path }}/ &&
+        chown -R {{ redis_container_uid }}:{{ redis_container_gid }} {{ redis_data_path }} &&
+        rm -rf /home/yak/redis-data
+      changed_when: true
 
 # The image starts as root, then runs Redis as the redis user (uid 999,
 # gid 1000), which must be able to read its config.
@@ -38,5 +68,9 @@
     volumes:
       - "{{ redis_data_path }}:/data"
       - "{{ redis_config_path }}:/usr/local/etc/redis/redis.conf:ro"
+    # Loopback only: the broker on the host reads the streams. Docker's
+    # iptables rules bypass UFW, so never publish on 0.0.0.0.
+    ports:
+      - "127.0.0.1:6379:6379"
     networks:
       - name: yak

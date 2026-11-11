@@ -1,0 +1,106 @@
+---
+- name: Ensure /etc/yak directory exists
+  ansible.builtin.file:
+    path: /etc/yak
+    state: directory
+    mode: "0700"
+    owner: root
+    group: root
+
+- name: Create the broker group
+  ansible.builtin.group:
+    name: "{{ yak_broker_user }}"
+    gid: "{{ yak_broker_gid }}"
+    system: true
+
+# incus-admin lets the broker run `incus exec`; it needs no other privilege.
+- name: Create the broker user
+  ansible.builtin.user:
+    name: "{{ yak_broker_user }}"
+    uid: "{{ yak_broker_uid }}"
+    group: "{{ yak_broker_user }}"
+    groups: incus-admin
+    append: true
+    system: true
+    create_home: true
+    home: /var/lib/yak-broker
+    shell: /usr/sbin/nologin
+
+- name: Ensure /var/lib/yak exists
+  ansible.builtin.file:
+    path: /var/lib/yak
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+# The app (www-data in its container) creates the credential socket in here.
+# Only that uid and the broker's group can enter the directory, and new files
+# inherit the broker's group through the setgid bit, so the socket is
+# reachable by the broker alone.
+- name: Create the credential socket directory
+  ansible.builtin.file:
+    path: "{{ yak_credentials_path }}"
+    state: directory
+    mode: "2750"
+    owner: "{{ yak_container_www_data_uid }}"
+    group: "{{ yak_broker_user }}"
+
+# CI can supply broker/dist/yak-broker; the controller builds it only when absent.
+- name: Look for a prebuilt broker binary
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../broker/dist/yak-broker"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: broker_prebuilt
+
+- name: Build the broker on the controller
+  ansible.builtin.command:
+    cmd: go build -o {{ playbook_dir }}/../broker/dist/yak-broker .
+    chdir: "{{ playbook_dir }}/../broker"
+  environment:
+    CGO_ENABLED: "0"
+    GOOS: linux
+    GOARCH: amd64
+  delegate_to: localhost
+  become: false
+  changed_when: false
+  run_once: true
+  when: not broker_prebuilt.stat.exists
+
+- name: Install the broker binary
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../broker/dist/yak-broker"
+    dest: /usr/local/bin/yak-broker
+    mode: "0755"
+    owner: root
+    group: root
+  notify: Restart yak-broker
+
+- name: Write the broker environment
+  ansible.builtin.template:
+    src: broker.env.j2
+    dest: /etc/yak/broker.env
+    mode: "0600"
+    owner: "{{ yak_broker_user }}"
+    group: "{{ yak_broker_user }}"
+  notify: Restart yak-broker
+
+- name: Install the broker unit
+  ansible.builtin.template:
+    src: yak-broker.service.j2
+    dest: /etc/systemd/system/yak-broker.service
+    mode: "0644"
+    owner: root
+    group: root
+  notify:
+    - Reload systemd
+    - Restart yak-broker
+
+- name: Enable and start the broker
+  ansible.builtin.systemd:
+    name: yak-broker
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -94,6 +94,15 @@
     repo: "deb [signed-by=/etc/apt/keyrings/zabbly.gpg] https://pkgs.zabbly.com/incus/stable {{ ansible_distribution_release }} main"
     state: present
 
+- name: Pin Incus to the 7.x series
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/incus
+    content: |
+      Package: incus incus-client incus-base incus-extra
+      Pin: version 1:{{ incus_version_pin }}*
+      Pin-Priority: 1001
+    mode: "0644"
+
 - name: Install Incus
   ansible.builtin.apt:
     name: incus
@@ -163,6 +172,82 @@
   when: profile_eth0_check.rc != 0
   changed_when: true
 
+# Sandbox network ACL. Drop rules beat allow rules, so ingress uses the NIC
+# default action instead of a catch-all drop and egress ends in a plain allow.
+- name: Compute the sandbox ACL address sets
+  ansible.builtin.set_fact:
+    yak_sandbox_bridge_host: 10.100.0.1
+    yak_host_public_cidrs: >-
+      {{ ansible_all_ipv4_addresses | reject('equalto', '10.100.0.1') | map('regex_replace', '$', '/32') | join(',') }}
+
+- name: Compute the private ranges without the bridge host address
+  ansible.builtin.script: private_ranges.py {{ yak_sandbox_bridge_host }}
+  args:
+    executable: python3
+  register: private_ranges_result
+  changed_when: false
+
+- name: Set the private ranges fact
+  ansible.builtin.set_fact:
+    yak_private_ranges: "{{ private_ranges_result.stdout | trim }}"
+
+- name: Create sandbox network ACL
+  ansible.builtin.shell: |
+    if ! incus network acl show yak-sandbox-acl >/dev/null 2>&1; then
+      incus network acl create yak-sandbox-acl </dev/null
+      echo CREATED
+    fi
+  register: sandbox_acl_create
+  changed_when: "'CREATED' in sandbox_acl_create.stdout"
+
+- name: Ensure the yak config directory exists
+  ansible.builtin.file:
+    path: /etc/yak
+    state: directory
+    mode: "0755"
+
+- name: Render the sandbox ACL
+  ansible.builtin.template:
+    src: yak-sandbox-acl.yaml.j2
+    dest: /etc/yak/yak-sandbox-acl.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  register: sandbox_acl_file
+
+- name: Apply the sandbox ACL
+  ansible.builtin.shell: incus network acl edit yak-sandbox-acl < /etc/yak/yak-sandbox-acl.yaml
+  when: sandbox_acl_file.changed or sandbox_acl_create.changed
+
+- name: Apply the sandbox ACL to the yak-sandbox-acl and default profiles
+  ansible.builtin.shell: |
+    set -euo pipefail
+    changed=0
+    incus profile show yak-sandbox-acl >/dev/null 2>&1 || incus profile create yak-sandbox-acl </dev/null
+    for profile in yak-sandbox-acl default; do
+      current=$(incus profile device get "$profile" eth0 security.acls 2>/dev/null || true)
+      if [ "$current" != "yak-sandbox-acl" ]; then
+        incus profile device remove "$profile" eth0 </dev/null 2>/dev/null || true
+        incus profile device add "$profile" eth0 nic name=eth0 network=yak-sandbox \
+          security.mac_filtering=true security.ipv4_filtering=true security.port_isolation=true \
+          security.acls=yak-sandbox-acl security.acls.default.ingress.action=drop \
+          security.acls.default.egress.action=allow </dev/null
+        changed=1
+      fi
+    done
+    [ "$changed" = 1 ] && echo CHANGED || true
+  register: sandbox_acl_profile
+  changed_when: "'CHANGED' in sandbox_acl_profile.stdout"
+
+- name: Restart running sandboxes after an ACL or profile change
+  ansible.builtin.shell: |
+    set -euo pipefail
+    incus list -f csv -c n,s </dev/null | grep ',RUNNING$' | cut -d, -f1 \
+      | grep -v -e '^yak-base$' -e '^yak-tpl-' \
+      | xargs -r -n1 incus restart
+  when: sandbox_acl_file.changed or sandbox_acl_create.changed or sandbox_acl_profile.changed
+  changed_when: true
+
 - name: Set UFW default forward policy to ACCEPT (sandboxes need outbound NAT)
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
@@ -198,6 +283,26 @@
     - { port: "53", proto: "udp" }  # DNS
     - { port: "53", proto: "tcp" }  # DNS (large responses)
 
+# Sandboxes reach the Anthropic API only through the auth proxy in yak-broker, and the Yak
+# container calls it to validate pasted accounts. UFW drops INPUT by default.
+- name: Allow the sandbox bridge to reach the auth proxy
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: yak-sandbox
+    to_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+    proto: tcp
+    comment: "Yak auth proxy (sandboxes)"
+
+- name: Allow the Yak container to reach the auth proxy
+  community.general.ufw:
+    rule: allow
+    direction: in
+    from_ip: "{{ yak_auth_proxy_host_cidrs }}"
+    to_port: "{{ yak_auth_proxy_address.split(':')[1] }}"
+    proto: tcp
+    comment: "Yak auth proxy (account validation)"
+
 - name: Increase inotify limits for container density
   ansible.posix.sysctl:
     name: "{{ item.key }}"
@@ -205,8 +310,8 @@
     sysctl_set: true
     reload: true
   loop:
-    - { key: "fs.inotify.max_user_instances", value: "1024" }
-    - { key: "fs.inotify.max_user_watches", value: "524288" }
+    - { key: "fs.inotify.max_user_instances", value: "8192" }
+    - { key: "fs.inotify.max_user_watches", value: "1048576" }
 
 - name: Check if base template exists at current version
   # The marker file is versioned: bumping `yak_sandbox_base_version` makes
@@ -373,7 +478,12 @@
 
       # Enable and start Docker
       systemctl enable docker
+      systemctl enable --now docker.socket
       systemctl start docker
+
+      # sshd for thread sandboxes; keys are configured by the thread runtime.
+      apt-get install -y openssh-server
+      systemctl enable ssh
 
       # Pre-pull common Docker images to speed up setup tasks
       docker pull mariadb:11 || true
