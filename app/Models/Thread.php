@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RunnerState;
+use App\Enums\TeleportState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadKind;
 use App\Enums\ThreadLockHolder;
@@ -57,6 +58,10 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property CarbonImmutable|null $blocked_at
  * @property CarbonImmutable|null $last_activity_at
  * @property CarbonImmutable|null $closed_at
+ * @property CarbonImmutable|null $first_teleported_at
+ * @property CarbonImmutable|null $waiting_for_computer_at
+ * @property string|null $teleport_requested_running_turn
+ * @property CarbonImmutable|null $owner_changed_at
  */
 #[ScopedBy(VisibleThreadScope::class)]
 class Thread extends Model
@@ -100,6 +105,9 @@ class Thread extends Model
             'blocked_at' => 'immutable_datetime',
             'last_activity_at' => 'immutable_datetime',
             'closed_at' => 'immutable_datetime',
+            'first_teleported_at' => 'immutable_datetime',
+            'waiting_for_computer_at' => 'immutable_datetime',
+            'owner_changed_at' => 'immutable_datetime',
         ];
     }
 
@@ -136,6 +144,27 @@ class Thread extends Model
     public function ownerDevice(): BelongsTo
     {
         return $this->belongsTo(Device::class, 'owner_device_id');
+    }
+
+    /**
+     * @return HasMany<Teleport, $this>
+     */
+    public function teleports(): HasMany
+    {
+        return $this->hasMany(Teleport::class);
+    }
+
+    /**
+     * @return HasMany<HeldThreadEvent, $this>
+     */
+    public function heldEvents(): HasMany
+    {
+        return $this->hasMany(HeldThreadEvent::class);
+    }
+
+    public function openTeleport(): ?Teleport
+    {
+        return $this->teleports()->whereIn('state', TeleportState::nonTerminal())->latest('id')->first();
     }
 
     /**

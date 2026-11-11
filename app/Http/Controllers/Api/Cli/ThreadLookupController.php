@@ -37,6 +37,7 @@ class ThreadLookupController extends Controller
     private function payload(Thread $thread, Device $device): array
     {
         $ownerDevice = $thread->ownerDevice;
+        $teleport = $thread->openTeleport();
 
         return [
             'id' => $thread->id,
@@ -53,9 +54,14 @@ class ThreadLookupController extends Controller
                 'name' => $ownerDevice->name,
                 'is_this_device' => $ownerDevice->id === $device->id,
             ],
-            'waiting_for_computer' => false,
+            'waiting_for_computer' => $thread->waiting_for_computer_at !== null,
             'turn_running' => TaskRun::query()->where('thread_id', $thread->id)->where('turn_state', TurnState::Running)->exists(),
-            'teleport' => null,
+            'teleport' => $teleport === null ? null : [
+                'teleport_id' => $teleport->id,
+                'direction' => $teleport->direction->value,
+                'device_id' => $teleport->device_id,
+                'state' => $teleport->state->value,
+            ],
             'claude_account' => ['name' => $thread->claudeAccount?->name],
             'active_session_id' => $thread->activeSession()?->session_id,
             'last_teleport_up' => null,

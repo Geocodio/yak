@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\TeleportState;
+use App\Models\Teleport;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
 use App\Models\ThreadSession;
@@ -46,4 +48,15 @@ it('finds a thread by session id', function () {
 
 it('rejects calls without a token', function () {
     $this->getJson('/api/cli/v1/threads/1', ['X-Yak-Protocol' => '1'])->assertUnauthorized();
+});
+
+it('reports the waiting mark and the open teleport', function () {
+    [$device, $token] = makeDevice();
+    $thread = Thread::factory()->create(['waiting_for_computer_at' => now()]);
+    $teleport = Teleport::factory()->down()->inState(TeleportState::WaitingForTurn)->create(['thread_id' => $thread->id, 'device_id' => $device->id]);
+
+    $this->getJson("/api/cli/v1/threads/{$thread->id}", cliHeaders($token))
+        ->assertOk()
+        ->assertJsonPath('thread.waiting_for_computer', true)
+        ->assertJsonPath('thread.teleport', ['teleport_id' => $teleport->id, 'direction' => 'down', 'device_id' => $device->id, 'state' => 'waiting_for_turn']);
 });
