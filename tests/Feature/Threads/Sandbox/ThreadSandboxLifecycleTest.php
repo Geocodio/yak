@@ -10,12 +10,14 @@ use App\Jobs\Threads\StartThreadPreviewJob;
 use App\Models\Repository;
 use App\Models\TaskRun;
 use App\Models\Thread;
+use App\Services\RepositoryConfig;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\WipPreserver;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 
@@ -369,4 +371,44 @@ test('a stop keeps the stored delay when the config cannot be read', function ()
 
     expect($thread->fresh()->destroy_after_hours)->toBe(48)
         ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
+});
+
+test('a failed save of the destroy delay still stops the sandbox', function () {
+    Sleep::fake();
+    Log::spy();
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None, 'destroy_after_hours' => 48]);
+    Repository::factory()->create(['slug' => $thread->repo]);
+    fakeYakFiles(['config.yml' => "version: 1\ndestroy_after_hours: 168\n"]);
+    Thread::saving(fn (Thread $saving) => $saving->isDirty('destroy_after_hours') ? throw new RuntimeException('db down') : null);
+
+    try {
+        app(ThreadSandbox::class)->stop($thread);
+    } finally {
+        Thread::flushEventListeners();
+    }
+
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message) => str_contains($message, 'destroy delay'))->once();
+    expect($thread->fresh()->destroy_after_hours)->toBe(48)
+        ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
+        ->and(operations())->toContain('stop');
+});
+
+test('a failing config read still stops the sandbox', function () {
+    Sleep::fake();
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None]);
+    Repository::factory()->create(['slug' => $thread->repo]);
+    app()->instance(RepositoryConfig::class, new class extends RepositoryConfig
+    {
+        public function __construct() {}
+
+        public function snapshot(Repository $repository): ConfigSnapshot
+        {
+            throw new RuntimeException('github down');
+        }
+    });
+
+    app(ThreadSandbox::class)->stop($thread);
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
+        ->and(operations())->toContain('stop');
 });
