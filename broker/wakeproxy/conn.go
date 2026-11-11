@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"time"
@@ -17,10 +18,17 @@ type Handler struct {
 	PollEvery     time.Duration // wake re-ask interval
 	PortTimeout   time.Duration // how long to wait for port 22 once ready
 	ActivityEvery time.Duration // touch interval while spliced
+	MaxSession    time.Duration // hard cap on one connection's lifetime; zero means unlimited
 }
 
 func (h *Handler) Handle(ctx context.Context, address string, client net.Conn) {
 	defer client.Close()
+
+	if h.MaxSession > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, h.MaxSession)
+		defer cancel()
+	}
 
 	h.waitUntilReady(ctx, address, client)
 }
@@ -101,10 +109,16 @@ func (h *Handler) spliceTo(ctx context.Context, address string, reply WakeReply,
 	}
 	defer upstream.Close()
 
-	done := make(chan struct{})
-	defer close(done)
+	spliceCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	go h.reportActivity(ctx, address, done)
+	go h.reportActivity(spliceCtx, cancel, address)
+
+	go func() {
+		<-spliceCtx.Done()
+		_ = client.Close()
+		_ = upstream.Close()
+	}()
 
 	finished := make(chan struct{}, 2)
 	go func() { _, _ = io.Copy(upstream, client); finished <- struct{}{} }()
@@ -134,18 +148,22 @@ func (h *Handler) dialWithRetry(ctx context.Context, target string) net.Conn {
 	}
 }
 
-func (h *Handler) reportActivity(ctx context.Context, address string, done <-chan struct{}) {
+// reportActivity pings Yak until ctx ends and cancels the splice once Yak withdraws access.
+// Transport errors are ignored so a network blip never drops a session.
+func (h *Handler) reportActivity(ctx context.Context, cancel context.CancelFunc, address string) {
 	ticker := time.NewTicker(h.ActivityEvery)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-done:
-			return
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = h.Client.Activity(ctx, address)
+			if err := h.Client.Activity(ctx, address); errors.Is(err, ErrAccessGone) {
+				cancel()
+
+				return
+			}
 		}
 	}
 }

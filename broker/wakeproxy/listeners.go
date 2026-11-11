@@ -12,13 +12,17 @@ var loopbackRange = &net.IPNet{IP: net.IPv4(127, 0, 0, 0), Mask: net.CIDRMask(8,
 
 // Reconciler keeps one bound listener per address Yak reports.
 // OnConn runs in its own goroutine for each accepted connection; the address is the listener's, never the client's.
+// Its context is cancelled when that address is removed or the reconciler closes.
 type Reconciler struct {
 	Client YakClient
 	Listen func(address string) (net.Listener, error)
-	OnConn func(address string, conn net.Conn)
+	OnConn func(ctx context.Context, address string, conn net.Conn)
 
 	mutex     sync.Mutex
 	listeners map[string]net.Listener
+	cancels   map[string]context.CancelFunc
+	root      context.Context
+	stop      context.CancelFunc
 }
 
 // Sync binds new addresses, closes removed ones and keeps unchanged ones.
@@ -33,6 +37,8 @@ func (r *Reconciler) Sync(ctx context.Context) error {
 
 	if r.listeners == nil {
 		r.listeners = map[string]net.Listener{}
+		r.cancels = map[string]context.CancelFunc{}
+		r.root, r.stop = context.WithCancel(context.Background())
 	}
 
 	wanted := map[string]int{}
@@ -50,8 +56,7 @@ func (r *Reconciler) Sync(ctx context.Context) error {
 
 	for address, listener := range r.listeners {
 		if _, keep := wanted[address]; !keep {
-			_ = listener.Close()
-			delete(r.listeners, address)
+			r.remove(address, listener)
 		}
 	}
 
@@ -69,14 +74,24 @@ func (r *Reconciler) Sync(ctx context.Context) error {
 			continue
 		}
 
+		addressContext, cancel := context.WithCancel(r.root)
 		r.listeners[address] = listener
-		go r.accept(address, listener)
+		r.cancels[address] = cancel
+		go r.accept(addressContext, address, listener)
 	}
 
 	return firstError
 }
 
-func (r *Reconciler) accept(address string, listener net.Listener) {
+// remove cancels the address's connections and closes its listener; the caller holds the mutex.
+func (r *Reconciler) remove(address string, listener net.Listener) {
+	r.cancels[address]()
+	delete(r.cancels, address)
+	_ = listener.Close()
+	delete(r.listeners, address)
+}
+
+func (r *Reconciler) accept(ctx context.Context, address string, listener net.Listener) {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -86,7 +101,7 @@ func (r *Reconciler) accept(address string, listener net.Listener) {
 			_ = conn.Close()
 			continue
 		}
-		go r.OnConn(address, conn)
+		go r.OnConn(ctx, address, conn)
 	}
 }
 
@@ -109,7 +124,9 @@ func (r *Reconciler) Close() {
 	defer r.mutex.Unlock()
 
 	for address, listener := range r.listeners {
-		_ = listener.Close()
-		delete(r.listeners, address)
+		r.remove(address, listener)
+	}
+	if r.stop != nil {
+		r.stop()
 	}
 }

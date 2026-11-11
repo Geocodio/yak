@@ -114,11 +114,13 @@ it('refuses an origin that is not allowed', function () {
 
 it('redeems a token once and installs the key', function () {
     $thread = liveTeamThread();
-    $token = openTerminal(User::factory()->create(), $thread->id)->json('token');
+    $driver = User::factory()->create();
+    $token = openTerminal($driver, $thread->id)->json('token');
     $line = terminalKeyLine();
 
     redeemTerminal($token, $line)->assertOk()->assertExactJson([
         'thread_id' => $thread->id,
+        'user_id' => $driver->id,
         'address' => SandboxSshAddress::for($thread),
         'container' => $thread->sandbox_container,
         'ttl' => 900,
@@ -186,4 +188,38 @@ it('sweeps the short-lived key after its ttl', function () {
 
     $installed = collect(app(SandboxManager::class)->calls)->where('operation', 'exec')->last()['arguments']['stdin'];
     expect($installed)->not->toContain($line);
+});
+
+function checkTerminal(int $threadId, int $userId, string $token = 'secret-token')
+{
+    return test()->withToken($token)->postJson('/internal/ssh/terminal/check', ['thread_id' => $threadId, 'user_id' => $userId]);
+}
+
+it('confirms a driver may keep the terminal open', function () {
+    checkTerminal(liveTeamThread()->id, User::factory()->create()->id)->assertOk()->assertExactJson([]);
+});
+
+it('denies the check once the thread turned private for someone else', function () {
+    $thread = liveTeamThread();
+    $user = User::factory()->create();
+    checkTerminal($thread->id, $user->id)->assertOk();
+
+    $thread->update(['visibility' => 'private', 'owner_user_id' => User::factory()->create()->id]);
+
+    checkTerminal($thread->id, $user->id)->assertForbidden();
+});
+
+it('denies the check for a closed thread, a missing user or a missing thread', function () {
+    $user = User::factory()->create();
+
+    checkTerminal(Thread::factory()->paused()->closed()->create()->id, $user->id)->assertForbidden();
+    checkTerminal(liveTeamThread()->id, 999_999)->assertForbidden();
+    checkTerminal(999_999, $user->id)->assertForbidden();
+});
+
+it('rejects the check without the internal token', function () {
+    $thread = liveTeamThread();
+
+    checkTerminal($thread->id, 1, 'wrong')->assertUnauthorized();
+    test()->postJson('/internal/ssh/terminal/check', ['thread_id' => $thread->id, 'user_id' => 1])->assertUnauthorized();
 });

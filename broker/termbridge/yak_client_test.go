@@ -107,3 +107,53 @@ func TestEphemeralKeyCleanupRunsAfterPanic(t *testing.T) {
 		t.Fatalf("dir survived panic: %v", err)
 	}
 }
+
+func TestCheckSendsThreadAndUserAndAcceptsOK(t *testing.T) {
+	var seen map[string]int64
+	var path string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		json.NewDecoder(r.Body).Decode(&seen)
+		w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	client := &YakClient{BaseURL: server.URL, TokenFile: tokenFile(t)}
+	if err := client.Check(context.Background(), Grant{ThreadID: 7, UserID: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if path != "/internal/ssh/terminal/check" || seen["thread_id"] != 7 || seen["user_id"] != 3 {
+		t.Fatalf("request %s %v", path, seen)
+	}
+}
+
+func TestCheckDeniedOn403(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) }))
+	defer server.Close()
+
+	err := (&YakClient{BaseURL: server.URL, TokenFile: tokenFile(t)}).Check(context.Background(), Grant{ThreadID: 1, UserID: 1})
+	if !errors.Is(err, ErrDenied) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestCheckTransportErrorIsNotDenied(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	url := server.URL
+	server.Close()
+
+	err := (&YakClient{BaseURL: url, TokenFile: tokenFile(t)}).Check(context.Background(), Grant{ThreadID: 1, UserID: 1})
+	if err == nil || errors.Is(err, ErrDenied) {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestCheckServerErrorIsNotDenied(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }))
+	defer server.Close()
+
+	err := (&YakClient{BaseURL: server.URL, TokenFile: tokenFile(t)}).Check(context.Background(), Grant{ThreadID: 1, UserID: 1})
+	if err == nil || errors.Is(err, ErrDenied) {
+		t.Fatalf("err %v", err)
+	}
+}

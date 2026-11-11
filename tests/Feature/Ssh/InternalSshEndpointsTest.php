@@ -96,10 +96,28 @@ it('answers no_sandbox for a thread without one, a failed restore or an unknown 
 it('touches the thread on activity', function () {
     $thread = Thread::factory()->paused()->create(['last_activity_at' => now()->subHour()]);
 
-    $this->postJson('/internal/ssh/activity', wakeAddress($thread))->assertOk();
-    $this->postJson('/internal/ssh/activity', ['address' => '127.30.1.1'])->assertOk()->assertJson(['state' => 'no_sandbox']);
+    $this->postJson('/internal/ssh/activity', wakeAddress($thread))->assertOk()->assertJson(['state' => 'ok']);
 
     expect($thread->fresh()->last_activity_at->isAfter(now()->subMinute()))->toBeTrue();
+});
+
+it('answers 410 on activity once the sandbox is no longer reachable', function (Closure $makeThread) {
+    $thread = $makeThread();
+    $before = $thread->fresh()->last_activity_at;
+
+    $this->postJson('/internal/ssh/activity', wakeAddress($thread))->assertStatus(410)->assertExactJson(['state' => 'gone']);
+
+    expect($thread->fresh()->last_activity_at?->toIso8601String())->toBe($before?->toIso8601String());
+})->with([
+    'destroyed' => fn () => Thread::factory()->destroyed()->create(['last_activity_at' => now()->subHour()]),
+    'no sandbox' => fn () => Thread::factory()->create(['last_activity_at' => now()->subHour()]),
+    'closed' => fn () => Thread::factory()->paused()->closed()->create(['last_activity_at' => now()->subHour()]),
+    'device owned' => fn () => Thread::factory()->paused()->ownedByDevice()->create(['last_activity_at' => now()->subHour()]),
+]);
+
+it('answers 410 on activity for an unknown address', function () {
+    $this->postJson('/internal/ssh/activity', ['address' => '127.30.1.1'])->assertStatus(410)->assertExactJson(['state' => 'gone']);
+    $this->postJson('/internal/ssh/activity', ['address' => '8.8.8.8'])->assertStatus(410);
 });
 
 it('lists a listener per live or stopped sandbox of a yak-owned thread', function () {

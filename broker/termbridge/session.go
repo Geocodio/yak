@@ -26,6 +26,8 @@ type Session struct {
 	Path string
 	// IdleTimeout closes a session that sends no frames for this long; zero disables it.
 	IdleTimeout time.Duration
+	// DoneCloseCode picks the close code sent when done fires; nil means 1001.
+	DoneCloseCode func() int
 }
 
 // SSHArgs is the ssh argument vector for a terminal session. The key is the ephemeral
@@ -121,7 +123,11 @@ func (s *Session) Run(done <-chan struct{}, conn *Conn, grant Grant, keyPath str
 		}
 		_ = conn.Close(closeCode, "")
 	case <-done:
-		_ = conn.Close(1001, "going away")
+		code := 1001
+		if s.DoneCloseCode != nil {
+			code = s.DoneCloseCode()
+		}
+		_ = conn.Close(code, "going away")
 	}
 
 	killGroup()

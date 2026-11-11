@@ -10,6 +10,8 @@ it('parses the role defaults, tasks and handlers', function () use ($rolePath) {
     expect($defaults)->toMatchArray([
         'yak_ssh_jump_port' => 2222,
         'yak_ssh_bridge_listen' => '127.0.0.1:8090',
+        'yak_ssh_incus_bridge' => '10.100.0.1/24',
+        'yak_ssh_wake_max_session' => '12h',
     ])->toHaveKeys(['yak_ssh_url', 'yak_ssh_internal_token', 'yak_ssh_allowed_origins']);
 
     expect(Yaml::parseFile($rolePath('tasks/main.yml')))->toBeArray()->not->toBeEmpty()
@@ -29,7 +31,9 @@ it('renders a hardened jump sshd config', function () use ($rolePath) {
         'AuthorizedKeysFile none',
         'AuthorizedKeysCommand /usr/local/bin/yak-ssh-lookup %f',
         'AuthorizedKeysCommandUser {{ yak_ssh_lookup_user }}',
-        'AllowTcpForwarding yes',
+        'AllowTcpForwarding local',
+        'PermitListen none',
+        'PermitOpen *:22',
         'PermitTTY no',
         'X11Forwarding no',
         'AllowAgentForwarding no',
@@ -40,7 +44,7 @@ it('renders a hardened jump sshd config', function () use ($rolePath) {
         expect($config)->toContain($line);
     }
 
-    expect($config)->not->toContain('PermitTTY yes');
+    expect($config)->not->toContain('PermitTTY yes')->not->toContain('AllowTcpForwarding yes');
 });
 
 it('hardens the wake and bridge units', function () use ($rolePath) {
@@ -79,4 +83,11 @@ it('names the termbridge origin allowlist variable the bridge reads', function (
 
     expect($env)->toContain('YAK_TERMBRIDGE_ORIGINS={{ yak_ssh_allowed_origins }}')
         ->not->toContain('YAK_TERMBRIDGE_ALLOWED_ORIGINS');
+});
+
+it('passes the bridge subnet and session cap to the wake proxy', function () use ($rolePath) {
+    $env = file_get_contents($rolePath('templates/yak-ssh.env.j2'));
+
+    expect($env)->toContain('YAK_INCUS_BRIDGE={{ yak_ssh_incus_bridge }}')
+        ->toContain('YAK_WAKE_MAX_SESSION={{ yak_ssh_wake_max_session }}');
 });
