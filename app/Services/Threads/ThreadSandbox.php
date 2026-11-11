@@ -33,6 +33,7 @@ class ThreadSandbox
         private SandboxCapacity $capacity,
         private BrokerStreams $streams,
         private SessionFileSync $sessions,
+        private WipPreserver $wip,
     ) {}
 
     public function touch(Thread $thread): void
@@ -64,7 +65,7 @@ class ThreadSandbox
         }
     }
 
-    public function stop(Thread $thread): void
+    public function stop(Thread $thread, bool $preserveWork = false): void
     {
         $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
 
@@ -73,7 +74,7 @@ class ThreadSandbox
         }
 
         try {
-            $this->stopLocked($thread);
+            $this->stopLocked($thread, $preserveWork);
         } finally {
             $lock->release();
         }
@@ -91,6 +92,19 @@ class ThreadSandbox
             $thread->refresh();
 
             if ($thread->isSandboxBusy() || ! $this->exists($thread)) {
+                return;
+            }
+
+            $this->wakeForPreserve($thread);
+
+            try {
+                $this->sessions->syncFromSandbox($thread);
+            } catch (Throwable $exception) {
+                Log::warning('Session sync failed while destroying a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+            }
+
+            // Never destroy a sandbox whose work could not be pushed; the sweep retries.
+            if (! $this->preserveWork($thread)) {
                 return;
             }
 
@@ -143,7 +157,7 @@ class ThreadSandbox
                 return SandboxWake::waitingForSlot();
             }
 
-            $this->stop($candidate);
+            $this->stop($candidate, true);
             $candidate->refresh();
 
             if ($candidate->sandbox_state !== ThreadSandboxState::Stopped) {
@@ -175,7 +189,7 @@ class ThreadSandbox
         }
     }
 
-    private function stopLocked(Thread $thread): void
+    private function stopLocked(Thread $thread, bool $preserveWork): void
     {
         $thread->refresh();
 
@@ -198,9 +212,37 @@ class ThreadSandbox
             Log::warning('Session sync failed while stopping a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
         }
 
+        if ($preserveWork && ! $this->preserveWork($thread)) {
+            return;
+        }
+
         $this->sandboxes->stop($thread, $timeout);
         $this->record($thread, ThreadSandboxState::Stopped);
         $thread->update(['runner_state' => RunnerState::None]);
+    }
+
+    private function wakeForPreserve(Thread $thread): void
+    {
+        if ($thread->sandbox_state === ThreadSandboxState::Paused) {
+            $this->sandboxes->resume($thread);
+            $this->record($thread, ThreadSandboxState::Running);
+        } elseif ($thread->sandbox_state === ThreadSandboxState::Stopped) {
+            $this->sandboxes->start($thread);
+            $this->record($thread, ThreadSandboxState::Running);
+        }
+    }
+
+    private function preserveWork(Thread $thread): bool
+    {
+        try {
+            $this->wip->preserve($thread);
+
+            return true;
+        } catch (Throwable $exception) {
+            Log::error('Preserving work failed for a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+
+            return false;
+        }
     }
 
     private function waitForRunnerExit(Thread $thread, int $timeoutSeconds): void
