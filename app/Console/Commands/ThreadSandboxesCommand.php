@@ -76,13 +76,19 @@ class ThreadSandboxesCommand extends Command
 
     private function destroyOldStopped(ThreadSandbox $sandboxes): void
     {
-        $cutoff = now()->subHours((int) config('yak.threads.stop_to_destroy_hours'));
+        $defaultHours = (int) config('yak.threads.stop_to_destroy_hours');
 
         $this->withState([ThreadSandboxState::Stopped])
-            ->where(fn (Builder $query) => $query
-                ->where('status', ThreadStatus::Closed->value)
-                ->orWhere(fn (Builder $idle) => $idle->whereRaw('coalesce(last_activity_at, sandbox_state_changed_at) <= ?', [$cutoff])))
             ->get()
+            ->filter(function (Thread $thread) use ($defaultHours): bool {
+                if ($thread->status === ThreadStatus::Closed) {
+                    return true;
+                }
+
+                $idleSince = $thread->last_activity_at ?? $thread->sandbox_state_changed_at;
+
+                return $idleSince !== null && $idleSince->lte(now()->subHours($thread->destroy_after_hours ?? $defaultHours));
+            })
             ->each(fn (Thread $thread) => $sandboxes->destroy($thread));
     }
 

@@ -48,6 +48,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property ThreadOwnerSide $owner_side
  * @property ThreadBlockReason|null $blocked_reason
  * @property string|null $last_refresh_commit
+ * @property int|null $destroy_after_hours
  * @property string|null $wip_commit_sha
  * @property string|null $local_repo_path
  * @property string|null $git_author_name
@@ -109,6 +110,7 @@ class Thread extends Model
             'lock_holder' => ThreadLockHolder::class,
             'owner_side' => ThreadOwnerSide::class,
             'blocked_reason' => ThreadBlockReason::class,
+            'destroy_after_hours' => 'integer',
             'sandbox_state_changed_at' => 'immutable_datetime',
             'runner_started_at' => 'immutable_datetime',
             'lock_acquired_at' => 'immutable_datetime',

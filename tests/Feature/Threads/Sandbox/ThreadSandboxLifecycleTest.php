@@ -15,6 +15,7 @@ use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadSandbox;
 use App\Services\Threads\WipPreserver;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
 
@@ -84,7 +85,7 @@ test('stop sends end waits for runner exit then syncs then stops', function () {
     expect($streams->commands("threads:{$thread->id}"))->toBe([['type' => 'end']])
         ->and($order)->toBe(['waiting after 1 end, 0 sync'])
         ->and($sync->synced)->toBe([$thread->id])
-        ->and(operations())->toBe(['stop'])
+        ->and(operations())->toBe(['exec', 'stop'])
         ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped)
         ->and($thread->fresh()->runner_state)->toBe(RunnerState::None);
 });
@@ -97,7 +98,7 @@ test('stop forces after the timeout when the runner never exits', function () {
     app(ThreadSandbox::class)->stop($thread);
 
     Sleep::assertSleptTimes(5);
-    expect(operations())->toBe(['stop'])->and(app(SandboxManager::class)->calls[0]['arguments']['timeoutSeconds'])->toBe(5);
+    expect(operations())->toBe(['exec', 'stop'])->and(app(SandboxManager::class)->calls[1]['arguments']['timeoutSeconds'])->toBe(5);
 });
 
 test('stop continues when session sync throws', function () {
@@ -115,7 +116,7 @@ test('stop continues when session sync throws', function () {
 
     app(ThreadSandbox::class)->stop($thread);
 
-    expect(operations())->toBe(['stop']);
+    expect(operations())->toBe(['exec', 'stop']);
 });
 
 test('stop leaves a busy thread alone', function () {
@@ -133,7 +134,7 @@ test('stop resumes a paused sandbox first', function () {
 
     app(ThreadSandbox::class)->stop($thread);
 
-    expect(operations())->toBe(['resume', 'stop']);
+    expect(operations())->toBe(['resume', 'exec', 'stop']);
 });
 
 test('touch is throttled', function () {
@@ -313,4 +314,26 @@ test('the stopped sandbox is picked up by the next sweep once the push works', f
 
     expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed)
         ->and(operations())->toContain('destroy');
+});
+
+test('stopping a sandbox stores the repo destroy delay from .yak/config.yml', function () {
+    Sleep::fake();
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None]);
+    app(SandboxManager::class)->queueExecResult(Process::result('destroy_after_hours: 168'));
+
+    app(ThreadSandbox::class)->stop($thread);
+
+    expect($thread->fresh()->destroy_after_hours)->toBe(168)
+        ->and(operations())->toBe(['exec', 'stop']);
+});
+
+test('a stop keeps the stored delay when the config cannot be read', function () {
+    Sleep::fake();
+    $thread = runningSandboxThread(['runner_state' => RunnerState::None, 'destroy_after_hours' => 48]);
+    app(SandboxManager::class)->queueExecResult(Process::result('', 'no such file', 1));
+
+    app(ThreadSandbox::class)->stop($thread);
+
+    expect($thread->fresh()->destroy_after_hours)->toBe(48)
+        ->and($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
 });

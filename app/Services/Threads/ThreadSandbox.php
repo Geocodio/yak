@@ -39,6 +39,7 @@ class ThreadSandbox
         private AuthProxyPlaceholders $placeholders,
         private DatasetClones $datasetClones,
         private ThreadPreviewDevServer $previewServer,
+        private RefreshTriggers $triggers,
     ) {}
 
     public function touch(Thread $thread): void
@@ -323,6 +324,7 @@ class ThreadSandbox
         }
 
         $timeout = (int) config('yak.threads.stop_timeout_seconds');
+        $this->storeDestroyDelay($thread);
         $this->streams->command("threads:{$thread->id}", ['type' => 'end']);
         $this->waitForRunnerExit($thread, $timeout);
 
@@ -339,6 +341,22 @@ class ThreadSandbox
         $this->sandboxes->stop($thread, $timeout);
         $this->record($thread, ThreadSandboxState::Stopped);
         $thread->update(['runner_state' => RunnerState::None]);
+    }
+
+    /** Read while the sandbox is awake; the sweep decides on the stored value once it sleeps. */
+    private function storeDestroyDelay(Thread $thread): void
+    {
+        try {
+            $hours = $this->triggers->destroyAfterHours($thread);
+        } catch (Throwable $exception) {
+            Log::warning('Reading the destroy delay failed while stopping a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
+
+            return;
+        }
+
+        if ($hours !== null) {
+            $thread->forceFill(['destroy_after_hours' => $hours])->save();
+        }
     }
 
     private function wakeForPreserve(Thread $thread): void
