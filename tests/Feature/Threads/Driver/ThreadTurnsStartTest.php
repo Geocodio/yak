@@ -1,5 +1,7 @@
 <?php
 
+use App\DataTransferObjects\ResolvedAccount;
+use App\DataTransferObjects\SandboxWake;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadLockHolder;
@@ -8,8 +10,6 @@ use App\Enums\TurnState;
 use App\Models\ClaudeAccount;
 use App\Models\PendingSteeringMessage;
 use App\Models\ThreadTurnMessage;
-use App\Services\ClaudeAccounts\ResolvedAccount;
-use App\Services\Threads\SandboxWake;
 use App\Services\Threads\ThreadBusy;
 use App\Services\Threads\ThreadTurns;
 
@@ -73,7 +73,7 @@ it('waits for an account and records the reason', function () {
 
 it('waits for a sandbox slot', function () {
     [$thread, $task] = threadWithTask();
-    $fakes = fakeTurnCollaborators(wake: new SandboxWake(ready: false, waitingForSlot: true));
+    $fakes = fakeTurnCollaborators(wake: SandboxWake::waitingForSlot());
     $fakes['commands']->shouldNotReceive('turn');
 
     $run = app(ThreadTurns::class)->start($task, 'go', null, null);

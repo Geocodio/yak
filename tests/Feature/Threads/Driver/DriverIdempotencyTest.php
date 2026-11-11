@@ -9,8 +9,6 @@ use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Support\Facades\Event;
 
-require_once __DIR__ . '/../../../Support/NextGenStubs.php';
-
 function driverThread(int $generation = 1): Thread
 {
     $thread = Thread::factory()->create();

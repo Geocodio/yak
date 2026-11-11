@@ -1,9 +1,9 @@
 <?php
 
+use App\DataTransferObjects\SandboxWake;
 use App\Enums\ThreadBlockReason;
 use App\Enums\TurnState;
 use App\Models\TaskRun;
-use App\Services\Threads\SandboxWake;
 use App\Services\Threads\ThreadTurns;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnsHelpers.php';
@@ -70,7 +70,7 @@ it('resumes the oldest waiting run first', function () {
 
 it('moves a run waiting for an account on to the sandbox wait', function () {
     $run = waitingRun(TurnState::WaitingForAccount, 'go');
-    fakeTurnCollaborators(wake: new SandboxWake(ready: false, restoring: true))['commands']->shouldNotReceive('turn');
+    fakeTurnCollaborators(wake: SandboxWake::restoring())['commands']->shouldNotReceive('turn');
 
     app(ThreadTurns::class)->resumeWaiting();
 

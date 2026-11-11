@@ -10,8 +10,6 @@ use App\Services\Threads\FakeBrokerStreams;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Support\Facades\Event;
 
-require_once __DIR__ . '/../../../Support/NextGenStubs.php';
-
 /**
  * The fake claims an entry another consumer left pending for longer than the
  * idle threshold, as RedisBrokerStreams does with XAUTOCLAIM.

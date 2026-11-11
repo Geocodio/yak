@@ -106,7 +106,7 @@ class ThreadTurns
                 $thread->model = $model ?? $thread->model;
             } else {
                 $resolved = $this->resolver->forNewThread($driver, $task->repo, null, $model);
-                $account = $resolved->account;
+                $account = $resolved->account ?? throw new \RuntimeException("No usable Claude account for thread {$thread->id}.");
                 $thread->forceFill(['claude_account_id' => $account->id, 'model' => $resolved->model ?? $model ?? $thread->model]);
             }
 

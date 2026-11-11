@@ -17,6 +17,8 @@ it('completes a turn once', function () {
     [$thread, $run] = runningTurnFor();
 
     replayRunnerFixture($thread, 'natural-turn-end');
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
 
     expect($run->refresh()->turn_state)->toBe(TurnState::Completed)
         ->and($run->finished_at)->not->toBeNull()
@@ -43,6 +45,8 @@ it('releases the account slot and the thread lock', function () {
     [$thread] = runningTurnFor();
 
     replayRunnerFixture($thread, 'natural-turn-end');
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
 
     expect($thread->refresh()->lock_holder)->toBe(ThreadLockHolder::None)
         ->and($thread->lock_turn_id)->toBeNull();

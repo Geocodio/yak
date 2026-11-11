@@ -7,7 +7,6 @@ use App\DataTransferObjects\StreamEntry;
 use App\DataTransferObjects\TurnTrackerChange;
 use App\DataTransferObjects\YakToolCall;
 use App\DataTransferObjects\YakToolResult;
-use App\Enums\AccountFailure;
 use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
@@ -25,6 +24,8 @@ use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadSession;
 use App\Models\ThreadTurnMessage;
+use App\Services\ClaudeAccounts\AccountFailure;
+use App\Services\ClaudeAccounts\AccountFailureKind;
 use App\Services\TaskLogger;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Support\SecretRedactor;
@@ -449,7 +450,7 @@ class ThreadDriver
         if ($reason !== null) {
             $thread->forceFill(['blocked_reason' => $reason, 'blocked_at' => now()]);
 
-            if ($change->failure === AccountFailure::AuthFailed) {
+            if ($change->failure->kind === AccountFailureKind::AuthFailed) {
                 $thread->claudeAccount?->forceFill(['status' => ClaudeAccountStatus::Invalid])->save();
             }
 
@@ -491,11 +492,7 @@ class ThreadDriver
      */
     private function blockReasonFor(AccountFailure $failure): ?ThreadBlockReason
     {
-        return match ($failure) {
-            AccountFailure::AuthFailed => ThreadBlockReason::AccountInvalid,
-            AccountFailure::UsageLimit => ThreadBlockReason::UsageLimit,
-            AccountFailure::TransientRateLimit => null,
-        };
+        return $failure->kind->blockReason();
     }
 
     /**

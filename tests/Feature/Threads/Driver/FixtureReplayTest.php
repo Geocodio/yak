@@ -40,6 +40,8 @@ it('ends a natural turn with one TurnCompleted', function () {
     [$thread, $run] = fixtureTurn();
 
     replayFixtureThroughConsumer($thread, 'natural-turn-end');
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
 
     expect($run->refresh()->turn_state)->toBe(TurnState::Completed);
     Event::assertDispatchedTimes(TurnCompleted::class, 1);

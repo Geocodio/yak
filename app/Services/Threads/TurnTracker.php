@@ -13,7 +13,7 @@ use Carbon\CarbonImmutable;
  * Decides when a runner turn has ended. Pure logic: time only enters through
  * the injected `$at` and `$now`.
  */
-final class TurnTracker
+class TurnTracker
 {
     /** @var array<string, TurnMessageState> */
     private array $uuids = [];

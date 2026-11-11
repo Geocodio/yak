@@ -9,8 +9,6 @@ use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\ThreadCommands;
 use Illuminate\Support\Facades\Process;
 
-require_once __DIR__ . '/../../../Support/NextGenStubs.php';
-
 function commandsThread(): Thread
 {
     return Thread::factory()->create(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running', 'model' => 'opus']);

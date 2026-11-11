@@ -1,16 +1,14 @@
 <?php
 
+use App\DataTransferObjects\SandboxWake;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\ClaudeAccounts\AccountConcurrency;
 use App\Services\ClaudeAccounts\ClaudeAccountResolver;
-use App\Services\Threads\SandboxWake;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadSandbox;
 use Mockery\MockInterface;
-
-require_once __DIR__ . '/NextGenStubs.php';
 
 /**
  * Fakes for everything ThreadTurns talks to, bound into the container.
@@ -27,7 +25,7 @@ function fakeTurnCollaborators(bool $slotFree = true, ?SandboxWake $wake = null)
     ];
     $fakes['concurrency']->shouldReceive('acquire')->andReturn($slotFree)->byDefault();
     $fakes['concurrency']->shouldReceive('release')->byDefault();
-    $fakes['sandbox']->shouldReceive('ensureAwake')->andReturn($wake ?? new SandboxWake)->byDefault();
+    $fakes['sandbox']->shouldReceive('ensureAwake')->andReturn($wake ?? SandboxWake::ready())->byDefault();
     $fakes['sandbox']->shouldReceive('pauseIfIdle')->byDefault();
 
     app()->instance(ThreadCommands::class, $fakes['commands']);

@@ -10,6 +10,7 @@ use App\Events\TurnFailed;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Services\ClaudeAccounts\AccountConcurrency;
+use App\Services\Threads\Contracts\SessionFileSync;
 use Closure;
 use Throwable;
 
@@ -22,7 +23,7 @@ class TurnFinisher
     public function __construct(
         private readonly AccountConcurrency $concurrency,
         private readonly ThreadSandbox $sandbox,
-        private readonly SessionSync $sessions,
+        private readonly SessionFileSync $sessions,
     ) {}
 
     /**

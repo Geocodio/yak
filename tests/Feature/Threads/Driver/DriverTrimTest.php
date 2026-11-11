@@ -4,7 +4,7 @@ use App\DataTransferObjects\StreamEntry;
 use App\Enums\RunnerState;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
-use App\Services\Threads\SessionSync;
+use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadSandbox;
 use Illuminate\Support\Facades\Process;
@@ -55,13 +55,15 @@ it('keeps the streams when the runner dies mid-turn', function () {
 });
 
 it('syncs the session and pauses the sandbox after a turn', function () {
-    $sessions = Mockery::mock(SessionSync::class);
+    $sessions = Mockery::mock(SessionFileSync::class);
     $sessions->shouldReceive('syncFromSandbox')->once();
     $sandbox = Mockery::mock(ThreadSandbox::class);
     $sandbox->shouldReceive('pauseIfIdle')->once();
-    app()->instance(SessionSync::class, $sessions);
+    app()->instance(SessionFileSync::class, $sessions);
     app()->instance(ThreadSandbox::class, $sandbox);
     [$thread] = runningTurnFor();
 
     replayRunnerFixture($thread, 'natural-turn-end');
+    $this->travel(60)->seconds();
+    app(ThreadDriver::class)->tick();
 });

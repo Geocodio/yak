@@ -12,8 +12,6 @@ use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\TurnTracker;
 use Mockery\MockInterface;
 
-require_once __DIR__ . '/NextGenStubs.php';
-
 /**
  * A busy thread with one running turn, holding the sandbox lock and an account.
  *

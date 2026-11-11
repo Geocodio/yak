@@ -7,8 +7,6 @@ use App\Services\Threads\FakeBrokerStreams;
 use App\Services\Threads\ThreadDriver;
 use Illuminate\Support\Facades\Event;
 
-require_once __DIR__ . '/../../../Support/NextGenStubs.php';
-
 function streamedThread(FakeBrokerStreams $streams): Thread
 {
     $thread = Thread::factory()->create();

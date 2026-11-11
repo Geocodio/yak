@@ -14,7 +14,7 @@ require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
 
 function lifecycleLine(string $uuid, string $state): array
 {
-    return ['type' => 'command_lifecycle', 'uuid' => $uuid, 'state' => $state];
+    return ['type' => 'command_lifecycle', 'command_uuid' => $uuid, 'state' => $state];
 }
 
 it('moves message states and starts the turn when the prompt is read', function () {
