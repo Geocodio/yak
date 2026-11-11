@@ -1,7 +1,7 @@
-import { Activity, BarChart3, Code2, DollarSign, Eye, Heart, Inbox, MessageSquare, Puzzle, Rocket, Server, Type, UserRound } from 'lucide-react';
+import { BarChart3, Code2, DollarSign, Eye, Heart, MessageSquare, Rocket } from 'lucide-react';
 import type { NavItem } from '@/components/Sidebar';
-import { analytics, channels, costs, deployments, health, mcp, observations, prReviews, prompts, repos, skills, system } from '@/routes';
-import { edit as profileEdit } from '@/routes/profile';
+import { SETTINGS_SECTIONS } from '@/components/shell/settingsSections';
+import { analytics, costs, deployments, health, observations, prReviews, repos } from '@/routes';
 
 export type RailSection = 'threads' | 'operations' | 'insights' | 'settings';
 
@@ -43,14 +43,9 @@ export function sectionForUrl(url: string): RailSection {
     return 'threads';
 }
 
-export const SETTINGS_ITEMS: NavItem[] = [
-    { label: 'Profile', icon: UserRound, url: profileEdit.url() },
-    { label: 'Prompts', icon: Type, url: prompts.url() },
-    { label: 'Skills', icon: Puzzle, url: skills.url() },
-    { label: 'MCP servers', icon: Server, url: mcp.url() },
-    { label: 'Channels', icon: Inbox, url: channels.url() },
-    { label: 'System', icon: Activity, url: system.url() },
-];
+export const SETTINGS_ITEMS: NavItem[] = SETTINGS_SECTIONS.flatMap((section) =>
+    section.items.map((item) => ({ label: item.label, icon: () => item.icon, url: item.href })),
+);
 
 export const SECTION_COPY: Record<Exclude<RailSection, 'threads'>, { title: string; description: string; items: NavItem[] }> = {
     operations: { title: 'Operations', description: 'The repositories, previews and reviews Yak works across.', items: OPERATIONS_ITEMS },
