@@ -11,6 +11,7 @@ use App\Services\Datasets\DatasetClones;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
+use App\Services\Threads\Preview\ThreadPreviewActivity;
 use App\Services\Threads\Preview\ThreadPreviewDevServer;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -57,7 +58,7 @@ class ThreadSandbox
         try {
             $thread->refresh();
 
-            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy()) {
+            if ($thread->sandbox_state !== ThreadSandboxState::Running || $thread->isSandboxBusy() || app(ThreadPreviewActivity::class)->isActive($thread)) {
                 return;
             }
 
