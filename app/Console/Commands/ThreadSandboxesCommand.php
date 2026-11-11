@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\EvictionReason;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\ThreadStatus;
 use App\Events\ThreadSandboxSlotFreed;
@@ -150,6 +151,7 @@ class ThreadSandboxesCommand extends Command
     {
         return Thread::query()->withoutGlobalScopes()
             ->whereIn('sandbox_state', array_map(fn (ThreadSandboxState $state): string => $state->value, $states))
-            ->whereNotNull('sandbox_container');
+            ->whereNotNull('sandbox_container')
+            ->where(fn (Builder $query) => $query->whereNull('parent_thread_id')->orWhere('kind', '!=', ThreadKind::Research->value));
     }
 }

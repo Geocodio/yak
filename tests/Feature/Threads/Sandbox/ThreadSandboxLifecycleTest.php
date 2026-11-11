@@ -2,6 +2,7 @@
 
 use App\Enums\RunnerState;
 use App\Enums\ThreadBlockReason;
+use App\Enums\ThreadKind;
 use App\Enums\ThreadSandboxState;
 use App\Enums\TurnState;
 use App\Jobs\Threads\StartThreadPreviewJob;
@@ -211,4 +212,59 @@ test('a second caller during wake gets restoring not ready', function () {
 
     expect($wake->restoring)->toBeTrue()->and($wake->ready)->toBeFalse();
     $lock->release();
+});
+
+function sharedResearchChild(): array
+{
+    $parent = runningSandboxThread();
+    $child = Thread::factory()->child($parent)->create([
+        'name' => 'scan',
+        'kind' => ThreadKind::Research,
+        'sandbox_container' => $parent->sandbox_container,
+        'sandbox_state' => ThreadSandboxState::Running,
+        'claude_config_dir' => '/home/yak/.claude-child',
+    ]);
+
+    return [$parent, $child];
+}
+
+test('releasing a research child syncs its transcript before its config dir is removed', function () {
+    [, $child] = sharedResearchChild();
+    $sandboxes = app(SandboxManager::class);
+    $callsAtSync = null;
+    app()->instance(SessionFileSync::class, new class($sandboxes, $callsAtSync) implements SessionFileSync
+    {
+        public function __construct(private $sandboxes, public &$callsAtSync) {}
+
+        public function syncFromSandbox(Thread $thread): void
+        {
+            $this->callsAtSync = count($this->sandboxes->calls);
+        }
+
+        public function restoreIntoSandbox(Thread $thread): void {}
+    });
+
+    app(ThreadSandbox::class)->stop($child);
+
+    $removal = collect($sandboxes->calls)->search(fn (array $call): bool => $call['operation'] === 'exec' && str_contains(implode(' ', $call['arguments']['command']), 'rm -rf'));
+    expect($callsAtSync)->toBe($removal)
+        ->and($child->fresh()->sandbox_container)->toBeNull();
+});
+
+test('a failing session sync does not block releasing a research child', function () {
+    [, $child] = sharedResearchChild();
+    app()->instance(SessionFileSync::class, new class implements SessionFileSync
+    {
+        public function syncFromSandbox(Thread $thread): void
+        {
+            throw new RuntimeException('boom');
+        }
+
+        public function restoreIntoSandbox(Thread $thread): void {}
+    });
+
+    app(ThreadSandbox::class)->stop($child);
+
+    expect(collect(app(SandboxManager::class)->calls)->contains(fn (array $call): bool => $call['operation'] === 'exec' && str_contains(implode(' ', $call['arguments']['command']), 'rm -rf')))->toBeTrue()
+        ->and($child->fresh()->sandbox_container)->toBeNull();
 });

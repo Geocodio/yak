@@ -5,6 +5,7 @@ namespace App\Services\Stacks;
 use App\Models\ClaudeAccount;
 use App\Models\Thread;
 use App\Services\Threads\Contracts\SandboxManager;
+use App\Services\Threads\Contracts\SessionFileSync;
 use App\Services\Threads\ThreadCommands;
 use App\Services\Threads\ThreadSandbox;
 use RuntimeException;
@@ -22,6 +23,7 @@ class ResearchChildRunner
         private readonly SandboxManager $sandboxes,
         private readonly ThreadSandbox $lifecycle,
         private readonly ThreadCommands $commands,
+        private readonly SessionFileSync $sessions,
     ) {}
 
     public static function worktreePath(Thread $child): string
@@ -85,6 +87,7 @@ class ResearchChildRunner
         $this->sandboxes->exec($parent, ['bash', '-c', 'chmod -R u+w "$1" 2>/dev/null; git worktree remove --force "$1"', 'bash', $path]);
         $this->mustRun($parent, ['git', 'worktree', 'prune']);
         $this->addWorktree($parent, $child);
+        $this->mustRun($parent, ['mkdir', '-p', $child->claude_config_dir]);
 
         $child->forceFill([
             'sandbox_container' => $parent->sandbox_container,
@@ -92,6 +95,8 @@ class ResearchChildRunner
             'sandbox_state_changed_at' => now(),
             'queued_for_slot_at' => null,
         ])->save();
+
+        $this->sessions->restoreIntoSandbox($child);
     }
 
     private function addWorktree(Thread $parent, Thread $child): void
