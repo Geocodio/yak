@@ -550,4 +550,53 @@ return [
         'reconcile_pr_state' => (bool) env('YAK_TELEMETRY_RECONCILE_PR_STATE', true),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Threads
+    |--------------------------------------------------------------------------
+    |
+    | Thread sandbox lifecycle, turn guards, stacks and the session store.
+    |
+    */
+
+    'threads' => [
+        'turn_grace_seconds' => (int) env('YAK_THREADS_TURN_GRACE_SECONDS', 30),
+        'turn_wall_clock_minutes' => (int) env('YAK_THREADS_TURN_WALL_CLOCK_MINUTES', 240),
+        'pause_to_stop_minutes' => (int) env('YAK_THREADS_PAUSE_TO_STOP_MINUTES', 30),
+        'stop_to_destroy_hours' => (int) env('YAK_THREADS_STOP_TO_DESTROY_HOURS', 72),
+        'destroy_days' => (int) env('YAK_THREADS_DESTROY_DAYS', 30),
+        'session_retention_days' => (int) env('YAK_THREADS_SESSION_RETENTION_DAYS', 30),
+        'stream_catchup_minutes' => (int) env('YAK_THREADS_STREAM_CATCHUP_MINUTES', 10),
+        'awake_cap' => (int) env('YAK_THREADS_AWAKE_CAP', 8),
+        'person_awake_cap' => (int) env('YAK_THREADS_PERSON_AWAKE_CAP', 4),
+        'memory_floor_gb' => (int) env('YAK_THREADS_MEMORY_FLOOR_GB', 8),
+        'pool_watermark_percent' => (int) env('YAK_THREADS_POOL_WATERMARK_PERCENT', 80),
+        'eviction_grace_minutes' => (int) env('YAK_THREADS_EVICTION_GRACE_MINUTES', 10),
+        'stop_timeout_seconds' => (int) env('YAK_THREADS_STOP_TIMEOUT_SECONDS', 60),
+        'wake_pause_grace_minutes' => (int) env('YAK_THREADS_WAKE_PAUSE_GRACE_MINUTES', 5),
+        'child_awake_limit' => (int) env('YAK_THREADS_CHILD_AWAKE_LIMIT', 3),
+        'child_result_wait_minutes' => (int) env('YAK_THREADS_CHILD_RESULT_WAIT_MINUTES', 10),
+        'pair_message_throttle_per_minute' => (int) env('YAK_THREADS_PAIR_MESSAGE_THROTTLE_PER_MINUTE', 6),
+        'stack_alert_turns' => (int) env('YAK_THREADS_STACK_ALERT_TURNS', 50),
+        'stack_alert_hours' => (int) env('YAK_THREADS_STACK_ALERT_HOURS', 3),
+        'stack_alert_children' => (int) env('YAK_THREADS_STACK_ALERT_CHILDREN', 12),
+        'account_max_concurrent_turns' => (int) env('YAK_THREADS_ACCOUNT_MAX_CONCURRENT_TURNS', 16),
+        'runner_restart_cap' => (int) env('YAK_THREADS_RUNNER_RESTART_CAP', 3),
+        'diff_max_bytes' => (int) env('YAK_THREADS_DIFF_MAX_BYTES', 1048576),
+
+        'session_store_path' => env('YAK_THREADS_SESSION_STORE_PATH', storage_path('app/session-store')),
+
+        // Base64 encoded 32 byte libsodium secretbox key. Never stored in the database.
+        'session_store_key' => env('YAK_SESSION_STORE_KEY'),
+
+        'credential_socket' => env('YAK_THREADS_CREDENTIAL_SOCKET', '/run/yak/credentials.sock'),
+
+        // Address of the auth proxy on the Incus bridge (10.100.0.1, see the incus Ansible role).
+        'auth_proxy_url' => env('YAK_THREADS_AUTH_PROXY_URL', 'http://10.100.0.1:8787'),
+
+        'preview_hold_seconds' => (int) env('YAK_THREADS_PREVIEW_HOLD_SECONDS', 10),
+
+        'preview_activity_minutes' => (int) env('YAK_THREADS_PREVIEW_ACTIVITY_MINUTES', 5),
+    ],
+
 ];
