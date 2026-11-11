@@ -2,12 +2,15 @@
 
 use App\Enums\HeldEventKind;
 use App\Enums\ThreadOwnerSide;
+use App\Enums\ThreadVisibility;
 use App\Jobs\Threads\RetryRepositoryCiJob;
 use App\Jobs\Threads\StartRepositoryTurnJob;
+use App\Mail\HeldEventMail;
 use App\Models\HeldThreadEvent;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Teleport\HeldEvents;
 use App\Services\Threads\PullRequests\RepositoryCiRetry;
@@ -43,4 +46,13 @@ it('holds a sibling comment while a device owns the thread', function () {
 
     $event = HeldThreadEvent::query()->where('thread_id', $this->thread->id)->sole();
     expect($event->kind)->toBe(HeldEventKind::ReviewComment)->and($event->title)->toContain('acme/web#12');
+});
+
+it('keeps the repo name out of the held-event notice of a private thread', function () {
+    $owner = User::factory()->create();
+    $this->thread->forceFill(['visibility' => ThreadVisibility::Private, 'owner_user_id' => $owner->id])->save();
+
+    app(RepositoryCiRetry::class)->handleResult($this->web, false, 'lint failed', 'abc');
+
+    Mail::assertSent(HeldEventMail::class, fn (HeldEventMail $mail): bool => ! str_contains($mail->notice, 'acme/web') && ! str_contains($mail->notice, '#12'));
 });

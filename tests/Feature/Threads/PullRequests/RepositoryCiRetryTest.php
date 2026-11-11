@@ -1,12 +1,14 @@
 <?php
 
 use App\DataTransferObjects\SandboxWake;
+use App\Enums\ThreadVisibility;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\Threads\OpenRepositoryPullRequestJob;
 use App\Jobs\Threads\RetryRepositoryCiJob;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\User;
 use App\Models\YakTask;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\FakeSandboxManager;
@@ -43,6 +45,19 @@ it('counts failures per repo and dispatches a retry until the limit', function (
     Queue::assertPushed(SendNotificationJob::class, 1);
     expect($extra->refresh()->ci_retry_count)->toBe(2)->and($extra->ci_status)->toBe('failing')
         ->and($other->refresh()->ci_retry_count)->toBe(1);
+});
+
+it('names neither repo nor pull request in the retry-limit notification of a private thread', function () {
+    Queue::fake();
+    config()->set('yak.max_attempts', 1);
+    [$thread, , $extra] = ciRetryThread();
+    $thread->forceFill(['visibility' => ThreadVisibility::Private, 'owner_user_id' => User::factory()->create()->id])->save();
+    $retry = app(RepositoryCiRetry::class);
+
+    $retry->handleResult($extra, false, 'boom', 'a');
+    $retry->handleResult($extra, false, 'boom', 'b');
+
+    Queue::assertPushed(SendNotificationJob::class, fn ($job) => ! str_contains($job->message, 'acme/web') && ! str_contains($job->message, '#4'));
 });
 
 it('ignores a context repo', function () {

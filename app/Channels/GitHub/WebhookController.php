@@ -290,12 +290,13 @@ class WebhookController extends Controller
 
         if ($isReview) {
             $state = strtolower((string) ($comment['state'] ?? ''));
+            $instructions = app(FollowUpCommentParser::class)->parse($body);
 
-            if (trim($body) === '' && $state !== 'changes_requested') {
-                return response()->json(['ok' => true, 'skipped' => 'empty review']);
+            if ($instructions === null) {
+                return response()->json(['ok' => true, 'skipped' => 'no yak prefix']);
             }
 
-            $prompt = RepositoryTurnPrompts::review($row, $state, $body, $login);
+            $prompt = RepositoryTurnPrompts::review($row, $state, $instructions, $login);
         } else {
             $instructions = app(FollowUpCommentParser::class)->parse($body);
 

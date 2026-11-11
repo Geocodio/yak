@@ -91,12 +91,40 @@ it('starts a turn naming the repo for a sibling comment', function () {
 it('starts a turn for a sibling review with feedback', function () {
     sendGitHub('pull_request_review', [
         'action' => 'submitted',
-        'review' => ['id' => 9, 'state' => 'changes_requested', 'body' => 'Please add a test', 'user' => ['login' => 'sam', 'type' => 'User']],
+        'review' => ['id' => 9, 'state' => 'changes_requested', 'body' => '/yak Please add a test', 'user' => ['login' => 'sam', 'type' => 'User']],
         'pull_request' => ['number' => 188, 'html_url' => 'https://github.com/acme/web/pull/188'],
         'repository' => ['full_name' => 'acme/web'],
     ])->assertOk();
 
     Queue::assertPushed(StartRepositoryTurnJob::class, fn ($job) => str_contains($job->prompt, 'Please add a test') && str_contains($job->prompt, 'acme/web#188'));
+});
+
+it('ignores sibling reviews without the prefix, including approvals and changes requested', function () {
+    config()->set('yak.followup.github_prefixes', '/yak');
+
+    foreach ([['approved', 'LGTM'], ['commented', 'nice'], ['changes_requested', 'Please add a test'], ['changes_requested', '']] as [$state, $body]) {
+        sendGitHub('pull_request_review', [
+            'action' => 'submitted',
+            'review' => ['id' => 9, 'state' => $state, 'body' => $body, 'user' => ['login' => 'sam', 'type' => 'User']],
+            'pull_request' => ['number' => 188, 'html_url' => 'https://github.com/acme/web/pull/188'],
+            'repository' => ['full_name' => 'acme/web'],
+        ])->assertOk();
+    }
+
+    Queue::assertNotPushed(StartRepositoryTurnJob::class);
+});
+
+it('ignores sibling reviews when review triage is disabled', function () {
+    config()->set('yak.followup.github_review_triage_enabled', false);
+
+    sendGitHub('pull_request_review', [
+        'action' => 'submitted',
+        'review' => ['id' => 9, 'state' => 'commented', 'body' => '/yak do it', 'user' => ['login' => 'sam', 'type' => 'User']],
+        'pull_request' => ['number' => 188, 'html_url' => 'https://github.com/acme/web/pull/188'],
+        'repository' => ['full_name' => 'acme/web'],
+    ])->assertOk();
+
+    Queue::assertNotPushed(StartRepositoryTurnJob::class);
 });
 
 it('ignores bot comments and comments without the prefix', function () {
