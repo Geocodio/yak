@@ -8,3 +8,4 @@ import '@/threads/panels/teleport';
 import './stack';
 import './preview';
 import '@/threads/panels/terminal';
+import './files';
