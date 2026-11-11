@@ -52,7 +52,7 @@ class ThreadBlockClearer
 
     /**
      * @param  list<ThreadBlockReason>  $reasons
-     * @return list<int>
+     * @return array<int, int>
      */
     private function blockedAccountIds(array $reasons): array
     {
