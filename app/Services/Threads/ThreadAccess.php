@@ -4,6 +4,7 @@ namespace App\Services\Threads;
 
 use App\Enums\ThreadVisibility;
 use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -24,12 +25,27 @@ class ThreadAccess
             return true;
         }
 
-        return $thread->effectiveOwnerUserId() === $user->id;
+        return $this->isOwner($user, $thread) || ThreadShare::query()
+            ->where('thread_id', $thread->root_thread_id ?? $thread->id)
+            ->where('user_id', $user->id)
+            ->exists();
     }
 
+    /**
+     * A person a private thread is shared with can read it but not drive it.
+     */
     public function canDrive(?User $user, Thread $thread): bool
     {
-        return $this->canSee($user, $thread);
+        if ($thread->effectiveVisibility() === ThreadVisibility::Team) {
+            return $this->canSee($user, $thread);
+        }
+
+        return $this->isOwner($user, $thread);
+    }
+
+    public function isOwner(?User $user, Thread $thread): bool
+    {
+        return $user !== null && $thread->effectiveOwnerUserId() === $user->id;
     }
 
     /**
@@ -54,6 +70,11 @@ class ThreadAccess
             ->where('visibility_root.visibility', ThreadVisibility::Private->value)
             ->where(fn ($owner) => $owner
                 ->whereNull('visibility_root.owner_user_id')
-                ->orWhere('visibility_root.owner_user_id', '!=', $user->id)));
+                ->orWhere('visibility_root.owner_user_id', '!=', $user->id))
+            ->whereNotExists(fn ($shared) => $shared
+                ->selectRaw('1')
+                ->from('thread_shares')
+                ->whereColumn('thread_shares.thread_id', 'visibility_root.id')
+                ->where('thread_shares.user_id', $user->id)));
     }
 }

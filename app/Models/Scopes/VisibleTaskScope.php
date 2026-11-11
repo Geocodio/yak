@@ -37,6 +37,11 @@ class VisibleTaskScope implements Scope
             ->where('visibility_root.visibility', ThreadVisibility::Private->value)
             ->where(fn ($owner) => $owner
                 ->whereNull('visibility_root.owner_user_id')
-                ->orWhere('visibility_root.owner_user_id', '!=', $user->getAuthIdentifier())));
+                ->orWhere('visibility_root.owner_user_id', '!=', $user->getAuthIdentifier()))
+            ->whereNotExists(fn ($shared) => $shared
+                ->selectRaw('1')
+                ->from('thread_shares')
+                ->whereColumn('thread_shares.thread_id', 'visibility_root.id')
+                ->where('thread_shares.user_id', $user->getAuthIdentifier())));
     }
 }
