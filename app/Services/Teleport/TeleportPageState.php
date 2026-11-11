@@ -39,6 +39,7 @@ class TeleportPageState
      *     environmentNote: ?string,
      *     accountName: ?string,
      *     continuedFromThreadId: ?int,
+     *     continuedFromTitle: ?string,
      *     canTeleport: bool,
      * }
      */
@@ -82,6 +83,7 @@ class TeleportPageState
             'environmentNote' => $this->environmentNote($thread),
             'accountName' => $thread->claudeAccount?->name,
             'continuedFromThreadId' => $thread->continued_from_thread_id,
+            'continuedFromTitle' => $thread->continued_from_thread_id === null ? null : Thread::query()->whereKey($thread->continued_from_thread_id)->value('title'),
             'canTeleport' => $onDevice ? $viewerIsOwner : $canDrive,
         ];
     }

@@ -211,3 +211,30 @@ it('shows the sidebar capacity block while waiting and nothing without capacity 
         ->assertNoJavaScriptErrors();
     visit("/threads/{$bare->id}")->click('[data-testid="thread-panel-tab-environment"]')->wait(1)->assertMissing('[data-testid="capacity-block"]')->assertNoJavaScriptErrors();
 });
+
+it('shows Replace token only to the account owner on a token problem', function () {
+    $owner = User::factory()->create();
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $owner->id]);
+    $thread = Thread::factory()->create(['created_by_user_id' => $owner->id, 'claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::AccountInvalid]);
+    $this->actingAs($owner);
+
+    visit("/threads/{$thread->id}")
+        ->assertVisible('[data-testid="thread-notice"][data-kind="account_invalid"]')
+        ->assertSee('Replace token')
+        ->assertSee('Start a new thread on your own account')
+        ->assertNoJavaScriptErrors();
+});
+
+it('shows the reset time and a countdown on a usage limit', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::UsageLimit]);
+    $task = YakTask::factory()->create(['thread_id' => $thread->id]);
+    TaskRun::factory()->create(['yak_task_id' => $task->id, 'thread_id' => $thread->id, 'tracker_state' => json_encode(['rate_limit_resets_at' => now()->addHour()->toIso8601String()])]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")
+        ->assertVisible('[data-testid="thread-notice"][data-kind="usage_limit"]')
+        ->assertSee('Resets at')
+        ->assertVisible('[data-testid="usage-countdown"]')
+        ->assertNoJavaScriptErrors();
+});

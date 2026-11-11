@@ -96,10 +96,11 @@ it('reports a failed teleport', function () {
 });
 
 it('links the thread it continued from', function () {
-    $from = Thread::factory()->create();
+    $from = Thread::factory()->create(['title' => 'Fix login']);
     $thread = Thread::factory()->create(['continued_from_thread_id' => $from->id]);
+    $teleport = teleportProp(User::factory()->create(), $thread);
 
-    expect(teleportProp(User::factory()->create(), $thread)['continuedFromThreadId'])->toBe($from->id);
+    expect($teleport['continuedFromThreadId'])->toBe($from->id)->and($teleport['continuedFromTitle'])->toBe('Fix login');
 });
 
 it('exposes the teleport block as an Inertia prop', function () {

@@ -211,3 +211,20 @@ it('gives no time estimate for a thread waiting for a sandbox', function () {
 
     expect(ThreadNoticeData::for($thread)['body'])->not->toContain('usually within a few minutes');
 });
+
+it('links the account settings for the owner and a new thread for everyone on a token problem', function () {
+    $owner = User::factory()->create();
+    $account = ClaudeAccount::factory()->create(['owner_user_id' => $owner->id]);
+    $thread = Thread::factory()->create(['claude_account_id' => $account->id, 'blocked_reason' => ThreadBlockReason::AccountInvalid]);
+
+    expect(ThreadNoticeData::for($thread, $owner))
+        ->toMatchArray(['accountSettingsUrl' => route('settings.claude-accounts'), 'startOnOwnAccountUrl' => route('threads.new')])
+        ->and(ThreadNoticeData::for($thread, User::factory()->create()))
+        ->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => route('threads.new')]);
+});
+
+it('has no account links on other notices', function () {
+    $thread = Thread::factory()->create(['blocked_reason' => ThreadBlockReason::UsageLimit]);
+
+    expect(ThreadNoticeData::for($thread))->toMatchArray(['accountSettingsUrl' => null, 'startOnOwnAccountUrl' => null]);
+});

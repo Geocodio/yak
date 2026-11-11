@@ -71,5 +71,7 @@ it('shows a message sent while Claude works greyed', function () {
 
     visit("/threads/{$thread->id}")
         ->assertVisible('[data-testid="thread-message-pending"]')
+        ->assertSeeIn('[data-testid="thread-message-pending"]', 'Not read yet')
+        ->assertScript("getComputedStyle(document.querySelector('[data-testid=\"thread-message-pending\"]')).opacity", '1')
         ->assertNoJavaScriptErrors();
 });

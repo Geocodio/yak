@@ -29,7 +29,7 @@ export function TeleportNotice({ thread, teleport }: { thread: ThreadData; telep
     const continuedFrom =
         teleport.continuedFromThreadId !== null ? (
             <Link href={show.url(teleport.continuedFromThreadId)} className="text-accent-text hover:underline" data-testid="teleport-continued-from">
-                Continued from thread {teleport.continuedFromThreadId}
+                Continued from {teleport.continuedFromTitle ?? `thread ${teleport.continuedFromThreadId}`}
             </Link>
         ) : null;
 

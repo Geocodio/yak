@@ -92,6 +92,7 @@ export type TeleportData = {
     environmentNote: string | null;
     accountName: string | null;
     continuedFromThreadId: number | null;
+    continuedFromTitle: string | null;
     canTeleport: boolean;
 };
 
@@ -167,6 +168,8 @@ export type ThreadNotice = {
     resetsAt: string | null;
     isOwnerOfAccount: boolean;
     canContinue: boolean;
+    accountSettingsUrl: string | null;
+    startOnOwnAccountUrl: string | null;
     waiting: ThreadWaiting | null;
     restoreSteps: {
         key: string;

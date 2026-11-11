@@ -1,4 +1,4 @@
-import { cn } from '@geocodio/console-ui';
+import { Clock } from 'lucide-react';
 import { MessageWithAttachments } from '@/components/attachments/Attachments';
 import { Prose } from '@/components/Prose';
 import type { MediaItem } from '@/types/tasks';
@@ -9,7 +9,7 @@ export function PersonMessage({ message, pending, onOpenMedia }: { message: Thre
 
     return (
         <div
-            className={cn('flex gap-3', pending && 'opacity-50')}
+            className="flex gap-3"
             data-testid={pending ? 'thread-message-pending' : 'thread-message'}
             title={pending ? 'Claude reads this as soon as it can.' : undefined}
         >
@@ -18,6 +18,12 @@ export function PersonMessage({ message, pending, onOpenMedia }: { message: Thre
                 <div className="flex flex-wrap items-baseline gap-x-2 text-[12px]">
                     <span className="font-medium text-body">{message.authorName ?? 'Someone'}</span>
                     <span className="text-faint">{time}</span>
+                    {pending && (
+                        <span className="inline-flex items-center gap-1 text-faint" data-testid="thread-message-not-read">
+                            <Clock className="size-3" aria-hidden />
+                            Not read yet
+                        </span>
+                    )}
                     {message.model && <span className="rounded-pill bg-panel-2 px-2 py-0.5 text-[11px] text-muted">{message.model}</span>}
                 </div>
                 <MessageWithAttachments attachments={message.attachments} onOpenMedia={onOpenMedia}>
