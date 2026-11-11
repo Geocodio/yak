@@ -145,7 +145,7 @@ func TestNoteHasNoLaptopWord(t *testing.T) {
 	in.TouchedPaths = []string{"/workspace/.env"}
 	// The temp directory name carries the test name, so it is removed before looking for words.
 	note := strings.ToLower(strings.ReplaceAll(BuildLocalNote(in), repo.Dir, "<checkout>"))
-	for _, banned := range []string{"laptop", "family", "—"} {
+	for _, banned := range []string{"laptop", "family", "\u2014"} {
 		if strings.Contains(note, banned) {
 			t.Errorf("note contains %q", banned)
 		}
