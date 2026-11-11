@@ -15,6 +15,7 @@ use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
 use App\Models\ThreadEvent;
+use App\Models\ThreadRepository;
 use App\Models\User;
 use App\Models\YakTask;
 use Illuminate\Support\Facades\Storage;
@@ -43,6 +44,8 @@ class VisibilityWorld
     public Thread $thread;
 
     public Thread $child;
+
+    public ThreadRepository $pullRequestRow;
 
     public YakTask $task;
 
@@ -98,6 +101,7 @@ class VisibilityWorld
         $diff = ThreadDiff::factory()->create(['thread_id' => $world->thread->id, 'files_count' => 1]);
         $world->diffFile = ThreadDiffFile::factory()->create(['thread_diff_id' => $diff->id]);
         $world->event = ThreadEvent::factory()->create(['thread_id' => $world->thread->id, 'sequence' => 1]);
+        $world->pullRequestRow = ThreadRepository::factory()->for($world->thread)->changes()->withPullRequest(77)->create(['repo' => self::REPO]);
         $world->child = Thread::factory()->child($world->thread)->create(['title' => self::TITLE . ' child', 'claude_account_id' => $account->id]);
 
         $world->task = YakTask::factory()->create([
