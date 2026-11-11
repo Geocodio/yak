@@ -1,11 +1,14 @@
 <?php
 
+use App\Mail\AccountProblemMail;
 use App\Models\ClaudeAccount;
 use App\Models\User;
 use App\Services\ClaudeAccounts\AccountNotifier;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 
 beforeEach(function () {
+    Mail::fake();
     config(['yak.channels.slack.bot_token' => 'xoxb-test']);
     Http::fake(['slack.com/*' => Http::response(['ok' => true])]);
 });
@@ -65,4 +68,48 @@ it('skips users with direct messages turned off', function () {
     app(AccountNotifier::class)->invalid($account);
 
     Http::assertNothingSent();
+});
+
+it('emails the owner beside Slack with the account name and settings link', function () {
+    $owner = slackUser('UOWNER');
+    $account = ClaudeAccount::factory()->for($owner, 'owner')->invalid()->create(['name' => 'Work']);
+
+    app(AccountNotifier::class)->invalid($account);
+
+    Mail::assertSent(AccountProblemMail::class, 1);
+    Mail::assertSent(AccountProblemMail::class, fn ($mail) => $mail->hasTo($owner->email)
+        && str_contains($mail->notice, 'Work')
+        && str_contains($mail->notice, route('settings.claude-accounts'))
+        && ! str_contains($mail->notice, $account->secret));
+    expect(sentTexts())->toHaveCount(1);
+});
+
+it('emails a user without a Slack id and one with direct messages off', function () {
+    $owner = User::factory()->create(['slack_user_id' => null, 'direct_messages_enabled' => false]);
+    $account = ClaudeAccount::factory()->for($owner, 'owner')->create();
+
+    app(AccountNotifier::class)->invalid($account);
+
+    Mail::assertSent(AccountProblemMail::class, fn ($mail) => $mail->hasTo($owner->email));
+    Http::assertNothingSent();
+});
+
+it('emails every admin for a system account', function () {
+    $admins = User::factory()->count(2)->create();
+    User::factory()->create();
+    config(['claude-accounts.admin_user_ids' => $admins->pluck('id')->all()]);
+
+    app(AccountNotifier::class)->expired(ClaudeAccount::factory()->system()->create());
+
+    Mail::assertSent(AccountProblemMail::class, 2);
+});
+
+it('still sends Slack when the mail fails', function () {
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('smtp down'));
+    $owner = slackUser('UOWNER');
+    $account = ClaudeAccount::factory()->for($owner, 'owner')->create();
+
+    app(AccountNotifier::class)->invalid($account);
+
+    expect(sentTexts())->toHaveCount(1);
 });

@@ -3,15 +3,18 @@
 namespace App\Services\ClaudeAccounts;
 
 use App\Channels\Slack\UserLookup;
+use App\Mail\AccountProblemMail;
 use App\Models\ClaudeAccount;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
- * Tells people their Claude account needs attention with a Slack direct message.
+ * Tells people their Claude account needs attention with a Slack direct message
+ * and an email.
  * The notification system is bound to a task, which an account event has none
  * of, so this sends the direct message itself and honours the per-user off
  * switch. Messages carry the account name and a link to Settings > Claude
@@ -69,6 +72,8 @@ class AccountNotifier
         $token = (string) config('yak.channels.slack.bot_token');
 
         foreach (collect($recipients)->unique('id') as $user) {
+            $this->sendMail($user, $text);
+
             if (! $user->direct_messages_enabled) {
                 continue;
             }
@@ -88,6 +93,15 @@ class AccountNotifier
             } catch (Throwable $exception) {
                 Log::channel('yak')->warning('Claude account message was not delivered', ['user_id' => $user->id, 'error' => $exception->getMessage()]);
             }
+        }
+    }
+
+    private function sendMail(User $user, string $text): void
+    {
+        try {
+            Mail::to($user->email)->send(new AccountProblemMail($text));
+        } catch (Throwable $exception) {
+            Log::channel('yak')->warning('Claude account email was not delivered', ['user_id' => $user->id, 'error' => $exception->getMessage()]);
         }
     }
 }
