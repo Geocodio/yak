@@ -5,6 +5,8 @@ namespace App\Services\Threads;
 use App\Agents\StreamEventHandler;
 use App\DataTransferObjects\StreamEntry;
 use App\DataTransferObjects\TurnTrackerChange;
+use App\DataTransferObjects\YakToolCall;
+use App\DataTransferObjects\YakToolResult;
 use App\Enums\AccountFailure;
 use App\Enums\ClaudeAccountStatus;
 use App\Enums\RunnerState;
@@ -47,11 +49,12 @@ class ThreadDriver
 
     public function __construct(
         private readonly ThreadCommands $commands,
-        private readonly YakToolRouter $tools, // @phpstan-ignore property.onlyWritten
+        private readonly YakToolRouter $tools,
         private readonly SecretRedactor $redactor,
         private readonly BrokerStreams $streams,
         private readonly RunawayGuard $guard,
         private readonly TurnFinisher $finisher,
+        private readonly RunnerRecovery $recovery,
     ) {}
 
     public function handle(StreamEntry $entry): void
@@ -120,6 +123,7 @@ class ThreadDriver
             ->get()
             ->each(fn (TaskRun $run) => $this->isolated(fn () => $this->tickTurn($run)));
 
+        $this->isolated(fn () => $this->recovery->recoverDue());
         $this->isolated(fn () => app(ThreadTurns::class)->resumeWaiting());
     }
 
@@ -245,6 +249,12 @@ class ThreadDriver
 
         $line = json_decode($this->redactor::redact(json_encode($line, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE)), true) ?? [];
 
+        if (($line['type'] ?? null) === 'yak.tool_call') {
+            $this->answerToolCall($thread, $entry, $line);
+
+            return;
+        }
+
         if ($run !== null && $run->task !== null) {
             ($this->handlers[$run->id] ??= new StreamEventHandler($run->task))->handle($line);
         }
@@ -262,8 +272,13 @@ class ThreadDriver
     private function applyBrokerLine(Thread $thread, StreamEntry $entry, array &$events): void
     {
         $line = $entry->line;
+        $event = BrokerLine::event($line);
 
-        if (BrokerLine::event($line) === 'runner_exited') {
+        if ($event === 'no_runner' || $event === 'broker_started' || $event === 'restarted') {
+            $this->recoverLostRunner($thread, $entry, $line, $events);
+        }
+
+        if ($event === 'runner_exited') {
             $generation = (int) ($line['generation'] ?? $entry->generation);
 
             if ($generation !== $thread->runner_generation) {
@@ -276,6 +291,10 @@ class ThreadDriver
             $thread->forceFill(['runner_state' => RunnerState::None]);
             $this->commands->revokePlaceholder($thread);
 
+            if (! $endedForGood) {
+                $this->recovery->recover($thread, $events);
+            }
+
             if ($endedForGood) {
                 $events[] = function () use ($entry): void {
                     $this->streams->delete($entry->channel);
@@ -286,6 +305,79 @@ class ThreadDriver
         }
 
         $events[] = new ThreadActivity($thread, $entry->generation, $entry->sequence, $line);
+    }
+
+    /**
+     * A broker restart, or a message for a runner that is not there, means the
+     * runner of a running turn is gone. A no_runner line only counts for a uuid
+     * the turn still waits on and for the current generation.
+     *
+     * @param  array<string, mixed>  $line
+     * @param  list<object>  $events
+     */
+    private function recoverLostRunner(Thread $thread, StreamEntry $entry, array $line, array &$events): void
+    {
+        $run = ThreadTurns::runningTurn($thread);
+
+        if ($run === null || ! in_array($thread->runner_state, [RunnerState::Idle, RunnerState::Busy], true)) {
+            return;
+        }
+
+        if (BrokerLine::event($line) === 'no_runner') {
+            $isOutstanding = $entry->generation >= $thread->runner_generation
+                && ThreadTurnMessage::query()
+                    ->where('task_run_id', $run->id)
+                    ->where('uuid', (string) ($line['uuid'] ?? ''))
+                    ->whereIn('state', [TurnMessageState::Sent, TurnMessageState::Queued])
+                    ->exists();
+
+            if (! $isOutstanding) {
+                return;
+            }
+        }
+
+        $this->commands->revokePlaceholder($thread);
+        $this->recovery->recover($thread, $events);
+    }
+
+    /**
+     * Runs a Yak tool once per call id and sends the result to the runner. A
+     * redelivered call that was already answered gets nothing.
+     *
+     * @param  array<string, mixed>  $line
+     */
+    private function answerToolCall(Thread $thread, StreamEntry $entry, array $line): void
+    {
+        $call = YakToolCall::fromLine($line);
+
+        if ($call === null) {
+            return;
+        }
+
+        DB::table('thread_tool_calls')->insertOrIgnore([
+            'thread_id' => $thread->id,
+            'call_id' => $call->callId,
+            'generation' => $entry->generation,
+            'tool' => $call->tool,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $record = DB::table('thread_tool_calls')->where('thread_id', $thread->id)->where('call_id', $call->callId);
+
+        if ((clone $record)->value('answered_at') !== null) {
+            return;
+        }
+
+        try {
+            $result = $this->tools->handle($thread, $call);
+        } catch (Throwable $exception) {
+            report($exception);
+            $result = new YakToolResult(true, $this->redactor::redact($exception->getMessage()));
+        }
+
+        $this->commands->toolResult($thread, $call->callId, $result->isError, $result->content);
+        $record->update(['answered_at' => now()]);
     }
 
     /**

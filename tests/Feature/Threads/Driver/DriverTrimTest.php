@@ -3,9 +3,11 @@
 use App\DataTransferObjects\StreamEntry;
 use App\Enums\RunnerState;
 use App\Services\Threads\Contracts\BrokerStreams;
+use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\SessionSync;
 use App\Services\Threads\ThreadDriver;
 use App\Services\Threads\ThreadSandbox;
+use Illuminate\Support\Facades\Process;
 
 require_once __DIR__ . '/../../../Support/ThreadTurnHelpers.php';
 
@@ -41,7 +43,9 @@ it('deletes the streams when the runner ends for good', function () {
 });
 
 it('keeps the streams when the runner dies mid-turn', function () {
-    [$thread] = runningTurnFor();
+    [$thread] = runningTurnFor(['prompt_uuid' => 'prompt-1', 'prompt' => 'Go']);
+    $thread->forceFill(['sandbox_container' => 'thread-1', 'sandbox_state' => 'running'])->save();
+    app(SandboxManager::class)->queueExecResult(Process::result("10.100.0.7\n"));
     $streams = app(BrokerStreams::class);
     $streams->register('threads:' . $thread->id);
 

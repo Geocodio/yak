@@ -59,7 +59,7 @@ function replayRunnerFixture(Thread $thread, string $name): void
             continue;
         }
 
-        $driver->handle($streams->pushOut('threads:' . $thread->id, 1, ++$sequence, $line));
+        $driver->handle($streams->pushOut('threads:' . $thread->id, (int) ($line['generation'] ?? 1), ++$sequence, $line, fromBroker: str_starts_with((string) ($line['type'] ?? ''), 'broker')));
     }
 }
 
