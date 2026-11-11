@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Enums\ThreadVisibility;
+use App\Models\AiUsage;
 use App\Models\Artifact;
 use App\Models\BranchDeployment;
 use App\Models\ClaudeAccount;
@@ -11,6 +12,7 @@ use App\Models\PrReview;
 use App\Models\Repository;
 use App\Models\TaskAttachment;
 use App\Models\TaskRun;
+use App\Models\TelemetryEvent;
 use App\Models\Thread;
 use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
@@ -69,6 +71,10 @@ class VisibilityWorld
     public ThreadDiffFile $diffFile;
 
     public ThreadEvent $event;
+
+    public TelemetryEvent $telemetryEvent;
+
+    public AiUsage $aiUsage;
 
     public ThreadRepository $repository;
 
@@ -135,6 +141,13 @@ class VisibilityWorld
         $world->attachment = TaskAttachment::factory()->create(['yak_task_id' => $world->task->id]);
         $world->artifact = Artifact::factory()->create(['yak_task_id' => $world->task->id, 'filename' => 'shot.png', 'disk_path' => 'private/shot.png']);
         $world->prReview = PrReview::factory()->create(['yak_task_id' => $world->task->id, 'repo' => self::REPO, 'pr_number' => 77]);
+
+        $world->telemetryEvent = TelemetryEvent::factory()->named('pr.opened')->create([
+            'yak_task_id' => $world->task->id,
+            'repo' => self::REPO,
+            'properties' => ['pr_number' => 77],
+        ]);
+        $world->aiUsage = AiUsage::factory()->create(['yak_task_id' => $world->task->id, 'cost_usd' => 1.5]);
 
         $world->coOwnerRequest = CoOwnerRequest::factory()->create([
             'task_id' => $world->task->id,
