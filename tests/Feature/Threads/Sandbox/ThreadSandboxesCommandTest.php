@@ -51,6 +51,14 @@ test('stopped sandboxes of closed threads are destroyed', function () {
         ->and($open->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
 });
 
+it('clamps an oversized stored delay in the sweep', function () {
+    $thread = Thread::factory()->stopped()->create(['destroy_after_hours' => 4000000000, 'last_activity_at' => now()->subHours(200)]);
+
+    sweep();
+
+    expect($thread->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
+});
+
 test('stopped sandboxes destroy after 72 hours', function () {
     $old = Thread::factory()->stopped()->create(['last_activity_at' => now()->subHours(73)]);
     $young = Thread::factory()->stopped()->create(['last_activity_at' => now()->subHours(71)]);
@@ -204,4 +212,26 @@ it('still destroys a closed thread immediately regardless of the delay', functio
     sweep();
 
     expect($closed->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed);
+});
+
+it('ignores the per-repo destroy delay when the pool is over the watermark', function () {
+    $manager = new class extends FakeSandboxManager
+    {
+        public function destroy(Thread $thread): void
+        {
+            parent::destroy($thread);
+            $this->poolPercent -= 20;
+        }
+    };
+    $manager->poolPercent = 95;
+    app()->instance(SandboxManager::class, $manager);
+
+    $older = Thread::factory()->stopped()->create(['destroy_after_hours' => 168, 'last_activity_at' => now()->subHour()]);
+    $younger = Thread::factory()->stopped()->create(['destroy_after_hours' => 168, 'last_activity_at' => now()]);
+
+    sweep();
+
+    // 95 -> 75: one destroy despite the 168 hour delay, then the pool is under the watermark.
+    expect($older->fresh()->sandbox_state)->toBe(ThreadSandboxState::Destroyed)
+        ->and($younger->fresh()->sandbox_state)->toBe(ThreadSandboxState::Stopped);
 });

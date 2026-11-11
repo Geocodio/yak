@@ -17,6 +17,11 @@
       "maxLength": 1000,
       "description": "A short description of what this repository is, shown to Yak as context."
     },
+    "destroy_after_hours": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Hours a stopped thread sandbox is kept before it is destroyed. Capped by the server (default 168)."
+    },
     "ci": {
       "enum": [
         "github_actions",

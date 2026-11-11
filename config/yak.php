@@ -638,6 +638,7 @@ return [
         'turn_wall_clock_minutes' => (int) env('YAK_THREADS_TURN_WALL_CLOCK_MINUTES', 240),
         'pause_to_stop_minutes' => (int) env('YAK_THREADS_PAUSE_TO_STOP_MINUTES', 30),
         'stop_to_destroy_hours' => (int) env('YAK_THREADS_STOP_TO_DESTROY_HOURS', 72),
+        'max_destroy_after_hours' => (int) env('YAK_THREADS_MAX_DESTROY_AFTER_HOURS', 168),
         'destroy_days' => (int) env('YAK_THREADS_DESTROY_DAYS', 30),
         'session_retention_days' => (int) env('YAK_THREADS_SESSION_RETENTION_DAYS', 30),
         'stream_catchup_minutes' => (int) env('YAK_THREADS_STREAM_CATCHUP_MINUTES', 10),

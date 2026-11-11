@@ -357,19 +357,19 @@ class ThreadSandbox
         $thread->update(['runner_state' => RunnerState::None]);
     }
 
-    /** Read while the sandbox is awake; the sweep decides on the stored value once it sleeps. */
+    /** Read from the stored default-branch config; a failure never blocks the stop. */
     private function storeDestroyDelay(Thread $thread): void
     {
         try {
             $hours = $this->triggers->destroyAfterHours($thread);
+
+            if ($hours !== null) {
+                $thread->forceFill(['destroy_after_hours' => $hours])->save();
+            }
         } catch (Throwable $exception) {
-            Log::warning('Reading the destroy delay failed while stopping a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
-
-            return;
-        }
-
-        if ($hours !== null) {
-            $thread->forceFill(['destroy_after_hours' => $hours])->save();
+            $thread->setAttribute('destroy_after_hours', $thread->getOriginal('destroy_after_hours'));
+            $thread->syncOriginalAttribute('destroy_after_hours');
+            Log::warning('Storing the destroy delay failed while stopping a thread sandbox', ['thread' => $thread->id, 'error' => $exception->getMessage()]);
         }
     }
 

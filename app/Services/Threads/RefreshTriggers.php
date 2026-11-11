@@ -5,6 +5,7 @@ namespace App\Services\Threads;
 use App\DataTransferObjects\RefreshResult;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Services\RepositoryConfig;
 use App\Services\Threads\Contracts\SandboxManager;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +20,7 @@ use Symfony\Component\Yaml\Yaml;
  */
 class RefreshTriggers
 {
-    public function __construct(private SandboxManager $sandboxes) {}
+    public function __construct(private SandboxManager $sandboxes, private RepositoryConfig $repositoryConfig) {}
 
     /**
      * @return array<string, string> Glob to command.
@@ -36,25 +37,28 @@ class RefreshTriggers
         return $this->parseRefreshMap($result->output(), $thread->id);
     }
 
-    /** The repo's own destroy delay in hours, or null when the config is unreadable or sets none. */
+    /** The repo's own destroy delay in hours from the stored default-branch config, or null when none is set. */
     public function destroyAfterHours(Thread $thread): ?int
     {
-        $result = $this->sandboxes->exec($thread, ['cat', '.yak/config.yml']);
+        $repository = Repository::where('slug', $thread->repo)->first();
 
-        return $result->failed() ? null : $this->parseDestroyAfterHours($result->output());
-    }
-
-    public function parseDestroyAfterHours(string $yaml): ?int
-    {
-        try {
-            $parsed = Yaml::parse($yaml);
-        } catch (ParseException) {
+        if ($repository === null) {
             return null;
         }
 
-        $hours = is_array($parsed) ? ($parsed['destroy_after_hours'] ?? null) : null;
+        $data = $this->repositoryConfig->snapshot($repository)->data('config.yml');
 
-        return is_int($hours) && $hours > 0 ? $hours : null;
+        return self::clampDestroyAfterHours(is_array($data) ? ($data['destroy_after_hours'] ?? null) : null);
+    }
+
+    /** A positive integer capped by the server maximum and the unsigned int column; anything else is null. */
+    public static function clampDestroyAfterHours(mixed $hours): ?int
+    {
+        if (! is_int($hours) || $hours < 1) {
+            return null;
+        }
+
+        return min($hours, max(1, (int) config('yak.threads.max_destroy_after_hours')), 4294967295);
     }
 
     /**

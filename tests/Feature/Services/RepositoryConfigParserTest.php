@@ -46,6 +46,13 @@ it('accepts a config.yml with only a version', function () {
     expect(parseYak('config.yml', "version: 1\n")['errors'])->toBe([]);
 });
 
+it('accepts destroy_after_hours as a positive integer', function () {
+    $result = parseYak('config.yml', "version: 1\ndestroy_after_hours: 48\n");
+
+    expect($result['errors'])->toBe([])
+        ->and($result['data']['destroy_after_hours'])->toBe(48);
+});
+
 it('rejects invalid config.yml values', function (string $yaml, string $expectedKey) {
     $result = parseYak('config.yml', $yaml);
 
@@ -56,6 +63,8 @@ it('rejects invalid config.yml values', function (string $yaml, string $expected
     'unknown nested key' => ["version: 1\nreview:\n  enabeld: true\n", 'review.enabeld'],
     'missing version' => ["ci: none\n", 'version'],
     'wrong version' => ["version: 2\n", 'version'],
+    'destroy_after_hours zero' => ["version: 1\ndestroy_after_hours: 0\n", 'destroy_after_hours'],
+    'destroy_after_hours string' => ["version: 1\ndestroy_after_hours: soon\n", 'destroy_after_hours'],
     'bad ci' => ["version: 1\nci: jenkins\n", 'ci'],
     'empty required check name' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    required_checks: ['']\n", 'review.approval.required_checks.0'],
     'max_lines over limit' => ["version: 1\nreview:\n  approval:\n    mode: shadow\n    max_lines: 8000\n", 'review.approval.max_lines'],

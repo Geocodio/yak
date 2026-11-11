@@ -94,6 +94,7 @@ co_owner_gate:
 | `version` | The file format version. Always `1`. Required. |
 | `description` | A short description of what the repository is, shown to Yak as context. Up to 1000 characters. |
 | `ci` | The CI system Yak reads build results from: `github_actions`, `drone` or `none`. When absent, it falls back to the CI system stored in Yak, which setup detects. |
+| `destroy_after_hours` | Hours a stopped thread sandbox is kept before it is destroyed. At least 1. The server caps it (default 168). |
 | `walkthrough.public_site_url` | The public origin shown in the mock URL bar of walkthrough videos. Up to 255 characters. |
 | `pull_requests.large_change_lines` | The number of changed lines above which a PR counts as large. At least 1. |
 | `co_owner_gate.mode` | `off` or `enforce`. See the note below. |

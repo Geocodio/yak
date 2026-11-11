@@ -35,7 +35,7 @@ class RepositoryConfigParser
      */
     private const KEYS = [
         'config.yml' => [
-            'version' => [], 'description' => [], 'ci' => [],
+            'version' => [], 'description' => [], 'ci' => [], 'destroy_after_hours' => [],
             'walkthrough' => ['public_site_url' => []],
             'pull_requests' => ['large_change_lines' => []],
             'co_owner_gate' => ['mode' => []],
@@ -157,6 +157,7 @@ class RepositoryConfigParser
                 'version' => ['required', 'integer', 'in:1'],
                 'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
                 'ci' => ['sometimes', Rule::in(['github_actions', 'drone', 'none'])],
+                'destroy_after_hours' => ['sometimes', 'integer', 'min:1'],
                 'walkthrough' => ['sometimes', 'array'],
                 'walkthrough.public_site_url' => ['sometimes', 'nullable', 'url', 'max:255'],
                 'pull_requests' => ['sometimes', 'array'],
