@@ -5,7 +5,8 @@ import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { AppLayout } from '@/layouts/AppLayout';
-import { sidebarPanelsFor } from '@/threads/panels';
+import { DockArea, DockToolbar } from '@/threads/DockHost';
+import { dockPanelsFor, sidebarPanelsFor } from '@/threads/panels';
 import '@/threads/panels/index';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ShareButton } from '@/components/threads/share/ShareButton';
@@ -19,6 +20,9 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
+    const dockPanels = dockPanelsFor(thread);
+    const [dockId, setDockId] = useState<string | null>(null);
+    const dock = dockPanels.find((panel) => panel.id === dockId) ?? null;
 
     return (
         <>
@@ -33,19 +37,24 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                         </div>
                         <p className="text-[12px] text-muted">{thread.repo}</p>
                     </div>
-                    <ShareButton thread={thread} />
+                    <div className="flex shrink-0 items-center gap-3">
+                        <DockToolbar panels={dockPanels} activeId={dock?.id ?? null} onChange={setDockId} />
+                        <ShareButton thread={thread} />
+                    </div>
                 </div>
             </header>
             <PrivateThreadBanner thread={thread} />
 
             <div className="flex min-h-0 flex-1">
-                <div className="flex min-w-0 flex-1 flex-col" data-testid="thread-conversation">
+                <div className={cn('min-w-0 flex-1 flex-col', dock ? 'hidden lg:flex' : 'flex')} data-testid="thread-conversation">
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
                     <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} />
                     <ThreadComposer thread={thread} composer={composer} />
                 </div>
 
-                {panels.length > 0 && active !== null && (
+                {dock && <DockArea panel={dock} thread={thread} canDrive={canDrive} />}
+
+                {dock === null && panels.length > 0 && active !== null && (
                     <aside className="hidden w-[320px] shrink-0 flex-col border-l border-hair bg-sidebar lg:flex" data-testid="thread-sidebar">
                         <div role="tablist" aria-label="Thread panels" className="flex shrink-0 gap-4 border-b border-hair px-4">
                             {panels.map((panel) => (
