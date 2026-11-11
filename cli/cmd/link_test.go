@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,5 +113,58 @@ func TestOpenLinkPrintsAbsoluteBinaryCommand(t *testing.T) {
 	want := "Run: cd '" + dir + "' && '/opt/yak/bin/yak' 'teleport' '--from-link' '42'\n"
 	if got := h.out.String(); got != want {
 		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestOpenLinkRejectsHostileURLsBeforeAnyNetworkCall(t *testing.T) {
+	h, srv, opened, _ := linkRig(t)
+	for _, args := range [][]string{
+		{"yak://teleport/42;x"}, {"yak://teleport/042"}, {"yak://teleport/42?x"}, {""}, {},
+		{"yak://teleport/42", "yak://teleport/43"},
+	} {
+		if code := Run(h.ctx, append([]string{"open-link"}, args...)); code == 0 {
+			t.Errorf("%q exited 0", args)
+		}
+	}
+	if len(*opened) != 0 || len(srv.Requests()) != 0 {
+		t.Fatal("acted on a hostile link")
+	}
+}
+
+type confirmRecorder struct {
+	failingPrompter
+	asked []string
+}
+
+func (p *confirmRecorder) Confirm(q string, _ bool) (bool, error) {
+	p.asked = append(p.asked, q)
+	return false, nil
+}
+
+func TestFromLinkConfirmsEvenWithYes(t *testing.T) {
+	r := newTeleportRig(t)
+	r.srv.Threads[42] = &fakeyak.Thread{ID: 42, Title: "Fix", Repo: "acme/widgets", OwnerSide: "yak"}
+	cfg, _ := config.Load(r.ctx.ConfigDir)
+	cfg.Checkouts = map[string]string{"acme/widgets": r.ctx.Cwd}
+	_ = cfg.Save(r.ctx.ConfigDir)
+	prompt := &confirmRecorder{failingPrompter: failingPrompter{t}}
+	r.ctx.Prompter = prompt
+	if code := Run(r.ctx, []string{"teleport", "--from-link", "--yes", "42"}); code == 0 {
+		t.Fatalf("a declined link teleported: %s", r.out)
+	}
+	if len(prompt.asked) != 1 || prompt.asked[0] != "Continue?" {
+		t.Fatalf("asked %v", prompt.asked)
+	}
+}
+
+func TestInstallLinkReportsFailureWhenRunnerFails(t *testing.T) {
+	h, _, _, _ := linkRig(t)
+	h.ctx.RunCommand = func(string, ...string) error { return errors.New("boom") }
+	if code := Run(h.ctx, []string{"open-link", "--install"}); code != 0 {
+		t.Fatal(code)
+	}
+	got := h.out.String()
+	if !strings.Contains(got, "Use the command shown on the thread page.") || strings.Contains(got, "now open") {
+		t.Fatal(got)
 	}
 }

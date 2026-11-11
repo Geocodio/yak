@@ -139,7 +139,7 @@ func runTeleport(ctx *Context, args []string) int {
 		return exitFailure
 	}
 	prompter := ctx.Prompter
-	if f.yes {
+	if f.yes && !f.fromLink {
 		prompter = ui.NewNonInteractive()
 	}
 	home := ctx.Env("HOME")
