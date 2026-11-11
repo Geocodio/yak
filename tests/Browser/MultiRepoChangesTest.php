@@ -28,8 +28,9 @@ test('it switches between repo tabs and promotes a context repo', function () {
     $page = visit(route('threads.show', $this->thread));
 
     $page->click('[data-testid="thread-panel-tab-changes"]')
-        ->assertSeeIn('[data-testid="changes-summary"]', '2 files changed')
-        ->assertSeeIn('[data-testid="changes-scratch-note"]', 'plus 1 scratch file in docs')
+        ->assertSeeIn('[data-testid="changes-summary"]', '2 files in 2 repos')
+        ->assertSeeIn('[data-testid="changes-scratch-note"]', 'plus 1 scratch file in acme/docs')
+        ->assertSeeIn('[data-testid="changes-pull-request-sentence"]', '2 pull requests will open, one per repo with changes.')
         ->assertPresent('[data-testid="changes-file-web.php"]')
         ->click('[data-testid="changes-tab-acme/web"]')
         ->assertPresent('[data-testid="changes-file-web.php"]')
