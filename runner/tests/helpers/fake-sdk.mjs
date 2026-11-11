@@ -1,4 +1,5 @@
 import { PassThrough } from 'node:stream';
+import { z } from 'zod';
 import { createRunner } from '../../lib/runner.mjs';
 
 export const SECRET = 'ghp_secret_passthrough_value';
@@ -16,7 +17,8 @@ export const start = (extra = {}) => ({
 });
 
 // Fake SDK surface: tool() and createSdkMcpServer() return plain descriptors the tests can inspect.
-export const fakeTool = (name, description, schema, handler) => ({ name, description, schema, handler });
+// The real tool() takes a zod raw shape, so the fake wraps it into an object schema for parse().
+export const fakeTool = (name, description, shape, handler) => ({ name, description, schema: z.object(shape), handler });
 export const fakeCreateSdkMcpServer = ({ name, tools }) => ({ type: 'sdk', name, instance: { tools } });
 
 export function createHarness({ messages = [], throwAfter = null, environment = { GH_TOKEN: SECRET }, yakTools } = {}) {

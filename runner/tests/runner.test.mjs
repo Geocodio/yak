@@ -138,3 +138,51 @@ test('it does not hand the CLI a spawn hook', async () => {
   assert.equal('spawnClaudeCodeProcess' in run.calls.options, false);
   await finish(run);
 });
+
+test('it passes the yak server in options.mcpServers', async () => {
+  const run = createHarness();
+  run.send(start());
+  await run.tick();
+  assert.equal(run.calls.options.mcpServers.yak.name, 'yak');
+  await finish(run);
+});
+
+test('it routes a tool_result command to the pending call', async () => {
+  const run = createHarness();
+  run.send(start());
+  await run.tick();
+  const listThreads = run.calls.options.mcpServers.yak.instance.tools.find((entry) => entry.name === 'list_threads');
+  const pending = listThreads.handler({});
+  await run.tick();
+  const callLine = run.lines().find((line) => line.type === 'yak.tool_call');
+  assert.equal(callLine.tool, 'list_threads');
+  run.send({ type: 'tool_result', call_id: callLine.call_id, is_error: false, content: 'ok' });
+  assert.deepEqual(await pending, { content: [{ type: 'text', text: 'ok' }] });
+  await finish(run);
+});
+
+test('it does not rewrite the tool_call line except for secrets', async () => {
+  const run = createHarness();
+  run.send(start());
+  await run.tick();
+  const sendMessage = run.calls.options.mcpServers.yak.instance.tools.find((entry) => entry.name === 'send_message');
+  sendMessage.handler({ to: 'a', text: `plain and ${SECRET}` });
+  await run.tick();
+  const callLine = run.lines().find((line) => line.type === 'yak.tool_call');
+  assert.equal(callLine.input.text, 'plain and [REDACTED]');
+  assert.equal(callLine.input.to, 'a');
+  await finish(run);
+});
+
+test('it answers every pending call with an error when the runner ends', async () => {
+  const run = createHarness();
+  run.send(start());
+  await run.tick();
+  const listThreads = run.calls.options.mcpServers.yak.instance.tools.find((entry) => entry.name === 'list_threads');
+  const pending = listThreads.handler({});
+  run.send({ type: 'end' });
+  const result = await pending;
+  assert.equal(result.isError, true);
+  run.release();
+  await run.exited;
+});

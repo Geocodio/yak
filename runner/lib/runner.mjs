@@ -5,8 +5,9 @@ import readline from 'node:readline';
 import { sensitiveValues } from './environment.mjs';
 import { createRedactor } from './redaction.mjs';
 import { buildOptions } from './options.mjs';
+import { createYakTools } from './yak-tools.mjs';
 
-export function createRunner({ query, input, output, exit, environment = process.env }) {
+export function createRunner({ query, tool, createSdkMcpServer, input, output, exit, environment = process.env }) {
   const queue = [];
   let wake = null;
   let ended = false;
@@ -25,6 +26,7 @@ export function createRunner({ query, input, output, exit, environment = process
     }
     write(object);
   };
+  const yak = createYakTools({ write, tool, createSdkMcpServer });
   const runnerLine = (event, extra = {}) => emit({ type: 'runner', event, ...extra });
   const describe = (error) => String(error?.stack || error?.message || error);
 
@@ -40,7 +42,7 @@ export function createRunner({ query, input, output, exit, environment = process
     const secrets = sensitiveValues(environment);
     redactor = createRedactor(secrets);
     hasSecrets = secrets.length > 0;
-    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment) });
+    activeQuery = query({ prompt: promptStream(), options: buildOptions(start, environment, { yak: yak.server }) });
     runnerLine('started', { pid: process.pid });
     let sawResult = false;
     try {
@@ -72,8 +74,11 @@ export function createRunner({ query, input, output, exit, environment = process
       activeQuery?.interrupt().then(() => runnerLine('interrupted'));
     } else if (command.type === 'set_model') {
       activeQuery?.setModel(command.model).catch((error) => runnerLine('error', { error: describe(error) }));
+    } else if (command.type === 'tool_result') {
+      yak.resolveToolResult(command);
     } else if (command.type === 'end') {
       ended = true;
+      yak.rejectAll('The runner ended before Yak answered');
       wakeUp();
     }
   }
@@ -93,11 +98,12 @@ export function createRunner({ query, input, output, exit, environment = process
     }
     handle(command);
   });
-  lines.on('close', () => { ended = true; wakeUp(); });
+  lines.on('close', () => { ended = true; yak.rejectAll('The runner ended before Yak answered'); wakeUp(); });
 
   return {
     shutdown() {
       ended = true;
+      yak.rejectAll('The runner shut down before Yak answered');
       wakeUp();
       return Promise.resolve(activeQuery?.interrupt()).catch(() => {});
     },
