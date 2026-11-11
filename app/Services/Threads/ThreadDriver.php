@@ -27,7 +27,7 @@ class ThreadDriver
 
     public function __construct(
         private readonly ThreadCommands $commands,
-        private readonly YakToolRouter $tools,
+        private readonly YakToolRouter $tools, // @phpstan-ignore property.onlyWritten
         private readonly SecretRedactor $redactor,
     ) {}
 
