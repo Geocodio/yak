@@ -1,0 +1,106 @@
+<?php
+
+namespace App\Services\Stacks;
+
+use App\Enums\RepositoryRole;
+use App\Enums\TaskMode;
+use App\Enums\ThreadKind;
+use App\Exceptions\StackRuleViolation;
+use App\Models\TaskRun;
+use App\Models\Thread;
+use App\Models\YakTask;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+
+/**
+ * Creates the sub-thread rows for a spawn. Sandbox and first turn are
+ * started separately, so the tool call returns at once.
+ */
+class ChildSpawner
+{
+    private const SPAWNABLE_KINDS = [ThreadKind::Research, ThreadKind::Implement, ThreadKind::Mockup, ThreadKind::General];
+
+    private const DEFAULT_CHILD_MODEL = 'sonnet';
+
+    public function __construct(private readonly StackRules $rules) {}
+
+    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null): Thread
+    {
+        $this->rules->assertMaySpawn($parent);
+
+        if (! in_array($kind, self::SPAWNABLE_KINDS, true)) {
+            throw new StackRuleViolation('A sub-thread must be research, implement, mockup or general.');
+        }
+
+        $brief = trim($brief);
+
+        if ($brief === '') {
+            throw new StackRuleViolation('A sub-thread needs a brief.');
+        }
+
+        return DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy): Thread {
+            $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
+            $root = $locked->rootThread();
+            $slug = $this->uniqueName($locked, $name);
+            $branch = in_array($kind, [ThreadKind::Implement, ThreadKind::Mockup], true)
+                ? 'yak/' . ($locked->branch ?? $locked->name) . '/' . $slug
+                : null;
+
+            $child = Thread::query()->create([
+                'name' => $slug,
+                'title' => Str::limit(trim((string) strtok($brief, "\n")), 120, '...'),
+                'repo' => $locked->repo,
+                'kind' => $kind,
+                'brief' => $brief,
+                'visibility' => $root->visibility,
+                'owner_user_id' => $root->owner_user_id,
+                'created_by_user_id' => $root->owner_user_id,
+                'parent_thread_id' => $locked->id,
+                'root_thread_id' => $root->id,
+                'spawned_by_task_run_id' => $spawnedBy?->id,
+                'claude_account_id' => $locked->claude_account_id,
+                'model' => $model ?? (string) config('yak.sandbox.default_child_model', self::DEFAULT_CHILD_MODEL),
+                'branch' => $branch,
+                'child_awake_limit' => (int) config('yak.threads.child_awake_limit'),
+            ]);
+
+            $primary = $locked->primaryRepository;
+            $child->repositories()->create([
+                'repo' => $locked->repo,
+                'role' => RepositoryRole::Primary,
+                'sandbox_path' => $primary->sandbox_path ?? (string) config('yak.sandbox.workspace_path', '/workspace'),
+                'branch' => $branch,
+            ]);
+
+            YakTask::query()->create([
+                'source' => YakTask::SOURCE_STACK,
+                'repo' => $locked->repo,
+                'external_id' => 'STACK-' . Str::upper(Str::random(8)),
+                'description' => $brief,
+                'mode' => $kind === ThreadKind::Research ? TaskMode::Research : TaskMode::Fix,
+                'started_by_user_id' => $this->driverOf($locked),
+                'thread_id' => $child->id,
+            ]);
+
+            return $child;
+        });
+    }
+
+    private function uniqueName(Thread $parent, string $name): string
+    {
+        $base = Str::limit(Str::slug($name), 40, '') ?: 'thread';
+        $candidate = $base;
+
+        for ($suffix = 2; Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $parent->id)->where('name', $candidate)->exists(); $suffix++) {
+            $candidate = "{$base}-{$suffix}";
+        }
+
+        return $candidate;
+    }
+
+    private function driverOf(Thread $parent): ?int
+    {
+        return $parent->runs()->whereNotNull('driver_user_id')->latest('id')->value('driver_user_id')
+            ?? $parent->effectiveOwnerUserId();
+    }
+}
