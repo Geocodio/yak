@@ -1,0 +1,49 @@
+name: Setup PHP app
+description: PHP 8.5, Composer dependencies, and a generated .env
+
+inputs:
+  coverage:
+    description: Coverage driver passed to setup-php
+    default: none
+  flux-username:
+    description: Flux composer username (secrets are not readable in composite actions)
+    required: true
+  flux-license-key:
+    description: Flux composer license key
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.5'
+        tools: composer:v2
+        extensions: sqlite3, pdo_sqlite, redis
+        coverage: ${{ inputs.coverage }}
+        ini-values: memory_limit=2G
+
+    - name: Cache Composer downloads
+      uses: actions/cache@v4
+      with:
+        path: ~/.composer/cache
+        key: composer-${{ hashFiles('composer.lock') }}
+        restore-keys: composer-
+
+    - name: Add Flux Credentials
+      shell: bash
+      env:
+        FLUX_USERNAME: ${{ inputs.flux-username }}
+        FLUX_LICENSE_KEY: ${{ inputs.flux-license-key }}
+      run: composer config http-basic.composer.fluxui.dev "$FLUX_USERNAME" "$FLUX_LICENSE_KEY"
+
+    - name: Install Composer dependencies
+      shell: bash
+      run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+    - name: Prepare environment file
+      shell: bash
+      run: |
+        cp .env.example .env
+        php artisan key:generate
