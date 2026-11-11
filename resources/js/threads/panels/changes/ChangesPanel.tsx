@@ -11,6 +11,7 @@ import { FileHeader } from './FileHeader';
 import { FileTree } from './FileTree';
 import { FilterInput } from './FilterInput';
 import { ViewedProgress } from './ViewedProgress';
+import { RepositoryChangeCard } from './RepositoryChangeCard';
 import { RepositoryTabs } from './RepositoryTabs';
 import { buildFileTree, fileKey } from './buildFileTree';
 import { useStack } from '../stack/useStack';
@@ -113,6 +114,8 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
         setSelectedRepo(repo);
         setOpenPath(null);
     };
+    const isAllReposView = hasSeveralRepositories && selectedRepo === null && childId === null;
+    const pullRequestRepositories = repositories.filter((repository) => !repository.isThrowaway && repository.filesCount > 0);
     const scratchRepositories = repositories.filter((repository) => repository.isThrowaway && repository.filesCount > 0);
 
     const toggleViewed = (path: string) => {
@@ -162,12 +165,21 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
             {diffSwitch}
             <div className="flex items-center justify-between gap-2">
                 <p className="text-[13px] text-body" data-testid="changes-summary">
-                    <span className="font-medium">{diff.filesCount} {diff.filesCount === 1 ? 'file' : 'files'} changed</span>{' '}
+                    {isAllReposView ? (
+                        <span className="font-medium">{diff.filesCount} {diff.filesCount === 1 ? 'file' : 'files'} in {pullRequestRepositories.length} {pullRequestRepositories.length === 1 ? 'repo' : 'repos'}</span>
+                    ) : (
+                        <span className="font-medium">{diff.filesCount} {diff.filesCount === 1 ? 'file' : 'files'} changed</span>
+                    )}{' '}
                     <span className="text-ok">+{diff.additions}</span> <span className="text-fail">-{diff.deletions}</span>
                     {selectedRepo === null && scratchRepositories.length > 0 && (
                         <span className="text-muted" data-testid="changes-scratch-note">
-                            {' '}
-                            plus {diff.throwawayFilesCount} scratch {diff.throwawayFilesCount === 1 ? 'file' : 'files'} in {scratchRepositories.map((repository) => repository.repo.split('/').pop()).join(', ')}
+                            {isAllReposView ? ', ' : ' '}
+                            plus {diff.throwawayFilesCount} scratch {diff.throwawayFilesCount === 1 ? 'file' : 'files'} in {scratchRepositories.map((repository) => (isAllReposView ? repository.repo : repository.repo.split('/').pop())).join(', ')}
+                        </span>
+                    )}
+                    {isAllReposView && (
+                        <span className="text-muted" data-testid="changes-pull-request-sentence">
+                            . {pullRequestRepositories.length} {pullRequestRepositories.length === 1 ? 'pull request' : 'pull requests'} will open, one per repo with changes.
                         </span>
                     )}
                 </p>
@@ -202,7 +214,23 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                         <FilterInput ref={filterInput} value={filter} onChange={setFilter} />
                         <ViewedProgress viewed={viewedCount} total={files.length} />
                     </div>
-                    <FileTree nodes={tree} viewed={viewed} onOpen={setOpenPath} />
+                    {isAllReposView ? (
+                        <div className="flex flex-col gap-3">
+                            {repositories.map((repository) => (
+                                <RepositoryChangeCard
+                                    key={repository.repo}
+                                    repository={repository}
+                                    files={visibleFiles.filter((file) => file.repo === repository.repo)}
+                                    primaryRepo={primaryRepo}
+                                    viewed={viewed}
+                                    onOpen={setOpenPath}
+                                    onReview={selectRepository}
+                                />
+                            ))}
+                        </div>
+                    ) : (
+                        <FileTree nodes={tree} viewed={viewed} onOpen={setOpenPath} />
+                    )}
                 </>
             ) : (
                 <>

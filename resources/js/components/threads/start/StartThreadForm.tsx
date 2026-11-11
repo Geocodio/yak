@@ -1,28 +1,27 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { BrandMarkIcon, Button, Kbd, Menu, cn } from '@geocodio/console-ui';
-import { ChevronDown, Search, Wrench } from 'lucide-react';
+import { BrandMarkIcon, Button, Kbd, cn } from '@geocodio/console-ui';
+import { ExternalLink, Info, Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
 import { AttachmentTextarea, type AttachmentTextareaHandle } from '@/components/attachments/AttachmentTextarea';
 import { useAttachmentDraft } from '@/components/attachments/useAttachmentDraft';
-import { repoInitials } from './repoInitials';
 import { RunsOnStrip } from './RunsOnStrip';
 import { StartHints } from './StartHints';
 import { StartErrorBanner } from './StartErrorBanner';
 import { BrokenDefaultNote, NoOwnAccountNote, resolveAccountNote } from './accountNotes';
-import { RepositoryPicker } from './RepositoryPicker';
+import { RepositoryPicker, type PickerRepository } from './RepositoryPicker';
 import { RepositoryProgress } from './RepositoryProgress';
 import { YAK_MARK } from '@/lib/brand';
 import { show, store } from '@/routes/threads';
 import { claudeAccounts } from '@/routes/settings';
 import type { SharedProps } from '@/types/shared';
-import type { NewThreadPageData, StartRepository } from '@/types/threads';
+import type { NewThreadPageData } from '@/types/threads';
 
 type Mode = 'fix' | 'research';
 
 const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] = [
-    { mode: 'fix', label: 'Change', icon: Wrench, hint: 'Yak makes the change and opens a PR for review.' },
-    { mode: 'research', label: 'Research', icon: Search, hint: 'Yak investigates and writes a report. No PR.' },
+    { mode: 'fix', label: 'Change', icon: Wrench, hint: 'Yak makes the change and opens a pull request for you to review. With several repos, one pull request per repo that changed.' },
+    { mode: 'research', label: 'Research', icon: Search, hint: 'Yak investigates and writes a report. No pull request.' },
 ];
 
 /**
@@ -33,7 +32,7 @@ const MODES: { mode: Mode; label: string; icon: typeof Wrench; hint: string }[] 
  */
 export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFocus }: Omit<NewThreadPageData, 'emailToYakAddress'> & { onStarted?: () => void; autoFocus?: boolean }) {
     const { docs } = usePage<SharedProps>().props;
-    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: StartRepository[] }>({
+    const form = useForm<{ repo: string; mode: Mode; description: string; claude_account_id: string; model: string | null; attachments: File[]; attachment_refs: string[]; repositories: PickerRepository[] }>({
         repo: defaultRepo ?? '',
         mode: 'fix',
         description: '',
@@ -43,6 +42,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         attachment_refs: [],
         repositories: [],
     });
+    const [isBlocked, setIsBlocked] = useState(false);
     const [startedThreadId, setStartedThreadId] = useState<number | null>(null);
     const editorRef = useRef<AttachmentTextareaHandle>(null);
     const draft = useAttachmentDraft({ enabled: true, onAdd: (added) => editorRef.current?.insertTokens(added) });
@@ -55,12 +55,13 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
     const defaultAccount = picker.accounts.find((account) => account.id === defaults?.accountId);
     const chosenAccount = picker.accounts.find((account) => String(account.id) === form.data.claude_account_id);
     const effectiveModel = form.data.model ?? chosenAccount?.defaultModel ?? defaults?.model ?? null;
-    const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3;
+    const canSubmit = !noAccounts && !noRepos && form.data.repo !== '' && form.data.description.trim().length >= 3 && !isBlocked;
 
     const extras = form.data.repositories;
     const isResearch = form.data.mode === 'research';
     const contextRepos = extras.filter((extra) => isResearch || extra.role === 'context');
     const expectedPullRequests = 1 + extras.filter((extra) => extra.role === 'changes').length;
+    const isStarting = form.processing || startedThreadId !== null;
     const openThread = useCallback(() => {
         if (startedThreadId !== null) {
             router.visit(show.url(startedThreadId));
@@ -73,6 +74,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
         }
         form.transform((data) => ({
             ...data,
+            repositories: data.repositories.map(({ repo, role }) => ({ repo, role })),
             claude_account_id: data.claude_account_id === '' ? null : data.claude_account_id,
             attachments: draft.files,
             attachment_refs: draft.refs,
@@ -122,39 +124,12 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                 </div>
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
                 <div className="flex flex-wrap items-center gap-2 border-t border-hair py-2.5 pl-[18px] pr-3">
-                    <Menu
-                        aria-label="Repository"
-                        disabled={noRepos}
-                        trigger={
-                            <span
-                                className={cn(
-                                    'inline-flex h-7 items-center gap-1.5 rounded-control border bg-panel pl-2 pr-2.5 text-[12.5px] font-medium hover:bg-panel-2',
-                                    form.data.repo === '' ? 'border-dashed border-hair-strong text-muted' : 'border-hair-strong text-body',
-                                )}
-                                data-testid="start-thread-repo"
-                            >
-                                <span className={cn('grid size-4 place-items-center rounded-[4px] font-mono text-[9px] font-semibold', form.data.repo === '' ? 'bg-panel-2 text-faint' : 'bg-brand text-accent-ink')}>
-                                    {form.data.repo === '' ? '@' : repoInitials(form.data.repo)}
-                                </span>
-                                {form.data.repo || (noRepos ? 'No repository' : 'Pick a repo')} <ChevronDown size={12} className="text-faint" aria-hidden="true" />
-                            </span>
-                        }
-                        items={repos.map((repo) => ({
-                            key: repo.slug,
-                            label: repo.slug,
-                            checked: repo.slug === form.data.repo,
-                            onSelect: () => {
-                                form.setData((data) => ({ ...data, repo: repo.slug, repositories: data.repositories.filter((extra) => extra.repo !== repo.slug) }));
-                            },
-                        }))}
-                    />
                     <div className="inline-flex h-7 gap-0.5 rounded-control bg-panel-2 p-0.5" role="group" aria-label="Mode">
-                        {MODES.map(({ mode, label, icon: Icon, hint }) => (
+                        {MODES.map(({ mode, label, icon: Icon }) => (
                             <button
                                 key={mode}
                                 type="button"
                                 aria-pressed={form.data.mode === mode}
-                                title={hint}
                                 onClick={() => form.setData('mode', mode)}
                                 className={cn(
                                     'inline-flex items-center gap-1.5 rounded-[5px] px-2.5 text-[12.5px] font-medium transition-colors',
@@ -168,10 +143,15 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                         ))}
                     </div>
                     <AttachButton draft={draft} disabled={form.processing} />
-                    <div className="ml-auto flex items-center gap-2.5">
+                    {isBlocked && (
+                        <span className="ml-auto text-[12px] text-fail" data-testid="start-thread-blocked">
+                            Remove {extras.find((extra) => extra.blocked !== undefined)?.repo} or fix its access to start.
+                        </span>
+                    )}
+                    <div className={cn('flex items-center gap-2.5', !isBlocked && 'ml-auto')}>
                         <Kbd keys={['⌘', '↵']} className="hidden pointer-fine:inline-flex" />
-                        <Button variant="primary" className="h-7" pending={form.processing || startedThreadId !== null} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
-                            {form.processing || startedThreadId !== null ? 'Starting...' : `Start ${isResearch ? 'research' : 'change'}`}
+                        <Button variant="primary" className="h-7" pending={isStarting} disabled={!canSubmit} onClick={submit} data-testid="start-thread-submit">
+                            {isStarting ? 'Starting...' : `Start ${isResearch ? 'research' : 'change'}`}
                         </Button>
                     </div>
                 </div>
@@ -208,25 +188,33 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                             primary={form.data.repo}
                             extras={extras}
                             available={repos.map((repo) => repo.slug)}
+                            onBlockedChange={setIsBlocked}
+                            docsUrl={docs.baseUrl}
+                            onPrimaryChange={(slug) => form.setData((data) => ({ ...data, repo: slug, repositories: data.repositories.filter((extra) => extra.repo !== slug) }))}
                             isResearch={isResearch}
                             disabled={form.processing || form.data.repo === ''}
                             onChange={(next) => form.setData('repositories', next)}
                         />
                         {extras.length > 0 && (
-                            <div className="flex items-start gap-3 text-[12px] text-muted">
-                                <p data-testid="repo-note">
+                            <p className="flex items-start gap-1.5 text-[12px] text-muted" data-testid="repo-note">
+                                <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                                <span>
                                     {contextRepos.length > 0 && <>{contextRepos.map((extra) => extra.repo).join(', ')} {contextRepos.length > 1 ? 'are' : 'is'} throwaway, with no pull request. </>}
-                                    Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.
-                                </p>
-                                {!isResearch && (
-                                    <span className="ml-auto shrink-0" data-testid="expected-pr-count">
-                                        {expectedPullRequests} pull {expectedPullRequests === 1 ? 'request' : 'requests'} expected
-                                    </span>
-                                )}
-                            </div>
+                                    Yak starts from {form.data.repo}'s template, then clones the others and runs their setup, so the first start takes longer.{' '}
+                                    <a href={docs.baseUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 underline">
+                                        How multi-repo threads work <ExternalLink size={11} aria-hidden="true" />
+                                    </a>
+                                </span>
+                            </p>
                         )}
                     </div>
                 )
+            )}
+
+            {!isResearch && extras.length > 0 && (
+                <p className="mt-2 text-right text-[12px] text-muted" data-testid="expected-pr-count">
+                    {expectedPullRequests} pull {expectedPullRequests === 1 ? 'request' : 'requests'} expected
+                </p>
             )}
 
             {noAccounts && (

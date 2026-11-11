@@ -28,8 +28,9 @@ test('it switches between repo tabs and promotes a context repo', function () {
     $page = visit(route('threads.show', $this->thread));
 
     $page->click('[data-testid="thread-panel-tab-changes"]')
-        ->assertSeeIn('[data-testid="changes-summary"]', '2 files changed')
-        ->assertSeeIn('[data-testid="changes-scratch-note"]', 'plus 1 scratch file in docs')
+        ->assertSeeIn('[data-testid="changes-summary"]', '2 files in 2 repos')
+        ->assertSeeIn('[data-testid="changes-scratch-note"]', 'plus 1 scratch file in acme/docs')
+        ->assertSeeIn('[data-testid="changes-pull-request-sentence"]', '2 pull requests will open, one per repo with changes.')
         ->assertPresent('[data-testid="changes-file-web.php"]')
         ->click('[data-testid="changes-tab-acme/web"]')
         ->assertPresent('[data-testid="changes-file-web.php"]')
@@ -50,4 +51,24 @@ test('a single repo thread has no sub tabs', function () {
         ->click('[data-testid="thread-panel-tab-changes"]')
         ->assertSeeIn('[data-testid="changes-summary"]', '2 files changed')
         ->assertMissing('[data-testid="changes-repository-tabs"]');
+});
+
+test('repo tabs show an avatar and a count pill', function () {
+    visit(route('threads.show', $this->thread))
+        ->click('[data-testid="thread-panel-tab-changes"]')
+        ->assertSeeIn('[data-testid="changes-tab-all"]', 'All repos')
+        ->assertSeeIn('[data-testid="changes-tab-all"] [data-testid="changes-tab-count"]', '2')
+        ->assertPresent('[data-testid="changes-tab-acme/web"] [data-testid="repo-avatar"]')
+        ->assertSeeIn('[data-testid="changes-tab-acme/web"] [data-testid="changes-tab-count"]', '1');
+});
+
+test('the all repos view shows one card per repo with badge and footer', function () {
+    visit(route('threads.show', $this->thread))
+        ->click('[data-testid="thread-panel-tab-changes"]')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/app"]', 'Primary')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/web"]', 'Changes')
+        ->assertPresent('[data-testid="changes-repo-card-acme/web"] [data-testid="changes-file-web.php"]')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/docs"]', 'Context')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/docs"]', 'No pull request')
+        ->assertSeeIn('[data-testid="changes-repo-card-acme/docs"]', 'Review');
 });

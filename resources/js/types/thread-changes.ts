@@ -23,6 +23,8 @@ export type ThreadDiffRepository = {
     filesCount: number;
     additions: number;
     deletions: number;
+    branch: string | null;
+    pullRequestUrl: string | null;
 };
 
 export type ThreadDiffSummary = {

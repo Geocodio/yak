@@ -9,6 +9,7 @@ use App\Models\ThreadDiff;
 use App\Models\ThreadDiffFile;
 use App\Models\ThreadRepository;
 use App\Models\User;
+use App\Services\Threads\Repos\RepositoryCardPublisher;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -86,4 +87,53 @@ it('shows the Environment rows, a role switch and the Changes sub-tabs', functio
         ->assertMissing('[data-testid="changes-context-callout"]');
 
     expect($thread->repositories()->where('repo', 'acme/docs')->value('role'))->toBe(RepositoryRole::Changes);
+});
+
+it('shows add-repo cards for a failed setup and a denied clone', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+
+    $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
+    $failed = ThreadRepository::factory()->changes()->failed()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
+    $publisher = app(RepositoryCardPublisher::class);
+    $publisher->publish($failed);
+    $publisher->publishDenied($thread->id, 'acme/secret', 'context', 'Needs the schema', 'Repository not found');
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Added a repository')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"] [data-testid="repository-card-status"]', 'Added, setup failed')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Clone acme/web')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Exit code 1')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"] [data-testid="repository-card-error"]', 'Setup did not finish.')
+        ->assertSeeIn('[data-testid="repository-card-acme/secret"] [data-testid="repository-card-status"]', 'Not added')
+        ->assertSeeIn('[data-testid="repository-card-acme/secret"] [data-testid="repository-card-error"]', 'Yak cannot clone acme/secret.')
+        ->assertPresent('[data-testid="repository-open-settings"]')
+        ->assertPresent('[data-testid="repository-card-acme/web"] [data-testid="repository-retry-setup"]')
+        ->assertPresent('[data-testid="repository-card-acme/web"] [data-testid="repository-make-context"]')
+        ->assertMissing('[data-testid="repository-remove"]')
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Setup failed')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Gets a pull request if it changes.')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Retry setup')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Make it context only')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Added by Claude at')
+        ->assertMissing('[data-testid="environment-repository-remove"]')
+        ->assertPresent('[data-testid="environment-repository-acme/web"] [data-testid="repo-avatar"]');
+});
+
+it('shows the add-repo card for a finished clone with its role and recovery actions', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+
+    $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
+    $done = ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
+    app(RepositoryCardPublisher::class)->publish($done);
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="repository-card-acme/web"] [data-testid="repository-card-status"]', 'Added')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Added a repository')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Make it context only')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Also listed under Environment')
+        ->assertMissing('[data-testid="repository-card-acme/web"] [data-testid="repository-card-error"]');
 });

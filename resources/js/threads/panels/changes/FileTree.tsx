@@ -9,6 +9,7 @@ type Props = {
     viewed: Set<string>;
     onOpen: (path: string) => void;
     depth?: number;
+    showStatusBadge?: boolean;
 };
 
 export function FileTree({ nodes, viewed, onOpen, depth = 0 }: Props) {

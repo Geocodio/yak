@@ -136,7 +136,7 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
         );
     }
 
-    const { sandbox, branch, pullRequest, account, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
+    const { sandbox, branch, pullRequest, deployment, account, startedBy, stoppedAfterMinutes, repositories, notUploadedDirectories } = environment;
 
     return (
         <div className="flex flex-col gap-4" data-testid="environment-panel">

@@ -24,7 +24,7 @@ final class ThreadDiffData
      *     deletions: int,
      *     throwawayFilesCount: int,
      *     isTurnRunning: bool,
-     *     repositories: list<array{repo: string, role: value-of<RepositoryRole>, isThrowaway: bool, baseSha: string, headSha: string, filesCount: int, additions: int, deletions: int}>,
+     *     repositories: list<array{repo: string, role: value-of<RepositoryRole>, isThrowaway: bool, baseSha: string, headSha: string, filesCount: int, additions: int, deletions: int, branch: ?string, pullRequestUrl: ?string}>,
      *     files: list<array{id: int, repo: string, path: string, oldPath: ?string, status: value-of<DiffFileStatus>, additions: ?int, deletions: ?int, isBinary: bool, isTooLarge: bool}>,
      * }}
      */
@@ -36,6 +36,7 @@ final class ThreadDiffData
             return ['diff' => null];
         }
 
+        $checkouts = $thread->repositories()->get()->keyBy('repo');
         $repositories = [[
             'repo' => (string) $thread->repo,
             'role' => RepositoryRole::Primary->value,
@@ -45,6 +46,8 @@ final class ThreadDiffData
             'filesCount' => $diff->files->whereNull('thread_diff_repository_id')->count(),
             'additions' => $diff->additions,
             'deletions' => $diff->deletions,
+            'branch' => $checkouts->get((string) $thread->repo)?->branch,
+            'pullRequestUrl' => $checkouts->get((string) $thread->repo)?->pull_request_url,
         ]];
         $filesCount = $diff->files_count;
         $additions = $diff->additions;
@@ -63,6 +66,8 @@ final class ThreadDiffData
                 'filesCount' => $extra->files_count,
                 'additions' => $extra->additions,
                 'deletions' => $extra->deletions,
+                'branch' => $checkouts->get($extra->repo)?->branch,
+                'pullRequestUrl' => $checkouts->get($extra->repo)?->pull_request_url,
             ];
 
             // Header totals count only repositories that get a pull request.

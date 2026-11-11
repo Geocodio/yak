@@ -36,4 +36,5 @@ export type ThreadPullRequestsData = {
     canDrive: boolean;
     pullRequests: PullRequestRow[];
     withoutPullRequest: RepositoryWithoutPullRequest[];
+    expectations: string[];
 };
