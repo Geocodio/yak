@@ -586,6 +586,14 @@ return [
         'reconcile_pr_state' => (bool) env('YAK_TELEMETRY_RECONCILE_PR_STATE', true),
     ],
 
+    'ssh' => [
+        'github_ttl_seconds' => (int) env('YAK_SSH_GITHUB_TTL_SECONDS', 300),
+        'github_negative_ttl_seconds' => (int) env('YAK_SSH_GITHUB_NEGATIVE_TTL_SECONDS', 900),
+        'github_stale_days' => (int) env('YAK_SSH_GITHUB_STALE_DAYS', 7),
+        'jump_host' => env('YAK_SSH_JUMP_HOST'),
+        'docs_url' => env('YAK_SSH_DOCS_URL', 'https://yak.build/docs/ssh'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Threads

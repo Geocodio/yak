@@ -19,6 +19,8 @@ final class SshWireReader
     }
 
     /**
+     * @phpstan-impure
+     *
      * @throws InvalidArgumentException when the blob ends inside a field
      */
     public function string(): string
