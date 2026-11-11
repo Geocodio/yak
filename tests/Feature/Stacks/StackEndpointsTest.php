@@ -111,3 +111,47 @@ it('serves a child diff only inside the stack', function () {
     $this->actingAs($this->user)->getJson(route('threads.stack.children.diff', [$this->root, $stranger]))->assertNotFound();
     $this->actingAs($this->user)->getJson(route('threads.stack.children.diff', [$this->root, $this->root]))->assertNotFound();
 });
+
+it('rejects an unknown model on add sub-thread', function () {
+    Queue::fake();
+    $payload = ['name' => 'a', 'brief' => 'b', 'kind' => 'general'];
+
+    $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $this->root), [...$payload, 'model' => 'gpt-9'])
+        ->assertUnprocessable()->assertJsonValidationErrors('model');
+    expect(Thread::query()->where('parent_thread_id', $this->root->id)->count())->toBe(1);
+
+    $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $this->root), [...$payload, 'model' => 'opus'])->assertCreated();
+});
+
+it('records the requesting user as the child creator and driver', function () {
+    Queue::fake();
+    $owner = User::factory()->create();
+    $team = Thread::factory()->create(['repo' => 'acme/widgets', 'branch' => 'yak/t', 'owner_user_id' => $owner->id]);
+    ThreadRepository::factory()->create(['thread_id' => $team->id, 'repo' => 'acme/widgets', 'role' => RepositoryRole::Primary]);
+
+    $id = $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $team), ['name' => 'a', 'brief' => 'b', 'kind' => 'general', 'model' => 'sonnet'])
+        ->assertCreated()->json('id');
+
+    $child = Thread::query()->findOrFail($id);
+    expect($child->created_by_user_id)->toBe($this->user->id)
+        ->and($child->tasks()->sole()->started_by_user_id)->toBe($this->user->id);
+});
+
+it('refuses a viewer who cannot drive the parent', function () {
+    $owner = User::factory()->create();
+    $guest = User::factory()->create();
+    $private = Thread::factory()->private($owner)->create();
+    ThreadShare::query()->create(['thread_id' => $private->id, 'user_id' => $guest->id]);
+
+    $this->actingAs($guest)->postJson(route('threads.stack.children.store', $private), ['name' => 'a', 'brief' => 'b', 'kind' => 'general', 'model' => 'sonnet'])->assertForbidden();
+
+    expect(Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $private->id)->exists())->toBeFalse();
+});
+
+it('answers 404 and creates nothing for a user who cannot view the parent', function () {
+    $private = Thread::factory()->private(User::factory()->create())->create();
+
+    $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $private), ['name' => 'a', 'brief' => 'b', 'kind' => 'general', 'model' => 'sonnet'])->assertNotFound();
+
+    expect(Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $private->id)->exists())->toBeFalse();
+});

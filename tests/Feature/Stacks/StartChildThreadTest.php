@@ -8,6 +8,7 @@ use App\Models\ClaudeAccount;
 use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\ThreadRepository;
+use App\Models\User;
 use App\Services\Stacks\ChildSpawner;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
@@ -85,4 +86,13 @@ it('does not start a child in a stopped stack', function () {
     (new StartChildThreadJob($child->id))->handle(app(ChildSpawner::class));
 
     expect(TaskRun::query()->where('thread_id', $child->id)->count())->toBe(0);
+});
+
+it('drives the first turn of an HTTP spawn as the acting user', function () {
+    $actor = User::factory()->create();
+    $child = app(ChildSpawner::class)->spawn($this->parent, 'helper', 'Find callers.', ThreadKind::Implement, null, null, actor: $actor);
+
+    (new StartChildThreadJob($child->id))->handle(app(ChildSpawner::class));
+
+    expect(TaskRun::query()->where('thread_id', $child->id)->sole()->driver_user_id)->toBe($actor->id);
 });

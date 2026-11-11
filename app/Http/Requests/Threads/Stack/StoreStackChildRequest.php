@@ -22,7 +22,7 @@ class StoreStackChildRequest extends FormRequest
             'name' => ['required', 'string', 'max:60'],
             'brief' => ['required', 'string', 'max:20000'],
             'kind' => ['required', Rule::in([ThreadKind::Research->value, ThreadKind::Implement->value, ThreadKind::Mockup->value, ThreadKind::General->value])],
-            'model' => ['nullable', 'string', 'max:100'],
+            'model' => ['nullable', 'string', Rule::in(config('claude-accounts.models'))],
         ];
     }
 }

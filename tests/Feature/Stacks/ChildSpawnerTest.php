@@ -88,3 +88,44 @@ it('refuses a child as spawner and a root kind', function () {
         ->toThrow(StackRuleViolation::class)
         ->and(Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $parent->id)->count())->toBe(1);
 });
+
+it('refuses a model outside the configured list', function () {
+    $parent = stackParent();
+
+    expect(fn () => app(ChildSpawner::class)->spawn($parent, 'worker', 'Do it.', ThreadKind::Implement, 'gpt-9'))
+        ->toThrow(StackRuleViolation::class, 'Unknown model');
+    expect(Thread::query()->where('parent_thread_id', $parent->id)->exists())->toBeFalse();
+});
+
+it('defaults the child model to the configured default', function () {
+    $child = app(ChildSpawner::class)->spawn(stackParent(), 'worker', 'Do it.', ThreadKind::Implement, null);
+
+    expect($child->model)->toBe(config('yak.sandbox.default_child_model'))->toBe('sonnet');
+});
+
+it('records the human actor as creator and first-turn driver', function () {
+    $owner = User::factory()->create();
+    $actor = User::factory()->create();
+    $parent = stackParent(['visibility' => ThreadVisibility::Team, 'owner_user_id' => $owner->id]);
+
+    $child = app(ChildSpawner::class)->spawn($parent, 'helper', 'Do it.', ThreadKind::General, null, null, actor: $actor);
+    $task = YakTask::query()->where('thread_id', $child->id)->sole();
+
+    expect($child->created_by_user_id)->toBe($actor->id)
+        ->and($child->owner_user_id)->toBe($owner->id)
+        ->and($task->started_by_user_id)->toBe($actor->id)
+        ->and($child->claude_account_id)->toBe($parent->claude_account_id);
+});
+
+it('keeps the root owner as creator for agent spawns', function () {
+    $owner = User::factory()->create();
+    $driver = User::factory()->create();
+    $parent = stackParent(['owner_user_id' => $owner->id]);
+    $run = TaskRun::factory()->create(['thread_id' => $parent->id, 'driver_user_id' => $driver->id]);
+
+    $child = app(ChildSpawner::class)->spawn($parent, 'helper', 'Do it.', ThreadKind::General, null, $run);
+
+    expect($child->created_by_user_id)->toBe($owner->id)
+        ->and($child->spawned_by_task_run_id)->toBe($run->id)
+        ->and(YakTask::query()->where('thread_id', $child->id)->sole()->started_by_user_id)->toBe($driver->id);
+});
