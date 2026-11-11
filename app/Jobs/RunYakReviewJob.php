@@ -58,6 +58,8 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
 
     public int $timeout = 3600;
 
+    private const AGENT_SHUTDOWN_BUFFER_SECONDS = 180;
+
     /** @var array<int, int> */
     public array $backoff = [1, 5, 10];
 
@@ -163,7 +165,7 @@ class RunYakReviewJob implements ShouldBeUnique, ShouldQueue
                 prompt: $prompt,
                 systemPrompt: YakPromptBuilder::systemPrompt($this->task),
                 containerName: $containerName,
-                timeoutSeconds: $this->timeout - 30,
+                timeoutSeconds: $this->timeout - self::AGENT_SHUTDOWN_BUFFER_SECONDS,
                 maxBudgetUsd: (float) config('yak.max_budget_per_task'),
                 maxTurns: (int) config('yak.max_turns'),
                 model: (string) config('yak.default_model'),

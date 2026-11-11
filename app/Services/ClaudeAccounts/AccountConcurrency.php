@@ -51,6 +51,20 @@ class AccountConcurrency
         AccountSlotFreed::dispatch($account->id);
     }
 
+    /**
+     * Frees the slot a run holds, resolving its account from the run itself.
+     */
+    public function releaseRun(TaskRun $run): void
+    {
+        $accountId = TaskRun::query()->whereKey($run->id)->whereNotNull('account_slot_held_at')->value('claude_account_id');
+
+        if ($accountId === null) {
+            return;
+        }
+
+        $this->release(ClaudeAccount::query()->whereKey($accountId)->firstOrFail(), $run);
+    }
+
     public function position(TaskRun $run): int
     {
         if ($run->turn_state !== TurnState::WaitingForAccount || $run->claude_account_id === null) {

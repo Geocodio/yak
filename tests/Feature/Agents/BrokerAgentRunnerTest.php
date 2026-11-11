@@ -234,3 +234,50 @@ it('keeps secrets out of logs, results and the runner start line', function () {
         ->and(TaskLog::query()->where('message', 'like', '%[redacted]%')->exists())->toBeTrue()
         ->and($commands)->toContain('yakph-' . str_repeat('Q', 43))->not->toContain($this->account->secret);
 });
+
+it('stops a runaway run at the assistant turn limit', function () {
+    config(['yak.max_turns' => 3]);
+
+    foreach (range(1, 3) as $sequence) {
+        $this->streams->pushOut($this->channel, 1, $sequence, ['type' => 'assistant', 'message' => ['role' => 'assistant', 'content' => [['type' => 'text', 'text' => "step {$sequence}"]]]]);
+    }
+
+    $result = app(BrokerAgentRunner::class)->run(($this->makeRequest)());
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->resultSummary)->toContain('3 assistant turns')
+        ->and(array_column(($this->sentTo)($this->channel), 'type'))->toBe(['start_runner', 'turn', 'interrupt', 'kill', 'end'])
+        ->and($this->run->fresh()->account_slot_held_at)->toBeNull();
+});
+
+it('stops a run that exceeds the wall clock', function () {
+    config(['yak.threads.turn_wall_clock_minutes' => 1]);
+    $this->streams->pushOut($this->channel, 1, 1, ['type' => 'runner', 'event' => 'started']);
+
+    $result = app(BrokerAgentRunner::class)->run(($this->makeRequest)(7200));
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->resultSummary)->toContain('1 minutes')
+        ->and(array_column(($this->sentTo)($this->channel), 'type'))->toBe(['start_runner', 'turn', 'interrupt', 'kill', 'end']);
+});
+
+it('records a heartbeat while awaiting and a deadline equal to the request timeout', function () {
+    $started = now();
+    $seen = [];
+    Sleep::whenFakingSleep(function () use (&$seen) {
+        $seen = $this->run->fresh()->only(['oneshot_heartbeat_at', 'oneshot_deadline_at']);
+    });
+
+    app(BrokerAgentRunner::class)->run(($this->makeRequest)(5));
+
+    expect($seen['oneshot_heartbeat_at'])->not->toBeNull()
+        ->and($seen['oneshot_deadline_at']->diffInSeconds($started, true))->toBeBetween(4, 6);
+});
+
+it('does not forward budget or turn limits to the runner', function () {
+    ($this->feed)('natural-turn-end');
+
+    app(BrokerAgentRunner::class)->run(($this->makeRequest)());
+
+    expect(($this->sentTo)($this->channel)[0]['start'])->not->toHaveKeys(['maxBudgetUsd', 'maxTurns']);
+});

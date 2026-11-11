@@ -4,6 +4,7 @@ namespace App\Services\Threads;
 
 use App\Models\TaskRun;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 
 /**
  * Decides whether a running turn has gone on too long. A turn has no budget;
@@ -23,7 +24,7 @@ class RunawayGuard
 
         $turnStartedAt = $run->agent_started_at ?? $run->getAttribute('started_at');
 
-        if ($turnStartedAt instanceof CarbonImmutable
+        if ($turnStartedAt instanceof CarbonInterface
             && $turnStartedAt->diffInMinutes($now, true) >= (int) config('yak.threads.turn_wall_clock_minutes')) {
             return self::WALL_CLOCK;
         }
