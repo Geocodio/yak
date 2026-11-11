@@ -1,4 +1,4 @@
-import type { ConversationItem } from './realtimeStub';
+import type { ConversationItem } from './conversationItem';
 
 /** A collapsed step row such as "Read 2 files"; the detail opens on demand. */
 export function ToolActivity({ item }: { item: ConversationItem }) {

@@ -1,6 +1,6 @@
 import { cn } from '@geocodio/console-ui';
 import { Prose } from '@/components/Prose';
-import type { ConversationItem } from './realtimeStub';
+import type { ConversationItem } from './conversationItem';
 
 export function ClaudeMessage({ item }: { item: ConversationItem }) {
     return (

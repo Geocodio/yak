@@ -1,16 +1,18 @@
 import { useMemo, useRef } from 'react';
+import { useThreadEventFeed } from '@/threads/realtime/useThreadEventFeed';
 import type { ThreadMessage } from '@/types/threads';
+import { projectConversation } from './projectConversation';
 import { createReadTracker, mergeConversation, type ConversationEntry } from './mergeConversation';
-import { useThreadEvents } from './realtimeStub';
 
 export { mergeConversation, type ConversationEntry };
 
-export function useConversation(threadId: number, messages: ThreadMessage[]): { entries: ConversationEntry[] } {
-    const events = useThreadEvents(threadId);
+export function useConversation(threadId: number, messages: ThreadMessage[]): { entries: ConversationEntry[]; lastSequence: number; connection: string } {
+    const { state: events, entrySequences } = useThreadEventFeed(threadId);
     const track = useRef(createReadTracker()).current;
-    const readUuids = track(events.readUuids);
+    const { items, readSequences } = useMemo(() => projectConversation(events, entrySequences), [events.entries, entrySequences, events.streamingBlocks, events.lastSequence]);
+    const readUuids = track(Object.keys(readSequences));
     const readKey = readUuids.join(',');
-    const entries = useMemo(() => mergeConversation(messages, readUuids, events.items), [messages, readKey, events.items]);
+    const entries = useMemo(() => mergeConversation(messages, readUuids, items, readSequences), [messages, readKey, items, readSequences]);
 
-    return { entries };
+    return { entries, lastSequence: events.lastSequence, connection: events.connection };
 }
