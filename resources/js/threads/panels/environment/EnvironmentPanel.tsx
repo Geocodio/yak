@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from 'react';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
 import { RepositoryRows } from './RepositoryRows';
+import { StatusCard } from './StatusCard';
 import { useThreadEnvironment } from './useThreadEnvironment';
 
 type SandboxState = ThreadEnvironment['sandbox']['state'];
@@ -37,11 +38,11 @@ function sandboxSentence(state: SandboxState, stoppedAfterMinutes: number): stri
         case 'paused':
             return `Wakes in about a second when you send a message. Stops on its own after ${stoppedAfterMinutes} idle minutes.`;
         case 'stopped':
-            return 'The sandbox is stopped. Sending a message restores it from the thread history.';
+            return 'The sandbox is stopped. Sending a message rebuilds it from the thread history.';
         case 'destroying':
             return 'The sandbox is being removed.';
         case 'destroyed':
-            return 'The sandbox was removed. Sending a message restores it from the thread history.';
+            return 'The sandbox was removed. Sending a message rebuilds it from the thread history.';
         case 'none':
             return 'A sandbox is created when you send the first message.';
     }
@@ -76,7 +77,7 @@ function formatStartedAt(iso: string): string {
     return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
+export function EnvironmentPanel({ thread, canDrive, notice, composerState }: PanelProps) {
     const { environment, isLoading, error, reload } = useThreadEnvironment(thread);
     const isSettingUp = environment?.repositories.some((repository) => ['pending', 'cloning', 'setup'].includes(repository.setupStatus)) ?? false;
 
@@ -90,7 +91,8 @@ export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
 
     if (environment === null) {
         return (
-            <div data-testid="environment-panel">
+            <div className="flex flex-col gap-4" data-testid="environment-panel">
+                <StatusCard thread={thread} notice={notice} composerState={composerState} />
                 {isLoading ? (
                     <div className="flex flex-col gap-3" data-testid="environment-loading">
                         <Skeleton className="h-20 w-full" />
@@ -110,6 +112,7 @@ export function EnvironmentPanel({ thread, canDrive }: PanelProps) {
 
     return (
         <div className="flex flex-col gap-4" data-testid="environment-panel">
+            <StatusCard thread={thread} notice={notice} composerState={composerState} />
             <section className="rounded-card border border-hair bg-app p-3" data-testid="environment-sandbox-state">
                 <div className="flex items-center gap-2 text-[13px] font-medium text-body">
                     <span className={cn('inline-block h-2 w-2 rounded-pill', DOT[sandbox.state])} />

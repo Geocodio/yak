@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { threadStatus } from './threadStatus.ts';
+import { rebuildProgress, threadStatus } from './threadStatus.ts';
 
 const notice = (kind) => ({ kind });
 
@@ -25,4 +25,14 @@ test('falls back to the composer state', () => {
 
 test('a notice wins over the composer state', () => {
     assert.equal(threadStatus(notice('restoring'), 'working').label, 'Rebuilding');
+});
+
+test('rebuildProgress points at the failed step, else the first unfinished one', () => {
+    const step = (status, label) => ({ status, label });
+    const running = { kind: 'restoring', restoreSteps: [step('done', 'a'), step('done', 'b'), step('running', 'c'), step('pending', 'd')] };
+    assert.deepEqual(rebuildProgress(running), { current: 3, total: 4, label: 'c' });
+    const failed = { kind: 'restore_failed', restoreSteps: [step('done', 'a'), step('failed', 'b'), step('pending', 'c')] };
+    assert.deepEqual(rebuildProgress(failed), { current: 2, total: 3, label: 'b' });
+    assert.equal(rebuildProgress({ kind: 'usage_limit', restoreSteps: [] }), null);
+    assert.deepEqual(rebuildProgress({ kind: 'restoring', restoreSteps: [] }), { current: 1, total: 0, label: null });
 });

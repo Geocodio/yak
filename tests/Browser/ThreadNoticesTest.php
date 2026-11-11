@@ -119,3 +119,34 @@ it('renders a failed step that has no output tail and no exit code', function ()
         ->assertVisible('[data-testid="restore-retry"]')
         ->assertNoJavaScriptErrors();
 });
+
+it('shows the sidebar status card while rebuilding and a second retry when it failed', function () {
+    $user = User::factory()->create();
+    $rebuilding = rebuildingThread($user);
+    $failed = rebuildingThread($user, ThreadBlockReason::RestoreFailed);
+    $this->actingAs($user);
+
+    visit("/threads/{$rebuilding->id}")
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="environment-status-card"]', 'Rebuilding, step 3 of 6')
+        ->assertSeeIn('[data-testid="environment-status-card"]', 'Run .yak/setup.sh.')
+        ->assertNoJavaScriptErrors();
+
+    visit("/threads/{$failed->id}")
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="environment-status-card"]', 'Rebuild stopped at step 3')
+        ->assertSeeIn('[data-testid="sidebar-restore-retry"]', 'Retry from this step')
+        ->assertNoJavaScriptErrors();
+});
+
+it('keeps a failed rebuild in view on a phone without horizontal scroll', function () {
+    $user = User::factory()->create();
+    $thread = rebuildingThread($user, ThreadBlockReason::RestoreFailed);
+    $this->actingAs($user);
+
+    $page = visit("/threads/{$thread->id}")->resize(390, 844);
+    $page->assertSeeIn('[data-testid="failed-step-strip"]', 'Step 3 of 6 failed')
+        ->assertVisible('[data-testid="strip-restore-retry"]')
+        ->assertScript('document.documentElement.scrollWidth <= window.innerWidth', true)
+        ->assertNoJavaScriptErrors();
+});

@@ -27,3 +27,17 @@ export function threadStatus(notice: ThreadNotice | null, composerState: ThreadC
 
     return composerState === 'working' ? { label: 'Working', tone: 'brand' } : null;
 }
+
+/** Where a rebuild stands: the step being worked on (or the failed one), the step count and its label. */
+export function rebuildProgress(notice: ThreadNotice): { current: number; total: number; label: string | null } | null {
+    if (notice.kind !== 'restoring' && notice.kind !== 'restore_failed') {
+        return null;
+    }
+
+    const steps = notice.restoreSteps;
+    const failedIndex = steps.findIndex((step) => step.status === 'failed');
+    const doneCount = steps.filter((step) => step.status === 'done').length;
+    const index = failedIndex !== -1 ? failedIndex : Math.min(doneCount, steps.length - 1);
+
+    return { current: Math.max(index + 1, 1), total: steps.length, label: steps[index]?.label ?? null };
+}

@@ -3,6 +3,7 @@ import { cn } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
 import { StatusPill } from '@/components/threads/StatusPill';
 import { ThreadComposer } from '@/components/threads/composer/ThreadComposer';
+import { FailedStepStrip } from '@/components/threads/conversation/FailedStepStrip';
 import { Conversation } from '@/components/threads/conversation/Conversation';
 import { TeleportConversationNotices } from '@/components/threads/teleport/TeleportConversationNotices';
 import { AppLayout } from '@/layouts/AppLayout';
@@ -58,6 +59,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                     </div>
                 </div>
             </header>
+            <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
             <ChildParentBanner thread={thread} parent={stackParent} />
             <ThreadPhoneTabs registeredDockIds={dockPanels.map((panel) => panel.id)} active={phoneTab} onSelect={selectPhoneTab} />
@@ -97,7 +99,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                             ))}
                         </div>
                         <div className="min-h-0 flex-1 overflow-auto px-4 py-5">
-                            <active.component thread={thread} canDrive={canDrive} />
+                            <active.component thread={thread} canDrive={canDrive} notice={notice} composerState={composer.state} />
                         </div>
                     </aside>
                 )}
