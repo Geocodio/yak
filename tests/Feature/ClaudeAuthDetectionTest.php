@@ -6,7 +6,6 @@ use App\Enums\TaskStatus;
 use App\Exceptions\ClaudeAuthException;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
-use App\Jobs\RunYakJob;
 use App\Jobs\SendNotificationJob;
 use App\Jobs\SetupYakJob;
 use App\Models\Repository;
@@ -167,42 +166,6 @@ test('formats auth error message with details', function () {
     expect($message)->toContain('Claude CLI authentication error')
         ->and($message)->toContain('Not authenticated')
         ->and($message)->toContain('re-authenticate');
-});
-
-/*
-|--------------------------------------------------------------------------
-| RunYakJob Auth Error Detection
-|--------------------------------------------------------------------------
-*/
-
-test('RunYakJob detects auth error and fails task with notification', function () {
-    Queue::fake([SendNotificationJob::class]);
-
-    $fake = (new FakeAgentRunner)->queueException(
-        new ClaudeAuthException('Claude CLI authentication error: Not authenticated. Please run `claude login`.')
-    );
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
-
-    Process::fake(['*' => Process::result('')]);
-
-    $repository = Repository::factory()->create(['slug' => 'auth-repo', 'path' => '/home/yak/repos/auth-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'auth-repo', 'source' => 'slack']);
-
-    $job = new RunYakJob($task);
-    $job->handle($fake);
-
-    $task->refresh();
-
-    expect($task->status)->toBe(TaskStatus::Failed)
-        ->and($task->error_log)->toContain('Claude CLI authentication error')
-        ->and($task->completed_at)->not->toBeNull();
-
-    Queue::assertPushed(SendNotificationJob::class, function (SendNotificationJob $job) use ($task) {
-        return $job->task->id === $task->id
-            && $job->type === NotificationType::Error
-            && str_contains($job->message, 'authentication');
-    });
 });
 
 /*

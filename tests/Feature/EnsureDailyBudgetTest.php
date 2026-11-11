@@ -1,7 +1,5 @@
 <?php
 
-use App\Contracts\AgentRunner;
-use App\DataTransferObjects\AgentRunResult;
 use App\Jobs\Middleware\EnsureDailyBudget;
 use App\Jobs\ResearchYakJob;
 use App\Jobs\RetryYakJob;
@@ -10,10 +8,9 @@ use App\Jobs\SetupYakJob;
 use App\Models\DailyCost;
 use App\Models\Repository;
 use App\Models\YakTask;
-use App\Services\IncusSandboxManager;
-use Illuminate\Support\Facades\Process;
-use Tests\Support\FakeAgentRunner;
-use Tests\Support\FakeSandboxManager;
+use Illuminate\Support\Facades\Queue;
+
+require_once __DIR__ . '/../Support/FinishTurnHelpers.php';
 
 /*
 |--------------------------------------------------------------------------
@@ -192,26 +189,13 @@ test('all claude jobs include EnsureDailyBudget middleware', function () {
 |--------------------------------------------------------------------------
 */
 
-test('successful run accumulates daily cost', function () {
-    $fake = (new FakeAgentRunner)->queueResult(new AgentRunResult(
-        sessionId: 'sess_1',
-        resultSummary: 'Done',
-        costUsd: 3.25,
-        numTurns: 10,
-        durationMs: 60000,
-        isError: false,
-        rawOutput: '{}',
-    ));
-    $this->app->instance(AgentRunner::class, $fake);
-    $this->app->instance(IncusSandboxManager::class, new FakeSandboxManager);
+test('a finished turn accumulates daily cost', function () {
+    Queue::fake();
+    fakeAfterTurnCollaborators();
+    [, $run] = endedTurn();
+    $run->update(['recorded_cost_usd' => 3.25]);
 
-    Process::fake(['*' => Process::result('')]);
-
-    Repository::factory()->create(['slug' => 'test-repo', 'path' => '/home/yak/repos/test-repo']);
-    $task = YakTask::factory()->pending()->create(['repo' => 'test-repo', 'source' => 'slack']);
-
-    $job = new RunYakJob($task);
-    $job->handle($fake);
+    runFinisher($run);
 
     $record = DailyCost::whereDate('date', now()->toDateString())->first();
 
