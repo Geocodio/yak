@@ -15,7 +15,6 @@ use App\Services\Threads\Contracts\SessionFileSync;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
-use LogicException;
 use Throwable;
 
 /**
@@ -34,6 +33,7 @@ class ThreadSandbox
         private BrokerStreams $streams,
         private SessionFileSync $sessions,
         private WipPreserver $wip,
+        private SandboxRestorer $restorer,
     ) {}
 
     public function touch(Thread $thread): void
@@ -126,12 +126,16 @@ class ThreadSandbox
         try {
             $thread->refresh();
 
+            if ($thread->blocked_reason === ThreadBlockReason::RestoreFailed) {
+                return $this->restoreAwake($thread);
+            }
+
             return match ($thread->sandbox_state) {
                 ThreadSandboxState::Running => SandboxWake::ready(),
                 ThreadSandboxState::Starting => SandboxWake::restoring(),
                 ThreadSandboxState::Paused => $this->resume($thread),
                 ThreadSandboxState::Stopped => $this->startStopped($thread),
-                default => throw new LogicException('restore arrives in chunk 4'),
+                ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed => $this->restoreAwake($thread),
             };
         } finally {
             $lock->release();
@@ -146,15 +150,68 @@ class ThreadSandbox
         return SandboxWake::ready();
     }
 
+    /** Rebuilds the sandbox, or resumes a restore that failed part way. */
+    public function restore(Thread $thread): bool
+    {
+        $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
+
+        if (! $lock->get()) {
+            return false;
+        }
+
+        try {
+            $thread->refresh();
+
+            return $this->restoreAwake($thread)->ready;
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function restoreAwake(Thread $thread): SandboxWake
+    {
+        $needsSlot = in_array($thread->sandbox_state, [ThreadSandboxState::None, ThreadSandboxState::Destroying, ThreadSandboxState::Destroyed, ThreadSandboxState::Stopped], true);
+
+        if ($needsSlot && ! $this->makeRoom($thread)) {
+            return SandboxWake::waitingForSlot();
+        }
+
+        $this->wakeForPreserve($thread);
+
+        if (! $this->restorer->restore($thread)) {
+            return new SandboxWake(false, false, false);
+        }
+
+        $thread->update(['runner_state' => RunnerState::None]);
+        $this->runColdStart($thread);
+        $this->clearWaiting($thread);
+
+        return SandboxWake::ready();
+    }
+
     private function startStopped(Thread $thread): SandboxWake
+    {
+        if (! $this->makeRoom($thread)) {
+            return SandboxWake::waitingForSlot();
+        }
+
+        $this->sandboxes->start($thread);
+        $this->record($thread, ThreadSandboxState::Running);
+        $thread->update(['runner_state' => RunnerState::None]);
+        $this->runColdStart($thread);
+        $this->clearWaiting($thread);
+
+        return SandboxWake::ready();
+    }
+
+    /** Evicts idle sandboxes until the thread fits; false when it has to wait for a slot. */
+    private function makeRoom(Thread $thread): bool
     {
         while (($reason = $this->capacity->needsEviction($thread)) !== null) {
             $candidate = $this->capacity->evictionCandidate($thread, $reason);
 
             if ($candidate === null) {
-                $thread->update(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => $thread->blocked_at ?? now()]);
-
-                return SandboxWake::waitingForSlot();
+                return $this->waitForSlot($thread);
             }
 
             $this->stop($candidate, true);
@@ -162,22 +219,25 @@ class ThreadSandbox
 
             if ($candidate->sandbox_state !== ThreadSandboxState::Stopped) {
                 // The candidate could not be stopped; do not loop on it.
-                $thread->update(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => $thread->blocked_at ?? now()]);
-
-                return SandboxWake::waitingForSlot();
+                return $this->waitForSlot($thread);
             }
         }
 
-        $this->sandboxes->start($thread);
-        $this->record($thread, ThreadSandboxState::Running);
-        $thread->update(['runner_state' => RunnerState::None]);
-        $this->runColdStart($thread);
+        return true;
+    }
 
+    private function waitForSlot(Thread $thread): bool
+    {
+        $thread->update(['blocked_reason' => ThreadBlockReason::WaitingForSandbox, 'blocked_at' => $thread->blocked_at ?? now()]);
+
+        return false;
+    }
+
+    private function clearWaiting(Thread $thread): void
+    {
         if ($thread->blocked_reason === ThreadBlockReason::WaitingForSandbox) {
             $thread->update(['blocked_reason' => null, 'blocked_at' => null]);
         }
-
-        return SandboxWake::ready();
     }
 
     private function runColdStart(Thread $thread): void

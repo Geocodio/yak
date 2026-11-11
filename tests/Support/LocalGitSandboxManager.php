@@ -75,6 +75,11 @@ class LocalGitSandboxManager extends FakeSandboxManager
     {
         parent::exec($thread, $command, $stdin, $env);
 
+        // Commands fed through stdin write outside the workspace (the environment note); they are recorded, not run.
+        if ($stdin !== null) {
+            return Process::result();
+        }
+
         return $this->run($this->workspace, $command, $stdin, $env);
     }
 

@@ -12,6 +12,7 @@ use App\Models\YakTask;
 use App\Services\AgentJobDispatcher;
 use App\Services\IncusSandboxManager;
 use App\Services\ResponsiblePersonResolver;
+use App\Services\Threads\SetupScriptHash;
 use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -87,7 +88,34 @@ class EnsureRepoReady
             return;
         }
 
+        if ($this->setupScriptChanged($repository)) {
+            $sandbox->invalidateTemplate($repository);
+            $setupTask = $this->dispatchSetupTask($repository, '.yak/setup.sh changed');
+
+            $this->refuse(
+                $job,
+                $task,
+                sprintf('.yak/setup.sh changed. A fresh Setup task (#%d) has been dispatched. Retry this task once setup completes.', $setupTask->id),
+            );
+
+            return;
+        }
+
         $next($job);
+    }
+
+    /** A script missing on the default branch, or a failed read, never triggers a rebuild. */
+    private function setupScriptChanged(Repository $repository): bool
+    {
+        try {
+            $current = app(SetupScriptHash::class)->forDefaultBranch($repository);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
+
+        return $current !== null && $current !== $repository->setup_script_hash;
     }
 
     private function refuse(object $job, YakTask $task, string $reason): void
@@ -124,13 +152,13 @@ class EnsureRepoReady
         }
     }
 
-    private function dispatchSetupTask(Repository $repository): YakTask
+    private function dispatchSetupTask(Repository $repository, string $reason = 'yak-base updated'): YakTask
     {
         $setupTask = YakTask::create([
             'repo' => $repository->slug,
             'external_id' => 'setup-' . Str::random(8),
             'mode' => TaskMode::Setup,
-            'description' => "Re-provision sandbox for {$repository->name} (yak-base updated)",
+            'description' => "Re-provision sandbox for {$repository->name} ({$reason})",
             'source' => 'system',
             'responsible_name' => app(ResponsiblePersonResolver::class)->resolve(null, null, $repository->slug),
         ]);
