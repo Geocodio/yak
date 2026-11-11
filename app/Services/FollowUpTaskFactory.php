@@ -8,8 +8,10 @@ use App\Facades\Telemetry;
 use App\Jobs\ResearchFollowUpJob;
 use App\Jobs\RunFollowUpJob;
 use App\Models\TaskAttachment;
+use App\Models\Thread;
 use App\Models\YakTask;
 use App\Services\CoOwner\CoOwnerDecisions;
+use App\Services\Threads\ClearCommand;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -39,6 +41,13 @@ class FollowUpTaskFactory
 
         if (! $head->acceptsFollowUp()) {
             return null;
+        }
+
+        // `/clear` moves the conversation to a new thread; the next message is the first turn of that thread.
+        if (ClearCommand::matches($instructions) && $head->thread_id !== null) {
+            ClearCommand::apply(Thread::query()->findOrFail($head->thread_id), $head);
+
+            return $head;
         }
 
         $isResearch = $head->mode === TaskMode::Research;
