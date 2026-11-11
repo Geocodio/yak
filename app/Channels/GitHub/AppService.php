@@ -478,6 +478,36 @@ class AppService
     }
 
     /**
+     * The name, conclusion and duration of every check run on a commit.
+     *
+     * @return list<array{name: string, conclusion: ?string, durationSeconds: ?int}>
+     */
+    public function getCheckRunSummaries(int $installationId, string $repoSlug, string $commitSha): array
+    {
+        $response = $this->installationClient($installationId)
+            ->get("https://api.github.com/repos/{$repoSlug}/commits/{$commitSha}/check-runs", ['per_page' => 100]);
+
+        if (! $response->successful()) {
+            return [];
+        }
+
+        $summaries = [];
+
+        foreach ((array) $response->json('check_runs', []) as $run) {
+            $started = isset($run['started_at']) ? strtotime((string) $run['started_at']) : false;
+            $completed = isset($run['completed_at']) ? strtotime((string) $run['completed_at']) : false;
+
+            $summaries[] = [
+                'name' => (string) ($run['name'] ?? ''),
+                'conclusion' => $run['conclusion'] ?? null,
+                'durationSeconds' => $started !== false && $completed !== false ? max(0, $completed - $started) : null,
+            ];
+        }
+
+        return $summaries;
+    }
+
+    /**
      * The lines of a GitHub Actions job log leading up to its failure.
      *
      * Actions leaves the check run's output empty, so the log is the only

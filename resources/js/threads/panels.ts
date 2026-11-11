@@ -11,6 +11,8 @@ export type Panel = {
     component: ComponentType<PanelProps>;
     /** Hides the panel for threads it does not apply to. */
     visible: (thread: ThreadData) => boolean;
+    /** A number shown beside the tab label. */
+    count?: (thread: ThreadData) => number;
 };
 
 const sidebarPanels = new Map<string, Panel>();

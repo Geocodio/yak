@@ -34,7 +34,7 @@ class ChildSpawner
         private readonly ChildCardPublisher $cards,
     ) {}
 
-    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null): Thread
+    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null, ?string $repo = null): Thread
     {
         $this->rules->assertMaySpawn($parent);
 
@@ -42,13 +42,14 @@ class ChildSpawner
             throw new StackRuleViolation('A sub-thread must be research, implement, mockup or general.');
         }
 
+        $repo = $this->rules->resolveChildRepo($parent, $kind, $repo);
         $brief = trim($brief);
 
         if ($brief === '') {
             throw new StackRuleViolation('A sub-thread needs a brief.');
         }
 
-        $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy): Thread {
+        $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $repo): Thread {
             $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
             $root = $locked->rootThread();
             $slug = $this->uniqueName($locked, $name);
@@ -59,7 +60,7 @@ class ChildSpawner
             $child = Thread::query()->create([
                 'name' => $slug,
                 'title' => Str::limit(trim((string) strtok($brief, "\n")), 120, '...'),
-                'repo' => $locked->repo,
+                'repo' => $repo ?? $locked->repo,
                 'kind' => $kind,
                 'brief' => $brief,
                 'visibility' => $root->visibility,
@@ -76,15 +77,17 @@ class ChildSpawner
 
             $primary = $locked->primaryRepository;
             $child->repositories()->create([
-                'repo' => $locked->repo,
+                'repo' => $repo ?? $locked->repo,
                 'role' => RepositoryRole::Primary,
-                'sandbox_path' => $primary->sandbox_path ?? (string) config('yak.sandbox.workspace_path', '/workspace'),
+                'sandbox_path' => $repo !== null
+                    ? (string) config('yak.sandbox.workspace_path', '/workspace')
+                    : $primary->sandbox_path ?? (string) config('yak.sandbox.workspace_path', '/workspace'),
                 'branch' => $branch,
             ]);
 
             YakTask::query()->create([
                 'source' => YakTask::SOURCE_STACK,
-                'repo' => $locked->repo,
+                'repo' => $repo ?? $locked->repo,
                 'external_id' => 'STACK-' . Str::upper(Str::random(8)),
                 'description' => $brief,
                 'mode' => $kind === ThreadKind::Research ? TaskMode::Research : TaskMode::Fix,

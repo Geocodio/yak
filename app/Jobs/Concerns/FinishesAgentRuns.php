@@ -23,6 +23,8 @@ use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
+use App\Services\Threads\PullRequests\ThreadRepositoryPullRequests;
 use App\Services\YakPersonality;
 use Illuminate\Support\Facades\Log;
 
@@ -147,6 +149,8 @@ trait FinishesAgentRuns
                 throw new \RuntimeException("Git push failed in sandbox: {$pushResult->errorOutput()}");
             }
 
+            app(ThreadRepositoryPullRequests::class)->publishForTask($this->task);
+
             $recorder->mark('post_agent');
             TaskLogger::info($this->task, 'Fix pushed', ['branch' => $this->task->branch_name]);
         } else {
@@ -232,6 +236,7 @@ trait FinishesAgentRuns
         // misleading "awaiting_ci" state on a repo with no CI.
         if ($repository->settings()->ciSystem() !== 'none') {
             $update['status'] = TaskStatus::AwaitingCi;
+            app(ThreadPullRequestSync::class)->recordPrimaryCiStatus($this->task, 'running');
         }
 
         return $update;

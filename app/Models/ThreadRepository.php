@@ -6,10 +6,13 @@ use App\Enums\RepositoryRole;
 use App\Enums\RepositorySetupStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\ThreadRepositoryFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
+use Illuminate\Support\Carbon;
 
 /**
  * A repository checked out in a thread's sandbox.
@@ -23,12 +26,20 @@ use Illuminate\Support\Str;
  * @property int|null $merge_position
  * @property string|null $branch
  * @property string|null $pull_request_url
+ * @property int|null $pull_request_number
+ * @property string|null $pull_request_state
+ * @property string|null $pull_request_title
+ * @property Carbon|null $pull_request_closed_at
  * @property int $ci_retry_count
  * @property string|null $last_refresh_commit
  * @property string|null $setup_output
  * @property string|null $add_reason
  * @property string|null $added_by `start`, `claude` or `teleport`
  * @property CarbonImmutable|null $setup_started_at
+ * @property string|null $ci_status
+ * @property array<int, array{name: string, state: string, durationSeconds?: int|null, excerpt?: string|null}>|null $ci_checks
+ * @property string|null $last_commit_sha
+ * @property string|null $merge_reason
  */
 class ThreadRepository extends Model
 {
@@ -53,6 +64,8 @@ class ThreadRepository extends Model
             'role' => RepositoryRole::class,
             'setup_status' => RepositorySetupStatus::class,
             'setup_started_at' => 'datetime',
+            'ci_checks' => 'array',
+            'pull_request_closed_at' => 'datetime',
         ];
     }
 
@@ -85,20 +98,32 @@ class ThreadRepository extends Model
         return in_array($this->role, [RepositoryRole::Primary, RepositoryRole::Changes], true);
     }
 
-    /** A recorded pull request counts as open until its task is merged or closed. */
-    public function hasOpenPullRequest(): bool
-    {
-        if ($this->pull_request_url === null) {
-            return false;
-        }
-
-        $task = YakTask::query()->where('pr_url', $this->pull_request_url)->first();
-
-        return $task === null || $task->prState() === 'open';
-    }
-
     public static function sandboxPathFor(string $slug, RepositoryRole $role): string
     {
         return $role === RepositoryRole::Primary ? '/workspace' : '/extras/' . Str::afterLast($slug, '/');
+    }
+
+    public function hasOpenPullRequest(): bool
+    {
+        return $this->pull_request_state === 'open';
+    }
+
+    public function hasEnded(): bool
+    {
+        return in_array($this->pull_request_state, ['merged', 'closed'], true);
+    }
+
+    public function isChangesRepo(): bool
+    {
+        return $this->role !== RepositoryRole::Context;
+    }
+
+    /**
+     * @param  Builder<ThreadRepository>  $query
+     */
+    #[Scope]
+    protected function openPullRequests(Builder $query): void
+    {
+        $query->where('pull_request_state', 'open');
     }
 }

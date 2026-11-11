@@ -59,4 +59,23 @@ class ThreadRepositoryFactory extends Factory
     {
         return $this->state(['setup_status' => RepositorySetupStatus::Setup, 'setup_started_at' => now()]);
     }
+
+    public function changes(): static
+    {
+        return $this->state(['role' => RepositoryRole::Changes]);
+    }
+
+    public function context(): static
+    {
+        return $this->state(['role' => RepositoryRole::Context]);
+    }
+
+    public function withPullRequest(int $number = 1, string $state = 'open'): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'pull_request_number' => $number,
+            'pull_request_state' => $state,
+            'pull_request_url' => "https://github.com/{$attributes['repo']}/pull/{$number}",
+        ]);
+    }
 }

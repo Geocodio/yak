@@ -67,7 +67,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                     data-testid="thread-conversation"
                 >
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
-                    <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} />
+                    <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
                     <ThreadComposer thread={thread} composer={composer} />
                 </div>
 
@@ -90,6 +90,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, tel
                                     className={cn('flex h-11 items-center text-[14px]', panel.id === active.id ? 'font-medium text-body' : 'text-muted')}
                                 >
                                     {panel.label}
+                                    {panel.count && <span className="ml-1.5 rounded-pill bg-panel-2 px-1.5 text-[11px] text-muted" data-testid={`thread-panel-count-${panel.id}`}>{panel.count(thread)}</span>}
                                 </button>
                             ))}
                         </div>

@@ -16,7 +16,8 @@ use Throwable;
 /**
  * Gives an implement, mockup or general child its own sandbox: a copy of the
  * parent's sandbox, or a fresh clone plus the parent's uncommitted changes
- * when the copy fails. A child that cannot start because the parent is still
+ * when the copy fails; a child in another repo is restored from that repo's
+ * own template instead. A child that cannot start because the parent is still
  * waking up is marked `queued_for_slot_at` and left for the caller to retry.
  */
 class ChildSandboxProvisioner
@@ -34,6 +35,12 @@ class ChildSandboxProvisioner
         }
 
         $parent = Thread::query()->withoutGlobalScopes()->findOrFail($child->parent_thread_id);
+
+        if ($child->repo !== $parent->repo) {
+            $this->provisionFromOwnTemplate($child);
+
+            return;
+        }
 
         if (! in_array($parent->sandbox_state, [ThreadSandboxState::Running, ThreadSandboxState::Paused], true)) {
             $wake = $this->lifecycle->ensureAwake($parent);
@@ -59,6 +66,21 @@ class ChildSandboxProvisioner
         $this->recordRunning($child);
         $this->checkoutBranch($child);
 
+        $child->forceFill(['queued_for_slot_at' => null])->save();
+    }
+
+    /**
+     * A child in another repo shares nothing with the parent sandbox: it is
+     * restored from its own repo's template and branches off that default branch.
+     */
+    private function provisionFromOwnTemplate(Thread $child): void
+    {
+        if (! $this->restorer->restore($child)) {
+            throw new RuntimeException("Could not build the sandbox of sub-thread {$child->name}.");
+        }
+
+        $this->recordContainer($child);
+        $this->checkoutBranch($child);
         $child->forceFill(['queued_for_slot_at' => null])->save();
     }
 

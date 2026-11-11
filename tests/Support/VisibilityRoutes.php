@@ -45,6 +45,9 @@ class VisibilityRoutes
         'threads.stack.take-over' => ['POST', '/threads/{child}/stack/take-over'],
         'threads.stack.split' => ['POST', '/threads/{child}/stack/split'],
         'threads.stack.drop' => ['POST', '/threads/{child}/stack/drop'],
+        'threads.pull-requests.show' => ['GET', '/threads/{thread}/pull-requests'],
+        'threads.pull-requests.order' => ['PUT', '/threads/{thread}/pull-requests/order', ['order' => [999999]], 302],
+        'threads.pull-requests.fix' => ['POST', '/threads/{thread}/pull-requests/{row}/fix', [], 202],
         'threads.preview.status' => ['GET', '/threads/{thread}/preview/status'],
         'threads.preview.heartbeat' => ['POST', '/threads/{thread}/preview/heartbeat'],
         'threads.preview.restore' => ['POST', '/threads/{thread}/preview/restore', [], 202],
@@ -109,6 +112,7 @@ class VisibilityRoutes
                 '{repository}' => (string) ($id === $missing ? $missing : $world->repository->id),
                 '{file}' => (string) ($id === $missing ? $missing : $world->diffFile->id),
                 '{sequence}' => (string) ($id === $missing ? $missing : $world->event->sequence),
+                '{row}' => (string) ($id === $missing ? $missing : $world->pullRequestRow->id),
                 '{pr}' => (string) ($id === $missing ? $missing : $world->prReview->pr_number),
             ]);
 

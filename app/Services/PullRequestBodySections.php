@@ -16,6 +16,8 @@ final class PullRequestBodySections
 
     public const string WALKTHROUGH = 'walkthrough';
 
+    public const string SIBLINGS = 'siblings';
+
     public static function startMarker(string $name): string
     {
         return "<!-- yak:{$name} -->";

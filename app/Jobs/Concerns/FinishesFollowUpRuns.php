@@ -22,6 +22,7 @@ use App\Services\SandboxArtifactCollector;
 use App\Services\TaskLogger;
 use App\Services\TaskMetricsAccumulator;
 use App\Services\Telemetry\RunRecorder;
+use App\Services\Threads\PullRequests\ThreadRepositoryPullRequests;
 use App\Services\YakPersonality;
 use Illuminate\Support\Facades\Log;
 
@@ -116,6 +117,7 @@ trait FinishesFollowUpRuns
         $this->task->update($update);
 
         $this->pushExistingBranch($sandbox, $containerName, $repository, $branchName);
+        app(ThreadRepositoryPullRequests::class)->publishForTask($this->task);
         $recorder->mark('post_agent');
         TaskLogger::info($this->task, 'Follow-up pushed', ['branch' => $branchName]);
 

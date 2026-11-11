@@ -52,7 +52,7 @@ class StackToolRouter implements YakToolRouter
         }
 
         $model = isset($input['model']) && is_string($input['model']) && $input['model'] !== '' ? $input['model'] : null;
-        $child = $this->spawner->spawn($thread, $name, (string) ($input['brief'] ?? ''), $kind, $model);
+        $child = $this->spawner->spawn($thread, $name, (string) ($input['brief'] ?? ''), $kind, $model, null, isset($input['repo']) && is_string($input['repo']) ? $input['repo'] : null);
         StartChildThreadJob::dispatch($child->id);
 
         return new YakToolResult(false, "Started sub-thread {$child->name} ({$kind->value}).");
@@ -86,7 +86,7 @@ class StackToolRouter implements YakToolRouter
     private function list(Thread $thread): YakToolResult
     {
         $lines = array_map(
-            fn (array $row): string => "- {$row['name']} ({$row['kind']}, {$row['state']})" . ($row['latestResult'] === null ? '' : ": {$row['latestResult']}"),
+            fn (array $row): string => "- {$row['name']} ({$row['kind']}, {$row['state']})" . ($row['repo'] === null ? '' : " in {$row['repo']}" . ($row['pullRequestUrl'] === null ? '' : ", {$row['pullRequestUrl']}")) . ($row['latestResult'] === null ? '' : ": {$row['latestResult']}"),
             StackListing::for($thread),
         );
 

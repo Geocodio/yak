@@ -23,6 +23,7 @@ export type ThreadData = {
     rootThreadId: number | null;
     lastActivityAt: string | null;
     repositories: ThreadRepositoryData[];
+    pullRequestCount: number;
     isOwner: boolean;
     sharedWithCount: number;
     startedOnDevice: boolean;

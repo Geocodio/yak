@@ -10,7 +10,7 @@ use App\Services\Threads\ThreadTurns;
 class StackListing
 {
     /**
-     * @return list<array{name: string, kind: string, state: string, latestResult: ?string}>
+     * @return list<array{name: string, kind: string, state: string, latestResult: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string}>
      */
     public static function for(Thread $caller): array
     {
@@ -18,15 +18,21 @@ class StackListing
 
         $rows = [];
 
+        $rootRepo = Thread::query()->withoutGlobalScopes()->whereKey($rootId)->value('repo');
+
         foreach (Thread::query()
             ->where(fn ($query) => $query->whereKey($rootId)->orWhere('root_thread_id', $rootId))
             ->orderBy('id')
-            ->get() as $thread) {
+            ->with('primaryRepository')->get() as $thread) {
+            $isOtherRepo = $thread->repo !== $rootRepo;
             $rows[] = [
                 'name' => $thread->name,
                 'kind' => $thread->kind->value,
                 'state' => self::state($thread),
                 'latestResult' => $thread->result_summary ?? $thread->current_step,
+                'repo' => $isOtherRepo ? $thread->repo : null,
+                'pullRequestUrl' => $isOtherRepo ? $thread->primaryRepository?->pull_request_url : null,
+                'ciStatus' => $isOtherRepo ? $thread->primaryRepository?->ci_status : null,
             ];
         }
 

@@ -10,6 +10,7 @@ import { EditsBlock } from './EditsBlock';
 import { createReadTracker } from './mergeConversation';
 import { mergeConversation, useConversation } from './useConversation';
 import { PersonMessage } from './PersonMessage';
+import { PullRequestChips } from './PullRequestChip';
 import { ThreadNotice } from './ThreadNotice';
 import { ToolActivity } from './ToolActivity';
 import type { ConversationItem } from './conversationItem';
@@ -33,7 +34,7 @@ function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolea
     return item.kind === 'edits' ? <EditsBlock item={item} /> : <ClaudeMessage item={item} />;
 }
 
-export function Conversation({ threadId, messages, notice, readonly }: { threadId: number; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean }) {
+export function Conversation({ threadId, messages, notice, readonly, pullRequestCount = 0, lastActivityAt = null }: { threadId: number; messages: ThreadMessage[]; notice: ThreadNoticeData | null; readonly: boolean; pullRequestCount?: number; lastActivityAt?: string | null }) {
     const { entries, lastSequence, connection } = useConversation(threadId, messages);
     const [lightboxMedia, setLightboxMedia] = useState<MediaItem[] | null>(null);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -65,6 +66,7 @@ export function Conversation({ threadId, messages, notice, readonly }: { threadI
                         </Fragment>
                     );
                 })}
+                {pullRequestCount > 1 && <PullRequestChips threadId={threadId} lastActivityAt={lastActivityAt} />}
                 <span
                     hidden
                     data-testid="thread-event-state"

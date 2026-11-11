@@ -4,12 +4,14 @@ namespace App\Jobs;
 
 use App\Channels\GitHub\AppService as GitHubAppService;
 use App\Enums\CoOwnerRequestStatus;
+use App\Enums\RepositoryRole;
 use App\Enums\TaskMode;
 use App\Facades\Telemetry;
 use App\Models\Artifact;
 use App\Models\CoOwnerRequest;
 use App\Models\PreviewRepair;
 use App\Models\Repository;
+use App\Models\ThreadRepository;
 use App\Models\VideoMetric;
 use App\Models\YakTask;
 use App\Services\CoOwner\CoOwnerGate;
@@ -20,6 +22,7 @@ use App\Services\PullRequestTitle;
 use App\Services\Push\PullRequestPush;
 use App\Services\ReviewReplyPoster;
 use App\Services\TaskLogger;
+use App\Services\Threads\PullRequests\ThreadPullRequestSync;
 use App\Services\WalkthroughPrSection;
 use App\Support\MarkdownText;
 use App\Support\TaskTrigger;
@@ -72,6 +75,7 @@ class CreatePullRequestJob implements ShouldQueue
             }
 
             $this->task->update(['pr_url' => $existing['html_url'], 'pr_number' => $existing['number'], 'pr_opened_at' => $this->task->pr_opened_at ?? now()]);
+            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''));
             $this->markCoOwned($gitHub, $repository, $installationId, (int) $existing['number']);
 
             return;
@@ -86,6 +90,7 @@ class CreatePullRequestJob implements ShouldQueue
                 'pr_url' => $existing['html_url'],
                 'pr_number' => $existing['number'],
             ]);
+            $this->syncPrimaryRow((int) $existing['number'], (string) $existing['html_url'], (string) ($existing['title'] ?? ''));
 
             Telemetry::record('pr.updated', ['pr_number' => (int) $existing['number']], task: $this->task);
 
@@ -174,6 +179,7 @@ class CreatePullRequestJob implements ShouldQueue
         // that can fail, and the follow-up calls are best effort.
         if ($this->approvedRequest !== null) {
             $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
+            $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title);
             $this->bestEffort(fn () => $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels));
             $this->bestEffort(fn () => $this->recordOpened($prNumber, $openedAt));
             $this->requestApproverReview($gitHub, $repository, $installationId, (int) $prNumber);
@@ -184,8 +190,28 @@ class CreatePullRequestJob implements ShouldQueue
         $gitHub->addLabels($installationId, $repository->github_full_name, $prNumber, $labels);
 
         $this->task->update(['pr_url' => $prUrl, 'pr_number' => $prNumber, 'pr_opened_at' => $openedAt]);
+        $this->syncPrimaryRow((int) $prNumber, (string) $prUrl, $title);
 
         $this->recordOpened($prNumber, $openedAt);
+    }
+
+    /**
+     * A thread's primary repo row mirrors the task chain's pull request.
+     */
+    private function syncPrimaryRow(int $number, string $url, string $title): void
+    {
+        if ($this->task->thread_id === null) {
+            return;
+        }
+
+        $row = ThreadRepository::query()
+            ->where('thread_id', $this->task->thread_id)
+            ->where('role', RepositoryRole::Primary->value)
+            ->first();
+
+        if ($row !== null) {
+            app(ThreadPullRequestSync::class)->recordOpened($row, $number, $url, $title !== '' ? $title : (string) $row->pull_request_title);
+        }
     }
 
     private function recordOpened(mixed $prNumber, CarbonInterface $openedAt): void
@@ -391,6 +417,11 @@ class CreatePullRequestJob implements ShouldQueue
             PullRequestBodySections::DESCRIPTION,
             $this->task->result_summary ?? '_No summary available._',
         );
+
+        if ($this->task->thread_id !== null) {
+            $parts[] = '';
+            $parts[] = PullRequestBodySections::wrap(PullRequestBodySections::SIBLINGS, '');
+        }
 
         return implode("\n", $parts);
     }
