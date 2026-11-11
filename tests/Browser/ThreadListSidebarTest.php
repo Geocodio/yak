@@ -48,7 +48,7 @@ test('the everyone filter shows threads from teammates', function () {
 
 test('the owner sees a private thread with its badge', function () {
     $user = User::factory()->create();
-    $private = Thread::factory()->private($user)->create(['title' => 'Secret work']);
+    $private = Thread::factory()->private($user)->create(['created_by_user_id' => $user->id, 'title' => 'Secret work']);
     $this->actingAs($user);
 
     visit('/tasks')

@@ -43,7 +43,7 @@ test('the phone sheet holds the section switcher and the user row', function () 
 
     $page->click('[data-testid="mobile-nav-trigger"]')
         ->assertVisible('[data-testid="mobile-section-switcher"]')
-        ->assertVisible('[data-testid="thread-list-panel"]')
+        ->assertVisible('[data-testid="mobile-nav"] [data-testid="thread-list-panel"]')
         ->click('[data-testid="mobile-section-operations"]')
         ->assertVisible('[data-testid="section-panel-operations"]')
         ->assertVisible('[data-testid="mobile-nav-user"]')
