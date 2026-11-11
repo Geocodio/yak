@@ -13,7 +13,7 @@ use Throwable;
  * `thread_events` (the source of truth), mirrors all of them into the Redis window and
  * broadcasts them. A failed broadcast is reported; browsers catch up over HTTP.
  *
- * Event types: entry, delta, stream.reset, turn, thread, message.state, diff.updated.
+ * Event types: entry, delta, stream.reset, turn, thread, message.state, diff.updated, child.
  */
 class ThreadEventPublisher
 {

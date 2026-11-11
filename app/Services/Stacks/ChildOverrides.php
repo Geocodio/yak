@@ -17,6 +17,7 @@ class ChildOverrides
     public function __construct(
         private readonly StackMessenger $messenger,
         private readonly ThreadCloser $closer,
+        private readonly ChildCardPublisher $cards,
     ) {}
 
     /**
@@ -31,6 +32,8 @@ class ChildOverrides
             ->where('from_thread_id', $child->id)
             ->whereNull('delivered_at')
             ->update(['delivered_at' => now()]);
+
+        $this->cards->publish($child);
     }
 
     public function split(Thread $child, User $user): void
@@ -41,6 +44,7 @@ class ChildOverrides
     public function drop(Thread $child, User $user): void
     {
         $this->closer->close($child, 'dropped');
+        $this->cards->publish($child);
 
         try {
             $this->messenger->send($child, $this->parentOf($child), "The person dropped sub-thread \"{$child->name}\". Do not wait for its result.");

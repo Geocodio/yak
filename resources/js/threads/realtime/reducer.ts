@@ -17,6 +17,7 @@ export function initialEventState(): ThreadEventState {
         streamingBlocks: {},
         turn: null,
         thread: null,
+        children: {},
         viewers: [],
         connection: 'connecting',
         lastSequence: 0,
@@ -59,6 +60,11 @@ function applyEvent(state: ThreadEventState, event: ThreadEventEnvelope): Thread
             return { ...next, turn: event.data as ThreadEventEnvelope<'turn'>['data'] };
         case 'thread':
             return { ...next, thread: event.data as ThreadEventEnvelope<'thread'>['data'] };
+        case 'child': {
+            const data = event.data as ThreadEventEnvelope<'child'>['data'];
+
+            return { ...next, children: { ...state.children, [data.childThreadId]: { sequence: state.children[data.childThreadId]?.sequence ?? event.sequence, data } } };
+        }
         default:
             return next;
     }

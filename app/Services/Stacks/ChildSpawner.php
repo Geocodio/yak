@@ -31,6 +31,7 @@ class ChildSpawner
         private readonly ResearchChildRunner $researchRunner,
         private readonly ThreadTurns $turns,
         private readonly ChildAwakeLimit $awakeLimit,
+        private readonly ChildCardPublisher $cards,
     ) {}
 
     public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null): Thread
@@ -47,7 +48,7 @@ class ChildSpawner
             throw new StackRuleViolation('A sub-thread needs a brief.');
         }
 
-        return DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy): Thread {
+        $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy): Thread {
             $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
             $root = $locked->rootThread();
             $slug = $this->uniqueName($locked, $name);
@@ -93,6 +94,10 @@ class ChildSpawner
 
             return $child;
         });
+
+        $this->cards->publish($child);
+
+        return $child;
     }
 
     /**
@@ -110,6 +115,7 @@ class ChildSpawner
             $this->researchRunner->prepare($child);
         } elseif (! $this->awakeLimit->hasFreeSlot($this->parentOf($child))) {
             $child->forceFill(['queued_for_slot_at' => $child->queued_for_slot_at ?? now()])->save();
+            $this->cards->publish($child);
 
             return;
         } else {
@@ -119,6 +125,8 @@ class ChildSpawner
         $child->refresh();
 
         if ($child->queued_for_slot_at !== null) {
+            $this->cards->publish($child);
+
             return;
         }
 
@@ -127,6 +135,7 @@ class ChildSpawner
         $driver = $task->started_by_user_id === null ? null : User::query()->find($task->started_by_user_id);
 
         $this->turns->start($task, $this->wrapBrief($child), $driver, null);
+        $this->cards->publish($child);
     }
 
     private function wrapBrief(Thread $child): string

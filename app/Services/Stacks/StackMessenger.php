@@ -25,6 +25,7 @@ class StackMessenger
         private readonly ThreadSandbox $sandbox,
         private readonly ResearchChildRunner $researchRunner,
         private readonly StackMessageInbox $inbox,
+        private readonly ChildCardPublisher $cards,
     ) {}
 
     public static function frame(Thread $from, string $text): string
@@ -67,12 +68,14 @@ class StackMessenger
 
         if (! $allowed) {
             $from->forceFill(['messages_paused_at' => now()])->save();
+            $this->cards->publish($from);
 
             throw new StackRuleViolation('Messages to this thread are paused for a minute.');
         }
 
         if ($from->messages_paused_at !== null) {
             $from->forceFill(['messages_paused_at' => null])->save();
+            $this->cards->publish($from);
         }
     }
 

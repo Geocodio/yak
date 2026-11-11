@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Events\TurnCompleted;
 use App\Events\TurnFailed;
 use App\Models\Thread;
+use App\Services\Stacks\ChildCardPublisher;
 use App\Services\Stacks\ChildOutcomeRecorder;
 
 /**
@@ -12,7 +13,7 @@ use App\Services\Stacks\ChildOutcomeRecorder;
  */
 class RecordChildOutcome
 {
-    public function __construct(private readonly ChildOutcomeRecorder $recorder) {}
+    public function __construct(private readonly ChildOutcomeRecorder $recorder, private readonly ChildCardPublisher $cards) {}
 
     public function handleCompleted(TurnCompleted $event): void
     {
@@ -20,6 +21,7 @@ class RecordChildOutcome
 
         if ($child !== null) {
             $this->recorder->recordFinished($child, $event->run);
+            $this->cards->publish($child);
         }
     }
 
@@ -29,6 +31,7 @@ class RecordChildOutcome
 
         if ($child !== null) {
             $this->recorder->recordFailed($child, $event->run);
+            $this->cards->publish($child);
         }
     }
 

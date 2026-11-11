@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
 import type { ThreadMessage, ThreadNotice as ThreadNoticeData } from '@/types/threads';
+import { ChildCard } from './ChildCard';
 import { ClaudeMessage } from './ClaudeMessage';
 import { DayDivider } from './DayDivider';
 import { EditsBlock } from './EditsBlock';
@@ -15,7 +16,11 @@ import type { ConversationItem } from './conversationItem';
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
 
-function EventRow({ item }: { item: ConversationItem }) {
+function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolean }) {
+    if (item.kind === 'child') {
+        return <ChildCard item={item} canDrive={canDrive} />;
+    }
+
     if (item.kind === 'tools') {
         return <ToolActivity item={item} />;
     }
@@ -34,7 +39,7 @@ export function Conversation({ threadId, messages, notice, readonly }: { threadI
             <div className="mx-auto flex max-w-[760px] flex-col gap-4">
                 {entries.map((entry) => {
                     if (entry.type === 'event') {
-                        return <EventRow key={entry.item.key} item={entry.item} />;
+                        return <EventRow key={entry.item.key} item={entry.item} canDrive={!readonly} />;
                     }
 
                     const day = entry.message.sentAt.slice(0, 10);

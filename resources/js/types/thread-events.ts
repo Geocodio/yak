@@ -32,7 +32,22 @@ export type TranscriptEntry =
           numTurns: number;
       };
 
-export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated';
+export type ChildCardState = 'queued' | 'working' | 'waiting' | 'done' | 'failed' | 'closed';
+
+/** The latest state of one sub-thread, as the parent's conversation shows it. */
+export type ChildCardData = {
+    childThreadId: number;
+    name: string;
+    kind: string;
+    model: string | null;
+    state: ChildCardState;
+    step: string | null;
+    resultSummary: string | null;
+    branch: string | null;
+    messagesPaused: boolean;
+};
+
+export type ThreadEventType = 'entry' | 'delta' | 'stream.reset' | 'turn' | 'thread' | 'message.state' | 'diff.updated' | 'child';
 
 export type ThreadEventDataMap = {
     entry: TranscriptEntry;
@@ -42,6 +57,7 @@ export type ThreadEventDataMap = {
     thread: { status: ThreadStatus; sandboxState: string; runnerState: string; blockedReason: string | null };
     'message.state': { uuid: string; state: 'sent' | 'queued' | 'started' | 'completed' | 'cancelled' };
     'diff.updated': Record<string, never>;
+    child: ChildCardData;
 };
 
 export type ThreadEventEnvelope<T extends ThreadEventType = ThreadEventType> = {
@@ -61,6 +77,8 @@ export type ThreadEventState = {
     streamingBlocks: Record<string, { kind: string; text: string }>;
     turn: { turnId: number; state: TurnState } | null;
     thread: ThreadEventDataMap['thread'] | null;
+    /** Latest event per sub-thread, with the sequence of its first event. */
+    children: Record<number, { sequence: number; data: ChildCardData }>;
     viewers: Viewer[];
     connection: 'connecting' | 'live' | 'catching-up' | 'offline';
     lastSequence: number;

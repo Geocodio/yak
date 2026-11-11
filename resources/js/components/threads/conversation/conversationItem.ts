@@ -1,5 +1,7 @@
+import type { ChildCardData } from '@/types/thread-events';
+
 export type ConversationItem = {
-    kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result';
+    kind: 'text' | 'thinking' | 'tools' | 'edits' | 'result' | 'child';
     key: string;
     sequence: number;
     role: 'assistant';
@@ -10,4 +12,5 @@ export type ConversationItem = {
     files?: string[];
     added?: number;
     removed?: number;
+    child?: ChildCardData;
 };

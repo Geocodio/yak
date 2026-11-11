@@ -97,3 +97,29 @@ test('replay yields identical keys and merge never duplicates tools or edits', (
 
     assert.deepEqual(merged.map((entry) => entry.item.key), keys(first));
 });
+
+const childEvent = (sequence, childThreadId, state, extra = {}) => ({
+    sequence,
+    type: 'child',
+    createdAt: at,
+    data: { childThreadId, name: `child-${childThreadId}`, kind: 'implement', model: 'sonnet', state, step: null, resultSummary: null, branch: null, messagesPaused: false, ...extra },
+});
+
+test('projects the latest child state into one card at its first position', () => {
+    const { items } = project(
+        feedOf(assistant(1, 'm1', [{ type: 'text', text: 'hi' }]), childEvent(2, 7, 'queued'), assistant(3, 'm2', [{ type: 'text', text: 'later' }]), childEvent(4, 7, 'working', { step: 'Grep' })),
+    );
+
+    const ordered = mergeConversation([], [], items).map((entry) => entry.item);
+    assert.deepEqual(ordered.map((item) => item.key), ['m1:0', 'child:7', 'm2:0']);
+    const card = items.find((item) => item.kind === 'child');
+    assert.equal(card.sequence, 2);
+    assert.equal(card.child.state, 'working');
+    assert.equal(card.child.step, 'Grep');
+});
+
+test('keeps one card per child', () => {
+    const { items } = project(feedOf(childEvent(1, 7, 'queued'), childEvent(2, 8, 'queued')));
+
+    assert.deepEqual(items.map((item) => item.key), ['child:7', 'child:8']);
+});
