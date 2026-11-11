@@ -27,6 +27,15 @@ func main() {
 		waitTimeout = parsed
 	}
 
+	maxSession := 12 * time.Hour
+	if raw := os.Getenv("YAK_WAKE_MAX_SESSION"); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil {
+			log.Fatalf("wakeproxy: bad YAK_WAKE_MAX_SESSION: %v", err)
+		}
+		maxSession = parsed
+	}
+
 	gateway, bridge, err := net.ParseCIDR(os.Getenv("YAK_INCUS_BRIDGE"))
 	if err != nil {
 		log.Fatalf("wakeproxy: bad or missing YAK_INCUS_BRIDGE: %v", err)
@@ -41,6 +50,7 @@ func main() {
 		PollEvery:     2 * time.Second,
 		PortTimeout:   20 * time.Second,
 		ActivityEvery: 60 * time.Second,
+		MaxSession:    maxSession,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -49,7 +59,9 @@ func main() {
 	reconciler := &Reconciler{
 		Client: client,
 		Listen: func(address string) (net.Listener, error) { return net.Listen("tcp", address) },
-		OnConn: func(address string, conn net.Conn) { handler.Handle(ctx, address, conn) },
+		OnConn: func(connContext context.Context, address string, conn net.Conn) {
+			handler.Handle(connContext, address, conn)
+		},
 	}
 	defer reconciler.Close()
 

@@ -6,6 +6,9 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -222,5 +225,106 @@ func TestActivityFiresWhileSpliced(t *testing.T) {
 func TestIncusResolverRejectsBadNames(t *testing.T) {
 	if _, err := (IncusResolver{}).Resolve(context.Background(), "../x"); err == nil {
 		t.Fatal("expected refusal")
+	}
+}
+
+func readyYak() *fakeYak {
+	return &fakeYak{wake: func(string) WakeReply { return WakeReply{State: "ready", Container: str("yak-thread-1")} }}
+}
+
+func waitClosed(t *testing.T, conn net.Conn, what string) {
+	t.Helper()
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, err := conn.Read(make([]byte, 1)); err == nil || errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Fatalf("%s was not closed (err=%v)", what, err)
+	}
+}
+
+func TestSpliceClosesWhenContextCancelled(t *testing.T) {
+	clientSide, handlerSide := net.Pipe()
+	upstreamHandlerSide, upstreamServerSide := net.Pipe()
+	handler, _ := newHandler(readyYak(), upstreamHandlerSide)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go handler.Handle(ctx, "127.16.0.1", handlerSide)
+
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+
+	waitClosed(t, clientSide, "client")
+	waitClosed(t, upstreamServerSide, "upstream")
+}
+
+func TestActivityAccessGoneEndsSplice(t *testing.T) {
+	yak := readyYak()
+	yak.activityErr = ErrAccessGone
+	clientSide, handlerSide := net.Pipe()
+	upstreamHandlerSide, upstreamServerSide := net.Pipe()
+	handler, _ := newHandler(yak, upstreamHandlerSide)
+
+	go handler.Handle(context.Background(), "127.16.0.1", handlerSide)
+
+	waitClosed(t, clientSide, "client")
+	waitClosed(t, upstreamServerSide, "upstream")
+}
+
+func TestActivityTransportErrorKeepsSplice(t *testing.T) {
+	yak := readyYak()
+	yak.activityErr = errors.New("yak activity request failed")
+	clientSide, handlerSide := net.Pipe()
+	upstreamHandlerSide, upstreamServerSide := net.Pipe()
+	handler, _ := newHandler(yak, upstreamHandlerSide)
+
+	finished := make(chan struct{})
+	go func() { handler.Handle(context.Background(), "127.16.0.1", handlerSide); close(finished) }()
+
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-finished:
+		t.Fatal("splice ended on a transport error")
+	default:
+	}
+
+	go func() { _, _ = clientSide.Write([]byte("x")) }()
+	buffer := make([]byte, 1)
+	_ = upstreamServerSide.SetReadDeadline(time.Now().Add(time.Second))
+	if _, err := upstreamServerSide.Read(buffer); err != nil {
+		t.Fatalf("splice no longer forwards: %v", err)
+	}
+	_ = clientSide.Close()
+}
+
+func TestMaxSessionEndsSplice(t *testing.T) {
+	clientSide, handlerSide := net.Pipe()
+	upstreamHandlerSide, upstreamServerSide := net.Pipe()
+	handler, _ := newHandler(readyYak(), upstreamHandlerSide)
+	handler.MaxSession = 50 * time.Millisecond
+
+	go handler.Handle(context.Background(), "127.16.0.1", handlerSide)
+
+	waitClosed(t, clientSide, "client")
+	waitClosed(t, upstreamServerSide, "upstream")
+}
+
+func TestHTTPActivityMapsStatusToAccessGone(t *testing.T) {
+	for status, wantGone := range map[int]bool{http.StatusGone: true, http.StatusForbidden: true, http.StatusInternalServerError: true, http.StatusOK: false} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(status)
+		}))
+		client := &HTTPYakClient{BaseURL: server.URL, Token: "t"}
+		err := client.Activity(context.Background(), "127.16.0.1")
+		server.Close()
+
+		if errors.Is(err, ErrAccessGone) != wantGone {
+			t.Fatalf("status %d: err=%v wantGone=%v", status, err, wantGone)
+		}
+	}
+
+	closed := httptest.NewServer(http.NotFoundHandler())
+	url := closed.URL
+	closed.Close()
+	err := (&HTTPYakClient{BaseURL: url, Token: "t"}).Activity(context.Background(), "127.16.0.1")
+	if err == nil || errors.Is(err, ErrAccessGone) {
+		t.Fatalf("transport error must not read as gone: %v", err)
 	}
 }

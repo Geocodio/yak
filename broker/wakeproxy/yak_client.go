@@ -4,11 +4,22 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 )
+
+// ErrAccessGone means Yak answered an activity ping with a non-200 status: the session is no longer allowed.
+var ErrAccessGone = errors.New("yak no longer allows this session")
+
+type statusError struct {
+	path string
+	code int
+}
+
+func (e *statusError) Error() string { return fmt.Sprintf("yak %s status %d", e.path, e.code) }
 
 // Listener is one loopback address the daemon must bind.
 type Listener struct {
@@ -71,7 +82,7 @@ func (c *HTTPYakClient) do(ctx context.Context, method, path string, payload any
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return fmt.Errorf("yak %s status %d", path, response.StatusCode)
+		return &statusError{path: path, code: response.StatusCode}
 	}
 
 	if out == nil {
@@ -100,5 +111,12 @@ func (c *HTTPYakClient) Wake(ctx context.Context, address string) (WakeReply, er
 }
 
 func (c *HTTPYakClient) Activity(ctx context.Context, address string) error {
-	return c.do(ctx, http.MethodPost, "activity", map[string]string{"address": address}, nil)
+	err := c.do(ctx, http.MethodPost, "activity", map[string]string{"address": address}, nil)
+
+	var status *statusError
+	if errors.As(err, &status) {
+		return fmt.Errorf("%w: %w", ErrAccessGone, err)
+	}
+
+	return err
 }

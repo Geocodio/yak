@@ -7,14 +7,16 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeYak struct {
-	mutex     sync.Mutex
-	listeners []Listener
-	wake      func(address string) WakeReply
-	activity  chan string
-	wakeCalls []string
+	mutex       sync.Mutex
+	listeners   []Listener
+	wake        func(address string) WakeReply
+	activity    chan string
+	activityErr error
+	wakeCalls   []string
 }
 
 func (f *fakeYak) Listeners(ctx context.Context) ([]Listener, error) {
@@ -37,7 +39,7 @@ func (f *fakeYak) Activity(ctx context.Context, address string) error {
 		f.activity <- address
 	}
 
-	return nil
+	return f.activityErr
 }
 
 func (f *fakeYak) set(addresses ...string) {
@@ -118,7 +120,7 @@ func TestSyncPassesAcceptedConnectionsTheListenerAddress(t *testing.T) {
 	defer reconciler.Close()
 
 	seen := make(chan string, 1)
-	reconciler.OnConn = func(address string, conn net.Conn) {
+	reconciler.OnConn = func(ctx context.Context, address string, conn net.Conn) {
 		seen <- address
 		_ = conn.Close()
 	}
@@ -140,5 +142,99 @@ func TestSyncPassesAcceptedConnectionsTheListenerAddress(t *testing.T) {
 
 	if got := <-seen; got != "127.16.0.4" {
 		t.Fatalf("address: %s", got)
+	}
+}
+
+func connectTo(t *testing.T, reconciler *Reconciler, address string) net.Conn {
+	t.Helper()
+
+	reconciler.mutex.Lock()
+	target := reconciler.listeners[address].Addr().String()
+	reconciler.mutex.Unlock()
+
+	conn, err := net.Dial("tcp", target)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return conn
+}
+
+func TestRemovedAddressCancelsActiveConnections(t *testing.T) {
+	yak := &fakeYak{}
+	var bound []string
+	reconciler := newReconciler(yak, &bound)
+	defer reconciler.Close()
+
+	contexts := make(chan struct {
+		address string
+		ctx     context.Context
+	}, 4)
+	reconciler.OnConn = func(ctx context.Context, address string, conn net.Conn) {
+		contexts <- struct {
+			address string
+			ctx     context.Context
+		}{address, ctx}
+		<-ctx.Done()
+		_ = conn.Close()
+	}
+
+	yak.set("127.16.0.1", "127.16.0.2")
+	if err := reconciler.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, address := range []string{"127.16.0.1", "127.16.0.2"} {
+		conn := connectTo(t, reconciler, address)
+		defer conn.Close()
+	}
+
+	seen := map[string]context.Context{}
+	for i := 0; i < 2; i++ {
+		entry := <-contexts
+		seen[entry.address] = entry.ctx
+	}
+
+	yak.set("127.16.0.2")
+	if err := reconciler.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-seen["127.16.0.1"].Done():
+	case <-time.After(time.Second):
+		t.Fatal("removed address context was not cancelled")
+	}
+	if seen["127.16.0.2"].Err() != nil {
+		t.Fatal("kept address context was cancelled")
+	}
+}
+
+func TestCloseCancelsEverything(t *testing.T) {
+	yak := &fakeYak{}
+	var bound []string
+	reconciler := newReconciler(yak, &bound)
+
+	got := make(chan context.Context, 1)
+	reconciler.OnConn = func(ctx context.Context, address string, conn net.Conn) {
+		got <- ctx
+		<-ctx.Done()
+		_ = conn.Close()
+	}
+
+	yak.set("127.16.0.1")
+	if err := reconciler.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	conn := connectTo(t, reconciler, "127.16.0.1")
+	defer conn.Close()
+	ctx := <-got
+
+	reconciler.Close()
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("Close did not cancel the connection context")
 	}
 }
