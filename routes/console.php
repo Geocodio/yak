@@ -39,6 +39,7 @@ Schedule::command('yak:preview-repair:sweep')->hourly()->withoutOverlapping();
 Schedule::command('yak:prune-session-store')->daily();
 Schedule::command('yak:claude-accounts-expiry')->daily();
 Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:reap-account-slots')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:close-idle-threads')->daily();
 Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class]])->daily();
 Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
