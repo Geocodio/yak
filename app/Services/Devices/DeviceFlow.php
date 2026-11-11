@@ -44,17 +44,23 @@ class DeviceFlow
 
     public function find(string $userCode): ?DeviceAuthorization
     {
+        $authorization = $this->findInAnyState($userCode);
+
+        return $authorization !== null && $authorization->status === 'pending' && ! $authorization->isExpired() ? $authorization : null;
+    }
+
+    /**
+     * Looks a typed code up by its normalised form whatever the row's state, so the page can tell expired from unknown.
+     */
+    public function findInAnyState(string $userCode): ?DeviceAuthorization
+    {
         $normalized = strtoupper((string) preg_replace('/[\s-]+/', '', $userCode));
 
         if (strlen($normalized) !== 8) {
             return null;
         }
 
-        return DeviceAuthorization::query()
-            ->where('user_code', substr($normalized, 0, 4) . '-' . substr($normalized, 4))
-            ->where('status', 'pending')
-            ->where('expires_at', '>', now())
-            ->first();
+        return DeviceAuthorization::query()->where('user_code', substr($normalized, 0, 4) . '-' . substr($normalized, 4))->first();
     }
 
     public function approve(DeviceAuthorization $authorization, User $user, ?string $name): Device
