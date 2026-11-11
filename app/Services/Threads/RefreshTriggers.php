@@ -24,9 +24,10 @@ class RefreshTriggers
     /**
      * @return array<string, string> Glob to command.
      */
-    public function configFor(Thread $thread): array
+    public function configFor(Thread $thread, ?string $directory = null): array
     {
-        $result = $this->sandboxes->exec($thread, ['cat', '.yak/config.yml']);
+        $path = $directory === null ? '.yak/config.yml' : rtrim($directory, '/') . '/.yak/config.yml';
+        $result = $this->sandboxes->exec($thread, ['cat', $path]);
 
         if ($result->failed()) {
             return [];
