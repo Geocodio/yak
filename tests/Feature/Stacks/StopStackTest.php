@@ -25,13 +25,13 @@ beforeEach(function () {
     ]);
 });
 
-function runningTurnFor(Thread $thread): TaskRun
+function runningStackTurnFor(Thread $thread): TaskRun
 {
     return TaskRun::factory()->create(['thread_id' => $thread->id, 'turn_state' => TurnState::Running, 'finished_at' => null]);
 }
 
 it('stops the parent and every child turn', function () {
-    $runs = collect([$this->parent, $this->implement, $this->research])->map(fn (Thread $thread) => runningTurnFor($thread));
+    $runs = collect([$this->parent, $this->implement, $this->research])->map(fn (Thread $thread) => runningStackTurnFor($thread));
 
     $stopped = app(StopStack::class)->stop($this->parent);
 
