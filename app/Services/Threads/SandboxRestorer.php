@@ -6,8 +6,11 @@ use App\Enums\RestoreStepName;
 use App\Enums\RestoreStepStatus;
 use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
+use App\Models\Repository;
 use App\Models\Thread;
 use App\Models\ThreadRestoreStep;
+use App\Services\Datasets\DatasetAvailability;
+use App\Services\Datasets\DatasetClones;
 use App\Services\IncusSandboxManager;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
@@ -32,6 +35,7 @@ class SandboxRestorer
         private RefreshTriggers $refresh,
         private SessionFileSync $sessions,
         private EnvironmentNote $note,
+        private DatasetClones $datasetClones,
     ) {}
 
     public function restore(Thread $thread): bool
@@ -100,6 +104,7 @@ class SandboxRestorer
     private function createSandbox(Thread $thread): bool
     {
         $this->sandboxes->create($thread);
+        $this->attachDataset($thread);
         $this->sandboxes->start($thread);
 
         $values = ['sandbox_state' => ThreadSandboxState::Running->value, 'sandbox_state_changed_at' => now()];
@@ -112,6 +117,16 @@ class SandboxRestorer
         $thread->refresh();
 
         return true;
+    }
+
+    /** A missing or failed dataset clone never blocks the restore. */
+    private function attachDataset(Thread $thread): void
+    {
+        $repository = Repository::where('slug', $thread->repo)->first();
+
+        if ($repository !== null) {
+            $this->datasetClones->attach($thread, $repository, $thread->sandbox_container ?? 'yak-thread-' . $thread->id);
+        }
     }
 
     private function checkoutBranch(ThreadRestoreStep $step, Thread $thread): bool
@@ -191,7 +206,7 @@ class SandboxRestorer
         preg_match_all('/^\$ (.+)$/m', $refreshOutput, $matches);
         $setupRan = ($steps[RestoreStepName::RunSetupScript->value]->status ?? null) === RestoreStepStatus::Succeeded;
 
-        $this->note->write($thread, $this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha));
+        $this->note->write($thread, $this->note->sectionsForRestore($thread, $matches[1], $setupRan, $thread->wip_commit_sha, DatasetAvailability::forThread($thread)));
 
         return true;
     }

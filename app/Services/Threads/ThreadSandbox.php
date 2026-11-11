@@ -9,6 +9,7 @@ use App\Enums\ThreadBlockReason;
 use App\Enums\ThreadSandboxState;
 use App\Models\Repository;
 use App\Models\Thread;
+use App\Services\Datasets\DatasetClones;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
@@ -35,6 +36,7 @@ class ThreadSandbox
         private WipPreserver $wip,
         private SandboxRestorer $restorer,
         private AuthProxyPlaceholders $placeholders,
+        private DatasetClones $datasetClones,
     ) {}
 
     public function touch(Thread $thread): void
@@ -110,6 +112,7 @@ class ThreadSandbox
             }
 
             $this->sandboxes->destroy($thread);
+            $this->datasetClones->destroyFor($thread);
             $this->record($thread, ThreadSandboxState::Destroyed);
             $this->revokeSharedPlaceholders($thread);
         } finally {

@@ -3,6 +3,7 @@
 namespace App\Services\Threads;
 
 use App\Models\Thread;
+use App\Services\Datasets\DatasetAvailability;
 use App\Services\Threads\Contracts\SandboxManager;
 
 /**
@@ -37,7 +38,7 @@ class EnvironmentNote
      * @param  list<string>  $refreshRan  Refresh commands that ran during the restore.
      * @return array<string, string|list<string>>
      */
-    public function sectionsForRestore(Thread $thread, array $refreshRan, bool $setupRan, ?string $wipSha): array
+    public function sectionsForRestore(Thread $thread, array $refreshRan, bool $setupRan, ?string $wipSha, ?DatasetAvailability $dataset = null): array
     {
         $workspace = (string) config('yak.sandbox.workspace_path', '/workspace');
         $sections = [];
@@ -48,6 +49,10 @@ class EnvironmentNote
 
         if ($refreshRan !== []) {
             $sections['Refresh commands that ran'] = $refreshRan;
+        }
+
+        if ($dataset?->message() !== null) {
+            $sections['Dataset'] = $dataset->message();
         }
 
         $restored = [];

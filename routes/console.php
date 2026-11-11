@@ -42,3 +42,4 @@ Schedule::command('yak:thread-sandboxes')->everyMinute()->withoutOverlapping();
 Schedule::command('yak:close-idle-threads')->daily();
 Schedule::command('model:prune', ['--model' => [DeviceAuthorization::class]])->daily();
 Schedule::command('yak:expire-teleports')->everyMinute()->withoutOverlapping();
+Schedule::command('yak:dataset-sweep')->hourly()->withoutOverlapping();
