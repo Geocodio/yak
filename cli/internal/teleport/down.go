@@ -152,8 +152,9 @@ func Down(ctx context.Context, d Deps, in DownInput) (result DownResult, err err
 	}
 	resumeDir := top
 	if mode == "worktree" {
-		resumeDir = filepath.Clean(top) + "-yak-" + manifest.Thread.Slug
+		_, resumeDir = downFolders(top, manifest.Thread.Slug)
 	}
+	printDownPlan(d, manifest, mode, top)
 
 	projectDir := filepath.Join(session.ClaudeConfigDir(d.Env, d.Home), "projects", session.ProjectFolderName(resumeDir))
 	if err := os.MkdirAll(projectDir, 0o755); err != nil {
@@ -400,8 +401,8 @@ func chooseApplyMode(d Deps, repo gitx.Repo, top string, opts DownOptions, m api
 		options = append(options, ui.Option{Label: "Stash them, then apply the thread", Hint: "git stash keeps your changes safe"})
 		modes = append(modes, "stash")
 	}
-	slug := m.Thread.Slug
-	options = append(options, ui.Option{Label: "Apply into a new worktree", Hint: filepath.Clean(top) + "-yak-" + slug + ", this checkout stays as it is"})
+	_, worktreeDir := downFolders(top, m.Thread.Slug)
+	options = append(options, ui.Option{Label: "Apply into a new worktree", Hint: worktreeDir + ", this checkout stays as it is"})
 	modes = append(modes, "worktree")
 	options = append(options, ui.Option{Label: "Cancel", Hint: "default"})
 	modes = append(modes, "cancel")
@@ -470,7 +471,7 @@ func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m
 	}
 	d.say("Applied %s at %s (%s)", primary.Branch, shortSHA(primary.HeadSHA), strings.ReplaceAll(res.Mode, "_", "-"))
 	applied := []AppliedRepo{{Repo: primary.Repo, Status: "applied", Mode: res.Mode, HeadSHA: primary.HeadSHA, Branch: res.Branch, Path: res.Path}}
-	extrasRoot := filepath.Clean(top) + "-" + m.Thread.Slug
+	extrasRoot, _ := downFolders(top, m.Thread.Slug)
 	for _, extra := range m.Repos {
 		if extra.Role == "primary" {
 			continue
@@ -479,6 +480,39 @@ func applyRepos(ctx context.Context, d Deps, repo gitx.Repo, top, mode string, m
 	}
 	return applied, res.Path, nil
 }
+
+// downFolders returns the folder extras are cloned into and the worktree folder for a dirty primary checkout.
+func downFolders(top, slug string) (extrasRoot, worktreeDir string) {
+	base := filepath.Clean(top)
+	return base + "-" + slug, base + "-yak-" + slug
+}
+
+// printDownPlan says where each repo of the thread will land before anything is written on this computer.
+func printDownPlan(d Deps, m api.DownManifest, mode, top string) {
+	extrasRoot, worktreeDir := downFolders(top, m.Thread.Slug)
+	d.say("On this computer:")
+	if primary, ok := primaryOf(m); ok {
+		where := top
+		if mode == "worktree" {
+			where = worktreeDir + " (new worktree, " + top + " stays as it is)"
+		}
+		d.say("  %s -> %s", primary.Repo, where)
+	}
+	for _, r := range m.Repos {
+		switch {
+		case r.Role == "primary":
+		case r.Status == "failed":
+			d.say("  %s: Yak could not push it, it will not be brought down", r.Repo)
+		default:
+			d.say("  %s -> %s (fresh clone)", r.Repo, filepath.Join(extrasRoot, repoName(r.Repo)))
+		}
+	}
+	if len(m.ContextRepos) > 0 {
+		d.say("  Context repos stay on Yak: %s", strings.Join(m.ContextRepos, ", "))
+	}
+}
+
+func repoName(slug string) string { return slug[strings.LastIndex(slug, "/")+1:] }
 
 func shortSHA(sha string) string {
 	if len(sha) > 7 {

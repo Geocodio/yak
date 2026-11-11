@@ -527,3 +527,87 @@ func TestDownRememberedCheckoutSaved(t *testing.T) {
 		t.Fatalf("%+v %v", cfg, err)
 	}
 }
+
+// addExtra puts a second repo on Yak at branch yak/fix with the given files and adds it to the manifest.
+func (h *harness) addExtra(s *downSetup, slug string, files map[string]string, refresh ...api.RefreshRule) (origin, head string) {
+	h.t.Helper()
+	origin = h.srv.AddRepoWithOrigin(h.t, slug)
+	yak := testrepo.Clone(h.t, origin)
+	yak.Git("switch", "-q", "-c", "yak/fix")
+	head = yak.Commit(files, "yak work")
+	yak.Git("push", "-q", "origin", "yak/fix")
+	s.manifest.Repos = append(s.manifest.Repos, api.ManifestRepo{
+		Repo: slug, Role: "changes", CloneURL: origin, DefaultBranch: "main", Branch: "yak/fix", HeadSHA: head,
+		SandboxPath: "/extras/" + slug[strings.LastIndex(slug, "/")+1:], Pushed: true, Refresh: refresh,
+	})
+	h.srv.ScriptDownStates(42, s.manifest, "preparing", "ready")
+	return origin, head
+}
+
+func (h *harness) rescript(s *downSetup) {
+	h.srv.ScriptDownStates(42, s.manifest, "preparing", "ready")
+}
+
+func TestDownPlanShowsBothFoldersForWorktree(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	s.manifest.ContextRepos = []string{"acme/docs"}
+	h.rescript(s)
+	dirty(h)
+	h.deps.Prompter = &scriptPrompter{choices: []int{1}}
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	extrasRoot, worktree := downFolders(h.cwd, "fix-cache")
+	out := h.out.String()
+	if extrasRoot == worktree || !strings.Contains(out, worktree) || !strings.Contains(out, filepath.Join(extrasRoot, "api")) {
+		t.Fatalf("plan missing folders:\n%s", out)
+	}
+	if strings.Index(out, "On this computer:") > strings.Index(out, "Applied ") {
+		t.Fatalf("plan came after the apply:\n%s", out)
+	}
+}
+
+func TestDownPlanListsContextReposAsStayingOnYak(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	s.manifest.ContextRepos = []string{"acme/docs", "acme/site"}
+	h.rescript(s)
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(h.out.String(), "Context repos stay on Yak: acme/docs, acme/site") {
+		t.Fatal(h.out.String())
+	}
+}
+
+func TestDownPlanComesBeforeAnyWrite(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	if _, err := h.down(DownOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	out := h.out.String()
+	plan, cloned := strings.Index(out, "On this computer:"), strings.Index(out, "Cloned ")
+	if plan < 0 || cloned < 0 || plan > cloned {
+		t.Fatalf("plan must come before the first write:\n%s", out)
+	}
+}
+
+func TestDownCancelledLeavesNoExtrasFolder(t *testing.T) {
+	h := newHarness(t)
+	s := h.setupDown(true)
+	h.addExtra(s, "acme/api", map[string]string{"a.txt": "a\n"})
+	dirty(h)
+	before := h.snapshot()
+	h.deps.Prompter = &scriptPrompter{choices: []int{2}}
+	if _, err := h.down(DownOptions{}); err == nil {
+		t.Fatal("expected cancel")
+	}
+	extrasRoot, _ := downFolders(h.cwd, "fix-cache")
+	if _, err := os.Stat(extrasRoot); err == nil || h.snapshot() != before {
+		t.Fatal("something was written")
+	}
+}
