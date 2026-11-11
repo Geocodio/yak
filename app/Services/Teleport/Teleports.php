@@ -209,6 +209,8 @@ class Teleports
     private function resolveRepositories(array $requested): array
     {
         $repositories = [];
+        $seenIds = [];
+        $seenFolders = [];
 
         foreach ($requested as $index => $entry) {
             $name = strtolower((string) $entry['repo']);
@@ -219,6 +221,14 @@ class Teleports
                 throw new TeleportError('repo_not_on_yak', "{$entry['repo']} is not set up on Yak.", 422, ['repo' => $entry['repo']]);
             }
 
+            $folder = strtolower(basename($repository->slug));
+
+            if (in_array($repository->id, $seenIds, true) || in_array($folder, $seenFolders, true)) {
+                throw new TeleportError('validation_failed', "{$entry['repo']} is listed twice or shares a folder name with another directory.", 422, ['repo' => $entry['repo']]);
+            }
+
+            $seenIds[] = $repository->id;
+            $seenFolders[] = $folder;
             $repositories[$index] = $repository;
         }
 
