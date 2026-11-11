@@ -1,9 +1,12 @@
 <?php
 
 use App\Enums\StackThreadMessageKind;
+use App\Enums\TurnState;
 use App\Models\StackThreadMessage;
+use App\Models\TaskRun;
 use App\Models\Thread;
 use App\Models\User;
+use App\Models\YakTask;
 use App\Services\Stacks\ChildCardPublisher;
 
 /**
@@ -63,4 +66,28 @@ it('shows the parent banner on a sub-thread page', function () {
 
     visit(route('threads.show', $child))
         ->assertSeeIn('[data-testid="child-parent-banner"]', 'Ship the importer');
+});
+
+it('shows awake over total on the Stack tab', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+    foreach (range(1, 3) as $index) {
+        $child = Thread::factory()->child($parent)->create();
+        $task = YakTask::factory()->create(['thread_id' => $child->id]);
+        TaskRun::factory()->create(['thread_id' => $child->id, 'yak_task_id' => $task->id, 'turn_state' => TurnState::Running]);
+    }
+
+    visit(route('threads.show', $parent))
+        ->assertSeeIn('[data-testid="thread-panel-count-stack"]', '3/3');
+});
+
+it('shows an empty awake meter for a stack with no sub-threads', function () {
+    $this->actingAs(User::factory()->create());
+    $parent = Thread::factory()->create();
+
+    visit(route('threads.show', $parent))
+        ->click('[data-testid="thread-panel-tab-stack"]')
+        ->assertSeeIn('[data-testid="stack-limit-summary"]', '0 of 3 awake')
+        ->assertScript('document.querySelectorAll(\'[data-testid="stack-awake-meter"] span\').length', 3)
+        ->assertScript('document.querySelectorAll(\'[data-testid="stack-awake-meter"] span[data-filled="true"]\').length', 0);
 });

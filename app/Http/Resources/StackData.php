@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Stacks\StackListing;
 use App\Services\Stacks\StackUsage;
 use App\Services\Threads\ThreadAccess;
+use App\Services\Threads\ThreadTurns;
 use App\Support\SecretRedactor;
 use Illuminate\Support\Str;
 
@@ -26,8 +27,8 @@ final class StackData
      *     rootId: int,
      *     isRoot: bool,
      *     parent: ?array{id: int, name: string, title: string},
-     *     children: list<array{id: int, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
-     *     limit: array{current: int, max: int},
+     *     children: list<array{id: int, name: string, title: string, kind: string, model: ?string, state: string, step: ?string, resultSummary: ?string, branch: ?string, repo: ?string, pullRequestUrl: ?string, ciStatus: ?string, filesChanged: ?int, queued: bool, messagesPaused: bool, takenOver: bool, canOverride: bool}>,
+     *     limit: array{current: int, max: int, awake: int, waiting: int},
      *     usage: array{turnCount: int, costUsd: float, activeHours: float, note: string},
      *     messages: list<array{id: int, fromName: string, toName: string, kind: string, text: string, createdAt: string}>,
      *     canDrive: bool,
@@ -42,10 +43,14 @@ final class StackData
         $canDrive = $access->canDrive($viewer, $root);
 
         $children = [];
+        $awake = ThreadTurns::activeTurn($root) !== null ? 1 : 0;
+        $waiting = 0;
 
-        foreach (Thread::query()->withoutVisibilityScope()->visibleTo($viewer)->where('root_thread_id', $root->id)->with('primaryRepository')->orderBy('id')->get() as $child) {
+        foreach (Thread::query()->withoutVisibilityScope()->visibleTo($viewer)->where('root_thread_id', $root->id)->with(['primaryRepository', 'diff'])->orderBy('id')->get() as $child) {
             $isOtherRepo = $child->repo !== $root->repo;
             $state = StackListing::state($child);
+            $awake += in_array($state, ['working', 'waiting'], true) ? 1 : 0;
+            $waiting += $child->queued_for_slot_at !== null ? 1 : 0;
 
             $children[] = [
                 'id' => $child->id,
@@ -60,6 +65,7 @@ final class StackData
                 'repo' => $isOtherRepo ? $child->repo : null,
                 'pullRequestUrl' => $isOtherRepo ? $child->primaryRepository?->pull_request_url : null,
                 'ciStatus' => $isOtherRepo ? $child->primaryRepository?->ci_status : null,
+                'filesChanged' => $child->diff?->files_count,
                 'queued' => $child->queued_for_slot_at !== null,
                 'messagesPaused' => $child->messages_paused_at !== null,
                 'takenOver' => $child->taken_over_at !== null,
@@ -92,7 +98,7 @@ final class StackData
             'isRoot' => ! $thread->isChild(),
             'parent' => $parent === null ? null : ['id' => $parent->id, 'name' => $parent->name, 'title' => $parent->title],
             'children' => $children,
-            'limit' => ['current' => $root->child_awake_limit, 'max' => (int) config('yak.threads.person_awake_cap')],
+            'limit' => ['current' => $root->child_awake_limit, 'max' => (int) config('yak.threads.person_awake_cap'), 'awake' => $awake, 'waiting' => $waiting],
             'usage' => [
                 'turnCount' => $usage['turnCount'],
                 'costUsd' => $usage['costUsd'],

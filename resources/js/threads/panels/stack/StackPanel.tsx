@@ -53,7 +53,7 @@ export function StackPanel({ thread }: PanelProps) {
                 )}
             </section>
 
-            {stack.isRoot && <AwakeLimitStepper threadId={thread.id} current={stack.limit.current} max={stack.limit.max} canDrive={stack.canDrive} onChanged={reload} />}
+            {stack.isRoot && <AwakeLimitStepper threadId={thread.id} current={stack.limit.current} max={stack.limit.max} awake={stack.limit.awake} waiting={stack.limit.waiting} canDrive={stack.canDrive} onChanged={reload} />}
             <StackUsageSummary usage={stack.usage} />
             <StackMessages messages={stack.messages} />
 

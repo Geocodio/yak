@@ -15,6 +15,7 @@ export type StackChild = {
     repo: string | null;
     pullRequestUrl: string | null;
     ciStatus: string | null;
+    filesChanged: number | null;
     queued: boolean;
     messagesPaused: boolean;
     takenOver: boolean;
@@ -35,7 +36,7 @@ export type StackData = {
     isRoot: boolean;
     parent: { id: number; name: string; title: string } | null;
     children: StackChild[];
-    limit: { current: number; max: number };
+    limit: { current: number; max: number; awake: number; waiting: number };
     usage: { turnCount: number; costUsd: number; activeHours: number; note: string };
     messages: StackMessageRow[];
     canDrive: boolean;
