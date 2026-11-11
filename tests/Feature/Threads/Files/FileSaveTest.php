@@ -29,7 +29,7 @@ function queueRead($test, string $bytes): void
     $test->sandboxes->queueExecResult(Process::result(strlen($bytes) . "\n" . base64_encode($bytes) . "\n-\n"));
 }
 
-function execCommands($test): array
+function savedExecCommands($test): array
 {
     return array_map(fn (array $call): string => $call['arguments']['command'][2], $test->sandboxes->calls);
 }
@@ -55,7 +55,7 @@ it('returns a conflict and writes nothing when the file changed since it was ope
     expect($outcome->saved)->toBeFalse()
         ->and($outcome->current->content)->toBe('changed by claude')
         ->and($this->sandboxes->calls)->toHaveCount(1)
-        ->and(execCommands($this)[0])->not->toContain('base64 -d');
+        ->and(savedExecCommands($this)[0])->not->toContain('base64 -d');
 });
 
 it('overwrites a changed file when asked to', function () {
@@ -100,8 +100,8 @@ it('escapes shell syntax in the path', function () {
 
     app(FileSaver::class)->save($this->thread, $this->user, FileScope::Repository, 'a $(touch x).txt', 'new', hash('sha256', 'old'), false);
 
-    expect(execCommands($this)[1])->toContain(escapeshellarg('/workspace/widgets/a $(touch x).txt'))
-        ->and(execCommands($this)[1])->not->toContain(' $(touch x).txt ');
+    expect(savedExecCommands($this)[1])->toContain(escapeshellarg('/workspace/widgets/a $(touch x).txt'))
+        ->and(savedExecCommands($this)[1])->not->toContain(' $(touch x).txt ');
 });
 
 function saveThread(): array
