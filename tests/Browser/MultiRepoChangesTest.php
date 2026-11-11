@@ -51,3 +51,12 @@ test('a single repo thread has no sub tabs', function () {
         ->assertSeeIn('[data-testid="changes-summary"]', '2 files changed')
         ->assertMissing('[data-testid="changes-repository-tabs"]');
 });
+
+test('repo tabs show an avatar and a count pill', function () {
+    visit(route('threads.show', $this->thread))
+        ->click('[data-testid="thread-panel-tab-changes"]')
+        ->assertSeeIn('[data-testid="changes-tab-all"]', 'All repos')
+        ->assertSeeIn('[data-testid="changes-tab-all"] [data-testid="changes-tab-count"]', '2')
+        ->assertPresent('[data-testid="changes-tab-acme/web"] [data-testid="repo-avatar"]')
+        ->assertSeeIn('[data-testid="changes-tab-acme/web"] [data-testid="changes-tab-count"]', '1');
+});
