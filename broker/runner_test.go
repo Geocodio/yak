@@ -10,6 +10,7 @@ import (
 	"io"
 	"log/slog"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -18,6 +19,7 @@ import (
 
 type fakeProcess struct {
 	container string
+	channel   string
 	stdin     *lockedBuffer
 	stdoutR   *io.PipeReader
 	stdoutW   *io.PipeWriter
@@ -61,13 +63,14 @@ func (l *lockedBuffer) Lines() []string {
 type fakeSpawner struct {
 	mu              sync.Mutex
 	started         []*fakeProcess
-	killed          []string
+	killedAll       []string
+	killedRunners   []string
 	startedChannels []string
 }
 
 func (s *fakeSpawner) Start(_ context.Context, container string, _ int, _ string, channel string) (Process, error) {
 	pipeReader, pipeWriter := io.Pipe()
-	process := &fakeProcess{container: container, stdin: &lockedBuffer{}, stdoutR: pipeReader, stdoutW: pipeWriter, exit: make(chan int, 1)}
+	process := &fakeProcess{container: container, channel: channel, stdin: &lockedBuffer{}, stdoutR: pipeReader, stdoutW: pipeWriter, exit: make(chan int, 1)}
 	s.mu.Lock()
 	s.started = append(s.started, process)
 	s.startedChannels = append(s.startedChannels, channel)
@@ -78,9 +81,23 @@ func (s *fakeSpawner) Start(_ context.Context, container string, _ int, _ string
 func (s *fakeSpawner) KillAllRunners(_ context.Context, container string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.killed = append(s.killed, container)
+	s.killedAll = append(s.killedAll, container)
+	s.endMatching(func(process *fakeProcess) bool { return process.container == container })
+	return nil
+}
+
+func (s *fakeSpawner) KillRunner(_ context.Context, container, channel string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.killedRunners = append(s.killedRunners, container+"|"+channel)
+	s.endMatching(func(process *fakeProcess) bool { return process.container == container && process.channel == channel })
+	return nil
+}
+
+// endMatching ends every matching process. The caller holds s.mu.
+func (s *fakeSpawner) endMatching(matches func(*fakeProcess) bool) {
 	for _, process := range s.started {
-		if process.container == container {
+		if matches(process) {
 			select {
 			case process.exit <- 137:
 				_ = process.stdoutW.Close()
@@ -88,7 +105,6 @@ func (s *fakeSpawner) KillAllRunners(_ context.Context, container string) error 
 			}
 		}
 	}
-	return nil
 }
 
 func (s *fakeSpawner) process(index int) *fakeProcess {
@@ -112,14 +128,16 @@ func (s *fakeSpawner) startCount() int {
 	return len(s.started)
 }
 
-func (s *fakeSpawner) killedContainers() []string {
+func (s *fakeSpawner) killAllCalls() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return append([]string(nil), s.killed...)
+	return append([]string(nil), s.killedAll...)
 }
 
-func (s *fakeSpawner) KillRunner(ctx context.Context, container, _ string) error {
-	return s.KillAllRunners(ctx, container)
+func (s *fakeSpawner) killRunnerCalls() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.killedRunners...)
 }
 
 func TestReadLinesHasNoSizeLimitAndEmitsFinalPartialLine(t *testing.T) {
@@ -571,5 +589,92 @@ func TestKillRunnerScriptDoesNotMatchPrefixChannel(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	if !toolRunning("300.73") {
 		t.Fatal("threads_12 was killed by the threads_1 script")
+	}
+}
+
+func startInC1(h *harness, channel string) {
+	h.command(channel, `{"type":"start_runner","container":"c1","uid":1001,"cwd":"/workspace","start":{}}`)
+}
+
+func TestTwoChannelsInOneContainerHaveIndependentPipes(t *testing.T) {
+	h := newHarness(t)
+	startInC1(h, "threads:1")
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	startInC1(h, "threads:2")
+	waitFor(t, func() bool { return h.spawner.startCount() == 2 })
+	h.command("threads:1", `{"type":"turn","uuid":"a","text":"one"}`)
+	h.command("threads:2", `{"type":"turn","uuid":"b","text":"two"}`)
+	waitFor(t, func() bool {
+		return len(h.spawner.process(0).stdin.Lines()) == 2 && len(h.spawner.process(1).stdin.Lines()) == 2
+	})
+	if got := h.spawner.process(0).stdin.Lines()[1]; !strings.Contains(got, `"one"`) || strings.Contains(got, `"two"`) {
+		t.Fatalf("channel 1 stdin = %s", got)
+	}
+	if got := h.spawner.process(1).stdin.Lines()[1]; !strings.Contains(got, `"two"`) || strings.Contains(got, `"one"`) {
+		t.Fatalf("channel 2 stdin = %s", got)
+	}
+	h.spawner.process(0).Emit(`{"type":"assistant","n":1}`)
+	h.out("threads:1", func(entries []map[string]any) bool { return countLines(entries, `"n":1`) == 1 })
+	if entries, _ := h.redis.XRange(context.Background(), "threads:2:out", "-", "+").Result(); countLines(toValues(entries), `"n":1`) != 0 {
+		t.Fatal("a line crossed channels")
+	}
+}
+
+func toValues(entries []redis.XMessage) []map[string]any {
+	values := make([]map[string]any, 0, len(entries))
+	for _, entry := range entries {
+		values = append(values, entry.Values)
+	}
+	return values
+}
+
+func TestKillOfOneChannelLeavesTheOtherRunning(t *testing.T) {
+	h := newHarness(t)
+	startInC1(h, "threads:1")
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	startInC1(h, "threads:2")
+	waitFor(t, func() bool { return h.spawner.startCount() == 2 })
+	h.command("threads:1", `{"type":"kill"}`)
+	h.out("threads:1", func(entries []map[string]any) bool { return findEntry(entries, "broker.kill_done") != nil })
+	if calls := h.spawner.killRunnerCalls(); calls[len(calls)-1] != "c1|threads:1" {
+		t.Fatalf("kill calls = %v", calls)
+	}
+	h.command("threads:2", `{"type":"turn","uuid":"b","text":"still"}`)
+	waitFor(t, func() bool { return len(h.spawner.process(1).stdin.Lines()) == 2 })
+	if entries, _ := h.redis.XRange(context.Background(), "threads:2:out", "-", "+").Result(); findEntry(toValues(entries), "broker.runner_exited") != nil {
+		t.Fatal("channel 2 was ended")
+	}
+}
+
+func TestStartRunnerOnlyKillsItsOwnChannelBeforeStarting(t *testing.T) {
+	h := newHarness(t)
+	startInC1(h, "threads:1")
+	waitFor(t, func() bool { return h.spawner.startCount() == 1 })
+	if all := h.spawner.killAllCalls(); len(all) != 0 {
+		t.Fatalf("start_runner killed all runners: %v", all)
+	}
+	if calls := h.spawner.killRunnerCalls(); len(calls) == 0 || calls[0] != "c1|threads:1" {
+		t.Fatalf("kill calls = %v", calls)
+	}
+}
+
+func TestStartupKillsLeftoverRunnersOncePerContainer(t *testing.T) {
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	ctx := context.Background()
+	client.SAdd(ctx, "broker:channels", "threads:1", "threads:2", "threads:3")
+	client.HSet(ctx, "broker:containers", "threads:1", "c1", "threads:2", "c1", "threads:3", "c2")
+	spawner := &fakeSpawner{}
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	broker := New(client, spawner, nil, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	go func() { _ = broker.Run(runCtx) }()
+	h := &harness{redis: client}
+	h.out("threads:3", func(entries []map[string]any) bool { return findEntry(entries, "broker.restarted") != nil })
+	calls := spawner.killAllCalls()
+	sort.Strings(calls)
+	if strings.Join(calls, ",") != "c1,c2" {
+		t.Fatalf("kill-all calls = %v", calls)
 	}
 }

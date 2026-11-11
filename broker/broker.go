@@ -114,11 +114,13 @@ func (b *Broker) startup(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	cleaned := map[string]bool{}
 	for _, name := range names {
 		state := b.watch(ctx, name, "$")
-		if state.container != "" {
+		if state.container != "" && !cleaned[state.container] {
+			cleaned[state.container] = true
 			if err := b.spawner.KillAllRunners(ctx, state.container); err != nil {
-				b.logger.Warn("startup kill failed", "channel", name, "error", err)
+				b.logger.Warn("startup kill failed", "container", state.container, "error", err)
 			}
 		}
 		b.emitBroker(state, "broker.restarted", nil)
@@ -282,7 +284,7 @@ func (b *Broker) startRunner(ctx context.Context, state *channelState, cmd comma
 		state.container = cmd.Container
 		b.redis.HSet(ctx, containersKey, state.name, cmd.Container)
 	}
-	if err := b.spawner.KillAllRunners(ctx, state.container); err != nil {
+	if err := b.spawner.KillRunner(ctx, state.container, state.name); err != nil {
 		b.logger.Warn("kill before start failed", "channel", state.name, "error", err)
 	}
 	start := append([]byte(nil), cmd.Start...)
@@ -399,7 +401,7 @@ func (b *Broker) kill(ctx context.Context, state *channelState) {
 		return
 	}
 	b.revoke(state)
-	if err := b.spawner.KillAllRunners(ctx, state.container); err != nil {
+	if err := b.spawner.KillRunner(ctx, state.container, state.name); err != nil {
 		b.logger.Warn("kill failed", "channel", state.name, "error", err)
 	}
 	_ = process.Stdin().Close()
