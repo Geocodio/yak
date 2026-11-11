@@ -80,6 +80,20 @@ test('marks one repo failed and keeps the other ready when two setup scripts run
         ->and($second->fresh()->last_refresh_commit)->toBe('bbb');
 });
 
+test('the clone script skips only the clone for an existing checkout and still checks out the thread branch', function () {
+    $thread = extrasThread();
+    $row = extraRow($thread, 'acme/one');
+
+    queueExtras(cloneOutput([[0, '']]), inspectOutput([[false, 'aaa', '', '']]));
+
+    app(ExtraRepositorySetup::class)->setUp($thread, $row);
+
+    $script = collect(app(SandboxManager::class)->calls)->where('operation', 'exec')->values()[0]['arguments']['stdin'];
+    expect($script)->toContain('.git ] || git clone')
+        ->not->toContain('exit 0')
+        ->toContain("git checkout -B 'yak/thread-branch'");
+});
+
 test('a failed clone keeps the row as failed and skips setup', function () {
     $thread = extrasThread();
     $row = extraRow($thread, 'acme/one');

@@ -43,6 +43,10 @@ class ThreadRepositoryController extends Controller
             throw ValidationException::withMessages(['repository' => 'Only an extra repository has a setup to retry.']);
         }
 
+        if ($repository->setup_status !== RepositorySetupStatus::Failed) {
+            throw ValidationException::withMessages(['repository' => 'Only a failed setup can be retried.']);
+        }
+
         $repository->update(['setup_status' => RepositorySetupStatus::Pending, 'setup_error' => null]);
         ThreadRepositoryChanged::dispatch($thread, $repository);
         RetryRepositorySetupJob::dispatch($thread, $repository);

@@ -77,6 +77,15 @@ it('retry resets the row and dispatches the job', function () {
     Queue::assertPushed(RetryRepositorySetupJob::class);
 });
 
+it('rejects a retry unless the setup failed', function (RepositorySetupStatus $status) {
+    $row = threadRepositoryRow($this->thread, 'changes', ['setup_status' => $status]);
+
+    $this->actingAs($this->owner)->postJson(route('threads.repositories.retry', [$this->thread, $row]))->assertUnprocessable();
+
+    expect($row->fresh()->setup_status)->toBe($status);
+    Queue::assertNothingPushed();
+})->with([RepositorySetupStatus::Ready, RepositorySetupStatus::Cloning, RepositorySetupStatus::Setup, RepositorySetupStatus::Pending]);
+
 it('steers the agent after a successful retry', function () {
     $row = threadRepositoryRow($this->thread, 'changes', ['setup_status' => RepositorySetupStatus::Failed, 'setup_error' => 'boom']);
     $this->mock(ExtraRepositorySetup::class)->shouldReceive('setUp')->once()->andReturn(new RepositorySetupResult('acme/web', RepositorySetupStatus::Ready, null, '', 0.0));
