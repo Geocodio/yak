@@ -24,6 +24,8 @@ export function composerCopy(notice: ThreadNotice | null, state: ThreadComposer[
     switch (notice?.kind) {
         case 'restoring':
             return savedFor('once the sandbox is back');
+        case 'usage_limit':
+            return { ...DEFAULT, placeholder: 'Message Claude. It reads this after the limit resets.' };
         case 'waiting_for_account':
             return savedFor('when its turn starts');
         case 'waiting_for_sandbox':

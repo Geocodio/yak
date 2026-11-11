@@ -8,6 +8,7 @@ export type ThreadListRow = {
     needsYouReason: 'question' | 'blocked' | 'unseen' | null;
     needsYouLabel: string | null;
     isPrivate: boolean;
+    isShared: boolean;
     isUnattended: boolean;
     ownerInitials: string | null;
     lastActivityAt: string | null;

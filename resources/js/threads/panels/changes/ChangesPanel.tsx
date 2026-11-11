@@ -1,13 +1,16 @@
-import { Button, Select, TextInput, cn } from '@geocodio/console-ui';
+import { Button, Select, Tooltip, cn, toast } from '@geocodio/console-ui';
 import { usePage } from '@inertiajs/react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Keyboard, Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadDiffFile } from '@/types/thread-changes';
 import { DiffViewer } from './DiffViewer';
 import { OpenPullRequestButton } from './OpenPullRequestButton';
 import { ContextRepoCallout } from './ContextRepoCallout';
+import { FileHeader } from './FileHeader';
 import { FileTree } from './FileTree';
+import { FilterInput } from './FilterInput';
+import { ViewedProgress } from './ViewedProgress';
 import { RepositoryTabs } from './RepositoryTabs';
 import { buildFileTree, fileKey } from './buildFileTree';
 import { useStack } from '../stack/useStack';
@@ -39,15 +42,19 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
     const { stack } = useStack(thread);
     const [childId, setChildId] = useState<number | null>(null);
     const { diff, isLoading, error, reload } = useThreadDiff(thread, childId);
-    const switchOptions = stack?.isRoot && stack.children.length > 0 ? [{ value: '', label: 'This thread' }, ...stack.children.map((child) => ({ value: String(child.id), label: child.name }))] : [];
+    const switchOptions = stack?.isRoot && stack.children.length > 0 ? [{ value: '', label: 'This thread' }, ...stack.children.map((child) => ({ value: String(child.id), label: child.filesChanged === null ? child.name : `${child.name} (${child.filesChanged} ${child.filesChanged === 1 ? 'file' : 'files'})` }))] : [];
     const diffSwitch = switchOptions.length > 0 && (
-        <Select
-            options={switchOptions}
-            value={childId === null ? '' : String(childId)}
-            onChange={(value) => { setChildId(value ? Number(value) : null); setOpenPath(null); }}
-            aria-label="Show changes of"
-            data-testid="changes-child-switch"
-        />
+        <div className="flex items-center gap-2">
+            <span className="shrink-0 text-[12px] text-muted">Showing</span>
+            <Select
+                options={switchOptions}
+                value={childId === null ? '' : String(childId)}
+                onChange={(value) => { setChildId(value ? Number(value) : null); setOpenPath(null); }}
+                aria-label="Show changes of"
+                data-testid="changes-child-switch"
+                className="min-w-0 flex-1"
+            />
+        </div>
     );
     const diffThreadId = childId ?? thread.id;
     const [filter, setFilter] = useState('');
@@ -55,10 +62,15 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
     const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
     const [mode, setMode] = useState<'unified' | 'split'>('unified');
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isFileCollapsed, setIsFileCollapsed] = useState(false);
     const [viewed, setViewed] = useState<Set<string>>(new Set());
     const filterInput = useRef<HTMLInputElement>(null);
     const headSha = diff?.headSha ?? '';
     const key = storageKey(thread.id, headSha);
+
+    useEffect(() => {
+        setIsFileCollapsed(false);
+    }, [openPath]);
 
     useEffect(() => {
         setViewed(readViewed(key));
@@ -135,7 +147,15 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
     const openIndex = openPath === null ? -1 : files.findIndex((file) => keyOf(file) === openPath);
     const openFile = openIndex >= 0 ? files[openIndex] : null;
     const viewedCount = files.filter((file) => viewed.has(keyOf(file))).length;
-    const step = (delta: number) => setOpenPath(keyOf(files[(openIndex + delta + files.length) % files.length]));
+    const step = (delta: number) => {
+        setOpenPath(keyOf(files[(openIndex + delta + files.length) % files.length]));
+        setIsFileCollapsed(false);
+    };
+    const copyPath = (path: string) =>
+        navigator.clipboard.writeText(path).then(
+            () => toast.success('Copied the path'),
+            () => toast.error('Could not copy the path.'),
+        );
 
     return (
         <div className="flex flex-col gap-3" data-testid="changes-panel">
@@ -153,6 +173,11 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                 </p>
                 <div className="flex items-center gap-2">
                     {canDrive && childId === null && <OpenPullRequestButton thread={thread} publishWarning={publishWarning} />}
+                    <Tooltip label="/ filter, j k next file">
+                        <button type="button" aria-label="Keyboard shortcuts" className="cursor-pointer text-muted hover:text-body">
+                            <Keyboard size={14} />
+                        </button>
+                    </Tooltip>
                     <button type="button" onClick={() => setIsExpanded(!isExpanded)} aria-label={isExpanded ? 'Shrink to sidebar width' : 'Expand to full width'} className="cursor-pointer text-muted hover:text-body">
                         {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
                     </button>
@@ -173,9 +198,11 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
 
             {openFile === null ? (
                 <>
-                    <TextInput ref={filterInput} value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Filter files (press /)" aria-label="Filter files" />
-                    <p className="text-[12px] text-muted">{viewedCount} of {files.length} viewed</p>
-                    <FileTree nodes={tree} viewed={viewed} onToggleViewed={toggleViewed} onOpen={setOpenPath} />
+                    <div className="flex items-center gap-3">
+                        <FilterInput ref={filterInput} value={filter} onChange={setFilter} />
+                        <ViewedProgress viewed={viewedCount} total={files.length} />
+                    </div>
+                    <FileTree nodes={tree} viewed={viewed} onOpen={setOpenPath} />
                 </>
             ) : (
                 <>
@@ -183,31 +210,35 @@ export function ChangesPanel({ thread, canDrive }: PanelProps) {
                         <Button variant="tertiary" onClick={() => setOpenPath(null)}>
                             <ArrowLeft size={13} /> All files
                         </Button>
-                        <div className="flex items-center gap-1 text-[12px] text-muted">
-                            <button type="button" onClick={() => step(-1)} aria-label="Previous file" className="cursor-pointer hover:text-body">
-                                <ChevronLeft size={14} />
-                            </button>
-                            <span className="tabular-nums">{openIndex + 1}/{files.length}</span>
-                            <button type="button" onClick={() => step(1)} aria-label="Next file" className="cursor-pointer hover:text-body">
-                                <ChevronRight size={14} />
-                            </button>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                        <code className="truncate font-mono text-[12px] text-body">{hasSeveralRepositories ? `${openFile.repo}: ` : ''}{openFile.path}</code>
-                        <div className="flex shrink-0 gap-1 text-[12px]" role="group" aria-label="Diff layout">
-                            {(['unified', 'split'] as const).map((option) => (
-                                <button key={option} type="button" onClick={() => setMode(option)} aria-pressed={mode === option} className={cn('cursor-pointer rounded-chip px-2 py-0.5', mode === option ? 'bg-app text-body' : 'text-muted')}>
-                                    {option === 'unified' ? 'Unified' : 'Split'}
+                        <div className="flex items-center gap-2 text-[12px]">
+                            <div className="flex gap-1" role="group" aria-label="Diff layout">
+                                {(['unified', 'split'] as const).map((option) => (
+                                    <button key={option} type="button" onClick={() => setMode(option)} aria-pressed={mode === option} className={cn('cursor-pointer rounded-chip px-2 py-0.5', mode === option ? 'bg-app text-body' : 'text-muted')}>
+                                        {option === 'unified' ? 'Unified' : 'Split'}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="flex items-center gap-1 text-muted">
+                                <button type="button" onClick={() => step(-1)} aria-label="Previous file" className="cursor-pointer hover:text-body">
+                                    <ChevronUp size={14} />
                                 </button>
-                            ))}
+                                <span className="tabular-nums">{openIndex + 1}/{files.length}</span>
+                                <button type="button" onClick={() => step(1)} aria-label="Next file" className="cursor-pointer hover:text-body">
+                                    <ChevronDown size={14} />
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <label className="flex items-center gap-2 text-[12px] text-muted">
-                        <input type="checkbox" checked={viewed.has(keyOf(openFile))} onChange={() => toggleViewed(keyOf(openFile))} />
-                        Viewed
-                    </label>
-                    <DiffViewer key={openFile.id} threadId={diffThreadId} file={openFile} mode={mode} />
+                    <FileHeader
+                        file={openFile}
+                        label={`${hasSeveralRepositories ? `${openFile.repo}: ` : ''}${openFile.path}`}
+                        isCollapsed={isFileCollapsed}
+                        onToggleCollapsed={() => setIsFileCollapsed(!isFileCollapsed)}
+                        isViewed={viewed.has(keyOf(openFile))}
+                        onToggleViewed={() => toggleViewed(keyOf(openFile))}
+                        onCopyPath={() => copyPath(openFile.path)}
+                    />
+                    {!isFileCollapsed && <DiffViewer key={openFile.id} threadId={diffThreadId} file={openFile} mode={mode} />}
                 </>
             )}
         </div>

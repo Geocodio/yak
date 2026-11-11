@@ -51,6 +51,19 @@ test('owner sees the Private badge, the banner and the Share button; a team thre
         ->assertNoJavaScriptErrors();
 });
 
+test('a private thread shows the started-on-your-computer subtext and the owner role', function () {
+    $owner = User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->id)
+        ->click('[data-testid="share-button"]')
+        ->assertSee('A thread started on your computer is private to you until you share it.')
+        ->click('[data-testid="share-mode-people"]')
+        ->assertSeeIn('[data-testid="share-role-' . $owner->id . '"]', 'Owner')
+        ->assertNoJavaScriptErrors();
+});
+
 test('the dialog lists people and the secret warning from the transcript', function () {
     $owner = User::factory()->create();
     $teammate = User::factory()->create(['name' => 'Tessa Teammate']);
@@ -129,6 +142,7 @@ test('a failed save shows the error and keeps Private', function () {
         ->click('[data-testid="share-submit"]')
         ->assertVisible('[data-testid="share-error"]')
         ->assertSee('This thread is still private')
+        ->assertVisible('[data-testid="share-error"][data-tone="fail"]')
         ->assertVisible('[data-testid="share-dialog"]');
 
     expect($thread->fresh()->visibility->value)->toBe('private');
@@ -153,4 +167,41 @@ test('phone width 390: dialog fits and scrolls', function () {
     JS);
 
     expect($fits)->toBeTrue();
+});
+
+test('the visibility row shows the shared people and Remove narrows them down to Private', function () {
+    $owner = User::factory()->create();
+    [$first, $second] = User::factory()->count(2)->create()->all();
+    $thread = Thread::factory()->private($owner)->create();
+    app(ThreadSharing::class)->apply($thread, $owner, ThreadShareMode::People, [$first->id, $second->id]);
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->id)
+        ->assertSeeIn('[data-testid="visibility-badge"]', 'Shared with 2 people')
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 2 people')
+        ->click('[data-testid="share-remove-' . $first->id . '"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Shared with 1 person')
+        ->assertMissing('[data-testid="share-remove-' . $first->id . '"]')
+        ->click('[data-testid="share-remove-' . $second->id . '"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Private')
+        ->assertMissing('[data-testid="shared-people"]')
+        ->assertNoJavaScriptErrors();
+
+    expect($thread->fresh()->visibility->value)->toBe('private')
+        ->and(app(ThreadSharing::class)->current($thread)['userIds'])->toBe([]);
+});
+
+test('a private thread shared with nobody shows Private and a Share link with no empty list', function () {
+    $owner = User::factory()->create();
+    User::factory()->create();
+    $thread = Thread::factory()->private($owner)->create();
+    $this->actingAs($owner);
+
+    visit('/threads/' . $thread->id)
+        ->click('[data-testid="thread-panel-tab-environment"]')
+        ->assertSeeIn('[data-testid="visibility-row-state"]', 'Private')
+        ->assertSeeIn('[data-testid="visibility-row-share"]', 'Share')
+        ->assertMissing('[data-testid="shared-people"]')
+        ->assertNoJavaScriptErrors();
 });

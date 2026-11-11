@@ -264,3 +264,17 @@ it('shows the environment note and side-switch divider after a teleport up and a
         ->assertVisible('[data-testid="environment-note"]')
         ->assertNoJavaScriptErrors();
 });
+
+it('shows the usage limit notice with a new thread button and the composer placeholder', function () {
+    $user = User::factory()->create();
+    $thread = Thread::factory()->create(['created_by_user_id' => $user->id, 'owner_user_id' => $user->id, 'blocked_reason' => ThreadBlockReason::UsageLimit]);
+    $this->actingAs($user);
+
+    visit("/threads/{$thread->id}")
+        ->assertSeeIn('[data-testid="thread-notice"][data-kind="usage_limit"]', 'Usage limit reached')
+        ->assertSeeIn('[data-testid="usage-limit-new-thread"]', 'Start a new thread on another account')
+        ->assertAttributeContains('[data-testid="usage-limit-new-thread"]', 'href', '/threads/new')
+        ->assertAttribute('[data-testid="thread-composer"] textarea', 'placeholder', 'Message Claude. It reads this after the limit resets.')
+        ->assertDontSee('null')
+        ->assertNoJavaScriptErrors();
+});

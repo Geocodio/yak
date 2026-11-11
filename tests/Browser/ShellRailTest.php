@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Thread;
+use App\Models\ThreadShare;
 use App\Models\User;
 
 test('the rail switches between the thread list and the section drawers', function () {
@@ -48,4 +50,21 @@ test('the phone sheet holds the section switcher and the user row', function () 
         ->assertVisible('[data-testid="section-panel-operations"]')
         ->assertVisible('[data-testid="mobile-nav-user"]')
         ->assertNoJavaScriptErrors();
+});
+
+test('a private row leads with the lock and a shared row carries the Shared badge on the repo line', function () {
+    $owner = User::factory()->create();
+    $guest = User::factory()->create();
+    $alone = Thread::factory()->private($owner)->create(['created_by_user_id' => $owner->id, 'title' => 'Alone thread']);
+    $shared = Thread::factory()->private($owner)->create(['created_by_user_id' => $owner->id, 'title' => 'Shared thread']);
+    ThreadShare::factory()->create(['thread_id' => $shared->id, 'user_id' => $guest->id]);
+    $this->actingAs($owner);
+
+    $page = visit('/tasks')
+        ->assertSeeIn('[data-testid="thread-visibility-' . $alone->id . '"]', 'Private')
+        ->assertSeeIn('[data-testid="thread-visibility-' . $shared->id . '"]', 'Shared')
+        ->assertNoJavaScriptErrors();
+
+    $lockFirst = $page->script("(() => { const el = document.querySelector('[data-testid=\"thread-title-{$alone->id}\"]'); return el.firstElementChild.tagName.toLowerCase() === 'svg'; })()");
+    expect($lockFirst)->toBeTrue();
 });

@@ -32,13 +32,10 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                 >
                     <span className="flex items-center gap-2">
                         <ThreadStatusDot row={row} />
-                        <span className={cn('min-w-0 flex-1 truncate text-[13px] text-body', nested && 'text-[12.5px]')}>{row.title}</span>
-                        {row.isPrivate ? (
-                            <>
-                                <Lock size={11} className="shrink-0 text-faint" aria-hidden />
-                                <Badge tone="neutral">Private</Badge>
-                            </>
-                        ) : null}
+                        <span className={cn('flex min-w-0 flex-1 items-center gap-1 text-[13px] text-body', nested && 'text-[12.5px]')} data-testid={`thread-title-${row.id}`}>
+                            {row.isPrivate ? <Lock size={11} className="shrink-0 text-faint" aria-hidden /> : null}
+                            <span className="truncate">{row.title}</span>
+                        </span>
                         {row.isUnattended ? (
                             <Tooltip label="Started by Yak, not a person">
                                 <Badge tone="accent">Unattended</Badge>
@@ -59,6 +56,7 @@ export function ThreadRow({ row, nested = false, active = false }: { row: Thread
                         ) : (
                             <span className="truncate">{STATUS_TEXT[row.status]}</span>
                         )}
+                        {row.isPrivate ? <Badge tone="neutral" data-testid={`thread-visibility-${row.id}`}>{row.isShared ? 'Shared' : 'Private'}</Badge> : null}
                         {hasChildren && !isExpanded ? (
                             <span className="ml-auto flex shrink-0 items-center gap-1" data-testid={`thread-dots-${row.id}`}>
                                 {row.children.map((child) => (

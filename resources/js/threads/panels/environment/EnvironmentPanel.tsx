@@ -1,6 +1,10 @@
 import { Badge, Skeleton, cn, toast } from '@geocodio/console-ui';
-import { Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink, KeyRound } from 'lucide-react';
 import { useEffect, type ReactNode } from 'react';
+import { InfoTip } from '@/components/threads/environment/InfoTip';
+import { LocationChip } from '@/components/threads/share/LocationChip';
+import { VisibilityRow } from '@/components/threads/share/VisibilityRow';
+import { PersonAvatar } from '@/components/threads/environment/PersonAvatar';
 import type { PanelProps } from '@/threads/panels';
 import type { ThreadEnvironment } from '@/types/thread-changes';
 import { CapacityBlock } from './CapacityBlock';
@@ -49,13 +53,30 @@ function sandboxSentence(state: SandboxState, stoppedAfterMinutes: number): stri
     }
 }
 
-function Row({ label, testId, children }: { label: string; testId: string; children: ReactNode }) {
+function Row({ label, testId, tip, children }: { label: string; testId: string; tip?: string; children: ReactNode }) {
     return (
-        <div className="flex flex-col gap-1 border-b border-hair py-3 last:border-b-0" data-testid={testId}>
-            <dt className="text-[12px] text-muted">{label}</dt>
-            <dd className="min-w-0 text-[13px] text-body">{children}</dd>
+        <div className="flex items-start gap-3 border-b border-hair py-3 last:border-b-0" data-testid={testId}>
+            <dt className="flex w-24 shrink-0 items-center gap-1 text-[12px] text-muted">
+                {label}
+                {tip !== undefined && <InfoTip label={tip} />}
+            </dt>
+            <dd className="min-w-0 flex-1 text-[13px] text-body">{children}</dd>
         </div>
     );
+}
+
+const PULL_REQUEST_TONE: Record<string, 'ok' | 'accent' | 'neutral'> = { open: 'ok', merged: 'accent', closed: 'neutral' };
+
+function capitalize(value: string): string {
+    return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function hostOf(url: string): string {
+    try {
+        return new URL(url).host;
+    } catch {
+        return url;
+    }
 }
 
 function ExternalAnchor({ href, children }: { href: string; children: ReactNode }) {
@@ -134,13 +155,19 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
             )}
 
             <dl>
+                <VisibilityRow thread={thread} />
+                {thread.startedOnDevice && (
+                    <Row label="Started on" testId="environment-started-on">
+                        <LocationChip thread={thread} />
+                    </Row>
+                )}
                 <Row label="Branch" testId="environment-branch">
                     {branch === null ? (
                         <span className="text-muted">Not created yet</span>
                     ) : (
-                        <span className="inline-flex max-w-full items-center gap-1.5">
-                            <code className="truncate font-mono text-[12px]">{branch}</code>
-                            <button type="button" onClick={() => copyBranch(branch)} aria-label="Copy branch name" className="cursor-pointer text-muted hover:text-body">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                            <code className="min-w-0 flex-1 truncate font-mono text-[12px]">{branch}</code>
+                            <button type="button" onClick={() => copyBranch(branch)} aria-label="Copy branch name" className="shrink-0 cursor-pointer text-muted hover:text-body">
                                 <Copy size={12} />
                             </button>
                         </span>
@@ -149,32 +176,33 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
 
                 <Row label="Pull request" testId="environment-pull-request">
                     {pullRequest === null ? (
-                        <span className="text-muted">None yet</span>
+                        <span className="text-muted">Not opened yet</span>
                     ) : (
                         <span className="inline-flex items-center gap-2">
                             <ExternalAnchor href={pullRequest.url}>#{pullRequest.number}</ExternalAnchor>
-                            <Badge tone="neutral">{pullRequest.state}</Badge>
+                            <Badge tone={PULL_REQUEST_TONE[pullRequest.state] ?? 'neutral'}>{capitalize(pullRequest.state)}</Badge>
                         </span>
                     )}
                 </Row>
 
-                <Row label="Deployment" testId="environment-deployment">
+                <Row label="Deployment" testId="environment-deployment" tip="The preview served from this thread's branch.">
                     {deployment === null ? (
-                        <span className="text-muted">No preview</span>
+                        <span className="text-muted">None for this branch</span>
                     ) : (
                         <span className="inline-flex items-center gap-2">
-                            <ExternalAnchor href={deployment.url}>Open preview</ExternalAnchor>
+                            <ExternalAnchor href={deployment.url}>{hostOf(deployment.url)}</ExternalAnchor>
                             <Badge tone="neutral">{deployment.status}</Badge>
                         </span>
                     )}
                 </Row>
 
-                <Row label="Account" testId="environment-account">
+                <Row label="Account" testId="environment-account" tip="The Claude account this thread runs on.">
                     {account === null ? (
                         <span className="text-muted">Not chosen yet</span>
                     ) : (
                         <>
                             <span className="inline-flex items-center gap-2">
+                                <KeyRound size={13} className="text-muted" />
                                 {account.name}
                                 {account.isYours && <Badge tone="accent">Yours</Badge>}
                             </span>
@@ -183,14 +211,18 @@ export function EnvironmentPanel({ thread, canDrive, notice, composerState, capa
                     )}
                 </Row>
 
-                <Row label="Model" testId="environment-model">
+                <Row label="Model" testId="environment-model" tip="The model Claude uses for the next message.">
                     {model === null ? <span className="text-muted">Default</span> : model}
                     <p className="mt-0.5 text-[12px] text-muted">Change it next to Send.</p>
                 </Row>
 
                 {startedBy !== null && (
                     <Row label="Started by" testId="environment-started-by">
-                        {startedBy.name}, {formatStartedAt(startedBy.at)}
+                        <span className="inline-flex items-center gap-2">
+                            <PersonAvatar name={startedBy.name} />
+                            {startedBy.name}
+                            <span className="text-muted">{formatStartedAt(startedBy.at)}</span>
+                        </span>
                     </Row>
                 )}
             </dl>

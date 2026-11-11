@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Button, Checkbox, Dialog } from '@geocodio/console-ui';
-import { AlertTriangle } from 'lucide-react';
+import { AlertCircle, KeyRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { csrfToken } from '@/lib/csrfToken';
 import { show, update } from '@/routes/threads/share';
@@ -63,7 +63,7 @@ export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onC
             open
             onOpenChange={(open) => !open && !isSubmitting && onClose()}
             title="Share this thread"
-            description={thread.visibility === 'team' ? 'A thread started on Yak is visible to the team. Choose Only me to make it private.' : undefined}
+            description={thread.visibility === 'team' ? 'A thread started on Yak is visible to the team. Choose Only me to make it private.' : 'A thread started on your computer is private to you until you share it.'}
             width="w-[min(540px,100vw)]"
             data-testid="share-dialog"
             footer={
@@ -107,27 +107,34 @@ export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onC
                         </div>
 
                         {mode === 'people' && (
-                            <div className="flex flex-col gap-1.5" data-testid="share-people">
-                                {state.people.length === 0 && <p className="text-[12.5px] text-muted">Nobody else has a Yak account on this team yet.</p>}
+                            <div className="flex flex-col gap-1.5 rounded-control bg-panel-2 p-3" data-testid="share-people">
+                                {state.people.every((person) => person.role !== null) && <p className="text-[12.5px] text-muted">Nobody else has a Yak account on this team yet.</p>}
                                 {state.people.map((person) => (
-                                    <Checkbox
-                                        key={person.id}
-                                        label={person.name}
-                                        checked={userIds.includes(person.id)}
-                                        disabled={isSubmitting}
-                                        onCheckedChange={(checked) => toggle(person.id, checked)}
-                                        data-testid={`share-person-${person.id}`}
-                                    />
+                                    <div key={person.id} className="flex items-center justify-between gap-3">
+                                        {person.role === null ? (
+                                            <Checkbox
+                                                label={person.name}
+                                                checked={userIds.includes(person.id)}
+                                                disabled={isSubmitting}
+                                                onCheckedChange={(checked) => toggle(person.id, checked)}
+                                                data-testid={`share-person-${person.id}`}
+                                            />
+                                        ) : (
+                                            <span className="text-[13.5px]">{person.name}</span>
+                                        )}
+                                        {person.role !== null && <span className="text-[12px] text-muted" data-testid={`share-role-${person.id}`}>{person.role}</span>}
+                                    </div>
                                 ))}
                             </div>
                         )}
 
                         {hasSecrets && (
-                            <div data-testid="share-secret-warning" className="flex flex-col gap-2 rounded-control border border-hair bg-panel-2 p-3 text-[12.5px]">
-                                <p className="flex items-start gap-1.5"><AlertTriangle size={14} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
-                                    <span>Claude opened {state.secretFiles.length} {state.secretFiles.length === 1 ? 'file' : 'files'} with names that look like secrets. Yak does not remove secrets from transcripts. Everyone you share with can read what Claude saw. You can stop sharing later, but people who already read it keep what they saw.</span>
+                            <div data-testid="share-secret-warning" className="flex flex-col gap-2 rounded-control bg-warn-soft p-3 text-[12.5px]">
+                                <p className="flex items-start gap-1.5"><KeyRound size={14} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
+                                    <span>
+                                        Claude opened {state.secretFiles.map((file) => <code key={file} className="mx-0.5 break-all rounded bg-panel-2 px-1 font-mono text-[12px]">{file}</code>)}, with {state.secretFiles.length === 1 ? 'a name' : 'names'} that look{state.secretFiles.length === 1 ? 's' : ''} like {state.secretFiles.length === 1 ? 'a secret' : 'secrets'}. Yak does not remove secrets from transcripts. Everyone you share with can read what Claude saw. You can stop sharing later, but people who already read it keep what they saw.
+                                    </span>
                                 </p>
-                                <ul className="font-mono text-[12px] text-muted">{state.secretFiles.map((file) => <li key={file} className="break-all">{file}</li>)}</ul>
                                 {state.memoryFolder !== null && (
                                     <div>
                                         <p>Memory folder, readable once shared: <code className="font-mono text-[12px]">{state.memoryFolder}</code></p>
@@ -140,8 +147,9 @@ export function ShareThreadDialog({ thread, onClose }: { thread: ThreadData; onC
                 )}
 
                 {hasSaveFailed && (
-                    <p role="alert" data-testid="share-error" className="rounded-control border border-hair bg-panel-2 px-3 py-2 text-[12.5px]">
-                        <strong className="font-medium">Could not save.</strong> Yak could not reach its server, so nothing changed. This thread is still {thread.visibility === 'private' ? 'private' : 'visible to the team'}. Try again in a moment.
+                    <p role="alert" data-testid="share-error" data-tone="fail" className="flex items-start gap-1.5 rounded-control bg-fail-soft px-3 py-2 text-[12.5px]">
+                        <AlertCircle size={14} className="mt-0.5 shrink-0 text-fail" aria-hidden="true" />
+                        <span><strong className="font-semibold">Could not save.</strong> Yak could not reach its server, so nothing changed. This thread is still {thread.visibility === 'private' ? 'private' : 'visible to the team'}. Try again in a moment.</span>
                     </p>
                 )}
             </div>

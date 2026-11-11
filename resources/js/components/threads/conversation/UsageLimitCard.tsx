@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import { Gauge } from 'lucide-react';
 import type { ThreadNotice } from '@/types/threads';
 import { useCountdown } from './useCountdown';
@@ -18,6 +19,15 @@ export function UsageLimitCard({ notice }: { notice: ThreadNotice }) {
                             Resets at {resetTime}
                             {countdown !== null && <span className="ml-2 tabular-nums text-muted" data-testid="usage-countdown">in {countdown}</span>}
                         </p>
+                    )}
+                    {notice.startOnOwnAccountUrl !== null && (
+                        <Link
+                            href={notice.startOnOwnAccountUrl}
+                            className="mt-3 inline-block rounded-card border border-hair bg-panel px-3 py-1.5 text-[13px] font-medium text-body hover:bg-panel-2"
+                            data-testid="usage-limit-new-thread"
+                        >
+                            Start a new thread on another account
+                        </Link>
                     )}
                 </div>
             </div>

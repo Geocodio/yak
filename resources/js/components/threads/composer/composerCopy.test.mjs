@@ -7,7 +7,7 @@ const DEFAULT = { placeholder: 'Message Claude', hint: 'Enter to send, Shift+Ent
 
 test('default copy', () => {
     assert.deepEqual(composerCopy(null, 'idle', 'none'), DEFAULT);
-    assert.deepEqual(composerCopy(notice('usage_limit'), 'idle', 'none'), DEFAULT);
+    assert.equal(composerCopy(notice('usage_limit'), 'idle', 'none').placeholder, 'Message Claude. It reads this after the limit resets.');
 });
 
 test('working', () => {

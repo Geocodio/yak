@@ -14,6 +14,7 @@ import {
 import '../../../css/telemetry-ui.css';
 import { useCallback, useState } from 'react';
 import type { ReactNode } from 'react';
+import { AwakeSandboxesCard } from '@/components/system/AwakeSandboxesCard';
 import { AppLayout } from '@/layouts/AppLayout';
 import { useMediaQuery } from '@/lib/useMediaQuery';
 import type { PageProps } from '@/types/shared';
@@ -128,7 +129,7 @@ function SectionNav({ pathname }: { pathname: string }) {
  * layout. The package's links become Yak URLs under /system, and the window,
  * filters and open drawer live in the address bar so a view survives a reload.
  */
-export default function Index({ telemetryBase, path }: PageProps<SystemPageProps>) {
+export default function Index({ telemetryBase, path, awakeSlots }: PageProps<SystemPageProps>) {
     const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
     const pathname = `/${path}`;
     const [search, setSearch] = useState(() => window.location.search);
@@ -160,6 +161,7 @@ export default function Index({ telemetryBase, path }: PageProps<SystemPageProps
                     <div className="mx-auto grid max-w-[1400px] gap-6 px-4 py-6 sm:px-8 lg:grid-cols-[180px_minmax(0,1fr)]">
                         <SectionNav pathname={pathname} />
                         <div className="min-w-0" data-testid="system-body">
+                            {awakeSlots !== null && path === 'p/system' && <AwakeSandboxesCard slots={awakeSlots} />}
                             <Body path={path} />
                         </div>
                     </div>

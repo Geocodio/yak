@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { cn } from '@geocodio/console-ui';
 import { useState, type ReactNode } from 'react';
 import { StatusPill } from '@/components/threads/StatusPill';
@@ -14,16 +14,19 @@ import { ThreadPhoneTabs } from '@/threads/dock/ThreadPhoneTabs';
 import { useDockState } from '@/threads/dock/useDockState';
 import { dockPanelsFor, sidebarPanelsFor } from '@/threads/panels';
 import '@/threads/panels/index';
+import { ChildBriefCard } from '@/components/threads/header/ChildBriefCard';
+import { ThreadHeaderMeta } from '@/components/threads/header/ThreadHeaderMeta';
 import { ChildParentBanner } from '@/components/threads/stack/ChildParentBanner';
 import { PrivateThreadBanner } from '@/components/threads/share/PrivateThreadBanner';
 import { ShareButton } from '@/components/threads/share/ShareButton';
 import { VisibilityBadge } from '@/components/threads/share/VisibilityBadge';
+import { show } from '@/routes/threads';
 import type { PageProps } from '@/types/shared';
 import type { ThreadPageData } from '@/types/threads';
 
 type Props = PageProps<ThreadPageData>;
 
-export default function Show({ thread, canDrive, messages, notice, composer, capacity, teleport, stackParent }: Props) {
+export default function Show({ thread, canDrive, diffTotals, pullRequest, brief, messages, notice, composer, capacity, teleport, stackParent }: Props) {
     const panels = sidebarPanelsFor(thread);
     const [activeId, setActiveId] = useState<string | null>(null);
     const active = panels.find((panel) => panel.id === activeId) ?? panels[0] ?? null;
@@ -47,11 +50,19 @@ export default function Show({ thread, canDrive, messages, notice, composer, cap
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <h1 className="truncate text-[15px] font-semibold text-body">{thread.title}</h1>
+                            <h1 className="truncate text-[15px] font-semibold text-body" data-testid="thread-title">
+                                {stackParent !== null && thread.parentThreadId !== null ? (
+                                    <>
+                                        <Link href={show.url(stackParent.id)} className="text-muted hover:underline" data-testid="thread-breadcrumb-parent">{stackParent.title}</Link>
+                                        <span className="text-muted"> / </span>
+                                    </>
+                                ) : null}
+                                {thread.title}
+                            </h1>
                             <VisibilityBadge thread={thread} />
                             <StatusPill notice={notice} composerState={composer.state} />
                         </div>
-                        <p className="text-[12px] text-muted">{thread.repo}</p>
+                        <ThreadHeaderMeta thread={thread} diffTotals={diffTotals} pullRequest={pullRequest} />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                         <ThreadDockToggles panels={dockPanels} active={activeDock} onSelect={dock.setActiveId} />
@@ -61,7 +72,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, cap
             </header>
             <FailedStepStrip notice={notice} threadId={thread.id} readonly={composer.state === 'readonly'} />
             <PrivateThreadBanner thread={thread} />
-            <ChildParentBanner thread={thread} parent={stackParent} />
+            <ChildParentBanner thread={thread} parent={stackParent} hasBrief={brief !== null} />
             <ThreadPhoneTabs registeredDockIds={dockPanels.map((panel) => panel.id)} active={phoneTab} onSelect={selectPhoneTab} />
             {isPhoneDockVisible && <ClaudeWorkingStrip thread={thread} onOpenChat={() => setPhoneTab('chat')} />}
 
@@ -70,6 +81,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, cap
                     className={cn('min-w-0 flex-1 flex-col lg:flex', phoneTab === 'chat' ? 'flex' : 'hidden', activeDock !== null && 'lg:w-[420px] lg:flex-none')}
                     data-testid="thread-conversation"
                 >
+                    {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
                     <Conversation threadId={thread.id} title={thread.title} repo={thread.repo} branch={thread.branch} messages={messages} notice={notice} readonly={composer.state === 'readonly'} environmentNote={teleport.environmentNote === null || teleport.environmentSwitch === null ? null : { text: teleport.environmentNote, ...teleport.environmentSwitch }} environmentSwitch={teleport.environmentSwitch} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
                     <ThreadComposer thread={thread} composer={composer} notice={notice} teleportState={teleport.state} />
@@ -95,6 +107,7 @@ export default function Show({ thread, canDrive, messages, notice, composer, cap
                                 >
                                     {panel.label}
                                     {panel.count && <span className="ml-1.5 rounded-pill bg-panel-2 px-1.5 text-[11px] text-muted" data-testid={`thread-panel-count-${panel.id}`}>{panel.count(thread)}</span>}
+                                    {panel.badge && <span className="ml-1.5 rounded-pill bg-panel-2 px-1.5 text-[11px] text-muted empty:hidden" data-testid={`thread-panel-count-${panel.id}`}><panel.badge thread={thread} /></span>}
                                 </button>
                             ))}
                         </div>
