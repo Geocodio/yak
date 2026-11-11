@@ -30,6 +30,7 @@ class StackChildStoreController extends Controller
                 (string) $request->validated('brief'),
                 ThreadKind::from((string) $request->validated('kind')),
                 $request->validated('model') ?: null,
+                actor: $request->user(),
             );
         } catch (StackRuleViolation $violation) {
             return response()->json(['message' => $violation->getMessage(), 'errors' => ['stack' => [$violation->getMessage()]]], 422);

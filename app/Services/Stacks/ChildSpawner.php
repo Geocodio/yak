@@ -32,7 +32,7 @@ class ChildSpawner
         private readonly ChildCardPublisher $cards,
     ) {}
 
-    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null): Thread
+    public function spawn(Thread $parent, string $name, string $brief, ThreadKind $kind, ?string $model, ?TaskRun $spawnedBy = null, ?User $actor = null): Thread
     {
         $this->rules->assertMaySpawn($parent);
 
@@ -52,7 +52,7 @@ class ChildSpawner
             throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', $allowedModels) . '.');
         }
 
-        $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy): Thread {
+        $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy, $actor): Thread {
             $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
             $root = $locked->rootThread();
             $slug = $this->uniqueName($locked, $name);
@@ -68,7 +68,7 @@ class ChildSpawner
                 'brief' => $brief,
                 'visibility' => $root->visibility,
                 'owner_user_id' => $root->owner_user_id,
-                'created_by_user_id' => $root->owner_user_id,
+                'created_by_user_id' => $actor?->id ?? $root->owner_user_id,
                 'parent_thread_id' => $locked->id,
                 'root_thread_id' => $root->id,
                 'spawned_by_task_run_id' => $spawnedBy?->id,
@@ -92,7 +92,7 @@ class ChildSpawner
                 'external_id' => 'STACK-' . Str::upper(Str::random(8)),
                 'description' => $brief,
                 'mode' => $kind === ThreadKind::Research ? TaskMode::Research : TaskMode::Fix,
-                'started_by_user_id' => $this->driverOf($locked),
+                'started_by_user_id' => $actor?->id ?? $this->driverOf($locked),
                 'thread_id' => $child->id,
             ]);
 

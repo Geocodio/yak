@@ -102,3 +102,30 @@ it('defaults the child model to the configured default', function () {
 
     expect($child->model)->toBe(config('yak.sandbox.default_child_model'))->toBe('sonnet');
 });
+
+it('records the human actor as creator and first-turn driver', function () {
+    $owner = User::factory()->create();
+    $actor = User::factory()->create();
+    $parent = stackParent(['visibility' => ThreadVisibility::Team, 'owner_user_id' => $owner->id]);
+
+    $child = app(ChildSpawner::class)->spawn($parent, 'helper', 'Do it.', ThreadKind::General, null, null, $actor);
+    $task = YakTask::query()->where('thread_id', $child->id)->sole();
+
+    expect($child->created_by_user_id)->toBe($actor->id)
+        ->and($child->owner_user_id)->toBe($owner->id)
+        ->and($task->started_by_user_id)->toBe($actor->id)
+        ->and($child->claude_account_id)->toBe($parent->claude_account_id);
+});
+
+it('keeps the root owner as creator for agent spawns', function () {
+    $owner = User::factory()->create();
+    $driver = User::factory()->create();
+    $parent = stackParent(['owner_user_id' => $owner->id]);
+    $run = TaskRun::factory()->create(['thread_id' => $parent->id, 'driver_user_id' => $driver->id]);
+
+    $child = app(ChildSpawner::class)->spawn($parent, 'helper', 'Do it.', ThreadKind::General, null, $run);
+
+    expect($child->created_by_user_id)->toBe($owner->id)
+        ->and($child->spawned_by_task_run_id)->toBe($run->id)
+        ->and(YakTask::query()->where('thread_id', $child->id)->sole()->started_by_user_id)->toBe($driver->id);
+});
