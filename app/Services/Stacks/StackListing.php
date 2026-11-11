@@ -33,7 +33,7 @@ class StackListing
         return $rows;
     }
 
-    private static function state(Thread $thread): string
+    public static function state(Thread $thread): string
     {
         if (! $thread->isOpen()) {
             return 'closed';
