@@ -96,7 +96,7 @@ func UserPromptSubmit(d HookDeps, in Input) string {
 	case "yak":
 		b, err := json.Marshal(map[string]string{
 			"decision": "block",
-			"reason":   fmt.Sprintf("This session is on Yak. Run `yak teleport %d` to bring it back.", m.ThreadID),
+			"reason":   fmt.Sprintf("This session is on Yak. Run `yak teleport %d` to bring it back, or `yak marker clear %s` to clear the marker.", m.ThreadID, in.SessionID),
 		})
 		if err != nil {
 			return ""

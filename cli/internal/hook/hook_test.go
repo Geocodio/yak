@@ -75,12 +75,21 @@ func TestYakOwnerBlocksWithoutNetwork(t *testing.T) {
 	r := newRig(t)
 	r.marker(t, "yak", 42)
 	out := UserPromptSubmit(r.deps, Input{SessionID: sid})
-	want := `{"decision":"block","reason":"This session is on Yak. Run ` + "`yak teleport 42`" + ` to bring it back."}`
+	want := `{"decision":"block","reason":"This session is on Yak. Run ` + "`yak teleport 42`" + ` to bring it back, or ` + "`yak marker clear " + sid + "`" + ` to clear the marker."}`
 	if strings.TrimSpace(out) != want {
 		t.Fatalf("got %s", out)
 	}
 	if *r.built != 0 {
 		t.Fatal("network used")
+	}
+}
+
+func TestBlockReasonMentionsMarkerClear(t *testing.T) {
+	r := newRig(t)
+	r.marker(t, "yak", 42)
+	out := UserPromptSubmit(r.deps, Input{SessionID: sid})
+	if !strings.Contains(out, sid) || !strings.Contains(out, "yak marker clear "+sid) {
+		t.Fatalf("got %s", out)
 	}
 }
 
