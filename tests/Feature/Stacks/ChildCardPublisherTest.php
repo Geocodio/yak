@@ -13,7 +13,7 @@ function childEvents(Thread $parent): array
         ->map(fn (object $row): array => json_decode($row->payload, true))->all();
 }
 
-function toolUseLine(string $tool): array
+function childToolUseLine(string $tool): array
 {
     return ['type' => 'assistant', 'message' => ['id' => 'm1', 'content' => [['type' => 'tool_use', 'id' => 't1', 'name' => $tool, 'input' => []]]]];
 }
@@ -50,8 +50,8 @@ it('does nothing for a thread without a parent', function () {
 });
 
 it('records the tool name as the step of a child and throttles the card', function () {
-    event(new ThreadActivity($this->child, 1, 1, toolUseLine('Grep')));
-    event(new ThreadActivity($this->child, 1, 2, toolUseLine('Read')));
+    event(new ThreadActivity($this->child, 1, 1, childToolUseLine('Grep')));
+    event(new ThreadActivity($this->child, 1, 2, childToolUseLine('Read')));
 
     expect($this->child->fresh()->current_step)->toBe('Read')
         ->and(childEvents($this->parent))->toHaveCount(1)
@@ -60,7 +60,7 @@ it('records the tool name as the step of a child and throttles the card', functi
 
 it('ignores lines that are not tool calls and threads that are not children', function () {
     event(new ThreadActivity($this->child, 1, 1, ['type' => 'assistant', 'message' => ['id' => 'm', 'content' => [['type' => 'text', 'text' => 'hi']]]]));
-    event(new ThreadActivity($this->parent, 1, 1, toolUseLine('Grep')));
+    event(new ThreadActivity($this->parent, 1, 1, childToolUseLine('Grep')));
 
     expect($this->child->fresh()->current_step)->toBeNull()
         ->and($this->parent->fresh()->current_step)->toBeNull()

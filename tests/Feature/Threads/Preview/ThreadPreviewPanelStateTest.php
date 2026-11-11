@@ -16,7 +16,7 @@ function panelState(Thread $thread, ?User $viewer = null): array
     return app(ThreadPreviewPanelState::class)->build($thread, $viewer ?? User::factory()->create());
 }
 
-function runningThread(): Thread
+function previewRunningThread(): Thread
 {
     return Thread::factory()->paused()->create(['sandbox_state' => 'running']);
 }
@@ -29,14 +29,14 @@ it('builds each state from recorded state', function (Closure $make, ?string $de
 
     expect(panelState($thread)['state'])->toBe($state);
 })->with([
-    'ready' => [fn () => runningThread(), 'ready', 'ready'],
+    'ready' => [fn () => previewRunningThread(), 'ready', 'ready'],
     'asleep paused' => [fn () => Thread::factory()->paused()->create(), null, 'sandbox_asleep'],
     'asleep stopped' => [fn () => Thread::factory()->stopped()->create(), null, 'sandbox_asleep'],
     'waking' => [fn () => Thread::factory()->paused()->create(['sandbox_state' => 'starting']), null, 'waking_sandbox'],
-    'starting dev server' => [fn () => runningThread(), 'starting', 'starting_dev_server'],
-    'failing' => [fn () => runningThread(), 'failing', 'failing'],
-    'no manifest' => [fn () => runningThread(), 'no_manifest', 'no_manifest'],
-    'invalid manifest' => [fn () => runningThread(), 'invalid_manifest', 'invalid_manifest'],
+    'starting dev server' => [fn () => previewRunningThread(), 'starting', 'starting_dev_server'],
+    'failing' => [fn () => previewRunningThread(), 'failing', 'failing'],
+    'no manifest' => [fn () => previewRunningThread(), 'no_manifest', 'no_manifest'],
+    'invalid manifest' => [fn () => previewRunningThread(), 'invalid_manifest', 'invalid_manifest'],
     'destroyed' => [fn () => Thread::factory()->destroyed()->create(), null, 'destroyed'],
     'closed' => [fn () => Thread::factory()->paused()->closed()->create(), null, 'closed'],
     'local machine' => [fn () => Thread::factory()->ownedByDevice()->create(), null, 'local_machine'],
@@ -44,7 +44,7 @@ it('builds each state from recorded state', function (Closure $make, ?string $de
 ]);
 
 it('gives the url only when the preview is reachable', function () {
-    $thread = runningThread();
+    $thread = previewRunningThread();
     Cache::put("thread-preview:state:{$thread->id}", 'ready');
     $ready = panelState($thread);
 
@@ -68,7 +68,7 @@ it('carries the config values and the teleport command for a local machine threa
 });
 
 it('lists children with their own sandbox as targets and skips research children', function () {
-    $parent = runningThread();
+    $parent = previewRunningThread();
     $implement = Thread::factory()->child($parent)->paused()->create();
     $mockup = Thread::factory()->child($parent)->paused()->create(['kind' => ThreadKind::Mockup]);
     Thread::factory()->child($parent)->create(['kind' => ThreadKind::Research]);
