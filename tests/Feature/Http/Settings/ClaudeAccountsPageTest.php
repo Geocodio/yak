@@ -1,0 +1,58 @@
+<?php
+
+use App\Models\ClaudeAccount;
+use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
+
+beforeEach(function () {
+    $this->user = User::factory()->create();
+    $this->actingAs($this->user);
+    $this->mine = ClaudeAccount::factory()->for($this->user, 'owner')->create(['validated_at' => now()]);
+    $this->shared = ClaudeAccount::factory()->system()->create(['validated_at' => now()]);
+});
+
+it('returns the account lists on a partial reload and nothing else', function () {
+    $version = $this->get(route('settings.claude-accounts'), ['X-Inertia' => 'true'])->headers->get('X-Inertia-Version');
+
+    $this->get(route('settings.claude-accounts'), [
+        'X-Inertia' => 'true',
+        'X-Inertia-Partial-Component' => 'Settings/ClaudeAccounts',
+        'X-Inertia-Partial-Data' => 'accounts,yakAccounts',
+        'X-Inertia-Version' => (string) $version,
+    ])
+        ->assertOk()
+        ->assertJsonPath('props.accounts.0.id', $this->mine->id)
+        ->assertJsonPath('props.yakAccounts.0.id', $this->shared->id)
+        ->assertJsonMissingPath('props.models');
+});
+
+it('shapes the account props for a non-admin', function () {
+    $this->get(route('settings.claude-accounts'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Settings/ClaudeAccounts')
+            ->where('canManageYakAccounts', false)
+            ->loadDeferredProps('accounts', fn (Assert $reload) => $reload
+                ->has('accounts.0', fn (Assert $account) => $account
+                    ->where('id', $this->mine->id)
+                    ->hasAll(['name', 'kind', 'icon', 'color', 'isSystem', 'isDefault', 'defaultModel', 'status', 'expiresAt', 'expiresSoon', 'lastUsedAt', 'lastError', 'unattendedRepos'])
+                    ->missing('secret')
+                    ->etc())
+                ->where('yakAccounts.0.isSystem', true)));
+});
+
+it('lets an admin manage Yak accounts', function () {
+    config(['claude-accounts.admin_user_ids' => [$this->user->id]]);
+
+    $this->get(route('settings.claude-accounts'))
+        ->assertInertia(fn (Assert $page) => $page->where('canManageYakAccounts', true));
+});
+
+it('never lists another person\'s personal account', function () {
+    $other = ClaudeAccount::factory()->for(User::factory()->create(), 'owner')->create(['validated_at' => now()]);
+
+    $this->get(route('settings.claude-accounts'))
+        ->assertInertia(fn (Assert $page) => $page->loadDeferredProps('accounts', fn (Assert $reload) => $reload
+            ->has('accounts', 1)
+            ->where('accounts.0.id', $this->mine->id)
+            ->whereNot('accounts.0.id', $other->id)));
+});

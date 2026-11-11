@@ -1,11 +1,11 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { SettingsShell, ToastHost, type SettingsNavSection } from '@geocodio/console-ui';
-import { Inbox, User, Video as VideoIcon, Zap } from 'lucide-react';
+import { Bot, Inbox, User, Video as VideoIcon, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { FlashToasts } from '@/components/FlashToasts';
 import { channels, tasks } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
-import { linear, video } from '@/routes/settings';
+import { claudeAccounts, linear, video } from '@/routes/settings';
 
 const SECTIONS: SettingsNavSection[] = [
     {
@@ -18,6 +18,14 @@ const SECTIONS: SettingsNavSection[] = [
                 icon: <User size={15} />,
                 description: 'Update your name, email address, and Slack direct messages.',
                 keywords: ['name', 'email'],
+            },
+            {
+                slug: 'claude-accounts',
+                href: claudeAccounts.url(),
+                label: 'Claude accounts',
+                icon: <Bot size={15} />,
+                description: 'The Claude accounts Yak runs your tasks on. Secrets are stored encrypted and never shown again.',
+                keywords: ['token', 'api key', 'subscription'],
             },
         ],
     },
@@ -51,7 +59,7 @@ const SECTIONS: SettingsNavSection[] = [
     },
 ];
 
-export function SettingsLayout({ slug, children }: { slug: 'profile' | 'linear' | 'video' | 'channels'; children: ReactNode }) {
+export function SettingsLayout({ slug, children }: { slug: 'profile' | 'claude-accounts' | 'linear' | 'video' | 'channels'; children: ReactNode }) {
     const currentPath = usePage().url.split('?')[0];
 
     // Settings pages render outside AppLayout, so they mount their own toast
