@@ -42,6 +42,7 @@ class RepositoryWipSandbox extends FakeSandboxManager
 }
 
 beforeEach(function () {
+    config()->set('yak.git_user_email', 'yak@trailer.test');
     $this->thread = Thread::factory()->paused()->create(['repo' => 'acme/widgets', 'git_author_name' => 'Ada', 'git_author_email' => 'ada@example.com']);
     $this->sandboxes = new RepositoryWipSandbox;
     $this->extra = ThreadRepository::factory()->role(RepositoryRole::Changes)->create([
@@ -56,7 +57,7 @@ it('commits a dirty extra with the person identity and the Yak trailer', functio
     expect($result)->toEqual(new WipResult(true, true, 'abc123'));
     $commands = ($this->commands)();
     expect($commands)->toContain('git -C /extras/api add -A')
-        ->toContain("git -C /extras/api -c user.name=Ada -c user.email=ada@example.com commit -m WIP: teleport to local machine\n\nCo-authored-by: Yak <yak@geocod.io>")
+        ->toContain("git -C /extras/api -c user.name=Ada -c user.email=ada@example.com commit -m WIP: teleport to local machine\n\nCo-authored-by: Yak <yak@trailer.test>")
         ->toContain('git -C /extras/api push origin HEAD:refs/heads/yak/x');
 });
 

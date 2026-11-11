@@ -56,6 +56,7 @@ class DownScriptedSandbox extends FakeSandboxManager
 }
 
 beforeEach(function () {
+    config()->set('yak.git_user_email', 'yak@trailer.test');
     $this->storePath = sys_get_temp_dir() . '/' . Str::uuid();
     config()->set('yak.threads.session_store_path', $this->storePath);
     config()->set('yak.threads.session_store_key', base64_encode(sodium_crypto_secretbox_keygen()));
@@ -136,7 +137,7 @@ it('commits with the person identity and the Yak trailer', function () {
     $commit = collect($this->sandboxes->calls)->where('operation', 'exec')->map(fn (array $call): array => $call['arguments']['command'])
         ->first(fn (array $command): bool => in_array('commit', $command, true));
     expect($commit)->toContain('user.name=Ada')->toContain('user.email=ada@example.com')
-        ->and(implode(' ', $commit))->toContain('WIP: teleport to local machine')->toContain('Co-authored-by: Yak <yak@geocod.io>');
+        ->and(implode(' ', $commit))->toContain('WIP: teleport to local machine')->toContain('Co-authored-by: Yak <yak@trailer.test>');
 });
 
 it('releases while a turn runs and proceeds after it ends', function () {

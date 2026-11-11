@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\DataTransferObjects\PreviewManifest;
 use App\Enums\DeploymentStatus;
+use App\Jobs\Deployments\DeployBranchJob;
 use App\Jobs\Deployments\WakeHibernatedDeploymentJob;
 use App\Models\BranchDeployment;
 use App\Models\DeploymentLog;
@@ -34,7 +35,11 @@ class DeploymentWaker
         return match ($deployment->status) {
             DeploymentStatus::Running => $this->ready($deployment),
 
-            DeploymentStatus::Destroyed,
+            // A destroyed row of an open PR rebuilds on this hit.
+            DeploymentStatus::Destroyed => $deployment->isRedeployable()
+                ? $this->dispatchRedeploy($deployment)
+                : ['state' => 'failed', 'reason' => 'Deployment has been destroyed.'],
+
             DeploymentStatus::Destroying => ['state' => 'failed', 'reason' => 'Deployment has been destroyed.'],
 
             DeploymentStatus::Failed => [
@@ -80,6 +85,27 @@ class DeploymentWaker
             }
         } finally {
             $lock->release();
+        }
+
+        return ['state' => 'pending'];
+    }
+
+    /**
+     * Enqueue a rebuild of a Destroyed row. The lock keeps concurrent preview
+     * hits from each enqueueing a DeployBranchJob.
+     *
+     * @return array{state: 'pending'}
+     */
+    private function dispatchRedeploy(BranchDeployment $deployment): array
+    {
+        $lock = Cache::lock("yak:redeploy:{$deployment->id}", seconds: 30);
+
+        // The lock is left to expire: releasing it would let a second hit
+        // enqueue again before the job has reset the row from Destroyed.
+        if ($lock->get()) {
+            DeploymentLog::record($deployment, 'info', 'lifecycle', 'Rebuilding destroyed deployment');
+
+            DeployBranchJob::dispatch($deployment->id);
         }
 
         return ['state' => 'pending'];

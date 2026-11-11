@@ -86,6 +86,15 @@ class BranchDeployment extends Model
     }
 
     /**
+     * Whether a torn-down row may be rebuilt: its PR is still open and the
+     * repository still has deployments on.
+     */
+    public function isRedeployable(): bool
+    {
+        return $this->pr_state === 'open' && $this->repository->deployments_enabled;
+    }
+
+    /**
      * @return BelongsTo<Repository, $this>
      */
     public function repository(): BelongsTo

@@ -19,8 +19,6 @@ class WipPreserver
 {
     private const SUBJECT = 'WIP: Yak sandbox snapshot';
 
-    private const YAK_TRAILER = 'Co-authored-by: Yak <yak@geocod.io>';
-
     public function __construct(private SandboxManager $sandboxes, private RepositoryWip $repositoryWip) {}
 
     private const TELEPORT_SUBJECT = 'WIP: teleport to local machine';
@@ -64,7 +62,7 @@ class WipPreserver
 
     public function preserveForTeleport(Thread $thread): WipResult
     {
-        return $this->run($thread, self::TELEPORT_SUBJECT . "\n\n" . self::YAK_TRAILER);
+        return $this->run($thread, self::TELEPORT_SUBJECT . "\n\n" . $this->trailer());
     }
 
     private function run(Thread $thread, string $message): WipResult
@@ -172,7 +170,12 @@ class WipPreserver
     private function message(Thread $thread): string
     {
         return filled($thread->git_author_name)
-            ? self::SUBJECT . "\n\n" . self::YAK_TRAILER
+            ? self::SUBJECT . "\n\n" . $this->trailer()
             : self::SUBJECT;
+    }
+
+    private function trailer(): string
+    {
+        return 'Co-authored-by: Yak <' . config('yak.git_user_email') . '>';
     }
 }

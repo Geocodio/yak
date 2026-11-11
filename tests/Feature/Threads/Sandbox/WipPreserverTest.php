@@ -13,6 +13,7 @@ use Tests\Support\ExtrasGit;
 use Tests\Support\LocalGitSandboxManager;
 
 beforeEach(function () {
+    config()->set('yak.git_user_email', 'yak@trailer.test');
     $this->wipTempDir = sys_get_temp_dir() . '/yak-wip-' . uniqid();
     mkdir($this->wipTempDir, 0777, true);
     $this->git = LocalGitSandboxManager::withRepository($this->wipTempDir);
@@ -82,7 +83,7 @@ test('teleport threads commit as the person with the co author trailer', functio
     app(WipPreserver::class)->preserve($thread);
 
     expect($this->git->git(['log', '-1', '--format=%an <%ae>', $this->git->branch]))->toBe('Ada Lovelace <ada@example.com>')
-        ->and($this->git->git(['log', '-1', '--format=%B', $this->git->branch]))->toContain('Co-authored-by: Yak <yak@geocod.io>');
+        ->and($this->git->git(['log', '-1', '--format=%B', $this->git->branch]))->toContain('Co-authored-by: Yak <yak@trailer.test>');
 });
 
 test('a teleport commit uses the teleport subject, the person and the Yak trailer', function () {
@@ -93,7 +94,7 @@ test('a teleport commit uses the teleport subject, the person and the Yak traile
 
     expect($this->git->git(['log', '-1', '--format=%an <%ae>', $this->git->branch]))->toBe('Ada Lovelace <ada@example.com>')
         ->and($this->git->git(['log', '-1', '--format=%s', $this->git->branch]))->toBe('WIP: teleport to local machine')
-        ->and($this->git->git(['log', '-1', '--format=%B', $this->git->branch]))->toContain('Co-authored-by: Yak <yak@geocod.io>');
+        ->and($this->git->git(['log', '-1', '--format=%B', $this->git->branch]))->toContain('Co-authored-by: Yak <yak@trailer.test>');
 });
 
 test('threads without a person commit as Yak', function () {
