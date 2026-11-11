@@ -44,3 +44,20 @@ it('adds a context repo, shows the note and count, and shows progress after star
     $thread = Thread::query()->latest('id')->firstOrFail();
     expect($thread->repositories()->where('repo', 'acme/docs')->value('role'))->toBe(RepositoryRole::Context);
 });
+
+it('shows avatar chips, a Repositories label and a primary menu that switches the primary repo', function () {
+    $user = User::factory()->create();
+    Repository::factory()->create(['slug' => 'acme/api', 'is_default' => true]);
+    Repository::factory()->create(['slug' => 'acme/docs']);
+    ClaudeAccount::factory()->default()->create(['owner_user_id' => $user->id, 'validated_at' => now()]);
+    $this->actingAs($user);
+
+    visit(route('threads.new'))
+        ->assertSee('Repositories')
+        ->assertSeeIn('[data-testid="repo-avatar"]', 'AP')
+        ->click('[data-testid="start-thread-repo"]')
+        ->click('acme/docs')
+        ->assertSeeIn('[data-testid="repo-chip"]', 'acme/docs')
+        ->assertSeeIn('[data-testid="repo-avatar"]', 'DO')
+        ->assertVisible('button[aria-label="Add repo"]');
+});

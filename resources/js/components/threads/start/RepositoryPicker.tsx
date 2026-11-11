@@ -1,9 +1,11 @@
 import { Menu, cn } from '@geocodio/console-ui';
 import { ChevronDown, Loader2, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { RepositoryAvatar } from '@/components/threads/RepositoryAvatar';
 import { repositoryAccess } from '@/routes/threads';
 import type { StartRepository, StartRepositoryRole } from '@/types/threads';
 
+const CHIP = 'inline-flex h-8 items-center gap-1.5 rounded-control border border-hair px-2.5 text-[12.5px] font-medium text-body';
 const ROLE_LABELS: Record<StartRepositoryRole, string> = { changes: 'Changes', context: 'Context' };
 
 /**
@@ -18,8 +20,10 @@ export function RepositoryPicker({
     isResearch,
     disabled,
     onChange,
+    onPrimaryChange,
 }: {
     primary: string;
+    onPrimaryChange: (slug: string) => void;
     extras: StartRepository[];
     available: string[];
     isResearch: boolean;
@@ -53,18 +57,31 @@ export function RepositoryPicker({
     return (
         <div data-testid="repo-picker" className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex h-7 items-center gap-1.5 rounded-control border border-hair px-2.5 text-[12.5px] font-medium text-body" data-testid="repo-chip">
-                    {primary}
-                    <span className="text-[11px] text-faint">Primary</span>
+                <span className="text-[12.5px] font-medium text-muted">Repositories</span>
+                <span className={CHIP} data-testid="repo-chip">
+                    <Menu
+                        aria-label="Primary repository"
+                        disabled={disabled}
+                        trigger={
+                            <span className="flex items-center gap-1.5" data-testid="start-thread-repo">
+                                <RepositoryAvatar repo={primary} />
+                                {primary || 'Pick a repo'}
+                                <span className="text-[11px] text-faint">Primary</span>
+                                <ChevronDown size={11} className="text-faint" aria-hidden="true" />
+                            </span>
+                        }
+                        items={available.map((slug) => ({ key: slug, label: slug, checked: slug === primary, onSelect: () => onPrimaryChange(slug) }))}
+                    />
                 </span>
                 {extras.map((extra) => {
                     const role = isResearch ? 'context' : extra.role;
                     return (
                         <span
                             key={extra.repo}
-                            className={cn('inline-flex h-7 items-center gap-1.5 rounded-control border px-2.5 text-[12.5px] font-medium text-body', role === 'context' ? 'border-dashed border-hair' : 'border-hair')}
+                            className={cn(CHIP, role === 'context' && 'border-dashed')}
                             data-testid="repo-chip"
                         >
+                            <RepositoryAvatar repo={extra.repo} />
                             {extra.repo}
                             {isResearch ? (
                                 <span className="text-[11px] text-faint">Context</span>
@@ -92,7 +109,7 @@ export function RepositoryPicker({
                     aria-label="Add repo"
                     disabled={disabled || checking !== null || candidates.length === 0}
                     trigger={
-                        <span className="inline-flex h-7 items-center gap-1 text-[12.5px] text-muted" data-testid="add-repo">
+                        <span className="inline-flex h-8 items-center gap-1 rounded-control border border-hair px-2.5 text-[12.5px] text-muted" data-testid="add-repo">
                             {checking ? <Loader2 size={12} className="animate-spin" aria-hidden="true" /> : <Plus size={12} aria-hidden="true" />}
                             {checking ? `Checking access to ${checking}` : 'Add repo'}
                         </span>

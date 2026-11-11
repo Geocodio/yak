@@ -1,6 +1,6 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { Button, Menu, cn } from '@geocodio/console-ui';
-import { ChevronDown, Search, Wrench } from 'lucide-react';
+import { Search, Wrench } from 'lucide-react';
 import { useCallback, useRef, useState, type KeyboardEvent } from 'react';
 import { AccountPicker } from '@/components/accounts/AccountPicker';
 import { AttachButton, AttachmentDropOverlay, DraftAttachments } from '@/components/attachments/Attachments';
@@ -113,23 +113,6 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                 />
                 <DraftAttachments draft={draft} errors={errors} progress={form.processing && draft.items.length > 0 ? (form.progress?.percentage ?? 0) : null} onOpenMedia={() => {}} />
                 <div className="flex flex-wrap items-center gap-2 border-t border-hair px-3 py-2">
-                    <Menu
-                        aria-label="Repository"
-                        disabled={noRepos}
-                        trigger={
-                            <span className="flex items-center gap-1 text-[12.5px] font-medium text-body" data-testid="start-thread-repo">
-                                {form.data.repo || (noRepos ? 'No repository' : 'Pick a repo')} <ChevronDown size={12} className="text-faint" aria-hidden="true" />
-                            </span>
-                        }
-                        items={repos.map((repo) => ({
-                            key: repo.slug,
-                            label: repo.slug,
-                            checked: repo.slug === form.data.repo,
-                            onSelect: () => {
-                                form.setData((data) => ({ ...data, repo: repo.slug, repositories: data.repositories.filter((extra) => extra.repo !== repo.slug) }));
-                            },
-                        }))}
-                    />
                     <div className="inline-flex h-7 gap-0.5 rounded-control bg-panel-2 p-0.5" role="group" aria-label="Mode">
                         {MODES.map(({ mode, label, icon: Icon, hint }) => (
                             <button
@@ -167,6 +150,7 @@ export function StartThreadForm({ repos, picker, defaultRepo, onStarted, autoFoc
                             primary={form.data.repo}
                             extras={extras}
                             available={repos.map((repo) => repo.slug)}
+                            onPrimaryChange={(slug) => form.setData((data) => ({ ...data, repo: slug, repositories: data.repositories.filter((extra) => extra.repo !== slug) }))}
                             isResearch={isResearch}
                             disabled={form.processing || form.data.repo === ''}
                             onChange={(next) => form.setData('repositories', next)}
