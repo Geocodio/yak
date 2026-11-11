@@ -44,7 +44,7 @@ function LoadingRows() {
     );
 }
 
-function EmptyAccounts({ docsUrl, onAdd }: { docsUrl: string; onAdd: () => void }) {
+function EmptyAccounts({ docsUrl, sharedName, onAdd }: { docsUrl: string; sharedName?: string; onAdd: () => void }) {
     const tiles = [
         [Terminal, 'Use your Claude subscription', 'Run one command in your terminal and paste the token. Tasks use your plan\'s limits.'],
         [KeyRound, 'Use an API key', 'Paste a key from the Anthropic Console. Anthropic bills each task as it runs.'],
@@ -55,12 +55,12 @@ function EmptyAccounts({ docsUrl, onAdd }: { docsUrl: string; onAdd: () => void 
             <div className="flex flex-col gap-4">
                 <div>
                     <h3 className="text-[14px] font-semibold">Run your tasks on your own Claude account</h3>
-                    <p className="mt-1 max-w-[480px] text-[12.5px] leading-relaxed text-muted">Until you add one, your tasks run on a shared Yak account. With your own account, usage counts against your plan and your teammates cannot spend it.</p>
+                    <p className="mt-1 max-w-[480px] text-[12.5px] leading-relaxed text-muted">Until you add one, your tasks run on {sharedName ? `the shared Yak account, ${sharedName}` : 'a shared Yak account'}. With your own account, usage counts against your plan and your teammates cannot spend it.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                     {tiles.map(([Icon, title, text]) => (
                         <button key={title} type="button" onClick={onAdd} className={`flex flex-col items-start gap-2 rounded-card border border-hair bg-panel p-3.5 text-left hover:border-hair-strong hover:bg-panel-2 ${FOCUS}`}>
-                            <span className="grid size-8 place-items-center rounded-control bg-brand-soft text-brand"><Icon size={15} aria-hidden="true" /></span>
+                            <span className="grid size-8 place-items-center rounded-control bg-panel-2 text-muted"><Icon size={15} aria-hidden="true" /></span>
                             <span className="text-[13px] font-medium">{title}</span>
                             <span className="text-[12px] leading-snug text-muted">{text}</span>
                         </button>
@@ -127,7 +127,7 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
                         <Deferred data={['accounts', 'yakAccounts']} fallback={<LoadingRows />}>
                             {accounts && accounts.length > 0
                                 ? <AccountsSection accounts={accounts} {...rowProps} />
-                                : <EmptyAccounts docsUrl={docsUrl} onAdd={() => setDialog({ mode: 'add' })} />}
+                                : <EmptyAccounts docsUrl={docsUrl} sharedName={yakAccounts?.find((account) => account.status === 'active')?.name} onAdd={() => setDialog({ mode: 'add' })} />}
                         </Deferred>
                     )}
                 </section>

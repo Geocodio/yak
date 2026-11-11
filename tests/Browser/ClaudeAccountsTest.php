@@ -56,3 +56,10 @@ test('a non-admin sees no Yak account buttons', function () {
         ->assertSee('Admins only')
         ->assertNotPresent('[data-testid="add-yak-account"]');
 });
+
+test('the empty state names the shared account', function () {
+    ClaudeAccount::factory()->system()->create(['name' => 'Yak Geocodio', 'validated_at' => now()]);
+
+    visit('/settings/claude-accounts')
+        ->assertSee('your tasks run on the shared Yak account, Yak Geocodio.');
+});
