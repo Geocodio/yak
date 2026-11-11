@@ -46,6 +46,8 @@ type Server struct {
 	MinProtocol  int
 	SlowDownNext int
 	OnRequest    func(*http.Request)
+	// ReadLimit caps the bytes one session read returns, so clients must resume with an offset (0 means no cap).
+	ReadLimit int
 
 	codes    map[string]*pendingCode // by device_code
 	requests []RequestLog

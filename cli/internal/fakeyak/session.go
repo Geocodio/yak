@@ -204,8 +204,12 @@ func (s *Server) readFile(w http.ResponseWriter, threadID int, sessionID, rel, o
 	if offset < 0 || offset > int64(len(data)) {
 		offset = int64(len(data))
 	}
+	data = data[offset:]
+	if s.ReadLimit > 0 && len(data) > s.ReadLimit {
+		data = data[:s.ReadLimit]
+	}
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, _ = w.Write(data[offset:])
+	_, _ = w.Write(data)
 }
 
 func (s *Server) tree(w http.ResponseWriter, threadID int, sessionID string) {
