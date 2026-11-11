@@ -80,7 +80,7 @@ export default function Show({ thread, canDrive, diffTotals, pullRequest, brief,
                     {brief !== null && stackParent !== null && <ChildBriefCard brief={brief} parentTitle={stackParent.title} />}
                     <TeleportConversationNotices thread={thread} teleport={teleport} />
                     <Conversation threadId={thread.id} messages={messages} notice={notice} readonly={composer.state === 'readonly'} pullRequestCount={thread.pullRequestCount} lastActivityAt={thread.lastActivityAt} />
-                    <ThreadComposer thread={thread} composer={composer} />
+                    <ThreadComposer thread={thread} composer={composer} isUsageLimited={notice?.kind === 'usage_limit'} />
                 </div>
 
                 <ThreadDockPanel thread={thread} canDrive={canDrive} active={activeDock} isPhoneVisible={isPhoneDockVisible} />

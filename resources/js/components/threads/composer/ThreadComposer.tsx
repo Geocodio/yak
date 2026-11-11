@@ -16,7 +16,7 @@ const DISABLED_COPY: Partial<Record<ThreadComposerData['state'], string>> = {
     readonly: 'You can read this thread but not send messages.',
 };
 
-export function ThreadComposer({ thread, composer }: { thread: ThreadData; composer: ThreadComposerData }) {
+export function ThreadComposer({ thread, composer, isUsageLimited = false }: { thread: ThreadData; composer: ThreadComposerData; isUsageLimited?: boolean }) {
     const form = useForm<{ message: string; model: string | null; attachments: File[]; attachment_refs: string[] }>({
         message: '',
         model: composer.model,
@@ -64,7 +64,7 @@ export function ThreadComposer({ thread, composer }: { thread: ThreadData; compo
                         ref={editorRef}
                         draft={draft}
                         rows={2}
-                        placeholder={working ? 'Add a message. Claude reads it as soon as it can.' : 'Message Claude'}
+                        placeholder={isUsageLimited ? 'Message Claude. It reads this after the limit resets.' : working ? 'Add a message. Claude reads it as soon as it can.' : 'Message Claude'}
                         value={form.data.message}
                         onValueChange={(value) => form.setData('message', value)}
                         onKeyDown={onKeyDown}

@@ -3,8 +3,13 @@ import { AlertTriangle } from 'lucide-react';
 import { continueMethod } from '@/routes/threads';
 import type { ThreadNotice as ThreadNoticeData } from '@/types/threads';
 import { RestoreProgress } from './RestoreProgress';
+import { UsageLimitNotice } from './UsageLimitNotice';
 
 export function ThreadNotice({ notice, threadId, readonly = false }: { notice: ThreadNoticeData; threadId: number; readonly?: boolean }) {
+    if (notice.kind === 'usage_limit') {
+        return <UsageLimitNotice notice={notice} threadId={threadId} />;
+    }
+
     return (
         <div className="rounded-card bg-warn-soft p-4" data-testid="thread-notice" data-kind={notice.kind}>
             <div className="flex items-start gap-3">
