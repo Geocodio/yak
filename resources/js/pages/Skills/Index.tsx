@@ -153,7 +153,7 @@ export default function Index({ installed, bundled, available, categories, recom
         <>
             <Head title="Skills" />
             <PageHeader
-                crumbs={['Skills']}
+                crumbs={['Settings', 'Skills']}
                 actions={
                     <Button variant="primary" icon={<Plus size={13} />} onClick={() => setShowInstallFromUrl(true)} data-testid="open-install-from-url">
                         Install from URL

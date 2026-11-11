@@ -70,7 +70,7 @@ export default function Index({ servers, loginSessions, checkedAgo, sshHost, doc
         <>
             <Head title="MCP servers" />
             <PageHeader
-                crumbs={['MCP servers']}
+                crumbs={['Settings', 'MCP servers']}
                 actions={
                     <>
                         <Button

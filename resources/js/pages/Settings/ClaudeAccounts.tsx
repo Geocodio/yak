@@ -111,8 +111,7 @@ export default function ClaudeAccounts({ accounts, yakAccounts, canManageYakAcco
 
             <div className="flex flex-col gap-8">
                 <div>
-                    <h2 className="text-[20px] font-semibold tracking-[-0.01em]">Claude accounts</h2>
-                    <p className="mt-1.5 max-w-[620px] text-[13px] leading-relaxed text-muted">The Claude accounts Yak runs your tasks on. Secrets are stored encrypted and never shown again.</p>
+                    <p className="max-w-[620px] text-[13px] leading-relaxed text-muted">The Claude accounts Yak runs your tasks on. Secrets are stored encrypted and never shown again.</p>
                 </div>
 
                 <section className="flex flex-col gap-3" aria-labelledby="mine-heading">

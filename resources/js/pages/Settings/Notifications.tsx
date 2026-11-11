@@ -63,8 +63,7 @@ export default function Notifications({ events, devices, vapidPublicKey, isIosSu
             <Head title="Notifications" />
 
             <div className="flex flex-col gap-6">
-                <div>
-                    <h2 id="push-heading" className="text-[20px] font-semibold tracking-[-0.01em]">Notifications</h2>
+                <div id="push-heading">
                     <Intro>Yak can tap your phone or desktop when a thread needs you. Slack and email notifications work as before. Nothing is pushed while you have that thread open.</Intro>
                 </div>
 

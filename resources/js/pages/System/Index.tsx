@@ -150,7 +150,7 @@ export default function Index({ telemetryBase, path }: PageProps<SystemPageProps
                 onNavigate={({ pathname: to, search: next }) => router.visit(sectionUrl(to, next))}
                 href={({ pathname: to, search: next }) => sectionUrl(to, next)}
             >
-                <PageHeader crumbs={['System']}>
+                <PageHeader crumbs={['Settings', 'System']}>
                     <div className="ml-4 min-w-0">
                         <TelemetryToolbar />
                     </div>
