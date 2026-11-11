@@ -122,17 +122,17 @@ func (s *Server) serveTerminal(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	if !s.reserveTotal() {
-		http.Error(w, "busy", http.StatusServiceUnavailable)
-		return
-	}
-	defer s.releaseTotal()
-
 	conn, err := Upgrade(w, r, UpgradeOptions{CheckOrigin: s.originAllowed})
 	if err != nil {
 		return
 	}
 	defer conn.Close(1000, "")
+
+	if !s.reserveTotal() {
+		conn.Close(closeBusy, "too many sessions")
+		return
+	}
+	defer s.releaseTotal()
 
 	keyPath, publicLine, cleanup, err := NewEphemeralKey(s.KeyDir)
 	if err != nil {

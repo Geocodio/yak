@@ -163,3 +163,13 @@ func TestAbsoluteLifetimeEndsSession(t *testing.T) {
 		}
 	}
 }
+
+func TestOverallLimitClosesWith4429(t *testing.T) {
+	redeemer := &stubRedeemer{threadID: 1}
+	server, _, _ := testServer(t, redeemer, func(s *Server) { s.MaxTotal = 0 })
+
+	client, _ := dialPath(t, server, "/terminal/ws?token=a", "https://yak.test")
+	if op, payload := client.read(t); op != opClose || closeCode(payload) != 4429 || redeemer.calls.Load() != 0 {
+		t.Fatalf("op %d payload %v", op, payload)
+	}
+}
