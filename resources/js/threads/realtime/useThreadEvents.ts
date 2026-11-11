@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useRef } from 'react';
 import type { ThreadEventEnvelope, ThreadEventPointer, ThreadEventState, Viewer } from '../../types/thread-events';
 import { fetchEvent, fetchEventsAfter } from './catchUp';
+import { createCatchUpRunner } from './catchUpRunner';
 import { getEcho } from './echo';
 import { findGap, initialEventState, reduceEvents } from './reducer';
 
@@ -8,7 +9,6 @@ import { findGap, initialEventState, reduceEvents } from './reducer';
 export function useThreadEvents(threadId: number): ThreadEventState {
     const [state, dispatch] = useReducer(reduceEvents, undefined, initialEventState);
     const lastSequence = useRef(0);
-    const isCatchingUp = useRef(false);
     const viewersRef = useRef<Viewer[]>([]);
     viewersRef.current = state.viewers;
     lastSequence.current = state.lastSequence;
@@ -18,35 +18,26 @@ export function useThreadEvents(threadId: number): ThreadEventState {
         dispatch({ kind: 'reset' });
         lastSequence.current = 0;
 
-        const catchUp = async (): Promise<void> => {
-            if (isCatchingUp.current) {
-                return;
-            }
-
-            isCatchingUp.current = true;
-            dispatch({ kind: 'connection', connection: 'catching-up' });
-
-            try {
-                const { events, latestSequence } = await fetchEventsAfter(threadId, lastSequence.current);
-
+        const runner = createCatchUpRunner({
+            fetchAfter: (after) => fetchEventsAfter(threadId, after),
+            getLastSequence: () => lastSequence.current,
+            onResult: ({ events, latestSequence }) => {
                 if (isActive) {
                     dispatch({ kind: 'events', events, latestSequence });
-                    dispatch({ kind: 'connection', connection: 'live' });
                 }
-            } catch {
+            },
+            onStatus: (connection) => {
                 if (isActive) {
-                    dispatch({ kind: 'connection', connection: 'offline' });
+                    dispatch({ kind: 'connection', connection });
                 }
-            } finally {
-                isCatchingUp.current = false;
-            }
-        };
+            },
+        });
 
         const onEvent = async (incoming: ThreadEventEnvelope | ThreadEventPointer): Promise<void> => {
             const current = { ...initialEventState(), lastSequence: lastSequence.current };
 
             if (findGap(current, incoming)) {
-                await catchUp();
+                await runner.request();
 
                 return;
             }
@@ -58,7 +49,7 @@ export function useThreadEvents(threadId: number): ThreadEventState {
                     dispatch({ kind: 'events', events: [event] });
                 }
             } catch {
-                await catchUp();
+                await runner.request();
             }
         };
 
@@ -72,7 +63,7 @@ export function useThreadEvents(threadId: number): ThreadEventState {
                 dispatch({ kind: 'connection', connection: 'offline' });
             } else if (current === 'connected' && wasDisconnected) {
                 wasDisconnected = false;
-                void catchUp();
+                void runner.request();
             }
         };
 
@@ -84,7 +75,7 @@ export function useThreadEvents(threadId: number): ThreadEventState {
             .joining((viewer: Viewer) => dispatch({ kind: 'viewers', viewers: [...viewersRef.current.filter((known) => known.id !== viewer.id), viewer] }))
             .leaving((viewer: Viewer) => dispatch({ kind: 'viewers', viewers: viewersRef.current.filter((known) => known.id !== viewer.id) }));
 
-        void catchUp();
+        void runner.request();
 
         return () => {
             isActive = false;
