@@ -2,8 +2,10 @@
 
 namespace App\Services\Stacks;
 
+use App\Enums\ThreadKind;
 use App\Enums\ThreadOwnerSide;
 use App\Exceptions\StackRuleViolation;
+use App\Models\Repository;
 use App\Models\Thread;
 
 /**
@@ -29,6 +31,35 @@ class StackRules
         if ($parent->stack_stopped_at !== null) {
             throw new StackRuleViolation('This stack was stopped, so it cannot spawn sub-threads.');
         }
+    }
+
+    /**
+     * The slug of the other repository a child should build in, or null when
+     * the child stays in the parent's repo.
+     */
+    public function resolveChildRepo(Thread $parent, ThreadKind $kind, ?string $repo): ?string
+    {
+        $repo = trim((string) $repo);
+
+        if ($repo === '') {
+            return null;
+        }
+
+        if ($kind === ThreadKind::Research) {
+            throw new StackRuleViolation('Research sub-threads see every repo of the parent; leave repo out.');
+        }
+
+        if ($kind !== ThreadKind::Implement) {
+            throw new StackRuleViolation('Only implement sub-threads take a repo.');
+        }
+
+        $slug = Repository::query()->where('slug', $repo)->orWhere('github_full_name', $repo)->value('slug');
+
+        if (! is_string($slug)) {
+            throw new StackRuleViolation("Yak cannot reach {$repo}. Add the repository to the Yak GitHub app first.");
+        }
+
+        return $slug === $parent->repo ? null : $slug;
     }
 
     public function inSameStack(Thread $first, Thread $second): bool
