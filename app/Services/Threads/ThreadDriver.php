@@ -170,6 +170,7 @@ class ThreadDriver
                 }
 
                 $this->finishTurn($thread, $run, TurnState::StoppedByGuard, $events);
+                $events[] = fn () => app(GuardStopNotifier::class)->ask($run, $reason, (int) $run->getAttribute('assistant_turns'));
             }
         });
     }

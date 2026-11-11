@@ -8,7 +8,8 @@ use Illuminate\Foundation\Events\Dispatchable;
 /**
  * A turn ended without finishing. A turn the runaway guard stopped also fires
  * this with turn_state StoppedByGuard; the after-turn listener skips such
- * turns, because the guard already told the source and the person decides
+ * turns, because the driver's GuardStopNotifier already asked the driving person
+ * or the task's channel, and the person decides
  * whether to continue.
  */
 class TurnFailed
