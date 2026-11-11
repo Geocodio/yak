@@ -26,7 +26,7 @@ beforeEach(function () {
     ]);
 });
 
-function execCommands(FakeSandboxManager $sandbox, int $threadId): array
+function stackExecArguments(FakeSandboxManager $sandbox, int $threadId): array
 {
     return array_values(array_map(
         fn (array $call): array => $call['arguments'],
@@ -41,7 +41,7 @@ it('copies the parent sandbox and checks out the child branch', function () {
     $child = $this->child->fresh();
 
     expect($operations)->toBe(['copyFrom', 'start', 'exec'])
-        ->and(execCommands($this->sandbox, $this->child->id)[0]['command'])->toBe(['git', 'checkout', '-B', 'yak/yak/parent/api'])
+        ->and(stackExecArguments($this->sandbox, $this->child->id)[0]['command'])->toBe(['git', 'checkout', '-B', 'yak/yak/parent/api'])
         ->and($child->sandbox_state)->toBe(ThreadSandboxState::Running)
         ->and($child->sandbox_container)->not->toBeNull()
         ->and($child->queued_for_slot_at)->toBeNull();
@@ -58,8 +58,8 @@ it('falls back to a fresh clone plus the parent diff when copyFrom fails', funct
     app(ChildSandboxProvisioner::class)->provision($this->child);
 
     $operations = array_column(array_filter($this->sandbox->calls, fn (array $call): bool => $call['threadId'] === $this->child->id && $call['operation'] !== 'exec'), 'operation');
-    $parentExec = execCommands($this->sandbox, $this->parent->id);
-    $childExec = execCommands($this->sandbox, $this->child->id);
+    $parentExec = stackExecArguments($this->sandbox, $this->parent->id);
+    $childExec = stackExecArguments($this->sandbox, $this->child->id);
     $apply = collect($childExec)->first(fn (array $call): bool => array_slice($call['command'], 0, 2) === ['git', 'apply']);
     $archive = collect($childExec)->first(fn (array $call): bool => $call['command'][0] === 'bash' && str_contains($call['command'][2] ?? '', 'tar -xf'));
 
@@ -80,7 +80,7 @@ it('never ships secret files in the fallback diff', function () {
 
     app(ChildSandboxProvisioner::class)->provision($this->child);
 
-    $parentExec = execCommands($this->sandbox, $this->parent->id);
+    $parentExec = stackExecArguments($this->sandbox, $this->parent->id);
 
     expect($parentExec[2]['command'])->toContain(':(exclude)config/credentials.json', ':(exclude)secrets.yml')
         ->not->toContain(':(exclude)config/app.php')

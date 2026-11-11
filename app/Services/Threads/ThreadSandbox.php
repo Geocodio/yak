@@ -10,6 +10,7 @@ use App\Enums\ThreadSandboxState;
 use App\Models\Repository;
 use App\Models\Thread;
 use App\Services\Datasets\DatasetClones;
+use App\Services\Stacks\ResearchChildRunner;
 use App\Services\Threads\Contracts\BrokerStreams;
 use App\Services\Threads\Contracts\SandboxManager;
 use App\Services\Threads\Contracts\SessionFileSync;
@@ -48,6 +49,10 @@ class ThreadSandbox
 
     public function pauseIfIdle(Thread $thread): void
     {
+        if ($thread->sharesParentSandbox()) {
+            return;
+        }
+
         $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
 
         if (! $lock->get()) {
@@ -70,6 +75,12 @@ class ThreadSandbox
 
     public function stop(Thread $thread, bool $preserveWork = false): void
     {
+        if ($thread->sharesParentSandbox()) {
+            $this->releaseResearchChild($thread);
+
+            return;
+        }
+
         $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
 
         if (! $lock->get()) {
@@ -85,6 +96,12 @@ class ThreadSandbox
 
     public function destroy(Thread $thread): void
     {
+        if ($thread->sharesParentSandbox()) {
+            $this->releaseResearchChild($thread);
+
+            return;
+        }
+
         $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
 
         if (! $lock->get()) {
@@ -122,6 +139,10 @@ class ThreadSandbox
 
     public function ensureAwake(Thread $thread): SandboxWake
     {
+        if ($thread->sharesParentSandbox()) {
+            return $this->ensureAwake(Thread::query()->withoutGlobalScopes()->findOrFail($thread->parent_thread_id));
+        }
+
         $lock = Cache::lock($this->lockName($thread), self::LOCK_SECONDS);
 
         if (! $lock->get()) {
@@ -145,6 +166,34 @@ class ThreadSandbox
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * A research child owns no container: its runner is killed, its worktree
+     * and config directory go, its placeholder is revoked and it lets go of
+     * the parent's container. The container itself is never touched.
+     */
+    private function releaseResearchChild(Thread $child): void
+    {
+        $parent = Thread::query()->withoutGlobalScopes()->findOrFail($child->parent_thread_id);
+
+        $this->streams->command("threads:{$child->id}", ['type' => 'kill']);
+
+        if (in_array($parent->sandbox_state, [ThreadSandboxState::Running, ThreadSandboxState::Paused], true)) {
+            try {
+                $this->sandboxes->exec($parent, ['bash', '-c', 'git worktree remove --force "$1"; rm -rf "$2"', 'bash', ResearchChildRunner::worktreePath($child), $child->claude_config_dir]);
+            } catch (Throwable $exception) {
+                Log::warning('Dropping a research worktree failed', ['thread' => $child->id, 'error' => $exception->getMessage()]);
+            }
+        }
+
+        $this->placeholders->revoke($child);
+        $child->forceFill([
+            'sandbox_container' => null,
+            'sandbox_state' => ThreadSandboxState::Destroyed,
+            'sandbox_state_changed_at' => now(),
+            'runner_state' => RunnerState::None,
+        ])->save();
     }
 
     private function resume(Thread $thread): SandboxWake

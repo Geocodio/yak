@@ -32,21 +32,22 @@ class ThreadCommands
         return 'threads:' . $thread->id;
     }
 
-    public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt): void
+    public function startRunner(Thread $thread, ClaudeAccount $account, ?string $resumeSessionId, string $appendSystemPrompt, ?string $workingDirectory = null): void
     {
+        $workingDirectory ??= self::WORKING_DIRECTORY;
         $placeholder = $this->placeholders->issue($thread, $account, $this->containerIp($thread));
 
         $this->send($thread, [
             'type' => 'start_runner',
             'container' => $thread->sandbox_container,
             'uid' => self::SANDBOX_USER_ID,
-            'cwd' => self::WORKING_DIRECTORY,
+            'cwd' => $workingDirectory,
             'start' => [
                 'type' => 'start',
                 'model' => $thread->model,
                 'appendSystemPrompt' => $appendSystemPrompt,
                 'permissionMode' => 'bypassPermissions',
-                'cwd' => self::WORKING_DIRECTORY,
+                'cwd' => $workingDirectory,
                 'additionalDirectories' => [],
                 'mcpServers' => (object) [],
                 'settingSources' => ['user', 'project', 'local'],
