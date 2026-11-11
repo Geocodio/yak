@@ -23,8 +23,6 @@ class ChildSpawner
 {
     private const SPAWNABLE_KINDS = [ThreadKind::Research, ThreadKind::Implement, ThreadKind::Mockup, ThreadKind::General];
 
-    private const DEFAULT_CHILD_MODEL = 'sonnet';
-
     public function __construct(
         private readonly StackRules $rules,
         private readonly ChildSandboxProvisioner $provisioner,
@@ -48,6 +46,12 @@ class ChildSpawner
             throw new StackRuleViolation('A sub-thread needs a brief.');
         }
 
+        $allowedModels = config('claude-accounts.models');
+
+        if ($model !== null && ! in_array($model, $allowedModels, true)) {
+            throw new StackRuleViolation('Unknown model. Use one of: ' . implode(', ', $allowedModels) . '.');
+        }
+
         $child = DB::transaction(function () use ($parent, $name, $brief, $kind, $model, $spawnedBy): Thread {
             $locked = Thread::query()->withoutGlobalScopes()->lockForUpdate()->findOrFail($parent->id);
             $root = $locked->rootThread();
@@ -69,7 +73,7 @@ class ChildSpawner
                 'root_thread_id' => $root->id,
                 'spawned_by_task_run_id' => $spawnedBy?->id,
                 'claude_account_id' => $locked->claude_account_id,
-                'model' => $model ?? (string) config('yak.sandbox.default_child_model', self::DEFAULT_CHILD_MODEL),
+                'model' => $model ?? (string) config('yak.sandbox.default_child_model'),
                 'branch' => $branch,
                 'child_awake_limit' => (int) config('yak.threads.child_awake_limit'),
             ]);

@@ -111,3 +111,14 @@ it('serves a child diff only inside the stack', function () {
     $this->actingAs($this->user)->getJson(route('threads.stack.children.diff', [$this->root, $stranger]))->assertNotFound();
     $this->actingAs($this->user)->getJson(route('threads.stack.children.diff', [$this->root, $this->root]))->assertNotFound();
 });
+
+it('rejects an unknown model on add sub-thread', function () {
+    Queue::fake();
+    $payload = ['name' => 'a', 'brief' => 'b', 'kind' => 'general'];
+
+    $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $this->root), [...$payload, 'model' => 'gpt-9'])
+        ->assertUnprocessable()->assertJsonValidationErrors('model');
+    expect(Thread::query()->where('parent_thread_id', $this->root->id)->count())->toBe(1);
+
+    $this->actingAs($this->user)->postJson(route('threads.stack.children.store', $this->root), [...$payload, 'model' => 'opus'])->assertCreated();
+});

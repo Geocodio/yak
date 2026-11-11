@@ -88,3 +88,17 @@ it('refuses a child as spawner and a root kind', function () {
         ->toThrow(StackRuleViolation::class)
         ->and(Thread::query()->withoutGlobalScopes()->where('parent_thread_id', $parent->id)->count())->toBe(1);
 });
+
+it('refuses a model outside the configured list', function () {
+    $parent = stackParent();
+
+    expect(fn () => app(ChildSpawner::class)->spawn($parent, 'worker', 'Do it.', ThreadKind::Implement, 'gpt-9'))
+        ->toThrow(StackRuleViolation::class, 'Unknown model');
+    expect(Thread::query()->where('parent_thread_id', $parent->id)->exists())->toBeFalse();
+});
+
+it('defaults the child model to the configured default', function () {
+    $child = app(ChildSpawner::class)->spawn(stackParent(), 'worker', 'Do it.', ThreadKind::Implement, null);
+
+    expect($child->model)->toBe(config('yak.sandbox.default_child_model'))->toBe('sonnet');
+});

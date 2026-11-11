@@ -76,3 +76,15 @@ it('creates one child per call', function () {
 
     expect(Thread::query()->where('parent_thread_id', $parent->id)->count())->toBe(1);
 });
+
+it('returns an error result for spawn_thread with an unknown model', function () {
+    Queue::fake();
+    $parent = spawningParent();
+
+    $result = app(YakToolRouter::class)->handle($parent, spawnCall(['name' => 'x', 'brief' => 'y', 'kind' => 'general', 'model' => 'gpt-9']));
+
+    expect($result->isError)->toBeTrue()
+        ->and($result->content)->toContain('opus, sonnet, haiku')
+        ->and(Thread::query()->where('parent_thread_id', $parent->id)->exists())->toBeFalse();
+    Queue::assertNothingPushed();
+});
