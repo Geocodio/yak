@@ -51,6 +51,8 @@ export type RepositoryCardState = 'running' | 'setup' | 'done' | 'setup_failed' 
 
 /** The latest state of one repository Claude added, as the conversation shows it. */
 export type RepositoryCardData = {
+    /** The thread repository row, or null when the clone was denied before one existed. */
+    id: number | null;
     repo: string;
     role: 'changes' | 'context';
     state: RepositoryCardState;

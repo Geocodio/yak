@@ -39,7 +39,7 @@ function addedByLine(repository: ThreadEnvironmentRepository): string | null {
     return `Added by ${repository.addedBy === 'claude' ? 'Claude' : repository.addedBy} at ${time}`;
 }
 
-export function RepositoryRows({ threadId, repositories, canDrive, onChanged }: { threadId: number; repositories: ThreadEnvironmentRepository[]; canDrive: boolean; onChanged: () => void }) {
+export function RepositoryRows({ threadId, repositories, canDrive, onChanged, onRemove }: { threadId: number; repositories: ThreadEnvironmentRepository[]; canDrive: boolean; onChanged: () => void; onRemove?: (repo: string) => void }) {
     const send = (method: 'patch' | 'post', url: string, data: Record<string, string>) =>
         router[method](url, data, { preserveScroll: true, preserveState: true, onFinish: onChanged });
 
@@ -84,6 +84,11 @@ export function RepositoryRows({ threadId, repositories, canDrive, onChanged }: 
                                         </Button>
                                     ) : (
                                         repository.role === 'changes' && <span className="text-[12px] text-muted">Close its pull request to make it context only.</span>
+                                    )}
+                                    {onRemove && repository.role !== 'primary' && (
+                                        <Button variant="tertiary" onClick={() => onRemove(repository.repo)} data-testid="environment-repository-remove">
+                                            Remove
+                                        </Button>
                                     )}
                                 </div>
                             )}

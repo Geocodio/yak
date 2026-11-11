@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import { Fragment, useState } from 'react';
 import { MediaLightbox } from '@/components/tasks/MediaLightbox';
 import type { MediaItem } from '@/types/tasks';
@@ -18,13 +19,25 @@ import type { ConversationItem } from './conversationItem';
 // Browser tests drive the pure merge through this hook.
 Object.assign(window, { __mergeConversation: mergeConversation, __createReadTracker: createReadTracker });
 
-function EventRow({ item, canDrive }: { item: ConversationItem; canDrive: boolean }) {
+function EventRow({ item, canDrive, threadId }: { item: ConversationItem; canDrive: boolean; threadId: number }) {
     if (item.kind === 'child') {
         return <ChildCard item={item} canDrive={canDrive} />;
     }
 
     if (item.kind === 'repository') {
-        return <RepositoryCard item={item} />;
+        const repositoryId = item.repository?.id ?? null;
+        const send = (method: 'patch' | 'post', suffix: string, data: Record<string, string>) =>
+            router[method](`/threads/${threadId}/repositories/${repositoryId}${suffix}`, data, { preserveScroll: true, preserveState: true });
+        const canAct = canDrive && repositoryId !== null;
+
+        // No Remove: the backend has no destroy route for a thread repository.
+        return (
+            <RepositoryCard
+                item={item}
+                onRetrySetup={canAct ? () => send('post', '/retry', {}) : undefined}
+                onMakeContextOnly={canAct ? () => send('patch', '', { role: 'context' }) : undefined}
+            />
+        );
     }
 
     if (item.kind === 'tools') {
@@ -45,7 +58,7 @@ export function Conversation({ threadId, messages, notice, readonly, pullRequest
             <div className="mx-auto flex max-w-[760px] flex-col gap-4">
                 {entries.map((entry) => {
                     if (entry.type === 'event') {
-                        return <EventRow key={entry.item.key} item={entry.item} canDrive={!readonly} />;
+                        return <EventRow key={entry.item.key} item={entry.item} canDrive={!readonly} threadId={threadId} />;
                     }
 
                     const day = entry.message.sentAt.slice(0, 10);

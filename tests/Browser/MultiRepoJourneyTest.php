@@ -94,6 +94,7 @@ it('shows add-repo cards for a failed setup and a denied clone', function () {
     $this->actingAs($owner);
 
     $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
+    ThreadRepository::factory()->create(['thread_id' => $thread->id, 'repo' => 'acme/app']);
     $failed = ThreadRepository::factory()->changes()->failed()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
     $publisher = app(RepositoryCardPublisher::class);
     $publisher->publish($failed);
@@ -108,9 +109,31 @@ it('shows add-repo cards for a failed setup and a denied clone', function () {
         ->assertSeeIn('[data-testid="repository-card-acme/secret"] [data-testid="repository-card-status"]', 'Not added')
         ->assertSeeIn('[data-testid="repository-card-acme/secret"] [data-testid="repository-card-error"]', 'Yak cannot clone acme/secret.')
         ->assertPresent('[data-testid="repository-open-settings"]')
+        ->assertPresent('[data-testid="repository-card-acme/web"] [data-testid="repository-retry-setup"]')
+        ->assertPresent('[data-testid="repository-card-acme/web"] [data-testid="repository-make-context"]')
+        ->assertMissing('[data-testid="repository-remove"]')
         ->click('[data-testid="thread-panel-tab-environment"]')
         ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Setup failed')
         ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Gets a pull request if it changes.')
         ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Retry setup')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Make it context only')
+        ->assertSeeIn('[data-testid="environment-repository-acme/web"]', 'Added by Claude at')
+        ->assertMissing('[data-testid="environment-repository-remove"]')
         ->assertPresent('[data-testid="environment-repository-acme/web"] [data-testid="repo-avatar"]');
+});
+
+it('shows the add-repo card for a finished clone with its role and recovery actions', function () {
+    $owner = User::factory()->create();
+    $this->actingAs($owner);
+
+    $thread = Thread::factory()->create(['repo' => 'acme/app', 'owner_user_id' => $owner->id]);
+    $done = ThreadRepository::factory()->changes()->create(['thread_id' => $thread->id, 'repo' => 'acme/web', 'sandbox_path' => '/extras/web', 'added_by' => 'claude', 'add_reason' => 'The change touches the web client']);
+    app(RepositoryCardPublisher::class)->publish($done);
+
+    visit(route('threads.show', $thread))
+        ->assertSeeIn('[data-testid="repository-card-acme/web"] [data-testid="repository-card-status"]', 'Added')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Added a repository')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Make it context only')
+        ->assertSeeIn('[data-testid="repository-card-acme/web"]', 'Also listed under Environment')
+        ->assertMissing('[data-testid="repository-card-acme/web"] [data-testid="repository-card-error"]');
 });

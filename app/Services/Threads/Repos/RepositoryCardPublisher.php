@@ -28,6 +28,7 @@ class RepositoryCardPublisher
         $finished = in_array($state, ['done', 'setup_failed'], true);
 
         $this->append($repository->thread_id, [
+            'id' => $repository->id,
             'repo' => $repository->repo,
             'role' => $repository->role->value,
             'state' => $state,
@@ -43,6 +44,7 @@ class RepositoryCardPublisher
     public function publishDenied(int $threadId, string $slug, string $role, ?string $reason, string $error): void
     {
         $this->append($threadId, [
+            'id' => null,
             'repo' => $slug,
             'role' => $role,
             'state' => 'no_access',
