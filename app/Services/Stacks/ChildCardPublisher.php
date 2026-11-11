@@ -2,6 +2,8 @@
 
 namespace App\Services\Stacks;
 
+use App\Enums\StackThreadMessageKind;
+use App\Models\StackThreadMessage;
 use App\Models\Thread;
 use App\Services\Threads\ThreadEventPublisher;
 use Illuminate\Support\Facades\Log;
@@ -26,6 +28,7 @@ class ChildCardPublisher
 
         try {
             $child->refresh();
+            $diff = $child->diff;
 
             $this->events->append($parentId, 'child', [
                 'childThreadId' => $child->id,
@@ -37,9 +40,33 @@ class ChildCardPublisher
                 'resultSummary' => $child->result_summary,
                 'branch' => $child->branch,
                 'messagesPaused' => $child->messages_paused_at !== null,
+                'mergedAt' => null,
+                'question' => $this->openQuestion($child),
+                'filesChanged' => $diff?->files_count,
+                'additions' => $diff?->additions,
+                'deletions' => $diff?->deletions,
+                'conflictResolved' => false,
+                'decision' => null,
             ]);
         } catch (Throwable $exception) {
             Log::channel('yak')->warning('Child card could not be published', ['thread_id' => $child->id, 'error' => $exception->getMessage()]);
         }
+    }
+
+    /**
+     * The child's latest question to its parent, until the parent answers it.
+     * Merge time, conflict resolution and decision have no recorded source yet, so they stay empty.
+     */
+    private function openQuestion(Thread $child): ?string
+    {
+        $question = StackThreadMessage::query()->where('from_thread_id', $child->id)->where('kind', StackThreadMessageKind::Question)->latest('id')->first();
+
+        if ($question === null) {
+            return null;
+        }
+
+        $isAnswered = StackThreadMessage::query()->where('to_thread_id', $child->id)->where('kind', StackThreadMessageKind::Answer)->where('id', '>', $question->id)->exists();
+
+        return $isAnswered ? null : $question->text;
     }
 }

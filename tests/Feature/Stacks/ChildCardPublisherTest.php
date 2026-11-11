@@ -1,8 +1,11 @@
 <?php
 
+use App\Enums\StackThreadMessageKind;
 use App\Enums\ThreadKind;
 use App\Events\ThreadActivity;
+use App\Models\StackThreadMessage;
 use App\Models\Thread;
+use App\Models\ThreadDiff;
 use App\Services\Stacks\ChildCardPublisher;
 use App\Services\Stacks\ChildSpawner;
 use Illuminate\Support\Facades\DB;
@@ -39,6 +42,13 @@ it('appends one stored child event to the parent stream', function () {
             'resultSummary' => null,
             'branch' => null,
             'messagesPaused' => false,
+            'mergedAt' => null,
+            'question' => null,
+            'filesChanged' => null,
+            'additions' => null,
+            'deletions' => null,
+            'conflictResolved' => false,
+            'decision' => null,
         ]);
     expect(DB::table('thread_events')->where('thread_id', $this->child->id)->where('type', 'child')->count())->toBe(0);
 });
@@ -74,4 +84,22 @@ it('publishes a card when a child is spawned and when it ends', function () {
     expect(childEvents($root))->toHaveCount(1)
         ->and(childEvents($root)[0]['childThreadId'])->toBe($spawned->id)
         ->and(childEvents($root)[0]['state'])->toBe('queued');
+});
+
+it('publishes the open question of a waiting child and the file totals of its diff', function () {
+    ThreadDiff::factory()->create(['thread_id' => $this->child->id, 'files_count' => 3, 'additions' => 12, 'deletions' => 4]);
+    StackThreadMessage::factory()->create(['root_thread_id' => $this->parent->id, 'from_thread_id' => $this->child->id, 'to_thread_id' => $this->parent->id, 'kind' => StackThreadMessageKind::Question, 'text' => 'Which table?']);
+
+    app(ChildCardPublisher::class)->publish($this->child);
+
+    expect(childEvents($this->parent)[0])->toMatchArray(['question' => 'Which table?', 'filesChanged' => 3, 'additions' => 12, 'deletions' => 4]);
+});
+
+it('drops the question once the parent has answered it', function () {
+    StackThreadMessage::factory()->create(['root_thread_id' => $this->parent->id, 'from_thread_id' => $this->child->id, 'to_thread_id' => $this->parent->id, 'kind' => StackThreadMessageKind::Question, 'text' => 'Which table?', 'created_at' => now()->subMinute()]);
+    StackThreadMessage::factory()->create(['root_thread_id' => $this->parent->id, 'from_thread_id' => $this->parent->id, 'to_thread_id' => $this->child->id, 'kind' => StackThreadMessageKind::Answer, 'text' => 'users']);
+
+    app(ChildCardPublisher::class)->publish($this->child);
+
+    expect(childEvents($this->parent)[0]['question'])->toBeNull();
 });

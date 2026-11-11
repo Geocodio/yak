@@ -45,6 +45,13 @@ export type ChildCardData = {
     resultSummary: string | null;
     branch: string | null;
     messagesPaused: boolean;
+    mergedAt: string | null;
+    question: string | null;
+    filesChanged: number | null;
+    additions: number | null;
+    deletions: number | null;
+    conflictResolved: boolean;
+    decision: string | null;
 };
 
 export type RepositoryCardState = 'running' | 'setup' | 'done' | 'setup_failed' | 'no_access';
