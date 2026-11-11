@@ -5,3 +5,4 @@ export {};
 import './environment';
 import './changes';
 import '@/threads/panels/teleport';
+import '@/threads/panels/terminal';
