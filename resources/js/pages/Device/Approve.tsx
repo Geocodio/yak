@@ -1,17 +1,17 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { BrandMarkIcon, Button, TextInput, cn } from '@geocodio/console-ui';
 import { Check, Laptop, ShieldAlert, TimerOff } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { systemLabel } from '@/components/settings/devices/systemLabel';
 import { YAK_MARK } from '@/lib/brand';
 import { approve, deny, show } from '@/routes/device';
+import { devices } from '@/routes/settings';
 import type { DeviceApproval } from '@/types/devices';
 
-const OPERATING_SYSTEMS = { darwin: 'macOS', linux: 'Linux' } as const;
+const DEVICE_SIGN_IN_URL = 'https://yak.build/docs/teleport#sign-in';
 
-function systemLabel({ os, arch }: Pick<DeviceApproval, 'os' | 'arch'>): string {
-    const system = os === null ? 'Unknown' : OPERATING_SYSTEMS[os];
-
-    return arch === null ? system : `${system}, ${arch}`;
+function deviceSystem({ os, arch }: Pick<DeviceApproval, 'os' | 'arch'>): string {
+    return os === null || arch === null ? 'Unknown' : systemLabel(os, arch);
 }
 
 function askedLabel(requestedAt: string | null): string {
@@ -24,9 +24,10 @@ function askedLabel(requestedAt: string | null): string {
     return minutes < 1 ? 'Just now' : `${minutes} min ago`;
 }
 
-function Facts({ device, name, onName }: { device: DeviceApproval; name: string; onName?: (name: string) => void }) {
+function Facts({ device }: { device: DeviceApproval }) {
     const rows: [string, string][] = [
-        ['System', systemLabel(device)],
+        ['Name', device.name ?? 'Unknown'],
+        ['System', deviceSystem(device)],
         ['Plugin', device.cli_version === null ? 'yak' : `yak ${device.cli_version}`],
         ['Asked', askedLabel(device.requested_at)],
     ];
@@ -35,10 +36,6 @@ function Facts({ device, name, onName }: { device: DeviceApproval; name: string;
         <>
             <p className="mb-1.5 text-[12px] text-muted">Reported by the computer, so it is only a hint. The code is what proves it is yours.</p>
             <dl className="grid grid-cols-[88px_1fr] items-center gap-x-3 gap-y-1.5 text-[13px]">
-                <dt className="text-muted"><label htmlFor="device-name">Name</label></dt>
-                <dd className="min-w-0">
-                    {onName ? <TextInput id="device-name" maxLength={100} value={name} onChange={(event) => onName(event.target.value)} /> : name}
-                </dd>
                 {rows.map(([key, value]) => <div key={key} className="contents"><dt className="text-muted">{key}</dt><dd className="min-w-0">{value}</dd></div>)}
             </dl>
         </>
@@ -79,7 +76,6 @@ function EnterCode({ device }: { device: DeviceApproval }) {
 }
 
 function Confirm({ device }: { device: DeviceApproval }) {
-    const [name, setName] = useState(device.name ?? '');
     const code = device.code ?? '';
 
     return (
@@ -88,10 +84,10 @@ function Confirm({ device }: { device: DeviceApproval }) {
             <h1 className="text-center text-[18px] font-semibold tracking-tight" data-testid="device-state">Connect this computer to Yak?</h1>
             <p className="mt-1.5 text-center text-[13px] leading-relaxed text-muted">Check that this code is the one in your terminal.</p>
             <div className="mt-4 rounded-card bg-panel-2 py-4 text-center" aria-label={`Code ${code}`}><span className="font-mono text-[28px] font-semibold tracking-[0.18em]" data-testid="device-code">{code}</span></div>
-            <div className="mt-4"><Facts device={device} name={name} onName={setName} /></div>
+            <div className="mt-4"><Facts device={device} /></div>
             <p className="mt-4 text-[12.5px] leading-relaxed text-muted">Approving lets this computer teleport your threads to and from Yak, as you. You can revoke it any time in Settings, Devices.</p>
             <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
-                <Button variant="primary" className="min-h-10 w-full justify-center sm:flex-1" data-testid="device-approve" onClick={() => router.post(approve.url(), { code, name })}>Approve this computer</Button>
+                <Button variant="primary" className="min-h-10 w-full justify-center sm:flex-1" data-testid="device-approve" onClick={() => router.post(approve.url(), { code })}>Approve this computer</Button>
                 <Button variant="secondary" className="min-h-10 w-full justify-center sm:flex-1" data-testid="device-deny" onClick={() => router.post(deny.url(), { code })}>This is not me</Button>
             </div>
             <p className="mt-4 text-center text-[12px] text-faint">Signed in as {device.email}</p>
@@ -109,7 +105,11 @@ function Body({ device }: { device: DeviceApproval }) {
                     <Icon tone="ok"><Check size={22} /></Icon>
                     <h1 className="text-[18px] font-semibold tracking-tight" data-testid="device-state">Computer connected</h1>
                     <p className="mt-1.5 text-[13px] leading-relaxed text-muted">Go back to your terminal. <code className="font-mono text-[12px]">yak login</code> finishes by itself, and you can close this tab.</p>
-                    <div className="mt-4 text-left"><Facts device={device} name={device.name ?? ''} /></div>
+                    <div className="mt-4 text-left"><Facts device={device} /></div>
+                    <p className="mt-4 flex justify-center gap-4 text-[13px]">
+                        <Link href={devices.url()} className="text-accent hover:underline">See your computers</Link>
+                        <a href={`${DEVICE_SIGN_IN_URL.split('#')[0]}#first-teleport`} target="_blank" rel="noreferrer" className="text-accent hover:underline">What to try first</a>
+                    </p>
                 </div>
             );
         case 'denied':
@@ -142,7 +142,7 @@ export default function Approve(device: DeviceApproval) {
             <header className="flex h-12 shrink-0 items-center gap-2 border-b border-hair px-4"><BrandMarkIcon mark={YAK_MARK} size={22} /><span className="text-[13px] font-medium">Yak</span></header>
             <main className="flex flex-1 flex-col items-center gap-5 px-4 py-8 sm:py-14">
                 <div className="w-full max-w-[420px] rounded-card border border-hair bg-panel p-5 shadow-card sm:p-6"><Body device={device} /></div>
-                <p className="max-w-[420px] text-center text-[12px] leading-relaxed text-faint">Only approve a code you just saw in your own terminal.</p>
+                <p className="max-w-[420px] text-center text-[12px] leading-relaxed text-faint">Only approve a code you just saw in your own terminal. <a href={DEVICE_SIGN_IN_URL} target="_blank" rel="noreferrer" className="underline">About device sign-in</a></p>
             </main>
         </div>
     );
