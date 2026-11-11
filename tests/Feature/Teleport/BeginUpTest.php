@@ -199,3 +199,15 @@ it('accepts a context entry without branch and head and returns branch null', fu
     $this->postJson('/api/cli/v1/teleports', $payload, cliHeaders($this->token))
         ->assertOk()->assertJsonPath('repos.1.branch', null);
 });
+
+it('localPathOf returns the local path of an added repo and null for unknown', function () {
+    $teleport = Teleport::factory()->create(['payload' => ['repos' => [
+        ['repo' => 'acme/widgets', 'role' => 'primary', 'local_path' => '/Users/ada/widgets'],
+        ['repo' => 'acme/lib', 'role' => 'changes', 'local_path' => '/Users/ada/lib'],
+        ['repo' => 'acme/ctx', 'role' => 'context'],
+    ]]]);
+
+    expect($teleport->localPathOf('ACME/lib'))->toBe('/Users/ada/lib')
+        ->and($teleport->localPathOf('acme/ctx'))->toBeNull()
+        ->and($teleport->localPathOf('nope/x'))->toBeNull();
+});
