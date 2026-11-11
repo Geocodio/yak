@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\ClaudeAccountColor;
+use App\Enums\ClaudeAccountIcon;
 use App\Enums\ClaudeAccountKind;
 use App\Enums\ClaudeAccountStatus;
 use App\Models\ClaudeAccount;
@@ -25,6 +27,8 @@ class ClaudeAccountFactory extends Factory
             'name' => fake()->unique()->words(2, true),
             'kind' => ClaudeAccountKind::SetupToken,
             'secret' => 'sk-ant-oat01-' . fake()->regexify('[A-Za-z0-9]{40}'),
+            'icon' => ClaudeAccountIcon::Briefcase,
+            'color' => ClaudeAccountColor::Violet,
             'default_model' => 'sonnet',
             'max_concurrent_turns' => 16,
             'is_default' => false,
@@ -48,5 +52,20 @@ class ClaudeAccountFactory extends Factory
     public function invalid(): static
     {
         return $this->state(['status' => ClaudeAccountStatus::Invalid, 'last_error' => 'Authentication failed']);
+    }
+
+    public function expiring(int $days = 10): static
+    {
+        return $this->state(['expires_at' => now()->addDays($days)]);
+    }
+
+    public function expired(): static
+    {
+        return $this->state(['status' => ClaudeAccountStatus::Expired, 'expires_at' => now()->subDay()]);
+    }
+
+    public function default(): static
+    {
+        return $this->state(['is_default' => true]);
     }
 }

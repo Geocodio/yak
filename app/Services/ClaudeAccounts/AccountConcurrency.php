@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Services\ClaudeAccounts;
+
+use App\Enums\TurnState;
+use App\Events\AccountSlotFreed;
+use App\Models\ClaudeAccount;
+use App\Models\TaskRun;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Per-account turn slots. A slot is `task_runs.account_slot_held_at`; the
+ * account row lock serialises acquisition.
+ */
+class AccountConcurrency
+{
+    public function acquire(ClaudeAccount $account, TaskRun $run): bool
+    {
+        return DB::transaction(function () use ($account, $run): bool {
+            $locked = ClaudeAccount::query()->lockForUpdate()->findOrFail($account->id);
+            $fresh = TaskRun::query()->findOrFail($run->id);
+
+            if ($fresh->account_slot_held_at !== null && $fresh->claude_account_id === $locked->id) {
+                return true;
+            }
+
+            $held = TaskRun::query()
+                ->where('claude_account_id', $locked->id)
+                ->whereNotNull('account_slot_held_at')
+                ->count();
+
+            if ($held < $locked->max_concurrent_turns) {
+                $run->forceFill(['account_slot_held_at' => now(), 'claude_account_id' => $locked->id])->save();
+
+                return true;
+            }
+
+            $run->forceFill(['turn_state' => TurnState::WaitingForAccount, 'claude_account_id' => $locked->id])->save();
+
+            return false;
+        });
+    }
+
+    public function release(ClaudeAccount $account, TaskRun $run): void
+    {
+        if (TaskRun::query()->whereKey($run->id)->value('account_slot_held_at') === null) {
+            return;
+        }
+
+        $run->forceFill(['account_slot_held_at' => null])->save();
+        AccountSlotFreed::dispatch($account->id);
+    }
+
+    public function position(TaskRun $run): int
+    {
+        if ($run->turn_state !== TurnState::WaitingForAccount || $run->claude_account_id === null) {
+            return 0;
+        }
+
+        return TaskRun::query()
+            ->where('claude_account_id', $run->claude_account_id)
+            ->where('turn_state', TurnState::WaitingForAccount)
+            ->where('id', '<=', $run->id)
+            ->count();
+    }
+}

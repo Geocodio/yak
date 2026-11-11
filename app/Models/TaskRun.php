@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property TaskRunKind $kind
  * @property TaskRunOutcome|null $outcome
+ * @property TurnState $turn_state
+ * @property int|null $claude_account_id
+ * @property CarbonImmutable|null $account_slot_held_at
  * @property CarbonImmutable|null $dispatched_at
  * @property CarbonImmutable $started_at
  * @property CarbonImmutable|null $agent_started_at
@@ -48,6 +51,7 @@ class TaskRun extends Model
             'kind' => TaskRunKind::class,
             'outcome' => TaskRunOutcome::class,
             'turn_state' => TurnState::class,
+            'account_slot_held_at' => 'immutable_datetime',
             'completion_event_emitted_at' => 'datetime',
             'resumed' => 'boolean',
             'stale_session_retry' => 'boolean',
