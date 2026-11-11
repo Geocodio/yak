@@ -423,7 +423,7 @@ health.head = (options?: RouteQueryOptions): RouteDefinition<'head'> => ({
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:28
+* @see app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 export const system = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -438,7 +438,7 @@ system.definition = {
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:28
+* @see app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 system.url = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions) => {
@@ -469,7 +469,7 @@ system.url = (args?: { path?: string | number } | [path: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:28
+* @see app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 system.get = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
@@ -479,7 +479,7 @@ system.get = (args?: { path?: string | number } | [path: string | number ] | str
 
 /**
 * @see \App\Http\Controllers\SystemController::__invoke
-* @see app/Http/Controllers/SystemController.php:28
+* @see app/Http/Controllers/SystemController.php:31
 * @route '/system/{path?}'
 */
 system.head = (args?: { path?: string | number } | [path: string | number ] | string | number, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
